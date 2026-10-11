@@ -2,17 +2,20 @@
 id: csharp-type-name
 language: csharp
 arguments: [name]
+utils:
+    leaf:
+        any:
+            - kind: identifier, predefined_type
+              matches: name
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, matches: name}
+    named:
+        any:
+            - matches: leaf
+            - kind: qualified_name, alias_qualified_name, member_access_expression
+              has: {field: name, matches: leaf}
 rule:
     any:
-        - kind: identifier
-          matches: name
-        - kind: generic_name
-          has: {kind: identifier, nthChild: 1, matches: name}
-        - kind: qualified_name, alias_qualified_name, member_access_expression
-          has:
-            field: name
-            any:
-                - kind: identifier
-                  matches: name
-                - kind: generic_name
-                  has: {kind: identifier, nthChild: 1, matches: name}
+        - matches: named
+        - kind: nullable_type
+          has: {field: type, matches: named}

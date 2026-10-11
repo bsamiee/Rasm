@@ -13,11 +13,8 @@ rule:
     any:
         - all:
             - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
-            - has:
-                matches: msbuild-tag
-                all:
-                    - has: {matches: {msbuild-attribute: {name: {regex: '^Properties$'}, value: {matches: shared-output-properties}}}}
-                    - not: {has: {matches: {msbuild-attribute: {name: {regex: '^Targets$'}, value: {regex: '^["'']\s*(?:Get[A-Za-z]+\s*;?\s*)+["'']$'}}}}}
+            - matches: {msbuild-metadata: {name: {regex: '^Properties$'}, value: {matches: shared-output-properties}}}
+            - not: {matches: {msbuild-metadata: {name: {regex: '^Targets$'}, value: {regex: '^["'']\s*(?:Get[A-Za-z]+\s*;?\s*)+["'']$'}}}}
         - all:
             - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^(ItemGroup|ItemDefinitionGroup)$'}}}}}
             - matches: {msbuild-metadata: {name: {regex: '^AdditionalProperties$'}, value: {matches: shared-output-properties}}}

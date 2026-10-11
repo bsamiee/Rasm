@@ -35,7 +35,7 @@ utils:
                     - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: memory-type}}}
                 - has: {kind: argument_list, has: {kind: argument, nthChild: 1, has: {any: [{matches: held-read}, {matches: copy}]}}}
     memory-type:
-        regex: '^((global::)?System\.)?(ReadOnly)?Memory\s*<'
+        matches: {csharp-type-name: {name: {regex: '^(ReadOnly)?Memory$'}}}
 rule:
     kind: variable_declarator
     all:

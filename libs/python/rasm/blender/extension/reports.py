@@ -88,7 +88,7 @@ class Reports:
             logger: Extension logger receiving every held report entry.
         """
         self.logger = logger
-        self.held: list[BlenderFaults] = []
+        self.held: dict[tuple[rna_enums.WmReportItems, str], None] = {}
         self.pending: dict[tuple[object, object, tuple[object, ...], frozenset[tuple[str, object]]], Callable[[], float | None]] = {}
         self.lock = RLock()
         self.scopes = ExitStack()
@@ -109,19 +109,22 @@ class Reports:
 
     @property
     def entries(self) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-        """Native report type and text of every held leaf failure in hold order."""
-        return tuple(entry for faults in self.held for entry in rendered(faults))
+        """Native report type and text of every distinct held leaf failure in first-hold order."""
+        return tuple(self.held)
 
     def hold(self, faults: BlenderFaults) -> None:
-        """Holds failures, logs their entries, and queues an interface redraw.
+        """Holds each distinct failure entry once, logging and redrawing for entries not yet held.
 
         Args:
             faults: Complete ordered failures from a callback.
         """
-        self.held.append(faults)
-        for _, text in rendered(faults):
+        with self.lock:
+            fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self.held)
+            self.held.update(dict.fromkeys(fresh))
+        for _, text in fresh:
             self.logger.error(text)
-        self.redraw()
+        if fresh:
+            self.redraw()
 
     def reported[**P, T](self, callback: Callable[P, BlenderResult[T]]) -> Callable[P, Option[T]]:
         """Returns a callback translating its result into an option and holding failures.
@@ -176,7 +179,7 @@ class Reports:
                 with self.lock:
                     if not active or key not in self.pending or self.pending[key] is not ticked:
                         return None
-                    if bpy.context.window_manager.is_interface_locked:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                    if Option.of_optional(bpy.context.window_manager).map(lambda manager: manager.is_interface_locked).default_value(False):
                         return 0.0
                     del self.pending[key]
                     for step in write(*args, **kwargs).map_error(self.hold).default_value(Nothing).to_list():
@@ -341,9 +344,8 @@ def redrawn() -> BlenderResult[Option[str]]:
     Returns:
         Ok(Nothing), since redraw adds no undo step.
     """
-    for window in bpy.context.window_manager.windows:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        for area in window.screen.areas:
-            area.tag_redraw()
+    for area in (area for manager in Option.of_optional(bpy.context.window_manager).to_list() for window in manager.windows for area in window.screen.areas):
+        area.tag_redraw()
     return Ok(Nothing)
 
 

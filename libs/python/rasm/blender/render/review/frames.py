@@ -351,7 +351,7 @@ class Bound(Line, frozen=True, kw_only=True):
         def draw(draws: tuple[RowDraw, ...]) -> RowDraw:
             inner = joined(draws)
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 if self.shown.filter(lambda setting: not holds(setting, context)).is_none():
                     inner(layout, holder, context)
 
@@ -509,9 +509,9 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                     case Motion.TRANSLATE:
                         return samples.mean(axis=0)
                     case Motion.ROTATE:
-                        return samples.mean(axis=0) + (0.0, HANDLE * 2)  # ruff: ignore[collection-literal-concatenation]
+                        return np.add(samples.mean(axis=0), (0.0, HANDLE * 2))
                     case Motion.SCALE:
-                        return samples.mean(axis=0) + (HANDLE * 2, 0.0)  # ruff: ignore[collection-literal-concatenation]
+                        return np.add(samples.mean(axis=0), (HANDLE * 2, 0.0))
 
             def place(context: bpy.types.Context) -> BlenderResult[Option[Matrix]]:
                 return self.access(context).map(
@@ -553,7 +553,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                             diagonal = pixels[index] - pixels[opposite]
                             requested = float(np.linalg.lstsq(diagonal[:, None], selected - pixels[opposite], rcond=None)[0][0])
                             maximum = bounds.map(
-                                lambda limits: min(((limits[int(value > 0), axis] - pixels[opposite, axis]) / value for axis, value in enumerate(diagonal) if value != 0), default=math.inf)
+                                lambda limits: min(((limits[1 if value > 0 else 0, axis] - pixels[opposite, axis]) / value for axis, value in enumerate(diagonal) if value != 0), default=math.inf)
                             ).default_value(math.inf)
                             changed = (pixels - pixels[opposite]) * min(max(requested, 0.0), maximum) + pixels[opposite]
                         else:
@@ -686,7 +686,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         last: Option[Frames] = Nothing
 
         def consumed(scene: bpy.types.Scene, path: str) -> BlenderResult[Option[str]]:
-            layer, settings = f"{bpy.context.view_layer.name}.Combined", scene.render.image_settings  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            settings = scene.render.image_settings
             depth = Option.of_optional(next((held for held in get_args(IntegerDepth.__value__) if not settings.has_linear_colorspace and held == int(settings.color_depth)), None))
 
             def kept(frames: Frames) -> BlenderResult[Option[str]]:
@@ -694,23 +694,26 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
                 last = Some(frames)
                 return signal.fired().map(lambda _: Nothing)
 
-            return (
-                paired(paired(plane(path, (layer,), ("R", "G", "B", "A")), formation.current(identity, scene).map(lambda found: found.default_with(lambda: viewed(scene)))), config_of())
-                .bind(
+            def read(view_layer: bpy.types.ViewLayer) -> BlenderResult[Frames]:
+                layer = f"{view_layer.name}.Combined"
+                return paired(
+                    paired(plane(path, ("", layer), ("R", "G", "B", "A")), formation.current(identity, scene).map(lambda found: found.default_with(lambda: viewed(scene)))), config_of()
+                ).bind(
                     lambda found: (
-                        plane(path, ("Composite.Combined", layer), ("R", "G", "B", "A"))
+                        plane(path, ("Composite.Combined", "", layer), ("R", "G", "B", "A"))
                         .bind(lambda pixels: displayed(formation, identity, scene, pixels, PyOpenColorIO.ROLE_SCENE_LINEAR, found[1]))
                         .map(lambda file: Frames(linear=ChartFrame(pixels=found[0][0], view=found[0][1]), formed=file.pixels, depth=depth))
                     )
                 )
+
+            return (
+                Result[bpy.types.ViewLayer, BlenderFaults]
+                .bind(Option.of_optional(bpy.context.view_layer).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="view_layer"),)), read)
                 .bind(kept)
             )
 
         def rows(switched: Attached[Charted], clipped: Attached[ClipEnds]) -> tuple[Registrable, ...]:
-            refreshes: tuple[Refresh, ...] = (
-                signal,
-                *(Watch(owner=bpy.types.Screen, identifier=f"{name}.{row.name}") for name, record in ((switched.name, Charted), (clipped.name, ClipEnds)) for row in msgspec.structs.fields(record)),
-            )
+            refreshes: tuple[Refresh, ...] = (signal, *(Watch(owner=group.struct, identifier=row.name) for group in (switched.group, clipped.group) for row in msgspec.structs.fields(group.record)))
 
             def charted(on: Callable[[Charted], bool]) -> BlenderResult[Option[ChartFrame]]:
                 return (

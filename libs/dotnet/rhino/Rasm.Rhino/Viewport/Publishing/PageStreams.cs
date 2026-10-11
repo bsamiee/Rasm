@@ -98,7 +98,7 @@ public static class PageStreams {
                 from valid in IO.lift(() => {
                     settings.Document = doc;
                     settings.SetViewport(viewport);
-                    return Refused.Unless(settings.IsValid, settings, nameof(ViewCaptureSettings.IsValid));
+                    return Refused.Unless(settings.IsValid, settings, nameof(settings));
                 })
                 select valid,
                 DisposalOps.Release), retain);

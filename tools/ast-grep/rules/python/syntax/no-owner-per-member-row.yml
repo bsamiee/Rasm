@@ -7,7 +7,7 @@ utils:
     name-table:
         kind: 'tuple, list'
         has: {kind: string}
-        not: {has: {pattern: $_, not: {matches: python-plain-string}}}
+        not: {has: {pattern: $_, not: {matches: python-identifier-string}}}
     owned:
         any:
             - kind: call
@@ -43,15 +43,15 @@ utils:
     row:
         any:
             - kind: call
-              has: {field: arguments, has: {matches: python-plain-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}}
+              has: {field: arguments, has: {matches: python-identifier-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}}
               any: [{pattern: '$F($_S, $KW=$_V)'}, {pattern: '$F($O, $_S, $KW=$_V)'}]
             - kind: call
               pattern: $F($O, $_S, $_V)
-              has: {field: arguments, has: {nthChild: 2, matches: python-plain-string}}
+              has: {field: arguments, has: {nthChild: 2, matches: python-identifier-string}}
               not: {has: {field: arguments, has: {kind: keyword_argument}}}
             - kind: tuple
               pattern: ($O, $_S, $_V)
-              has: {nthChild: 2, matches: python-plain-string}
+              has: {nthChild: 2, matches: python-identifier-string}
             - kind: expression_statement
               has: {kind: call, matches: row}
 rule:

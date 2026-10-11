@@ -10,7 +10,7 @@ from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from rasm.blender.faults import BlenderEditFault, BlenderResult
+from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from rasm.imaging.faults import accumulated, paired
 
 if TYPE_CHECKING:
@@ -121,27 +121,35 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         return self.gesture.options | (frozenset["rna_enums.OperatorTypeFlagItems"]({"MODAL_PRIORITY"}) if self.priority else frozenset())
 
     def began(self, operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Returns RUNNING_MODAL after beginning, or begin faults before acquiring resources."""
-        inputs = context.preferences.inputs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        buttons = ("LEFTMOUSE", "MIDDLEMOUSE", "RIGHTMOUSE", "BUTTON4MOUSE", "BUTTON5MOUSE", "BUTTON6MOUSE", "BUTTON7MOUSE")
-        threshold = (inputs.drag_threshold_tablet if event.is_tablet else inputs.drag_threshold_mouse) if event.type in buttons else inputs.drag_threshold
-        x, y = (event.mouse_prev_press_x, event.mouse_prev_press_y) if event.value == "CLICK_DRAG" else (event.mouse_x, event.mouse_y)
-        press = Press(x=x, y=y, threshold=int(threshold * context.preferences.system.ui_scale))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        return self.begin(context, press.travel(event, snapped=False)).map(lambda state: self._started(operator, context, press, state))
+        """Returns RUNNING_MODAL after beginning, or begin faults and an absent window before acquiring resources."""
+        match context:
+            case bpy.types.Context(window_manager=bpy.types.WindowManager() as manager, window=bpy.types.Window(workspace=workspace) as window):
+                inputs, system = context.preferences.inputs, context.preferences.system  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                buttons = ("LEFTMOUSE", "MIDDLEMOUSE", "RIGHTMOUSE", "BUTTON4MOUSE", "BUTTON5MOUSE", "BUTTON6MOUSE", "BUTTON7MOUSE")
+                threshold = (inputs.drag_threshold_tablet if event.is_tablet else inputs.drag_threshold_mouse) if event.type in buttons else inputs.drag_threshold
+                x, y = (event.mouse_prev_press_x, event.mouse_prev_press_y) if event.value == "CLICK_DRAG" else (event.mouse_x, event.mouse_y)
+                press = Press(x=x, y=y, threshold=int(threshold * system.ui_scale))
+                return self.begin(context, press.travel(event, snapped=False)).map(
+                    lambda state: self._started(
+                        operator,
+                        Run(
+                            initial=state,
+                            state=state,
+                            manager=manager,
+                            window=window,
+                            workspace=workspace,
+                            area=Option.of_optional(context.area),
+                            region=Option.of_optional(context.region),
+                            press=press,
+                            ticking=self.tick.map(lambda tick: (tick, manager.event_timer_add(tick.interval, window=window))),
+                        ),
+                    )
+                )
+            case _:
+                return Error((BlenderAbsentFault(owner=repr(context), key="window"),))
 
-    def _started(self, operator: bpy.types.Operator, context: bpy.types.Context, press: Press, state: S) -> "rna_enums.OperatorReturnItems":
-        """Acquires resources after begin succeeds and stores the live run on its instance."""
-        run = Run(
-            initial=state,
-            state=state,
-            manager=context.window_manager,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            window=context.window,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            workspace=context.window.workspace,  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            area=Option.of_optional(context.area),
-            region=Option.of_optional(context.region),
-            press=press,
-            ticking=self.tick.map(lambda tick: (tick, context.window_manager.event_timer_add(tick.interval, window=context.window))),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        )
+    def _started(self, operator: bpy.types.Operator, run: Run[S]) -> "rna_enums.OperatorReturnItems":
+        """Stores the live run, acquired after begin succeeds, on its instance."""
         vars(operator)["running"] = run
         for cursor in self.gesture.cursor.to_list():
             run.window.cursor_modal_set(cursor)
@@ -194,9 +202,8 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 return outcome
 
             return handle(context, run.state, event).map(following)
-        keymap = context.window_manager.keyconfigs.user.keymaps[MODAL_KEYMAP]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        action = Option.of_optional(next((item for item in keymap.keymap_items if matched(item, event)), None))
-        match action.to_optional(), event.type:
+        action = next((item for config in Option.of_optional(run.manager.keyconfigs.user).to_list() for item in config.keymaps[MODAL_KEYMAP].keymap_items if matched(item, event)), None)
+        match action, event.type:
             case bpy.types.KeyMapItem(propvalue="CANCEL"), _:
                 return Ok("CANCELLED")  # type: ignore[unreachable]
             case None, "TIMER":
@@ -241,17 +248,24 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
     def _hinted(self, operator: bpy.types.Operator) -> Callable[[bpy.types.Header, bpy.types.Context], None]:
         """Returns a draw using current user chords, precision, and current body state."""
 
-        def drawn(header: bpy.types.Header, context: bpy.types.Context) -> None:
+        def drawn(header: bpy.types.Header, _context: bpy.types.Context) -> None:
             """Draws current user items in action order without retaining keymap references."""
-            keymap = context.window_manager.keyconfigs.user.keymaps[MODAL_KEYMAP]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            for action in (action.identifier for action in keymap.modal_event_values if (action.identifier == "CANCEL" if self.gesture is Gesture.TIMED else action.identifier != "SNAP_OFF")):
-                for item in Option.of_optional(next((item for item in keymap.keymap_items if item.active and item.propvalue == action), None)).to_list():  # ty: ignore[truthiness-test-of-none-union]
-                    header.layout.template_event_from_keymap_item(item, text=bpy.types.UILayout.enum_item_name(item, "propvalue", item.propvalue))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            if self.gesture.relative:
-                header.layout.label(text="Precision", icon="EVENT_SHIFT")  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             run: Run[S] = vars(operator)["running"]
-            for draw in self.status.to_list():
-                draw(header.layout, run.state)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            items = (
+                item
+                for config in Option.of_optional(run.manager.keyconfigs.user).to_list()
+                for keymap in (config.keymaps[MODAL_KEYMAP],)
+                for action in keymap.modal_event_values
+                if (action.identifier == "CANCEL" if self.gesture is Gesture.TIMED else action.identifier != "SNAP_OFF")
+                for item in Option.of_optional(next((item for item in keymap.keymap_items if item.active and item.propvalue == action.identifier), None)).to_list()  # ty: ignore[truthiness-test-of-none-union]
+            )
+            for layout in Option.of_optional(header.layout).to_list():
+                for item in items:
+                    layout.template_event_from_keymap_item(item, text=bpy.types.UILayout.enum_item_name(item, "propvalue", item.propvalue))
+                if self.gesture.relative:
+                    layout.label(text="Precision", icon="EVENT_SHIFT")
+                for draw in self.status.to_list():
+                    draw(layout, run.state)
 
         return drawn
 

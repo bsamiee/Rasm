@@ -17,7 +17,7 @@ utils:
             - matches: only-return
               has: {kind: return_statement, has: {matches: set-value}}
     constant-name:
-        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?constantA?(\s*<.+>)?$'
+        matches: {csharp-type-name: {name: {regex: '^constantA?$'}}}
         not:
             inside:
                 kind: compilation_unit
@@ -67,7 +67,7 @@ rule:
                 - has: {field: name, regex: '^New$'}
                 - has:
                     field: expression
-                    regex: '^((global::)?LanguageExt\s*\.\s*)?Lens\s*<'
+                    matches: {csharp-type-name: {name: {regex: '^Lens$'}}}
                     has:
                         stopBy: end
                         kind: type_argument_list

@@ -19,13 +19,13 @@ from rasm.imaging.files.images import ImageFile
 from rasm.imaging.hashing import content_hash, ContentHash, rng
 from rasm.imaging.parameters import Case, GraphForm, Motion, Presentation, Quantity, Seed
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 type Source = Procedural | Scan
 type Medium = Film | Sensor
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Procedural(Case, frozen=True, kw_only=True, tag=1):
@@ -120,7 +120,7 @@ class Grain(Effect, frozen=True, kw_only=True, tag=22):
     seed: Annotated[Seed, msgspec.Meta(title="Seed", description="Grain or noise of equal statistics the entry draws")] = 0
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def ranked(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32]:
@@ -129,7 +129,7 @@ def ranked(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float3
     return np.ascontiguousarray(ndtri((rankdata(values, axis=0) - 0.5) / values.shape[0]).reshape(plane.shape), dtype=np.float32)
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = ["Film", "Grain", "Medium", "Procedural", "Scan", "Sensor", "Source", "ranked"]

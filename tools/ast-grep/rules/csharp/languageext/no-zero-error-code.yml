@@ -17,9 +17,9 @@ utils:
                             - kind: primary_constructor_base_type
                               inside: {kind: base_list, inside: {matches: csharp-error-record}}
                             - kind: object_creation_expression
-                              has: {field: type, regex: '^(global::)?(LanguageExt\.Common\.)?(Expected|Exceptional)$'}
+                              has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional)$'}}}}
                             - kind: invocation_expression
-                              has: {field: function, regex: '^((global::)?LanguageExt\.Common\.)?Error\s*\.\s*New$'}
+                              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
 rule:
     kind: enum_member_declaration
     all:

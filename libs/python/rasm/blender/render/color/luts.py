@@ -217,22 +217,26 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
             for scene in made.to_option().to_list():
                 bpy.data.scenes.remove(scene)
 
-    def sequenced(self, call: Call[Baking], active: bpy.types.Strip) -> BlenderResult[Done]:
+    def sequenced(self, call: Call[Baking], active: bpy.types.Strip, space: str) -> BlenderResult[Done]:
         """Samples strip modifiers in one sequencer render over their native space."""
-        scene: bpy.types.Scene = active.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        lattice, space = call.record.lattice, scene.sequencer_colorspace_settings.name  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        lattice = call.record.lattice
 
         def arranged(scene: bpy.types.Scene, nodes: str, look: Path) -> BlenderResult[None]:
-            strip: bpy.types.ImageStrip = scene.sequence_editor_create().strips.new_image(name="Lattice", filepath=nodes, channel=1, frame_start=1)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            render = scene.render
-            render.resolution_x, render.resolution_y, render.resolution_percentage = lattice.size**2, lattice.size, 100
-            render.use_sequencer, render.use_compositing, render.filepath = True, False, str(look)
-            render.image_settings.file_format, render.image_settings.color_depth = "OPEN_EXR", "32"
-            scene.frame_start = scene.frame_end = 1
-            scene.sequencer_colorspace_settings.name = strip.colorspace_settings.name = space  # type: ignore[union-attr]  # ty: ignore[invalid-assignment]
-            return accumulated(
-                Snapshot.capture(modifier).bind(lambda snapshot: snapshot.apply(strip.modifiers.new(name=modifier.name, type=modifier.type)).outcome) for modifier in active.modifiers
-            ).map(lambda _: None)
+            match scene.sequence_editor_create().strips.new_image(name="Lattice", filepath=nodes, channel=1, frame_start=1), scene.sequencer_colorspace_settings:
+                case bpy.types.ImageStrip(
+                    colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings() as strip_space
+                ) as strip, bpy.types.ColorManagedSequencerColorspaceSettings() as sequencer:
+                    render = scene.render
+                    render.resolution_x, render.resolution_y, render.resolution_percentage = lattice.size**2, lattice.size, 100
+                    render.use_sequencer, render.use_compositing, render.filepath = True, False, str(look)
+                    render.image_settings.file_format, render.image_settings.color_depth = "OPEN_EXR", "32"
+                    scene.frame_start = scene.frame_end = 1
+                    sequencer.name = strip_space.name = space  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    return accumulated(
+                        Snapshot.capture(modifier).bind(lambda snapshot: snapshot.apply(strip.modifiers.new(name=modifier.name, type=modifier.type)).outcome) for modifier in active.modifiers
+                    ).map(lambda _: None)
+                case strip, _:
+                    return Error((BlenderAbsentFault(owner=repr(strip), key="colorspace_settings"),))
 
         def rendered(scene: bpy.types.Scene, config: PyOpenColorIO.Config, folder: Path) -> BlenderResult[ImageFile[np.float32]]:
             samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples().map_error(lambda faults: (BlenderImagingFault(faults=faults),))
@@ -269,8 +273,8 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
         def rows(modifiers: Descriptor[bpy.types.CollectionProperty]) -> Acquisitions:
             def stripped(call: Call[Baking]) -> BlenderResult[Done]:
                 match modifiers.owner_of(call.context).to_optional():
-                    case bpy.types.Strip() as active:
-                        return self.sequenced(call, active)
+                    case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
+                        return self.sequenced(call, active, space)
                     case _:
                         return Error((BlenderAbsentFault(owner=repr(modifiers.root), key=modifiers.owner),))
 

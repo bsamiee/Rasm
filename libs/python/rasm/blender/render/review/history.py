@@ -35,7 +35,7 @@ from rasm.blender.ui.layout.templates import IconView
 from rasm.blender.ui.resources.icons import Glyph
 from rasm.blender.ui.resources.previews import Drawn, Previews
 from rasm.blender.ui.resources.theme import color
-from rasm.imaging.analysis.comparison import Bar, Comparison
+from rasm.imaging.analysis.comparison import Comparison
 from rasm.imaging.chain import Domain
 from rasm.imaging.faults import accumulated, ImagingReadFault, paired
 from rasm.imaging.files.multilayer import Multilayer
@@ -58,10 +58,9 @@ entries = Choices(
 
 
 class Reviewing(msgspec.Struct, frozen=True, kw_only=True):
-    """Render history retention and the bars a comparison grades against."""
+    """Render history retention."""
 
     retention: Annotated[Retention, msgspec.Meta(title="Render History", description="Completed renders kept, newest first")] = Retention(interval=0.0)
-    bars: Annotated[tuple[Bar, ...], msgspec.Meta(title="Comparison Bars", description="Thresholds grading a stored render against the shown frame")] = Comparison.bars
 
 
 class Browsing(msgspec.Struct, frozen=True, kw_only=True):
@@ -102,11 +101,6 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
     def compare(self) -> CompareView:
         """Compare of the shown entry over the editor's frame, refreshed on each browser field."""
         return CompareView(key="history_compare", glyph=self.glyph, read=lambda identity, _: before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=watched)
-
-    @property
-    def header(self) -> tuple[Row]:
-        """Compare's header rows an extension appends to the image editor header."""
-        return self.compare.header
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
@@ -180,8 +174,10 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
             return chosen(identity, call.context).bind(lambda pair: loaded(str(files(identity, pair[1].key)[0]), Tag(view_as_render=Some(True)))).bind(shown)
 
         def measured(call: Call[Empty]) -> BlenderResult[Done]:
-            return paired(self.settings(identity), compared(identity, call.context)).map(
-                lambda pair: Done(notes=(*(("INFO", f"{axis.label} {value:.4g}") for axis, value in pair[1].measures.items()), ("INFO", f"Verdict {pair[1].verdict(pair[0].bars).label}")))
+            return compared(identity, call.context).map(
+                lambda comparison: Done(
+                    notes=(*(("INFO", f"{axis.label} {value:.4g}") for axis, value in comparison.measures.items()), ("INFO", f"Verdict {comparison.verdict(Comparison.bars).label}"))
+                )
             )
 
         def noting(call: Call[Noting]) -> BlenderResult[Done]:
@@ -311,11 +307,11 @@ def kept(identity: Identity, before: History[str], after: History[str]) -> Blend
 
 
 def composite(path: Path) -> BlenderResult[npt.NDArray[np.float32]]:
-    """Reads the composited plane of a stored frame."""
-    name = "Composite.Combined"
+    """Reads the plane a stored frame displays: Blender's first Combined layer, the composite ahead of the view layers, or the sequencer's unnamed plane."""
+    name = "Combined"
 
     def selected(file: Multilayer) -> BlenderResult[npt.NDArray[np.float32]]:
-        match Block.of_seq(file.layers).filter(lambda layer: layer.name == name).try_head():
+        match Block.of_seq(file.layers).filter(lambda layer: layer.name.rpartition(".")[2] in {name, ""}).try_head():
             case Option(tag="some", some=layer):
                 return file.plane(layer, layer.channels).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
             case Option():
@@ -414,7 +410,7 @@ def chosen(identity: Identity, context: bpy.types.Context) -> BlenderResult[tupl
 
 def watched(identity: Identity) -> BlenderResult[tuple[Refresh, ...]]:
     """Answers a refresh on each browser field of the identity's attachment."""
-    return browsing.bound(identity).map(lambda attached: tuple(Watch(owner=bpy.types.WindowManager, identifier=f"{attached.name}.{row.name}") for row in msgspec.structs.fields(Browsing)))
+    return browsing.bound(identity).map(lambda attached: tuple(Watch(owner=attached.group.struct, identifier=row.name) for row in msgspec.structs.fields(Browsing)))
 
 
 def before(identity: Identity) -> BlenderResult[Option[Before]]:

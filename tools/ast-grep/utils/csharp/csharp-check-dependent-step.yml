@@ -2,6 +2,8 @@
 id: csharp-check-dependent-step
 language: csharp
 utils:
+    io-lift:
+        matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
     nameof-call:
         kind: invocation_expression
         has: {field: function, kind: identifier, regex: '^nameof$'}
@@ -11,7 +13,7 @@ utils:
             any:
                 - matches: nameof-call
                 - matches: csharp-check-call
-                - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+                - has: {field: function, matches: io-lift}
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Zip|ForAll|Exists|Map|Filter|Fold|FoldBack|Choose|Count|Head|Last|Tail|Skip|Take|Distinct|Find|Contains|Any|All|Select|Where|Sum|Min|Max|Order|OrderBy|Rev|Append|Concat)(\s*<.+>)?$'}}
     read:
         kind: identifier

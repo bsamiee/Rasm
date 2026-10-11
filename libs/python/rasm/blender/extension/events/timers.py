@@ -26,7 +26,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
             identity: Extension whose reports hold callback failures.
 
         Returns:
-            Ok of one timer-band acquisition, running once inline in background mode.
+            Ok of one timer-band acquisition, idle in background mode where Blender runs no event loop.
         """
         body = identity.reports.reported(self.body)
 
@@ -37,10 +37,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
         @contextmanager
         def registered() -> Generator[None]:
             """Holds the timer until it stops or the registration scope closes."""
-            if bpy.app.background:
-                ticked()
-            else:
-                bpy.app.timers.register(ticked, persistent=True)
+            bpy.app.timers.register(ticked, persistent=True)
             try:
                 yield
             finally:

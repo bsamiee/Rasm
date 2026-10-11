@@ -80,7 +80,7 @@ public static class ViewCaptures {
             answer =>
                 from settings in IO.lift(answer)
                 from configured in configure(settings)
-                from valid in IO.lift(() => Refused.Unless(settings.IsValid, settings, nameof(ViewCaptureSettings.IsValid)))
+                from valid in IO.lift(() => Refused.Unless(settings.IsValid, settings, nameof(settings)))
                 select valid,
             static answer => IO.lift(() => { _ = answer.IfSucc(static settings => settings.Dispose()); }), retain);
 

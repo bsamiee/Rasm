@@ -20,7 +20,7 @@ from rasm.blender.faults import BlenderResult
 class Subscription(msgspec.Struct, frozen=True, kw_only=True):
     """Callback on one resolved native property of an owner type."""
 
-    owner: type[bpy.types.bpy_struct]  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    owner: "type[bpy.types.bpy_struct[object]]"
     setting: bpy.types.Property
     body: Callable[[], BlenderResult[None]]
 

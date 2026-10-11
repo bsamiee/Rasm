@@ -3,6 +3,10 @@
         <Description>Grasshopper 2 plug-in definitions, component and parameter authoring, dataflow documents, and canvas interface over Grasshopper2</Description>
     </PropertyGroup>
 
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="Grasshopper2" />
+    </ItemGroup>
+
     <ItemGroup Label="Core">
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />

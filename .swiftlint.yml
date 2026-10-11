@@ -121,6 +121,10 @@ only_rules:
 # --- [OPTIONS] --------------------------------------------------------------------------
 strict: true
 cache_path: .cache/swiftlint
+excluded:
+    - .cache
+    - .artifacts
+    - docs
 blanket_disable_command:
     allowed_rules: []
 modifier_order:

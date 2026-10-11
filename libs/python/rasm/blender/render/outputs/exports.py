@@ -28,9 +28,9 @@ from rasm.imaging.effects.quantization import codes
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.files.dng import LinearRaw, Optics
 from rasm.imaging.files.documents import Document
-from rasm.imaging.files.images import Compressions, Depth, Format, ImageFile, Storage
+from rasm.imaging.files.images import Compressions, Deflate, Depth, Format, ImageFile, Storage
 from rasm.imaging.files.multilayer import Channel, Layer, Multilayer
-from rasm.imaging.parameters import Choice
+from rasm.imaging.parameters import Choice, Gated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -75,7 +75,7 @@ class Still(msgspec.Struct, frozen=True, kw_only=True):
         default_factory=lambda: PyOpenColorIO.GetCurrentConfig().getDefaultDisplay()
     )
     save_as_render: Annotated[bool, msgspec.Meta(description="Apply the view, exposure, and gamma to an unformed scene-linear source")] = True
-    compression: Annotated[Compressions | None, msgspec.Meta(description="Compression the format's writer applies")] = None
+    compression: Annotated[Gated[Compressions], msgspec.Meta(description="Compression the format's writer applies, the writer's own default while disabled")] = Gated(enabled=False, value=Deflate())
 
     def seeded(self, _event: bpy.types.Event) -> Self:
         """Retains writer-supported depth and compression when the browser opens."""
@@ -83,7 +83,9 @@ class Still(msgspec.Struct, frozen=True, kw_only=True):
             writer(self.format)
             .map(
                 lambda row: msgspec.structs.replace(
-                    self, depth=self.depth if self.depth in row.depths else row.depths[0], compression=self.compression if type(self.compression) in row.compressions else None
+                    self,
+                    depth=self.depth if self.depth in row.depths else row.depths[0],
+                    compression=msgspec.structs.replace(self.compression, enabled=self.compression.enabled and type(self.compression.value) in row.compressions),
                 )
             )
             .default_value(self)
@@ -149,18 +151,19 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
                 faults = tuple(BlenderAbsentFault(owner=repr(call.context), key=key) for key, value in (("scene", scene), ("view_layer", layer)) if value is None)
                 first, *rest = faults
                 return Error((first, *rest))
-        view: bpy.types.ColorManagedViewSettings = scene.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         match scene.camera:
             case bpy.types.Object(data=bpy.types.Camera(lens=lens, dof=bpy.types.CameraDOFSettings(aperture_fstop=fstop))):
                 optics = Some(Optics(focal_length=lens / 1000.0, f_number=fstop))
             case _:
                 optics = Nothing
 
-        def wrote(frame: npt.NDArray[np.float32], stops: float, config: PyOpenColorIO.Config) -> BlenderResult[Done]:
-            raw = LinearRaw(make="Blender", model=bpy.app.version_string, exposure=view.exposure + stops, optics=optics)
+        def wrote(frame: npt.NDArray[np.float32], exposure: float, config: PyOpenColorIO.Config) -> BlenderResult[Done]:
+            raw = LinearRaw(make="Blender", model=bpy.app.version_string, exposure=exposure, optics=optics)
             return raw.written(target, frame, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(lambda _: Done(notes=(("INFO", f"Wrote {target}"),)))
 
-        return paired(paired(saved(scene).bind(lambda path: plane(path, (f"{layer.name}.Combined",), ("R", "G", "B"))), self.gain.stops(call.identity, scene)), config_of()).bind(
+        view: BlenderResult[bpy.types.ColorManagedViewSettings] = Option.of_optional(scene.view_settings).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),))
+        exposure = paired(view, self.gain.stops(call.identity, scene)).map(lambda pair: pair[0].exposure + pair[1])
+        return paired(paired(saved(scene).bind(lambda path: plane(path, (f"{layer.name}.Combined",), ("R", "G", "B"))), exposure), config_of()).bind(
             lambda found: wrote(found[0][0], found[0][1], found[1])
         )
 
@@ -171,7 +174,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
             return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
 
         def stored(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[str]:
-            compressed: Option[Compressions] = Option.of_optional(record.compression)
+            compressed: Option[Compressions] = Some(record.compression.value) if record.compression.enabled else Nothing
             metadata = stamped(call.identity)
             match record.depth:
                 case Depth.UINT8:
@@ -332,10 +335,13 @@ def displayed(viewing: Viewing, identity: Identity, scene: bpy.types.Scene, plan
     def formed(shown: Option[DisplayView]) -> BlenderResult[ImageFile[np.float32]]:
         def native() -> BlenderResult[ImageFile[np.float32]]:
             view = viewing.seeded(scene)
-            settings: bpy.types.ColorManagedViewSettings = scene.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            return Result[npt.NDArray[np.float32], BlenderFaults].bind(
-                view.form(config, plane, source=source, exposure=settings.exposure, gamma=settings.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-                lambda pixels: named(view, pixels),
+            return (
+                Result[bpy.types.ColorManagedViewSettings, BlenderFaults]
+                .bind(
+                    Option.of_optional(scene.view_settings).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),)),
+                    lambda held: view.form(config, plane, source=source, exposure=held.exposure, gamma=held.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                )
+                .bind(lambda pixels: named(view, pixels))
             )
 
         return shown.map(

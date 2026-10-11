@@ -2,7 +2,7 @@ import type { NapiConfig } from '@ast-grep/napi';
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ImplicitDependency, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, flow, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
+import { Array, Cause, Effect, FileSystem, flow, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
 import { parse } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
 
@@ -38,7 +38,7 @@ const _Root = _Toml.pipe(
         Schema.Struct({
             tool: Schema.Struct({
                 uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String, moduleName: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root', moduleName: 'module-name' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
-                pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files' })),
+                pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
                 ruff: Schema.Struct({
                     perFileTargetVersion: Schema.OptionFromOptionalKey(
                         Schema.Record(Schema.String, Schema.String.check(Schema.isPattern(_PYTHON_TARGET_VERSION)).pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform(String.replace(_PYTHON_TARGET_VERSION, '$<major>.$<minor>')), encode: SchemaGetter.forbiddenEncoding }))).check(
@@ -59,17 +59,23 @@ const _root = Effect.fnUntraced(function* (workspace: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { tool } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, _DECLARATION)), Schema.decodeEffect(_Root));
     const { moduleRoot, moduleName } = tool.uv.buildBackend;
-    return { moduleRoot, sourceRoot: path.join(moduleRoot, ...moduleName.split('.')), pythonFiles: tool.pytest.pythonFiles, perFileTargetVersion: tool.ruff.perFileTargetVersion };
+    return { moduleRoot, sourceRoot: path.join(moduleRoot, ...moduleName.split('.')), ...tool.pytest, perFileTargetVersion: tool.ruff.perFileTargetVersion };
 });
 const _python = Effect.fnUntraced(function* (dir: string, workspace: string, root: ReturnType<typeof _root>) {
-    const { moduleRoot, sourceRoot, pythonFiles } = yield* root;
+    const [path, { moduleRoot, sourceRoot, pythonFiles, testPaths }] = yield* Effect.all([Path.Path, root]);
+    const mirrors = Array.map(testPaths, (testPath) => path.join(testPath, dir.startsWith(`${moduleRoot}/`) ? path.join(path.dirname(moduleRoot), path.relative(moduleRoot, dir)) : dir));
     const tests = yield* Effect.tryPromise(() =>
         globWithWorkspaceContext(
             workspace,
-            Array.map(pythonFiles, (pattern) => `${dir}/**/${pattern}`),
+            Array.flatMap(mirrors, (mirror) => Array.map(pythonFiles, (pattern) => `${mirror}/**/${pattern}`)),
         ),
     );
-    return { moduleRoot, sourceRoot, targets: Array.isReadonlyArrayNonEmpty(tests) ? { check: {}, test: {} } : {} };
+    const suites = Array.filter(mirrors, (mirror) => Array.some(tests, String.startsWith(`${mirror}/`)));
+    return {
+        moduleRoot,
+        sourceRoot,
+        targets: Array.isReadonlyArrayNonEmpty(suites) ? { check: {}, test: { command: `pytest ${Array.map(suites, (suite) => `"${suite}"`).join(' ')} --cov`, inputs: Array.map(suites, (suite) => `{workspaceRoot}/${suite}/**/*`) } } : {},
+    };
 });
 const _sources = Effect.fnUntraced(function* (workspace: string, configuration: ReturnType<typeof _root>) {
     const [fs, path, { moduleRoot }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, configuration]);
@@ -132,44 +138,22 @@ const _sources = Effect.fnUntraced(function* (workspace: string, configuration: 
 });
 
 const _PROJECTS = {
-    '*.csproj': ({ dir, base }, { files }) =>
-        Effect.map(Path.Path, (path) => {
-            const host = _host(dir);
-            const plugin = dir.startsWith('apps/') && host.includes('host:rhino');
-            const product = dir.split('/', 2).join('/');
-            const projects = Array.map(
-                Array.filter(files, (file) => file.startsWith(`${product}/`) && path.extname(file) === '.csproj'),
-                (file) => `${path.dirname(file)}/`,
-            );
-            const shared = Array.filter(files, (file) => file.startsWith(`${product}/`) && path.extname(file) === '.cs' && !Array.some(projects, (root) => file.startsWith(root)));
-            const projectFile = `${dir}/${base}`;
-            return {
-                root: dir,
-                tags: ['language:dotnet', ...host],
-                targets: {
-                    typecheck: {},
-                    check: {},
-                    ...(plugin
-                        ? {
-                              'build:release': { defaultConfiguration: 'release' },
-                              pack: {
-                                  command: `doppler run --project rasm --config dev_repo --only-secrets SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- dotnet publish "${projectFile}" --no-restore -bl:.artifacts/dotnet/binlog/publish-{}.binlog`,
-                                  outputs: ['{workspaceRoot}/.artifacts/dotnet/publish/{projectName}_*'],
-                              },
-                              install: { command: `dotnet msbuild "${projectFile}" -target:InstallYakPackage -property:Configuration=Release -bl:.artifacts/dotnet/binlog/install-{}.binlog` },
-                          }
-                        : {}),
-                },
-                ...(plugin
-                    ? {
-                          namedInputs: {
-                              default: ['{projectRoot}/**/*', ...Array.map(shared, (file) => `{workspaceRoot}/${file}`)],
-                              icons: [`{workspaceRoot}/${product}/icon.svg`, `{workspaceRoot}/${product}/icons/**/*`, { runtime: 'resvg --version' }, { runtime: 'magick -version' }],
-                          },
-                      }
-                    : {}),
-            };
-        }),
+    '*.csproj': ({ dir }) => {
+        const host = _host(dir);
+        const plugin = dir.startsWith('apps/rhino/');
+        const outputs = (pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}${host.includes('host:rhino') ? '_*' : ''}/${pivot}`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/${pivot}_{projectName}`] : [])];
+        return Effect.succeed({
+            root: dir,
+            tags: ['language:dotnet', ...host],
+            targets: {
+                build: { outputs: outputs('debug') },
+                'build:release': { outputs: outputs('release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
+                typecheck: {},
+                check: {},
+                ...(plugin ? { pack: {}, install: {} } : {}),
+            },
+        });
+    },
     '*.cs': Effect.fnUntraced(function* ({ dir, base }, { workspace }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const file = path.join(dir, base);
@@ -210,8 +194,8 @@ const _PROJECTS = {
             tags: ['language:python', 'host:blender'],
             targets: {
                 pack: {
-                    command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${modules.length === 0 ? '--empty-modules' : Array.map(modules, (file) => `--modules "${path.relative(python.moduleRoot, file)}"`).join(' ')}`,
-                    inputs: [...Array.map(Array.dedupe(Array.map(modules, path.dirname)), flow(String.replace('', '{workspaceRoot}/'), String.concat('/**/*'))), `{workspaceRoot}/${path.dirname(dir)}/icons/{*.svg,tools/*.svg}`],
+                    command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${Array.map(modules, (file) => `--modules "${path.relative(python.moduleRoot, file)}"`).join(' ')}`,
+                    inputs: Array.map(Array.dedupe(Array.map(modules, path.dirname)), flow(String.replace('', '{workspaceRoot}/'), String.concat('/**/*'))),
                     outputs: [`{workspaceRoot}/${outputPath}`],
                 },
                 install: { command: `python -m eng.python.fitout install "${archive}"` },
@@ -219,16 +203,16 @@ const _PROJECTS = {
             },
         };
     }),
-    'project.xcproj': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), name: path.parse(dir).name, tags: ['language:swift', 'host:macos'], targets: { build: {}, install: {}, upgrade: {}, lint: {}, format: {}, check: {} } })),
+    'project.xcproj': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), name: path.parse(dir).name, tags: ['language:swift', 'host:macos'], targets: { build: {}, install: {}, upgrade: {}, lint: {}, check: {} } })),
     'py.typed': Effect.fnUntraced(function* ({ dir }, { workspace, root }) {
         const [path, python] = yield* Effect.all([Path.Path, _python(dir, workspace, root)]);
         const parts = yield* Effect.fromOption(Option.liftPredicate(path.relative(python.moduleRoot, dir).split(path.sep), (relative) => !Array.contains(relative, '..')));
         return { root: dir, name: parts.join('.'), tags: ['language:python'], targets: python.targets };
     }),
     'tsconfig.json': ({ dir }) => Effect.succeed({ root: dir, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
-    'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {} } }),
+    'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {}, serve: {} } }),
     'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {} } }),
-} as const satisfies Record<string, (file: Path.Path.Parsed, context: { workspace: string; root: ReturnType<typeof _root>; files: readonly string[]; sources: ReturnType<typeof _sources> }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
+} as const satisfies Record<string, (file: Path.Path.Parsed, context: { workspace: string; root: ReturnType<typeof _root>; sources: ReturnType<typeof _sources> }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
 
 const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string, configuration: ReturnType<typeof _root>, sources: ReturnType<typeof _sources>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -305,6 +289,7 @@ const _registerPython = Effect.runSync(
     ),
 );
 const _services = Layer.merge(NodeFileSystem.layer, NodePath.layerPosix);
+const _hosted = Effect.catchCause((cause: Cause.Cause<unknown>) => Effect.die(new Error(Cause.pretty(cause))));
 const createNodes: CreateNodes = [
     `{${_DECLARATION},*/**/{${[...Record.keys(_PROJECTS), _DECLARATION].join(',')}}}`,
     async (files, options, context): Promise<CreateNodesResultArray> => {
@@ -319,16 +304,17 @@ const createNodes: CreateNodes = [
                 }
                 const parsed = path.parse(file);
                 const [, configure] = yield* Effect.fromOption(Array.findFirst(Record.toEntries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
-                const configuration = yield* configure(parsed, { workspace: context.workspaceRoot, root, files, sources });
+                const configuration = yield* configure(parsed, { workspace: context.workspaceRoot, root, sources });
                 return { projects: { [configuration.root]: configuration } };
             },
             Effect.catchNoSuchElement,
             Effect.map(Option.getOrElse(() => ({}))),
+            _hosted,
         );
         return await createNodesFromFiles((file) => runtime.runPromise(project(file)), files, options, context);
     },
 ];
-const createDependencies: CreateDependencies = (_options, context) => Effect.runPromise(Effect.provide(_dependencies(context), _services, { local: true }));
+const createDependencies: CreateDependencies = (_options, context) => _dependencies(context).pipe(Effect.provide(_services, { local: true }), _hosted, Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

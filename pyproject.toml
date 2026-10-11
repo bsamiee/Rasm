@@ -139,7 +139,6 @@ workspace = [
     "pywavelets",                                         # Discrete and continuous wavelet transforms
     "quadax",                                             # JAX adaptive quadrature
     "scikit-fem",                                         # FEM assembly
-    "scipy",                                              # Numerical algorithms
     "scs",                                                # SCS first-order operator-splitting conic solver beside Clarabel, a cvxpy backend
     "sectionproperties",                                  # Cross-section property solver
     "sympy",                                              # Symbolic expressions beside the python-flint and mpmath ground domains
@@ -255,7 +254,6 @@ workspace = [
     # --- [PLOTTING_VIZ]
     "altair",                                             # Declarative Vega-Lite charts
     "great-tables",                                       # Display tables for documents
-    "matplotlib",                                         # Plotting
     "vegafusion",                                         # Server-side Vega transform and pre-transform export
     "vl-convert-python",                                  # Vega and Vega-Lite rendering to SVG, PNG, and PDF
     # --- [PDF]
@@ -286,19 +284,16 @@ workspace = [
     "xlsxwriter",                                         # Streaming write-only xlsx
     # --- [IMAGING_MEDIA]
     "av",                                                 # PyAV video and audio mux and encode
-    "imagecodecs",                                        # Native codecs for EXR, RGBE, 16-bit PNG, float TIFF, JXL, AVIF, WebP, ICC, BCn/DDS, and meshopt
     "openexr",                                            # Named-channel, multipart, and tiled EXR documents imagecodecs lacks
     "pillow",                                             # Image IO and WebP decoding
     "psd-tools",                                          # PSD read and pixel authoring
     "pysubs2",                                            # Subtitle parse, convert, retime, and restyle
     "pyvips",                                             # Fused decode, downscale, ICC, and smartcrop over libvips with HEVC, HEIF, JXL, and EXR
-    "scikit-image",                                       # Image processing, its sdist builds through pythran
     "simpleidml",                                         # IDML package mutation and composition
     # --- [TYPOGRAPHY_COLOR]
     "blackrenderer",                                      # COLRv1 color-glyph SVG rasterization
     "coloraide",                                          # oklch gamut mapping and CVD filters
     "colour-cxf",                                         # CxF3 spot/spectral color exchange
-    "colour-science",                                     # CIE, spectral, and appearance color models
     "fonttools",                                          # Font subsetting, instancing, and shaping metadata
     "opentype-feature-freezer",                           # Freeze OpenType features into the default glyph set
     "PyICU",                                              # ICU line breaking, bidirectional text, and collation, built from its sdist against machine ICU
@@ -423,12 +418,13 @@ openimageio = { git = "https://github.com/AcademySoftwareFoundation/OpenImageIO"
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
+cache-dir = ".cache/ruff"
 preview = true
 target-version = "py315"
 per-file-target-version = { "eng/python/fitout/geometry.py" = "py313" }
 line-length = 200
 src = [".", "libs/python"]
-format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
+format = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -437,7 +433,6 @@ ignore = [
     "too-many-public-methods",
     "too-many-return-statements",
     "too-many-branches",
-    "too-many-nested-blocks",
     "too-many-locals",
     "too-many-statements",
     "complex-structure",
@@ -451,7 +446,6 @@ ignore = [
     "implicit-namespace-package",
     "missing-copyright-notice",
     "commented-out-code",
-    "django-extra",
     "float-equality-comparison",
     "non-pep695-generic-class",
     "no-self-use",
@@ -462,7 +456,6 @@ ignore = [
     "too-many-statements-in-try-clause",
     "subprocess-without-shell-equals-true",
     "function-uses-loop-variable",
-    "relative-imports",
     "import-private-name",
     "reimplemented-operator",
     "lambda-assignment",
@@ -573,7 +566,7 @@ warn_required_dynamic_aliases = true
 [tool.pytest]
 strict = true
 cache_dir = ".cache/pytest"
-testpaths = ["tests"]
+testpaths = ["tests/python"]
 pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]

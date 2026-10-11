@@ -10,7 +10,7 @@ Hooks fix a wrong call and let it run, the model keeps working and learns the re
 - ALWAYS rewrite a call when its repository form follows from the call, and refuse only when no form follows
 - ALWAYS write each policy as a pure function in `policies/` over the parsed call, folded under the one `tool.call` registration
 - ALWAYS declare a program's options, bodies, input, and inner command as its `invocation.ts` row, an undeclared option's value parses as an operand
-- ALWAYS read files, paths, environment, and repository root through `Host`, `register.ts` and `.codex/hooks/host.ts` each build one for `commandDecision`
+- ALWAYS read files, paths, and repository root through the `Host` `register.ts` builds for `commandDecision`
 - Calls the hook cannot parse or judge are refused
 
 ## [02]-[OUTPUT]
@@ -26,6 +26,7 @@ Texts reaching a model or harness (refusal, context, notice, band row) appear on
 Harness loads `hooks/register.ts` and its imports with no DOM and no Node. Modules import their own files by relative path and `claude-code` alone:
 - ALWAYS place each pure function in the folder of its concern, `hooks/register.ts` alone reads `$`
 - ALWAYS compose faults through the result type in `composition.ts`
+- ALWAYS spawn a tool by name, child processes inherit the harness's mise-activated environment
 - ALWAYS keep session values in `$.state`, keys and types declared in `hooks/state.d.ts`, module variables and timers reset at reload
 - ALWAYS draw render hooks from `$.state` alone, handlers and events write
 

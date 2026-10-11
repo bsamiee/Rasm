@@ -6,7 +6,7 @@ utils:
     some:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?(Prelude|Option)\.)?Some(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}
             - has: {field: arguments, not: {has: {kind: argument, any: [{nthChild: 2}, {has: {field: name, pattern: $_}}]}}}
     value:
         any:
@@ -54,7 +54,7 @@ utils:
             - pattern: $X is not object
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^(((global::)?System\.)?[Oo]bject\.)?ReferenceEquals$'}
+                - has: {field: function, any: [{kind: identifier, regex: '^ReferenceEquals$'}, {matches: {csharp-owner-member: {type: {regex: '^(Object|object)$'}, member: {regex: '^ReferenceEquals$'}}}}]}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1}}, {has: {kind: argument, nthChild: 2}}], not: {has: {kind: argument, nthChild: 3}}}
                 - has: {field: arguments, has: {kind: argument, has: {kind: null_literal}}}
                 - has: {field: arguments, has: {kind: argument, has: {pattern: $X, not: {kind: null_literal}}}}

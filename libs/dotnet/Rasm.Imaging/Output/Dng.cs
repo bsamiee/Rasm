@@ -19,8 +19,8 @@ internal static class DngWriter {
 
     internal static Validation<Error, Unit> Bounded(PixelExtent size) =>
         size.Width is >= Narrowest and <= Widest && size.Height is >= Narrowest and <= Widest
-            ? Validation.Success<Error, Unit>(unit)
-            : Validation.Fail<Error, Unit>(new DngExtentRefused(size));
+            ? unit
+            : new DngExtentRefused(size);
 
     internal static IO<Unit> Write(StillFormat.Dng dng, FileMetadata metadata, FileStream stream) =>
         StillWriter.Scanlines(

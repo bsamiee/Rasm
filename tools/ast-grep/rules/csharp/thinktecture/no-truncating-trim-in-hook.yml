@@ -4,7 +4,7 @@ language: csharp
 severity: error
 utils:
     extension-class:
-        regex: '^(global::)?(Thinktecture\.)?StringExtensions$'
+        matches: {csharp-type-name: {name: {regex: '^StringExtensions$'}}}
     callee:
         kind: member_access_expression, conditional_access_expression
     bounded-range:

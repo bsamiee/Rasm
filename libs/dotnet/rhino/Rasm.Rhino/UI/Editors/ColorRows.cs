@@ -206,11 +206,7 @@ public static class ColorRows {
         unless(strip.Edit.Editing,
         from columns in IO.lift(() => int.Max(strip.Panel.Width / SwatchSide, 1))
         from held in strip.State.ValueIO
-        from made in DisposalOps.Replace(keep =>
-            from wells in Entries(strip, held).Map((entry, index) => Placed(strip, entry, index, keep)).TraverseM(static make => make).As()
-            from lines in toSeq(wells.Chunk(columns)).TraverseM(line => DisposalOps.Acquire(IO.lift(() => new StackLayout([.. toSeq(line).Map(static well => new StackLayoutItem(well.Button))]) { Orientation = Orientation.Horizontal }), static value => IO.lift(value.Dispose), keep)).As()
-            from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. lines.Map(static line => new StackLayoutItem(line, HorizontalAlignment.Left))]) { Orientation = Orientation.Vertical }), static value => IO.lift(value.Dispose), keep)
-            select (Wells: wells, Layout: layout),
+        from made in DisposalOps.Replace(keep => Built(strip, held, columns, keep),
             (value, lease) => {
                 Control? priorContent = strip.Panel.Content;
                 (Seq<Well> Wells, Seq<IDisposable> Releases) prior = strip.Wells.Value;
@@ -226,6 +222,12 @@ public static class ColorRows {
             })
         from framed in Framed(strip, held)
         select unit).As();
+
+    private static IO<(Seq<Well> Wells, StackLayout Layout)> Built<TRecord>(Strip<TRecord> strip, StripState<TRecord> held, int columns, Action<IDisposable> keep) where TRecord : notnull =>
+        from wells in Entries(strip, held).Map((entry, index) => Placed(strip, entry, index, keep)).TraverseM(static make => make).As()
+        from lines in toSeq(wells.Chunk(columns)).TraverseM(line => DisposalOps.Acquire(IO.lift(() => new StackLayout([.. toSeq(line).Map(static well => new StackLayoutItem(well.Button))]) { Orientation = Orientation.Horizontal }), static value => IO.lift(value.Dispose), keep)).As()
+        from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. lines.Map(static line => new StackLayoutItem(line, HorizontalAlignment.Left))]) { Orientation = Orientation.Vertical }), static value => IO.lift(value.Dispose), keep)
+        select (Wells: wells, Layout: layout);
 
     private static IO<Unit> Framed<TRecord>(Strip<TRecord> strip, StripState<TRecord> held) where TRecord : notnull =>
         from wells in strip.Wells.ValueIO

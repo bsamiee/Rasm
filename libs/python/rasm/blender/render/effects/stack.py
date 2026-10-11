@@ -1,5 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
 """Native compositor effect rows, entry values, owned groups, and scene formation."""
 
 from collections import deque
@@ -31,7 +29,7 @@ from rasm.blender.data.ids.ownership import Mark, Ownership, Saved
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.animation import Animation, Driven, Keys, sampled
 from rasm.blender.data.rna.conditions import check, Condition, Setting
-from rasm.blender.data.rna.descriptors import Descriptor, IdName, Value, written
+from rasm.blender.data.rna.descriptors import Descriptor, IdName, struct_at, Value, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.events.handlers import FrameHandler, PathHandler, SceneHandler, UpdateHandler
 from rasm.blender.extension.events.subscriptions import Subscription
@@ -39,7 +37,7 @@ from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Registrable
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
 from rasm.blender.files.interchange import Importing, Interchange
-from rasm.blender.nodes.graphs import addresses, End, ended, Fragment, INPUTS, Interface, InterfacePanel, item_key, Link, MenuItems, Node, node, NodeGroup, Operand, OUTPUTS, Socket, under
+from rasm.blender.nodes.graphs import addresses, described, End, ended, Fragment, INPUTS, Interface, InterfacePanel, item_key, Link, MenuItems, Node, node, NodeGroup, Operand, OUTPUTS, Socket, under
 from rasm.blender.render.color.exposure import Gain
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.color.spaces import converted, pointwise
@@ -51,6 +49,7 @@ from rasm.blender.render.view_layers.passes import PassRequest, required
 from rasm.blender.scene import cameras
 from rasm.blender.settings.attachments import Attachment, Stored
 from rasm.blender.settings.properties import RecordGroup, Unit
+from rasm.blender.settings.shapes import vector
 from rasm.imaging.chain import Domain, Effect, Stage
 from rasm.imaging.color.config import admitted
 from rasm.imaging.color.processors import bracketed, DisplayView, Spaced
@@ -162,7 +161,7 @@ class Placeable(Registrable, Protocol[_E_co]):
         ...
 
     @property
-    def reads(self) -> tuple[tuple[type[bpy.types.bpy_struct], bpy.types.Property], ...]:
+    def reads(self) -> "tuple[tuple[type[bpy.types.bpy_struct[object]], bpy.types.Property], ...]":
         """Native members whose writes refresh derived inputs."""
         ...
 
@@ -288,7 +287,7 @@ class Derived[R: Effect, D: msgspec.Struct](msgspec.Struct, frozen=True, kw_only
 
     record: type[D]
     of: Option[Callable[[Identity, bpy.types.Scene, R], BlenderResult[D]]] = Nothing
-    reads: tuple[tuple[type[bpy.types.bpy_struct], bpy.types.Property], ...] = ()
+    reads: "tuple[tuple[type[bpy.types.bpy_struct[object]], bpy.types.Property], ...]" = ()
 
 
 class Shell[R: Effect](msgspec.Struct, frozen=True, kw_only=True):
@@ -309,6 +308,7 @@ class Shell[R: Effect](msgspec.Struct, frozen=True, kw_only=True):
     result: ClassVar[Key] = "result"
     viewer: ClassVar[Key] = "viewer"
     blend: ClassVar[Key] = "blend"
+    frame: ClassVar[Key] = "frame"
 
     @staticmethod
     def socket(*parts: Key | int | type[Case]) -> End:
@@ -406,7 +406,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         return self._narrowed(record).bind(
             lambda typed: self.preparation.map(
                 lambda prepare: (
-                    inputs(identity, entry, (), CameraFrame)
+                    inputs(identity, entry, (Shell.frame,), CameraFrame)
                     .bind(lambda frame: prepare(identity, scene, typed.effect, config, image, precision, frame, entry))
                     .map(lambda value: (Entry(effect=value[0], blend=typed.blend), value[1]))
                 )
@@ -414,7 +414,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         )
 
     @property
-    def reads(self) -> tuple[tuple[type[bpy.types.bpy_struct], bpy.types.Property], ...]:
+    def reads(self) -> "tuple[tuple[type[bpy.types.bpy_struct[object]], bpy.types.Property], ...]":
         """Native subscriptions supplied by the derived record."""
         return self.derived.map(lambda derived: derived.reads if isinstance(derived, Derived) else ()).default_value(())
 
@@ -573,7 +573,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         images: Mapping[Key, tuple[Fragment, End]] = {},
     ) -> BlenderResult[NodeGroup]:
         original = Shell.socket(Shell.image)
-        frame = {field.name: Shell.socket(field.name) for field in msgspec.structs.fields(CameraFrame)}
+        frame = {field.name: Shell.socket(Shell.frame, field.name) for field in msgspec.structs.fields(CameraFrame)}
         space = Some(record.effect.space).filter(lambda name: name != PyOpenColorIO.ROLE_SCENE_LINEAR) if isinstance(record.effect, Spaced) else Nothing
 
         def built(cases: Mapping[KeyPath, tuple[Case, ...]]) -> BlenderResult[tuple[Fragment, End]]:
@@ -654,11 +654,10 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         def finished(body: tuple[Fragment, End], interface: Interface) -> BlenderResult[NodeGroup]:
             if self.record is DisplayView:
                 return assembled(Some(body), interface)
+            split, alpha = item_key(Shell.result, "alpha_split"), item_key(Shell.result, "alpha")
             restored = (
-                node("alpha_split", bpy.types.CompositorNodeSeparateColor, {"Image": original}, {"mode": "RGB"}).bind(
-                    lambda alpha: node("alpha", bpy.types.CompositorNodeSetAlpha, {"Image": body, "Alpha": ended("alpha_split", "Alpha")(alpha), "Type": "Replace Alpha"}, {}).map(
-                        ended("alpha", "Image")
-                    )
+                node(split, bpy.types.CompositorNodeSeparateColor, {"Image": original}, {"mode": "RGB"}).bind(
+                    lambda separated: node(alpha, bpy.types.CompositorNodeSetAlpha, {"Image": body, "Alpha": ended(split, "Alpha")(separated), "Type": "Replace Alpha"}, {}).map(ended(alpha, "Image"))
                 )
                 if self.coverage is Coverage.INPUT and not self.straight
                 else Ok(body)
@@ -797,7 +796,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
 
     def _refreshed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, record: R, source: Option[bpy.types.Scene] = Nothing) -> BlenderResult[None]:
         reading = source.default_value(scene)
-        frame = FrameSize().bound(identity).bind(lambda framed: camera_frame(framed, reading)).bind(lambda value: entered(identity, entry, (), value))
+        frame = FrameSize().bound(identity).bind(lambda framed: camera_frame(framed, reading)).bind(lambda value: entered(identity, entry, (Shell.frame,), value))
         values = self.derived.map(
             lambda derived: (
                 derived.of.map(lambda build: build(identity, reading, record).bind(lambda value: entered(identity, entry, (), value))).default_value(Ok(None))
@@ -851,18 +850,16 @@ class EffectStack[E: Effect = Effect]:
 
     def config(self) -> BlenderResult[PyOpenColorIO.Config]:
         """Returns the current native config over every offered process-space default."""
-        name = inspect.getattr_static(Spaced, "space").fget.__name__
+        name = Spaced.space.__name__
         spaces = tuple(
             dict.fromkeys(
                 value
                 for row in self.rows
                 if isinstance(row.record, Spaced)
-                for declared in (Option.of_optional(next((field for field in msgspec.structs.fields(row.record) if field.name == name), None)),)
-                for value in declared.map(lambda field: field.default).or_else_with(lambda: Some(inspect.getattr_static(row.record, name))).to_list()
+                for value in ({field.name: field.default for field in msgspec.structs.fields(row.record)}.get(name, inspect.getattr_static(row.record, name)),)
                 if isinstance(value, str)
             )
         )
-
         return admitted(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
 
     def offering(self, kind: type[Effect]) -> BlenderResult[Placeable[E | DisplayView]]:
@@ -960,11 +957,7 @@ class EffectStack[E: Effect = Effect]:
                         return (
                             releasing
                             .bind(lambda _: accumulated(self.hold(identity, scene, row) for _, row in written_entries))
-                            .bind(
-                                lambda _: accumulated(
-                                    called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": index}) for index, entry in enumerate(target) if entry in owned
-                                )
-                            )
+                            .bind(lambda _: accumulated(relocated(scene, entry, index) for index, entry in enumerate(target) if entry in owned))
                             .bind(lambda _: initial.map(lambda view: self.placed(identity, scene, formation, Entry(effect=view), context=context).map(lambda _: None)).default_value(Ok(None)))
                             .map(lambda _: None)
                         )
@@ -1072,7 +1065,7 @@ class EffectStack[E: Effect = Effect]:
                 case Toward.RANK:
                     others = tuple(entry for entry in order if entry != held.entry)
                     index = next((index for index, entry in enumerate(others) if above(entry)), len(others))
-            return called(bpy.ops.scene.move_compositor_effect_to_index, {"name": held.entry.name, "index": index}).map(lambda _: None) if position != index else Ok(None)
+            return relocated(scene, held.entry, index)
 
         return editable(scene).bind(lambda _: self.found(identity, scene, shift.name)).bind(moved)
 
@@ -1194,67 +1187,61 @@ class EffectStack[E: Effect = Effect]:
     def refreshed(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[Option[str]]:
         """Separates per-entry groups, places missing pinned entries, and releases stale holds."""
 
+        def separated(entry: bpy.types.SceneCompositorEffect, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> BlenderResult[bool]:
+            copied: bpy.types.NodeTree = group.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return owner.owned(identity, copied, Mark(key=owner.key, of=Some(scene))).bind(lambda owned: written(entry, "node_group", owned)).map(lambda _: True)
+
+        def placed(pinned: Pinned, group: bpy.types.CompositorNodeTree) -> BlenderResult[bool]:
+            with ExitStack() as rollback:
+                entry = scene.compositor_effects.new(group.name)
+                rollback.callback(scene.compositor_effects.remove, entry)
+                return (
+                    accumulated((written(entry, "node_group", group), *(enabled.descriptor.write(entry, enabled in pinned.enables) for enabled in Enabled)))
+                    .bind(lambda _: relocated(scene, entry, 0 if pinned.edge is Edge.HEAD else len(scene.compositor_effects) - 1))
+                    .map(lambda _: rollback.pop_all())
+                    .map(lambda _: True)
+                )
+
         def refreshed(_: bpy.types.Scene) -> BlenderResult[Option[str]]:
-            changed = False
-            seen: set[int] = set()
-            for held in self.held(identity, scene):
-                for row in held.row.to_list():
-                    if (group := (held.entry.node_group)) is not None and Mark.read(identity, group).filter(lambda mark: mark.key == ownerships(row.record)[1].key).is_some():
-                        if group.session_uid in seen:
-                            copied: bpy.types.NodeTree = group.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                            answer = (
-                                ownerships(row.record)[1]
-                                .owned(identity, copied, Mark(key=ownerships(row.record)[1].key, of=Some(scene)))
-                                .bind(lambda group: written(held.entry, "node_group", group))
-                                .map(lambda _: None)
-                            )
-                            if answer.is_error():
-                                return Error(answer.error)
-                            changed = True
-                            seen.add(copied.session_uid)
-                        else:
-                            seen.add(group.session_uid)
-            for pinned in self.pinned:
-                groups = tuple(group for group, mark in pinned.ownership.held(identity) if mark.of == Some(scene))
-                for group in groups[:1]:
-                    if any(entry.node_group == group for entry in scene.compositor_effects):
-                        continue
-                    with ExitStack() as rollback:
-                        entry = scene.compositor_effects.new(group.name)
-                        rollback.callback(scene.compositor_effects.remove, entry)
-                        answer = (
-                            accumulated((written(entry, "node_group", group), *(enabled.descriptor.write(entry, enabled in pinned.enables) for enabled in Enabled)))
-                            .bind(lambda _: called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": 0 if pinned.edge is Edge.HEAD else len(scene.compositor_effects) - 1}))
-                            .map(lambda _: rollback.pop_all())
-                            .map(lambda _: None)
-                        )
-                    if answer.is_error():
-                        return Error(answer.error)
-                    changed = True
+            personal = tuple(
+                (held.entry, owner, group)
+                for held in self.held(identity, scene)
+                for row in held.row.to_list()
+                for owner in (ownerships(row.record)[1],)
+                for group in Option.of_optional(held.entry.node_group).to_list()
+                if Mark.read(identity, group).filter(lambda mark: mark.key == owner.key).is_some()
+            )
+            keeper = {group.session_uid: entry for entry, _, group in reversed(personal)}
+            absent = (
+                (pinned, group)
+                for pinned in self.pinned
+                for group in Option.of_optional(next((group for group, mark in pinned.ownership.held(identity) if mark.of == Some(scene)), None)).to_list()
+                if not any(entry.node_group == group for entry in scene.compositor_effects)
+            )
             return (
-                stored(identity, scene, "held", dict[Key, Snapshot])
-                .bind(lambda pair: accumulated(self.release(identity, scene, row) for row in self.rows if row.kind in pair[1] and not entries(identity, scene, row.record)))
-                .map(lambda _: Some("Refresh Effects") if changed else Nothing)
+                reduce(lambda done, shared: done.bind(lambda _: separated(*shared)), ((entry, owner, group) for entry, owner, group in personal if keeper[group.session_uid] != entry), Ok(False))
+                .bind(lambda changed: reduce(lambda done, missing: done.bind(lambda _: placed(*missing)), absent, Ok(changed)))
+                .bind(
+                    lambda changed: (
+                        stored(identity, scene, "held", dict[Key, Snapshot])
+                        .bind(lambda pair: accumulated(self.release(identity, scene, row) for row in self.rows if row.kind in pair[1] and not entries(identity, scene, row.record)))
+                        .map(lambda _: Some("Refresh Effects") if changed else Nothing)
+                    )
+                )
             )
 
         return editable(scene).bind(refreshed)
 
     def pointwise(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bpy.types.SceneCompositorEffect]:
         """Admits an owned entry whose current effect has a pointwise operation."""
-        return (
-            self
-            .found(identity, entry.id_data, entry.name)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            .bind(lambda held: held.row.some.read(identity, entry))
-            .bind(lambda record: Ok(entry) if record.effect.pointwise else Error((BlenderChoiceFault(path=entry.name, identifier=repr(record.effect.pointwise), accepted=(repr(True),)),)))
-        )
+        return self.found(identity, entry.id_data, entry.name).bind(lambda held: held.row.some.read(identity, entry)).bind(lambda record: local_entry(entry, record))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     def forming(self, identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config, enabled: Enabled) -> BlenderResult[Option[PyOpenColorIO.Transform]]:
         """Combines complete imaging results once, retaining absence for native sampling."""
 
         def transformed(entry: bpy.types.SceneCompositorEffect, record: Entry[Effect]) -> BlenderResult[Option[PyOpenColorIO.Transform]]:
-            locality: BlenderResult[None] = Ok(None) if record.effect.pointwise else Error((BlenderChoiceFault(path=entry.name, identifier=repr(record.effect.pointwise), accepted=(repr(True),)),))
             blend: BlenderResult[None] = Ok(None) if record.blend == Blend() else Error((BlenderChoiceFault(path=entry.name, identifier=repr(record.blend), accepted=(repr(Blend()),)),))
-            return paired(locality, blend).bind(
+            return paired(local_entry(entry, record), blend).bind(
                 lambda _: (bracketed(record.effect, config) if isinstance(record.effect, Spaced) else record.effect.transform(config)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
             )
 
@@ -1280,13 +1267,17 @@ class EffectStack[E: Effect = Effect]:
 
     # --- [COMMANDS_AND_LIFETIME]
 
-    def __init__(self, *, effects: tuple[Placeable[E], ...], precision: Callable[[Identity], BlenderResult[Precision]], pinned: tuple[Pinned, ...] = (), gain: Option[GainRow] = Nothing) -> None:
+    def __init__(
+        self,
+        *,
+        effects: tuple[Placeable[E], ...],
+        precision: Callable[[Identity], BlenderResult[Precision]] = lambda _identity: Ok(Precision()),
+        pinned: tuple[Pinned, ...] = (),
+        gain: Option[GainRow] = Nothing,
+    ) -> None:
         """Retains the offered rows and their native edit declarations."""
         self.effects, self.precision, self.pinned, self.gain = effects, precision, pinned, gain
         self.executing: set[int] = set()
-
-        def scene[T: msgspec.Struct](call: Call[T]) -> BlenderResult[bpy.types.Scene]:
-            return Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
 
         def reset(call: Call[Named]) -> BlenderResult[Done]:
             def reset(scene: bpy.types.Scene) -> BlenderResult[None]:
@@ -1297,12 +1288,13 @@ class EffectStack[E: Effect = Effect]:
                     )
                 )
 
-            return scene(call).bind(reset).map(lambda _: Done())
+            return call.root(bpy.types.Scene).bind(reset).map(lambda _: Done())
 
         def added(row: Placeable) -> Operator[Empty]:
             def run(call: Call[Empty]) -> BlenderResult[Done]:
                 return (
-                    scene(call)
+                    call
+                    .root(bpy.types.Scene)
                     .bind(
                         lambda scene: accumulated(
                             self.placed(call.identity, scene, row, Entry(effect=record))
@@ -1315,7 +1307,7 @@ class EffectStack[E: Effect = Effect]:
             return Operator(
                 key=f"effect_add_{row.kind}",
                 title=f"Add {row.record.title}",
-                description=inspect.getdoc(row.record) or "",
+                description=Option.of_optional(inspect.getdoc(row.record)).default_value(""),
                 form=Empty,
                 run=run,
                 invoke=row.opened.map(lambda opened: Open(extensions=lambda _record: opened.extensions())),
@@ -1328,7 +1320,7 @@ class EffectStack[E: Effect = Effect]:
                 title="Move Effect",
                 description="Moves the selected compositor effect",
                 form=Shift,
-                run=lambda call: scene(call).bind(lambda scene: self.moved(call.identity, scene, call.record)).map(lambda _: Done()),
+                run=lambda call: call.root(bpy.types.Scene).bind(lambda scene: self.moved(call.identity, scene, call.record)).map(lambda _: Done()),
                 undo=True,
             ),
             removing=Operator(
@@ -1336,7 +1328,7 @@ class EffectStack[E: Effect = Effect]:
                 title="Remove Effect",
                 description="Removes the selected compositor effect",
                 form=Named,
-                run=lambda call: scene(call).bind(lambda scene: self.removed(call.identity, scene, call.record.name)).map(lambda _: Done()),
+                run=lambda call: call.root(bpy.types.Scene).bind(lambda scene: self.removed(call.identity, scene, call.record.name)).map(lambda _: Done()),
                 undo=True,
             ),
             resetting=Operator(key="effect_reset", title="Reset Effect", description="Restores the compositor effect's defaults", form=Named, run=reset, undo=True),
@@ -1458,11 +1450,7 @@ def capturing(identity: Identity, before: bpy.types.SceneCompositorEffect, outpu
             scope.callback(bpy.data.node_groups.remove, tree)
             entry = scene.compositor_effects.new("Input Capture")
             scope.callback(scene.compositor_effects.remove, entry)
-            return (
-                written(entry, "node_group", tree)
-                .bind(lambda _: called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": at}, override=Some(bpy.context.temp_override(scene=scene))))
-                .map(lambda _: entry)
-            )
+            return written(entry, "node_group", tree).bind(lambda _: relocated(scene, entry, at)).map(lambda _: entry)
 
         enabled = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="render", prop=bpy.types.RenderSettings.bl_rna.properties["use_compositing"]), accepted=(True,))
         suffix = tuple(scene.compositor_effects)[at:] if stop else ()
@@ -1587,7 +1575,7 @@ def rows(
         while isinstance(content, native.Metadata):
             content = content.type
         match content:
-            case native.TupleType() if not RecordGroup.vector(content):
+            case native.TupleType() if not vector(content):
                 components = RecordGroup.components(msgspec.structs.replace(field, default=selected.default_value(msgspec.NODEFAULT)))
                 for index, component in enumerate(components, 1):
                     yield from member(component, native.type_info(component.type), (*at, index), Some(component.default) if component.default is not msgspec.NODEFAULT else Nothing)
@@ -1638,16 +1626,18 @@ def graphed(
 def menus(kind: type[msgspec.Struct], *, value: Option[msgspec.Struct] = Nothing) -> dict[KeyPath, MenuItems]:
     """Derives menu rows from native enum and tagged-union metadata."""
 
-    def menu(shape: native.Type) -> bool:
+    def menu(field: msgspec.structs.FieldInfo, shape: native.Type) -> Option[MenuItems]:
         match shape:
             case native.Metadata(type=inner):
-                return menu(inner)
-            case native.EnumType() | native.UnionType():
-                return True
+                return menu(field, inner)
+            case native.EnumType(cls=choices):
+                return Some(MenuItems.of(choices, described(field.type)))
+            case native.UnionType(types=cases):
+                return Some(MenuItems.of(tuple(record for case in cases if isinstance(case, native.StructType) for record in (case.cls,) if issubclass(record, Case))))
             case _:
-                return False
+                return Nothing
 
-    return {path: MenuItems.of(shape) for path, field, shape in rows(kind, value=value) if menu(shape) and not markers(field.type, GraphForm)}
+    return {path: items for path, field, shape in rows(kind, value=value) if not markers(field.type, GraphForm) for items in menu(field, shape).to_list()}
 
 
 def hidden(face: Interface) -> Interface:
@@ -1691,7 +1681,7 @@ def entry_interface(kind: type[Effect], masks: int) -> BlenderResult[Interface]:
         if kind is not DisplayView
         else Ok(Interface())
     )
-    return paired(paired(Interface.of(kind), Interface.of(CameraFrame).map(hidden)), blend).map(lambda parts: combined((*parts[0], parts[1])))
+    return paired(paired(Interface.of(kind), Interface.of(CameraFrame).map(lambda face: hidden(under(Shell.frame, face)))), blend).map(lambda parts: combined((*parts[0], parts[1])))
 
 
 def expanded(face: Interface, value: msgspec.Struct) -> BlenderResult[Interface]:
@@ -1734,6 +1724,11 @@ def ownerships(record: type[Effect]) -> tuple[Ownership[bpy.types.NodeTree], Own
     return Ownership(kind=bpy.types.NodeTree, key=key, saved=Saved.USED), Ownership(kind=bpy.types.NodeTree, key=f"{key}_entry", saved=Saved.USED, single=False)
 
 
+def local_entry(entry: bpy.types.SceneCompositorEffect, record: Entry[Effect]) -> BlenderResult[bpy.types.SceneCompositorEffect]:
+    """Admits an entry whose effect answers each pixel independently of its frame."""
+    return Ok(entry) if record.effect.pointwise else Error((BlenderChoiceFault(path=entry.name, identifier="False", accepted=("True",)),))
+
+
 def entries(identity: Identity, scene: bpy.types.Scene, record: type[Effect]) -> tuple[bpy.types.SceneCompositorEffect, ...]:
     """Returns native entries carrying either ownership of the record, in stack order."""
     keys = frozenset(owner.key for owner in ownerships(record))
@@ -1745,14 +1740,32 @@ def editable(scene: bpy.types.Scene) -> BlenderResult[bpy.types.Scene]:
     return Ok(scene) if scene.override_library is None else Error((BlenderEditFault(request=repr(scene.override_library), error=AttributeError(name="compositor_effects")),))
 
 
-def entry_input(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> BlenderResult[bpy.types.bpy_struct]:
+def entry_input(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> "BlenderResult[bpy.types.bpy_struct[object]]":
     """Resolves one live entry input after any group-interface reconstruction."""
     return (
-        Result[bpy.types.NodeTree, BlenderFaults]  # ty: ignore[invalid-return-type]
+        Result[bpy.types.NodeTree, BlenderFaults]
         .bind(Option.of_optional(entry.node_group).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="node_group"),)), lambda group: addresses(group, identity))
         .bind(lambda keys: Option.of_optional(keys.get(key)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=key),)))
-        .bind(lambda address: catch(lambda: entry.path_resolve(f"properties.inputs.{address}"), exception=ValueError)().map_error(lambda _: (BlenderAbsentFault(owner=repr(entry), key=key),)))  # type: ignore[arg-type, return-value]
+        .bind(lambda address: interface_input(entry, address))
     )
+
+
+def relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, index: int) -> BlenderResult[None]:
+    """Moves an entry to a stack index, Blender refusing a move onto the entry's own index."""
+    return (
+        Ok(None)
+        if scene.compositor_effects.find(entry.name) == index
+        else called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": index}, override=Some(bpy.context.temp_override(scene=scene))).map(lambda _: None)
+    )
+
+
+def interface_input(entry: bpy.types.SceneCompositorEffect, identifier: str) -> "BlenderResult[bpy.types.bpy_struct[object]]":
+    """Resolves one live entry input by its native interface socket identifier."""
+    match struct_at(entry, f"properties.inputs.{identifier}").to_optional():
+        case bpy.types.bpy_struct() as value:
+            return Ok(value)
+        case _:
+            return Error((BlenderAbsentFault(owner=repr(entry), key=identifier),))
 
 
 def path(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> BlenderResult[str]:
@@ -1832,7 +1845,7 @@ def inputs[T: msgspec.Struct](
                 )
             case native.FloatType():
                 return socket(at).bind(lambda value: Unit.of(annotation, shape).restored(value, shape))
-            case native.TupleType() if RecordGroup.vector(shape):
+            case native.TupleType() if vector(shape):
                 return socket(at).bind(lambda value: Unit.of(annotation, shape).restored(value, shape))
             case native.TupleType():
                 return accumulated(read((*at, index), component, native.type_info(component.type), component.type) for index, component in enumerate(RecordGroup.components(field), 1))
@@ -1880,7 +1893,7 @@ def entered(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix: 
             return accumulated(entry_input(identity, entry, item_key(*at, choice.name)).bind(lambda item: written(item, "value", choice in value)) for choice in shape.item_type.cls).map(
                 lambda _: None
             )
-        if isinstance(shape, native.TupleType) and not RecordGroup.vector(shape):
+        if isinstance(shape, native.TupleType) and not vector(shape):
             return Ok(None)
         if isinstance(shape, native.FloatType | native.TupleType):
             return Unit.of(annotation, shape).stored(value, shape).bind(socket)
@@ -2015,35 +2028,30 @@ def case_values(kind: type[Effect], record: Effect, tree: Option[bpy.types.NodeT
     """Constructs inactive native cases only when their required values exist."""
 
     def made(values: Mapping[Key, object]) -> BlenderResult[dict[KeyPath, tuple[Case, ...]]]:
-        answer: list[BlenderResult[tuple[KeyPath, tuple[Case, ...]]]] = []
-        for at, field, raw in rows(kind, value=Some(record)):
-            if any(isinstance(part, type) and not isinstance(reached(record, at[:index]), part) for index, part in enumerate(at)):
-                continue
-            shape = raw
-            while isinstance(shape, native.Metadata):
-                shape = shape.type
-            if not isinstance(shape, native.UnionType):
-                continue
-            active = reached(record, at)
-            cases: list[BlenderResult[Case]] = []
-            for branch in shape.types:
-                match branch:
-                    case native.StructType(cls=alternative, fields=fields) if issubclass(alternative, Case):
-                        if isinstance(active, alternative):
-                            cases.append(Ok(active))
-                            continue
-                        declared = {field.name: field for field in msgspec.structs.fields(alternative)}
-                        given = {declared[field.name].encode_name: values[item_key(*at, alternative, field.name)] for field in fields if item_key(*at, alternative, field.name) in values}
-                        required = tuple(field for field in fields if field.required)
-                        if any(declared[field.name].encode_name not in given for field in required):
-                            continue
-                        cases.append(
-                            catch(lambda: msgspec.convert(given, alternative), exception=msgspec.ValidationError)().map_error(
-                                lambda error: (BlenderReadFault(request=item_key(*at, alternative), error=error),)
-                            )
-                        )
-            answer.append(accumulated(cases).map(lambda cases: (at, cases)))
-        return accumulated(answer).map(dict)
+        def case(at: KeyPath, active: object, alternative: type[Case], fields: tuple[native.Field, ...]) -> Option[BlenderResult[Case]]:
+            given = {field.encode_name: values[key] for field in fields for key in (item_key(*at, alternative, field.name),) if key in values}
+            return (
+                Some(Ok(active))
+                if isinstance(active, alternative)
+                else Nothing
+                if any(field.required and field.encode_name not in given for field in fields)
+                else Some(
+                    catch(lambda: msgspec.convert(given, alternative), exception=msgspec.ValidationError)().map_error(
+                        lambda error: (BlenderReadFault(request=item_key(*at, alternative), error=error),)
+                    )
+                )
+            )
+
+        return accumulated(
+            accumulated(
+                cased for branch in shape.types if isinstance(branch, native.StructType) and issubclass(branch.cls, Case) for cased in case(at, active, branch.cls, branch.fields).to_list()
+            ).map(lambda cases: (at, cases))
+            for at, _, raw in rows(kind, value=Some(record))
+            if all(not isinstance(part, type) or isinstance(reached(record, at[:index]), part) for index, part in enumerate(at))
+            for shape in (raw.type if isinstance(raw, native.Metadata) else raw,)
+            if isinstance(shape, native.UnionType)
+            for active in (reached(record, at),)
+        ).map(dict)
 
     return tree.map(lambda group: stored(identity, group, "values", dict[Key, object]).bind(lambda pair: made(pair[1]))).default_with(lambda: made({}))
 
@@ -2159,9 +2167,9 @@ def followed(identity: Identity) -> BlenderResult[None]:
         for entry in entries(identity, scene, DisplayView)
         for group in Option.of_optional(entry.node_group).to_list()
         for node in group.nodes
-        if isinstance(node, bpy.types.CompositorNodeConvertToDisplay)
+        if isinstance(node, bpy.types.CompositorNodeConvertToDisplay)  # ty: ignore[redundant-condition-strict]
         and Mark.read(identity, node).filter(lambda mark: mark.key == "display").is_some()
-        and node.display_settings.display_device != scene.display_settings.display_device  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute, redundant-condition-strict]
+        and node.display_settings.display_device != scene.display_settings.display_device  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     ).map(lambda _: None)
 
 
@@ -2226,6 +2234,7 @@ __all__ = [
     "graphed",
     "hidden",
     "inputs",
+    "interface_input",
     "keyed_product",
     "menus",
     "ownerships",
@@ -2233,6 +2242,7 @@ __all__ = [
     "precise",
     "projected",
     "reached",
+    "relocated",
     "render_inputs",
     "rows",
     "shutter",

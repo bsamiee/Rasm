@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,misc,union-attr"
-# ty: ignore[invalid-attribute-access,unresolved-attribute]
 """Native procedural fields, generated light, and Gaussian distributions."""
 
 from collections.abc import Mapping
@@ -87,30 +85,30 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
         common = {"Vector": position, "W": fourth, "Scale": 1.0}
         match basis:
             case Perlin():
-                octaves = {field.name.title(): inputs.get((Perlin.octaves.__name__, field.name), getattr(basis.octaves, field.name)) for field in msgspec.structs.fields(Octaves)}
+                octaves = {field.name.title(): inputs.get((Perlin.octaves.__name__, field.name), getattr(basis.octaves, field.name)) for field in msgspec.structs.fields(Octaves)}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 return node(
                     texture,
                     bpy.types.ShaderNodeTexNoise,
                     {
                         **common,
                         **octaves,
-                        "Offset": inputs.get((Perlin.offset.__name__,), basis.offset),
-                        "Gain": inputs.get((Perlin.gain.__name__,), basis.gain),
-                        "Distortion": inputs.get((Perlin.distortion.__name__,), basis.distortion),
+                        "Offset": inputs.get((Perlin.offset.__name__,), basis.offset),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        "Gain": inputs.get((Perlin.gain.__name__,), basis.gain),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        "Distortion": inputs.get((Perlin.distortion.__name__,), basis.distortion),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     },
                     {"noise_dimensions": f"{basis.dimensions}D", "noise_type": basis.fractal.name, "normalize": True},
                 ).map(ended(texture, "Fac"))
             case Voronoi():
-                octaves = {field.name.title(): inputs.get((Voronoi.octaves.__name__, field.name), getattr(basis.octaves, field.name)) for field in msgspec.structs.fields(Octaves)}
+                octaves = {field.name.title(): inputs.get((Voronoi.octaves.__name__, field.name), getattr(basis.octaves, field.name)) for field in msgspec.structs.fields(Octaves)}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 return node(
                     texture,
                     bpy.types.ShaderNodeTexVoronoi,
                     {
                         **common,
                         **octaves,
-                        "Exponent": inputs.get((Voronoi.exponent.__name__,), basis.exponent),
-                        "Smoothness": inputs.get((Voronoi.smoothness.__name__,), basis.smoothness),
-                        "Randomness": inputs.get((Voronoi.randomness.__name__,), basis.randomness),
+                        "Exponent": inputs.get((Voronoi.exponent.__name__,), basis.exponent),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        "Smoothness": inputs.get((Voronoi.smoothness.__name__,), basis.smoothness),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        "Randomness": inputs.get((Voronoi.randomness.__name__,), basis.randomness),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     },
                     {"voronoi_dimensions": f"{basis.dimensions}D", "feature": basis.feature.name, "distance": basis.metric.name, "normalize": True},
                 ).map(ended(texture, "Distance"))
@@ -124,11 +122,11 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
                 return node(
                     texture,
                     bpy.types.ShaderNodeTexMagic,
-                    {"Vector": position, "Scale": 1.0, "Distortion": inputs.get((Magic.distortion.__name__,), basis.distortion)},
+                    {"Vector": position, "Scale": 1.0, "Distortion": inputs.get((Magic.distortion.__name__,), basis.distortion)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     {"turbulence_depth": basis.depth},
                 ).map(ended(texture, "Fac"))
             case Gabor():
-                angle = inputs.get((Gabor.orientation.__name__,), basis.orientation)
+                angle = inputs.get((Gabor.orientation.__name__,), basis.orientation)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 orientation = (
                     paired(math(f"{key}_cosine", "COSINE", angle), math(f"{key}_sine", "SINE", angle))
                     .bind(lambda axes: node(f"{key}_orientation", bpy.types.ShaderNodeCombineXYZ, {"X": axes[0], "Y": axes[1], "Z": 0.0}, {}))
@@ -141,8 +139,8 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
                         {
                             "Vector": position,
                             "Scale": 1.0,
-                            "Frequency": inputs.get((Gabor.frequency.__name__,), basis.frequency),
-                            "Anisotropy": inputs.get((Gabor.anisotropy.__name__,), basis.anisotropy),
+                            "Frequency": inputs.get((Gabor.frequency.__name__,), basis.frequency),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                            "Anisotropy": inputs.get((Gabor.anisotropy.__name__,), basis.anisotropy),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                             "Orientation 2D": angle,
                             "Orientation 3D": direction,
                         },
@@ -151,7 +149,7 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
                 ).map(ended(texture, "Value"))
             case Wave():
                 return (
-                    math(f"{key}_evolution", "MULTIPLY_ADD", time, -tau, inputs.get((Wave.phase.__name__,), basis.phase))
+                    math(f"{key}_evolution", "MULTIPLY_ADD", time, -tau, inputs.get((Wave.phase.__name__,), basis.phase))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     .bind(
                         lambda phase: node(
                             texture,
@@ -160,10 +158,10 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
                                 "Vector": position,
                                 "Scale": pi / 10.0,
                                 "Phase Offset": phase,
-                                "Distortion": inputs.get((Wave.distortion.__name__,), basis.distortion),
-                                "Detail": inputs.get((Wave.detail.__name__,), basis.detail),
-                                "Detail Scale": inputs.get((Wave.detail_scale.__name__,), basis.detail_scale),
-                                "Detail Roughness": inputs.get((Wave.detail_roughness.__name__,), basis.detail_roughness),
+                                "Distortion": inputs.get((Wave.distortion.__name__,), basis.distortion),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                                "Detail": inputs.get((Wave.detail.__name__,), basis.detail),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                                "Detail Scale": inputs.get((Wave.detail_scale.__name__,), basis.detail_scale),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                                "Detail Roughness": inputs.get((Wave.detail_roughness.__name__,), basis.detail_roughness),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                             },
                             {
                                 "wave_type": basis.pattern.name,
@@ -195,19 +193,19 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
     scale: BlenderResult[Operand]
     match basis:
         case Perlin():
-            size = inputs.get((Perlin.size.__name__,), basis.size)
+            size = inputs.get((Perlin.size.__name__,), basis.size)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             scale = (
-                math(f"{key}_stretched", "MULTIPLY", size, inputs.get((Perlin.stretch.__name__,), basis.stretch))
+                math(f"{key}_stretched", "MULTIPLY", size, inputs.get((Perlin.stretch.__name__,), basis.stretch))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 .bind(lambda stretched: node(f"{key}_scale", bpy.types.ShaderNodeCombineXYZ, {"X": size, "Y": stretched, "Z": size}, {}))
                 .map(ended(f"{key}_scale", "Vector"))
             )
         case Voronoi() | White():
-            spacing = Voronoi.spacing.__name__ if isinstance(basis, Voronoi) else White.spacing.__name__
+            spacing = Voronoi.spacing.__name__ if isinstance(basis, Voronoi) else White.spacing.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             scale = Ok(inputs.get((spacing,), basis.spacing))
         case Wave():
-            scale = Ok(inputs.get((Wave.wavelength.__name__,), basis.wavelength))
+            scale = Ok(inputs.get((Wave.wavelength.__name__,), basis.wavelength))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         case Gabor() | Magic():
-            size = Gabor.size.__name__ if isinstance(basis, Gabor) else Magic.size.__name__
+            size = Gabor.size.__name__ if isinstance(basis, Gabor) else Magic.size.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             scale = Ok(inputs.get((size,), basis.size))
     return paired(scale.bind(lambda scale: vector(f"{key}_scaled", "DIVIDE", point, (scale,) * 3 if isinstance(scale, float | int) else scale)), origin(f"{key}_origin", seed, stream)).bind(
         lambda parts: shifted(*parts)
@@ -239,9 +237,9 @@ def sampled[R: Effect](
         values = {at[len(path) + 1 :]: shell.socket(*at) for at, _, _ in rows(kind, prefix=(*path, kind))}
         raw = sample(prefix, basis, point, time, seed, stream, values)
         density = raw.bind(lambda raw: math(f"{prefix}_loss", "SUBTRACT", raw, loss)).bind(
-            lambda reduced: math(f"{prefix}_threshold", "SUBTRACT", reduced, shell.socket(*path, kind, kind.cut.__name__, Cut.threshold.__name__))
+            lambda reduced: math(f"{prefix}_threshold", "SUBTRACT", reduced, shell.socket(*path, kind, kind.cut.__name__, Cut.threshold.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
-        invert = shell.socket(*path, kind, kind.cut.__name__, Cut.invert.__name__)
+        invert = shell.socket(*path, kind, kind.cut.__name__, Cut.invert.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         high = math(f"{prefix}_high", "SUBTRACT", 1.0, invert)
         mapped = (
             paired(density, high)
@@ -249,7 +247,7 @@ def sampled[R: Effect](
                 lambda ends: node(
                     f"{prefix}_cut",
                     bpy.types.ShaderNodeMapRange,
-                    {"Value": ends[0], "From Min": 0.0, "From Max": shell.socket(*path, kind, kind.cut.__name__, Cut.softness.__name__), "To Min": invert, "To Max": ends[1]},
+                    {"Value": ends[0], "From Min": 0.0, "From Max": shell.socket(*path, kind, kind.cut.__name__, Cut.softness.__name__), "To Min": invert, "To Max": ends[1]},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     {"interpolation_type": basis.cut.interpolation.name, "clamp": True},
                 )
             )
@@ -265,7 +263,7 @@ def sampled[R: Effect](
             else raw.map(lambda raw: (raw[0], End(node=f"{prefix}_texture", socket="Color")))
         )
         channels = color.bind(lambda color: node(f"{prefix}_channels", bpy.types.CompositorNodeSeparateColor, {"Image": color}, {"mode": "RGB"}))
-        cell_color = shell.socket(*path, kind, Voronoi.cell_color.__name__)
+        cell_color = shell.socket(*path, kind, Voronoi.cell_color.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         weighted = paired(mapped, channels).bind(lambda parts: math(f"{prefix}_brightness", "MULTIPLY", parts[0], ended(f"{prefix}_channels", "Green")(parts[1])))
         return paired(paired(mapped, channels), weighted).bind(
             lambda parts: paired(
@@ -334,22 +332,22 @@ def emitted[R: Effect](shell: Shell[R], path: KeyPath, tones: tuple[Operand, *tu
         Light pairs sharing the call's complete graph, or native graph faults.
     """
     key = item_key(*path)
-    spectrum = (*path, Emission.spectrum.__name__)
-    brightness = math(f"{key}_brightness", "POWER", 2.0, shell.socket(*path, Emission.intensity.__name__))
+    spectrum = (*path, Emission.spectrum.__name__)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    brightness = math(f"{key}_brightness", "POWER", 2.0, shell.socket(*path, Emission.intensity.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     working = masks.luminance(shell.config)
 
     def colored(index: int, tone: Operand) -> BlenderResult[dict[str, tuple[Fragment, End]]]:
         prefix = f"{key}_{index}"
-        tint = mixed(f"{prefix}_tint", "RGBA", tone, shell.socket(*spectrum, Tint, Tint.start.__name__), shell.socket(*spectrum, Tint, Tint.end.__name__))
+        tint = mixed(f"{prefix}_tint", "RGBA", tone, shell.socket(*spectrum, Tint, Tint.start.__name__), shell.socket(*spectrum, Tint, Tint.end.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         body = (
-            mixed(f"{prefix}_temperature", "FLOAT", tone, shell.socket(*spectrum, Incandescence, Incandescence.cool.__name__), shell.socket(*spectrum, Incandescence, Incandescence.hot.__name__))
+            mixed(f"{prefix}_temperature", "FLOAT", tone, shell.socket(*spectrum, Incandescence, Incandescence.cool.__name__), shell.socket(*spectrum, Incandescence, Incandescence.hot.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda temperature: node(f"{prefix}_blackbody", bpy.types.ShaderNodeBlackbody, {"Temperature": temperature}, {}))
             .map(ended(f"{prefix}_blackbody", "Color"))
         )
         thermal = paired(body, working).bind(
             lambda parts: nested(f"{prefix}_luminance", parts[1], {"image": parts[0]}, "luminance").bind(lambda luminance: vector(f"{prefix}_unit", "DIVIDE", parts[0], luminance))
         )
-        ramp = item_key(*spectrum, Gradient, Gradient.ramp.__name__) if index == 0 else f"{prefix}_gradient"
+        ramp = item_key(*spectrum, Gradient, Gradient.ramp.__name__) if index == 0 else f"{prefix}_gradient"  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         gradient = node(ramp, bpy.types.ShaderNodeValToRGB, {"Fac": tone}, {}, shell.case(Gradient, *spectrum).map(lambda gradient: gradient.ramp)).map(ended(ramp, "Color"))
         return accumulated(light.map(lambda light: (title, light)) for title, light in {Tint.title: tint, Incandescence.title: thermal, Gradient.title: gradient}.items()).map(dict)
 
@@ -370,24 +368,24 @@ def emitted[R: Effect](shell: Shell[R], path: KeyPath, tones: tuple[Operand, *tu
 def noised(shell: Shell[NoiseField]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns generated emission and extinctive coverage over the field's coordinates."""
     inlet = shell.socket
-    motion = NoiseField.motion.__name__
-    clock = Clock(key="clock", speed=inlet(motion, Motion.speed.__name__), hold=inlet(motion, Motion.hold.__name__)).value
+    motion = NoiseField.motion.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    clock = Clock(key="clock", speed=inlet(motion, Motion.speed.__name__), hold=inlet(motion, Motion.hold.__name__)).value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def lit(fields: tuple[tuple[Fragment, End], tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
         density, tone = fields
         emission = (
-            emitted(shell, (NoiseField.emission.__name__, Gated.value.__name__), (tone,))
+            emitted(shell, (NoiseField.emission.__name__, Gated.value.__name__), (tone,))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
             .bind(lambda lights: vector("radiance", "SCALE", lights[0], density))
-            .bind(lambda radiance: switched("emission", "VECTOR", inlet(NoiseField.emission.__name__), (0.0, 0.0, 0.0), radiance))
+            .bind(lambda radiance: switched("emission", "VECTOR", inlet(NoiseField.emission.__name__), (0.0, 0.0, 0.0), radiance))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
-        extinction = (NoiseField.extinction.__name__, Gated.value.__name__)
+        extinction = (NoiseField.extinction.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
         transmission = (
-            math("optical_depth", "MULTIPLY", density, inlet(*extinction, Extinction.density.__name__))
+            math("optical_depth", "MULTIPLY", density, inlet(*extinction, Extinction.density.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda depth: math("absorbed", "POWER", exp(-1.0), depth))
-            .bind(lambda transmittance: switched("transmittance", "FLOAT", inlet(NoiseField.extinction.__name__), 1.0, transmittance))
+            .bind(lambda transmittance: switched("transmittance", "FLOAT", inlet(NoiseField.extinction.__name__), 1.0, transmittance))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
         coverage = transmission.bind(lambda transmission: math("coverage", "SUBTRACT", 1.0, transmission))
-        scatter = coverage.bind(lambda cover: vector("scatter", "SCALE", inlet(*extinction, Extinction.color.__name__), cover))
+        scatter = coverage.bind(lambda cover: vector("scatter", "SCALE", inlet(*extinction, Extinction.color.__name__), cover))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return (
             paired(paired(emission, scatter).bind(lambda parts: vector("light", "ADD", *parts)), coverage)
             .bind(lambda parts: node("generated", bpy.types.CompositorNodeSetAlpha, {"Image": parts[0], "Alpha": parts[1], "Type": "Replace Alpha"}, {}))
@@ -396,34 +394,34 @@ def noised(shell: Shell[NoiseField]) -> BlenderResult[tuple[Fragment, End]]:
 
     def built(at: FrameSpace, clock: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         axis = (
-            vector("anchor", "MULTIPLY", inlet(NoiseField.center.__name__), at.extent)
+            vector("anchor", "MULTIPLY", inlet(NoiseField.center.__name__), at.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda anchor: vector("offset", "SUBTRACT", at.point, anchor))
-            .bind(lambda offset: node("axes", bpy.types.ShaderNodeVectorRotate, {"Vector": offset, "Angle": inlet(NoiseField.angle.__name__)}, {"rotation_type": "Z_AXIS", "invert": True}))
+            .bind(lambda offset: node("axes", bpy.types.ShaderNodeVectorRotate, {"Vector": offset, "Angle": inlet(NoiseField.angle.__name__)}, {"rotation_type": "Z_AXIS", "invert": True}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .map(ended("axes", "Vector"))
         )
-        vortex = (NoiseField.vortex.__name__, Gated.value.__name__)
-        envelope = (NoiseField.envelope.__name__, Gated.value.__name__)
+        vortex = (NoiseField.vortex.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+        envelope = (NoiseField.envelope.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
 
-        radius = inlet(*vortex, Vortex.radius.__name__)
+        radius = inlet(*vortex, Vortex.radius.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         rho = axis.bind(lambda axes: vector("distance", "LENGTH", axes)).bind(lambda distance: math("rho", "DIVIDE", distance, radius))
         theta = axis.bind(lambda axes: node("polar", bpy.types.ShaderNodeSeparateXYZ, {"Vector": axes}, {})).bind(
             lambda polar: math("theta", "ARCTAN2", ended("polar", "Y")(polar), End(node="polar", socket="X"))
         )
-        turn = paired(rho.bind(lambda rho: math("remaining", "SUBTRACT", 1.0, rho)), math("spin", "MULTIPLY", clock, inlet(*vortex, Vortex.spin.__name__))).bind(
-            lambda parts: math("turn", "MULTIPLY_ADD", parts[0], inlet(*vortex, Vortex.twirl.__name__), parts[1])
+        turn = paired(rho.bind(lambda rho: math("remaining", "SUBTRACT", 1.0, rho)), math("spin", "MULTIPLY", clock, inlet(*vortex, Vortex.spin.__name__))).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            lambda parts: math("turn", "MULTIPLY_ADD", parts[0], inlet(*vortex, Vortex.twirl.__name__), parts[1])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
-        phase = paired(theta, turn).bind(lambda parts: math("phase", "MULTIPLY_ADD", parts[0], inlet(*vortex, Vortex.arms.__name__), parts[1]))
+        phase = paired(theta, turn).bind(lambda parts: math("phase", "MULTIPLY_ADD", parts[0], inlet(*vortex, Vortex.arms.__name__), parts[1]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         circle = (
             phase
             .bind(lambda phase: paired(math("cosine", "COSINE", phase), math("sine", "SINE", phase)))
-            .bind(lambda trigonometry: node("ring", bpy.types.ShaderNodeCombineXYZ, {"X": trigonometry[0], "Y": trigonometry[1], "Z": inlet(*vortex, Vortex.tunnel.__name__)}, {}))
+            .bind(lambda trigonometry: node("ring", bpy.types.ShaderNodeCombineXYZ, {"X": trigonometry[0], "Y": trigonometry[1], "Z": inlet(*vortex, Vortex.tunnel.__name__)}, {}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .map(ended("ring", "Vector"))
         )
         span = rho.bind(lambda rho: math("bounded_radius", "MINIMUM", rho, 1.0)).bind(lambda bounded: math("span", "MULTIPLY", bounded, radius))
-        mapped = paired(axis, paired(circle, span).bind(lambda parts: vector("cone", "SCALE", *parts))).bind(lambda parts: switched("mapped", "VECTOR", inlet(NoiseField.vortex.__name__), *parts))
-        flow = vector("flow", "SCALE", inlet(NoiseField.drift.__name__), clock)
+        mapped = paired(axis, paired(circle, span).bind(lambda parts: vector("cone", "SCALE", *parts))).bind(lambda parts: switched("mapped", "VECTOR", inlet(NoiseField.vortex.__name__), *parts))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        flow = vector("flow", "SCALE", inlet(NoiseField.drift.__name__), clock)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         point = paired(mapped, flow).bind(lambda parts: vector("sample", "SUBTRACT", *parts))
-        extent = node("envelope_extent", bpy.types.ShaderNodeCombineXYZ, {"X": inlet(*envelope, Envelope.width.__name__), "Y": inlet(*envelope, Envelope.height.__name__)}, {}).map(
+        extent = node("envelope_extent", bpy.types.ShaderNodeCombineXYZ, {"X": inlet(*envelope, Envelope.width.__name__), "Y": inlet(*envelope, Envelope.height.__name__)}, {}).map(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             ended("envelope_extent", "Vector")
         )
         loss = (
@@ -434,11 +432,11 @@ def noised(shell: Shell[NoiseField]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda edge: math("envelope_reach", "MAXIMUM", edge, 0.0))
             .bind(lambda reach: math("envelope_squared", "MULTIPLY", reach, reach))
             .bind(lambda square: math("envelope_loss", "SUBTRACT", 1.0, square))
-            .bind(lambda loss: switched("loss", "FLOAT", inlet(NoiseField.envelope.__name__), 0.0, loss))
+            .bind(lambda loss: switched("loss", "FLOAT", inlet(NoiseField.envelope.__name__), 0.0, loss))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
-        time = math("evolution", "MULTIPLY", clock, inlet(NoiseField.evolution.__name__))
+        time = math("evolution", "MULTIPLY", clock, inlet(NoiseField.evolution.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return (
-            paired(paired(point, time), loss).bind(lambda parts: sampled(shell, (NoiseField.basis.__name__,), *parts[0], inlet(NoiseField.seed.__name__), parts[1])).bind(lambda fields: lit(fields[0]))
+            paired(paired(point, time), loss).bind(lambda parts: sampled(shell, (NoiseField.basis.__name__,), *parts[0], inlet(NoiseField.seed.__name__), parts[1])).bind(lambda fields: lit(fields[0]))  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
         )
 
     return paired(framed("frame", shell.source, shell.aspect, shell.scale), clock).bind(lambda parts: built(*parts))

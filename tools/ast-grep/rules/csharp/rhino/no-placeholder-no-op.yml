@@ -31,7 +31,7 @@ rule:
     any:
         - kind: member_access_expression
           pattern: $PLACEHOLDER
-          regex: '^((global::)?Thinktecture\s*\.\s*)?Empty\s*\.\s*(Action(\s*<.+>)?|Disposable|AsyncDisposable)$'
+          matches: {csharp-owner-member: {type: {regex: '^Empty$'}, member: {regex: '^(Action|Disposable|AsyncDisposable)$'}}}
           all:
             - not:
                 all:

@@ -9,7 +9,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
@@ -103,24 +103,28 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
             identity: Extension owning the library folder.
 
         Yields:
-            Success while the row is acquired, or the folder's write fault.
+            Success while the row is acquired, the folder's write fault, or the absent row Blender refused to add.
         """
-        made = folder_made(self.located(identity))
         with ExitStack() as lifetime:
-            for folder in made.to_option().to_list():
-                held = bpy.context.preferences.filepaths.asset_libraries  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                row: bpy.types.UserAssetLibrary
-                match Option.of_optional(next((row for row in held if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None)):
-                    case Option(tag="some", some=row):
+
+            def held(folder: Path, rows: bpy.types.AssetLibraryCollection) -> BlenderResult[bpy.types.UserAssetLibrary]:
+                match next((row for row in rows if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None):
+                    case None:
+                        made = Option.of_optional(rows.new(name=self.title, directory=str(folder))).to_result_with(lambda: (BlenderAbsentFault(owner=repr(rows), key=self.title),))
+                        for row in made.to_option().to_list():
+                            lifetime.callback(rows.remove, row)
+                        return made
+                    case row:
                         lifetime.callback(setattr, row, "name", row.name)
                         lifetime.callback(setattr, row, "import_method", row.import_method)
-                    case Option():
-                        row = held.new(name=self.title, directory=str(folder))  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                        lifetime.callback(held.remove, row)
+                        return Ok(row)
+
+            def configured(row: bpy.types.UserAssetLibrary) -> None:
                 row.name = self.title
                 for method in self.method.to_list():
                     row.import_method = method
-            yield made.map(lambda _: None)
+
+            yield folder_made(self.located(identity)).bind(lambda folder: held(folder, bpy.context.preferences.filepaths.asset_libraries)).map(configured)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -210,10 +214,10 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
             return Ok(block) if isinstance(block, kind) else Error((BlenderAbsentFault(owner=asset.full_path, key=asset.name),))
         case Option():
             path = Path(asset.full_library_path)
-            preferred = Some(asset.metadata.preferred_import_method) if asset.metadata.use_preferred_import_method else Nothing  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            preferred = Option.of_optional(asset.metadata).filter(lambda data: data.use_preferred_import_method).map(lambda data: data.preferred_import_method)
             link: BlenderResult[LibraryLink] = (
                 Ok(linking(preferred.default_with(essential), relative=True))
-                if asset.owner_asset_library.type == "ESSENTIALS"  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                if Option.of_optional(asset.owner_asset_library).filter(lambda owner: owner.type == "ESSENTIALS").is_some()
                 else library.map(lambda row: linking(preferred.default_value(row.import_method), relative=row.use_relative_path)).to_result_with(
                     lambda: (BlenderAbsentFault(owner=asset.full_path, key="owner_asset_library"),)
                 )

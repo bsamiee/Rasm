@@ -73,11 +73,7 @@ public static class DisposalOps {
     public static IO<ForkIO<TResult>> Fork<TResult>(IO<TResult> body, Action<IDisposable> retain) =>
         from environment in envIO
         from result in (from fork in body.Fork()
-                        from retained in OnFailure(
-                            from registration in IO.lift(() => environment.Token.Register(() => fork.Cancel.Run()))
-                            from attached in OnFailure(IO.lift(() => retain(Composite(Seq<IDisposable>(registration,
-                                new Disposal<ForkIO<TResult>>(fork, static held => held.Cancel.Run()))))), IO.lift(registration.Dispose))
-                            select attached, fork.Cancel)
+                        from retained in OnFailure(Attach(fork, environment, retain), fork.Cancel)
                         select fork).Uninterruptible()
         select result;
 
@@ -116,6 +112,12 @@ public static class DisposalOps {
             IDisposable lease = new Disposal<IO<Unit>>(close, static effect => effect.Run());
             return (retain, close, lease);
         });
+
+    private static IO<Unit> Attach<TResult>(ForkIO<TResult> fork, EnvIO environment, Action<IDisposable> retain) =>
+        from registration in IO.lift(() => environment.Token.Register(() => fork.Cancel.Run()))
+        from attached in OnFailure(IO.lift(() => retain(Composite(Seq<IDisposable>(registration,
+            new Disposal<ForkIO<TResult>>(fork, static held => held.Cancel.Run()))))), IO.lift(registration.Dispose))
+        select attached;
 
     // --- [RELEASE]
     public static IO<Unit> Release<T>(Seq<T> held) where T : IDisposable =>

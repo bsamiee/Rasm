@@ -3,16 +3,23 @@ id: no-partial-class-attribute
 language: python
 severity: error
 utils:
+    record-base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
+            - matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
+            - matches: {python-base-class: {superclasses: {has: {matches: record-base}}}}
+    partial-class:
+        any:
+            - matches: functools-partial-callee
+            - matches: {python-base-class: {superclasses: {has: {matches: partial-class}}}}
     class-var:
         matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^ClassVar$'}}}
     record-decorator:
-        any:
-            - matches: {python-member-use: {module: {regex: '^(pydantic\.)?dataclasses$'}, name: {regex: '^dataclass$'}}}
-            - matches: {python-member-use: {module: {regex: '^attrs?$'}, name: {regex: '^(dataclass|define|frozen|mutable)$'}}}
+        matches: {python-member-use: {module: {regex: '^pydantic\.dataclasses$'}, name: {regex: '^dataclass$'}}}
     record-class:
         kind: class_definition
         any:
-            - has: {field: superclasses, has: {any: [{matches: python-record-base}, {matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^NamedTuple$'}}}}]}}
+            - has: {field: superclasses, has: {matches: record-base}}
             - inside: {kind: decorated_definition, has: {kind: decorator, has: {any: [{matches: record-decorator}, {kind: call, has: {field: function, matches: record-decorator}}]}}}
     record-field:
         kind: assignment
@@ -72,13 +79,13 @@ rule:
         - kind: call
           pattern: $VALUE
           all:
-            - has: {field: function, matches: functools-partial-class}
+            - has: {field: function, matches: partial-class}
             - matches: bound
             - not: {inside: {matches: record-field, stopBy: {not: {kind: 'parenthesized_expression, conditional_expression, boolean_operator'}}}}
         - kind: decorator
           pattern: $VALUE
           all:
-            - has: {matches: functools-partial-class}
+            - has: {matches: partial-class}
             - not: {follows: {kind: decorator, stopBy: end}}
             - inside: {kind: decorated_definition, matches: class-body}
 message: '`$VALUE` stores `functools.partial` as a class attribute, bound as a method on Python 3.14 and later and unbound on Blender and Rhino''s embedded Python 3.13'

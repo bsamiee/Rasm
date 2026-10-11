@@ -81,8 +81,11 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
         """Yields each added native item for immediate caller ownership."""
 
         def preference(name: str) -> Option[object]:
-            return Option.of_optional(manager.keyconfigs.active.preferences).bind(  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                lambda preferences: Option.of_optional(preferences.bl_rna.properties.get(name)).map(lambda prop: getattr(preferences, prop.identifier))
+            return (
+                Option
+                .of_optional(manager.keyconfigs.active)
+                .bind(lambda config: Option.of_optional(config.preferences))
+                .bind(lambda preferences: Option.of_optional(preferences.bl_rna.properties.get(name)).map(lambda prop: getattr(preferences, prop.identifier)))
             )
 
         left = preference("select_mouse").map(lambda selected: selected == "LEFT").default_value(True)
@@ -94,12 +97,16 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
             case str():
                 kind = self.type
         value: rna_enums.EventValueItems = self.value.default_with(lambda: "CLICK_DRAG" if pie and preference("use_pie_click_drag").map(bool).default_value(False) else "PRESS")
-        event = {**msgspec.structs.asdict(self), "type": kind, "value": value}
+        event = msgspec.structs.asdict(self)
+        event.update(type=kind, value=value)
         if not self.ctrl:
             del event["ctrl"]
         data = [(keymap.name, dict[str, object](), {"items": [(None, event, None)]})]
-        copied = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data  # type: ignore[func-returns-value]
-        return (keymap.keymap_items.new(operator, **item) for _, _, block in copied for _, item, _ in block["items"])  # type: ignore[union-attr]  # ty: ignore[not-iterable, invalid-argument-type]
+        return (
+            keymap.keymap_items.new(operator, **item)
+            for _, _, block in (platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data)  # type: ignore[func-returns-value, union-attr]  # ty: ignore[not-iterable]
+            for _, item, _ in block["items"]
+        )
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -119,11 +126,10 @@ class Keymap:
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
         """Resolves native contexts and acquires targets after operator registration."""
-        manager = bpy.context.window_manager
 
         @contextmanager
-        def added(given: tuple[tuple[Location, ...], bpy.types.KeyConfig]) -> Generator[BlenderResult[None]]:
-            locations, config = given
+        def added(given: tuple[tuple[Location, ...], tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]) -> Generator[BlenderResult[None]]:
+            locations, (manager, config) = given
             held: list[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem]] = []
             try:
                 writes: list[BlenderResult[None]] = []
@@ -133,9 +139,9 @@ class Keymap:
                     def placed(pair: tuple[str, Writer], chord: Chord, target: Target) -> BlenderResult[None]:
                         operator, write = pair
                         written: list[BlenderResult[None]] = []
-                        for item in chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        for item in chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie):
                             held.append((native, item))
-                            written.append(write(item.properties))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                            written.append(Option.of_optional(item.properties).map(write).default_with(lambda: Error((BlenderAbsentFault(owner=operator, key="properties"),))))
                         return accumulated(written).map(lambda _: None)
 
                     writes.extend(invocation(target, identity).bind(lambda pair: placed(pair, chord, target)) for chord, target in self.bindings.items())
@@ -146,25 +152,31 @@ class Keymap:
                 for native, item in held:
                     native.keymap_items.remove(item)
 
-        locations = nesting(self.keymap)
-        config = Option.of_optional(manager.keyconfigs.addon).to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="addon"),))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        return paired(locations, config).map(lambda given: ((Band.KEYMAP_ITEMS, added(given)),))
+        config = (
+            Option
+            .of_optional(bpy.context.window_manager)
+            .bind(lambda manager: Option.of_optional(manager.keyconfigs.addon).map(lambda addon: (manager, addon)))
+            .to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="addon"),))
+        )
+        return paired(nesting(self.keymap), config).map(lambda given: ((Band.KEYMAP_ITEMS, added(given)),))
 
     # --- [USER_ITEMS]
 
-    def counterparts(self, context: bpy.types.Context) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
-        """Resolves each owned item to its current user keymap and counterpart."""
+    def counterparts(self, context: bpy.types.Context) -> tuple[tuple[bpy.types.KeyConfig, bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
+        """Resolves each owned item to the current user keyconfig, keymap, and counterpart item."""
         return tuple(
-            (keymap, item)
+            (config, keymap, item)
+            for manager in Option.of_optional(context.window_manager).to_list()
+            for config in Option.of_optional(manager.keyconfigs.user).to_list()
             for added, mine in self._items
-            for keymap in Option.of_optional(context.window_manager.keyconfigs.user.keymaps.find_match(added)).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for keymap in Option.of_optional(config.keymaps.find_match(added)).to_list()
             for item in Option.of_optional(keymap.keymap_items.find_match(added, mine)).to_list()
         )
 
     def drawn(self, layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
         """Draws the native user shortcut editors, including per-item restore controls."""
-        for keymap, item in self.counterparts(context):
-            rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, keymap, item, layout, 0)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        for config, keymap, item in self.counterparts(context):
+            rna_keymap_ui.draw_kmi([], config, keymap, item, layout, 0)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

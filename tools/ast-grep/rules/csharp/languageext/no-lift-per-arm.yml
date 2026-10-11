@@ -6,7 +6,7 @@ utils:
     direct-lift:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.(lift|liftAsync)(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync)$'}}}}
             - has:
                 field: arguments
                 all:
@@ -49,7 +49,7 @@ utils:
     fin-arm:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(fail|Fail)(\s*<.+>)?$'}
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(fail|Fail)$'}}}}
             - matches: direct-lift
               not: {matches: void-arm}
     mixed-arms:
@@ -63,9 +63,9 @@ utils:
         any:
             - matches: lift-thunk
             - kind: invocation_expression
-              has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(pure|Pure|fail|Fail)(\s*<.+>)?$'}
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure|fail|Fail)$'}}}}
             - kind: member_access_expression
-              regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(pure|Pure)$'
+              matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure)$'}}}
             - matches: lifted-conditional
             - matches: lifted-switch-expression
             - matches: lifted-call

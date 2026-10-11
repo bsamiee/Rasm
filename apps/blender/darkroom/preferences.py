@@ -1,0 +1,39 @@
+"""Darkroom preferences, page sections, and typed settings access."""
+
+from collections.abc import Callable
+from typing import Annotated
+
+import msgspec
+
+from rasm.blender.extension.identity import Identity
+from rasm.blender.faults import BlenderResult
+from rasm.blender.render.previews.nodes import NodePreviews
+from rasm.blender.render.review.history import Reviewing
+from rasm.blender.render.sessions.queue import Queueing
+from rasm.blender.ui.layout.sections import Single
+from rasm.blender.ui.layout.status import Status
+from rasm.blender.ui.surfaces.preferences import stored, value
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Settings(msgspec.Struct, frozen=True, kw_only=True):
+    """Preferences one user keeps across Blender files."""
+
+    queue: Annotated[Queueing, msgspec.Meta(title="Render Queue", description="Target, notices, power hold, heartbeat, and Flamenco scripts folder of queued renders")] = Queueing()
+    review: Annotated[Reviewing, msgspec.Meta(title="Stored Renders", description="Render history the image editor keeps")] = Reviewing()
+    previews: Annotated[NodePreviews, msgspec.Meta(title="Node Previews", description="Node editor thumbnails, their trees, preview light, and drawing")] = NodePreviews()
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+category = "Darkroom"
+sections = (Single(key="status", title="Status", rows=(Status(),)),)
+queueing = value(Settings, lambda settings: settings.queue)
+reviewing = value(Settings, lambda settings: settings.review)
+previewing = value(Settings, lambda settings: settings.previews)
+previewed: Callable[[Identity, NodePreviews], BlenderResult[None]] = stored(Settings, lambda settings, previews: msgspec.structs.replace(settings, previews=previews))
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Settings", "category", "previewed", "previewing", "queueing", "reviewing", "sections"]

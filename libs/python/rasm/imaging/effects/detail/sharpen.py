@@ -7,7 +7,7 @@ import PyOpenColorIO
 
 from rasm.imaging.chain import Effect, Stage
 
-# --- [MODELS] ----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Sharpen(Effect, frozen=True, kw_only=True, tag=21):
@@ -21,6 +21,6 @@ class Sharpen(Effect, frozen=True, kw_only=True, tag=21):
     sharpness: Annotated[float, msgspec.Meta(ge=0.0, le=10.0, title="Sharpness", description="Gain of each pixel's difference from its four axis neighbors")] = 0.0
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Sharpen"]

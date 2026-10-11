@@ -37,7 +37,7 @@ from rasm.blender.settings.properties import Choices
 from rasm.blender.ui.layout.rows import DataBlocks, Member, OperatorButton, PreviewGrid, RowDraw, Selector
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
 from rasm.blender.ui.resources.previews import Previews
-from rasm.blender.ui.screens.areas import AreaQuery
+from rasm.blender.ui.screens.areas import AreaQuery, Located
 from rasm.imaging.analysis.lighting import LightingReading
 from rasm.imaging.color.processors import DisplayView
 from rasm.imaging.faults import accumulated, paired
@@ -163,7 +163,7 @@ class Anchor(msgspec.Struct, frozen=True, kw_only=True):
 class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     """Row attaching `RigSetup` to rig empties with the owned lights, collection, and world."""
 
-    retention: Callable[[Identity], BlenderResult[Retention]]
+    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
     scale: float
 
     @staticmethod
@@ -212,7 +212,9 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda measured: LightRig.prepared(measured[0], config, measured[2].radius, measured[3]).map(lambda prepared: (*measured[:3], prepared)))
                 .bind(
                     lambda prepared: collected(prepared[1]).bind(
-                        lambda home: anchored(prepared[1], empty, prepared[2]).bind(lambda _: rig_placed(empty, prepared[1], home, prepared[3], layer, identity, target_alone=prepared[0].linked))
+                        lambda home: anchored(prepared[1], empty, prepared[2]).bind(
+                            lambda _: rig_placed(empty, prepared[1], home, prepared[3], scene, layer, identity, target_alone=prepared[0].linked)
+                        )
                     )
                 )
                 .map(lambda _: Nothing)
@@ -349,7 +351,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                                 )
                             )
                             .bind(lambda rig: anchored(holder, rig, prepared[1]).map(lambda _: rig))
-                            .bind(lambda rig: rig_placed(rig, holder, home, prepared[2], layer, identity, target_alone=prepared[0].linked))
+                            .bind(lambda rig: rig_placed(rig, holder, home, prepared[2], scene, layer, identity, target_alone=prepared[0].linked))
                         )
                     )
                 )
@@ -489,12 +491,13 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
         """Requests native catalog images and gray balls under current scene display settings."""
 
-        def requested(carried: tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[tuple[Job, ...]]:
-            scene, layer, holder, attached = carried
+        def requested(
+            carried: tuple[bpy.types.Scene, bpy.types.ColorManagedViewSettings, bpy.types.ColorManagedDisplaySettings, bpy.types.ViewLayer, bpy.types.Object, Attached[RigSetup]],
+        ) -> BlenderResult[tuple[Job, ...]]:
+            scene, view, shown, layer, holder, attached = carried
             config, previews = PyOpenColorIO.GetCurrentConfig(), Previews(identity=identity)
-            view = scene.view_settings
-            display = DisplayView(display=scene.display_settings.display_device, view=view.view_transform, look=Gated(enabled=Option.of_optional(config.getLook(view.look)).is_some(), value=view.look))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            exposure, gamma = view.exposure, view.gamma  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            display = DisplayView(display=shown.display_device, view=view.view_transform, look=Gated(enabled=Option.of_optional(config.getLook(view.look)).is_some(), value=view.look))
+            exposure, gamma = view.exposure, view.gamma
             display_key = (display, exposure, gamma, config.getCacheID())
 
             def rendered(source: ReferenceImage | tuple[DistantLight, ...], side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
@@ -554,8 +557,9 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             root_in(bpy.types.Scene, context)
-            .bind(lambda scene: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active).map(lambda holder: (scene, layer, holder))))
-            .map(lambda pair: LightRig.attachment.bound(identity).bind(lambda attached: requested((*pair, attached))))
+            .bind(lambda scene: Option.of_optional(scene.view_settings).bind(lambda view: Option.of_optional(scene.display_settings).map(lambda shown: (scene, view, shown))))
+            .bind(lambda held: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active).map(lambda holder: (*held, layer, holder))))
+            .map(lambda held: LightRig.attachment.bound(identity).bind(lambda attached: requested((*held, attached))))
             .default_value(Ok(()))
         )
 
@@ -572,7 +576,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def drawn(groups: tuple[tuple[str, tuple[tuple[str, RowDraw], ...]], ...]) -> RowDraw:
-            def draw(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def draw(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 active = layout.row()
                 for slot in ("reference", "rig"):
                     for icon in previews.icon_id(slot).to_list():
@@ -606,7 +610,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         with identity.reports.deferred(LightRig.replaced) as deferred:
 
             def referenced(_: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> BlenderResult[None]:
-                touched = frozenset(update.id.original for update in updates)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                touched = frozenset(original for update in updates if (block := update.id) is not None and (original := block.original) is not None)
 
                 def placed(attached: Attached[RigSetup]) -> BlenderResult[None]:
                     return accumulated(
@@ -645,7 +649,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                         fields={
                             reference: Selector(
                                 target=next(field for field in msgspec.structs.fields(RigSetup) if field.name == reference.__name__),
-                                browse=DataBlocks(open=Some(bpy.ops.image.open)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                                browse=DataBlocks(open=Some(bpy.ops.image.open)),
                                 preview=Some(PreviewGrid()),
                             )
                         },
@@ -686,6 +690,14 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
 
     def framed() -> BlenderResult[Matrix]:
         world = Matrix(((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)))
+
+        def viewed(found: Located) -> BlenderResult[Matrix]:
+            match found.area.spaces.active:
+                case bpy.types.SpaceView3D(region_3d=bpy.types.RegionView3D(view_matrix=matrix)):
+                    return Ok(matrix.inverted().to_3x3().normalized())
+                case space:
+                    return Error((BlenderChoiceFault(path=f"{found.area!r}.spaces.active.region_3d", identifier=type(space).__name__, accepted=(bpy.types.SpaceView3D.__name__,)),))
+
         match setup.axes:
             case CameraAxes():
                 return Option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="camera"),))
@@ -696,9 +708,7 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
                         root_in(bpy.types.WindowManager, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.WindowManager.__name__),)),
                         lambda manager: AreaQuery(space="VIEW_3D").first(manager.windows),
                     )
-                    .map(
-                        lambda found: found.area.spaces.active.region_3d.view_matrix.inverted().to_3x3().normalized()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                    )
+                    .bind(viewed)
                 )
             case TargetAxes():
                 return Ok(holder.matrix_world.to_3x3().normalized() @ world)
@@ -743,6 +753,7 @@ def rig_placed(
     target: bpy.types.Object,
     home: bpy.types.Collection,
     prepared: tuple[Placements, tuple[float, ...], Option[tuple[Environment, Graph]]],
+    scene: bpy.types.Scene,
     view_layer: bpy.types.ViewLayer,
     identity: Identity,
     *,
@@ -755,7 +766,8 @@ def rig_placed(
         target: Actual target admitted by the caller.
         home: Owned collection acquired once by the caller after native preparation.
         prepared: Native placements, ordered powers, and optional world graph accepted together before publication.
-        view_layer: View layer whose target descendants a linked rig reaches and whose scene shows the background.
+        scene: Scene showing the background.
+        view_layer: View layer of the scene whose target descendants a linked rig reaches.
         identity: Identity marking lights, collection, and world.
         target_alone: Whether the lights reach the target and its descendants alone.
 
@@ -763,7 +775,6 @@ def rig_placed(
         `Ok` of the lights in placement order, or the faults of each write.
     """
     placements, powers, background = prepared
-    scene: bpy.types.Scene = view_layer.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     receivers = next(link for link in LightLinks.sets if link.prop.identifier == "receiver_collection")
     aim = Snapshot.of(bpy.types.TrackToConstraint, {"target": IdName.of(rig), "track_axis": "TRACK_NEGATIVE_Z", "up_axis": "UP_Y"})
     inverse = tuple(value for row in Matrix.Identity(4) for value in row)  # type: ignore[attr-defined]

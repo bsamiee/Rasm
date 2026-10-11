@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Exposure gain and a coverage-normalized bilateral local exposure graph."""
 
 from collections.abc import Mapping
@@ -43,7 +41,7 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
 
     def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, _record: Effect) -> BlenderResult[tuple[Animation, ...]]:
         """Keys the opacity-weighted gain of later exposure entries."""
-        return keyed_product(identity, scene, entry, self.record, Exposure.stops.__name__, self.gain.key, np.exp2)
+        return keyed_product(identity, scene, entry, self.record, Exposure.stops.__name__, self.gain.key, np.exp2)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def stops(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[float]:
         """Returns the earliest exposure, or zero when the scene has no gain entry."""
@@ -59,12 +57,12 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
         )
 
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def exposed(shell: Shell[Exposure]) -> BlenderResult[tuple[Fragment, End]]:
     """Scales the entering RGB by two to the exposure stops, keeping alpha."""
-    return node("gain", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": shell.socket(Exposure.stops.__name__)}, {}).map(ended("gain", "Image"))
+    return node("gain", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": shell.socket(Exposure.stops.__name__)}, {}).map(ended("gain", "Image"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 def localized(source: Operand, working: NodeGroup, frame: FrameSpace, highlights: Operand, shadows: Operand, clarity: Operand) -> BlenderResult[tuple[Fragment, End]]:
@@ -138,11 +136,11 @@ local_exposure = CompositorEffect(
     record=LocalExposure,
     straight=True,
     graph=lambda shell: paired(luminance(shell.config), framed("frame_space", shell.source, shell.aspect, shell.scale)).bind(
-        lambda pair: localized(shell.source, *pair, *(shell.socket(field) for field in (LocalExposure.highlights.__name__, LocalExposure.shadows.__name__, LocalExposure.clarity.__name__)))
+        lambda pair: localized(shell.source, *pair, *(shell.socket(field) for field in (LocalExposure.highlights.__name__, LocalExposure.shadows.__name__, LocalExposure.clarity.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     ),
 )
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["ExposureEffect", "exposed", "exposure", "local_exposure", "localized"]

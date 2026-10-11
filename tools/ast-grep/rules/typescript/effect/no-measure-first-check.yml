@@ -15,7 +15,7 @@ rule:
         - inside:
             kind: import_specifier
             field: name
-            inside: {kind: named_imports, inside: {kind: import_clause, inside: {kind: import_statement, has: {field: source, regex: '^[''"]effect/Schema[''"]$'}}}}
+            has: {field: alias, matches: {syntax-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^is\w+$'}}}}
 transform:
     CHECK: replace($NAME, replace='^is(Length|Size|Properties|CodePoints|Date|BigInt|BigDecimal)(\w+)$', by='is$2$1')
 fix: $CHECK

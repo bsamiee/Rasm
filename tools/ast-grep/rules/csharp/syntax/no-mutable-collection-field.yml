@@ -7,16 +7,23 @@ utils:
         any:
             - kind: array_type
             - kind: 'generic_name, qualified_name'
-              regex: |-
-                (?x)^(global::)?(System\.Collections\.(Generic|ObjectModel|Concurrent)\.)?
-                (List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|PriorityQueue|IList|ICollection|IDictionary|ISet
-                |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)\s*<
+              matches:
+                csharp-type-name:
+                    name:
+                        regex: |-
+                            (?x)^(List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|PriorityQueue|IList|ICollection|IDictionary|ISet
+                            |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)$
+              has: {stopBy: end, kind: type_argument_list}
+              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections\.(Generic|ObjectModel|Concurrent)$'}}}
             - kind: 'generic_name, qualified_name'
-              regex: '^(global::)?(System\.)?(Memory|ArraySegment)\s*<'
+              matches: {csharp-type-name: {name: {regex: '^(Memory|ArraySegment)$'}}}
+              not: {has: {field: qualifier, not: {regex: '^(global::)?System$'}}}
             - kind: qualified_name
-              regex: '^(global::)?System\.Collections\.Generic\.HashSet\s*<'
+              matches: {csharp-type-name: {name: {regex: '^HashSet$'}}}
+              has: {field: qualifier, regex: '^(global::)?System\.Collections\.Generic$'}
             - kind: 'identifier, qualified_name'
-              regex: '^(global::)?(System\.Collections\.)?(ArrayList|Hashtable)$'
+              matches: {csharp-type-name: {name: {regex: '^(ArrayList|Hashtable)$'}}}
+              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections$'}}}
     generic-type:
         kind: generic_name
         has: {kind: type_argument_list, has: {matches: mutable-within}}
@@ -31,14 +38,14 @@ utils:
               not: {regex: '^(Func|Action)\s*<'}
             - kind: qualified_name
               all:
-                - not: {regex: '^(global::)?(System\.)?(Func|Action)\s*<'}
+                - not: {matches: {csharp-type-name: {name: {regex: '^(Func|Action)$'}}}}
                 - has: {field: name, matches: generic-type}
     pinned-allocation:
         kind: invocation_expression
         all:
             - has:
                 field: function
-                regex: '^(global::)?(System\.)?GC\.Allocate(Uninitialized)?Array\s*<'
+                matches: {csharp-owner-member: {type: {regex: '^GC$'}, member: {regex: '^Allocate(Uninitialized)?Array$'}}}
                 has: {field: name, has: {kind: type_argument_list, has: {pattern: $ELEMENT}}}
             - has:
                 field: arguments
@@ -85,7 +92,7 @@ utils:
                 kind: argument_list
                 inside:
                     kind: invocation_expression
-                    not: {has: {field: function, regex: '^(global::)?(System\.)?Array\.'}}
+                    not: {has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Array$'}, member: {regex: '^'}}}}}
     field-read:
         any:
             - matches: whole-argument

@@ -3,6 +3,12 @@ id: no-single-method-class
 language: python
 severity: error
 utils:
+    plain-class:
+        kind: class_definition
+        not:
+            any:
+                - has: {field: superclasses, kind: argument_list}
+                - inside: {kind: decorated_definition}
     init: {kind: function_definition, has: {field: name, regex: '^__init__$'}}
     method:
         kind: function_definition
@@ -69,7 +75,7 @@ utils:
 rule:
     kind: class_definition
     all:
-        - matches: python-plain-class
+        - matches: plain-class
         - has: {field: name, pattern: $NAME}
         - any:
             - has: {field: body, matches: field-assignments}

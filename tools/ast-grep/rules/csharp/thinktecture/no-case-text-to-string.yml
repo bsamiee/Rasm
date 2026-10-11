@@ -16,7 +16,13 @@ utils:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^(this\s*\.\s*)?(Map|Switch)(\s*<.+>)?$'}
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier, generic_name
+                          matches: {csharp-type-name: {name: {regex: '^(Map|Switch)$'}}}
+                        - kind: member_access_expression
+                          all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, matches: {csharp-type-name: {name: {regex: '^(Map|Switch)$'}}}}}]
                 - has: {field: arguments, has: {kind: argument}}
                 - not: {has: {field: arguments, has: {kind: argument, not: {all: [{has: {field: name, kind: identifier}}, {has: {nthChild: {position: 1, reverse: true}, matches: case-text}}]}}}}
             - kind: switch_expression
@@ -45,7 +51,7 @@ rule:
                 stopBy: end
                 inside:
                     kind: class_declaration, record_declaration, struct_declaration
-                    has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(SmartEnum|Union|AdHocUnion)(Attribute)?(<.+>)?$'}}}
+                    has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^(SmartEnum|Union|AdHocUnion)(Attribute)?$'}}}}}}
         - follows: {pattern: $$PREVIOUS}
         - inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}}
 fix:

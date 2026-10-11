@@ -140,13 +140,7 @@ public static class Deforms {
     public static IO<Seq<Mesh>> Unwrap(Seq<Mesh> meshes, MeshUnwrapMethod method, Option<Plane> symmetry, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
             from copies in meshes.TraverseM(mesh => Copies.Duplicate(mesh, owned)).As()
-            from unwrapped in DisposalOps.Within(
-                () => new MeshUnwrapper(copies),
-                unwrapper =>
-                    from configured in IO.lift(() => symmetry.Iter(plane => DeformMapper.Symmetry(plane, unwrapper)))
-                    from applied in IO.lift(() => Refused.Unless(unwrapper.Unwrap(method), copies, nameof(MeshUnwrapper.Unwrap)))
-                    select applied,
-                static unwrapper => IO.lift(unwrapper.Dispose))
+            from unwrapped in Unwrapped(copies, method, symmetry)
             select unwrapped, (_, release) => retain(release));
 
     public static IO<UnrollResult> Unroll(Func<Unroller> create, UnrollOptions options, Seq<Curve> curves, Seq<Point3d> points, Seq<TextDot> dots, Action<IDisposable> retain) =>
@@ -181,19 +175,31 @@ public static class Deforms {
     public static IO<SquishResult<T>> Squish<T>(Seq<GeometryBase> marks, Func<Squisher, Seq<GeometryBase>, List<GeometryBase>, T?> squish, string member, Action<IDisposable> retain) where T : GeometryBase =>
         DisposalOps.Acquire(owned => DisposalOps.Within(
             static () => new Squisher(),
-            squisher =>
-                from squished in Copies.Owned(
-                    static () => new List<GeometryBase>(),
-                    flatMarks =>
-                        from flat in Copies.Acquire(() => squish(squisher, marks, flatMarks), member, owned)
-                        from validMarks in IO.lift(() => Measurements.Valid(toSeq(flatMarks).Map(static mark => Optional(mark)), member))
-                        select (Flat: flat, Marks: validMarks),
-                    static flatMarks => DisposalOps.Release(Conversions.Rows(flatMarks)), owned)
-                from mesh2d in Copies.Acquire(squisher.Get2dMesh, nameof(Squisher.Get2dMesh), owned)
-                from mesh3d in Copies.Acquire(squisher.Get3dMesh, nameof(Squisher.Get3dMesh), owned)
-                select new SquishResult<T>(
-                    squished.Flat, marks.Zip(squished.Marks, static (source, flat) => (Source: source, Flat: flat)), mesh2d, mesh3d,
-                    Conversions.Rows(squisher.GetLengthConstrained2dLines()).Zip(Conversions.Rows(squisher.GetLengthConstrained3dLines()), static (flat, source) => (Flat: flat, Source: source)),
-                    Conversions.Rows(squisher.GetAreaConstrainedTrianglesIndices())),
+            squisher => Squished(squisher, marks, squish, member, owned),
             static squisher => IO.lift(squisher.Dispose)), (_, release) => retain(release));
+
+    private static IO<Seq<Mesh>> Unwrapped(Seq<Mesh> copies, MeshUnwrapMethod method, Option<Plane> symmetry) =>
+        DisposalOps.Within(
+            () => new MeshUnwrapper(copies),
+            unwrapper =>
+                from configured in IO.lift(() => symmetry.Iter(plane => DeformMapper.Symmetry(plane, unwrapper)))
+                from applied in IO.lift(() => Refused.Unless(unwrapper.Unwrap(method), copies, nameof(MeshUnwrapper.Unwrap)))
+                select applied,
+            static unwrapper => IO.lift(unwrapper.Dispose));
+
+    private static IO<SquishResult<T>> Squished<T>(Squisher squisher, Seq<GeometryBase> marks, Func<Squisher, Seq<GeometryBase>, List<GeometryBase>, T?> squish, string member, Action<IDisposable> owned)
+        where T : GeometryBase =>
+        from squished in Copies.Owned(
+            static () => new List<GeometryBase>(),
+            flatMarks =>
+                from flat in Copies.Acquire(() => squish(squisher, marks, flatMarks), member, owned)
+                from validMarks in IO.lift(() => Measurements.Valid(toSeq(flatMarks).Map(static mark => Optional(mark)), member))
+                select (Flat: flat, Marks: validMarks),
+            static flatMarks => DisposalOps.Release(Conversions.Rows(flatMarks)), owned)
+        from mesh2d in Copies.Acquire(squisher.Get2dMesh, nameof(Squisher.Get2dMesh), owned)
+        from mesh3d in Copies.Acquire(squisher.Get3dMesh, nameof(Squisher.Get3dMesh), owned)
+        select new SquishResult<T>(
+            squished.Flat, marks.Zip(squished.Marks, static (source, flat) => (Source: source, Flat: flat)), mesh2d, mesh3d,
+            Conversions.Rows(squisher.GetLengthConstrained2dLines()).Zip(Conversions.Rows(squisher.GetLengthConstrained3dLines()), static (flat, source) => (Flat: flat, Source: source)),
+            Conversions.Rows(squisher.GetAreaConstrainedTrianglesIndices()));
 }

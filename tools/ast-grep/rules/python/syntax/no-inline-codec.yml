@@ -15,16 +15,6 @@ utils:
                 - kind: identifier
                   pattern: $CLASS
                   matches: {python-imported-name: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^(Encoder|Decoder)$'}}}
-    cattrs-converter:
-        kind: call
-        has:
-            field: function
-            any:
-                - matches: {python-member-use: {module: {regex: '^cattrs(\.converters|\.preconf\.\w+)?$'}, name: {regex: '^(make_converter|\w*Converter)$'}}}
-                - kind: attribute
-                  all:
-                    - has: {field: object, matches: {python-submodule: {parent: {regex: '^cattrs(\.preconf)?$'}, child: {regex: '^\w+$'}}}}
-                    - has: {field: attribute, regex: '^(make_converter|\w*Converter)$'}
     pydantic-adapter:
         kind: call
         has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.type_adapter)?$'}, name: {regex: '^TypeAdapter$'}}}}
@@ -38,9 +28,6 @@ utils:
                 - has: {field: attribute, pattern: $METHOD}
                 - any:
                     - has: {field: object, matches: msgspec-codec}
-                    - all:
-                        - has: {field: attribute, regex: '^(dumps|loads|structure|unstructure|structure_attrs_from(dict|tuple)|unstructure_attrs_as(dict|tuple))$'}
-                        - has: {field: object, matches: cattrs-converter}
                     - all:
                         - has: {field: attribute, regex: '^(validate_(python|json|strings)|dump_(python|json)|json_schema|get_default_value)$'}
                         - has: {field: object, matches: pydantic-adapter}

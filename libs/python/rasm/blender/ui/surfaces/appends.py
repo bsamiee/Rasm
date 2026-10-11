@@ -27,7 +27,7 @@ class ContextMenu(msgspec.Struct, frozen=True, kw_only=True):
     """Native context menu restricted to buttons bound to one struct type."""
 
     menu: type[UI_MT_button_context_menu | UI_MT_list_item_context_menu]
-    hovered: type[bpy.types.bpy_struct]  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    hovered: "type[bpy.types.bpy_struct[object]]"
 
 
 class Append(msgspec.Struct, frozen=True, kw_only=True):
@@ -53,20 +53,20 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
                     and catch(lambda: context.path_resolve("button_pointer"), exception=ValueError)().to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()
                 ):
                     return
-                layout: bpy.types.UILayout = surface.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                match surface:
-                    case bpy.types.Panel():
-                        column = layout.column()
-                        column.use_property_split = True
-                        paint(column, context)
-                    case bpy.types.Menu():
-                        if not separator_after:
-                            layout.separator()
-                        paint(layout, context)
-                        if separator_after:
-                            layout.separator()
-                    case bpy.types.Header():
-                        paint(layout, context)
+                for layout in Option.of_optional(surface.layout).to_list():
+                    match surface:
+                        case bpy.types.Panel():
+                            column = layout.column()
+                            column.use_property_split = True
+                            paint(column, context)
+                        case bpy.types.Menu():
+                            if not separator_after:
+                                layout.separator()
+                            paint(layout, context)
+                            if separator_after:
+                                layout.separator()
+                        case bpy.types.Header():
+                            paint(layout, context)
 
             return shown
 

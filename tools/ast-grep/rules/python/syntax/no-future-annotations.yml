@@ -2,27 +2,9 @@
 id: no-future-annotations
 language: python
 severity: error
-utils:
-    feature: {any: [{kind: aliased_import}, {kind: dotted_name}]}
-    annotations-feature: {matches: feature, regex: '^annotations\b'}
-    kept-feature: {matches: feature, not: {matches: annotations-feature}}
-    annotations-alone: {kind: future_import_statement, not: {has: {matches: kept-feature}}}
 rule:
     kind: future_import_statement
     pattern: $IMPORT
-    has: {matches: annotations-feature}
-    any:
-        - {matches: annotations-alone, precedes: {pattern: $NEXT}}
-        - pattern: $_
-rewriters:
-    - id: kept
-      rule: {matches: kept-feature, pattern: $FEATURE}
-      fix: $FEATURE
-transform:
-    KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
-    OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
-fix:
-    template: $OUT$NEXT
-    expandEnd: {pattern: $NEXT, follows: {matches: annotations-alone}}
+    has: {kind: 'aliased_import, dotted_name', regex: '^annotations\b'}
 message: '`$IMPORT` stores annotations as strings'
-note: 'Use annotations without the `annotations` future import, Python 3.14 and later defer annotation evaluation by default'
+note: 'Use annotations without the `annotations` future import, Python 3.14 and later defer annotation evaluation by default and a Python 3.13 tree quotes each forward reference the import deferred'

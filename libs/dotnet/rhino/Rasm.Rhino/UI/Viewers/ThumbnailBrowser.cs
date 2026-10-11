@@ -495,14 +495,17 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         let gained = ReferenceEquals(before.Revision, after.Revision) && RequestBox(before) == Some(box)
             ? after.Requested.Except(before.Requested) : after.Requested
         where !gained.IsEmpty
-        select from owned in IO.lift(() => loading.Filter(held => ReferenceEquals(held.Revision, after.Revision))).Bind(current => current.Match(
-                   Some: static held => IO.pure(held.Retain),
-                   None: () => ReleasedTiles.Bind(_ =>
-                       DisposalOps.Acquire(static keep => IO.pure(keep), (keep, lease) => loading = Some((after.Revision, keep, lease))))))
+        select from owned in Owner(after)
                from loaded in DisposalOps.Fork(
                    after.Items.Filter(item => gained.Contains(source.Key(item)))
                        .Traverse(item => source.Tile(this, item, box, Retain).Bind(arrival => Arrived(source.Key(item), box, after.Revision, arrival).Post()).Catch(Reported).As()).As(), owned)
                select unit;
+
+    private IO<Action<IDisposable>> Owner(BrowserState<TItem, TKey> after) =>
+        IO.lift(() => loading.Filter(held => ReferenceEquals(held.Revision, after.Revision))).Bind(current => current.Match(
+            Some: static held => IO.pure(held.Retain),
+            None: () => ReleasedTiles.Bind(_ =>
+                DisposalOps.Acquire(static keep => IO.pure(keep), (keep, lease) => loading = Some((after.Revision, keep, lease))))));
 
     private IO<Unit> Arrived(TKey key, Size box, object revision, Disposal<Thumbnail> arrival) =>
         (from arrived in IO.lift(() => lifetime.Value.IsSome && ReferenceEquals(State.Revision, revision) && RequestBox(State) == Some(box) && State.Requested.Contains(key))
@@ -535,11 +538,14 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     private IO<Unit> Hovered =>
         from restored in Restored
         from hovered in IO.lift(() => from preview in source.Preview from key in Hover select (Preview: preview, Key: key))
-        from pending in hovered.Traverse(hover => IO.lift(static () => new object()).Bind(request =>
-            DisposalOps.Acquire(owned => DisposalOps.Fork(
-                IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(request, hover.Key, hover.Preview, owned).Post()).Catch(Reported).As(), owned)
-                .Map(static _ => unit), lease => dwell = Some((request, hover.Key, lease))))).As()
+        from pending in hovered.Traverse(hover => Dwelling(hover.Key, hover.Preview)).As()
         select unit;
+
+    private IO<Unit> Dwelling(TKey key, Func<TItem, Action<IDisposable>, IO<Unit>> preview) =>
+        IO.lift(static () => new object()).Bind(request =>
+            DisposalOps.Acquire(owned => DisposalOps.Fork(
+                IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(request, key, preview, owned).Post()).Catch(Reported).As(), owned)
+                .Map(static _ => unit), lease => dwell = Some((request, key, lease))));
 
     private IO<Unit> Previewed(object request, TKey key, Func<TItem, Action<IDisposable>, IO<Unit>> preview, Action<IDisposable> retain) =>
         from admitted in IO.lift(() =>

@@ -50,11 +50,7 @@ rule:
               inside:
                 kind: program
                 stopBy: end
-                has:
-                    kind: import_statement
-                    all:
-                        - has: {field: source, has: {kind: string_fragment, regex: '^effect(/Function)?$'}}
-                        - has: {stopBy: end, kind: import_specifier, has: {field: name, regex: '^pipe$'}, not: {has: {field: alias, kind: identifier}}}
+                has: {kind: import_statement, has: {stopBy: end, kind: identifier, regex: '^pipe$', matches: effect-pipe-function}}
             - pattern: $KEPT
 rewriters:
     - id: unary

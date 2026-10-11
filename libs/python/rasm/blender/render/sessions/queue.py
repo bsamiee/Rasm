@@ -27,7 +27,7 @@ import OpenImageIO
 from rasm.blender.commands.calls import called
 from rasm.blender.commands.operators import Acquired, Call, Done, Empty, Operator, Properties
 from rasm.blender.data.rna.conditions import AllOf, check, Condition, Setting
-from rasm.blender.data.rna.descriptors import Descriptor, root_in, struct_at
+from rasm.blender.data.rna.descriptors import Descriptor, struct_at
 from rasm.blender.extension.events.timers import Timer
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Registrable
@@ -251,7 +251,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
         def gated(plan: Plan, queueing: Queueing) -> BlenderResult[None]:
             online = check(Dispatcher.online, context) if isinstance(queueing.target, Flamenco) else Ok(None)
-            return paired(checked(self.pathed, plan.scopes, day, context), paired(check(self.condition, context), online)).map(lambda _: None)
+            return paired(checked(self.pathed, plan.scopes, day), paired(check(self.condition, context), online)).map(lambda _: None)
 
         def paused(manager: bpy.types.WindowManager) -> BlenderResult[None]:
             def applied(support: Descriptor[bpy.types.BoolProperty], state: EditorState) -> BlenderResult[None]:
@@ -275,9 +275,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 return detached(argv, PlanFile.LOG.beside(path)).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
 
             return (
-                call
-                .root(bpy.types.Preferences)
-                .bind(lambda preferences: accumulated(self.pathed.took(scene, preferences, day) for scene in scenes))
+                accumulated(self.pathed.took(scene, day) for scene in scenes)
                 .bind(lambda _: store(path, msgspec.json.encode(plan, order="deterministic")).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
                 .bind(lambda _: self.queued.write(manager, Queued(plan=str(path))))
                 .bind(lambda _: saved(Path(bpy.data.filepath), SaveMode.ACTIVE))
@@ -664,7 +662,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def bindings(self) -> Option[Mapping[MemberDescriptorType, Choices]]:
         """Supplies cached Manager tags for the unchanged native target preference."""
-        return Some({Flamenco.tag: self.state.tags})  # type: ignore[dict-item]  # ty: ignore[invalid-return-type]
+        return Some({vars(Flamenco)["tag"]: self.state.tags})
 
     def bound(self, identity: Identity) -> BlenderResult[Dispatcher]:
         """Dispatcher over the identity's stores, the row's sets and stack, and the row's session state."""
@@ -765,8 +763,9 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                 return Done(notes=(("INFO", str(pack)),), skipped=skipped)
 
             return (
-                paired(call.root(bpy.types.Scene), call.root(bpy.types.Preferences))
-                .bind(lambda roots: dispatcher.pathed.path(*roots, moment.date()))
+                call
+                .root(bpy.types.Scene)
+                .bind(lambda scene: dispatcher.pathed.path(scene, moment.date()))
                 .bind(lambda path: packed(path.base / "packs" / f"{Path(bpy.data.filepath).stem}_{moment:%Y%m%d-%H%M%S}", compress=Some(True)))
                 .bind(
                     lambda pack: accumulated(item.owner.resolve() for item in pack.missing).map(
@@ -899,14 +898,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
             def joined(dispatcher: Dispatcher) -> BlenderResult[Acquisitions]:
                 restore = scope.enter_context(identity.reports.deferred(dispatcher.restored))
                 scope.callback(identity.reports.reported(dispatcher.restored))
-                return Ok((
-                    self.record,
-                    self.denoise,
-                    self.inputs,
-                    *self.commands(dispatcher),
-                    *self.operators(dispatcher),
-                    *((Timer(body=lambda: dispatcher.ticked(restore)),) if not bpy.app.background else ()),
-                ))
+                return Ok((self.record, self.denoise, self.inputs, *self.commands(dispatcher), *self.operators(dispatcher), Timer(body=lambda: dispatcher.ticked(restore))))
 
             yield self.bound(identity).bind(joined)
 
@@ -926,8 +918,7 @@ def scoped(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, pl
     followed = any(msgspec.structs.replace(other, temporal=None) == render for other in plan.scopes if other.temporal is not None)
 
     def composed(scene: bpy.types.Scene) -> BlenderResult[OutputPath]:
-        preferences: BlenderResult[bpy.types.Preferences] = root_in(bpy.types.Preferences, bpy.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="preferences"),))
-        return Result[bpy.types.Preferences, BlenderFaults].bind(preferences, lambda preferences: dispatcher.pathed.path(scene, preferences, moment.date())).map(lambda path: path.copied)
+        return dispatcher.pathed.path(scene, moment.date()).map(lambda path: path.copied)
 
     def filed(scene: bpy.types.Scene, path: OutputPath) -> BlenderResult[OutputPath]:
         return path.scene_output(scene).bind(lambda text: Pathed.filepath.write(scene.render, text)).map(lambda _: path)

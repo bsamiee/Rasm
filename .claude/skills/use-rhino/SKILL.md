@@ -5,14 +5,12 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 
 # [USE_RHINO]
 
-This skill provides guidance for properly and effectively working in Rhino and Grasshopper using the `rhino-mcp-platform` and `rhinocommon` cli
+This skill provides guidance for properly and effectively working in Rhino and Grasshopper using the `rhino-mcp-platform` server
 
 ## [01]-[SHARED_PROCESS]
 
-All calls leave the application in the background, never brought to the foreground. Only start the application with approved options below, depending on task:
-1a. New work: use `spawn_slot` to start a new Rhino process, skips splash and uses default template
-1b. Existing work: `open -g <file>` opens the file in Rhino
-2. !`dotnet run "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/Instances.cs"`
+All calls leave the application in the background, never brought to the foreground. Only start the application with approved options below, depending on task: 1a. New work: use `spawn_slot` to start a new Rhino process, skips splash and uses default template 1b. Existing work: `open -g <file>` opens the file in Rhino
+2. `dotnet run "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/Instances.cs"` lists each running Rhino with its documents, slots, and Grasshopper definitions
 
 - One Rhino application holds every open document, each `spawn_slot` adds a document window to it
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`
@@ -20,4 +18,3 @@ All calls leave the application in the background, never brought to the foregrou
 ## [02]-[SCRIPTS]
 
 - Code Rhino runs is C# 10 through `run_csharp`, one call per application (one main-thread queue), `#r "<assembly>"` below line 1
-

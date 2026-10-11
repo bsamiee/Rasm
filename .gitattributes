@@ -1,24 +1,24 @@
 * text=auto eol=lf
 
-# --- [DIFF] -------------------------------------------------------------------
+# --- [DIFF] -----------------------------------------------------------------------------
 *.cs diff=csharp
 
-# --- [RHINO] ------------------------------------------------------------------
+# --- [RHINO] ----------------------------------------------------------------------------
 *.3dm filter=lfs diff=lfs merge=lfs -text
 
-# --- [GRASSHOPPER] ------------------------------------------------------------
+# --- [GRASSHOPPER] ----------------------------------------------------------------------
 *.gh filter=lfs diff=lfs merge=lfs -text
 *.ghx filter=lfs diff=lfs merge=lfs -text
 *.ghdata filter=lfs diff=lfs merge=lfs -text
 
-# --- [CAD] --------------------------------------------------------------------
+# --- [CAD] ------------------------------------------------------------------------------
 *.dwg filter=lfs diff=lfs merge=lfs -text
 *.dxf filter=lfs diff=lfs merge=lfs -text
 *.rvt filter=lfs diff=lfs merge=lfs -text
 *.rfa filter=lfs diff=lfs merge=lfs -text
 *.skp filter=lfs diff=lfs merge=lfs -text
 
-# --- [MESH] -------------------------------------------------------------------
+# --- [MESH] -----------------------------------------------------------------------------
 *.obj filter=lfs diff=lfs merge=lfs -text
 *.fbx filter=lfs diff=lfs merge=lfs -text
 *.dae filter=lfs diff=lfs merge=lfs -text
@@ -26,7 +26,7 @@
 *.stl filter=lfs diff=lfs merge=lfs -text
 *.ply filter=lfs diff=lfs merge=lfs -text
 
-# --- [IMAGE] ------------------------------------------------------------------
+# --- [IMAGE] ----------------------------------------------------------------------------
 *.psd filter=lfs diff=lfs merge=lfs -text
 *.psb filter=lfs diff=lfs merge=lfs -text
 *.ai filter=lfs diff=lfs merge=lfs -text

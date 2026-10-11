@@ -6,11 +6,17 @@ utils:
     type-name:
         matches: {csharp-type-name: {name: {pattern: $TYPE}}}
     id-time-type:
-        regex: '^((global::)?System\.)?(Guid|DateTime|DateTimeOffset)\??$'
+        matches: {csharp-type-name: {name: {regex: '^(Guid|DateTime|DateTimeOffset)$'}}}
     hard-literal:
         any:
+            - matches: {csharp-owner-member: {type: {regex: '^Guid$'}, member: {regex: '^Empty$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^(DateTime|DateTimeOffset)$'}, member: {regex: '^MinValue$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^(double|Double|float|Float|Single)$'}, member: {regex: '^NaN$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^Unset[A-Za-z]*$'}}}
             - kind: member_access_expression
-              regex: '^(global::)?([A-Za-z0-9_]+\.)*(Guid\.Empty|[A-Z][A-Za-z0-9_]*\.Unset[A-Za-z]*(\.[A-Z][A-Za-z0-9_]*)?|DateTime(Offset)?\.MinValue|([Dd]ouble|[Ff]loat|Single)\.NaN)$'
+              all:
+                - has: {field: expression, matches: {csharp-owner-member: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^Unset[A-Za-z]*$'}}}}
+                - has: {field: name, regex: '^[A-Z]'}
             - kind: default_expression
               has: {field: type, matches: id-time-type}
             - kind: object_creation_expression
@@ -37,8 +43,7 @@ utils:
         any:
             - kind: string_literal
               regex: '^""$'
-            - kind: member_access_expression
-              regex: '^(global::)?(System\.)?[Ss]tring\.Empty$'
+            - matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^Empty$'}}}
     empty-string:
         pattern: $SENTINEL
         matches: empty-text
@@ -125,7 +130,7 @@ utils:
                             - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, matches: field-access}}, {has: {field: name, regex: '^Length$'}}]}
                     - kind: invocation_expression
                       all:
-                        - has: {field: function, regex: '^(global::)?(System\.)?[Ss]tring\.IsNullOrEmpty$|^(global::)?(System\.)?[Ss]tring\.IsNullOrWhiteSpace$'}
+                        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^(IsNullOrEmpty|IsNullOrWhiteSpace)$'}}}}
                         - has: {field: arguments, has: {kind: argument, has: {matches: field-access}}}
                     - kind: is_pattern_expression
                       all:

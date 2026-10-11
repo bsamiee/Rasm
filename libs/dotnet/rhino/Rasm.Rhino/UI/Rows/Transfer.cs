@@ -26,13 +26,13 @@ public static class Transfer {
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
         from paths in Callbacks.Each(files.Map(static file => IO.lift(() => Exchange.ExistingPath(file))))
-        from dragged in DisposalOps.Within(
-            static () => new DataObject(),
-            data => IO.lift(() => { data.Uris = [.. paths.Map(static path => new Uri(path))]; }).Bind(_ => IO.lift(() => image.Match(
-            Some: held => source.DoDragDrop(data, DragEffects.Copy, held, new PointF(held.Width / 2f, held.Height / 2f)),
-            None: () => source.DoDragDrop(data, DragEffects.Copy)))),
-            static data => IO.lift(data.Dispose))
+        from dragged in DisposalOps.Within(static () => new DataObject(), data => Dragged(source, paths, image, data), static data => IO.lift(data.Dispose))
         select dragged;
+
+    private static IO<Unit> Dragged(Control source, Seq<string> paths, Option<Image> image, DataObject data) =>
+        IO.lift(() => { data.Uris = [.. paths.Map(static path => new Uri(path))]; }).Bind(_ => IO.lift(() => image.Match(
+            Some: held => source.DoDragDrop(data, DragEffects.Copy, held, new PointF(held.Width / 2f, held.Height / 2f)),
+            None: () => source.DoDragDrop(data, DragEffects.Copy))));
 
     // --- [DROPS]
     public static IO<Unit> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit, IPlugInSink sink, Action<IDisposable> retain) =>

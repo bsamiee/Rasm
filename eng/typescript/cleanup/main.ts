@@ -12,7 +12,7 @@ import { rimraf } from 'rimraf';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>\d+)\s+(?<state>\S+)\s+(?<terminal>-?\d+)\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
+const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?<terminal>-?\d+)\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
 const JOB_ROW = /^(?<pid>\d+|-)\t\S+\t(?<label>.+)$/u;
 const OPEN_PROCESS = /^p(?<pid>\d+)\0\n(?<files>[\s\S]*)$/u;
 const OPEN_BLOCK = /(?<=\0\n)(?=p\d+\0)/u;
@@ -186,7 +186,7 @@ const litter = Effect.fn('litter')(function* (root: string) {
     const graph = yield* Effect.tryPromise(() => createProjectGraphAsync({ exitOnError: false }));
     const [direct, hypothesis, pulumi, browsers, data, dotnet] = yield* Effect.all(
         [
-            Effect.forEach(['BIOME_LOG_PATH', 'NUGET_HTTP_CACHE_PATH', 'PYTHONPYCACHEPREFIX', 'RUFF_CACHE_DIR', 'SWIFTPM_BUILD_DIR', 'WRANGLER_LOG_PATH', 'MINIFLARE_REGISTRY_PATH', 'PLAYWRIGHT_MCP_OUTPUT_DIR', 'PLAYWRIGHT_HTML_OUTPUT_DIR'], Config.String),
+            Effect.forEach(['NUGET_HTTP_CACHE_PATH', 'PYTHONPYCACHEPREFIX', 'WRANGLER_LOG_PATH', 'MINIFLARE_REGISTRY_PATH', 'PLAYWRIGHT_MCP_OUTPUT_DIR'], Config.String),
             Config.String('HYPOTHESIS_STORAGE_DIRECTORY'),
             Config.String('PULUMI_HOME'),
             Config.String('PLAYWRIGHT_BROWSERS_PATH'),
@@ -203,7 +203,7 @@ const litter = Effect.fn('litter')(function* (root: string) {
             definition.outputs === undefined ? [] : [undefined, ...Object.keys(definition.configurations ?? {})].map((configuration) => getOutputsForTargetAndConfiguration({ project: node.name, target, ...(configuration === undefined ? {} : { configuration }) }, {}, node)),
         ),
     );
-    const residue = ['.artifacts/{dotnet/binlog,ghidra,ilspy,python/coverage}', '.cache/{ghidra/{cache,tmp,settings/**/*.log,settings/ghidra/*/osgi},mypy,pytest,pmd,swiftlint,vite,vitest,xcode}', '{apps,libs,plugins,tools}/**/{__pycache__,.wrangler/{deploy,registry,tmp}}'];
+    const residue = ['.artifacts/{dotnet/binlog,ghidra,ilspy,python/coverage}', '.cache/{ghidra/{cache,tmp,settings/**/*.log,settings/ghidra/*/osgi},mypy,pytest,ruff,swiftlint,vite,vitest}', '{apps,libs,plugins,tools}/**/{__pycache__,.wrangler/{deploy,registry,tmp}}'];
     return [...outputs, residue, [...direct, ...['constants', 'observed', 'patches', 'tmp', 'unicode_data'].map((entry) => path.join(hypothesis, entry)), path.join(pulumi, 'logs')].map((entry) => escape(path.resolve(root, entry), GLOB_OPTIONS))].map(
         (patterns): Removal => ({
             root,

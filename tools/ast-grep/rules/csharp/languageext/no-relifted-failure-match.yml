@@ -22,20 +22,25 @@ utils:
                             nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                             has: {matches: typed-none}
     failure-group:
-        regex: '^((global::)?(LanguageExt\.)?)?(Fin\s*\.\s*Fail|IO\s*\.\s*fail|Either\s*\.\s*Left|(Prelude\s*\.\s*)?(FinFail|Fail|Left))\s*<.+>$'
+        has: {stopBy: end, kind: type_argument_list}
+        any:
+            - matches: {csharp-owner-member: {type: {regex: '^Fin$'}, member: {regex: '^Fail$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^Either$'}, member: {regex: '^Left$'}}}
+            - matches: {csharp-type-name: {name: {regex: '^(FinFail|Fail|Left)$'}}}
     failure-constructor:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, any: [{matches: failure-group}, {regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Fail|Left)$'}]}
+                - has: {field: function, any: [{matches: failure-group}, {matches: {csharp-type-name: {name: {regex: '^(Fail|Left)$'}}}}]}
                 - has: {field: arguments, has: {kind: argument, pattern: $ERROR}, not: {has: {kind: argument, nthChild: 2}}}
             - kind: object_creation_expression
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?(Fin\s*<.+>\s*\.\s*Fail|Either\s*<.+>\s*\.\s*Left)$'}
+                - has: {field: type, kind: qualified_name, any: [{all: [{has: {field: qualifier, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}}, {has: {field: name, regex: '^Fail$'}}]}, {all: [{has: {field: qualifier, matches: {csharp-type-name: {name: {regex: '^Either$'}}}}}, {has: {field: name, regex: '^Left$'}}]}]}
                 - has: {field: arguments, has: {kind: argument, pattern: $ERROR}, not: {has: {kind: argument, nthChild: 2}}}
             - kind: cast_expression
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?(Fin|Either|Validation)\s*<.+>$'}
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Fin|Either|Validation)$'}}}}
                 - has: {field: value, pattern: $ERROR}
     failure-rebuild:
         any:
@@ -107,7 +112,7 @@ utils:
     prelude-match:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^match$'}}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
             - has: {field: arguments, has: {nthChild: 1, matches: positional, has: {pattern: $VALUE}}}
 rule:
@@ -145,6 +150,6 @@ constraints:
     REFAIL:
         kind: argument
         has: {matches: fail-arm}
-        not: {has: {stopBy: end, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*fail'}}
+        not: {has: {stopBy: end, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}}}
 message: '`$VALUE` is matched to rebuild the `None`, `Left`, or failure case it holds'
 note: Use `Bind(<continuation>)`, `Map` for a continuation returning a plain value, and `IO.lift(<fin>).Bind(<continuation>)` for one returning an effect, each passes the failure through unchanged

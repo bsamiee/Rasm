@@ -90,8 +90,8 @@
             }
         },
         { "includes": ["package.json"], "linter": { "rules": { "nursery": { "noRestrictedDependencies": "off" } } } },
-        { "includes": ["apps/portfolio/**/*.tsx"], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
+        { "includes": ["apps/web/portfolio/**/*.tsx"], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
         { "includes": ["plugins/function-hooks/**"], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
-        { "includes": ["plugins/argus/main.ts", ".codex/hooks/host.ts"], "linter": { "rules": { "style": { "noProcessEnv": "off" } } } }
+        { "includes": ["plugins/argus/main.ts"], "linter": { "rules": { "style": { "noProcessEnv": "off" } } } }
     ]
 }

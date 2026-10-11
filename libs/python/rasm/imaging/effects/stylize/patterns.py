@@ -10,7 +10,7 @@ import msgspec
 from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.parameters import Case, Choice, Finite, GraphForm, Motion, Presentation, Quantity, Rgb, Seed
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Direction(Choice):
@@ -34,7 +34,7 @@ type Inks = Mono | Process
 type Coloring = SourceColor | TwoTone | RandomColor
 type Structure = Halftone | Glyphs | PixelSort
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Screen(msgspec.Struct, frozen=True, kw_only=True):
@@ -183,7 +183,7 @@ class Pattern(Effect, frozen=True, kw_only=True, tag=41):
     seed: Annotated[Seed, msgspec.Meta(title="Seed", description="Draw of every random site, tone, and streak")] = 0
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = [

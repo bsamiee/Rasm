@@ -10,26 +10,26 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, regex: '^(global::)?(System\.Threading\.)?Monitor\.(Enter|TryEnter)$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Monitor$'}, member: {regex: '^(Enter|TryEnter)$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
             - has:
                 field: function
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(Enter|TryEnter|Wait|WaitAsync|WaitOne|EnterWriteLock|EnterReadLock|EnterUpgradeableReadLock|TryEnterWriteLock|TryEnterReadLock|TryEnterUpgradeableReadLock)$'}
-                    - has: {field: expression, pattern: $LOCK, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
+                    - has: {field: expression, pattern: $LOCK, not: {matches: {csharp-type-name: {name: {regex: '^Monitor$'}}}}}
     lock-release:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, regex: '^(global::)?(System\.Threading\.)?Monitor\.Exit$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Monitor$'}, member: {regex: '^Exit$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
             - has:
                 field: function
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(Exit|Release|ReleaseMutex|ExitWriteLock|ExitReadLock|ExitUpgradeableReadLock)$'}
-                    - has: {field: expression, pattern: $LOCK, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
+                    - has: {field: expression, pattern: $LOCK, not: {matches: {csharp-type-name: {name: {regex: '^Monitor$'}}}}}
     deferred-callback:
         any:
             - kind: local_function_statement
@@ -46,7 +46,12 @@ utils:
                                 - kind: invocation_expression
                                   has:
                                     field: function
-                                    regex: '^((global::)?(LanguageExt\.)?(Prelude\.)?(IO\.(lift|liftAsync|liftVAsync)|Eff\.lift|liftIO|liftEff|memo)|(System\.Threading\.Tasks\.)?Task\.(Run|Factory\.StartNew))(\s*<.+>)?$'
+                                    any:
+                                        - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|liftVAsync)$'}}}
+                                        - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^lift$'}}}
+                                        - matches: {csharp-type-name: {name: {regex: '^(liftIO|liftEff|memo)$'}}}
+                                        - matches: {csharp-owner-member: {type: {regex: '^Task$'}, member: {regex: '^Run$'}}}
+                                        - matches: {csharp-owner-member: {type: {regex: '^Factory$'}, member: {regex: '^StartNew$'}}}
     locked-try:
         kind: try_statement
         all:

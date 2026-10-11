@@ -26,20 +26,22 @@ public static class Selections {
         DisposalOps.Within<IDisposable, T>(retain =>
          from row in Viewports.ResolveViewport(doc, request.Viewport, retain)
          from picked in (from context in use(static () => new PickContext())
-                         from answer in Activated(row,
-                             from frame in IO.lift(() => request.Region.Switch(
-                                 row.Viewport,
-                                 pointPick: static (viewport, pick) => (Style: PickStyle.PointPick, Transform: viewport.GetPickTransform(pick.Client), pick.Client.X, pick.Client.Y),
-                                 rectanglePick: static (viewport, pick) => (Style: pick.Crossing ? PickStyle.CrossingPick : PickStyle.WindowPick,
-                                     Transform: viewport.GetPickTransform(pick.Client), X: pick.Client.X + (pick.Client.Width / 2d), Y: pick.Client.Y + (pick.Client.Height / 2d))))
-                             from line in IO.lift(() => Refused.Unless(row.Viewport.GetFrustumLine(frame.X, frame.Y, out Line worldLine), worldLine, nameof(RhinoViewport.GetFrustumLine)))
-                             from mapped in IO.lift(() => PickMapper.Update((row.View, PickStyle: frame.Style, PickLine: line, request.PickMode, request.PickGroupsEnabled, request.SubObjectSelectionEnabled), context))
-                             from transformed in IO.lift(() => context.SetPickTransform(frame.Transform))
-                             from clipped in IO.lift(context.UpdateClippingPlanes)
-                             from value in body(context)
-                             select value)
+                         from answer in Activated(row, Picked(row, request, context, body))
                          select answer).Bracket()
          select picked, DisposalOps.Release);
+
+    private static IO<T> Picked<T>(ViewportRef row, PickRequest request, PickContext context, Func<PickContext, IO<T>> body) =>
+        from frame in IO.lift(() => request.Region.Switch(
+            row.Viewport,
+            pointPick: static (viewport, pick) => (Style: PickStyle.PointPick, Transform: viewport.GetPickTransform(pick.Client), pick.Client.X, pick.Client.Y),
+            rectanglePick: static (viewport, pick) => (Style: pick.Crossing ? PickStyle.CrossingPick : PickStyle.WindowPick,
+                Transform: viewport.GetPickTransform(pick.Client), X: pick.Client.X + (pick.Client.Width / 2d), Y: pick.Client.Y + (pick.Client.Height / 2d))))
+        from line in IO.lift(() => Refused.Unless(row.Viewport.GetFrustumLine(frame.X, frame.Y, out Line worldLine), worldLine, nameof(RhinoViewport.GetFrustumLine)))
+        from mapped in IO.lift(() => PickMapper.Update((row.View, PickStyle: frame.Style, PickLine: line, request.PickMode, request.PickGroupsEnabled, request.SubObjectSelectionEnabled), context))
+        from transformed in IO.lift(() => context.SetPickTransform(frame.Transform))
+        from clipped in IO.lift(context.UpdateClippingPlanes)
+        from value in body(context)
+        select value;
 
     private static IO<T> Activated<T>(ViewportRef row, IO<T> body) =>
         row.View is RhinoPageView page

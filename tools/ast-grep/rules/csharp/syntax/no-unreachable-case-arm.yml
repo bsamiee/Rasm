@@ -5,7 +5,7 @@ severity: error
 utils:
     unreachable:
         kind: throw_expression, throw_statement
-        has: {kind: object_creation_expression, has: {field: type, regex: '^((global::)?System\.(Diagnostics\.)?)?UnreachableException$'}}
+        has: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^UnreachableException$'}}}}}
         not: {inside: {kind: switch_expression_arm, stopBy: {kind: 'lambda_expression, anonymous_method_expression'}}}
 rule:
     kind: argument

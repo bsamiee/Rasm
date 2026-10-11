@@ -52,21 +52,22 @@ public static partial class Drawings {
             _ = unique.Iter(parameters.AddClippingPlane);
             return subjects(parameters);
         })
-        from projected in DisposalOps.Within<IDisposable, Unit>(
-            temporary => frame.Switch(
-                (Bounds: bounds, Retain: temporary),
-                rhinoViewport: static (state, live) => DisposalOps.Acquire(
-                        IO.lift(() => new ViewportInfo(live)), static camera => IO.lift(camera.Dispose), state.Retain)
-                    .Post()
-                    .Bind(camera => IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(state.Bounds), camera, nameof(ViewportInfo.SetFrustumNearFar)))),
-                cameraPose: static (state, pose) => Cameras.ToViewportInfo(pose, state.Bounds, state.Retain))
-                .Bind(viewport => IO.lift(() => parameters.SetViewport(viewport))),
-            DisposalOps.Release)
+        from projected in DisposalOps.Within<IDisposable, Unit>(temporary => Projected(frame, bounds, parameters, temporary), DisposalOps.Release)
         from drawn in DisposalOps.Within<IDisposable, LineDrawing>(
             temporary => Computed(parameters, multipleThreads, progress, temporary).Bind(drawing => Drawn(drawing, rejoin, outputs)),
             DisposalOps.Release)
         select drawn,
         (_, lease) => retain(lease));
+
+    private static IO<Unit> Projected(ProjectionFrame frame, BoundingBox bounds, HiddenLineDrawingParameters parameters, Action<IDisposable> temporary) =>
+        frame.Switch(
+            (Bounds: bounds, Retain: temporary),
+            rhinoViewport: static (state, live) => DisposalOps.Acquire(
+                    IO.lift(() => new ViewportInfo(live)), static camera => IO.lift(camera.Dispose), state.Retain)
+                .Post()
+                .Bind(camera => IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(state.Bounds), camera, nameof(ViewportInfo.SetFrustumNearFar)))),
+            cameraPose: static (state, pose) => Cameras.ToViewportInfo(pose, state.Bounds, state.Retain))
+            .Bind(viewport => IO.lift(() => parameters.SetViewport(viewport)));
 
     [MapPropertyFromSource(nameof(HiddenLineDrawingParameters.AbsoluteTolerance))]
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]

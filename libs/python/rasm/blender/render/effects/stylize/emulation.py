@@ -1,15 +1,13 @@
-# mypy: disable-error-code="attr-defined,misc"
-# ty: ignore[unresolved-attribute,invalid-attribute-access]
 """Native coded, transmitted, taped, received, and displayed video graphs."""
 
 from collections.abc import Mapping
 from enum import IntEnum
 from fractions import Fraction
+from itertools import product
 from math import ceil, floor, tau
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
-import msgspec.inspect as native
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
@@ -52,7 +50,7 @@ from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingFaults, 
 from rasm.imaging.geometry.stmaps import Extension
 from rasm.imaging.parameters import Gated, Motion
 
-# --- [TYPES] -----------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Noise(IntEnum):
@@ -67,7 +65,7 @@ class Noise(IntEnum):
     CHROMA = 6
 
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: Emulation, context: Context) -> BlenderResult[None]:
@@ -113,13 +111,13 @@ def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
             lambda size: paired(
                 FrameSize().bound(identity).bind(lambda framed: camera_frame(framed, scene)),
                 paired(
-                    samples(Emulation.lines.__name__, float(record.lines)),
-                    samples(item_key(Emulation.tape.__name__, Gated.value.__name__, Tape.jitter_period.__name__), record.tape.value.jitter_period),
+                    samples(Emulation.lines.__name__, float(record.lines)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    samples(item_key(Emulation.tape.__name__, Gated.value.__name__, Tape.jitter_period.__name__), record.tape.value.jitter_period),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
                 ),
             ).bind(lambda values: sized(size[0], values[0].scale, *values[1])),
         )
 
-    return samples(Emulation.tape.__name__, float(record.tape.enabled)).bind(taped)
+    return samples(Emulation.tape.__name__, float(record.tape.enabled)).bind(taped)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 def prepared(
@@ -241,13 +239,13 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
         Displayed color and complete graph, or accumulated native graph faults.
     """
     socket, source = shell.socket, shell.source
-    value = Gated.value.__name__
-    corruption = (Emulation.corruption.__name__, value)
-    tape = (Emulation.tape.__name__, value)
-    signal = (Emulation.signal.__name__, value)
-    display = (Emulation.display.__name__, value)
-    seed, lines = socket(Emulation.seed.__name__), socket(Emulation.lines.__name__)
-    clock = Clock(key="clock", speed=socket(Emulation.motion.__name__, Motion.speed.__name__), hold=socket(Emulation.motion.__name__, Motion.hold.__name__))
+    value = Gated.value.__name__  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+    corruption = (Emulation.corruption.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    tape = (Emulation.tape.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    signal = (Emulation.signal.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    display = (Emulation.display.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    seed, lines = socket(Emulation.seed.__name__), socket(Emulation.lines.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    clock = Clock(key="clock", speed=socket(Emulation.motion.__name__, Motion.speed.__name__), hold=socket(Emulation.motion.__name__, Motion.hold.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     gates = {path[0]: item_key(path[0], "gate") for path in (corruption, tape, signal, display)}
     center = 128.0 / 255.0
 
@@ -260,7 +258,7 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
         ) -> BlenderResult[tuple[Fragment, End]]:
             return sampled(f"{key}_uv", frame, position).bind(
                 lambda uv: (
-                    extended(key, image, uv, across.label, MenuItems.of(native.type_info(Extension)), vertical=Some((up.label, MenuItems.of(native.type_info(Extension)))))
+                    extended(key, image, uv, across.label, MenuItems.of(Extension), vertical=Some((up.label, MenuItems.of(Extension))))
                     if interpolation == "Bilinear"
                     else node(key, bpy.types.CompositorNodeMapUV, {"Image": image, "UV": uv, "Interpolation": interpolation, "Extension X": across.label, "Extension Y": up.label}, {}).map(
                         ended(key, "Image")
@@ -295,48 +293,48 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
 
         def corrupted(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
             return Fragment.joined(
-                node("cell_size", bpy.types.ShaderNodeCombineXYZ, {"X": socket(*corruption, Corruption.cell_width.__name__), "Y": socket(*corruption, Corruption.cell_height.__name__), "Z": 1.0}, {}),
+                node("cell_size", bpy.types.ShaderNodeCombineXYZ, {"X": socket(*corruption, Corruption.cell_width.__name__), "Y": socket(*corruption, Corruption.cell_height.__name__), "Z": 1.0}, {}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 vector("corruption_scaled", "DIVIDE", frame.point, End(node="cell_size", socket="Vector")),
                 vector("corruption_cell", "FLOOR", End(node="corruption_scaled", socket="Vector")),
                 draw("cells", Noise.CELLS, End(node="corruption_cell", socket="Vector")),
                 node("cell_color", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="cells", socket="Color")}, {"mode": "RGB"}),
-                math("struck", "LESS_THAN", End(node="cells", socket="Value"), socket(*corruption, Corruption.coverage.__name__)),
+                math("struck", "LESS_THAN", End(node="cells", socket="Value"), socket(*corruption, Corruption.coverage.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("cell_signed", "MULTIPLY_ADD", End(node="cell_color", socket="Red"), 2.0, -1.0),
-                math("cell_displacement", "MULTIPLY", End(node="cell_signed"), socket(*corruption, Corruption.displacement.__name__)),
+                math("cell_displacement", "MULTIPLY", End(node="cell_signed"), socket(*corruption, Corruption.displacement.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("cell_shift", "MULTIPLY", End(node="cell_displacement"), End(node="struck")),
                 math("cell_x", "ADD", x, End(node="cell_shift")),
                 *(
                     part
                     for channel, direction in (("Red", -1.0), ("Green", 0.0), ("Blue", 1.0))
                     for part in (
-                        math(f"split_{channel}", "MULTIPLY_ADD", socket(*corruption, Corruption.split.__name__), direction, End(node="cell_x")),
-                        shifted(f"cell_{channel}", image, End(node=f"split_{channel}"), across=Extension.REPEAT, up=Extension.CLIP),
-                        node(f"cell_{channel}_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=f"cell_{channel}", socket="Image")}, {"mode": "RGB"}),
+                        math(f"split_{channel.lower()}", "MULTIPLY_ADD", socket(*corruption, Corruption.split.__name__), direction, End(node="cell_x")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        shifted(f"cell_{channel.lower()}", image, End(node=f"split_{channel.lower()}"), across=Extension.REPEAT, up=Extension.CLIP),
+                        node(f"cell_{channel.lower()}_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=f"cell_{channel.lower()}", socket="Image")}, {"mode": "RGB"}),
                     )
                 ),
-                node("shifted", bpy.types.CompositorNodeCombineColor, {channel: End(node=f"cell_{channel}_channels", socket=channel) for channel in ("Red", "Green", "Blue")}, {"mode": "RGB"}),
+                node("shifted", bpy.types.CompositorNodeCombineColor, {channel: End(node=f"cell_{channel.lower()}_channels", socket=channel) for channel in ("Red", "Green", "Blue")}, {"mode": "RGB"}),
                 node("corruption_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="shifted", socket="Image")}, {"mode": "YCC", "ycc_mode": "ITUBT601"}),
                 math("cell_exponent", "MULTIPLY_ADD", End(node="cell_color", socket="Green"), 4.0, -2.0),
                 math("cell_power", "POWER", 2.0, End(node="cell_exponent")),
-                math("cell_chroma", "MULTIPLY", socket(*corruption, Corruption.chroma.__name__), End(node="struck")),
+                math("cell_chroma", "MULTIPLY", socket(*corruption, Corruption.chroma.__name__), End(node="struck")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 *(
                     part
                     for channel in ("Green", "Blue")
                     for part in (
-                        math(f"cell_{channel}_centered", "SUBTRACT", End(node="corruption_channels", socket=channel), center),
-                        math(f"cell_{channel}_sign", "SIGN", End(node=f"cell_{channel}_centered")),
-                        math(f"cell_{channel}_absolute", "ABSOLUTE", End(node=f"cell_{channel}_centered")),
-                        math(f"cell_{channel}_doubled", "MULTIPLY", End(node=f"cell_{channel}_absolute"), 2.0),
-                        math(f"cell_{channel}_raised", "POWER", End(node=f"cell_{channel}_doubled"), End(node="cell_power")),
-                        math(f"cell_{channel}_signed", "MULTIPLY", End(node=f"cell_{channel}_sign"), End(node=f"cell_{channel}_raised")),
-                        math(f"cell_{channel}_offset", "MULTIPLY_ADD", End(node=f"cell_{channel}_signed"), 0.5, center),
-                        mixed(f"cell_{channel}_mixed", "FLOAT", End(node="cell_chroma"), End(node="corruption_channels", socket=channel), End(node=f"cell_{channel}_offset")),
+                        math(f"cell_{channel.lower()}_centered", "SUBTRACT", End(node="corruption_channels", socket=channel), center),
+                        math(f"cell_{channel.lower()}_sign", "SIGN", End(node=f"cell_{channel.lower()}_centered")),
+                        math(f"cell_{channel.lower()}_absolute", "ABSOLUTE", End(node=f"cell_{channel.lower()}_centered")),
+                        math(f"cell_{channel.lower()}_doubled", "MULTIPLY", End(node=f"cell_{channel.lower()}_absolute"), 2.0),
+                        math(f"cell_{channel.lower()}_raised", "POWER", End(node=f"cell_{channel.lower()}_doubled"), End(node="cell_power")),
+                        math(f"cell_{channel.lower()}_signed", "MULTIPLY", End(node=f"cell_{channel.lower()}_sign"), End(node=f"cell_{channel.lower()}_raised")),
+                        math(f"cell_{channel.lower()}_offset", "MULTIPLY_ADD", End(node=f"cell_{channel.lower()}_signed"), 0.5, center),
+                        mixed(f"cell_{channel.lower()}_mixed", "FLOAT", End(node="cell_chroma"), End(node="corruption_channels", socket=channel), End(node=f"cell_{channel.lower()}_offset")),
                     )
                 ),
                 node(
                     "corrupted",
                     bpy.types.CompositorNodeCombineColor,
-                    {"Red": End(node="corruption_channels", socket="Red"), **{channel: End(node=f"cell_{channel}_mixed", socket="Result_Float") for channel in ("Green", "Blue")}},
+                    {"Red": End(node="corruption_channels", socket="Red"), **{channel: End(node=f"cell_{channel.lower()}_mixed", socket="Result_Float") for channel in ("Green", "Blue")}},
                     {"mode": "YCC", "ycc_mode": "ITUBT601"},
                 ),
                 switched(gates[corruption[0]], "RGBA", socket(corruption[0]), image, End(node="corrupted", socket="Image")),
@@ -359,7 +357,7 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                 math("last_line", "FLOOR", End(node="last_scan")),
                 math("reached_span", "SUBTRACT", End(node="last_line"), End(node="first_line")),
                 math("reached_lines", "ADD", End(node="reached_span"), 1.0),
-                math("jitter_radius", "MULTIPLY", socket(*tape, Tape.jitter_period.__name__), lines),
+                math("jitter_radius", "MULTIPLY", socket(*tape, Tape.jitter_period.__name__), lines),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("jitter_support", "CEIL", End(node="jitter_radius")),
                 math("jitter_padding", "MULTIPLY", End(node="jitter_support"), 2.0),
                 math("jitter_height", "ADD", End(node="reached_lines"), End(node="jitter_padding")),
@@ -408,28 +406,28 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                     {"Image": End(node="jitter_normalized"), "UV": End(node="jitter_uv", socket="Vector"), "Interpolation": "Nearest", "Extension X": "Clip", "Extension Y": "Clip"},
                     {},
                 ),
-                math("jitter_shift", "MULTIPLY", End(node="jitter_sample", socket="Image"), socket(*tape, Tape.jitter.__name__)),
+                math("jitter_shift", "MULTIPLY", End(node="jitter_sample", socket="Image"), socket(*tape, Tape.jitter.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 draw("bounce", Noise.BOUNCE, (0.0, 0.0, 0.0)),
                 math("bounce_signed", "MULTIPLY_ADD", End(node="bounce", socket="Value"), 2.0, -1.0),
-                math("bounce_shift", "MULTIPLY", End(node="bounce_signed"), socket(*tape, Tape.bounce.__name__)),
-                math("head_t", "DIVIDE", y, socket(*tape, Tape.head_switching.__name__)),
+                math("bounce_shift", "MULTIPLY", End(node="bounce_signed"), socket(*tape, Tape.bounce.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math("head_t", "DIVIDE", y, socket(*tape, Tape.head_switching.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("head_rising", "DIVIDE", End(node="head_t"), 0.9),
                 math("head_falling", "MULTIPLY_ADD", End(node="head_t"), -10.0, 10.0),
                 math("head_shape", "MINIMUM", End(node="head_rising"), End(node="head_falling")),
                 math("head_negative", "LESS_THAN", y, 0.0),
                 math("head_above", "SUBTRACT", 1.0, End(node="head_negative")),
-                math("head_below", "LESS_THAN", y, socket(*tape, Tape.head_switching.__name__)),
+                math("head_below", "LESS_THAN", y, socket(*tape, Tape.head_switching.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("head_band", "MULTIPLY", End(node="head_above"), End(node="head_below")),
                 math("head_active", "MULTIPLY", End(node="head_shape"), End(node="head_band")),
-                math("head_shift", "MULTIPLY", End(node="head_active"), socket(*tape, Tape.skew.__name__)),
-                math("tracking_at", "MULTIPLY", time, socket(*tape, Tape.tracking_rate.__name__)),
+                math("head_shift", "MULTIPLY", End(node="head_active"), socket(*tape, Tape.skew.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math("tracking_at", "MULTIPLY", time, socket(*tape, Tape.tracking_rate.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("tracking_center", "FRACT", End(node="tracking_at")),
                 math("tracking_delta", "SUBTRACT", y, End(node="tracking_center")),
                 math("tracking_signed", "WRAP", End(node="tracking_delta"), 0.5, -0.5),
                 math("tracking_distance", "ABSOLUTE", End(node="tracking_signed")),
-                math("tracking_relative", "DIVIDE", End(node="tracking_distance"), socket(*tape, Tape.tracking_height.__name__)),
+                math("tracking_relative", "DIVIDE", End(node="tracking_distance"), socket(*tape, Tape.tracking_height.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("tracking_weight", "MULTIPLY_ADD", End(node="tracking_relative"), -2.0, 1.0, clamp=True),
-                math("tracking_shift", "MULTIPLY", End(node="tracking_weight"), socket(*tape, Tape.tracking_shift.__name__)),
+                math("tracking_shift", "MULTIPLY", End(node="tracking_weight"), socket(*tape, Tape.tracking_shift.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("played_jitter", "ADD", x, End(node="jitter_shift")),
                 math("played_head", "ADD", End(node="played_jitter"), End(node="head_shift")),
                 math("played_x", "ADD", End(node="played_head"), End(node="tracking_shift")),
@@ -437,7 +435,7 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                 shifted("played", image, End(node="played_x"), End(node="played_y"), up=Extension.CLIP),
                 node("played_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="played", socket="Image")}, {"mode": "YCC", "ycc_mode": "ITUBT601"}),
                 draw("mistracking", Noise.MISTRACKING, End(node="line_cell", socket="Vector")),
-                math("mistracking_weight", "MULTIPLY", End(node="tracking_weight"), socket(*tape, Tape.mistracking.__name__)),
+                math("mistracking_weight", "MULTIPLY", End(node="tracking_weight"), socket(*tape, Tape.mistracking.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 mixed("mistracked_luma", "FLOAT", End(node="mistracking_weight"), End(node="played_channels", socket="Red"), End(node="mistracking", socket="Value")),
                 node(
                     "mistracked",
@@ -445,11 +443,11 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                     {"Red": End(node="mistracked_luma", socket="Result_Float"), "Green": End(node="played_channels", socket="Green"), "Blue": End(node="played_channels", socket="Blue")},
                     {"mode": "YCC", "ycc_mode": "ITUBT601"},
                 ),
-                math("dropout_at", "DIVIDE", x, socket(*tape, Tape.dropout_length.__name__)),
+                math("dropout_at", "DIVIDE", x, socket(*tape, Tape.dropout_length.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("dropout_cell", "FLOOR", End(node="dropout_at")),
                 node("dropout_lattice", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="dropout_cell"), "Y": End(node="line")}, {}),
                 draw("dropouts", Noise.DROPOUTS, End(node="dropout_lattice", socket="Vector")),
-                math("dropout_struck", "LESS_THAN", End(node="dropouts", socket="Value"), socket(*tape, Tape.dropouts.__name__)),
+                math("dropout_struck", "LESS_THAN", End(node="dropouts", socket="Value"), socket(*tape, Tape.dropouts.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("dropout_fraction", "FRACT", End(node="dropout_at")),
                 math("dropout_fade", "SUBTRACT", 1.0, End(node="dropout_fraction")),
                 math("dropout_weight", "MULTIPLY", End(node="dropout_fade"), End(node="dropout_struck")),
@@ -458,35 +456,35 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
             ).map(ended(gates[tape[0]], "Output"))
 
         def received(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            ghost = (*signal, Signal.ghost.__name__, value)
+            ghost = (*signal, Signal.ghost.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             return paired(normal("luma_noise", Noise.LUMA, End(node="sample_cell", socket="Vector")), normal("chroma_noise", Noise.CHROMA, End(node="sample_cell", socket="Vector"))).bind(
                 lambda normals: Fragment.joined(
                     node("signal_channels", bpy.types.CompositorNodeSeparateColor, {"Image": image}, {"mode": "YCC", "ycc_mode": "ITUBT601"}),
                     banded("carrier_low", End(node="signal_channels", socket="Red"), 1.0 / 377.0, 0.0),
                     math("carrier_detail", "SUBTRACT", End(node="signal_channels", socket="Red"), End(node="carrier_low", socket="Image")),
-                    math("carrier_strength", "MULTIPLY", End(node="carrier_detail"), socket(*signal, Signal.cross_color.__name__)),
+                    math("carrier_strength", "MULTIPLY", End(node="carrier_detail"), socket(*signal, Signal.cross_color.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     math("carrier_scan", "ADD", End(node="line"), pattern),
                     math("carrier_half_line", "MULTIPLY", End(node="carrier_scan"), 0.5),
                     math("carrier_at", "MULTIPLY_ADD", x, 188.3, End(node="carrier_half_line")),
                     math("carrier_phase", "MULTIPLY", End(node="carrier_at"), tau),
                     math("carrier_cosine", "COSINE", End(node="carrier_phase")),
                     math("carrier_sine", "SINE", End(node="carrier_phase")),
-                    math("luma_noisy", "MULTIPLY_ADD", normals[0][0], socket(*signal, Signal.noise.__name__), End(node="signal_channels", socket="Red")),
+                    math("luma_noisy", "MULTIPLY_ADD", normals[0][0], socket(*signal, Signal.noise.__name__), End(node="signal_channels", socket="Red")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     *(
                         part
                         for channel, wave, noise in (("Green", "cosine", normals[1][0]), ("Blue", "sine", normals[1][1]))
                         for part in (
-                            math(f"carrier_{channel}", "MULTIPLY_ADD", End(node="carrier_strength"), End(node=f"carrier_{wave}"), End(node="signal_channels", socket=channel)),
-                            math(f"noisy_{channel}", "MULTIPLY_ADD", noise, socket(*signal, Signal.chroma_noise.__name__), End(node=f"carrier_{channel}")),
+                            math(f"carrier_{channel.lower()}", "MULTIPLY_ADD", End(node="carrier_strength"), End(node=f"carrier_{wave}"), End(node="signal_channels", socket=channel)),
+                            math(f"noisy_{channel.lower()}", "MULTIPLY_ADD", noise, socket(*signal, Signal.chroma_noise.__name__), End(node=f"carrier_{channel.lower()}")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         )
                     ),
-                    node("chroma_noisy", bpy.types.CompositorNodeCombineColor, {"Red": End(node="noisy_Green"), "Green": End(node="noisy_Blue")}, {"mode": "RGB"}),
-                    banded("luma_band", End(node="luma_noisy"), socket(*signal, Signal.luma_blur.__name__), 0.0),
-                    banded("chroma_band", End(node="chroma_noisy", socket="Image"), socket(*signal, Signal.chroma_blur.__name__), socket(*signal, Signal.chroma_vertical.__name__)),
-                    math("chroma_x", "SUBTRACT", x, socket(*signal, Signal.chroma_delay.__name__)),
+                    node("chroma_noisy", bpy.types.CompositorNodeCombineColor, {"Red": End(node="noisy_green"), "Green": End(node="noisy_blue")}, {"mode": "RGB"}),
+                    banded("luma_band", End(node="luma_noisy"), socket(*signal, Signal.luma_blur.__name__), 0.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    banded("chroma_band", End(node="chroma_noisy", socket="Image"), socket(*signal, Signal.chroma_blur.__name__), socket(*signal, Signal.chroma_vertical.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    math("chroma_x", "SUBTRACT", x, socket(*signal, Signal.chroma_delay.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     shifted("chroma_delayed", End(node="chroma_band", socket="Image"), End(node="chroma_x")),
                     node("chroma_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="chroma_delayed", socket="Image")}, {"mode": "RGB"}),
-                    math("ringing_radius", "DIVIDE", socket(*signal, Signal.luma_blur.__name__), 3.0),
+                    math("ringing_radius", "DIVIDE", socket(*signal, Signal.luma_blur.__name__), 3.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     *(
                         part
                         for key, direction in (("left", -1.0), ("right", 1.0))
@@ -498,39 +496,39 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                     math("ringing_neighbors", "ADD", End(node="ringing_left", socket="Image"), End(node="ringing_right", socket="Image")),
                     math("ringing_second", "MULTIPLY_ADD", End(node="luma_band", socket="Image"), -2.0, End(node="ringing_neighbors")),
                     math("ringing_negative", "MULTIPLY", End(node="ringing_second"), -1.0),
-                    math("luma_ringed", "MULTIPLY_ADD", End(node="ringing_negative"), socket(*signal, Signal.ringing.__name__), End(node="luma_band", socket="Image")),
+                    math("luma_ringed", "MULTIPLY_ADD", End(node="ringing_negative"), socket(*signal, Signal.ringing.__name__), End(node="luma_band", socket="Image")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     *(
                         part
                         for output, channel in (("Green", "Red"), ("Blue", "Green"))
                         for part in (
-                            math(f"saturated_{output}_centered", "SUBTRACT", End(node="chroma_channels", socket=channel), center),
-                            math(f"saturated_{output}", "MULTIPLY_ADD", End(node=f"saturated_{output}_centered"), socket(*signal, Signal.saturation.__name__), center),
+                            math(f"saturated_{output.lower()}_centered", "SUBTRACT", End(node="chroma_channels", socket=channel), center),
+                            math(f"saturated_{output.lower()}", "MULTIPLY_ADD", End(node=f"saturated_{output.lower()}_centered"), socket(*signal, Signal.saturation.__name__), center),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         )
                     ),
                     node(
                         "signal_packed",
                         bpy.types.CompositorNodeCombineColor,
-                        {"Red": End(node="luma_ringed"), "Green": End(node="saturated_Green"), "Blue": End(node="saturated_Blue")},
+                        {"Red": End(node="luma_ringed"), "Green": End(node="saturated_green"), "Blue": End(node="saturated_blue")},
                         {"mode": "RGB"},
                     ),
-                    math("ghost_x", "SUBTRACT", x, socket(*ghost, Ghost.delay.__name__)),
+                    math("ghost_x", "SUBTRACT", x, socket(*ghost, Ghost.delay.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     shifted("ghost_copy", End(node="signal_packed", socket="Image"), End(node="ghost_x")),
-                    math("ghost_denominator", "ADD", socket(*ghost, Ghost.amplitude.__name__), 1.0),
-                    math("ghost_weight", "DIVIDE", socket(*ghost, Ghost.amplitude.__name__), End(node="ghost_denominator")),
+                    math("ghost_denominator", "ADD", socket(*ghost, Ghost.amplitude.__name__), 1.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    math("ghost_weight", "DIVIDE", socket(*ghost, Ghost.amplitude.__name__), End(node="ghost_denominator")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     mixed("ghosted", "RGBA", End(node="ghost_weight"), End(node="signal_packed", socket="Image"), End(node="ghost_copy", socket="Image")),
                     switched(
-                        item_key(*signal, Signal.ghost.__name__, "gate"),
+                        item_key(*signal, Signal.ghost.__name__, "gate"),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         "RGBA",
-                        socket(*signal, Signal.ghost.__name__),
+                        socket(*signal, Signal.ghost.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         End(node="signal_packed", socket="Image"),
                         End(node="ghosted", socket="Result_Color"),
                     ),
-                    node("received_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=item_key(*signal, Signal.ghost.__name__, "gate"), socket="Output")}, {"mode": "RGB"}),
+                    node("received_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=item_key(*signal, Signal.ghost.__name__, "gate"), socket="Output")}, {"mode": "RGB"}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     math("hum_at", "MULTIPLY_ADD", time, -0.002, y),
                     math("hum_phase", "MULTIPLY", End(node="hum_at"), tau),
                     math("hum_sine", "SINE", End(node="hum_phase")),
                     math("hum_wave", "MULTIPLY_ADD", End(node="hum_sine"), 0.5, 0.5),
-                    math("hum_loss", "MULTIPLY", End(node="hum_wave"), socket(*signal, Signal.hum.__name__)),
+                    math("hum_loss", "MULTIPLY", End(node="hum_wave"), socket(*signal, Signal.hum.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     math("hum_gain", "SUBTRACT", 1.0, End(node="hum_loss")),
                     math("received_luma", "MULTIPLY", End(node="received_channels", socket="Red"), End(node="hum_gain")),
                     node(
@@ -555,17 +553,18 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
             ).map(ended(key, "Value"))
 
         def displayed(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            scan = (*display, Display.scanlines.__name__, value)
-            phosphors = (*display, Display.phosphors.__name__, value)
-            glow = (*display, Display.glow.__name__)
-            scan_gate = item_key(*display, Display.scanlines.__name__, "gate")
-            phosphor_gate = item_key(*display, Display.phosphors.__name__, "gate")
+            scan = (*display, Display.scanlines.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            phosphors = (*display, Display.phosphors.__name__, value)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            glow = (*display, Display.glow.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            scan_gate = item_key(*display, Display.scanlines.__name__, "gate")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            phosphor_gate = item_key(*display, Display.phosphors.__name__, "gate")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             glow_gate = item_key(*glow, "gate")
+            cells = tuple(product(range(2), repeat=2))
             return Fragment.joined(
-                math("roll_y", "MULTIPLY_ADD", socket(*display, Display.roll.__name__), time, y),
+                math("roll_y", "MULTIPLY_ADD", socket(*display, Display.roll.__name__), time, y),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 shifted("rolled", image, x, End(node="roll_y"), up=Extension.REPEAT),
                 math("minimum_span", "DIVIDE", 1.0, lines),
-                math("collapse_y_raw", "MULTIPLY_ADD", socket(*display, Display.collapse.__name__), -2.0, 1.0),
+                math("collapse_y_raw", "MULTIPLY_ADD", socket(*display, Display.collapse.__name__), -2.0, 1.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("collapse_y", "MAXIMUM", End(node="collapse_y_raw"), End(node="minimum_span")),
                 math("collapse_x_raw", "ADD", End(node="collapse_y_raw"), 1.0),
                 math("collapse_x_positive", "MAXIMUM", End(node="collapse_x_raw"), End(node="minimum_span")),
@@ -590,8 +589,8 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                     part
                     for axis in ("X", "Y")
                     for part in (
-                        math(f"camera_pixels_{axis}", "MULTIPLY", End(node="display_dimension_axes", socket=axis), shell.scale),
-                        math(f"half_footprint_{axis}", "DIVIDE", 0.5, End(node=f"camera_pixels_{axis}")),
+                        math(f"camera_pixels_{axis.lower()}", "MULTIPLY", End(node="display_dimension_axes", socket=axis), shell.scale),
+                        math(f"half_footprint_{axis.lower()}", "DIVIDE", 0.5, End(node=f"camera_pixels_{axis.lower()}")),
                     )
                 ),
                 math("field_parity", "PINGPONG", pattern, 1.0),
@@ -599,14 +598,14 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                     part
                     for end, sign in (("low", -1.0), ("high", 1.0))
                     for part in (
-                        math(f"scan_{end}_y", "MULTIPLY_ADD", End(node="half_footprint_Y"), sign, y),
+                        math(f"scan_{end}_y", "MULTIPLY_ADD", End(node="half_footprint_y"), sign, y),
                         math(f"scan_{end}_centered", "SUBTRACT", End(node=f"scan_{end}_y"), 0.5),
                         math(f"scan_{end}_relative", "DIVIDE", End(node=f"scan_{end}_centered"), End(node="collapse_y")),
                         math(f"scan_{end}_row", "ADD", End(node=f"scan_{end}_relative"), 0.5),
                         math(f"scan_{end}_raster", "MULTIPLY", End(node=f"scan_{end}_row"), lines),
                         math(f"scan_{end}_field_sum", "ADD", End(node=f"scan_{end}_raster"), End(node="field_parity")),
                         math(f"scan_{end}_field", "MULTIPLY", End(node=f"scan_{end}_field_sum"), 0.5),
-                        switched(f"scan_{end}", "FLOAT", socket(*scan, Scanlines.interlaced.__name__), End(node=f"scan_{end}_raster"), End(node=f"scan_{end}_field")),
+                        switched(f"scan_{end}", "FLOAT", socket(*scan, Scanlines.interlaced.__name__), End(node=f"scan_{end}_raster"), End(node=f"scan_{end}_field")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         math(f"scan_{end}_phase", "MULTIPLY", End(node=f"scan_{end}", socket="Output"), tau),
                         math(f"scan_{end}_sine", "SINE", End(node=f"scan_{end}_phase")),
                     )
@@ -616,20 +615,20 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                 math("scan_denominator", "MULTIPLY", End(node="scan_span"), 2.0 * tau),
                 math("scan_relative", "DIVIDE", End(node="scan_integral"), End(node="scan_denominator")),
                 math("scan_mean", "ADD", End(node="scan_relative"), 0.5),
-                math("scan_loss", "MULTIPLY", End(node="scan_mean"), socket(*scan, Scanlines.strength.__name__)),
+                math("scan_loss", "MULTIPLY", End(node="scan_mean"), socket(*scan, Scanlines.strength.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("scan_light", "SUBTRACT", 1.0, End(node="scan_loss")),
-                math("scan_period_mean", "MULTIPLY_ADD", socket(*scan, Scanlines.strength.__name__), -0.5, 1.0),
+                math("scan_period_mean", "MULTIPLY_ADD", socket(*scan, Scanlines.strength.__name__), -0.5, 1.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("scan_gain", "DIVIDE", End(node="scan_light"), End(node="scan_period_mean")),
                 vector("scanned", "SCALE", End(node=glow_gate, socket="Output"), End(node="scan_gain")),
-                switched(scan_gate, "RGBA", socket(*display, Display.scanlines.__name__), End(node=glow_gate, socket="Output"), End(node="scanned", socket="Vector")),
-                menu("layout", "VECTOR", socket(*phosphors, Phosphors.layout.__name__), shell.items[*phosphors, Phosphors.layout.__name__], {member.label: member.geometry for member in Layout}),
+                switched(scan_gate, "RGBA", socket(*display, Display.scanlines.__name__), End(node=glow_gate, socket="Output"), End(node="scanned", socket="Vector")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                menu("layout", "VECTOR", socket(*phosphors, Phosphors.layout.__name__), shell.items[*phosphors, Phosphors.layout.__name__], {member.label: member.geometry for member in Layout}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 node("layout_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="layout", socket="Output")}, {}),
                 math("matrix_fill", "SUBTRACT", 1.0, End(node="layout_axes", socket="X")),
-                math("triad_x", "MULTIPLY", x, socket(*phosphors, Phosphors.triads.__name__)),
-                math("triad_rows", "DIVIDE", socket(*phosphors, Phosphors.triads.__name__), aspect),
+                math("triad_x", "MULTIPLY", x, socket(*phosphors, Phosphors.triads.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math("triad_rows", "DIVIDE", socket(*phosphors, Phosphors.triads.__name__), aspect),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("triad_y", "MULTIPLY", y, End(node="triad_rows")),
-                math("triad_half_x", "MULTIPLY", End(node="half_footprint_X"), socket(*phosphors, Phosphors.triads.__name__)),
-                math("triad_half_y", "MULTIPLY", End(node="half_footprint_Y"), End(node="triad_rows")),
+                math("triad_half_x", "MULTIPLY", End(node="half_footprint_x"), socket(*phosphors, Phosphors.triads.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math("triad_half_y", "MULTIPLY", End(node="half_footprint_y"), End(node="triad_rows")),
                 *(
                     part
                     for parity in range(2)
@@ -647,48 +646,57 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
                 math("phosphor_area", "MULTIPLY", End(node="matrix_span"), End(node="stripe_span")),
                 *(
                     part
-                    for row in range(2)
-                    for column in range(2)
+                    for row, column in cells
                     for part in (
                         *(primitive(f"matrix_{row}_{column}_{end}", End(node=f"triad_y_{column}_{end}"), End(node="matrix_fill"), row, End(node="matrix_fill")) for end in ("low", "high")),
                         math(f"matrix_{row}_{column}", "SUBTRACT", End(node=f"matrix_{row}_{column}_high"), End(node=f"matrix_{row}_{column}_low")),
                     )
                 ),
-                math("phosphor_plain", "SUBTRACT", 1.0, socket(*phosphors, Phosphors.strength.__name__)),
+                math("phosphor_plain", "SUBTRACT", 1.0, socket(*phosphors, Phosphors.strength.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 *(
                     part
                     for index, channel in enumerate(("Red", "Green", "Blue"))
                     for part in (
                         *(
                             part
-                            for row in range(2)
-                            for column in range(2)
+                            for row, column in cells
                             for part in (
-                                *(primitive(f"stripe_{channel}_{row}_{column}_{end}", End(node=f"triad_x_{row}_{end}"), 1.0 / 3.0, column + index / 3.0, 1.0 / 3.0) for end in ("low", "high")),
-                                math(f"stripe_{channel}_{row}_{column}", "SUBTRACT", End(node=f"stripe_{channel}_{row}_{column}_high"), End(node=f"stripe_{channel}_{row}_{column}_low")),
-                                math(f"phosphor_{channel}_{row}_{column}", "MULTIPLY", End(node=f"stripe_{channel}_{row}_{column}"), End(node=f"matrix_{row}_{column}")),
+                                *(primitive(f"stripe_{channel.lower()}_{row}_{column}_{end}", End(node=f"triad_x_{row}_{end}"), 1.0 / 3.0, column + index / 3.0, 1.0 / 3.0) for end in ("low", "high")),
+                                math(
+                                    f"stripe_{channel.lower()}_{row}_{column}",
+                                    "SUBTRACT",
+                                    End(node=f"stripe_{channel.lower()}_{row}_{column}_high"),
+                                    End(node=f"stripe_{channel.lower()}_{row}_{column}_low"),
+                                ),
+                                math(f"phosphor_{channel.lower()}_{row}_{column}", "MULTIPLY", End(node=f"stripe_{channel.lower()}_{row}_{column}"), End(node=f"matrix_{row}_{column}")),
                             )
                         ),
-                        *(math(f"phosphor_{channel}_{row}", "ADD", End(node=f"phosphor_{channel}_{row}_0"), End(node=f"phosphor_{channel}_{row}_1")) for row in range(2)),
-                        math(f"phosphor_{channel}_integral", "ADD", End(node=f"phosphor_{channel}_0"), End(node=f"phosphor_{channel}_1")),
-                        math(f"phosphor_{channel}_coverage", "DIVIDE", End(node=f"phosphor_{channel}_integral"), End(node="phosphor_area")),
-                        math(f"phosphor_{channel}_normalized", "DIVIDE", End(node=f"phosphor_{channel}_coverage"), End(node="matrix_fill")),
-                        math(f"phosphor_{channel}_unit", "MULTIPLY", End(node=f"phosphor_{channel}_normalized"), 3.0),
-                        math(f"phosphor_{channel}_gain", "MULTIPLY_ADD", End(node=f"phosphor_{channel}_unit"), socket(*phosphors, Phosphors.strength.__name__), End(node="phosphor_plain")),
+                        *(math(f"phosphor_{channel.lower()}_{row}", "ADD", End(node=f"phosphor_{channel.lower()}_{row}_0"), End(node=f"phosphor_{channel.lower()}_{row}_1")) for row in range(2)),
+                        math(f"phosphor_{channel.lower()}_integral", "ADD", End(node=f"phosphor_{channel.lower()}_0"), End(node=f"phosphor_{channel.lower()}_1")),
+                        math(f"phosphor_{channel.lower()}_coverage", "DIVIDE", End(node=f"phosphor_{channel.lower()}_integral"), End(node="phosphor_area")),
+                        math(f"phosphor_{channel.lower()}_normalized", "DIVIDE", End(node=f"phosphor_{channel.lower()}_coverage"), End(node="matrix_fill")),
+                        math(f"phosphor_{channel.lower()}_unit", "MULTIPLY", End(node=f"phosphor_{channel.lower()}_normalized"), 3.0),
+                        math(
+                            f"phosphor_{channel.lower()}_gain",
+                            "MULTIPLY_ADD",
+                            End(node=f"phosphor_{channel.lower()}_unit"),
+                            socket(*phosphors, Phosphors.strength.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                            End(node="phosphor_plain"),
+                        ),
                     )
                 ),
-                node("phosphor_gains", bpy.types.CompositorNodeCombineColor, {channel: End(node=f"phosphor_{channel}_gain") for channel in ("Red", "Green", "Blue")}, {"mode": "RGB"}),
+                node("phosphor_gains", bpy.types.CompositorNodeCombineColor, {channel: End(node=f"phosphor_{channel.lower()}_gain") for channel in ("Red", "Green", "Blue")}, {"mode": "RGB"}),
                 vector("masked", "MULTIPLY", End(node=scan_gate, socket="Output"), End(node="phosphor_gains", socket="Image")),
-                switched(phosphor_gate, "RGBA", socket(*display, Display.phosphors.__name__), End(node=scan_gate, socket="Output"), End(node="masked", socket="Vector")),
-                math("curvature_denominator", "ADD", socket(*display, Display.curvature.__name__), 1.0),
+                switched(phosphor_gate, "RGBA", socket(*display, Display.phosphors.__name__), End(node=scan_gate, socket="Output"), End(node="masked", socket="Vector")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math("curvature_denominator", "ADD", socket(*display, Display.curvature.__name__), 1.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math("curvature_scale", "DIVIDE", 1.0, End(node="curvature_denominator")),
                 nested(
                     "glass",
                     lens,
-                    {"point": frame.point, "extent": frame.extent, "share": shell.scale, "distortion": socket(*display, Display.curvature.__name__), "scale": End(node="curvature_scale")},
+                    {"point": frame.point, "extent": frame.extent, "share": shell.scale, "distortion": socket(*display, Display.curvature.__name__), "scale": End(node="curvature_scale")},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     "rectilinear",
                 ),
-                extended("glass_sample", End(node=phosphor_gate, socket="Output"), End(node="glass", socket="rectilinear"), Extension.CLIP.label, MenuItems.of(native.type_info(Extension))),
+                extended("glass_sample", End(node=phosphor_gate, socket="Output"), End(node="glass", socket="rectilinear"), Extension.CLIP.label, MenuItems.of(Extension)),
                 switched(gates[display[0]], "RGBA", socket(display[0]), image, End(node="glass_sample", socket="Image")),
             ).map(ended(gates[display[0]], "Output"))
 
@@ -709,13 +717,13 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
     return paired(paired(framed("frame", source, shell.aspect, shell.scale), paired(clock.value, clock.pattern)), radial()).bind(lambda inputs: built(inputs[0][0], *inputs[0][1], inputs[1]))
 
 
-# --- [COMPOSITION] -----------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 emulation: CompositorEffect[Emulation] = CompositorEffect(
     record=Emulation, graph=emulated, straight=True, coverage=Coverage.INPUT, requested=Some(precise), native_admitted=Some(admitted), preparation=Some(prepared)
 )
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Noise", "admitted", "emulated", "emulation", "prepared", "raster_noise"]

@@ -33,6 +33,7 @@
     "console": {
         "level": "debug"
     },
+    "outputMaxSize": 268435456,
     "allowUnrestrictedFileAccess": true,
     "filePaths": "absolute"
 }

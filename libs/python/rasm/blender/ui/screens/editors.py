@@ -19,10 +19,10 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
     """RNA values in dependency order, rooted at a space or its held struct."""
 
     holder: str = ""
-    values: "tuple[tuple[Descriptor[bpy.types.Property], Value | bytes | bpy.types.bpy_struct], ...]" = ()  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    values: "tuple[tuple[Descriptor[bpy.types.Property], Value | bytes | bpy.types.bpy_struct[object]], ...]" = ()
 
     @classmethod
-    def of(cls, root: "type[bpy.types.bpy_struct]", values: "Mapping[str, Value | bytes | bpy.types.bpy_struct]", holder: str = "") -> BlenderResult[Self]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    def of(cls, root: "type[bpy.types.bpy_struct[object]]", values: "Mapping[str, Value | bytes | bpy.types.bpy_struct[object]]", holder: str = "") -> BlenderResult[Self]:
         """Returns resolved values in declaration order, or all refused RNA paths."""
         return accumulated(Descriptor.resolve(root, path, bpy.types.Property).map(lambda setting: (setting, value)) for path, value in values.items()).map(
             lambda pairs: cls(holder=holder, values=pairs)
@@ -30,7 +30,9 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
 
     def applied(self, area: bpy.types.Area) -> BlenderResult[Option[Self]]:
         """Returns prior state, waits for absent holders, or rolls back a refused write."""
-        completed: deque[tuple[bpy.types.bpy_struct | bpy.types.bpy_prop_collection, Descriptor[bpy.types.Property], Value | bpy.types.bpy_struct]] = deque()  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        completed: deque[tuple[bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]], Descriptor[bpy.types.Property], Value | bpy.types.bpy_struct[object]]] = (
+            deque()
+        )
         try:
             for setting, value in self.values:
                 owner = (

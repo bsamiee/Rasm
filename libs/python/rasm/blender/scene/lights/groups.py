@@ -202,8 +202,7 @@ def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -
         return written(holder, "lightgroup", name).map(lambda _: frozenset({name} - {""})) if rule.enabled else Ok(frozenset())
 
     def worlds(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> tuple[bpy.types.World, ...]:
-        scenes: tuple[bpy.types.Scene, ...] = tuple(owner if isinstance(owner, bpy.types.Scene) else owner.id_data for owner in reached if isinstance(owner, bpy.types.Scene | bpy.types.ViewLayer))  # type: ignore[misc]  # ty: ignore[invalid-assignment]
-        return tuple(dict.fromkeys(world for scene in scenes for world in Option.of_optional(scene.world).to_list()))
+        return tuple(dict.fromkeys(world for owner in reached if isinstance(scene := owner.id_data, bpy.types.Scene) for world in Option.of_optional(scene.world).to_list()))
 
     return scope.owners(context).bind(
         lambda reached: accumulated((

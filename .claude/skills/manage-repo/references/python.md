@@ -64,7 +64,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Concern project names derive from `py.typed` directories relative to root backend `module-root`
 - `blender_manifest.toml` defines an extension project by manifest `id`
-- Python projects acquire `check` and `test` when root pytest file patterns discover tests
+- Python projects acquire `check` and `test` when root pytest file patterns discover tests in the project's mirror under pytest `testpaths`
 - Project dependencies include runtime and type-only static imports between source owners
 
 ## [07]-[HOST_PACKAGING]
@@ -75,11 +75,10 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Selected modules enter packaging as wheel-relative arguments, package membership supplies no import inventory
 - First-party imports use `from rasm.<module> import <member>` for relocation into private extension packages
 - Blender supplies extension identity as `bl_ext.<repo>.<id>`, extension-local imports use relative paths within that package
-- Ruff import policy permits extension-local relative imports, including parent imports within extension boundaries
 - Native uv export supplies locked runtime requirements through artifact `pylock.toml`, root `uv.lock` remains committed
 - Selected Blender interpreter's markers and wheel tags govern `pip wheel` compatibility
 - Native host metadata identifies bundled ABI providers to omit, repository environment builds establish no portable wheel contract
-- Blender supplies executable identity for matching running processes
+- Installation matches running Blender processes to the executable `BLENDER_PATH` resolves by file identity
 
 ## [08]-[TYPING]
 

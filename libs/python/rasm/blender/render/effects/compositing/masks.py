@@ -1,6 +1,3 @@
-# mypy: disable-error-code="attr-defined,union-attr,misc"
-# ty: ignore[unresolved-attribute,invalid-attribute-access]
-
 """Displayed-frame mask keys, working luminance, and composited coverage."""
 
 from collections.abc import Callable
@@ -9,13 +6,14 @@ from math import pi, tau
 
 import bpy
 from expression import Nothing, Ok, Option, Some
-from msgspec import inspect, structs
+from msgspec import structs
 import PyOpenColorIO
 
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
 from rasm.blender.nodes.graphs import (
     compared,
+    described,
     End,
     ended,
     Fragment,
@@ -127,8 +125,8 @@ def band() -> BlenderResult[NodeGroup]:
 def shape() -> BlenderResult[NodeGroup]:
     """Returns rotated box and ellipse keys in displayed camera-frame coordinates."""
     image, aspect, scale = (End(node=INPUTS, socket=name) for name in ("image", "aspect", "scale"))
-    position, size, angle, feather = (End(node=INPUTS, socket=name) for name in (Shape.position.__name__, Shape.size.__name__, Shape.rotation.__name__, Shape.feather.__name__))
-    outline = next(field for field in structs.fields(Shape) if field.name == Shape.outline.__name__)
+    position, size, angle, feather = (End(node=INPUTS, socket=name) for name in (Shape.position.__name__, Shape.size.__name__, Shape.rotation.__name__, Shape.feather.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    outline = next(field for field in structs.fields(Shape) if field.name == Shape.outline.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def shaped(space: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
         offset = (
@@ -168,7 +166,7 @@ def shape() -> BlenderResult[NodeGroup]:
             return paired(
                 paired(box, ellipse).bind(
                     lambda keys: menu(
-                        "outline", "FLOAT", End(node=INPUTS, socket=outline.name), MenuItems.of(inspect.type_info(outline.type)), {Outline.BOX.label: keys[0], Outline.ELLIPSE.label: keys[1]}
+                        "outline", "FLOAT", End(node=INPUTS, socket=outline.name), MenuItems.of(Outline, described(outline.type)), {Outline.BOX.label: keys[0], Outline.ELLIPSE.label: keys[1]}
                     )
                 ),
                 positive,
@@ -204,7 +202,7 @@ def shape() -> BlenderResult[NodeGroup]:
 def wipe() -> BlenderResult[NodeGroup]:
     """Returns a corner-normalized wipe with exact hidden and revealed endpoints."""
     image, aspect, scale = (End(node=INPUTS, socket=name) for name in ("image", "aspect", "scale"))
-    completion, angle, softness = (End(node=INPUTS, socket=name) for name in (Transition.completion.__name__, Transition.angle.__name__, Transition.softness.__name__))
+    completion, angle, softness = (End(node=INPUTS, socket=name) for name in (Transition.completion.__name__, Transition.angle.__name__, Transition.softness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def traveled(space: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
         direction = (
@@ -289,10 +287,10 @@ def qualifier() -> BlenderResult[NodeGroup]:
             def ranged(parts: tuple[Fragment, Fragment]) -> BlenderResult[tuple[Fragment, End]]:
                 split, logged = parts
                 hue, saturation, luminance = ended("hsy_split", "Red")(split), ended("hsy_split", "Green")(split), ended("log_split", "Blue")(logged)
-                hue_path = (Qualifier.hue.__name__, Gated.value.__name__)
+                hue_path = (Qualifier.hue.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
                 hue_key = (
                     math("hue_radians", "MULTIPLY", hue, tau)
-                    .bind(lambda radians: math("hue_offset", "SUBTRACT", radians, End(node=INPUTS, socket=item_key(*hue_path, HueRange.center.__name__))))
+                    .bind(lambda radians: math("hue_offset", "SUBTRACT", radians, End(node=INPUTS, socket=item_key(*hue_path, HueRange.center.__name__))))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     .bind(lambda offset: math("hue_absolute", "ABSOLUTE", offset))
                     .bind(lambda absolute: math("hue_wrapped", "FLOORED_MODULO", absolute, tau))
                     .bind(lambda wrapped: math("hue_halfturn", "SUBTRACT", wrapped, pi))
@@ -300,20 +298,20 @@ def qualifier() -> BlenderResult[NodeGroup]:
                     .bind(lambda folded: math("hue_distance", "SUBTRACT", pi, folded))
                 )
                 hue_band = (
-                    paired(hue_key, math("hue_radius", "MULTIPLY", End(node=INPUTS, socket=item_key(*hue_path, HueRange.width.__name__)), 0.5))
+                    paired(hue_key, math("hue_radius", "MULTIPLY", End(node=INPUTS, socket=item_key(*hue_path, HueRange.width.__name__)), 0.5))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     .bind(lambda ends: math("hue_inside", "SUBTRACT", ends[1], ends[0]))
-                    .bind(lambda distance: nested("hue_edge", feather, {"distance": distance, "softness": End(node=INPUTS, socket=item_key(*hue_path, HueRange.softness.__name__))}, "key"))
+                    .bind(lambda distance: nested("hue_edge", feather, {"distance": distance, "softness": End(node=INPUTS, socket=item_key(*hue_path, HueRange.softness.__name__))}, "key"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 )
                 bands = accumulated(
-                    nested(name, interval, {"value": value, **{field.name: End(node=INPUTS, socket=item_key(name, Gated.value.__name__, field.name)) for field in structs.fields(Band)}}, "key")
-                    for name, value in ((Qualifier.saturation.__name__, saturation), (Qualifier.luminance.__name__, luminance))
+                    nested(name, interval, {"value": value, **{field.name: End(node=INPUTS, socket=item_key(name, Gated.value.__name__, field.name)) for field in structs.fields(Band)}}, "key")  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+                    for name, value in ((Qualifier.saturation.__name__, saturation), (Qualifier.luminance.__name__, luminance))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 )
                 return (
                     paired(hue_band, bands)
                     .bind(
                         lambda keys: accumulated(
                             switched(f"{name}_gate", "FLOAT", End(node=INPUTS, socket=name), 1.0, key)
-                            for name, key in zip((Qualifier.hue.__name__, Qualifier.saturation.__name__, Qualifier.luminance.__name__), (keys[0], *keys[1]))
+                            for name, key in zip((Qualifier.hue.__name__, Qualifier.saturation.__name__, Qualifier.luminance.__name__), (keys[0], *keys[1]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         )
                     )
                     .bind(lambda keys: math("hue_saturation", "MULTIPLY", keys[0], keys[1]).bind(lambda first: math("key", "MULTIPLY", first, keys[2])))
@@ -345,17 +343,21 @@ def qualifier() -> BlenderResult[NodeGroup]:
 def matte(working: NodeGroup) -> BlenderResult[NodeGroup]:
     """Returns clamped alpha or associated working-space Y, optionally inverted."""
     image = End(node=INPUTS, socket="image")
-    channel = next(field for field in structs.fields(TrackMatte) if field.name == TrackMatte.channel.__name__)
+    channel = next(field for field in structs.fields(TrackMatte) if field.name == TrackMatte.channel.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return (
         paired(node("alpha", bpy.types.CompositorNodeSeparateColor, {"Image": image}, {"mode": "RGB"}).map(ended("alpha", "Alpha")), nested("luminance", working, {"image": image}, "luminance"))
         .bind(
             lambda ends: menu(
-                "channel", "FLOAT", End(node=INPUTS, socket=channel.name), MenuItems.of(inspect.type_info(channel.type)), {MatteChannel.ALPHA.label: ends[0], MatteChannel.LUMINANCE.label: ends[1]}
+                "channel",
+                "FLOAT",
+                End(node=INPUTS, socket=channel.name),
+                MenuItems.of(MatteChannel, described(channel.type)),
+                {MatteChannel.ALPHA.label: ends[0], MatteChannel.LUMINANCE.label: ends[1]},
             )
         )
         .bind(lambda selected: node("clamped", bpy.types.ShaderNodeClamp, {"Value": selected, "Min": 0.0, "Max": 1.0}, {}))
         .map(ended("clamped", "Result"))
-        .bind(lambda coverage: math("flip", "SUBTRACT", End(node=INPUTS, socket=TrackMatte.invert.__name__), coverage))
+        .bind(lambda coverage: math("flip", "SUBTRACT", End(node=INPUTS, socket=TrackMatte.invert.__name__), coverage))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         .bind(lambda flipped: math("key", "ABSOLUTE", flipped))
         .bind(
             lambda key: Interface.of(TrackMatte).bind(
@@ -391,7 +393,7 @@ def relayed(outer: Callable[[Key], Operand], interface: Interface) -> dict[Key, 
 def joined(opening: bool) -> BlenderResult[NodeGroup]:
     """Returns one mask join, using the operation's identity for the opening mask."""
     fields = {field.name: field for field in structs.fields(Mask)}
-    key_row, operation_row = fields[Mask.key.__name__], fields[Mask.operation.__name__]
+    key_row, operation_row = fields[Mask.key.__name__], fields[Mask.operation.__name__]  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
     heads = (
         Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),
         Socket(key="aspect", name="Aspect", kind=bpy.types.NodeSocketFloat),
@@ -406,11 +408,11 @@ def joined(opening: bool) -> BlenderResult[NodeGroup]:
         return accumulated(
             nested(item_key(case), group, relayed(lambda key: End(node=INPUTS, socket=key if key in shared else item_key(key_row.name, case, key)), group.interface), "key")
             for case, group in zip(cases, groups)
-        ).bind(lambda keys: menu("key", "FLOAT", End(node=INPUTS, socket=key_row.name), MenuItems.of(inspect.type_info(key_row.type)), dict(zip((case.title for case in cases), keys))))
+        ).bind(lambda keys: menu("key", "FLOAT", End(node=INPUTS, socket=key_row.name), MenuItems.of(cases), dict(zip((case.title for case in cases), keys))))
 
     def joining(key: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         return (
-            math("flip", "SUBTRACT", End(node=INPUTS, socket=Mask.invert.__name__), key)
+            math("flip", "SUBTRACT", End(node=INPUTS, socket=Mask.invert.__name__), key)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda flipped: math("keyed", "ABSOLUTE", flipped))
             .bind(
                 lambda keyed: accumulated(
@@ -419,7 +421,7 @@ def joined(opening: bool) -> BlenderResult[NodeGroup]:
             )
             .bind(
                 lambda ends: menu(
-                    "join", "FLOAT", End(node=INPUTS, socket=operation_row.name), MenuItems.of(inspect.type_info(operation_row.type)), dict(zip((operation.label for operation in joins), ends))
+                    "join", "FLOAT", End(node=INPUTS, socket=operation_row.name), MenuItems.of(MaskOperation, described(operation_row.type)), dict(zip((operation.label for operation in joins), ends))
                 )
             )
         )

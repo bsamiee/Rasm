@@ -20,12 +20,15 @@ public static class Edits {
              Some: held => IO.lift(() => held.Undo(document)).Bind(_ => Respond(document, held)),
              None: static () => IO.pure(unit)))
          from value in DisposalOps.OnFailure(IO.liftVAsync(() => IO.pure(actions).Bind(body).RunAsync(environment)), rollback)
-         from committed in IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
-             Some: held => IO.lift(() => document.Undo.Do(held))
-                 .Bind(_ => Callbacks.Each(Seq(IO.lift(() => ignore(document.File.AutoSave(reason))), Respond(document, held))))
-                 .Map(static _ => unit),
-             None: static () => IO.pure(unit)))
+         from committed in Recorded(document, actions, name, reason)
          select value).Uninterruptible();
+
+    private static IO<Unit> Recorded(Document document, ActionList actions, VerbNoun name, AutoSaveReason reason) =>
+        IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
+            Some: held => IO.lift(() => document.Undo.Do(held))
+                .Bind(_ => Callbacks.Each(Seq(IO.lift(() => ignore(document.File.AutoSave(reason))), Respond(document, held))))
+                .Map(static _ => unit),
+            None: static () => IO.pure(unit)));
 
     // --- [CLUSTERS]
     public static IO<IDocumentObject> ClusterObjects(Document document, Seq<IDocumentObject> objects, ActionList actions) =>

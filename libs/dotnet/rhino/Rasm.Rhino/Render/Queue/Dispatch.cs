@@ -286,17 +286,7 @@ public static class Dispatch {
                 local: static (state, _) =>
                     Queues.Resolve(state.Doc, state.Plan, state.Resumed).Post()
                         .Bind(queue => Queues.Run(state.Context, state.Doc, queue, None, state.Resumed)),
-                handoff: static (state, handoff) =>
-                    DisposalOps.Within<IDisposable, Unit>(acquired =>
-                    from lease in QueueProgress.Acquire(state.Context.Record, acquired)
-                    from command in state.Context.JobCommand.Post()
-                    from saved in SaveAll.Post()
-                    from paths in Packed(state.Doc, state.Plan, state.Resumed, handoff.Package, state.Stamp).Post()
-                    from moved in state.Resumed.Traverse(record => QueueProgress.Write(
-                        state.Context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
-                    from relayed in Relay(state.Context, paths[PackageFile.Job], command)
-                    from quit in Quit.Post()
-                    select unit, DisposalOps.Release),
+                handoff: static (state, handoff) => Handed(state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, handoff.Package),
                 jobFile: static (state, file) => Packed(state.Doc, state.Plan, state.Resumed, file.Package, state.Stamp).Post().Map(static _ => unit),
                 flamenco: static (state, farm) =>
                     from arguments in IO.lift(FarmArguments(farm.WorkerPlatform, state.Context.FarmScript))
@@ -378,6 +368,18 @@ public static class Dispatch {
         select paths;
 
     // --- [HANDOFF]
+    private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, Destination package) =>
+        DisposalOps.Within<IDisposable, Unit>(acquired =>
+            from lease in QueueProgress.Acquire(context.Record, acquired)
+            from command in context.JobCommand.Post()
+            from saved in SaveAll.Post()
+            from paths in Packed(doc, plan, resumed, package, stamp).Post()
+            from moved in resumed.Traverse(record => QueueProgress.Write(
+                context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
+            from relayed in Relay(context, paths[PackageFile.Job], command)
+            from quit in Quit.Post()
+            select unit, DisposalOps.Release);
+
     private static IO<Unit> SaveAll =>
         IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false)))
             .Bind(static open => open.TraverseM(Exchange.Save).As())

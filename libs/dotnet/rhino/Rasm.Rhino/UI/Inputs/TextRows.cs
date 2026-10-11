@@ -154,10 +154,7 @@ public static class TextRows {
             }).Bind(static taken => DisposalOps.Release(taken.ToSeq().Flatten())).Uninterruptible())
             from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(drain(None), static close => close.Run())), static held => IO.lift(held.Dispose), owned)
             from loaded in Subscriptions.Attach(h => control.Load += h, h => control.Load -= h,
-                Callbacks.Handler<EventArgs>(_ => DisposalOps.Acquire(keep =>
-                    from watched in Watched(source, scope, keep)
-                    from sampled in FrameClocks.Sample(control, watched.Read.Bind(current => current.Match(Some: state => show(control, state), None: static () => IO.pure(unit))), site, keep)
-                    select unit,
+                Callbacks.Handler<EventArgs>(_ => DisposalOps.Acquire(keep => Sampled(source, show, control, site, scope, keep),
                     (_, lease) => {
                         if (!atomic(() => {
                             Option<Seq<IDisposable>> prior = active.Value;
@@ -168,6 +165,14 @@ public static class TextRows {
             from unloaded in Subscriptions.Attach(h => control.UnLoad += h, h => control.UnLoad -= h,
                 Callbacks.Handler<EventArgs>(_ => drain(Some(Seq<IDisposable>())), new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.UnLoad))), owned)
             select control, (_, lease) => retain(lease));
+
+    private static IO<Unit> Sampled<TState, TControl>(
+        ReadoutSource<TState> source, Func<TControl, TState, IO<Unit>> show, TControl control, CallbackSite site, RowScope scope, Action<IDisposable> keep)
+        where TState : notnull
+        where TControl : Eto.Forms.Control =>
+        from watched in Watched(source, scope, keep)
+        from sampled in FrameClocks.Sample(control, watched.Read.Bind(current => current.Match(Some: state => show(control, state), None: static () => IO.pure(unit))), site, keep)
+        select unit;
 
     // --- [REALIZE]
     public static ControlRow Typed<TRecord>(
@@ -190,10 +195,7 @@ public static class TextRows {
         let site = new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.TextControl.TextChanged))
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h,
-            edit => Callbacks.Handler<EventArgs>(_ => preview.Traverse(cross =>
-                    from held in scope.Read(source)
-                    from previewed in edit.Preview(cross(held, entry.Read()), Some(Accessors.TextChangingEventsDelay))
-                    select previewed).As().Map(static _ => unit), site),
+            edit => Callbacks.Handler<EventArgs>(_ => preview.Traverse(cross => Previewed(edit, cross, source, entry, scope)).As().Map(static _ => unit), site),
             value =>
                 from marked in IO.lift(() => entry.Varied.Iter(mark => mark(value.IsNone)))
                 from written in (value.Map(text) | entry.Blank).Traverse(shown => Written(entry.Read, entry.Write, shown)).As()
@@ -214,6 +216,12 @@ public static class TextRows {
         select new RowCells(
             entry.Shown, None, picked.Map(static held => (Eto.Forms.Control)held), None, [], [], new RowHelp(None, Conversions.Present(text(source.Default))),
             bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], [], scope.Sink))), (_, lease) => retain(lease));
+
+    private static IO<Unit> Previewed<TRecord>(RowEdit<TRecord> edit, Func<TRecord, string, Fin<TRecord>> cross, RowSource<TRecord> source, Entry entry, RowScope scope)
+        where TRecord : notnull =>
+        from held in scope.Read(source)
+        from previewed in edit.Preview(cross(held, entry.Read()), Some(Accessors.TextChangingEventsDelay))
+        select previewed;
 
     private static IO<Entry> Line(Action<IDisposable> retain) =>
         from box in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.TextBox()), static held => IO.lift(held.Dispose), retain)

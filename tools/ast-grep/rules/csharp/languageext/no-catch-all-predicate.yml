@@ -8,7 +8,7 @@ utils:
             - any:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Catch|CatchIO)(\s*<.+>)?$'}}
                 - all:
-                    - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
+                    - has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
                     - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^\|$'}}
             - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}}
             - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
@@ -17,7 +17,7 @@ utils:
         all:
             - any:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $NAME, regex: '^Catch(IO)?(\s*<.+>)?$'}}, {has: {field: expression, pattern: $RECEIVER}}]}
-                - has: {field: function, pattern: $NAME, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
+                - has: {field: function, pattern: $NAME, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}, not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}
             - has:
                 field: arguments

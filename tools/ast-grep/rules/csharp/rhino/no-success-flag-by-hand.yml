@@ -99,7 +99,7 @@ utils:
                     has: {stopBy: end, kind: method_declaration, all: [{has: {field: returns, matches: unit-type}}, {has: {field: name, pattern: $METHOD}}]}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)lift$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -122,10 +122,10 @@ utils:
                                             stopBy: end
                                             any:
                                                 - kind: parameter, property_declaration
-                                                  all: [{has: {field: type, regex: '^((global::)?System\.)?Action$'}}, {has: {field: name, pattern: $ACTION}}]
+                                                  all: [{has: {field: type, matches: {csharp-type-name: {name: {regex: '^Action$'}}}}}, {has: {field: name, pattern: $ACTION}}]
                                                 - kind: variable_declaration
                                                   all:
-                                                    - has: {field: type, regex: '^((global::)?System\.)?Action$'}
+                                                    - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Action$'}}}}
                                                     - has: {kind: variable_declarator, has: {field: name, pattern: $ACTION}}
     always:
         any:
@@ -134,7 +134,7 @@ utils:
             - matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?constant(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^constant$'}}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^true$'}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     never:
         any:
@@ -143,18 +143,18 @@ utils:
             - matches: {csharp-constant-lambda: {value: {regex: '^false$'}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?constant(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^constant$'}}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^false$'}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     pure-true:
         kind: lambda_expression
         all:
             - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, all: [{has: {kind: parameter}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
-            - has: {field: body, regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)pure\s*\(\s*true\s*\)$'}
+            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}}, {has: {field: arguments, regex: '^\(\s*true\s*\)$'}}]}
     pure-false:
         kind: lambda_expression
         all:
             - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, all: [{has: {kind: parameter}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
-            - has: {field: body, regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)pure\s*\(\s*false\s*\)$'}
+            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}}, {has: {field: arguments, regex: '^\(\s*false\s*\)$'}}]}
     true-mapped:
         kind: invocation_expression
         all:
@@ -202,7 +202,7 @@ utils:
     lifted-true:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)lift$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
             - has:
                 field: arguments
                 all:
@@ -254,7 +254,7 @@ utils:
     lazy-slot:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: effect-slot}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     failed-false:
         matches: {csharp-constant-lambda: {value: {any: [{regex: '^false$'}, {kind: default_expression}]}}}
@@ -285,7 +285,7 @@ utils:
     answer:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
             - has:
                 field: arguments
                 all:
@@ -331,7 +331,7 @@ utils:
         has: {field: arguments, has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: inverted-slot, pattern: $INVERTED}}}
     ignore-call:
         kind: invocation_expression
-        has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?ignore(\s*<.+>)?$'}
+        has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
     discarded:
         any:
             - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^_$'}}

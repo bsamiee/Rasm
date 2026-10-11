@@ -87,7 +87,7 @@ utils:
                 field: body
                 kind: invocation_expression
                 all:
-                    - has: {field: function, regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)lift$'}
+                    - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
                     - has:
                         field: arguments
                         all:
@@ -105,7 +105,7 @@ utils:
             - kind: identifier
               regex: '^identity$'
             - kind: member_access_expression
-              regex: '^(global::)?(LanguageExt\.)?Prelude\s*\.\s*identity$'
+              matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^identity$'}}}
             - kind: lambda_expression
               all:
                 - has:

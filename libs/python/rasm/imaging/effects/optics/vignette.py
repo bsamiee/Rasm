@@ -8,7 +8,7 @@ from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.compositing.masks import Shape
 from rasm.imaging.parameters import Case, Rgb
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Natural(Case, frozen=True, kw_only=True, tag=1):
@@ -34,6 +34,6 @@ class Vignette(Effect, frozen=True, kw_only=True, tag=31):
     falloff: Annotated[Natural | Shaped, msgspec.Meta(description="Lens law of the scene camera or a drawn outline")] = Natural()
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Natural", "Shaped", "Vignette"]

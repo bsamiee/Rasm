@@ -55,7 +55,7 @@ Acquisition of a product:
 
 Plans and earlier code generations stay where they are:
 - `plan/` holds plans and research for future projects and stays read-only
-- `.archive/` folders at the repository root, `apps/creative-cloud/`, and `libs/typescript/` hold earlier code generations
+- `.archive/` folders hold earlier code generations
 
 ## [06]-[CLEANUP]
 

@@ -1,9 +1,10 @@
 """Gated geometric fields and integrated refracting source samples."""
 
 from fractions import Fraction
+import functools
 import math
 import sys
-from typing import Annotated
+from typing import Annotated, Literal
 
 from expression import Error, Ok, Option, Some
 import msgspec
@@ -17,11 +18,11 @@ from rasm.imaging.color.processors import unassociated
 from rasm.imaging.effects.generators import noise
 from rasm.imaging.effects.generators.noise import Basis, Cut, Estimate, Interpolation, Octaves, Perlin, Precision, Profile, sample, uniforms
 from rasm.imaging.effects.generators.particles import Population
-from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingResult
+from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingResult, paired
 from rasm.imaging.geometry.stmaps import Extension, StMap
 from rasm.imaging.parameters import Choice, Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Seed
 
-# --- [TYPES] -----------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type _Length = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
 type _Radius = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
@@ -55,7 +56,7 @@ class Surface(Choice):
     TINY_LENS = 4, "Tiny Lens"
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Twirl(msgspec.Struct, frozen=True, kw_only=True):
@@ -283,34 +284,33 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                 base_height = height_of(source)
                 luma_height = softened(base_height, self.luma.value.softness) if self.luma.enabled else base_height
                 bubble_height = softened(base_height, self.bubbles.value.softness) if self.bubbles.enabled else base_height
-                glass_gradient = np.zeros(shape, dtype=np.float64)
-                rain_gradient = np.zeros(shape, dtype=np.float64)
-                if self.raindrops.enabled and self.raindrops.value.strength != 0.0:
-                    rain = self.raindrops.value
-                    field = rain.sampled(centers.reshape(-1, 2), reference_frame)
-                    if field.tag == "error":
-                        return Error(field.error)
-                    rain_gradient = rain.strength * rain.drops.spacing * slope(softened(field.ok[:, 3].reshape(height, width), rain.softness))
-                if self.refraction.enabled:
-                    glass = self.refraction.value
+
+                def trailed(rain: Raindrops) -> ImagingResult[npt.NDArray[np.float64]]:
+                    return rain.sampled(centers.reshape(-1, 2), reference_frame).map(
+                        lambda field: rain.strength * rain.drops.spacing * slope(softened(field[:, 3].reshape(height, width), rain.softness))
+                    )
+
+                def glazed(glass: Refraction) -> ImagingResult[npt.NDArray[np.float64]]:
                     cell = centers / glass.size
                     fraction = cell % 1.0
+                    level: ImagingResult[npt.NDArray[np.float64]]
                     match glass.surface:
                         case Surface.BLOCKS:
-                            level = np.prod(1.0 - np.abs(2.0 * fraction - 1.0) ** 4, axis=-1)
+                            level = Ok(np.prod(1.0 - np.abs(2.0 * fraction - 1.0) ** 4, axis=-1))
                         case Surface.CANVAS:
-                            level = 0.5 + 0.5 * np.prod(np.sin(math.tau * cell), axis=-1)
+                            level = Ok(0.5 + 0.5 * np.prod(np.sin(math.tau * cell), axis=-1))
                         case Surface.TINY_LENS:
-                            level = np.sqrt(np.maximum(0.0, 1.0 - 4.0 * np.sum((fraction - 0.5) ** 2, axis=-1)))
+                            level = Ok(np.sqrt(np.maximum(0.0, 1.0 - 4.0 * np.sum((fraction - 0.5) ** 2, axis=-1))))
                         case Surface.FROSTED:
-                            coordinates = np.column_stack((centers.reshape(-1, 2), np.zeros((width * height, 2))))
-                            field = sample(
-                                Perlin(dimensions=2, size=glass.size, stretch=1.0, octaves=Octaves(), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)), coordinates, seed=glass.seed
-                            )
-                            if field.tag == "error":
-                                return Error(field.error)
-                            level = field.ok[:, 0].reshape(height, width)
-                    glass_gradient = glass.strength * glass.size * slope(softened(level, glass.softness))
+                            level = sample(
+                                Perlin(dimensions=2, size=glass.size, stretch=1.0, octaves=Octaves(), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)),
+                                np.column_stack((centers.reshape(-1, 2), np.zeros((width * height, 2)))),
+                                seed=glass.seed,
+                            ).map(lambda field: field[:, 0].reshape(height, width))
+                    return level.map(lambda held: glass.strength * glass.size * slope(softened(held, glass.softness)))
+
+                rain_gradient = trailed(self.raindrops.value) if self.raindrops.enabled and self.raindrops.value.strength != 0.0 else Ok(np.zeros(shape, dtype=np.float64))
+                glass_gradient = glazed(self.refraction.value) if self.refraction.enabled else Ok(np.zeros(shape, dtype=np.float64))
 
                 map_field = np.zeros((*shape[:2], 3), dtype=np.float64)
                 map_origin, map_span = (left, bottom), (right - left, top - bottom)
@@ -320,19 +320,14 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                     map_height, map_width = plane.shape[:2]
                     map_origin, map_span = ((0.0, 0.0), extent) if mapping.is_some() else (map_origin, map_span)
                     map_step = np.array(request.tile.value if request.tile.enabled else map_span) / (map_width, map_height)
+                    mode: Literal["wrap", "nearest"] = "wrap" if request.tile.enabled else "nearest"
                     map_field = np.ones((map_height, map_width, 3), dtype=np.float64)
                     match request.reading:
                         case MapReading.GRADIENT:
-                            level = gaussian_filter(height_of(plane), (request.softness / map_step[1], request.softness / map_step[0]), mode="wrap" if request.tile.enabled else "nearest")
-                            map_field[..., :2] = np.stack(
-                                (
-                                    sobel(level, axis=1, mode="wrap" if request.tile.enabled else "nearest") / (8.0 * map_step[0]),
-                                    -sobel(level, axis=0, mode="wrap" if request.tile.enabled else "nearest") / (8.0 * map_step[1]),
-                                ),
-                                axis=-1,
-                            )
+                            level = gaussian_filter(height_of(plane), (request.softness / map_step[1], request.softness / map_step[0]), mode=mode)
+                            map_field[..., :2] = np.stack((sobel(level, axis=1, mode=mode) / (8.0 * map_step[0]), -sobel(level, axis=0, mode=mode) / (8.0 * map_step[1])), axis=-1)
                         case MapReading.LUMA:
-                            level = 2.0 * gaussian_filter(height_of(plane), (request.softness / map_step[1], request.softness / map_step[0]), mode="wrap" if request.tile.enabled else "nearest") - 1.0
+                            level = 2.0 * gaussian_filter(height_of(plane), (request.softness / map_step[1], request.softness / map_step[0]), mode=mode) - 1.0
                             map_field[..., :2] = level[..., None]
                         case MapReading.OFFSETS:
                             map_field[..., :2] = 2.0 * plane[..., :2] - 1.0
@@ -342,9 +337,50 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
 
                 glass_source = softened(source.astype(np.float64), self.refraction.value.blur).astype(np.float32) if self.refraction.enabled else source
                 drop_source = softened(source.astype(np.float64), self.raindrops.value.blur).astype(np.float32) if self.raindrops.enabled else source
-                observations = np.zeros((precision.replicates, height, width, channels + 3), dtype=np.float64)
 
-                def fields(points: npt.NDArray[np.float64]) -> ImagingResult[tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
+                def fronted(wave: Wave, along: npt.NDArray[np.float64], points: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+                    if wave.front is Front.LINEAR:
+                        travel = (points - np.array(extent) / 2.0) @ along
+                        return travel, np.broadcast_to((-along[1], along[0]), points.shape), np.ones_like(travel)
+                    arm = points - np.array(wave.center) * extent
+                    travel = np.linalg.norm(arm, axis=-1)
+                    spoke = np.divide(arm, travel[..., None], out=np.zeros_like(arm), where=travel[..., None] > 0.0)
+                    tangent = np.stack((-spoke[..., 1], spoke[..., 0]), axis=-1)
+                    axis = spoke if wave.front is Front.RADIAL else tangent if wave.front is Front.ZIGZAG else (spoke + tangent) * math.sqrt(0.5)
+                    return travel, axis, np.maximum(0.0, 1.0 - travel / wave.radius)
+
+                def crest(wave: Wave, index: int, points: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+                    draw = uniforms((index,), seed=wave.seed, count=3)
+                    wavelength = wave.wavelength * (1.0 - wave.wavelength_variation * draw[0])
+                    amplitude = wave.amplitude * (1.0 - wave.amplitude_variation * draw[1]) / wave.count
+                    direction = wave.direction + wave.spread * (index - (wave.count - 1.0) / 2.0) / max(wave.count - 1, 1)
+                    travel, axis, envelope = fronted(wave, np.array((math.cos(direction), math.sin(direction))), points)
+                    cycles = travel / wavelength - clock(wave.motion) + wave.phase / math.tau + (draw[2] if wave.count > 1 else 0.0)
+                    return sample(
+                        noise.Wave(wavelength=1.0, profile=wave.profile, cut=Cut(interpolation=Interpolation.LINEAR)), np.column_stack((cycles.ravel(), np.zeros((cycles.size, 3)))), seed=wave.seed
+                    ).map(lambda profile: amplitude * (2.0 * profile[:, 0].reshape(travel.shape) - 1.0)[..., None] * envelope[..., None] * axis * wave.axes)
+
+                def stirred(turbulence: Turbulence, points: npt.NDArray[np.float64]) -> ImagingResult[tuple[npt.NDArray[np.float64], ...]]:
+                    coordinates = np.column_stack((points.reshape(-1, 2), np.zeros(points[..., 0].size), np.full(points[..., 0].size, clock(turbulence.motion))))
+                    return accumulated(sample(turbulence.basis, coordinates, seed=turbulence.seed, stream=axis) for axis in range(2)).map(
+                        lambda axes: (turbulence.amplitude * (2.0 * np.stack([axis[:, 0] for axis in axes], axis=-1).reshape(points.shape) - 1.0) * turbulence.axes,)
+                    )
+
+                def dropped(points: npt.NDArray[np.float64], rain_gradient: npt.NDArray[np.float64]) -> ImagingResult[tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]]:
+                    return (
+                        self.raindrops.value.sampled(points.reshape(-1, 2), reference_frame).map(
+                            lambda field: (
+                                field[:, 2].reshape(points.shape[:-1]),
+                                field[:, :2].reshape(points.shape) + np.stack([tapped(rain_gradient[..., axis], points) for axis in range(2)], axis=-1),
+                            )
+                        )
+                        if self.raindrops.enabled
+                        else Ok((np.zeros(points.shape[:-1], dtype=np.float64), np.zeros_like(points)))
+                    )
+
+                def composed(
+                    points: npt.NDArray[np.float64], terms: tuple[npt.NDArray[np.float64], ...], glass_gradient: npt.NDArray[np.float64]
+                ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
                     displacement = np.zeros_like(points)
                     coverage = np.ones(points.shape[:-1], dtype=np.float64)
                     if self.twirl.enabled:
@@ -366,39 +402,8 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                         target = 2.0 * np.arcsin(bounded) / math.pi if sphere.amount >= 0.0 else np.sin(math.pi * bounded / 2.0)
                         change = np.divide(target - bounded, bounded, out=np.zeros_like(bounded), where=bounded > 0.0)
                         displacement[inside] -= abs(sphere.amount) * change[..., None] * arm[inside]
-                    if self.wave.enabled:
-                        wave = self.wave.value
-                        for index in range(wave.count):
-                            draw = uniforms((index,), seed=wave.seed, count=3)
-                            wavelength = wave.wavelength * (1.0 - wave.wavelength_variation * draw[0])
-                            amplitude = wave.amplitude * (1.0 - wave.amplitude_variation * draw[1]) / wave.count
-                            direction = wave.direction + wave.spread * (index - (wave.count - 1.0) / 2.0) / max(wave.count - 1, 1)
-                            along = np.array((math.cos(direction), math.sin(direction)))
-                            if wave.front is Front.LINEAR:
-                                travel = (points - np.array(extent) / 2.0) @ along
-                                axis = np.broadcast_to((-along[1], along[0]), points.shape)
-                                envelope = np.ones_like(travel)
-                            else:
-                                arm = points - np.array(wave.center) * extent
-                                travel = np.linalg.norm(arm, axis=-1)
-                                spoke = np.divide(arm, travel[..., None], out=np.zeros_like(arm), where=travel[..., None] > 0.0)
-                                tangent = np.stack((-spoke[..., 1], spoke[..., 0]), axis=-1)
-                                axis = spoke if wave.front is Front.RADIAL else tangent if wave.front is Front.ZIGZAG else (spoke + tangent) * math.sqrt(0.5)
-                                envelope = np.maximum(0.0, 1.0 - travel / wave.radius)
-                            cycles = travel / wavelength - clock(wave.motion) + wave.phase / math.tau + (draw[2] if wave.count > 1 else 0.0)
-                            coordinates = np.column_stack((cycles.ravel(), np.zeros((cycles.size, 3))))
-                            profile = sample(noise.Wave(wavelength=1.0, profile=wave.profile, cut=Cut(interpolation=Interpolation.LINEAR)), coordinates, seed=wave.seed)
-                            if profile.tag == "error":
-                                return Error(profile.error)
-                            displacement += amplitude * (2.0 * profile.ok[:, 0].reshape(coverage.shape) - 1.0)[..., None] * envelope[..., None] * axis * wave.axes
-                    if self.turbulence.enabled:
-                        turbulence = self.turbulence.value
-                        time = clock(turbulence.motion)
-                        coordinates = np.column_stack((points.reshape(-1, 2), np.zeros(points[..., 0].size), np.full(points[..., 0].size, time)))
-                        result = accumulated(sample(turbulence.basis, coordinates, seed=turbulence.seed, stream=axis) for axis in range(2))
-                        if result.tag == "error":
-                            return Error(result.error)
-                        displacement += turbulence.amplitude * (2.0 * np.stack([axis[:, 0] for axis in result.ok], axis=-1).reshape(shape) - 1.0) * turbulence.axes
+                    for term in terms:
+                        displacement += term
                     if self.luma.enabled:
                         luma = self.luma.value
                         displacement += luma.amplitude * (2.0 * tapped(luma_height, points) - 1.0)[..., None] * np.array((math.cos(luma.direction), math.sin(luma.direction)))
@@ -418,37 +423,37 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                             coverage *= field[..., 2]
                         else:
                             displacement += rotated(field[..., :2] * request.axes * extent, request.rotation)
-                    if self.raindrops.enabled:
-                        rain = self.raindrops.value
-                        return rain.sampled(points.reshape(-1, 2), reference_frame).map(
-                            lambda field: (
-                                displacement,
-                                coverage,
-                                field[:, 2].reshape(coverage.shape),
-                                field[:, :2].reshape(shape) + np.stack([tapped(rain_gradient[..., axis], points) for axis in range(2)], axis=-1),
-                            )
-                        )
-                    return Ok((displacement, coverage, np.zeros_like(coverage), np.zeros_like(points)))
+                    return displacement, coverage
 
                 def refracted(plane: npt.NDArray[np.float32], position: npt.NDArray[np.float64], coverage: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float32]]:
                     coordinates = np.stack(((position[..., 0] - left) / (right - left), (position[..., 1] - bottom) / (top - bottom), coverage), axis=-1)
                     return StMap.bake(width, height, lambda _fraction: coordinates, self.extension, source_size=(width, height)).warp(plane, filtername=self.filtername, filterwidth=self.filterwidth)
 
-                for replicate in range(precision.replicates):
-                    net = precision.points(2, replicate)
-                    for offset in net:
-                        points = centers + (offset - 0.5) * step * (1.0, -1.0)
-                        result = fields(points)
-                        if result.tag == "error":
-                            return Error(result.error)
-                        displacement, coverage, drops, refraction = result.ok
+                def observed(points: npt.NDArray[np.float64], gradients: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]) -> ImagingResult[npt.NDArray[np.float64]]:
+                    rain_gradient, glass_gradient = gradients
+                    waves = accumulated(crest(self.wave.value, index, points) for index in range(self.wave.value.count)) if self.wave.enabled else Ok(())
+                    turbulence = stirred(self.turbulence.value, points) if self.turbulence.enabled else Ok(())
 
-                        sampled = accumulated((refracted(glass_source, points - displacement, coverage), refracted(drop_source, points - displacement - refraction, coverage)))
-                        if sampled.tag == "error":
-                            return Error(sampled.error)
-                        color = sampled.ok[0] * (1.0 - drops[..., None]) + sampled.ok[1] * drops[..., None]
-                        observations[replicate] += np.concatenate((color, displacement + drops[..., None] * refraction, drops[..., None]), axis=-1) / len(net)
-                estimate = Estimate.of(observations, precision)
+                    def colored(
+                        fields: tuple[tuple[tuple[npt.NDArray[np.float64], ...], tuple[npt.NDArray[np.float64], ...]], tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
+                    ) -> ImagingResult[npt.NDArray[np.float64]]:
+                        (crests, stirs), (drops, refraction) = fields
+                        displacement, coverage = composed(points, (*crests, *stirs), glass_gradient)
+                        return paired(refracted(glass_source, points - displacement, coverage), refracted(drop_source, points - displacement - refraction, coverage)).map(
+                            lambda colors: np.concatenate(
+                                (colors[0] * (1.0 - drops[..., None]) + colors[1] * drops[..., None], displacement + drops[..., None] * refraction, drops[..., None]), axis=-1
+                            )
+                        )
+
+                    return paired(paired(waves, turbulence), dropped(points, rain_gradient)).bind(colored)
+
+                def replicated(observation: npt.NDArray[np.float64], replicate: int, gradients: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]) -> ImagingResult[npt.NDArray[np.float64]]:
+                    net = precision.points(2, replicate)
+                    return functools.reduce(
+                        lambda total, offset: total.bind(lambda held: observed(centers + (offset - 0.5) * step * (1.0, -1.0), gradients).map(lambda term: np.add(held, term / len(net), out=held))),
+                        net,
+                        Ok(observation),
+                    )
 
                 def located(plane: npt.NDArray[np.float64]) -> ImagingResult[OpenImageIO.ImageBuf]:
                     answer = OpenImageIO.ImageBuf(np.ascontiguousarray(plane, dtype=np.float32))
@@ -457,13 +462,22 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                     answer.roi_full = image.roi_full
                     return Error((ImagingBufferFault(request=image, error=answer.geterror()),)) if answer.has_error else Ok(answer)
 
-                return accumulated(located(plane) for plane in (estimate.value[..., :channels], estimate.value[..., channels : channels + 2], estimate.value[..., channels + 2 :])).map(
-                    lambda buffers: Estimate(value=(buffers[0], buffers[1], buffers[2]), standard_error=estimate.standard_error, precision=precision, replicates=estimate.replicates)
+                def published(observations: npt.NDArray[np.float64]) -> ImagingResult[Estimate[tuple[OpenImageIO.ImageBuf, OpenImageIO.ImageBuf, OpenImageIO.ImageBuf]]]:
+                    estimate = Estimate.of(observations, precision)
+                    return accumulated(located(plane) for plane in (estimate.value[..., :channels], estimate.value[..., channels : channels + 2], estimate.value[..., channels + 2 :])).map(
+                        lambda buffers: Estimate(value=(buffers[0], buffers[1], buffers[2]), standard_error=estimate.standard_error, precision=precision, replicates=estimate.replicates)
+                    )
+
+                observations = np.zeros((precision.replicates, height, width, channels + 3), dtype=np.float64)
+                return (
+                    paired(rain_gradient, glass_gradient)
+                    .bind(lambda gradients: accumulated(replicated(observation, replicate, gradients) for replicate, observation in enumerate(observations)))
+                    .bind(lambda _: published(observations))
                 )
         except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
             return Error((ImagingGeneratorFault(request=self, error=error),))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Bubbles", "Displacement", "Front", "Luma", "Map", "MapReading", "Raindrops", "Refraction", "Sphere", "Surface", "Turbulence", "Twirl", "Wave"]

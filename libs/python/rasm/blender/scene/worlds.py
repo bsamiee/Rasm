@@ -20,10 +20,12 @@ from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, Graph, Loaded, mixed, node, Operand, reconciling
+from rasm.blender.scene.materials import tree_of
 from rasm.blender.settings.attachments import Attachment
 from rasm.blender.settings.properties import Choices, Definition
 from rasm.blender.ui.layout.rows import Member, OperatorButton, Property
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
+from rasm.blender.ui.surfaces.panels import enumerated
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.parameters import Case, Finite, Gated, Presentation, Quantity, Rgb
 from rasm.rendering.history import Retention
@@ -39,7 +41,7 @@ type Follower = bpy.types.ShaderNodeTexSky | EnvironmentNode
 
 # --- [METADATA] -------------------------------------------------------------------------
 
-sky_properties = bpy.types.ShaderNodeTexSky.bl_rna.properties
+sky_properties = {prop.identifier: prop for prop in bpy.types.ShaderNodeTexSky.bl_rna.properties if isinstance(prop, bpy.types.FloatProperty)}
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -61,12 +63,10 @@ class Solar(Case, frozen=True, kw_only=True, tag=2):
 class Disc(msgspec.Struct, frozen=True, kw_only=True):
     """Native scattering sun size and intensity."""
 
-    sun_size: Annotated[
-        float,
-        msgspec.Meta(ge=sky_properties["sun_size"].hard_min, le=sky_properties["sun_size"].hard_max, title="Size"),  # ty: ignore[unresolved-attribute]
-        Presentation(quantity=Some(Quantity.ANGLE)),
-    ] = sky_properties["sun_size"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    sun_intensity: Annotated[float, msgspec.Meta(ge=sky_properties["sun_intensity"].hard_min, le=sky_properties["sun_intensity"].hard_max, title="Intensity")] = sky_properties["sun_intensity"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    sun_size: Annotated[float, msgspec.Meta(ge=sky_properties["sun_size"].hard_min, le=sky_properties["sun_size"].hard_max, title="Size"), Presentation(quantity=Some(Quantity.ANGLE))] = (
+        sky_properties["sun_size"].default
+    )
+    sun_intensity: Annotated[float, msgspec.Meta(ge=sky_properties["sun_intensity"].hard_min, le=sky_properties["sun_intensity"].hard_max, title="Intensity")] = sky_properties["sun_intensity"].default
 
 
 class Scattering(Case, frozen=True, kw_only=True, tag=2):
@@ -76,26 +76,18 @@ class Scattering(Case, frozen=True, kw_only=True, tag=2):
     sky_type: Annotated[
         str,
         msgspec.Meta(title="Model"),
-        Choices(
-            lambda _identity, _owner, _context: (
-                (item.identifier, item.name, item.description)
-                for item in bpy.types.ShaderNodeTexSky.bl_rna.properties["sky_type"].enum_items  # ty: ignore[unresolved-attribute]
-                if item.identifier in {"SINGLE_SCATTERING", "MULTIPLE_SCATTERING"}
-            )
-        ),
+        Choices(lambda *_: (row for row in enumerated(bpy.types.ShaderNodeTexSky.bl_rna.properties["sky_type"]) if row[0] in {"SINGLE_SCATTERING", "MULTIPLE_SCATTERING"})),
     ] = "MULTIPLE_SCATTERING"
     sun: SkySun = Still()
     disc: Annotated[Gated[Disc], msgspec.Meta(title="Sun Disc")] = Gated(enabled=True, value=Disc())
-    altitude: Annotated[
-        float,
-        msgspec.Meta(ge=sky_properties["altitude"].hard_min, le=sky_properties["altitude"].hard_max),  # ty: ignore[unresolved-attribute]
-        Presentation(quantity=Some(Quantity.LENGTH)),
-    ] = sky_properties["altitude"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    air_density: Annotated[float, msgspec.Meta(ge=sky_properties["air_density"].hard_min, le=sky_properties["air_density"].hard_max, title="Air")] = sky_properties["air_density"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    aerosol_density: Annotated[
-        float, msgspec.Meta(ge=sky_properties["aerosol_density"].hard_min, le=sky_properties["aerosol_density"].hard_max, title="Aerosols")  # ty: ignore[unresolved-attribute]
-    ] = sky_properties["aerosol_density"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    ozone_density: Annotated[float, msgspec.Meta(ge=sky_properties["ozone_density"].hard_min, le=sky_properties["ozone_density"].hard_max, title="Ozone")] = sky_properties["ozone_density"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    altitude: Annotated[float, msgspec.Meta(ge=sky_properties["altitude"].hard_min, le=sky_properties["altitude"].hard_max), Presentation(quantity=Some(Quantity.LENGTH))] = sky_properties[
+        "altitude"
+    ].default
+    air_density: Annotated[float, msgspec.Meta(ge=sky_properties["air_density"].hard_min, le=sky_properties["air_density"].hard_max, title="Air")] = sky_properties["air_density"].default
+    aerosol_density: Annotated[float, msgspec.Meta(ge=sky_properties["aerosol_density"].hard_min, le=sky_properties["aerosol_density"].hard_max, title="Aerosols")] = sky_properties[
+        "aerosol_density"
+    ].default
+    ozone_density: Annotated[float, msgspec.Meta(ge=sky_properties["ozone_density"].hard_min, le=sky_properties["ozone_density"].hard_max, title="Ozone")] = sky_properties["ozone_density"].default
 
 
 class Preetham(Case, frozen=True, kw_only=True, tag=3):
@@ -103,7 +95,7 @@ class Preetham(Case, frozen=True, kw_only=True, tag=3):
 
     title = "Preetham"
     sun: SkySun = Still()
-    turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max)] = 2.2  # ty: ignore[unresolved-attribute]
+    turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max)] = 2.2
 
 
 class HosekWilkie(Case, frozen=True, kw_only=True, tag=4):
@@ -111,8 +103,8 @@ class HosekWilkie(Case, frozen=True, kw_only=True, tag=4):
 
     title = "Hosek / Wilkie"
     sun: SkySun = Still()
-    turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max)] = 2.2  # ty: ignore[unresolved-attribute]
-    ground_albedo: Annotated[float, msgspec.Meta(ge=sky_properties["ground_albedo"].hard_min, le=sky_properties["ground_albedo"].hard_max)] = 0.3  # ty: ignore[unresolved-attribute]
+    turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max)] = 2.2
+    ground_albedo: Annotated[float, msgspec.Meta(ge=sky_properties["ground_albedo"].hard_min, le=sky_properties["ground_albedo"].hard_max)] = 0.3
 
 
 class FixedTurn(Case, frozen=True, kw_only=True, tag=1):
@@ -134,9 +126,7 @@ class Hdri(Case, frozen=True, kw_only=True, tag=1):
 
     title = "HDRI"
     path: Annotated[str, msgspec.Meta(title="Image"), Definition(text="FILE_PATH")] = ""
-    projection: Annotated[
-        str, Choices(lambda _identity, _owner, _context: ((item.identifier, item.name, item.description) for item in bpy.types.ShaderNodeTexEnvironment.bl_rna.properties["projection"].enum_items))  # ty: ignore[unresolved-attribute]
-    ] = "EQUIRECTANGULAR"
+    projection: Annotated[str, Choices(lambda *_: enumerated(bpy.types.ShaderNodeTexEnvironment.bl_rna.properties["projection"]))] = "EQUIRECTANGULAR"
     turn: ImageTurn = FixedTurn()
 
 
@@ -188,16 +178,14 @@ class EnvironmentNode(msgspec.Struct, frozen=True, kw_only=True):
 class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
     """Environment attachment, owned worlds, commands, and section."""
 
-    retention: Callable[[Identity], BlenderResult[Retention]]
+    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def refreshed(world: Handle[bpy.types.World], identity: Identity) -> BlenderResult[Option[str]]:
         """Reconciles the latest stored record without adding an undo step."""
         return (
-            paired(world.resolve(), WorldEnvironment.attachment.bound(identity))
-            .bind(
-                lambda pair: pair[1].read(pair[0].node_tree).bind(world_graph).bind(lambda graph: graph.reconciled(pair[0].node_tree, identity))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            )
+            paired(world.resolve().bind(tree_of), WorldEnvironment.attachment.bound(identity))
+            .bind(lambda pair: pair[1].read(pair[0]).bind(world_graph).bind(lambda graph: graph.reconciled(pair[0], identity)))
             .map(lambda _: Nothing)
         )
 
@@ -211,9 +199,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         return (
             WorldEnvironment.attachment
             .bound(identity)
-            .bind(
-                lambda attached: owned.map(lambda world: attached.read(world.node_tree)).default_with(lambda: Ok(Environment()))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            )
+            .bind(lambda attached: owned.bind(lambda world: Option.of_optional(world.node_tree)).map(attached.read).default_with(lambda: Ok(Environment())))
             .bind(lambda environment: world_graph(environment).map(lambda graph: (environment, graph)))
             .bind(lambda prepared: swapped(row, prepared, scene, identity))
             .map(lambda _: Done())
@@ -297,8 +283,8 @@ def world_graph(environment: Environment) -> BlenderResult[Graph]:
                     key,
                     bpy.types.ShaderNodeTexEnvironment,
                     {},
-                    {"projection": projection, **({"texture_mapping.rotation": (0.0, 0.0, turn.rotation)} if isinstance(turn, FixedTurn) else {})},
-                    Some(Loaded(path=path)),
+                    {"projection": projection, **({"texture_mapping.rotation": (0.0, 0.0, turn.rotation)} if isinstance(turn, FixedTurn) else {}), **({} if path else {"image": None})},
+                    Option.of_optional(path or None).map(lambda chosen: Loaded(path=chosen)),
                 ).map(ended(key, "Color"))
             case FrameGradient(top=top, bottom=bottom):
                 window, split = f"{key}_window", f"{key}_split"
@@ -313,7 +299,11 @@ def world_graph(environment: Environment) -> BlenderResult[Graph]:
                 return (
                     node(window, bpy.types.ShaderNodeTexCoord, {}, {})
                     .map(ended(window, "Window"))
-                    .bind(lambda coordinate: node(key, bpy.types.ShaderNodeTexImage, {"Vector": coordinate}, {}, Some(Loaded(path=path))).map(ended(key, "Color")))
+                    .bind(
+                        lambda coordinate: node(
+                            key, bpy.types.ShaderNodeTexImage, {"Vector": coordinate}, {} if path else {"image": None}, Option.of_optional(path or None).map(lambda chosen: Loaded(path=chosen))
+                        ).map(ended(key, "Color"))
+                    )
                 )
 
     def background(slot: str, source: str, backdrop: Backdrop[WorldMode] | Backdrop[Scenery]) -> BlenderResult[tuple[Fragment, End]]:
@@ -354,16 +344,13 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
     )
     with ExitStack() as rollback:
 
-        def retained(world: bpy.types.World) -> bpy.types.World:
-            rollback.callback(bpy.data.batch_remove, ids=(world,))
-            world.node_tree.nodes.clear()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            return world
-
         def built() -> BlenderResult[bpy.types.World]:
             try:
-                return row.owned(identity, bpy.data.worlds.new(row.key), mark).map(retained)
+                made = bpy.data.worlds.new(row.key)
             except RuntimeError as error:
                 return Error((BlenderEditFault(request=row.key, error=error),))
+            rollback.callback(bpy.data.batch_remove, ids=(made,))
+            return row.owned(identity, made, mark).bind(lambda world: tree_of(world).map(lambda tree: tree.nodes.clear()).map(lambda _: world))
 
         def published(world: bpy.types.World) -> bpy.types.World:
             rollback.pop_all()
@@ -379,7 +366,10 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
                     .default_with(built)
                     .bind(
                         lambda world: (
-                            attached.write(world.node_tree, environment).bind(lambda _: graph.reconciled(world.node_tree, identity)).bind(lambda _: written(scene, "world", world)).map(lambda _: world)  # type: ignore[arg-type]
+                            tree_of(world)
+                            .bind(lambda tree: attached.write(tree, environment).bind(lambda _: graph.reconciled(tree, identity)))
+                            .bind(lambda _: written(scene, "world", world))
+                            .map(lambda _: world)
                         )
                     )
                 )

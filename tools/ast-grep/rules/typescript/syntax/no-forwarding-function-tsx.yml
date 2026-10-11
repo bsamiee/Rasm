@@ -2,12 +2,8 @@
 id: no-forwarding-function-tsx
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**', '.codex/hooks/**']
+ignores: ['plugins/function-hooks/**']
 utils:
-    effect-module:
-        any:
-            - matches: {syntax-import-reference: {source: {regex: '^effect(/[a-z][\w-]*)?$'}, exported: {kind: identifier, not: {regex: '^Schema$'}}}}
-            - matches: {syntax-import-reference: {source: {regex: '^effect/([a-z][\w-]*/)?[A-Z]\w*$', not: {regex: '/Schema$'}}, exported: {regex: '^$'}}}
     named-callee:
         any:
             - kind: identifier
@@ -41,7 +37,7 @@ utils:
     dual-operation:
         kind: member_expression
         all:
-            - has: {field: object, matches: effect-module}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$', not: {regex: '\bSchema$'}}}}}
             - has: {field: property, matches: effect-dual-operation}
     string-receiver:
         inside:

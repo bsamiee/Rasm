@@ -1801,7 +1801,7 @@ importers:
         specifier: 'catalog:'
         version: 4.0.2
 
-  apps/portfolio:
+  apps/web/portfolio:
     dependencies:
       '@effect/atom-react':
         specifier: 'catalog:'
@@ -1918,9 +1918,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.2
-      function-hooks:
-        specifier: workspace:*
-        version: link:../function-hooks
       nx:
         specifier: 'catalog:'
         version: 23.3.0-beta.9(@swc/core@1.16.13(@swc/helpers@0.5.23))
@@ -1935,15 +1932,7 @@ importers:
         specifier: 'catalog:'
         version: 26.4.1
 
-  plugins/function-hooks:
-    dependencies:
-      nx:
-        specifier: 'catalog:'
-        version: 23.3.0-beta.9(@swc/core@1.16.13(@swc/helpers@0.5.23))
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.4.1
+  plugins/function-hooks: {}
 
   tests/typescript/support:
     dependencies:

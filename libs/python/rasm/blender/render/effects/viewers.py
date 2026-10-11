@@ -82,9 +82,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def entering(self, identity: Identity, entry: bpy.types.SceneCompositorEffect, region: Option[Region] = Nothing) -> BlenderResult[None]:
         """Shows the entry input and replaces this scene's pending read."""
-        return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(
-            lambda _: self.armed.entries.update({Handle.of(entry.id_data): Arm(name=entry.name, region=region)})  # type: ignore[type-var, arg-type]
-        )
+        return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(lambda _: self.armed.entries.update({Handle.of(entry.id_data): Arm(name=entry.name, region=region)}))  # type: ignore[arg-type, type-var]
 
     def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
         """Consumes captured pixels only while their original read remains demanded."""
@@ -168,7 +166,7 @@ class EffectViewer:
         self.stack = stack
 
         def view(call: Call[ViewTarget], inspected: EditorState) -> BlenderResult[Done]:
-            query = AreaQuery(space="NODE_EDITOR", ui_type=Some(bpy.types.CompositorNodeTree.bl_rna.identifier))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            query = AreaQuery(space="NODE_EDITOR", ui_type=Some(bpy.types.CompositorNodeTree.__name__))
             return (
                 call
                 .root(bpy.types.Scene)

@@ -208,7 +208,10 @@ public static class EffectPipeline {
     }
 
     private static IO<double> Applied(PostEffectPipeline pipeline) =>
-        toSeq(pipeline.ExecutionOrder()).TraverseM(effect => ExposureChannels(effect) switch {
+        toSeq(pipeline.ExecutionOrder()).TraverseM(effect => Exposed(pipeline, effect)).As().Map(static values => values.Fold(0d, static (held, next) => held + next));
+
+    private static IO<double> Exposed(PostEffectPipeline pipeline, Guid effect) =>
+        ExposureChannels(effect) switch {
             var identifiers => DisposalOps.Within(() => Optional(pipeline.GetChannelForRead(identifiers.Scale)),
                 found => found.Traverse(scale =>
                     from cpu in IO.lift(() => Missing.Unless(scale.CPU(), nameof(PostEffectChannel.CPU)))
@@ -216,7 +219,7 @@ public static class EffectPipeline {
                     from amount in Opened(pipeline.GetChannelForRead, identifiers.Amount, static (_, second) => IO.lift(() => Scalar(second)))
                     select Exposure.Applied(first, amount)).As().Map(static value => value.IfNone(0d)),
                 static found => DisposalOps.Release(found.ToSeq())),
-        }).As().Map(static values => values.Fold(0d, static (held, next) => held + next));
+        };
 
     // --- [RUNS]
     public static IO<Unit> Run<TState>(
@@ -256,35 +259,19 @@ public static class EffectPipeline {
             : Seq<PixelPass>()
         from _ in when(pass.IsSome || tapped || demanded,
             DisposalOps.Within<PostEffectChannel, Unit>(retain =>
-            from channels in exposure.Map(held => ExposureChannels(id) switch {
-                var identifiers => Seq((Id: identifiers.Scale, Value: held.Scale), (Id: identifiers.Amount, Value: held.Amount)),
-            }).IfNone([]).TraverseM(held =>
-                from channel in IO.lift(() => {
-                    PostEffectChannel acquired = Missing.Unless(pipeline.GetChannelForWrite(held.Id), nameof(PostEffectPipeline.GetChannelForWrite)).ThrowIfFail();
-                    retain(acquired);
-                    return acquired;
-                })
-                from cpu in IO.lift(() => Missing.Unless(channel.CPU(), nameof(PostEffectChannel.CPU)))
-                select (Channel: channel, Cpu: cpu, held.Value)).As()
+            from channels in Writable(pipeline, id, exposure, retain)
             from stored in IO.lift(() => channels.Iter(static held => held.Cpu.SetValue(0, 0, held.Value)))
             from frame in Read(pipeline.GetChannelForRead, context.Extent, RenderWindow.StandardChannels.RGBA, area)
             from ___ in normalized.Traverse(held => IO.lift(() => Compensated(held, encode: true).Run(frame, pipeline))).As()
             let copy = tapped || demanded ? Some(passes.IsEmpty && normalized.IsNone ? frame : frame.Copy()) : None
             from ____ in passes.TraverseM(held => IO.lift(() => held.Run(frame, pipeline))).As()
             let formed = tapped ? passes.IsEmpty && display.IsEmpty ? copy : Some(normalized.IsSome || !display.IsEmpty ? frame.Copy() : frame) : None
-            from ____b in formed.Traverse(observed => display.TraverseM(held => IO.lift(() => held.Run(observed, pipeline))).As()).As()
+            from ____b in formed.Traverse(observed => Displayed(display, observed, pipeline)).As()
             from ____a in normalized.Traverse(held => IO.lift(() => Compensated(held).Run(frame, pipeline))).As()
             from _____ in when(pass.IsSome, Write(pipeline, frame)).As()
             from committed in IO.lift(() => channels.Iter(static held => held.Channel.Commit()))
             from auxiliary in tapped && prepared.Run.Channels.IsNone
-                ? toSeq(SavedChannel.Items).TraverseM(channel =>
-                    DisposalOps.Within(() => Optional(pipeline.GetChannelForRead(RenderWindow.ChannelId(channel.Key))),
-                        opened => opened.Traverse(held =>
-                            from cpu in IO.lift(() => Missing.Unless(held.CPU(), nameof(PostEffectChannel.CPU)))
-                            from pixels in IO.lift(() => RenderWindows.Frame(cpu, whole, context.Extent))
-                            select (channel.Key, pixels)).As(),
-                        static opened => DisposalOps.Release(opened.ToSeq())))
-                    .As().Map(static frames => Some(toHashMap(frames.Somes())))
+                ? Auxiliary(pipeline, whole, context.Extent)
                 : IO.pure(Option<HashMap<RenderWindow.StandardChannels, PixelFrame>>.None)
             from ______ in IO.lift(() => RenderRuns.Fill(pipeline.RenderingId, run =>
                 (copy.Filter(_ => tapped), formed).Apply((snapshot, observed) => run.Tapped(stage, snapshot, context.Signal, observed,
@@ -326,6 +313,34 @@ public static class EffectPipeline {
             Extent: extent, Working: Working, Display: Display, Depth: Depth, Signal: signal,
             Exposure: exposure,
             Camera: run.Camera, Guides: guides, Time: run.Time, Lights: run.Lights, Derivations: derivations), order, gamma, run);
+
+    private static IO<Seq<(PostEffectChannel Channel, RenderWindow.Channel Cpu, float Value)>> Writable(
+        PostEffectPipeline pipeline, Guid id, Option<(float Scale, float Amount)> exposure, Action<PostEffectChannel> retain) =>
+        exposure.Map(held => ExposureChannels(id) switch {
+            var identifiers => Seq((Id: identifiers.Scale, Value: held.Scale), (Id: identifiers.Amount, Value: held.Amount)),
+        }).IfNone([]).TraverseM(held =>
+            from channel in IO.lift(() => {
+                PostEffectChannel acquired = Missing.Unless(pipeline.GetChannelForWrite(held.Id), nameof(PostEffectPipeline.GetChannelForWrite)).ThrowIfFail();
+                retain(acquired);
+                return acquired;
+            })
+            from cpu in IO.lift(() => Missing.Unless(channel.CPU(), nameof(PostEffectChannel.CPU)))
+            select (Channel: channel, Cpu: cpu, held.Value)).As();
+
+    private static IO<Seq<Unit>> Displayed(Seq<PixelPass> display, PixelFrame observed, PostEffectPipeline pipeline) =>
+        display.TraverseM(held => IO.lift(() => held.Run(observed, pipeline))).As();
+
+    private static IO<Option<HashMap<RenderWindow.StandardChannels, PixelFrame>>> Auxiliary(PostEffectPipeline pipeline, Rectangle whole, PixelExtent extent) =>
+        toSeq(SavedChannel.Items).TraverseM(channel =>
+            DisposalOps.Within(() => Optional(pipeline.GetChannelForRead(RenderWindow.ChannelId(channel.Key))),
+                opened => opened.Traverse(held => Sampled(held, channel.Key, whole, extent)).As(),
+                static opened => DisposalOps.Release(opened.ToSeq())))
+            .As().Map(static frames => Some(toHashMap(frames.Somes())));
+
+    private static IO<(RenderWindow.StandardChannels Key, PixelFrame Pixels)> Sampled(PostEffectChannel held, RenderWindow.StandardChannels key, Rectangle whole, PixelExtent extent) =>
+        from cpu in IO.lift(() => Missing.Unless(held.CPU(), nameof(PostEffectChannel.CPU)))
+        from pixels in IO.lift(() => RenderWindows.Frame(cpu, whole, extent))
+        select (key, pixels);
 
     // --- [CHAINS]
     public static Seq<EffectKind> Ordered(Seq<EffectEntry> entries, Seq<EffectKind> kinds) =>

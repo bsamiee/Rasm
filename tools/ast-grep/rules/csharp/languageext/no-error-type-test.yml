@@ -100,7 +100,7 @@ rule:
             stopBy: end
             any:
                 - matches: element-error
-                - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {regex: '^((global::)?(LanguageExt\.)?Common\.)?Error$'}}}
+                - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}}
         - not:
             inside:
                 stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}

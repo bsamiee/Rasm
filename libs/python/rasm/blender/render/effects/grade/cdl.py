@@ -1,16 +1,14 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Native slope, offset, power, and saturation with editable ASC file reads."""
 
 from typing import Annotated
 
 import bpy
-from expression import Option, Result, Some
+from expression import Option, Some
 import msgspec
 import PyOpenColorIO
 
 from rasm.blender.commands.operators import Call, Done, Open, Operator, Save
-from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from rasm.blender.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, item_key, node, vector
 from rasm.blender.render.color.luts import Formatted, lut_files, writable
 from rasm.blender.render.effects.stack import CompositorEffect, EffectName, Named, Shell
@@ -36,7 +34,9 @@ class Source(Choice):
 
 corrections = Choices(
     lambda _identity, owner, _context: (
-        (str(position), name.default_value(str(position + 1)), "") for rows in loaded(owner.filepath).to_option().to_list() for position, (name, _record) in enumerate(rows)
+        (str(position), name.default_value(str(position + 1)), "")
+        for rows in loaded(owner.filepath).to_option().to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        for position, (name, _record) in enumerate(rows)
     )
 )
 
@@ -70,9 +70,9 @@ class Exported(Formatted, frozen=True, kw_only=True):
 
 def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns the ASC equation with native CDL luminance coefficients."""
-    channels = (("X", Cdl.red.__name__), ("Y", Cdl.green.__name__), ("Z", Cdl.blue.__name__))
+    channels = (("X", Cdl.red.__name__), ("Y", Cdl.green.__name__), ("Z", Cdl.blue.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     members = tuple(field.name for field in msgspec.structs.fields(Channel))
-    slope, offset, power = (End(node=member, socket="Vector") for member in (Channel.slope.__name__, Channel.offset.__name__, Channel.power.__name__))
+    slope, offset, power = (End(node=member, socket="Vector") for member in (Channel.slope.__name__, Channel.offset.__name__, Channel.power.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     entering = shell.source
     sloped, positive, negative, powered, graded, chroma = (End(node=key, socket="Vector") for key in ("sloped", "positive", "negative", "powered", "graded", "chroma"))
     luma = End(node="luma")
@@ -85,7 +85,7 @@ def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
         vector(graded.node, "ADD", powered, negative),
         vector(luma.node, "DOT_PRODUCT", graded, tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs())),
         vector(chroma.node, "SUBTRACT", graded, luma),
-        vector("saturated", "MULTIPLY_ADD", chroma, End(node=INPUTS, socket=item_key(Cdl.saturation.__name__)), luma),
+        vector("saturated", "MULTIPLY_ADD", chroma, End(node=INPUTS, socket=item_key(Cdl.saturation.__name__)), luma),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     ).map(ended("saturated", "Vector"))
 
 
@@ -113,13 +113,10 @@ def imported(call: Call[Imported]) -> BlenderResult[Done]:
             lambda: (BlenderAbsentFault(owner=path, key=record.correction),)
         )
 
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-    entry = Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda scene: cdl.named(call.identity, scene, record.name))
+    entry = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name).map(lambda entry: (scene, entry)))
     return (
         paired(loaded(path).bind(chosen), entry)
-        .bind(
-            lambda pair: cdl.read(call.identity, pair[1]).bind(lambda held: cdl.write(call.identity, pair[1].id_data, pair[1], msgspec.structs.replace(held, effect=pair[0])))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        )
+        .bind(lambda pair: cdl.read(call.identity, pair[1][1]).bind(lambda held: cdl.write(call.identity, *pair[1], msgspec.structs.replace(held, effect=pair[0]))))
         .map(lambda _: Done())
     )
 
@@ -144,8 +141,7 @@ def exported(call: Call[Exported]) -> BlenderResult[Done]:
                     lambda config: bracketed(correction, config).map(lambda operation: PyOpenColorIO.GroupTransform(operation.to_list()))
                 )
 
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-    held = Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda scene: cdl.named(call.identity, scene, record.name)).bind(lambda entry: cdl.read(call.identity, entry))
+    held = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name)).bind(lambda entry: cdl.read(call.identity, entry))
     output = paired(held, record.output()).bind(
         lambda pair: source(pair[0].effect).bind(lambda built: written(pair[1], {str(call.paths[0]): built})).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
     )

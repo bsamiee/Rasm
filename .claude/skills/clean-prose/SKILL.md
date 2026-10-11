@@ -194,7 +194,8 @@ Comments state intent or constraint code cannot show, in one line and statement 
 - Inline comments stay and get the same removals
 - Test case comments name case's shape as a noun phrase, then the fact that decides it
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
-- Section dividers, structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
+- Structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
+- Section dividers follow `CLAUDE.md` file organization, `prose.py` fixes shape and empty sections, reports repeats, orphans, order, and preamble placement
 - Doc comment summaries are one sentence that states what the member returns or does without restating its name, remarks keep one fact per sentence
 - Use `Skill(python-document)` for a doc comment's tags, sections, period, and presence, `/dotnet-document` and `/typescript-document` hold the C# and TypeScript forms
 - Messages (log, error, exception, diagnostic) state what happened, its cause when known, then the action, each in one sentence with no period
@@ -212,8 +213,7 @@ Rewrite of an existing file:
 6. Rename coined identifiers and files with every reference
 7. Replace coined terms and delete filler by the word map, a word outside the map joins the row of its category
 8. Rewrite each remaining sentence to state one fact in its section
-9. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
+9. Run `prose.py fix` over the files in scope, rewrite each finding it prints, then run `check` until it prints zero findings
+10. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
-New text follows the same rules from its first draft. Reviews report one row per finding: line, rule, offending text, rewrite.
-
-!`cat ${CLAUDE_SKILL_DIR}/references/word-map.md ${CLAUDE_SKILL_DIR}/references/rewrites.md`
+New text follows the same rules from its first draft. Reviews report one row per finding: line, rule, offending text, rewrite. Every run reads `references/word-map.md` and `references/rewrites.md` whole before its first edit.

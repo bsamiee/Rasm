@@ -301,43 +301,46 @@ public static class LightRigs {
         from placing in Fin.Succ(Transform.Rotation(rig.Rotation, basis.YAxis, basis.Origin)
             * Transform.Rotation(-(double)rig.Elevation, basis.XAxis, basis.Origin)
             * Transform.PlaneToPlane(Plane.WorldXY, basis))
-        from placed in lights.Traverse(light => from reach in Conversions.Validated<TargetRadius, double, InvalidRhinoValue>(light.Distance * target.Radius).ToValidation()
-                                                let axes = light.Axes
-                                                let radius = reach * Math.Tan(light.Size / 2d)
-                                                let side = 2d * radius
-                                                let at = placing * new Point3d(reach * axes.Toward)
-                                                let metres = Quantities.From(reach, modelUnit).Meters.ToDouble()
-                                                let falloff = light.Falloff switch {
-                                                    Light.Attenuation.Constant => (Gain: 1d, Vector: Light.ConstantAttenuationVector),
-                                                    Light.Attenuation.Linear => (Gain: metres, Vector: Light.LinearAttenuationVector),
-                                                    Light.Attenuation.InverseSquared => (Gain: metres * metres, Vector: Light.InverseSquaredAttenuationVector),
-                                                }
-                                                let shaped = light.Emitter.Switch(
-                                                    (At: at, Aim: target.Focus - at, Radius: radius, Side: side, Size: (double)light.Size, falloff.Gain, Across: side * (placing * axes.Across), Rise: side * (placing * axes.Rise)),
-                                                    pointLight: static (state, _) => (
-                                                        Shape: Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(state.Radius).ToValidation()
-                                                            .Map(emitter => (LightShape)new LightShape.PointLight(state.At, emitter, CameraRelative: false)),
-                                                         state.Gain),
-                                                    spotLight: static (state, spot) => (
-                                                        Shape: Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(state.Radius).ToValidation()
-                                                            .Map(emitter => (LightShape)new LightShape.SpotLight(state.At, state.Aim, spot.Angle, spot.HotSpot, emitter, CameraRelative: false)),
-                                                         state.Gain),
-                                                    directionalLight: static (state, _) => (
-                                                        Shape: Conversions.Validated<SunAngle, double, InvalidRhinoValue>(state.Size).ToValidation()
-                                                            .Map(angle => (LightShape)new LightShape.DirectionalLight(state.At, state.Aim, angle, CameraRelative: false)),
-                                                        Gain: 1d),
-                                                    rectangularLight: static (state, _) => (
-                                                        Shape: double.IsFinite(state.Side)
-                                                            ? Validation.Success<Error, LightShape>(new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim))
-                                                            : Validation.Fail<Error, LightShape>(new InvalidRhinoValue()),
-                                                         state.Gain))
-                                                from result in fun((LightShape shape, LightIntensity intensity) => new PlacedLight(
-                                                        light.Role, shape, light.Color.Switch(blackbody: static blackbody => (LightColor)blackbody.Kelvin, linear: static linear => (LightColor)linear.Filter), intensity, falloff.Vector))
-                                                    .Map(shaped.Shape)
-                                                    .Apply(Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain).ToValidation())
-                                                    .As()
-                                                select result).As().ToFin()
+        from placed in lights.Traverse(light => Positioned(rig, light, target, placing, modelUnit)).As().ToFin()
         select placed;
+
+    private static Validation<Error, PlacedLight> Positioned(LightRig rig, RigLight light, RigTarget.Fixed target, Transform placing, LengthUnit modelUnit) =>
+        from reach in Conversions.Validated<TargetRadius, double, InvalidRhinoValue>(light.Distance * target.Radius).ToValidation()
+        let axes = light.Axes
+        let radius = reach * Math.Tan(light.Size / 2d)
+        let side = 2d * radius
+        let at = placing * new Point3d(reach * axes.Toward)
+        let metres = Quantities.From(reach, modelUnit).Meters.ToDouble()
+        let falloff = light.Falloff switch {
+            Light.Attenuation.Constant => (Gain: 1d, Vector: Light.ConstantAttenuationVector),
+            Light.Attenuation.Linear => (Gain: metres, Vector: Light.LinearAttenuationVector),
+            Light.Attenuation.InverseSquared => (Gain: metres * metres, Vector: Light.InverseSquaredAttenuationVector),
+        }
+        let shaped = light.Emitter.Switch(
+            (At: at, Aim: target.Focus - at, Radius: radius, Side: side, Size: (double)light.Size, falloff.Gain, Across: side * (placing * axes.Across), Rise: side * (placing * axes.Rise)),
+            pointLight: static (state, _) => (
+                Shape: Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(state.Radius).ToValidation()
+                    .Map(emitter => (LightShape)new LightShape.PointLight(state.At, emitter, CameraRelative: false)),
+                 state.Gain),
+            spotLight: static (state, spot) => (
+                Shape: Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(state.Radius).ToValidation()
+                    .Map(emitter => (LightShape)new LightShape.SpotLight(state.At, state.Aim, spot.Angle, spot.HotSpot, emitter, CameraRelative: false)),
+                 state.Gain),
+            directionalLight: static (state, _) => (
+                Shape: Conversions.Validated<SunAngle, double, InvalidRhinoValue>(state.Size).ToValidation()
+                    .Map(angle => (LightShape)new LightShape.DirectionalLight(state.At, state.Aim, angle, CameraRelative: false)),
+                Gain: 1d),
+            rectangularLight: static (state, _) => (
+                Shape: double.IsFinite(state.Side)
+                    ? Validation.Success<Error, LightShape>(new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim))
+                    : Validation.Fail<Error, LightShape>(new InvalidRhinoValue()),
+                 state.Gain))
+        from result in fun((LightShape shape, LightIntensity intensity) => new PlacedLight(
+                light.Role, shape, light.Color.Switch(blackbody: static blackbody => (LightColor)blackbody.Kelvin, linear: static linear => (LightColor)linear.Filter), intensity, falloff.Vector))
+            .Map(shaped.Shape)
+            .Apply(Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain).ToValidation())
+            .As()
+        select result;
 
     // --- [RECONCILE]
     public static IO<Committed<Seq<RigChange>>> Reconcile(RhinoDoc doc, LightRig rig, Option<LightingReading> reading, RigCommit commit, IPlugInSink sink) =>
@@ -416,29 +419,32 @@ public static class LightRigs {
         rig.Target.Switch(
             (Document: doc, Rig: rig, Reading: reading, Commit: commit, Sink: sink, Retain: retain),
             subjects: static (state, subjects) => from initial in Target(state.Document, subjects)
-                                                  from acquisition in IO.lift(() => {
-                                                      Atom<RigTarget.Fixed> previous = Atom(initial);
-                                                      LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
-                                                      uint serial = state.Document.RuntimeSerialNumber;
-                                                      CallbackSite site = new(state.Sink, typeof(LightRigs), nameof(Follow));
-                                                      Seq<HostEvent<(Unit, Unit)>> events = Seq(
-                                                          EventKind.ReplaceRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-                                                          EventKind.DeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-                                                          EventKind.UndeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-                                                          EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
-                                                      IO<Unit> Resync(HashMap<Unit, Unit> _) =>
-                                                          from target in Target(state.Document, state.Rig.Target)
-                                                          from moved in IO.lift(() => previous.Value != target)
-                                                          from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Reading, state.Commit, state.Sink)
-                                                              .Bind(_ => previous.SwapIO(_ => target)).Map(static _ => unit)).As()
-                                                          select unit;
-                                                      return DisposalOps.Acquire(
-                                                          owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)
-                                                                   from watched in events.TraverseM(row => row.Inline(mailbox, state.Sink, owned)).As()
-                                                                   select unit,
-                                                          (_, lease) => state.Retain(lease));
-                                                  })
+                                                  from acquisition in IO.lift(() => Watching(state, subjects, initial))
                                                   from followed in acquisition
                                                   select followed,
             @fixed: static (_, _) => IO.pure(unit));
+
+    private static IO<Unit> Watching(
+        (RhinoDoc Document, LightRig Rig, Option<LightingReading> Reading, RigCommit Commit, IPlugInSink Sink, Action<IDisposable> Retain) state, RigTarget.Subjects subjects, RigTarget.Fixed initial) {
+        Atom<RigTarget.Fixed> previous = Atom(initial);
+        LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
+        uint serial = state.Document.RuntimeSerialNumber;
+        CallbackSite site = new(state.Sink, typeof(LightRigs), nameof(Follow));
+        Seq<HostEvent<(Unit, Unit)>> events = Seq(
+            EventKind.ReplaceRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
+            EventKind.DeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
+            EventKind.UndeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
+            EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
+        IO<Unit> Resync(HashMap<Unit, Unit> _) =>
+            from target in Target(state.Document, state.Rig.Target)
+            from moved in IO.lift(() => previous.Value != target)
+            from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Reading, state.Commit, state.Sink)
+                .Bind(_ => previous.SwapIO(_ => target)).Map(static _ => unit)).As()
+            select unit;
+        return DisposalOps.Acquire(
+            owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)
+                     from watched in events.TraverseM(row => row.Inline(mailbox, state.Sink, owned)).As()
+                     select unit,
+            (_, lease) => state.Retain(lease));
+    }
 }

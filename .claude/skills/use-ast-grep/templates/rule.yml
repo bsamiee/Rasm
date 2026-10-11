@@ -2,10 +2,13 @@
 id: <rule-id>
 language: <language>
 severity: error
+files: ["<folder the rule's cause covers, key omitted for a syntax rule>/**"]
 rule:
+    kind: <rarest kind the correction names>
     all:
+        - has: {field: <role>, regex: '^<leaf text>$'}
         - pattern: <code with $VAR and $$$ARGS, or $NODE alone binding the matched node, document included, for a transform>
-        - has: {kind: <kind>, field: <role>}
-        - not: {inside: {kind: <exempting-kind>, stopBy: end}}
+        - inside: {kind: <owner kind>, stopBy: &owner {kind: '<owner kinds the correction covers>'}}
+        - not: {inside: {kind: <exempting-kind>, stopBy: *owner}}
 message: <violation with captured or transformed values>
 note: <required form and its reason>

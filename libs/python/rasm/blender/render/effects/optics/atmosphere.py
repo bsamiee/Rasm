@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,misc,union-attr"
-# ty: ignore[invalid-attribute-access,unresolved-attribute]
 """SI ray attenuation, seeded opacity variation, and associated inscattering."""
 
 import bpy
@@ -29,22 +27,22 @@ def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Scattered light and graph, or independent native construction faults.
     """
-    noise = (Atmosphere.noise.__name__, Gated.value.__name__)
-    inscatter = Atmosphere.inscatter.__name__
+    noise = (Atmosphere.noise.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    inscatter = Atmosphere.inscatter.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     distance = paired(math("meters", "MULTIPLY", shell.layer("Depth"), shell.meters), chief_ray().bind(lambda group: nested("chief_ray", group, {"image": shell.source}, "cosine"))).bind(
         lambda ends: math("distance", "DIVIDE", *ends)
     )
 
     def medium(distance: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         transmission = (
-            math("offset", "SUBTRACT", shell.socket(Atmosphere.start.__name__), distance)
+            math("offset", "SUBTRACT", shell.socket(Atmosphere.start.__name__), distance)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda offset: math("path", "MINIMUM", offset, 0.0))
-            .bind(lambda path: math("exponent", "DIVIDE", path, shell.socket(Atmosphere.attenuation.__name__)))
+            .bind(lambda path: math("exponent", "DIVIDE", path, shell.socket(Atmosphere.attenuation.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda exponent: math("transmittance", "EXPONENT", exponent))
         )
         beyond = (
-            compared("beyond", "GREATER_THAN", distance, shell.socket(Atmosphere.cutoff.__name__, Gated.value.__name__))
-            .bind(lambda beyond: node("cut", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(Atmosphere.cutoff.__name__), "Boolean_001": beyond}, {"operation": "AND"}))
+            compared("beyond", "GREATER_THAN", distance, shell.socket(Atmosphere.cutoff.__name__, Gated.value.__name__))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+            .bind(lambda beyond: node("cut", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(Atmosphere.cutoff.__name__), "Boolean_001": beyond}, {"operation": "AND"}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .map(ended("cut", "Boolean"))
         )
         return (
@@ -56,23 +54,27 @@ def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[tuple[Fragment, End]]:
 
     def lit(frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
         spread = (
-            pixels("spread", frame, shell.socket(inscatter, Diffused, Diffused.radius.__name__), "VECTOR")
+            pixels("spread", frame, shell.socket(inscatter, Diffused, Diffused.radius.__name__), "VECTOR")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda spread: node("blurred", bpy.types.CompositorNodeBlur, {"Image": shell.source, "Size": spread, "Type": "Fast Gaussian"}, {}))
             .map(ended("blurred", "Image"))
-            .bind(lambda blurred: vector("diffused", "MULTIPLY", blurred, shell.socket(inscatter, Diffused, Diffused.tint.__name__)))
+            .bind(lambda blurred: vector("diffused", "MULTIPLY", blurred, shell.socket(inscatter, Diffused, Diffused.tint.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(
                 lambda diffused: menu(
-                    "inscattered", "RGBA", shell.socket(inscatter), shell.items[inscatter,], {Ambient.title: shell.socket(inscatter, Ambient, Ambient.color.__name__), Diffused.title: diffused}
+                    "inscattered",
+                    "RGBA",
+                    shell.socket(inscatter),
+                    shell.items[inscatter,],
+                    {Ambient.title: shell.socket(inscatter, Ambient, Ambient.color.__name__), Diffused.title: diffused},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 )
             )
         )
-        clock = Clock(key="clock", speed=shell.socket(*noise, Fluctuation.motion.__name__, Motion.speed.__name__), hold=shell.socket(*noise, Fluctuation.motion.__name__, Motion.hold.__name__)).value
+        clock = Clock(key="clock", speed=shell.socket(*noise, Fluctuation.motion.__name__, Motion.speed.__name__), hold=shell.socket(*noise, Fluctuation.motion.__name__, Motion.hold.__name__)).value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         field = (
             clock
-            .bind(lambda time: sampled(shell, (*noise, Fluctuation.basis.__name__), frame.point, time, shell.socket(*noise, Fluctuation.seed.__name__)))
+            .bind(lambda time: sampled(shell, (*noise, Fluctuation.basis.__name__), frame.point, time, shell.socket(*noise, Fluctuation.seed.__name__)))  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
             .map(lambda fields: fields[0][0])
-            .bind(lambda field: math("variation", "MULTIPLY", field, shell.socket(*noise, Fluctuation.variation.__name__)))
-            .bind(lambda variation: switched("opacity_reduction", "FLOAT", shell.socket(Atmosphere.noise.__name__), 0.0, variation))
+            .bind(lambda field: math("variation", "MULTIPLY", field, shell.socket(*noise, Fluctuation.variation.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda variation: switched("opacity_reduction", "FLOAT", shell.socket(Atmosphere.noise.__name__), 0.0, variation))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
         return paired(spread, field)
 

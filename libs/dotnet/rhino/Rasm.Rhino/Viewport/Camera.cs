@@ -87,8 +87,8 @@ public static class Cameras {
     public static IO<CameraSnapshot> Snapshot(RhinoViewport viewport, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => new ViewportInfo(viewport)), static camera => IO.lift(camera.Dispose), retain)
             .Bind(camera => IO.lift(() => (
-                InvalidAnswer.Unless(camera.IsValidCamera, camera, nameof(ViewportInfo.IsValidCamera)),
-                InvalidAnswer.Unless(camera.IsValidFrustum, camera, nameof(ViewportInfo.IsValidFrustum)))
+                InvalidAnswer.Unless(camera.IsValidCamera, camera, nameof(camera)),
+                InvalidAnswer.Unless(camera.IsValidFrustum, camera, nameof(camera)))
                 .Apply((held, _) => new CameraSnapshot(held, viewport.ChangeCounter)).As()));
 
     public static Fin<Unit> Restore(RhinoViewport viewport, ViewportInfo camera, Point3d target) =>

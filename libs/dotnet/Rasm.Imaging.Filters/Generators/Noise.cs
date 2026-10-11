@@ -362,11 +362,13 @@ public sealed partial class NoiseDimensions {
 
     internal Neighborhood Cells { get; }
     internal float Scale { get; }
-    internal float SlopePeak => Enumerable.Range(0, 32).Max(top => Cells.Corners.Max(corner => MathF.Abs(Slope((uint)top << 27, ((2f * corner) - Vector4.One) * Cells.Live))));
+    internal float SlopePeak => Enumerable.Range(0, 32).Max(top => CornerSlope((uint)top << 27));
     internal GaborKernel Gabor { get; }
 
     [UseDelegateFromConstructor]
     internal partial float Slope(uint word, Vector4 offset);
+
+    private float CornerSlope(uint word) => Cells.Corners.Max(corner => MathF.Abs(Slope(word, ((2f * corner) - Vector4.One) * Cells.Live)));
 }
 
 public sealed record Timing(Clock Clock, Pace Pace) : IStateRecord<Timing, TimingParameter, InvalidGenerator> {

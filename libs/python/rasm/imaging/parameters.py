@@ -8,7 +8,7 @@ from expression import Nothing, Option, Some
 import msgspec
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Quantity(Enum):
@@ -80,11 +80,11 @@ type ColorSpace = Annotated[str, msgspec.Meta(min_length=1), GraphForm.COLOR_SPA
 type Finite = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max)]
 type Position = Annotated[tuple[Finite, Finite], Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 STOP_RANGE: Final = (-32.0, 32.0)
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Presentation(msgspec.Struct, frozen=True, kw_only=True):
@@ -150,7 +150,7 @@ class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind"):
     title: ClassVar[str]
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def markers[M](annotation: object, marker: type[M]) -> tuple[M, ...]:
@@ -158,7 +158,7 @@ def markers[M](annotation: object, marker: type[M]) -> tuple[M, ...]:
     return tuple(value for value in inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata if isinstance(value, marker))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = [

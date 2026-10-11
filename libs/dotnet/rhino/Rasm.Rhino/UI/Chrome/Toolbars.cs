@@ -83,26 +83,28 @@ public static class Toolbars {
             from existing in IO.lift(() => toSeq((IEnumerable<object>)Items(toolbar))
                 .Map(static (item, index) => (Item: item, Index: index))
                 .Find(held => Id(held.Item) == command.Id))
-            from placed in IO.lift(() => {
-                object text = LocaleTextFromString(owner: null, command.EnglishName);
-                Text(text, command.LocalName);
-                object item = NewItem(command.Id);
-                object macro = NewMacro(command.Id);
-                Name(item, text);
-                MenuText(macro, text);
-                TooltipText(macro, text);
-                Script(macro, "! _" + command.EnglishName);
-                Left(item, macro);
-                return existing.Match(
-                    Some: held => Refused.Unless(TryRemove(toolbar, held.Item), nameof(TryRemove))
-                        .Bind(_ => Refused.Unless(TryInsertAt(toolbar, item, held.Index), nameof(TryInsertAt))),
-                    None: () => Refused.Unless(TryAdd(toolbar, CreateSeparator(owner: null)), nameof(TryAdd))
-                        .Bind(_ => Refused.Unless(TryAdd(toolbar, item), nameof(TryAdd))));
-            })
+            from placed in IO.lift(() => Placed(command, toolbar, existing))
             from refreshed in IO.lift(static () => RefreshToolbars(owner: null))
             select unit)
         .As()
         .Map(static _ => unit);
+
+    private static Fin<Unit> Placed(HostCommand command, object toolbar, Option<(object Item, int Index)> existing) {
+        object text = LocaleTextFromString(owner: null, command.EnglishName);
+        Text(text, command.LocalName);
+        object item = NewItem(command.Id);
+        object macro = NewMacro(command.Id);
+        Name(item, text);
+        MenuText(macro, text);
+        TooltipText(macro, text);
+        Script(macro, "! _" + command.EnglishName);
+        Left(item, macro);
+        return existing.Match(
+            Some: held => Refused.Unless(TryRemove(toolbar, held.Item), nameof(TryRemove))
+                .Bind(_ => Refused.Unless(TryInsertAt(toolbar, item, held.Index), nameof(TryInsertAt))),
+            None: () => Refused.Unless(TryAdd(toolbar, CreateSeparator(owner: null)), nameof(TryAdd))
+                .Bind(_ => Refused.Unless(TryAdd(toolbar, item), nameof(TryAdd))));
+    }
 
     // --- [MENUS]
     public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Register(ToolbarFileRow row) =>

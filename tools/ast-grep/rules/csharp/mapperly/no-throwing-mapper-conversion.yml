@@ -118,7 +118,7 @@ rule:
             - kind: cast_expression
               all:
                 - pattern: $CONVERSION
-                - has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {regex: '^(global::)?([\w.]+\.)?I[A-Z]\w*(<.+>)?$'}}
+                - has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}
                 - has: {field: value, matches: key-source}
                 - matches: key-parameter
             - kind: member_access_expression

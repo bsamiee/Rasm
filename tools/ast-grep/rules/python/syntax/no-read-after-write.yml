@@ -35,8 +35,8 @@ utils:
     receiving-write:
         kind: expression_statement
         any:
-            - has: {kind: assignment, has: {field: right, any: [{pattern: $TARGET}, {has: {stopBy: end, pattern: $TARGET}}]}}
-            - has: {stopBy: end, kind: argument_list, has: {stopBy: end, pattern: $TARGET}}
+            - has: {kind: assignment, has: {field: right, any: [{pattern: $TARGET}, {kind: 'expression_list, tuple', has: {pattern: $TARGET}}]}}
+            - has: {kind: 'call, await', has: {stopBy: end, kind: argument_list, has: {stopBy: end, pattern: $TARGET}}}
     write-on-difference:
         kind: if_statement
         all:

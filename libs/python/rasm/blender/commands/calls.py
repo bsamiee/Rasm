@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
+from functools import partial
 from typing import TYPE_CHECKING
 
 import bpy
@@ -76,14 +77,16 @@ def called(
 ) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
     """Returns the native outcome or absence/refusal, omitting Nothing-valued properties."""
     given = {key: value for key, held in properties.items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
+    idname = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    request = f"bpy.ops.{idname}({', '.join(f'{key}={value!r}' for key, value in given.items())})"
     try:
         with override.default_with(nullcontext):
             answer = frozenset(operator(context, undo, **given))
     except AttributeError:
-        return Error((BlenderAbsentFault(owner="bpy.ops", key=repr(operator)),))
+        return Error((BlenderAbsentFault(owner="bpy.ops", key=idname),))
     except RuntimeError as error:
-        return Error((BlenderOperatorFault(request=repr(operator), error=error),))
-    return Ok(answer) if not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")) else Error((BlenderOperatorFault(request=repr(operator), error=answer),))
+        return Error((BlenderOperatorFault(request=request, error=error),))
+    return Ok(answer) if not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")) else Error((BlenderOperatorFault(request=request, error=answer),))
 
 
 def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Operation, dict[str, str | bool]]]:
@@ -101,17 +104,23 @@ def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Oper
 
 
 def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, identity: Identity) -> BlenderResult[None]:
-    """Returns success after opening a popup on its invoking window, or the native refusal."""
-    manager = context.window_manager
-    match popup:
-        case MenuPopup() | PanelPopup() | ShelfPopup():
-            return resolved(popup, identity).bind(lambda pair: called(*pair, context="INVOKE_DEFAULT")).map(lambda _: None)
-        case DrawnMenu(draw=draw, title=title, icon=icon, pie=True):
-            manager.popup_menu_pie(event, lambda holder, held: draw(holder.layout, held), title=title, icon=icon)  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
-        case DrawnMenu(draw=draw, title=title, icon=icon):
-            manager.popup_menu(lambda holder, held: draw(holder.layout, held), title=title, icon=icon)  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
-        case DrawnPopover(draw=draw, units=units, anchored=anchored):
-            manager.popover(lambda holder, held: draw(holder.layout, held), ui_units_x=units, from_active_button=anchored)  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+    """Returns success after opening a popup on its invoking window, or the native refusal or absent window manager."""
+
+    def painted(draw: Callable[[bpy.types.UILayout, bpy.types.Context], None], holder: bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover, held: bpy.types.Context) -> None:
+        for layout in Option.of_optional(holder.layout).to_list():
+            draw(layout, held)
+
+    match popup, context.window_manager:
+        case (MenuPopup() | PanelPopup() | ShelfPopup()) as registered, _:
+            return resolved(registered, identity).bind(lambda pair: called(*pair, context="INVOKE_DEFAULT")).map(lambda _: None)
+        case DrawnMenu(draw=draw, title=title, icon=icon, pie=True), bpy.types.WindowManager() as manager:
+            manager.popup_menu_pie(event, partial(painted, draw), title=title, icon=icon)
+        case DrawnMenu(draw=draw, title=title, icon=icon), bpy.types.WindowManager() as manager:
+            manager.popup_menu(partial(painted, draw), title=title, icon=icon)
+        case DrawnPopover(draw=draw, units=units, anchored=anchored), bpy.types.WindowManager() as manager:
+            manager.popover(partial(painted, draw), ui_units_x=units, from_active_button=anchored)
+        case _:
+            return Error((BlenderAbsentFault(owner=repr(context), key="window_manager"),))
     return Ok(None)
 
 

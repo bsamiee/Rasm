@@ -132,17 +132,17 @@ matcher = "startup|clear|compact"
 
 [[hooks.SessionStart.hooks]]
 type = "command"
-command = '"$(git rev-parse --show-toplevel)/.codex/hooks/root-cause.sh"'
+command = '"$(git rev-parse --show-toplevel)/.claude/hooks/root-cause.sh"'
 
 [[hooks.SubagentStart]]
 
 [[hooks.SubagentStart.hooks]]
 type = "command"
-command = '"$(git rev-parse --show-toplevel)/.codex/hooks/root-cause.sh"'
+command = '"$(git rev-parse --show-toplevel)/.claude/hooks/root-cause.sh"'
 
 [[hooks.PreToolUse]]
 matcher = "^(Bash|apply_patch)$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts" --walk-policy'
+command = 'node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts"'

@@ -6,7 +6,6 @@
         "@effect/platform-node": "catalog:",
         "@parcel/watcher": "catalog:",
         "effect": "catalog:",
-        "function-hooks": "workspace:*",
         "nx": "catalog:",
         "vscode-languageserver-protocol": "catalog:",
         "vscode-languageserver-textdocument": "catalog:"

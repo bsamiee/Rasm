@@ -93,16 +93,19 @@ public static class Texts {
         from parent in style.Match(
             Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
             None: () => IO.lift(() => doc.DimStyles.Current))
-        from annotation in form.Switch(
+        from annotation in Created(form, parent, held)
+        from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, annotation, edit)).As()
+        select annotation, retain);
+
+    private static IO<AnnotationBase> Created(TextForm form, DimensionStyle parent, Action<IDisposable> held) =>
+        form.Switch(
             (Parent: parent, Retain: held),
             note: static (state, note) => Copies.Acquire<AnnotationBase>(
                 () => TextEntity.CreateWithRichText(note.RichText, note.Plane, state.Parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
                 nameof(TextEntity.CreateWithRichText), state.Retain),
             callout: static (state, callout) => Copies.Acquire<AnnotationBase>(
                 () => Leader.CreateWithRichText(callout.RichText, callout.Plane, state.Parent, [.. callout.Points]),
-                nameof(Leader.CreateWithRichText), state.Retain))
-        from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, annotation, edit)).As()
-        select annotation, retain);
+                nameof(Leader.CreateWithRichText), state.Retain));
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>

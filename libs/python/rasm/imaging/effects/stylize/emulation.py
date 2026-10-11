@@ -14,7 +14,7 @@ from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.faults import ImagingBufferFault, ImagingJpegFault, ImagingResult
 from rasm.imaging.parameters import Choice, Finite, Gated, Motion, Presentation, Quantity, Seed
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Subsampling(Choice):
@@ -58,7 +58,7 @@ class Layout(Choice):
                 return (1.0 / 3.0, 0.0, 0.5)
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Compression(msgspec.Struct, frozen=True, kw_only=True):
@@ -287,6 +287,6 @@ class Emulation(Effect, frozen=True, kw_only=True, tag=40):
     seed: Annotated[Seed, msgspec.Meta(title="Seed", description="Variant of every random pattern")] = 0
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Compression", "Corruption", "Display", "Emulation", "Ghost", "Layout", "Phosphors", "Scanlines", "Signal", "Subsampling", "Tape"]

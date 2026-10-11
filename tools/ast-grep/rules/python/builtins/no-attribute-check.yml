@@ -5,7 +5,7 @@ severity: error
 utils:
     attribute-name:
         any:
-            - {matches: python-identifier-string, not: {regex: '__call__'}}
+            - {matches: python-identifier-string, not: {regex: '__call__|COMPAT_ENGINES'}}
             - matches: python-relayed-identifier-string
     default-callee:
         kind: 'identifier, attribute'
@@ -114,4 +114,4 @@ rule:
                 - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^filter$'}}, has: {kind: lambda, has: {field: body, matches: name-comparison}}}
             - has: {field: function, matches: getmembers-callee}
 message: '`$CHECK` tests an object for an attribute by name'
-note: 'Use `isinstance` or a class pattern narrowing to the declaring type before each attribute read, a name test hides declaring types from type checkers while a `vars` or `__dict__` test answers which namespace declares the member and stays'
+note: 'Use `isinstance` or a class pattern narrowing to the declaring type before each attribute read, a name test hides declaring types from type checkers while a `vars` or `__dict__` test answers which namespace declares the member and stays, as does a test for Blender''s `COMPAT_ENGINES`, a panel class attribute no type declares'

@@ -56,9 +56,9 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: arguments, has: {matches: ref-flag}}
-            - not: {has: {field: function, regex: '^((global::)?System\.Threading\.)?Volatile\s*\.\s*Read(\s*<.+>)?$'}}
+            - not: {has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Volatile$'}, member: {regex: '^Read$'}}}}}
             - any:
-                - has: {field: function, regex: '^((global::)?System\.Threading\.)?Interlocked\s*\.\s*(Exchange|CompareExchange|Increment|Add|Or)(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Interlocked$'}, member: {regex: '^(Exchange|CompareExchange|Increment|Add|Or)$'}}}}
                 - inside: {kind: if_statement, field: condition}
                 - inside: {kind: 'binary_expression, prefix_unary_expression', inside: {kind: if_statement, field: condition}}
     flag-read:
@@ -66,7 +66,7 @@ utils:
             - matches: flag
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?System\.Threading\.)?Volatile\s*\.\s*Read(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Volatile$'}, member: {regex: '^Read$'}}}}
                 - has: {field: arguments, has: {matches: ref-flag}}
             - kind: prefix_unary_expression
               regex: '^!'
@@ -96,7 +96,7 @@ utils:
                     - has: {field: right, kind: 'integer_literal, boolean_literal'}
                 - kind: invocation_expression
                   all:
-                    - has: {field: function, regex: '^((global::)?System\.Threading\.)?Volatile\s*\.\s*Write(\s*<.+>)?$'}
+                    - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Volatile$'}, member: {regex: '^Write$'}}}}
                     - has: {field: arguments, has: {matches: ref-flag}}
     exit:
         any:

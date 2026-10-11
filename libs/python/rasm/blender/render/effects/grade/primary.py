@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Native gain and offset wheels, signed contrast, and working-space vibrance."""
 
 import bpy
@@ -19,19 +17,19 @@ from rasm.imaging.effects.grade.primary import Contrast, Primary, Saturation, Wh
 
 def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns additive offset followed by gain in stops."""
-    channels = (("X", Wheel.red.__name__), ("Y", Wheel.green.__name__), ("Z", Wheel.blue.__name__))
-    wheels = (Primary.gain.__name__, Primary.offset.__name__)
+    channels = (("X", Wheel.red.__name__), ("Y", Wheel.green.__name__), ("Z", Wheel.blue.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    wheels = (Primary.gain.__name__, Primary.offset.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return Fragment.joined(
         *(
             math(key, "ADD", End(node=INPUTS, socket=key), master)
             for wheel in wheels
-            for master in (End(node=INPUTS, socket=item_key(wheel, Wheel.master.__name__)),)
+            for master in (End(node=INPUTS, socket=item_key(wheel, Wheel.master.__name__)),)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             for _, channel in channels
             for key in (item_key(wheel, channel),)
         ),
         *(node(item_key(wheel, "vector"), bpy.types.ShaderNodeCombineXYZ, {axis: End(node=item_key(wheel, channel)) for axis, channel in channels}, {}) for wheel in wheels),
-        vector("gain", "POWER", (2.0, 2.0, 2.0), End(node=item_key(Primary.gain.__name__, "vector"), socket="Vector")),
-        vector("offset", "ADD", shell.source, End(node=item_key(Primary.offset.__name__, "vector"), socket="Vector")),
+        vector("gain", "POWER", (2.0, 2.0, 2.0), End(node=item_key(Primary.gain.__name__, "vector"), socket="Vector")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        vector("offset", "ADD", shell.source, End(node=item_key(Primary.offset.__name__, "vector"), socket="Vector")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         vector("graded", "MULTIPLY", End(node="offset", socket="Vector"), End(node="gain", socket="Vector")),
     ).map(ended("graded", "Vector"))
 
@@ -42,9 +40,9 @@ def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
 def contrasted(shell: Shell[Contrast]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns signed power contrast about the scene-linear grey pivot."""
     pivot, power = End(node="pivot"), End(node="pivot_power")
-    channels = (("X", Wheel.red.__name__), ("Y", Wheel.green.__name__), ("Z", Wheel.blue.__name__))
+    channels = (("X", Wheel.red.__name__), ("Y", Wheel.green.__name__), ("Z", Wheel.blue.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return Fragment.joined(
-        math(power.node, "POWER", 2.0, End(node=INPUTS, socket=item_key(Contrast.pivot.__name__))),
+        math(power.node, "POWER", 2.0, End(node=INPUTS, socket=item_key(Contrast.pivot.__name__))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         math(pivot.node, "MULTIPLY", GREY, power),
         node("channels", bpy.types.ShaderNodeSeparateXYZ, {"Vector": shell.source}, {}),
         *(
@@ -52,7 +50,7 @@ def contrasted(shell: Shell[Contrast]) -> BlenderResult[tuple[Fragment, End]]:
                 math(sign.node, "SIGN", value),
                 math(magnitude.node, "ABSOLUTE", value),
                 math(normalized.node, "DIVIDE", magnitude, pivot),
-                math(raised.node, "POWER", normalized, End(node=INPUTS, socket=item_key(Contrast.slope.__name__))),
+                math(raised.node, "POWER", normalized, End(node=INPUTS, socket=item_key(Contrast.slope.__name__))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 math(scaled.node, "MULTIPLY", raised, pivot),
                 math(channel, "MULTIPLY", scaled, sign),
             )
@@ -77,7 +75,7 @@ def saturated(shell: Shell[Saturation]) -> BlenderResult[tuple[Fragment, End]]:
         Native body and result endpoint, or imaging and graph construction faults.
     """
     entering = shell.source
-    scale, vibrance = (End(node=INPUTS, socket=item_key(field)) for field in (Saturation.scale.__name__, Saturation.vibrance.__name__))
+    scale, vibrance = (End(node=INPUTS, socket=item_key(field)) for field in (Saturation.scale.__name__, Saturation.vibrance.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     red, green, blue = (End(node="channels", socket=axis) for axis in ("X", "Y", "Z"))
     low_pair, low, high_pair, high, positive, ratio, sigma, inverse = (End(node=key) for key in ("low_pair", "low", "high_pair", "high", "positive", "ratio", "sigma", "inverse"))
     positive_weight, negative_square, negative_weight, increasing, weighted, multiplier, gain = (

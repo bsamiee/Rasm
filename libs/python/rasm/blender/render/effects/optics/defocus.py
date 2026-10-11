@@ -1,17 +1,15 @@
-# mypy: disable-error-code="attr-defined,union-attr"
-# ty: ignore[unresolved-attribute]
 """Camera and spatial defocus fields, shared iris geometry, and native bokeh gathering."""
 
 from math import pi, tau
 
 import bpy
-from expression import Nothing, Option, Result, Some
+from expression import Nothing, Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from rasm.blender.commands.operators import Call, Done, Operator
 from rasm.blender.extension.identity import Key
-from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderResult
+from rasm.blender.faults import BlenderAbsentFault, BlenderReadFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, framed, FrameSpace, math, menu, node, Operand, pixels, switched, vector
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, Named, Shell
 from rasm.blender.render.effects.viewers import inspection
@@ -97,10 +95,10 @@ def iris[R: Effect](key: Key, shell: Shell[R], *path: Key, shift: Operand = 0.0)
         key,
         bpy.types.CompositorNodeBokehImage,
         {
-            "Flaps": shell.socket(*path, Aperture.blades.__name__),
-            "Angle": shell.socket(*path, Aperture.rotation.__name__),
-            "Roundness": shell.socket(*path, Aperture.roundness.__name__),
-            "Catadioptric Size": shell.socket(*path, Aperture.obstruction.__name__),
+            "Flaps": shell.socket(*path, Aperture.blades.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            "Angle": shell.socket(*path, Aperture.rotation.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            "Roundness": shell.socket(*path, Aperture.roundness.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            "Catadioptric Size": shell.socket(*path, Aperture.obstruction.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             "Color Shift": shift,
         },
         {},
@@ -117,8 +115,8 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
         The gathered image and graph, or accumulated native construction faults.
     """
     inlet = shell.socket
-    focus = Defocus.focus.__name__
-    cap = inlet(Defocus.radius.__name__)
+    focus = Defocus.focus.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    cap = inlet(Defocus.radius.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def depth(at: FrameSpace, lens: Fragment) -> BlenderResult[tuple[Fragment, End]]:
         focal_length, sensor, distance = ((lens, End(node="lens", socket=socket)) for socket in ("Focal Length", "Sensor", "Focus Distance"))
@@ -136,7 +134,8 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
         focal = math("millimeter", "DIVIDE", 0.001, shell.meters).bind(lambda millimeter: math("focal", "MULTIPLY", focal_length, millimeter))
         gap = focal.bind(lambda focal: math("focus_gap", "SUBTRACT", distance, focal)).bind(lambda gap: math("focus_reach", "ABSOLUTE", gap))
         coefficient = paired(
-            focal.bind(lambda focal: math("half_focal", "MULTIPLY", focal, 0.5)), gap.bind(lambda gap: math("opening", "MULTIPLY", inlet(focus, DepthOfField, DepthOfField.f_stop.__name__), gap))
+            focal.bind(lambda focal: math("half_focal", "MULTIPLY", focal, 0.5)),
+            gap.bind(lambda gap: math("opening", "MULTIPLY", inlet(focus, DepthOfField, DepthOfField.f_stop.__name__), gap)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         ).bind(lambda parts: math("coefficient", "DIVIDE", *parts))
         singular = gap.bind(lambda gap: node("singular", bpy.types.FunctionNodeCompare, {"A": gap, "B": 0.0, "Epsilon": 0.0}, {"data_type": "FLOAT", "operation": "EQUAL"})).map(
             ended("singular", "Result")
@@ -152,17 +151,17 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
         return paired(spread, projected).bind(lambda parts: math("eroded", "MINIMUM", *parts))
 
     def built(at: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
-        size = inlet(focus, FieldCurvature, FieldCurvature.size.__name__)
+        size = inlet(focus, FieldCurvature, FieldCurvature.size.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         curved = (
             paired(
                 node("ellipse_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": size}, {}).map(ended("ellipse_axes", "Y")),
-                vector("ellipse_anchor", "MULTIPLY", inlet(focus, FieldCurvature, FieldCurvature.center.__name__), at.extent)
+                vector("ellipse_anchor", "MULTIPLY", inlet(focus, FieldCurvature, FieldCurvature.center.__name__), at.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 .bind(lambda anchor: vector("ellipse_offset", "SUBTRACT", at.point, anchor))
                 .bind(
                     lambda offset: node(
                         "ellipse_rotation",
                         bpy.types.ShaderNodeVectorRotate,
-                        {"Vector": offset, "Angle": inlet(focus, FieldCurvature, FieldCurvature.angle.__name__)},
+                        {"Vector": offset, "Angle": inlet(focus, FieldCurvature, FieldCurvature.angle.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         {"rotation_type": "Z_AXIS", "invert": True},
                     )
                 )
@@ -172,21 +171,21 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
                 .bind(lambda edge: math("ellipse_outside", "MAXIMUM", edge, 0.0)),
             )
             .bind(lambda parts: math("ellipse_excess", "MULTIPLY", *parts))
-            .bind(lambda excess: math("ellipse_ramp", "DIVIDE", excess, inlet(focus, FieldCurvature, FieldCurvature.feather.__name__), clamp=True))
+            .bind(lambda excess: math("ellipse_ramp", "DIVIDE", excess, inlet(focus, FieldCurvature, FieldCurvature.feather.__name__), clamp=True))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda ramp: math("curvature", "MULTIPLY", ramp, ramp))
             .bind(lambda curvature: math("curved", "MULTIPLY", curvature, cap))
         )
         tilted = (
             paired(
-                vector("band_anchor", "MULTIPLY", inlet(focus, TiltShift, TiltShift.center.__name__), at.extent).bind(lambda anchor: vector("band_offset", "SUBTRACT", at.point, anchor)),
-                vector("band_phase", "MULTIPLY_ADD", inlet(focus, TiltShift, TiltShift.angle.__name__), (1.0, 1.0, 0.0), (pi / 2.0, 0.0, 0.0)).bind(
+                vector("band_anchor", "MULTIPLY", inlet(focus, TiltShift, TiltShift.center.__name__), at.extent).bind(lambda anchor: vector("band_offset", "SUBTRACT", at.point, anchor)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                vector("band_phase", "MULTIPLY_ADD", inlet(focus, TiltShift, TiltShift.angle.__name__), (1.0, 1.0, 0.0), (pi / 2.0, 0.0, 0.0)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     lambda phase: vector("band_normal", "COSINE", phase)
                 ),
             )
             .bind(lambda parts: vector("band_across", "DOT_PRODUCT", *parts))
             .bind(lambda across: math("band_distance", "ABSOLUTE", across))
-            .bind(lambda distance: math("band_edge", "MULTIPLY_ADD", inlet(focus, TiltShift, TiltShift.width.__name__), -0.5, distance))
-            .bind(lambda edge: math("band_ramp", "DIVIDE", edge, inlet(focus, TiltShift, TiltShift.feather.__name__), clamp=True))
+            .bind(lambda distance: math("band_edge", "MULTIPLY_ADD", inlet(focus, TiltShift, TiltShift.width.__name__), -0.5, distance))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda edge: math("band_ramp", "DIVIDE", edge, inlet(focus, TiltShift, TiltShift.feather.__name__), clamp=True))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda ramp: math("tilted", "MULTIPLY", ramp, cap))
         )
         optical = (
@@ -200,7 +199,7 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda select: pixels("size", at, select))
         )
         return (
-            paired(radius, iris("iris", shell, Defocus.aperture.__name__, shift=inlet(Defocus.fringe.__name__)))
+            paired(radius, iris("iris", shell, Defocus.aperture.__name__, shift=inlet(Defocus.fringe.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda parts: node("gather", bpy.types.CompositorNodeBokehBlur, {"Image": shell.source, "Bokeh": parts[1], "Size": parts[0]}, {}))
             .map(ended("gather", "Image"))
         )
@@ -210,7 +209,7 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
 
 def matched(call: Call[Named]) -> BlenderResult[Done]:
     """Copies scene-camera aperture settings into a named defocus entry."""
-    stop = next(field for field in msgspec.structs.fields(DepthOfField) if field.name == DepthOfField.f_stop.__name__)
+    stop = next(field for field in msgspec.structs.fields(DepthOfField) if field.name == DepthOfField.f_stop.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def converted(camera: bpy.types.Camera, held: Entry[Defocus]) -> BlenderResult[Entry[Defocus]]:
         dof: bpy.types.CameraDOFSettings = camera.dof  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -243,8 +242,7 @@ def matched(call: Call[Named]) -> BlenderResult[Done]:
             )
         )
 
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-    return Result[bpy.types.Scene, BlenderFaults].bind(scene, written)
+    return call.root(bpy.types.Scene).bind(written)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

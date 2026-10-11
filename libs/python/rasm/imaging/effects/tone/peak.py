@@ -8,11 +8,11 @@ import msgspec
 from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.parameters import Presentation, Quantity
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Luminance = Annotated[float, msgspec.Meta(ge=0.0, le=10000.0), Presentation(soft=Some((100.0, 10000.0)), step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.LUMINANCE))]
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class PeakMapping(Effect, frozen=True, kw_only=True, tag=7):
@@ -33,7 +33,7 @@ class PeakMapping(Effect, frozen=True, kw_only=True, tag=7):
     ] = 0.5
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = ["Luminance", "PeakMapping"]

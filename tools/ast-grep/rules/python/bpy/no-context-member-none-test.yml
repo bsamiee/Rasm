@@ -14,11 +14,16 @@ utils:
         all:
             - has: {field: attribute, regex: '^preferences$'}
             - has: {field: object, matches: context}
+    member-value:
+        any:
+            - matches: member
+            - kind: parenthesized_expression
+              has: {matches: member-value}
     tested:
         any:
             - matches: member
             - kind: named_expression
-              has: {field: value, matches: member}
+              has: {field: value, matches: member-value}
             - kind: parenthesized_expression
               has: {matches: tested}
             - kind: identifier

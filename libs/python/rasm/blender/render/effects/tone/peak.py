@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """BT.2390 peak compression and black adaptation over formed PQ codes."""
 
 import bpy
@@ -11,7 +9,7 @@ import PyOpenColorIO
 from rasm.blender.commands.operators import Done, Operator
 from rasm.blender.data.rna.conditions import AllOf, HdrWindow, Job
 from rasm.blender.extension.identity import Identity
-from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, math, node, vector
 from rasm.blender.render.effects.stack import CompositorEffect, Named, Shell, viewed
 from rasm.blender.render.effects.viewers import ViewerRead
@@ -22,14 +20,15 @@ from rasm.imaging.effects.tone.peak import PeakMapping
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.files.images import ImageFile
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def peaked(shell: Shell[PeakMapping]) -> BlenderResult[tuple[Fragment, End]]:
     """Builds the forward-only EETF, retaining black adaptation without compression."""
     source = shell.source
     source_peak, target_peak, black, knee_offset = (
-        shell.socket(field) for field in (PeakMapping.source_peak.__name__, PeakMapping.target_peak.__name__, PeakMapping.black.__name__, PeakMapping.knee_offset.__name__)
+        shell.socket(field)
+        for field in (PeakMapping.source_peak.__name__, PeakMapping.target_peak.__name__, PeakMapping.black.__name__, PeakMapping.knee_offset.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     )
     m1, m2, c1, c2, c3 = 2610.0 / 16384.0, 2523.0 / 32.0, 3424.0 / 4096.0, 2413.0 / 128.0, 2392.0 / 128.0
     zero, one = (0.0,) * 3, (1.0,) * 3
@@ -136,11 +135,9 @@ measure_peak = Operator(
     undo=False,
     condition=Some(AllOf(conditions=(Job(kind="RENDER"), HdrWindow(formed=formed_view)))),
     run=lambda call: (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(
-            Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),)),
-            lambda scene: peak_mapping.named(call.identity, scene, call.record.name),
-        )
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: peak_mapping.named(call.identity, scene, call.record.name))
         .bind(lambda entry: reading.entering(call.identity, entry))
         .map(lambda _: Done(notes=(("INFO", "Measuring the frame entering peak mapping"),)))
     ),
@@ -148,6 +145,6 @@ measure_peak = Operator(
 peak_mapping: CompositorEffect[PeakMapping] = CompositorEffect(record=PeakMapping, graph=peaked, registrables=(measure_peak, reading))
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["formed_view", "measure_peak", "measured", "peak_mapping", "peaked", "reading"]

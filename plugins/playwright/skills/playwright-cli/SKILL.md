@@ -121,7 +121,7 @@ Actions take a target. Replies with a modal state (dialog, file chooser) name th
 - `fill <target> <text>` replaces the value, `type <text>` presses each key into the focused element, `--submit` presses Enter after either
 - `select <target> <value>` picks the option with that value or label
 - `upload <absolute path>...` answers the file chooser a click on the file input opens
-- A click that starts a download saves the file under its suggested name in `$PLAYWRIGHT_MCP_OUTPUT_DIR` and the reply prints the path
+- Clicks that start a download save the file under its suggested name in `$PLAYWRIGHT_MCP_OUTPUT_DIR`, and the reply prints the path
 - `dialog-accept [text]` and `dialog-dismiss` answer an open dialog, the text fills a prompt
 - `drop <target> --path=<absolute path>` drops a file, `--data="<mime>=<value>"` data, each repeatable
 - `mousewheel <dx> <dy>` scrolls the element under the pointer, `mousemove` to a `snapshot --boxes` point places it, negative `dy` scrolls up
@@ -169,7 +169,7 @@ playwright cli reload
 
 ## [05]-[OUTPUTS]
 
-Unnamed outputs go in `$PLAYWRIGHT_MCP_OUTPUT_DIR` as `page-<timestamp>.<ext>` or `element-<timestamp>.<ext>`, named outputs take `$PLAYWRIGHT_MCP_OUTPUT_DIR/<name>`, `PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE` evicts the oldest files:
+Unnamed outputs go in `$PLAYWRIGHT_MCP_OUTPUT_DIR` as `page-<timestamp>.<ext>` or `element-<timestamp>.<ext>`, named outputs take `$PLAYWRIGHT_MCP_OUTPUT_DIR/<name>`, `outputMaxSize` in `plugins/playwright/cli.config.json` evicts the oldest files past its byte total:
 - `screenshot [target]` captures the viewport or one element, `--full-page` the whole scrollable page of a screenshot without a target
 - `--type=png|jpeg|webp` sets the format, the `--filename` extension sets it without `--type`
 - `--hires` captures device pixels in place of CSS pixels, larger by the device pixel ratio under `--mobile` or `--device`

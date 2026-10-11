@@ -23,9 +23,9 @@ utils:
                     has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {nthChild: 2, matches: stride}}]}}
     vector-type:
         any:
-            - {regex: '^((global::)?System\.Numerics\.)?Vector2$', inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^2$'}}}
-            - {regex: '^((global::)?System\.Numerics\.)?Vector3$', inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^3$'}}}
-            - {regex: '^((global::)?System\.Numerics\.)?Vector4$', inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^4$'}}}
+            - {matches: {csharp-type-name: {name: {regex: '^Vector2$'}}}, inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^2$'}}}
+            - {matches: {csharp-type-name: {name: {regex: '^Vector3$'}}}, inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^3$'}}}
+            - {matches: {csharp-type-name: {name: {regex: '^Vector4$'}}}, inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, pattern: $WIDTH, regex: '^4$'}}}
     vector-creation:
         any:
             - kind: object_creation_expression

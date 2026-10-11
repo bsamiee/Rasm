@@ -3,27 +3,37 @@ id: no-conditional-unit-effect
 language: csharp
 severity: error
 utils:
+    unit-fin:
+        matches: {csharp-type-name: {name: {regex: '^Fin$'}}}
+        has: {stopBy: end, kind: type_argument_list, all: [{has: {nthChild: 1, regex: '^Unit$'}}, {not: {has: {nthChild: 2}}}]}
     unit-value:
         any:
-            - regex: '^(((global::)?LanguageExt\.)?(Prelude\.)?unit|((global::)?LanguageExt\.)?Unit\.Default|default)$'
+            - matches: {csharp-type-name: {name: {regex: '^unit$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}
             - kind: default_expression
-              has: {field: type, regex: '^((global::)?LanguageExt\.)?Unit$'}
+              regex: '^default$'
+            - kind: default_expression
+              has: {field: type, matches: {csharp-type-name: {name: {regex: '^Unit$'}}}}
     single-argument:
         has: {field: arguments, has: {kind: argument}, not: {has: {kind: argument, nthChild: 2}}}
     unit-argument:
         has: {field: arguments, has: {kind: argument, has: {matches: unit-value}}, not: {has: {kind: argument, nthChild: 2}}}
     unit-success:
         any:
-            - regex: '^((global::)?(LanguageExt\.)?Prelude\.)?unit(IO|Eff)$'
+            - matches: {csharp-type-name: {name: {regex: '^unit(IO|Eff)$'}}}
             - kind: invocation_expression
               all:
                 - has:
                     field: function
-                    regex: '^(((global::)?LanguageExt\.)?(IO\s*\.\s*pure|Fin\s*\.\s*Succ|Eff\s*<.+>\s*\.\s*Pure)|((global::)?(LanguageExt\.)?Prelude\.)?(Pure|FinSucc|SuccessEff|Success))(\s*<.+>)?$'
+                    any:
+                        - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
+                        - matches: {csharp-owner-member: {type: {regex: '^Fin$'}, member: {regex: '^Succ$'}}}
+                        - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^Pure$'}}}
+                        - matches: {csharp-type-name: {name: {regex: '^(Pure|FinSucc|SuccessEff|Success)$'}}}
                 - matches: unit-argument
             - kind: object_creation_expression
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Fin\s*<\s*Unit\s*>\s*\.\s*Succ$'}
+                - has: {field: type, kind: qualified_name, all: [{has: {field: qualifier, matches: unit-fin}}, {has: {field: name, regex: '^Succ$'}}]}
                 - matches: unit-argument
     unit-failure:
         any:
@@ -31,11 +41,17 @@ utils:
               all:
                 - has:
                     field: function
-                    regex: '^(((global::)?LanguageExt\.)?(IO\s*\.\s*fail\s*<\s*Unit\s*>|Fin\s*\.\s*Fail\s*<\s*Unit\s*>|Eff\s*<\s*(.+,\s*)?Unit\s*>\s*\.\s*Fail)|((global::)?(LanguageExt\.)?Prelude\.)?(FinFail\s*<\s*Unit\s*>|FailEff\s*<\s*(.+,\s*)?Unit\s*>|Fail(\s*<.+>)?))$'
+                    any:
+                        - matches: {csharp-type-name: {name: {regex: '^Fail$'}}}
+                        - has: {stopBy: end, kind: type_argument_list, has: {nthChild: {position: 1, reverse: true}, regex: '^Unit$'}}
+                          any:
+                            - matches: {csharp-owner-member: {type: {regex: '^(IO|Fin)$'}, member: {regex: '^(fail|Fail)$'}}}
+                            - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^Fail$'}}}
+                            - matches: {csharp-type-name: {name: {regex: '^(FinFail|FailEff)$'}}}
                 - matches: single-argument
             - kind: object_creation_expression
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Fin\s*<\s*Unit\s*>\s*\.\s*Fail$'}
+                - has: {field: type, kind: qualified_name, all: [{has: {field: qualifier, matches: unit-fin}}, {has: {field: name, regex: '^Fail$'}}]}
                 - matches: single-argument
     success-arm:
         any:
@@ -77,10 +93,10 @@ utils:
                 - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     effect-success:
         any:
-            - regex: '^((global::)?(LanguageExt\.)?Prelude\.)?unit(IO|Eff)$'
+            - matches: {csharp-type-name: {name: {regex: '^unit(IO|Eff)$'}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?LanguageExt\.)?(IO\s*\.\s*pure|Eff\s*<.+>\s*\.\s*Pure)(\s*<.+>)?$|^((global::)?(LanguageExt\.)?Prelude\.)?SuccessEff(\s*<.+>)?$'}
+                - has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^Pure$'}}}}, {matches: {csharp-type-name: {name: {regex: '^SuccessEff$'}}}}]}
                 - matches: unit-argument
             - kind: invocation_expression
               all:
@@ -162,13 +178,13 @@ utils:
                     kind: invocation_expression
                     all:
                         - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Filter|Where)$'}}
-                        - has: {field: function, has: {field: expression, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?(Prelude|Option)\.)?Some(\s*<.+>)?$'}}}
+                        - has: {field: function, has: {field: expression, kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}}}
                         - has: {field: arguments, has: {kind: argument, pattern: $CONDITION}, not: {has: {kind: argument, nthChild: 2}}}
 rule:
     any:
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '^((global::)?LanguageExt\.)?IO\s*\.\s*lift$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
             - has:
                 field: arguments
                 not: {has: {kind: argument, nthChild: 2}}
@@ -182,6 +198,7 @@ rule:
         - kind: conditional_expression
           has: {field: condition, pattern: $CONDITION}
           matches: ternary-pair
+          not: {any: [{inside: {kind: lambda_expression, field: body}}, {inside: {kind: argument, inside: {kind: tuple_expression}}}]}
         - kind: if_statement
           has: {field: condition, pattern: $CONDITION}
           matches: statement-pair
@@ -198,4 +215,4 @@ rule:
                     - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(true|_)$'}}
             - matches: switch-pair
 message: Branch on `$CONDITION` pairs a unit success with a failure or another effect
-note: "Use `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()` on an `IO` or `Eff` and `<condition> ? unit : <error>` on a `Fin` or `Validation`, each states the unit arm once"
+note: "Use `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()` on an `IO` or `Eff` and `<condition> ? unit : <error>` on a `Fin` or `Validation` a declared return type or local receives, each states the unit arm once, a lambda body or tuple element keeps its typed arms since neither gives the conditional a target type"

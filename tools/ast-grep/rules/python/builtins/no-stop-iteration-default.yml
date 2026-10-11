@@ -38,8 +38,7 @@ utils:
     literal:
         any:
             - kind: none, true, false, integer, float, ellipsis
-            - kind: string, concatenated_string
-              not: {has: {stopBy: end, kind: interpolation}}
+            - matches: python-plain-string
             - kind: unary_operator
               all:
                 - has: {field: operator, regex: '^[+-]$'}

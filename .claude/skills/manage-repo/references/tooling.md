@@ -25,16 +25,23 @@ mise owns tool binaries, the process environment, and local services.
 - `{{config_root}}` renders the directory of `mise.toml`, `_.path` prepends directories to PATH
 - `tools = true` on a row renders `tools.<name>.version` and `tools.<name>.path` after tool resolution
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
-- Homebrew paths render `exec(command='brew --prefix <formula>')` under `os() == 'macos'`, a host without `brew` on PATH fails the whole template
+- Homebrew paths name the formula's `opt` link
+- `exec(command=...)` templates fail every mise call on a host without their command on PATH
+- `[env]` holds values shells and repository programs read, a value one local service alone reads sits on its launchd row
 
 ## [03]-[SERVICES]
 
 Launchd agents run each local MCP server once as a Streamable HTTP service on a loopback port, harness rows hold the service URL:
+- Ports a repository program also reads sit once in `[vars]`, rendered into the launchd row and a `<NAME>_MCP_URL` `[env]` row
+- Harnesses read no `[env]` value into MCP config
 - `[bootstrap.macos.launchd.agents]` rows run `{{ mise_bin }}` with `args` opening `exec --` and `working_directory` at `{{config_root}}`
 - `keep_alive` restarts an exited process, and launchd starts a `KeepAlive` agent at login with no `RunAtLoad`
-- Agents inherit the GUI domain environment, machine setup places Homebrew on its PATH for `[env]` templates
+- Row `environment` tables render into plist `EnvironmentVariables`
+- Row values render no `exec(command=...)` template
+- Programs on no PATH mise builds take an absolute path in `args`, `args` expand no `~`
+- Agents inherit the GUI domain environment, and `exec --` adds repository `[env]` and tool paths
 - `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.<name>.plist`, launchd discards an agent's output
 - `mise bootstrap macos launchd-agents status` lists each agent's state, `launchctl print gui/$UID/dev.mise.<name>` its pid and last exit code
 - Servers speaking stdio alone, or exposing a tool a skill replaces, run over stdio behind `tools/bridge/bridge.ts`
-- `--hide <tool>` before the bridge's `--` leaves one server tool out of the endpoint, repeated per tool
+- `--hide <glob>` before the bridge's `--` leaves each server tool it matches out of the endpoint, repeated per glob
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row

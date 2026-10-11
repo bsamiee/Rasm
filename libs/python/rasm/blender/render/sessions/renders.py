@@ -121,7 +121,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
         """Retains native declarations and recovery state through render retirement."""
         scope = ExitStack()
-        pending: set[bpy.types.Scene] = set(bpy.data.scenes)
+        pending: set[bpy.types.Scene] = set()
 
         def built(
             parts: tuple[tuple[tuple[Attached[RenderOverride], Framed], PassRouting], Stored[tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]]],
@@ -137,20 +137,11 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
                     def restored(after: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[None]:
                         missing = Tree(roots=tuple(key for key in before.roots if key not in after.owners), owners={key: held for key, held in before.owners.items() if key not in after.owners})
-                        preferences: BlenderResult[bpy.types.Preferences] = Option.of_optional(bpy.context.preferences).to_result_with(
-                            lambda: (BlenderAbsentFault(owner="bpy.context", key="preferences"),)
-                        )
                         return (
                             paired(Snapshot.decoded(before), Snapshot.decoded(after))
                             .bind(lambda values: Snapshot.restore(*values).outcome)
-                            .bind(
-                                lambda _: Result[bpy.types.Preferences, BlenderFaults].bind(
-                                    preferences,
-                                    lambda preferences: routing.pathed.path(scene, preferences, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(
-                                        lambda path: routing.reconciled(scene, bpy.context, path)
-                                    ),
-                                )
-                            )
+                            .bind(lambda _: routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()))
+                            .bind(lambda path: routing.reconciled(scene, bpy.context, path))
                             .bind(
                                 lambda _: (
                                     recovery.write(scene, (missing, None)).bind(lambda _: Error((BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)))
@@ -170,6 +161,10 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
             finishing = scope.enter_context(identity.reports.deferred(restored))
 
+            def seeded() -> BlenderResult[Option[float]]:
+                pending.update(bpy.data.scenes)
+                return Ok(Nothing)
+
             def ticked() -> BlenderResult[Option[float]]:
                 if not bpy.app.is_job_running("RENDER"):
                     for scene in tuple(pending):
@@ -183,7 +178,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
             scope.callback(lambda: identity.reports.reported(lambda: accumulated(restored(scene) for scene in tuple(pending)).map(lambda _: None))().default_value(None))
 
             def launched(call: Call[Launch], viewport: bool) -> BlenderResult[Done]:
-                def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, preferences: bpy.types.Preferences) -> BlenderResult[Done]:
+                def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
                     record = call.record
                     images = tuple(image for image in bpy.data.images if image.type == "RENDER_RESULT")
                     prior = tuple((image, image.render_slots.active_index, Option.of_optional(image.render_slots.active).map(lambda slot: (slot, slot.name))) for image in images)
@@ -280,19 +275,16 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
                     day = datetime.datetime.now(datetime.UTC).astimezone().date()
                     return (
-                        paired(
-                            paired(held.read(scene), Snapshot.capture(scene)),
-                            paired(routing.pathed.attached.read(scene).map(lambda outputs: outputs.version), routing.pathed.path(scene, preferences, day)),
-                        )
+                        paired(paired(held.read(scene), Snapshot.capture(scene)), paired(routing.pathed.attached.read(scene).map(lambda outputs: outputs.version), routing.pathed.path(scene, day)))
                         .bind(lambda values: prepared(values).bind(lambda _: slotted(values[1][0])).bind(called_render))
                         .or_else_with(undone)
                     )
 
-                def admitted(roots: tuple[tuple[bpy.types.Scene, bpy.types.ViewLayer], bpy.types.Preferences]) -> BlenderResult[Done]:
-                    scene = roots[0][0]
-                    return recovery.read(scene).bind(lambda held: Error((BlenderCollisionFault(request=repr(scene), error=recovery.name),)) if held.is_some() else scene_render(*roots[0], roots[1]))
+                def admitted(roots: tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> BlenderResult[Done]:
+                    scene = roots[0]
+                    return recovery.read(scene).bind(lambda held: Error((BlenderCollisionFault(request=repr(scene), error=recovery.name),)) if held.is_some() else scene_render(*roots))
 
-                return paired(paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)), call.root(bpy.types.Preferences)).bind(admitted)
+                return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(admitted)
 
             viewport = Setting(descriptor=Descriptor(root=bpy.types.SpaceView3D, owner="", prop=bpy.types.SpaceView3D.bl_rna.properties["type"]), accepted=("VIEW_3D",))
             return Ok((
@@ -319,6 +311,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                     run=lambda call: launched(call, True),
                 ),
                 PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                Timer(body=seeded),
                 Timer(body=ticked),
             ))
 
@@ -343,7 +336,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
     # --- [SECTIONS]
 
     @staticmethod
-    def section(retention: Callable[[Identity], BlenderResult[Retention]]) -> Single[RenderOverride]:
+    def section(retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing) -> Single[RenderOverride]:
         """Places native render actions beside the context scene's scoped override."""
         return Single(
             key="render",

@@ -1,6 +1,3 @@
-# mypy: disable-error-code="attr-defined,union-attr,misc"
-# ty: ignore[unresolved-attribute,invalid-attribute-access]
-
 """Scene-linear beauty rebuilt from native light passes and light groups."""
 
 from collections.abc import Callable
@@ -34,9 +31,9 @@ from rasm.imaging.parameters import Case, Gated
 class Single(Enum):
     """Native socket and pass flag for light outside a lobe family."""
 
-    EMISSION = "Emit", "use_pass_emit"
-    ENVIRONMENT = "Env", "use_pass_environment"
-    OCCLUSION = "AO", "use_pass_ao"
+    EMISSION = "Emission", "use_pass_emit"
+    ENVIRONMENT = "Environment", "use_pass_environment"
+    OCCLUSION = "Ambient Occlusion", "use_pass_ambient_occlusion"
 
     def __init__(self, socket: str, flag: str) -> None:
         """Retains the two independent native spellings."""
@@ -118,8 +115,8 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
         """Builds the complete sum, guided term filters, coverage, and term filing."""
         render = f"{key}_render"
         filters = Filters.of()
-        sum_key = Recombined.recombination.__name__
-        value_key = Gated.value.__name__
+        sum_key = Recombined.recombination.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        value_key = Gated.value.__name__  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
 
         def socket(name: str) -> BlenderResult[End]:
             return Option.of_optional(offered.get(name)).map(lambda identifier: End(node=render, socket=identifier)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(offered), key=name),))

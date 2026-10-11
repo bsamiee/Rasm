@@ -105,7 +105,7 @@ utils:
             - kind: invocation_expression
               has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Contains|StartsWith|EndsWith|Equals|IndexOf|LastIndexOf|IndexOfAny|CompareTo)$'}}
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?System\.)?(string\.(Equals|Compare|CompareOrdinal)|((Text\.)?RegularExpressions\.)?Regex\.(IsMatch|Match|Matches))$'}
+              has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^(Equals|Compare|CompareOrdinal)$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Regex$'}, member: {regex: '^(IsMatch|Match|Matches)$'}}}}]}
             - kind: is_pattern_expression
               has: {field: pattern, matches: text-pattern}
             - kind: switch_expression
@@ -130,7 +130,7 @@ rule:
                         kind: method_declaration, local_function_statement
                         all:
                             - has: {field: name, pattern: $RELAY}
-                            - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^((global::)?System\.)?(string|String)\??$'}}}
+                            - has: {field: parameters, has: {kind: parameter, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(string|String)$'}}}}}}
                             - has: {field: body, has: {stopBy: end, matches: text-comparison}}
             - kind: binary_expression
               all:
@@ -146,7 +146,7 @@ rule:
                     - has: {field: expression, matches: message-text}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?System\.)?(string\.(Equals|Compare|CompareOrdinal)|((Text\.)?RegularExpressions\.)?Regex\.(IsMatch|Match|Matches))$'}
+                - has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^(Equals|Compare|CompareOrdinal)$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Regex$'}, member: {regex: '^(IsMatch|Match|Matches)$'}}}}]}
                 - has: {field: arguments, has: {kind: argument, has: {matches: message-text}}}
             - kind: is_pattern_expression
               all:
@@ -165,6 +165,6 @@ rule:
             any:
                 - matches: catch-variable
                 - matches: element-error
-                - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {regex: '^((global::)?(LanguageExt\.Common\.)?Error|((global::)?[\w.]+\.)?\w*Exception)$'}}}
+                - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {matches: {csharp-type-name: {name: {regex: '^(Error|\w*Exception)$'}}}}}}
 message: Error or exception `$ERROR` is classified by its message text
 note: Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern, message text couples the branch to prose

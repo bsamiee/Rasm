@@ -1,6 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
-
 """Sections under a host header with their record fields, value-set slots, item sections, and preset listings."""
 
 from collections.abc import Callable, Mapping
@@ -16,7 +13,7 @@ from typing import Annotated, Protocol, runtime_checkable, Self
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 from msgspec import inspect
@@ -27,7 +24,7 @@ from rasm.blender.data.rna.conditions import Condition, holds
 from rasm.blender.data.rna.snapshots import Applied, Scoped, Snapshot
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Registrable
-from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFaults, BlenderResult
+from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderResult
 from rasm.blender.settings.attachments import Attached, Attachment, Host, Slot
 from rasm.blender.settings.history import ValueHistory
 from rasm.blender.settings.presets import copied, pasted, Preset, PresetName
@@ -64,7 +61,8 @@ if typing.TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Nest = Callable[[bpy.types.UILayout, bpy.types.bpy_struct, bpy.types.Context, str], None]
+type Nest = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context, str], None]
+type Action = operators.Operator[Named] | operators.Operator[Renamed] | operators.Operator[Saved] | operators.Operator[Selected] | operators.Operator[operators.Empty]
 
 
 class Verb(Enum):
@@ -165,6 +163,35 @@ class Selected(msgspec.Struct, frozen=True, kw_only=True):
     items: Annotated[tuple[Named, ...], msgspec.Meta(min_length=1)]
 
 
+class Actions(msgspec.Struct, frozen=True, kw_only=True):
+    """Operator row of each verb over one preset listing."""
+
+    apply: operators.Operator[Named]
+    save: operators.Operator[Saved]
+    delete: operators.Operator[Selected]
+    load: operators.Operator[operators.Empty]
+    export: operators.Operator[Selected]
+    replace: operators.Operator[Named]
+    rename: operators.Operator[Renamed]
+    previous: operators.Operator[operators.Empty]
+    following: operators.Operator[operators.Empty]
+
+    @property
+    def verbs(self) -> dict[Verb, Action]:
+        """Rows by verb in listing order."""
+        return {
+            Verb.APPLY: self.apply,
+            Verb.SAVE: self.save,
+            Verb.DELETE: self.delete,
+            Verb.IMPORT: self.load,
+            Verb.EXPORT: self.export,
+            Verb.REPLACE: self.replace,
+            Verb.RENAME: self.rename,
+            Verb.PREVIOUS: self.previous,
+            Verb.NEXT: self.following,
+        }
+
+
 class Drawn(msgspec.Struct, frozen=True, kw_only=True):
     """Section drawing for a panel's header enable, preset area, body, and layout panel over a holder."""
 
@@ -192,9 +219,10 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         """Key of the menu over a preset's listing, read before any listing exists."""
         return f"{preset.key}_presets"
 
-    def commands(self, identity: Identity) -> dict[Verb, operators.Operator]:
+    def commands(self, identity: Identity) -> Actions:
         """Apply, add, remove, import, export, replace, rename, and neighbour rows."""
         stem, shown, json = self.preset.key, bpy.path.display_name, lambda _: (".json",)
+        (renamed,) = frozenset(Renamed.__struct_fields__) - frozenset(Named.__struct_fields__)
 
         def user(stored: T | Path, key: str) -> BlenderResult[Path]:
             return Ok(stored) if isinstance(stored, Path) else Error((BlenderAbsentFault(owner=str(self.preset.folder(identity)), key=key),))
@@ -256,10 +284,10 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         def destinations(path: Path, record: Selected) -> tuple[Path, ...]:
             return (path,) if len(record.items) == 1 else tuple(path.parent / f"{item.stem}{path.suffix}" for item in record.items)
 
-        return {
-            Verb.APPLY: Verb.APPLY.row(stem, Named, lambda call: self.preset.found(identity, call.record.stem).bind(read).bind(lambda value: self.applied(call.context, value))),
-            Verb.SAVE: Verb.SAVE.row(stem, Saved, saved, invoke=Some(operators.Properties())),
-            Verb.DELETE: Verb.DELETE.row(
+        return Actions(
+            apply=Verb.APPLY.row(stem, Named, lambda call: self.preset.found(identity, call.record.stem).bind(read).bind(lambda value: self.applied(call.context, value))),
+            save=Verb.SAVE.row(stem, Saved, saved, invoke=Some(operators.Properties())),
+            delete=Verb.DELETE.row(
                 stem,
                 Selected,
                 lambda call: accumulated(self.preset.found(identity, item.stem).bind(lambda stored: user(stored, item.stem)).bind(self.preset.removed) for item in call.record.items).map(
@@ -271,7 +299,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                     )
                 ),
             ),
-            Verb.IMPORT: Verb.IMPORT.row(
+            load=Verb.IMPORT.row(
                 stem,
                 operators.Empty,
                 lambda call: accumulated(self.preset.imported(identity, path) for path in call.paths).map(
@@ -279,7 +307,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 ),
                 invoke=Some(operators.Open[operators.Empty](extensions=json)),
             ),
-            Verb.EXPORT: Verb.EXPORT.row(
+            export=Verb.EXPORT.row(
                 stem,
                 Selected,
                 lambda call: accumulated(
@@ -288,8 +316,8 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 ).map(lambda paths: operators.Done(notes=tuple(("INFO", f"Wrote {path}") for path in paths))),
                 invoke=Some(operators.Save[Selected](extensions=json, destinations=Some(destinations))),
             ),
-            Verb.REPLACE: replace,
-            Verb.RENAME: msgspec.structs.replace(
+            replace=replace,
+            rename=msgspec.structs.replace(
                 Verb.RENAME.row(
                     stem,
                     Renamed,
@@ -300,17 +328,17 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                     ),
                     invoke=Some(operators.Properties()),
                 ),
-                draw=Some(lambda layout, _context, properties: layout.prop(properties, Renamed.name.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                draw=Some(lambda layout, _context, properties: layout.prop(properties, renamed)),
             ),
-            Verb.PREVIOUS: Verb.PREVIOUS.row(stem, operators.Empty, lambda call: neighbour(call, -1)),
-            Verb.NEXT: Verb.NEXT.row(stem, operators.Empty, lambda call: neighbour(call, 1)),
-        }
+            previous=Verb.PREVIOUS.row(stem, operators.Empty, lambda call: neighbour(call, -1)),
+            following=Verb.NEXT.row(stem, operators.Empty, lambda call: neighbour(call, 1)),
+        )
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Realizes native apply entries, single-item file actions, and add/import asks."""
         commands = self.commands(identity)
-        apply, save, delete, load, export = (commands[verb] for verb in (Verb.APPLY, Verb.SAVE, Verb.DELETE, Verb.IMPORT, Verb.EXPORT))
-        footer = (OperatorButton(target=save, text=Some("")), OperatorButton(target=load, text=Some("")))
+        apply, delete, export = commands.apply, commands.delete, commands.export
+        footer = (OperatorButton(target=commands.save, text=Some("")), OperatorButton(target=commands.load, text=Some("")))
 
         def draw(parts: tuple[tuple[str, ...], tuple[RowDraw, ...]]) -> RowDraw:
             (applying, deleting, exporting), buttons = parts
@@ -324,7 +352,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                     ),
                 )
 
-                def actions(row: bpy.types.UILayout, _holder: bpy.types.bpy_struct, _context: bpy.types.Context) -> None:
+                def actions(row: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
                     alerted(
                         row,
                         operated(row.operator(exporting, text="", icon="EXPORT"), exporting).bind(
@@ -341,7 +369,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
                 invoking(actions)(line, context, context)
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 layout.emboss = "PULLDOWN_MENU"
                 catalog = tuple((stem, kept, self.preset.read(kept) if isinstance(kept, Path) else Ok(kept)) for stem, kept in self.preset.listed(identity).items())
                 valid = tuple((stem, held) for stem, _, value in catalog for held in value.to_option().to_list())
@@ -360,7 +388,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Acquires the listing's rows."""
-        return Ok(tuple(self.commands(identity).values()))
+        return Ok(tuple(self.commands(identity).verbs.values()))
 
 
 class Slots[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
@@ -380,7 +408,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     """Attached record's value sets: reset, presets with locks, clipboard, and history."""
 
     attachment: Attachment[T]
-    retention: Callable[[Identity], BlenderResult[Retention]]
+    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
     presets: Option[Preset[T]] = Nothing
     scope: Option[Scoped[Host]] = Nothing
     fields: Mapping[MemberDescriptorType, RowContent] = msgspec.field(default_factory=dict)
@@ -415,18 +443,21 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Builds the store's rows over its bound attachment."""
         history = ValueHistory(form=attached.group.record, read=attached.read, write=attached.write, storage=attached.struct, key=Slot.HISTORY)
         stem = self.attachment.key
-        absent = Result[bpy.types.WindowManager, BlenderFaults](error=(BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
+
+        def managed(context: bpy.types.Context) -> BlenderResult[bpy.types.WindowManager]:
+            return Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
 
         def now() -> datetime.datetime:
             return datetime.datetime.now(datetime.UTC)
 
+        def retained() -> BlenderResult[Retention]:
+            return self.retention.map(lambda read: read(identity)).default_with(lambda: Ok(Retention()))
+
         def recorded(context: bpy.types.Context, write: Callable[[Host], BlenderResult[operators.Done]]) -> BlenderResult[operators.Done]:
-            return paired(hosted(attached.name, context), self.retention(identity)).bind(lambda pair: history.replaced(pair[0], lambda: write(pair[0]), now(), pair[1]))
+            return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.replaced(pair[0], lambda: write(pair[0]), now(), pair[1]))
 
         def stepped(offset: int) -> Callable[[operators.Call[operators.Empty]], BlenderResult[operators.Done]]:
-            return lambda call: (
-                paired(hosted(attached.name, call.context), self.retention(identity)).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(lambda _: operators.Done())
-            )
+            return lambda call: paired(hosted(attached.name, call.context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(lambda _: operators.Done())
 
         def scoped(context: bpy.types.Context, host: Host) -> BlenderResult[operators.Done]:
             def done(outcomes: tuple[Applied, ...]) -> operators.Done:
@@ -434,7 +465,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 return operators.Done(skipped=Some((missing[0], *missing[1:])) if missing else Nothing)
 
             return (
-                paired(self.scope.map(lambda scope: scope.owners(context)).default_value(Ok((host,))), Option.of_optional(context.window_manager).map(Ok).default_value(absent))
+                paired(self.scope.map(lambda scope: scope.owners(context)).default_value(Ok((host,))), managed(context))
                 .bind(lambda pair: pasted(pair[1], tuple(map(attached.struct, pair[0]))))
                 .bind(lambda outcomes: accumulated(outcome.outcome for outcome in outcomes).map(lambda _: done(outcomes)))
             )
@@ -445,9 +476,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 stem,
                 operators.Empty,
                 lambda call: (
-                    paired(
-                        hosted(attached.name, call.context).bind(lambda host: Snapshot.capture(attached.struct(host))), Option.of_optional(call.context.window_manager).map(Ok).default_value(absent)
-                    )
+                    paired(hosted(attached.name, call.context).bind(lambda host: Snapshot.capture(attached.struct(host))), managed(call.context))
                     .map(lambda pair: copied(pair[1], pair[0]))
                     .map(lambda _: operators.Done())
                 ),
@@ -460,11 +489,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             Verb.RESTORE: Verb.RESTORE.row(
                 stem,
                 Picked,
-                lambda call: (
-                    paired(hosted(attached.name, call.context), self.retention(identity))
-                    .bind(lambda found: history.stepped(found[0], call.record.offset, now(), found[1]))
-                    .map(lambda _: operators.Done())
-                ),
+                lambda call: paired(hosted(attached.name, call.context), retained()).bind(lambda found: history.stepped(found[0], call.record.offset, now(), found[1])).map(lambda _: operators.Done()),
             ),
             Verb.FORGET: Verb.FORGET.row(stem, Picked, lambda call: hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(lambda _: operators.Done())),
         }
@@ -518,7 +543,7 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             def draw(parts: tuple[tuple[Option[RowDraw], tuple[tuple[RowDraw, ...], tuple[RowDraw, ...]]], tuple[str, tuple[str, str]]]) -> RowDraw:
                 (listing, (copying, stepping)), (locking, (restoring, forgetting)) = parts
 
-                def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                     found = hosted(attached.name, context)
                     for each in listing.to_list():
                         each(layout, holder, context)
@@ -598,12 +623,12 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         return paired(paired(identity.name(Name.ATTACHMENT, key), gate), paired(accumulated(realized(row, identity) for row in header), walk)).bind(built)
 
-    def head(self, layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+    def head(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         """Draws the enable with no text."""
         for _, draw in self.gate.to_list():
             draw(layout, holder, context)
 
-    def tail(self, layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, host: Option[Host], context: bpy.types.Context) -> None:
+    def tail(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context) -> None:
         """Draws the header rows, then the store slots with the host as the context pointer."""
         line = layout.row(align=True)
         for draw in self.header:
@@ -613,7 +638,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             for draw in slots.tail:
                 draw(line, holder, context)
 
-    def body(self, layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, host: Option[Host], context: bpy.types.Context, prefix: str) -> None:
+    def body(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context, prefix: str) -> None:
         """Draws the rows over the holder and the store fields over the host's group, inactive while the enable is off."""
         layout.use_property_split, layout.use_property_decorate = True, True
         layout.active = layout.active and all(starmap(getattr, self.gate.bind(lambda pair: located(pair[0], holder, context)).to_list()))
@@ -631,7 +656,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         layout: bpy.types.UILayout,
         idname: str,
         title: str,
-        holder: bpy.types.bpy_struct,
+        holder: "bpy.types.bpy_struct[object]",
         host: Option[Host],
         context: bpy.types.Context,
         opened: Option[tuple[Owner, str]],
@@ -683,14 +708,14 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
         def drawn(parts: tuple[Assembly[T], Option[ResolvedMember]]) -> Drawn:
             frame, host = parts
 
-            def found(holder: bpy.types.bpy_struct, context: bpy.types.Context) -> Option[Host]:
-                return host.bind(lambda bound: located(bound, holder, context)).map(lambda pair: getattr(*pair))
+            def found(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[Host]:
+                return host.bind(lambda bound: located(bound, holder, context)).bind(lambda pair: Option.of_optional(getattr(*pair)))
 
-            def body(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def body(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 layout.active = layout.active and all(holds(required, context, Some(holder)) for required in self.condition.to_list())
                 frame.body(layout, holder, found(holder, context), context, frame.name)
 
-            def inline(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def inline(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 active = all(holds(required, context, Some(holder)) for required in self.condition.to_list())
                 host = found(holder, context)
                 for shown in frame.framed(layout, frame.name, self.title, holder, host, context, Nothing, active=active).to_list():
@@ -739,22 +764,25 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
         def items(
             bound: ResolvedMember[bpy.types.CollectionProperty],
         ) -> BlenderResult[tuple[ResolvedMember[bpy.types.CollectionProperty], bpy.types.StringProperty, Option[ResolvedMember], Option[Slots[T]]]]:
-            item = bound.descriptor.prop.fixed_type
-            opened = self.open.map(lambda path: Member(root=type(item), path=path).resolved(bpy.types.BoolProperty).map(Some)).default_value(Ok(Nothing))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            stored = self.store.map(
-                lambda store: (
-                    store.bound(identity) if isinstance(item, store.attachment.owner) else Error(refused(bound.descriptor.path, type(item).__name__, (store.attachment.owner.__name__,)))
-                ).map(Some)
-            ).default_value(Ok(Nothing))
-            return paired(
-                Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: (BlenderAbsentFault(owner=bound.descriptor.path, key="name_property"),)),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                paired(opened, stored),
-            ).map(lambda pair: (bound, pair[0], *pair[1]))
+            match bound.descriptor.prop.fixed_type:
+                case None:
+                    return Error((BlenderAbsentFault(owner=bound.descriptor.path, key="fixed_type"),))
+                case item:
+                    opened = self.open.map(lambda path: Member(root=type(item), path=path).resolved(bpy.types.BoolProperty).map(Some)).default_value(Ok(Nothing))
+                    stored = self.store.map(
+                        lambda store: (
+                            store.bound(identity) if isinstance(item, store.attachment.owner) else Error(refused(bound.descriptor.path, type(item).__name__, (store.attachment.owner.__name__,)))
+                        ).map(Some)
+                    ).default_value(Ok(Nothing))
+                    return paired(
+                        Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: (BlenderAbsentFault(owner=bound.descriptor.path, key="name_property"),)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        paired(opened, stored),
+                    ).map(lambda pair: (bound, pair[0], *pair[1]))
 
         def drawn(parts: tuple[tuple[ResolvedMember, bpy.types.StringProperty, Option[ResolvedMember], Option[Slots[T]]], tuple[Assembly[T], tuple[RowDraw, ...]]]) -> Drawn:
             ((collection, named, opened, _), (frame, empties)) = parts
 
-            def listed(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def listed(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for owner, key in located(collection, holder, context).to_list():
                     members = getattr(owner, key)
                     for draw in () if members else empties:
@@ -789,18 +817,18 @@ def hosted(name: str, context: bpy.types.Context) -> BlenderResult[Host]:
     return catch(lambda: getattr(context, name), exception=AttributeError)().map_error(lambda _: (BlenderAbsentFault(owner="bpy.context", key=name),))
 
 
-def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
+def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
     group: RecordGroup[T, S], identity: Identity, replacements: Mapping[MemberDescriptorType, RowContent] = MappingProxyType({})
 ) -> BlenderResult[tuple[tuple[RowContent, ...], Nest]]:
     """Realizes native fields as scalar rows and nested record, union, or collection panels."""
-    enabled, value = Gated.enabled.__name__, Gated.value.__name__  # type: ignore[misc,attr-defined]  # ty: ignore[invalid-attribute-access,unresolved-attribute]
+    enabled, value = Gated.__struct_fields__
     supplied = {slot.__name__: row for slot, row in replacements.items() if issubclass(typing.get_origin(group.record) or group.record, slot.__objclass__)}
 
     def inside(found: tuple[tuple[RowContent, ...], Nest]) -> BlenderResult[Nest]:
         rows, nest = found
 
         def stacked(draws: tuple[RowDraw, ...]) -> Nest:
-            def draw(layout: bpy.types.UILayout, group: bpy.types.bpy_struct, context: bpy.types.Context, prefix: str) -> None:
+            def draw(layout: bpy.types.UILayout, group: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
                 for each in draws:
                     each(layout, group, context)
                 nest(layout, group, context, prefix)
@@ -809,7 +837,7 @@ def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
 
         return placed(rows, identity).map(stacked)
 
-    def split(row: msgspec.structs.FieldInfo, kind: inspect.Type, struct: type[bpy.types.bpy_struct], *, panel: bool = True) -> BlenderResult[Property | Nest]:
+    def split(row: msgspec.structs.FieldInfo, kind: inspect.Type, struct: "type[bpy.types.bpy_struct[object]]", *, panel: bool = True) -> BlenderResult[Property | Nest]:
         while isinstance(kind, inspect.Metadata):
             kind = kind.type
         key = row.name
@@ -818,9 +846,10 @@ def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
             return fields(RecordGroup(record=record, struct=native), identity, replacements).bind(inside)
 
         def paneled(nest: Nest, *, gated: bool) -> Nest:
-            def draw(layout: bpy.types.UILayout, group: bpy.types.bpy_struct, context: bpy.types.Context, prefix: str) -> None:
+            def draw(layout: bpy.types.UILayout, group: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
                 held, idname = getattr(group, row.name), f"{prefix}_{row.name}"
                 header, body = layout.panel(idname, default_closed=True)
+                header.use_property_split = False
                 if gated:
                     header.prop(held, enabled, text="")
                 header.label(text=group.bl_rna.properties[row.name].name)
@@ -831,7 +860,7 @@ def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
             return draw
 
         def reached(nest: Nest) -> Nest:
-            def draw(layout: bpy.types.UILayout, owner: bpy.types.bpy_struct, context: bpy.types.Context, prefix: str) -> None:
+            def draw(layout: bpy.types.UILayout, owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
                 nest(layout, getattr(owner, key), context, prefix)
 
             return draw
@@ -840,7 +869,7 @@ def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
             by = dict(cases)
             tag_field = next(name for name, definition in native.__annotations__.items() if definition.function is bpy.props.EnumProperty)
 
-            def draw(layout: bpy.types.UILayout, owner: bpy.types.bpy_struct, context: bpy.types.Context, prefix: str) -> None:
+            def draw(layout: bpy.types.UILayout, owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
                 group = getattr(owner, key)
                 layout.prop(group, tag_field)
                 picked = getattr(group, tag_field)
@@ -849,7 +878,7 @@ def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
             return draw
 
         def each(nest: Nest) -> Nest:
-            def draw(layout: bpy.types.UILayout, owner: bpy.types.bpy_struct, context: bpy.types.Context, prefix: str) -> None:
+            def draw(layout: bpy.types.UILayout, owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
                 for index, item in enumerate(getattr(owner, key)):
                     idname = f"{prefix}_{index}"
                     header, body = layout.panel(idname, default_closed=True)
@@ -909,7 +938,7 @@ def fields[T: msgspec.Struct, S: bpy.types.bpy_struct](
     def joined(parts: tuple[tuple[msgspec.structs.FieldInfo, Property | Nest], ...], supplied: Mapping[str, RowContent]) -> tuple[tuple[RowContent, ...], Nest]:
         nests = tuple(part for _, part in parts if not isinstance(part, Property))
 
-        def draw(layout: bpy.types.UILayout, group: bpy.types.bpy_struct, context: bpy.types.Context, prefix: str) -> None:
+        def draw(layout: bpy.types.UILayout, group: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
             for nest in nests:
                 nest(layout, group, context, prefix)
 

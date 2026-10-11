@@ -18,7 +18,7 @@ from rasm.imaging.effects.generators.particles import Population
 from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingRepresentationFault, ImagingResult, paired
 from rasm.imaging.parameters import Finite, Gated, Motion, Presentation, Quantity, Rgb, Seed, Stops
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type _Nonnegative = Annotated[float, msgspec.Meta(ge=0.0, le=float_info.max)]
 
@@ -36,7 +36,7 @@ class Noise(IntEnum):
     EDGE = 7
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Speckles(msgspec.Struct, frozen=True, kw_only=True):
@@ -417,6 +417,6 @@ class Flicker(Effect, frozen=True, kw_only=True, tag=47):
     rate: Annotated[_Nonnegative, msgspec.Meta(title="Rate", description="Lamp evolution in cells per motion frame"), Presentation(soft=Some((0.0, 10.0)))] = 2.5
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Damage", "Flicker", "Gate", "Hairs", "Noise", "Scratches", "Speckles", "Weave"]

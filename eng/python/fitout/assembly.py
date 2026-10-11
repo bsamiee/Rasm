@@ -15,12 +15,11 @@ from asttokens import ASTText
 from asttokens.util import replace
 from cyclopts import Parameter
 from cyclopts.types import ResolvedPath
-from expression.extra.result import catch
 import httpx2
 import msgspec
 from packaging.utils import canonicalize_name, parse_wheel_filename
 from pathops import PathOpsError  # type: ignore[attr-defined]
-from result import as_async_result
+from result import as_async_result, as_result
 import tomlkit
 
 from eng.python.fitout.icons import outlined
@@ -39,7 +38,7 @@ class _Interpreter(msgspec.Struct, frozen=True):
 
 
 @as_async_result(OSError, subprocess.CalledProcessError, BadZipFile, httpx2.HTTPError, msgspec.DecodeError, SyntaxError, ValueError, PathOpsError)
-async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, modules: tuple[Path, ...], blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender") -> int:
+async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, modules: tuple[Path, ...] = (), blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender") -> int:
     """Build a Blender extension at the requested archive path.
 
     Args:
@@ -51,14 +50,14 @@ async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, modules: tuple
     Returns:
         Native build status, or an input, process, archive, or network error.
     """
-    workspace = Path.cwd()
+    workspace = Path(__file__).parents[3]
     stage = archive.parent / "stage"
     wheels = stage / "wheels"
     extensions = archive.parent / "extensions"
     lock = archive.parent / "pylock.toml"
     environment = {**os.environ, "BLENDER_USER_EXTENSIONS": str(extensions)}
-    catch(shutil.rmtree, exception=FileNotFoundError)(stage).default_value(None)
-    shutil.copytree(source, stage, ignore=shutil.ignore_patterns("tests", "__pycache__", "*.pyc", "*.pyo"))
+    as_result(FileNotFoundError)(lambda: shutil.rmtree(stage))()
+    shutil.copytree(source, stage, ignore=shutil.ignore_patterns("icons", "__pycache__", "*.pyc", "*.pyo"))
     wheels.mkdir()
     extensions.mkdir(exist_ok=True)
     host = await anyio.run_process(
@@ -127,9 +126,9 @@ async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, modules: tuple
         ]
         if edits:
             module.write_text(replace(text, edits), encoding=encoding)
-    icons = source.parent / "icons"
+    icons = source / "icons"
     previews = stage / icons.name
-    previews.mkdir(exist_ok=True)
+    previews.mkdir()
     preview_size = "256"
     for master in icons.glob("*.svg"):
         await anyio.run_process(("resvg", "--width", preview_size, "--height", preview_size, master, (previews / master.name).with_suffix(".png")), stdout=None, stderr=None)

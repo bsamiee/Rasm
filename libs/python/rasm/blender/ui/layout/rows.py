@@ -1,6 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
-
 """Native property bindings and acquired or callable layout drawing."""
 
 from collections.abc import Callable, Iterable
@@ -16,6 +13,7 @@ import msgspec
 from msgspec import inspect
 
 from rasm.blender.commands import keymaps, operators
+from rasm.blender.commands.calls import Operation
 from rasm.blender.data.rna.conditions import Condition, holds
 from rasm.blender.data.rna.descriptors import Descriptor, root_in
 from rasm.blender.data.rna.snapshots import Scoped, Snapshot
@@ -23,7 +21,7 @@ from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisition, Acquisitions, Band, Registrable
 from rasm.blender.extension.reports import rendered
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderResult
-from rasm.blender.settings.properties import RecordGroup
+from rasm.blender.settings.shapes import vector
 from rasm.blender.ui.resources.icons import Glyph, Icons
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.parameters import Gated, Rgb
@@ -36,14 +34,14 @@ if typing.TYPE_CHECKING:
 
 P_co = TypeVar("P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
 
-type RowDraw = Callable[[bpy.types.UILayout, bpy.types.bpy_struct, bpy.types.Context], None]
+type RowDraw = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context], None]
 type SurfaceDraw = Callable[[bpy.types.UILayout, bpy.types.Context], None]
-type Owner = bpy.types.bpy_struct | bpy.types.bpy_prop_collection
-type Reach = Callable[[bpy.types.Context], Option[bpy.types.bpy_struct]]
+type Owner = bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]
+type Reach = Callable[[bpy.types.Context], Option[bpy.types.bpy_struct[object]]]
 type Binding = Member | Across | ResolvedMember | msgspec.structs.FieldInfo
 type Resolved = ResolvedMember | msgspec.structs.FieldInfo
-type Opener = operators.Command | bpy.ops._BPyOpsSubModOp  # ruff: ignore[private-member-access]
-type Template = Callable[[bpy.types.UILayout, Owner, str, bpy.types.bpy_struct, bpy.types.Context], None]
+type Opener = operators.Command | Operation
+type Template = Callable[[bpy.types.UILayout, Owner, str, bpy.types.bpy_struct[object], bpy.types.Context], None]
 
 
 @runtime_checkable
@@ -85,30 +83,30 @@ class ResolvedMember(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     """Native RNA definition and its optional explicit root source."""
 
     descriptor: Descriptor[P_co]
-    reach: bpy.types.bpy_struct | Option[Reach] = Nothing
+    reach: "bpy.types.bpy_struct[object] | Option[Reach]" = Nothing
     scope: Option[Scoped] = Nothing
 
 
 class Member(msgspec.Struct, frozen=True, kw_only=True):
     """Property path rooted at its actual native owner type."""
 
-    root: type[bpy.types.bpy_struct]
+    root: "type[bpy.types.bpy_struct[object]]"
     path: str
     reach: Option[Reach] = Nothing
 
     @overload
-    def resolved(self, *, root: Option[bpy.types.bpy_struct] = Nothing) -> BlenderResult[ResolvedMember]: ...
+    def resolved(self, *, root: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[ResolvedMember]: ...
 
     @overload
-    def resolved[P: bpy.types.Property](self, kind: type[P], *, root: Option[bpy.types.bpy_struct] = Nothing) -> BlenderResult[ResolvedMember[P]]: ...
+    def resolved[P: bpy.types.Property](self, kind: type[P], *, root: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[ResolvedMember[P]]: ...
 
-    def resolved(self, kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[bpy.types.bpy_struct] = Nothing) -> BlenderResult[ResolvedMember]:
+    def resolved(self, kind: type[bpy.types.Property] = bpy.types.Property, *, root: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[ResolvedMember]:
         """Resolves declared metadata or an admitted live root's concrete native metadata."""
         return root.map(
             lambda actual: (
                 Descriptor.resolve(actual, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=actual))
                 if isinstance(actual, self.root)
-                else Error(refused(self.path, actual.bl_rna.identifier, (self.root.bl_rna.identifier,)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                else Error(refused(self.path, type(actual).__name__, (self.root.__name__,)))
             )
         ).default_with(lambda: Descriptor.resolve(self.root, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach)))
 
@@ -130,7 +128,7 @@ class PreviewGrid(msgspec.Struct, frozen=True, kw_only=True):
 class DataBlocks(msgspec.Struct, frozen=True, kw_only=True):
     """Data-block browse through `template_ID`."""
 
-    kinds: ClassVar[tuple[type[bpy.types.bpy_struct], ...]] = (bpy.types.ID,)
+    kinds: "ClassVar[tuple[type[bpy.types.bpy_struct[object]], ...]]" = (bpy.types.ID,)
     new: Option[Opener] = Nothing
     open: Option[Opener] = Nothing
     unlink: Option[Opener] = Nothing
@@ -140,7 +138,7 @@ class DataBlocks(msgspec.Struct, frozen=True, kw_only=True):
 class Items(msgspec.Struct, frozen=True, kw_only=True):
     """Item browse over an RNA collection through `template_search`."""
 
-    kinds: ClassVar[tuple[type[bpy.types.bpy_struct], ...]] = (bpy.types.PointerProperty,)
+    kinds: "ClassVar[tuple[type[bpy.types.bpy_struct[object]], ...]]" = (bpy.types.PointerProperty,)
     collection: Member
     new: Option[Opener] = Nothing
     unlink: Option[Opener] = Nothing
@@ -153,7 +151,7 @@ class Work(msgspec.Struct, frozen=True, kw_only=True):
     done: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 
 
-class Branch[L: bpy.types.bpy_struct, C: bpy.types.bpy_struct](msgspec.Struct, frozen=True, kw_only=True):
+class Branch[L: "bpy.types.bpy_struct[object]", C: "bpy.types.bpy_struct[object]"](msgspec.Struct, frozen=True, kw_only=True):
     """Tree row: its depth below the root, the struct labelling it, and its cell holder per column owner."""
 
     depth: int
@@ -187,7 +185,7 @@ class Property(Line, frozen=True, kw_only=True):
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Acquires the binding and optional action once for native redraws."""
-        enabled, value = Gated.enabled.__name__, Gated.value.__name__  # type: ignore[misc, attr-defined]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+        enabled, value = Gated.__struct_fields__
         kinds = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty, bpy.types.ID)
         forms = (inspect.BoolType, inspect.IntType, inspect.FloatType, inspect.StrType, Enum, inspect.TupleType, inspect.FrozenSetType, bpy.types.ID, Rgb, Gated)
         shape = inspect.type_info(self.target.type) if isinstance(self.target, msgspec.structs.FieldInfo) else self.target
@@ -209,7 +207,7 @@ class Property(Line, frozen=True, kw_only=True):
                     inner = layout.column(heading=label.default_value(prop.name), align=True)
                     for member in choices:
                         inner.prop(group, member.name)
-                case inspect.TupleType(item_types=components) if not RecordGroup.vector(kind):
+                case inspect.TupleType(item_types=components) if not vector(kind):
                     group = getattr(owner, key)
                     inner = layout.column(heading=label.default_value(prop.name), align=True)
                     for name, component in zip(type(group).__annotations__, components):
@@ -231,7 +229,7 @@ class Property(Line, frozen=True, kw_only=True):
             held, action = parts
             index = held.descriptor.index.default_value(-1) if isinstance(held, ResolvedMember) else -1
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 line = layout.row() if action.is_some() else layout
                 match held:
                     case ResolvedMember(descriptor=descriptor, scope=Option(tag="some", some=scope)):
@@ -263,7 +261,7 @@ class SearchField(Line, frozen=True, kw_only=True):
         def draw(parts: tuple[Resolved, Resolved]) -> RowDraw:
             held, items = parts
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for owner, key in located(held, holder, context).to_list():
                     for source, listed in located(items, holder, context).to_list():
                         layout.prop_search(owner, key, source, listed, text=self.text.to_optional(), results_are_suggestions=self.results_are_suggestions)
@@ -292,7 +290,7 @@ class Selector(Line, frozen=True, kw_only=True):
                 case operators.Command(key=key):
                     return identity.name(Name.OPERATOR, key)
                 case _:
-                    return Ok(opener.idname_py())
+                    return Ok(opener.idname_py())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
         def opened(opener: Option[Opener]) -> BlenderResult[str]:
             return opener.map(named).default_value(Ok(""))
@@ -300,7 +298,7 @@ class Selector(Line, frozen=True, kw_only=True):
         def blocks(chosen: Literal["ALL", "AVAILABLE"], ids: tuple[str, ...]) -> Template:
             new, open_, unlink = ids
 
-            def shown(line: bpy.types.UILayout, owner: Owner, key: str, _holder: bpy.types.bpy_struct, _context: bpy.types.Context) -> None:
+            def shown(line: bpy.types.UILayout, owner: Owner, key: str, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
                 match self.preview.to_list():
                     case [PreviewGrid(rows=rows, cols=cols)]:
                         line.template_ID_preview(owner, key, new=new, open=open_, unlink=unlink, filter=chosen, rows=rows, cols=cols)
@@ -312,7 +310,7 @@ class Selector(Line, frozen=True, kw_only=True):
         def searched(parts: tuple[Resolved, tuple[str, ...]]) -> Template:
             collection, (new, unlink) = parts
 
-            def shown(line: bpy.types.UILayout, owner: Owner, key: str, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(line: bpy.types.UILayout, owner: Owner, key: str, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for items, listed in located(collection, holder, context).to_list():
                     match self.preview.to_list():
                         case [PreviewGrid(rows=rows, cols=cols)]:
@@ -325,7 +323,7 @@ class Selector(Line, frozen=True, kw_only=True):
         def draw(parts: tuple[Resolved, Template]) -> RowDraw:
             held, placed_template = parts
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 line = gridded(layout, self.label)
                 for owner, key in located(held, holder, context).to_list():
                     placed_template(line, owner, key, holder, context)
@@ -351,21 +349,21 @@ class Matrix(Line, frozen=True, kw_only=True):
 
     scope: Scoped
     settings: tuple[str, ...]
-    compound: tuple[tuple[type[bpy.types.bpy_struct], Callable[[bpy.types.UILayout, Owner, str], None]], ...] = ()
+    compound: "tuple[tuple[type[bpy.types.bpy_struct[object]], Callable[[bpy.types.UILayout, Owner, str], None]], ...]" = ()
     action: Option[tuple[Registrable, Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Resolves each setting into its value settings and the owners' name under the scope's owner type into the table's draw."""
         owner_type = self.scope.owner_type
         compound = tuple(kind for kind, _ in self.compound)
-        named = Option.of_optional(owner_type.bl_rna.name_property).to_result_with(lambda: refused(owner_type.bl_rna.identifier, "name_property", ("StringProperty",)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        named = Option.of_optional(owner_type.bl_rna.name_property).to_result_with(lambda: refused(owner_type.__name__, "name_property", (bpy.types.StringProperty.__name__,)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
         def cell(setting: Descriptor) -> BlenderResult[tuple[Descriptor, RowDraw]]:
             action = self.action.map(lambda policy: (policy[0], lambda at: policy[1](at, setting)))
             template = Option.of_optional(next((place for kind, place in self.compound if isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, kind)), None))
 
             def composed(place: Callable[[bpy.types.UILayout, Owner, str], None], action: Option[RowDraw]) -> RowDraw:
-                def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                     for owner, key in located(ResolvedMember(descriptor=setting), holder, context).to_list():
                         for draw in action.to_list():
                             draw(layout.row(align=True), holder, context)
@@ -383,7 +381,7 @@ class Matrix(Line, frozen=True, kw_only=True):
         def draw(parts: tuple[bpy.types.StringProperty, tuple[tuple[Descriptor, RowDraw], ...]]) -> RowDraw:
             name, held = parts
 
-            def table(layout: bpy.types.UILayout, found: tuple[bpy.types.bpy_struct, ...], context: bpy.types.Context) -> None:
+            def table(layout: bpy.types.UILayout, found: "tuple[bpy.types.bpy_struct[object], ...]", context: bpy.types.Context) -> None:
                 names = gridded(layout, Some(""))
                 for owner in found:
                     names.label(text=getattr(owner, name.identifier))
@@ -420,7 +418,7 @@ class Tree(Line, frozen=True, kw_only=True):
         return Ok(lambda layout, _holder, context: alerted(layout, self.paths(context).map(lambda paths: listed(layout, paths))))
 
 
-class TreeMatrix[R: msgspec.Struct, L: bpy.types.bpy_struct, C: bpy.types.bpy_struct](Line, frozen=True, kw_only=True):
+class TreeMatrix[R: msgspec.Struct, L: "bpy.types.bpy_struct[object]", C: "bpy.types.bpy_struct[object]"](Line, frozen=True, kw_only=True):
     """Tree rows indented by depth with one cell of operator toggles per column owner."""
 
     tree: Callable[[bpy.types.Context], tuple[tuple[str, ...], tuple[Branch[L, C], ...]]]
@@ -459,7 +457,7 @@ class TreeMatrix[R: msgspec.Struct, L: bpy.types.bpy_struct, C: bpy.types.bpy_st
                     for each in found.to_list():
                         cell(line, owner, each, held.label)
 
-            def shown(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 owners, branches = self.tree(context)
                 _, values = split(layout)
                 heads = values.grid_flow(row_major=True, columns=len(owners), even_columns=True, align=True)
@@ -498,7 +496,7 @@ class OperatorButton(Line, frozen=True, kw_only=True):
         def draw(parts: tuple[str, operators.Writer]) -> RowDraw:
             idname, write = parts
 
-            def shown(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, _context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
                 line = gridded(layout, self.label)
                 alerted(
                     line, operated(line.operator(idname, text=self.text.to_optional(), emboss=self.emboss, icon_value=iconed(identity, glyph), search_weight=self.search_weight), idname).bind(write)
@@ -548,7 +546,7 @@ class Caption(Line, frozen=True, kw_only=True):
         """Returns the composed content within the caption's native arrangement."""
         draw = joined(draws)
 
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             if self.heading.is_none():
                 layout.separator(type="LINE")
             draw(self.flow.opened(layout.column(heading=self.heading.default_value(""))), holder, context)
@@ -569,7 +567,7 @@ class Label(Line, frozen=True, kw_only=True):
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Returns drawing with current text and resource IDs at every redraw."""
 
-        def shown(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for text in (Some(self.text) if isinstance(self.text, str) else self.text(context)).to_list():
                 match self.icon:
                     case Option(tag="some", some=glyph):
@@ -594,7 +592,7 @@ class Text(Line, frozen=True, kw_only=True):
         """Acquires the string binding and its native owner rule."""
 
         def draw(held: Resolved) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for owner, key in located(held, holder, context).to_list():
                     gridded(layout, self.label).textbox(owner, key, initial_visible_lines=self.initial_visible_lines, placeholder=self.placeholder.to_optional())
 
@@ -613,7 +611,7 @@ class Progress(Line, frozen=True, kw_only=True):
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
         """Returns native drawing of every current task in source order."""
 
-        def shown(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for run in self.runs(context):
                 gridded(layout, self.label).progress(text=run.text, factor=run.done, type=self.type)
 
@@ -645,7 +643,7 @@ def bound(
                 return admit(binding)
 
     def draw(placement: Callable[[bpy.types.Context], BlenderResult[Option[RowDraw]]]) -> RowDraw:
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             result = placement(context)
             alerted(layout, result)
             for each in result.to_option().bind(lambda held: held).to_list():
@@ -669,7 +667,7 @@ def bound(
     )
 
 
-def fits(held: Resolved, kinds: tuple[type[bpy.types.bpy_struct], ...], forms: tuple[type[object], ...] = ()) -> BlenderResult[Resolved]:
+def fits(held: Resolved, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", forms: tuple[type[object], ...] = ()) -> BlenderResult[Resolved]:
     """Selects the native property or admitted field categories a control draws."""
     if isinstance(held, ResolvedMember):
         descriptor = held.descriptor
@@ -703,7 +701,7 @@ def colored(held: Resolved) -> BlenderResult[Resolved]:
     return fits(held, (), (Rgb,))
 
 
-def located(held: Resolved, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> Option[tuple[Owner, str]]:
+def located(held: Resolved, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[tuple[Owner, str]]:
     """Locates the holder-compatible, explicit, or contextual property owner."""
     match held:
         case ResolvedMember(descriptor=descriptor, reach=reach):
@@ -719,7 +717,7 @@ def located(held: Resolved, holder: bpy.types.bpy_struct, context: bpy.types.Con
             return Some((holder, name))
 
 
-def marked(setting: Descriptor, owners: tuple[bpy.types.bpy_struct, ...]) -> BlenderResult[Option[str]]:
+def marked(setting: Descriptor, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> BlenderResult[Option[str]]:
     """Compares captured native values and returns an indeterminate label or typed refusals."""
     return accumulated(Snapshot.capture(owner, Some((setting,))) for owner in owners).map(
         lambda values: Some(f"{setting.prop.name} —") if any(left != right for left, right in pairwise(values)) else Nothing
@@ -775,7 +773,7 @@ def alerted[T](layout: bpy.types.UILayout, result: BlenderResult[T]) -> None:
 def invoking(draw: RowDraw, mode: "rna_enums.OperatorContextItems" = "INVOKE_REGION_WIN") -> RowDraw:
     """Scopes native invocation context around drawing, restoring it on every exit."""
 
-    def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+    def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         prior = layout.operator_context
         layout.operator_context = mode
         try:
@@ -796,8 +794,10 @@ def acquired(rows: tuple[RowContent, ...]) -> Acquisitions:
         match row:
             case (Registrable() as owner, _):
                 declarations.append(owner)
+            case Callable():
+                continue
             case Registrable():
-                declarations.append(row)  # type: ignore[unreachable]
+                declarations.append(row)
             case Caption(rows=nested):
                 declarations.extend(acquired(nested))
             case Property(action=action):
@@ -813,7 +813,7 @@ def acquired(rows: tuple[RowContent, ...]) -> Acquisitions:
             case Selector(browse=browse):
                 openers = (browse.new, browse.open, browse.unlink) if isinstance(browse, DataBlocks) else (browse.new, browse.unlink)
                 declarations.extend(opener for placed in openers for opener in placed.to_list() if isinstance(opener, Registrable))
-            case Row() | Callable():
+            case Row():
                 continue
     return tuple(declarations)
 
@@ -832,7 +832,7 @@ def realized(row: RowContent, identity: Identity) -> BlenderResult[RowDraw]:
 def guarded(draw: RowDraw, condition: Option[Condition]) -> RowDraw:
     """Returns a native inactive column only where the row declares a condition."""
 
-    def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+    def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         for required in condition.to_list():
             layout = layout.column()
             layout.active = holds(required, context, Some(holder))
@@ -856,7 +856,7 @@ def placed(rows: tuple[RowContent, ...], identity: Identity, *, inherited: bool 
     picked = inherited or any(map(acted, rows))
 
     def blanked(draw: RowDraw) -> RowDraw:
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             line = layout.row()
             draw(line, holder, context)
             line.label(text="", icon="BLANK1")
@@ -878,7 +878,7 @@ def placed(rows: tuple[RowContent, ...], identity: Identity, *, inherited: bool 
 def joined(draws: tuple[RowDraw, ...]) -> RowDraw:
     """Draws acquired content in declaration order over one native holder."""
 
-    def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+    def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         for draw in draws:
             draw(layout, holder, context)
 

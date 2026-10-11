@@ -119,11 +119,11 @@ Page `cli.html`, the `sqlite3` process every reader and writer runs:
 
 Page `foreignkeys.html`, references to a finding and to lookup rows:
 
-| [INDEX] | [FACT]                                                        | [DECIDES]                                                       |
-| :-----: | :------------------------------------------------------------ | :-------------------------------------------------------------- |
-|  [01]   | Enforcement is off per connection until `pragma foreign_keys` | Every writer script opens with the pragma                       |
-|  [02]   | Pragma inside a transaction changes nothing                   | Pragma before `begin`, an orphan `finding_id` writes at 0       |
-|  [03]   | Parent and child tables sit in one database                   | `finding` references `checker`, temp `site` and `hit` hold none |
+| [INDEX] | [FACT]                                                        | [DECIDES]                                                      |
+| :-----: | :------------------------------------------------------------ | :------------------------------------------------------------- |
+|  [01]   | Enforcement is off per connection until `pragma foreign_keys` | Every writer script opens with the pragma                      |
+|  [02]   | Pragma inside a transaction changes nothing                   | Pragma before `begin`, an orphan `finding_id` writes at 0      |
+|  [03]   | Parent and child tables sit in one database                   | Main-schema tables hold references, temp `site` and `hit` none |
 
 ## [11]-[STRICT]
 

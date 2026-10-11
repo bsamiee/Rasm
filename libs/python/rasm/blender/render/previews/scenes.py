@@ -20,14 +20,15 @@ import PyOpenColorIO
 
 from rasm.blender.data.ids.images import filled, Tag
 from rasm.blender.data.ids.ownership import Mark, Ownership, Saved
-from rasm.blender.data.rna.descriptors import Descriptor, IdName, Value, written
+from rasm.blender.data.rna.descriptors import Descriptor, IdName, struct_at, Value, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderWriteFault
 from rasm.blender.nodes.graphs import End, ended, FileItem, FileItems, Graph, INPUTS, Interface, Link, Node, node, NodeGroup, Socket
 from rasm.blender.render.color.luts import Enabled
-from rasm.blender.render.effects.stack import camera_frame, Configured, Context, EffectName, EffectStack, entered, formation, Placeable, viewed
+from rasm.blender.render.color.spaces import COLOR_INPUT, COLOR_RESULT
+from rasm.blender.render.effects.stack import camera_frame, Configured, Context, EffectName, EffectStack, entered, formation, Placeable, Shell, viewed
 from rasm.blender.render.outputs.exports import plane
 from rasm.blender.render.outputs.formats import Kind, OutputFormat
 from rasm.blender.render.outputs.framing import FrameSize
@@ -111,13 +112,14 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     strength: Annotated[float, msgspec.Meta(ge=0.0, le=10.0, title="World Light")] = 1.0
     key: Annotated[float, msgspec.Meta(ge=0.0, le=20.0, title="Key Light")] = 2.0
 
-    def environment(self, preferences: bpy.types.Preferences) -> BlenderResult[Environment]:
+    @property
+    def environment(self) -> BlenderResult[Environment]:
         """Builds the world through the native studio or flat-color integration."""
         match self.ambient:
             case White():
                 return Ok(Environment(lighting=Backdrop(mode=FlatColor(color=Rgb(red=1.0, green=1.0, blue=1.0)), strength=self.strength)))
             case Studio(name=name):
-                return studio(name, preferences).map(lambda path: Environment(lighting=Backdrop(mode=Hdri(path=path), strength=self.strength)))
+                return studio(name, bpy.context.preferences).map(lambda path: Environment(lighting=Backdrop(mode=Hdri(path=path), strength=self.strength)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @property
     def lamp(self) -> Lamp:
@@ -342,7 +344,11 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                     made_entry,
                     lambda entry: written(entry, "node_group", group).bind(
                         lambda _: source.map(
-                            lambda held: Snapshot.capture(held.properties.inputs).bind(lambda snapshot: snapshot.apply(entry.properties.inputs).outcome).map(lambda _: None)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                            lambda held: (
+                                struct_at(held, "properties.inputs")
+                                .map2(lambda inputs, target: Snapshot.capture(inputs).bind(lambda snapshot: snapshot.apply(target).outcome).map(lambda _: None), struct_at(entry, "properties.inputs"))
+                                .default_with(lambda: Error((BlenderAbsentFault(owner=repr(entry), key="properties.inputs"),)))
+                            )
                         ).default_value(Ok(None))
                     ),
                 )
@@ -408,9 +414,16 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             ) -> BlenderResult[bpy.types.Scene]:
                 camera, camera_data = camera_piece
                 light, light_data = light_piece
-                subjects.callback(released, partial(setattr, light, "data", light_data))
+
+                def relit() -> None:
+                    light.data = light_data
+
+                def hidden(item: bpy.types.Object) -> None:
+                    item.hide_render = True
+
+                subjects.callback(released, relit)
                 for _shape, (item, mesh) in shapes:
-                    subjects.callback(released, partial(setattr, item, "hide_render", True))
+                    subjects.callback(released, partial(hidden, item))
                     subjects.callback(released, mesh.materials.clear)
 
                 def surfaced() -> None:
@@ -431,7 +444,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                             return written(light, "data", lamp).map(lambda _: None)
                         case Lamp(energy=energy, kind=kind, location=location, rotation=rotation):
                             return accumulated((
-                                Snapshot.of(bpy.types.Light, {"type": kind, "energy": energy}).apply(light_data).outcome,
+                                Snapshot.of(type(light_data), {"type": kind, "energy": energy}).apply(light_data).outcome,
                                 Snapshot.of(bpy.types.Object, {"location": location, "rotation_euler": rotation}).apply(light).outcome,
                             )).map(lambda _: None)
 
@@ -496,7 +509,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                             FrameSize()
                             .bound(identity)
                             .bind(lambda framed: camera_frame(framed, staging.source))
-                            .bind(lambda frame: accumulated(entered(identity, held.entry, (), frame) for held in self.stack.held(identity, scene) if held.row.is_some()))
+                            .bind(lambda frame: accumulated(entered(identity, held.entry, (Shell.frame,), frame) for held in self.stack.held(identity, scene) if held.row.is_some()))
                         )
                     )
                     .map(lambda _: scene)
@@ -550,7 +563,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             names = {key: f"{scene.session_uid}_{self.capture.key}_{key}" for key, _, _ in sources}
             paths = {key: Path(bpy.app.tempdir, f"{name}.exr") for key, name in names.items()}
             files.extend(paths.values())
-            face = Interface(inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),), outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),))
+            face = Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,))
             output = Node(
                 kind=bpy.types.CompositorNodeOutputFile,
                 members={Pathed.directory: bpy.app.tempdir, Pathed.file_name: ""},
@@ -591,7 +604,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             size = staging.chain.head.map(lambda pixels: (pixels.shape[1], pixels.shape[0])).default_value(staging.size)
             return (
                 removed()
-                .bind(lambda _: NodeGroup.built(self.capture.key, "Preview Capture", face, {"image": End(node=INPUTS, socket="image")}))
+                .bind(lambda _: NodeGroup.built(self.capture.key, "Preview Capture", face, {COLOR_RESULT.key: End(node=INPUTS, socket=COLOR_INPUT.key)}))
                 .map(
                     lambda group: msgspec.structs.replace(
                         group,
@@ -603,7 +616,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                             | ({"passes": Node(kind=bpy.types.CompositorNodeRLayers)} if value.is_some() else {}),
                             links=(
                                 *group.graph.links,
-                                Link(source=End(node=INPUTS, socket="image"), target=End(node="raster", socket="Color2")),
+                                Link(source=End(node=INPUTS, socket=COLOR_INPUT.key), target=End(node="raster", socket="Color2")),
                                 Link(source=End(node="domain", socket="Image"), target=End(node="raster", socket="Color1")),
                                 *(Link(source=end, target=End(node="files", socket=names[key])) for key, _, end in sources),
                             ),
@@ -652,7 +665,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             Descriptor.resolve(bpy.types.RenderSettings, "resolution_y", bpy.types.IntProperty).map(lambda prop: max(height, prop.prop.hard_min)),
         )
         return (
-            paired(carrier, lighting.environment(bpy.context.preferences))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            paired(carrier, lighting.environment)
             .bind(
                 lambda pair: self.rendered(
                     identity,

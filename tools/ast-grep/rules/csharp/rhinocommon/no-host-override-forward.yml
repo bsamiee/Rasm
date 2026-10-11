@@ -2,7 +2,7 @@
 id: no-host-override-forward
 language: csharp
 severity: error
-files: ['libs/**']
+files: ['libs/**/rhino/**']
 utils:
     held-declaration:
         any:
@@ -167,9 +167,9 @@ utils:
                 stopBy: {kind: class_declaration}
                 kind: class_declaration
                 any:
-                    - has: {kind: parameter_list, has: {kind: parameter, all: [{matches: held-declaration}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}}
-                    - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, all: [{matches: held-declaration}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}}}
-                    - has: {field: body, has: {kind: property_declaration, all: [{matches: held-declaration}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Option\s*<'}}]}}
+                    - has: {kind: parameter_list, has: {kind: parameter, all: [{matches: held-declaration}, {has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}]}}
+                    - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, all: [{matches: held-declaration}, {has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}]}}}
+                    - has: {field: body, has: {kind: property_declaration, all: [{matches: held-declaration}, {has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}]}}
             - has: {field: arguments, all: [{has: {kind: argument, has: {matches: hook-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     answered:
         kind: invocation_expression
@@ -180,7 +180,7 @@ utils:
                     - has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: hook-read}}
                     - has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: base-default}}
             - all:
-                - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: held-read}}}
             - has:
                 field: arguments

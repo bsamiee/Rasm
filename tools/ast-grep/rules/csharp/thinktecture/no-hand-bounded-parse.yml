@@ -8,7 +8,7 @@ utils:
             - kind: predefined_type
               regex: '^(byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal)$'
             - kind: identifier, qualified_name, member_access_expression
-              regex: '^((global::)?System\.)?(Byte|SByte|Int16|UInt16|Int32|UInt32|Int64|UInt64|Int128|UInt128|IntPtr|UIntPtr|Half|Single|Double|Decimal)$'
+              matches: {csharp-type-name: {name: {regex: '^(Byte|SByte|Int16|UInt16|Int32|UInt32|Int64|UInt64|Int128|UInt128|IntPtr|UIntPtr|Half|Single|Double|Decimal)$'}}}
     number-parse:
         kind: invocation_expression
         all:
@@ -34,7 +34,7 @@ utils:
                 - any: [{has: {field: left, matches: bound-check}}, {has: {field: right, matches: bound-check}}]
     option-parse:
         kind: invocation_expression
-        has: {field: function, regex: '^((global::)?LanguageExt\.)?(Prelude\.)?parse(Byte|SByte|Short|UShort|Int|UInt|Long|ULong|Float|Double|Decimal)$'}
+        has: {field: function, matches: {csharp-type-name: {name: {regex: '^parse(Byte|SByte|Short|UShort|Int|UInt|Long|ULong|Float|Double|Decimal)$'}}}}
 rule:
     kind: invocation_expression
     any:

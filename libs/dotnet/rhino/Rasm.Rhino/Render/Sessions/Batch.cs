@@ -159,14 +159,7 @@ internal sealed class BatchPipeline : RenderPipeline {
             from started in new RenderWindowSource.Rendering(RenderSessionId).Open(window => context.Start(window, owned =>
                 from world in start.Switch(
                     (Pipeline: this, Window: window, Retain: owned),
-                    full: static (state, _) => DisposalOps.Within(
-                        () => new RenderSourceView(state.Pipeline.document),
-                        source => DisposalOps.Within(
-                            () => Optional(source.GetViewInfo()),
-                            view => IO.lift(view.ToFin(new Missing(nameof(RenderSourceView.GetViewInfo))))
-                                .Bind(held => state.Pipeline.Scene(state.Window, held, state.Retain)),
-                            static view => DisposalOps.Release(view.ToSeq())),
-                        static source => IO.lift(source.Dispose)),
+                    full: static (state, _) => state.Pipeline.FullScene(state.Window, state.Retain),
                     region: static (state, region) => DisposalOps.Within(
                         () => new ViewInfo(region.View.ActiveViewport),
                         view => state.Pipeline.Scene(state.Window, view, state.Retain),
@@ -176,6 +169,15 @@ internal sealed class BatchPipeline : RenderPipeline {
             select started,
             static () => false,
             new CallbackSite(context.Sink, GetType(), member));
+
+    private IO<SceneBatch> FullScene(RenderWindow window, Action<IDisposable> retain) =>
+        DisposalOps.Within(
+            () => new RenderSourceView(document),
+            source => DisposalOps.Within(
+                () => Optional(source.GetViewInfo()),
+                view => IO.lift(view.ToFin(new Missing(nameof(RenderSourceView.GetViewInfo)))).Bind(held => Scene(window, held, retain)),
+                static view => DisposalOps.Release(view.ToSeq())),
+            static source => IO.lift(source.Dispose));
 
     private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view, Action<IDisposable> retain) =>
         from size in IO.lift(window.Size)

@@ -191,7 +191,7 @@ class Relabel(msgspec.Struct, frozen=True, kw_only=True):
 
     prefix: str = ""
     suffix: str = ""
-    find: str = ""
+    find: str | None = None
     replace: str = ""
 
 
@@ -565,8 +565,8 @@ def _restored(tree: GraphTree, target: bpy.types.NodeSocket, sources: tuple[tupl
     for removed in tuple(target.links):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         tree.links.remove(removed)
     for source, valid, muted in reversed(sources):
-        link: bpy.types.NodeLink = tree.links.new(source, target, verify_limits=False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        link.is_valid, link.is_muted = valid, muted
+        for link in Option.of_optional(tree.links.new(source, target, verify_limits=False)).to_list():
+            link.is_valid, link.is_muted = valid, muted
     for socket, state in hidden:
         socket.hide = state
 
@@ -605,7 +605,11 @@ def _selected(tree: bpy.types.NodeTree, nodes: tuple[bpy.types.Node, ...], activ
     return accumulated(written(node, "select", node in nodes) for node in tree.nodes).map(activated)
 
 
-def _closure(starts: Iterable[str], edges: Mapping[str, tuple[str, ...]]) -> frozenset[str]:
+def _closure(starts: Iterable[str], tree: bpy.types.NodeTree) -> frozenset[str]:
+    edges: dict[str, list[str]] = {}
+    for link in tree.links:
+        if link.is_valid:
+            edges.setdefault(link.to_node.name, []).append(link.from_node.name)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     held: set[str] = set()
     pending = deque(starts)
     while pending:
@@ -716,10 +720,7 @@ def _merged(record: Merge, chosen: Chosen, spacing: NodeSpacing) -> BlenderResul
     if not (families := {family.kind: family for _, socket in sources for family in joining(socket).to_list() if socket.type in family.joins}):
         return Ok(Done(notes=(("INFO", "The selected nodes hold no output this merge joins"),)))
 
-    upstream = _closure(
-        (node.name for node in chosen.nodes),
-        {node.name: tuple(link.from_node.name for link in chosen.tree.links if link.is_valid and link.to_node == node) for node in chosen.tree.nodes},  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    )
+    upstream = _closure((node.name for node in chosen.nodes), chosen.tree)
     joins = frozenset(native for family in families.values() for native in family.joins)
     skipped = sum(not any(socket.enabled and socket.type in joins for socket in node.outputs) for node in chosen.nodes)
     with _editing(chosen) as edit:
@@ -882,7 +883,7 @@ def _rerouted(record: Reroute, chosen: Chosen, spacing: NodeSpacing) -> BlenderR
 
 
 def _relabeled(record: Relabel, chosen: Chosen, _: NodeSpacing) -> BlenderResult[Done]:
-    return accumulated(written(node, "label", f"{record.prefix}{node.label.replace(record.find, record.replace) if record.find else node.label}{record.suffix}") for node in chosen.nodes).map(
+    return accumulated(written(node, "label", f"{record.prefix}{node.label if record.find is None else node.label.replace(record.find, record.replace)}{record.suffix}") for node in chosen.nodes).map(
         lambda _: Done()
     )
 
@@ -979,10 +980,7 @@ def _settings_copied(_: Empty, chosen: Chosen, __: NodeSpacing) -> BlenderResult
 
 def _swept(tree: bpy.types.NodeTree) -> tuple[tuple[bpy.types.Node, ...], tuple[bpy.types.NodeFrame, ...]]:
     nodes = tuple(node for node in tree.nodes if not isinstance(node, bpy.types.NodeFrame))
-    kept = _closure(
-        (node.name for node in nodes if not node.outputs or isinstance(node, (bpy.types.NodeGroupInput, bpy.types.CompositorNodeLevels, bpy.types.GeometryNodeWarning))),
-        {node.name: tuple(link.from_node.name for link in tree.links if link.is_valid and link.to_node == node) for node in nodes},  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    )
+    kept = _closure((node.name for node in nodes if not node.outputs or isinstance(node, (bpy.types.NodeGroupInput, bpy.types.CompositorNodeLevels, bpy.types.GeometryNodeWarning))), tree)
 
     def lineage(node: bpy.types.Node) -> tuple[str, ...]:
         return Option.of_optional(node.parent).map(lambda parent: (parent.name, *lineage(parent))).default_value(())

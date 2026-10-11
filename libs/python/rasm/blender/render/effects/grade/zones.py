@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,misc"
-# ty: ignore[unresolved-attribute,invalid-attribute-access]
 """Native piecewise tonal-zone grading on OCIO's scene-linear stop axis."""
 
 import functools
@@ -18,9 +16,9 @@ from rasm.imaging.faults import accumulated, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_PIECE = ("value", "start", "end", "level", "start_slope", "end_slope")
-_PIVOT = ("value", "low", "high", "low_slope", "high_slope", "reverse")
-_ZONE = ("value", "adjustment", Zone.start.__name__, Zone.width.__name__)
+_PIECE = ("input", "start", "end", "level", "start_slope", "end_slope")
+_PIVOT = ("input", "low", "high", "low_slope", "high_slope", "reverse")
+_ZONE = ("input", "adjustment", Zone.start.__name__, Zone.width.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -560,7 +558,7 @@ def _blacks() -> BlenderResult[NodeGroup]:
 @functools.cache
 def _contrast_end() -> BlenderResult[NodeGroup]:
     """Builds one contrast shoulder, reflected for the negative endpoint."""
-    value, gain, limit = (End(node=INPUTS, socket=key) for key in ("value", "gain", "limit"))
+    value, gain, limit = (End(node=INPUTS, socket=key) for key in ("input", "gain", "limit"))
     flat, plus, level, first, center, room, least, doubled, last, extent, wide, narrow, shifted, stretched, middle, lift, rest, gap, tilt, past, tail, linear, before, inside = (
         End(node=key)
         for key in (
@@ -598,7 +596,7 @@ def _contrast_end() -> BlenderResult[NodeGroup]:
         return _grouped(
             "contrast_end",
             "Contrast End",
-            ("value", "gain", "limit"),
+            ("input", "gain", "limit"),
             Fragment.joined(
                 math(flat.node, "DIVIDE", 1.0, gain),
                 math(plus.node, "ADD", gain, 1.0),
@@ -642,7 +640,7 @@ def _contrast_end() -> BlenderResult[NodeGroup]:
 @functools.cache
 def _contrast() -> BlenderResult[NodeGroup]:
     """Builds native S-contrast with independent positive and negative shoulders."""
-    value, contrast = (End(node=INPUTS, socket=key) for key in ("value", "contrast"))
+    value, contrast = (End(node=INPUTS, socket=key) for key in ("input", "contrast"))
     stretch, capped, squeeze, steep, floored, gentle, reflected, negative, lower = (
         End(node=key) for key in ("stretch", "capped", "squeeze", "steep", "floored", "gentle", "reflected", "negative", "lower")
     )
@@ -653,7 +651,7 @@ def _contrast() -> BlenderResult[NodeGroup]:
         return _grouped(
             "contrast",
             "Contrast",
-            ("value", "contrast"),
+            ("input", "contrast"),
             Fragment.joined(
                 math(stretch.node, "LESS_THAN", 1.0, contrast),
                 math(capped.node, "MINIMUM", contrast, 1.99),
@@ -663,8 +661,8 @@ def _contrast() -> BlenderResult[NodeGroup]:
                 math(gentle.node, "MULTIPLY_ADD", floored, 0.71875, 0.28125),
                 switched(gain.node, "FLOAT", stretch, gentle, steep),
                 math(reflected.node, "MULTIPLY", value, -1.0),
-                nested(top.node, shoulder, {"value": value, "gain": gain, "limit": 6.5}, "value"),
-                nested(bottom.node, shoulder, {"value": reflected, "gain": gain, "limit": 5.5}, "value"),
+                nested(top.node, shoulder, {"input": value, "gain": gain, "limit": 6.5}, "value"),
+                nested(bottom.node, shoulder, {"input": reflected, "gain": gain, "limit": 5.5}, "value"),
                 math(negative.node, "MULTIPLY", bottom, -1.0),
                 math(lower.node, "LESS_THAN", value, 0.0),
                 masked("curve", "FLOAT", lower, top, negative),
@@ -680,15 +678,15 @@ def _contrast() -> BlenderResult[NodeGroup]:
 def zoned(shell: Shell[Zones]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns the full per-channel tonal-zone chain with master placement and native clamp."""
     blacks, shadows, midtones, highlights, whites, s_contrast = (
-        Zones.blacks.__name__,
-        Zones.shadows.__name__,
-        Zones.midtones.__name__,
-        Zones.highlights.__name__,
-        Zones.whites.__name__,
-        Zones.s_contrast.__name__,
+        Zones.blacks.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        Zones.shadows.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        Zones.midtones.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        Zones.highlights.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        Zones.whites.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        Zones.s_contrast.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     )
-    master, start, width = Zone.master.__name__, Zone.start.__name__, Zone.width.__name__
-    channels = ((Zone.red.__name__, "Red"), (Zone.green.__name__, "Green"), (Zone.blue.__name__, "Blue"))
+    master, start, width = Zone.master.__name__, Zone.start.__name__, Zone.width.__name__  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    channels = ((Zone.red.__name__, "Red"), (Zone.green.__name__, "Green"), (Zone.blue.__name__, "Blue"))  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
     paths = (
         *((zone.name, field.name) for zone in msgspec.structs.fields(Zones) if zone.name != s_contrast for field in msgspec.structs.fields(Zone[Adjustment]) if field.name not in {start, width}),
         (s_contrast,),
@@ -734,7 +732,7 @@ def zoned(shell: Shell[Zones]) -> BlenderResult[tuple[Fragment, End]]:
             ),
             *(
                 nested(
-                    item_key(channel, s_contrast), contrast, {"value": End(node=item_key(channel, blacks, master), socket="value"), "contrast": End(node=INPUTS, socket=item_key(s_contrast))}, "value"
+                    item_key(channel, s_contrast), contrast, {"input": End(node=item_key(channel, blacks, master), socket="value"), "contrast": End(node=INPUTS, socket=item_key(s_contrast))}, "value"
                 )
                 for channel, _ in channels
             ),

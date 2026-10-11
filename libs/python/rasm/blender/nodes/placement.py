@@ -139,9 +139,9 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                         case bpy.types.SpaceNodeEditor(
                             edit_tree=bpy.types.NodeTree(is_editable=True) as tree
                         ) as space, bpy.types.Window() as window, bpy.types.Area() as area, bpy.types.Region() as region if not window.modal_operators:
-                            if places := (self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region), location)):
-                                for holder in (Option.of_optional(space.id) if tree.is_embedded_data else Some(tree)).to_list():
-                                    later(Handle.of(holder), places)
+                            places = self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region), location)
+                            for holder in (Option.of_optional(space.id) if tree.is_embedded_data else Some(tree)).filter(lambda _: bool(places)).to_list():
+                                later(Handle.of(holder), places)
 
                 region, phase = "WINDOW", "POST_VIEW"
                 added = catch(lambda: bpy.types.SpaceNodeEditor.draw_handler_add(drew, (), region, phase), exception=TypeError)().map_error(

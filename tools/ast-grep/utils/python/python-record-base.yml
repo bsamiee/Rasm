@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: python-record-base
-language: python
-rule:
-    any:
-        - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
-        - matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
-        - matches: {python-base-class: {superclasses: {has: {matches: python-record-base}}}}

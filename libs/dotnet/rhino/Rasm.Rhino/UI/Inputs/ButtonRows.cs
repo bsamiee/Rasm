@@ -99,30 +99,34 @@ public static class ButtonRows {
         DisposalOps.Acquire(owned =>
         from strip in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton()), static held => IO.lift(held.Dispose), owned)
         from selected in IO.lift(() => strip.SelectionMode = SegmentedSelectionMode.Single)
-        from segments in modes.TraverseM(mode =>
-            from segment in DisposalOps.Acquire(IO.lift(static () => new ButtonSegmentedItem()), Released,
-                held => owned(new Disposal<SegmentedItem>(held, static item => Released(item).Run())))
-            from faced in IO.lift(() => { (segment.Text, segment.ToolTip) = (mode.Glyph.Map(static _ => "").IfNone(mode.Command.ToolBarText), mode.Command.ToolTip); })
-            from bound in DisposalOps.Change(() => segment.Command, value => segment.Command = value, mode.Command, owned)
-            from themed in mode.Glyph.Traverse(glyph => Icons.Themed(sink, glyph, slot, HostTheme.In(strip), icon => segment.Image = icon, owned)).As()
-            select (SegmentedItem)segment).As()
+        from segments in modes.TraverseM(mode => Segment(mode, strip, slot, sink, owned)).As()
         from added in IO.lift(() => strip.Items.AddRange(segments))
         select strip, (_, lease) => retain(lease));
 
     public static IO<RhinoButtonRow> Strip(Seq<Control> actions, Seq<Control> toggles, Option<Control> modes, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from strip in DisposalOps.Acquire(IO.lift(static () => new RhinoButtonRow()), static held => IO.lift(held.Dispose), owned)
-        from groups in Seq(actions, toggles, modes.ToSeq()).Filter(static cluster => !cluster.IsEmpty)
-            .TraverseM(cluster =>
-                from divider in strip.Items.Count == 0
-                    ? IO.pure(Option<Divider>.None)
-                    : DisposalOps.Acquire(IO.lift(static () => new Divider()), static held => IO.lift(held.Dispose), owned).Map(static held => Some(held))
-                from added in IO.lift(() => {
-                    _ = divider.Iter(held => strip.Items.Add(new StackLayoutItem(held, VerticalAlignment.Stretch)));
-                    _ = cluster.Iter(control => strip.Items.Add(new StackLayoutItem(control)));
-                })
-                select unit).As()
+        from groups in Seq(actions, toggles, modes.ToSeq()).Filter(static cluster => !cluster.IsEmpty).TraverseM(cluster => Cluster(strip, cluster, owned)).As()
         select strip, (_, lease) => retain(lease));
+
+    private static IO<SegmentedItem> Segment(
+        (RadioCommand Command, Option<(IGlyph Glyph, int Master)> Glyph) mode, SegmentedButton strip, IconSlot slot, IPlugInSink sink, Action<IDisposable> owned) =>
+        from segment in DisposalOps.Acquire(IO.lift(static () => new ButtonSegmentedItem()), Released,
+            held => owned(new Disposal<SegmentedItem>(held, static item => Released(item).Run())))
+        from faced in IO.lift(() => { (segment.Text, segment.ToolTip) = (mode.Glyph.Map(static _ => "").IfNone(mode.Command.ToolBarText), mode.Command.ToolTip); })
+        from bound in DisposalOps.Change(() => segment.Command, value => segment.Command = value, mode.Command, owned)
+        from themed in mode.Glyph.Traverse(glyph => Icons.Themed(sink, glyph, slot, HostTheme.In(strip), icon => segment.Image = icon, owned)).As()
+        select (SegmentedItem)segment;
+
+    private static IO<Unit> Cluster(RhinoButtonRow strip, Seq<Control> cluster, Action<IDisposable> owned) =>
+        from divider in strip.Items.Count == 0
+            ? IO.pure(Option<Divider>.None)
+            : DisposalOps.Acquire(IO.lift(static () => new Divider()), static held => IO.lift(held.Dispose), owned).Map(static held => Some(held))
+        from added in IO.lift(() => {
+            _ = divider.Iter(held => strip.Items.Add(new StackLayoutItem(held, VerticalAlignment.Stretch)));
+            _ = cluster.Iter(control => strip.Items.Add(new StackLayoutItem(control)));
+        })
+        select unit;
 
     // --- [MENUS]
     public static IO<SegmentedButton> Menu(ContextMenu menu, (IGlyph Glyph, int Master) glyph, IconSlot slot, string toolTip, IPlugInSink sink, Action<IDisposable> retain) =>

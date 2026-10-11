@@ -109,9 +109,11 @@ SwiftLint rules join when no other checker covers their form:
 ## [07]-[CI]
 
 CI's macOS job uses its runner image's newest installed Xcode:
-- `setup-xcode` selects the newest installed version, including betas, before shared setup
-- Settings after `--` reach `build`'s xcodebuild alone, `lint` and `xcode-build-server config` take no forwarded arguments
-- `COMPILER_INDEX_STORE_ENABLE=NO` joins the forwarded settings, nothing in CI reads the index
+- Shared setup on macOS runs `setup-xcode` first to select the newest installed version, betas included
+- `build` configuration `ci` holds unsigned build settings
+- `ci.yml` and `codeql.yml` pass `--configuration ci`
+- Settings in `ci` and after `--` reach `build`'s xcodebuild alone, `lint` and `xcode-build-server config` take no forwarded arguments
+- `COMPILER_INDEX_STORE_ENABLE=NO` joins configuration `ci`, nothing in CI reads the index
 - `xcbeautify` reads a pipe alone and stays out
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
 
@@ -119,6 +121,7 @@ CI's macOS job uses its runner image's newest installed Xcode:
 
 SwiftPM joins with the first Swift library:
 - Every `swift package` run writes a build directory, `--help` included
+- `SWIFTPM_BUILD_DIR` joins `mise.toml` `[env]` with the first library and moves the build directory under `.cache/`
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
 - Libraries take `libs/swift/<Name>/Package.swift` at the newest tools version the installed toolchain accepts
 - Tools version 6 implies language mode 6, manifests hold no `swiftLanguageModes`
@@ -139,7 +142,7 @@ New Swift projects join as `<Name>.xcodeproj` with its shared scheme, root files
 - `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file
 - Template Clang and Metal rows and the `DEBUG` condition have no reader in a Swift product
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
-- `nx run <Name>:format` precedes the first `check`
+- `nx run rasm:format` precedes the first `check`, root writers own Swift formatting
 
 ## [10]-[LANGUAGE_SERVER]
 

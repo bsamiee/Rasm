@@ -1,6 +1,5 @@
 {
     "name": "argus",
-    "version": "1.0.0",
     "description": "Language-server navigation and automatic workspace diagnostic feedback",
     "mcpServers": {
         "argus": {

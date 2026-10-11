@@ -6,7 +6,7 @@ utils:
     owner-type:
         kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'
     type-type:
-        regex: '^((global::)?System\.(Reflection\.)?)?(Type|TypeInfo)\??$'
+        matches: {csharp-type-name: {name: {regex: '^(Type|TypeInfo)$'}}}
     type-member:
         kind: identifier
         pattern: $RECEIVER
@@ -119,10 +119,10 @@ utils:
                 kind: member_access_expression
                 any:
                     - all:
-                        - has: {field: expression, regex: '^((global::)?System\.Linq\.Expressions\.)?Expression$'}
+                        - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Expression$'}}}}
                         - has: {field: name, regex: '^(Property|Field|PropertyOrField|Call)$', matches: method}
                     - all:
-                        - has: {field: expression, regex: '^((global::)?System\.)?Delegate$'}
+                        - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Delegate$'}}}}
                         - has: {field: name, regex: '^CreateDelegate$', matches: method}
             - has: {field: arguments, has: {matches: name-argument}}
     type-by-name:
@@ -133,7 +133,7 @@ utils:
                 kind: member_access_expression
                 any:
                     - all:
-                        - has: {field: expression, regex: '^((global::)?System\.)?Type$'}
+                        - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Type$'}}}}
                         - has: {field: name, regex: '^GetType$', matches: method}
                     - all:
                         - has: {field: expression, regex: '(^|\.)(Activator|AppDomain|CurrentDomain)$'}
@@ -148,7 +148,7 @@ utils:
                         stopBy: end
                         kind: attribute
                         all:
-                            - has: {field: name, regex: '^((global::)?System\.Runtime\.CompilerServices\.)?UnsafeAccessorType(Attribute)?$'}
+                            - has: {field: name, matches: {csharp-type-name: {name: {regex: '^UnsafeAccessorType(Attribute)?$'}}}}
                             - has: {kind: attribute_argument_list, has: {kind: attribute_argument, has: {pattern: $NAME}}}
 rule:
     any:

@@ -165,9 +165,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
         config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
         return (
             paired(held.resolve(), Materials.attachment.bound(identity))
-            .bind(
-                lambda pair: paired(pair[1].read(pair[0].node_tree), config).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            )
+            .bind(lambda pair: paired(tree_of(pair[0]).bind(pair[1].read), config).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity)))
             .map(lambda _: Nothing)
         )
 
@@ -346,15 +344,18 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Blender
 # --- [HOLDERS]
 
 
+def tree_of(holder: bpy.types.Material | bpy.types.World | bpy.types.Light) -> BlenderResult[bpy.types.ShaderNodeTree]:
+    """Returns a material, world, or light's embedded shader tree, or its absence."""
+    return Option.of_optional(holder.node_tree).to_result_with(lambda: (BlenderAbsentFault(owner=repr(holder), key="node_tree"),))
+
+
 def shaded(held: bpy.types.Material, setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity) -> BlenderResult[bpy.types.Material]:
     """Reconciles an owned material and restores native displacement defaults on case switches."""
     return (
-        paired(material_graph(setup, config), Descriptor.resolve(bpy.types.Material, "displacement_method", bpy.types.EnumProperty))
+        paired(paired(material_graph(setup, config), tree_of(held)), Descriptor.resolve(bpy.types.Material, "displacement_method", bpy.types.EnumProperty))
         .bind(
-            lambda pair: (
-                pair[0]
-                .reconciled(held.node_tree, identity)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                .bind(lambda _: pair[1].write(held, "BOTH" if isinstance(setup, Textured) and setup.displacement.enabled else pair[1].prop.default))
+            lambda found: (
+                found[0][0].reconciled(found[0][1], identity).bind(lambda _: found[1].write(held, "BOTH" if isinstance(setup, Textured) and setup.displacement.enabled else found[1].prop.default))
             )
         )
         .map(lambda _: held)
@@ -367,16 +368,13 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
     mark = Mark(key=row.key)
     with ExitStack() as rollback:
 
-        def retained(made: bpy.types.Material) -> bpy.types.Material:
-            rollback.callback(bpy.data.batch_remove, ids=(made,))
-            made.node_tree.nodes.clear()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            return made
-
         def built() -> BlenderResult[bpy.types.Material]:
             try:
-                return row.owned(identity, bpy.data.materials.new(setup.title), mark).map(retained)
+                made = bpy.data.materials.new(setup.title)
             except RuntimeError as error:
                 return Error((BlenderEditFault(request=setup.title, error=error),))
+            rollback.callback(bpy.data.batch_remove, ids=(made,))
+            return row.owned(identity, made, mark).bind(lambda held: tree_of(held).map(lambda tree: tree.nodes.clear()).map(lambda _: held))
 
         def published(held: bpy.types.Material) -> bpy.types.Material:
             rollback.pop_all()
@@ -391,9 +389,7 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
                     existing
                     .map(Ok)
                     .default_with(built)
-                    .bind(
-                        lambda held: attached.write(held.node_tree, Shading(setup=setup)).bind(lambda _: shaded(held, setup, config, identity))  # type: ignore[arg-type]
-                    )
+                    .bind(lambda held: tree_of(held).bind(lambda tree: attached.write(tree, Shading(setup=setup))).bind(lambda _: shaded(held, setup, config, identity)))
                 )
             )
             .map(published)
@@ -453,4 +449,5 @@ __all__ = [
     "matrix_inputs",
     "referenced",
     "shaded",
+    "tree_of",
 ]

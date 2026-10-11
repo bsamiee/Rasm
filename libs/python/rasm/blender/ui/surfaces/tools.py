@@ -5,7 +5,7 @@ from contextlib import contextmanager, ExitStack
 from pathlib import Path
 from typing import ClassVar, Literal, TYPE_CHECKING
 
-from bl_ui.space_toolsystem_common import ToolDef, ToolSelectPanelHelper
+from bl_ui.space_toolsystem_common import ToolDef
 from bl_ui.space_toolsystem_toolbar import IMAGE_PT_tools_active, NODE_PT_tools_active, SEQUENCER_PT_tools_active, VIEW3D_PT_tools_active
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -183,17 +183,17 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
         def planned(tools: list[object]) -> BlenderResult[Callable[[type[bpy.types.WorkSpaceTool]], None]]:
             """Accumulates native placement and existing-tool collisions before registration."""
+            grouped = frozenset(member.idname for item in tools if isinstance(item, tuple) and not isinstance(item, ToolDef) for member in item if isinstance(member, ToolDef))
             match self.placement:
                 case Appended(separator=separator):
                     lead = Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](ok=lambda tool: bpy.utils.register_tool(tool, separator=separator, group=len(drafts) > 1))
                 case Grouped(anchor=anchor):
-                    grouped = frozenset(member.idname for item in tools if isinstance(item, tuple) and not isinstance(item, ToolDef) for member in item if isinstance(member, ToolDef))
                     lead = (
                         Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](ok=lambda tool: bpy.utils.register_tool(tool, after={anchor}))
                         if anchor in grouped
                         else Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](error=(BlenderAbsentFault(owner=owner, key=anchor),))
                     )
-            ids = frozenset(item.idname for item in ToolSelectPanelHelper._tools_flatten(tools) if item is not None)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # ruff: ignore[private-member-access]
+            ids = grouped | frozenset(item.idname for item in tools if isinstance(item, ToolDef))
             return paired(
                 lead, accumulated(Result[None, BlenderFaults](error=(BlenderCollisionFault(request=draft.tool.__name__, error=owner),)) for draft in drafts if draft.tool.__name__ in ids)
             ).map(lambda pair: pair[0])
@@ -237,7 +237,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                     resources.callback(bpy.utils.unregister_tool, draft.tool)
             yield leading.bind(
                 lambda acquired: accumulated(
-                    write(item.properties)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    Option.of_optional(item.properties).map(write).default_with(lambda: Error((BlenderAbsentFault(owner=repr(item), key="properties"),)))
                     for manager, config in acquired[1].to_list()
                     for draft, keymap_name in bindings
                     for chord, (operator, write) in draft.items

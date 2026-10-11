@@ -8,10 +8,14 @@ dotnet.isolated = true
 dotnet.cli_telemetry_optout = true
 python.uv_venv_auto = "create|source"
 
+# --- [VARS] -----------------------------------------------------------------------------
+[vars]
+rhino_mcp_port = "7406"
+blender_mcp_port = "7407"
+
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
-GHIDRA_INSTALL_DIR = "{% if os() == 'macos' %}{{ exec(command='brew --prefix ghidra') }}/libexec{% endif %}"
-_.path = "./node_modules/.bin{% if os() == 'macos' %}:{{ env.GHIDRA_INSTALL_DIR }}/support:{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin{% endif %}"
+_.path = "./node_modules/.bin"
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_ENABLEAOT = "false"
 DOTNET_ROLL_FORWARD = "Major"
@@ -20,29 +24,19 @@ MSBUILDDISABLENODEREUSE = "1"
 NUGET_HTTP_CACHE_PATH = "{{config_root}}/.cache/nuget/http-cache"
 UV_CACHE_DIR = "{{config_root}}/.cache/uv"
 PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"
-RUFF_CACHE_DIR = "{{config_root}}/.cache/ruff"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
-SWIFTPM_BUILD_DIR = "{{config_root}}/.cache/swiftpm"
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"
 NX_DEFAULT_OUTPUT_STYLE = "static-failures-only"
-BIOME_LOG_PATH = "{{config_root}}/.cache/biome/logs"
 WRANGLER_LOG_PATH = "{{config_root}}/.cache/wrangler/logs"
 MINIFLARE_REGISTRY_PATH = "{{config_root}}/.cache/wrangler/registry"
 PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.cache/playwright/browsers"
 PLAYWRIGHT_MCP_CONFIG = "{{config_root}}/plugins/playwright/cli.config.json"
 PLAYWRIGHT_MCP_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright"
-PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE = "268435456"
-PLAYWRIGHT_HTML_OPEN = "never"
-PLAYWRIGHT_HTML_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright/report"
-AST_GREP_CONFIG = "{{config_root}}/sgconfig.yml"
-AST_GREP_PATH = "ast-grep --custom-languages allow"
-RHINO_MCP_DEFAULT_VERSION = "9"
+RHINO_MCP_URL = "http://127.0.0.1:{{ vars.rhino_mcp_port }}/"
 BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
-BLENDER_MCP_HTTP_PORT = "7407"
-BLENDER_MCP_URL = "http://127.0.0.1:{{ env.BLENDER_MCP_HTTP_PORT }}/"
-BLENDER_MCP_PORT = "9877"
-BLENDER_MCP_DISABLE_TELEMETRY = "true"
+BLENDER_MCP_URL = "http://127.0.0.1:{{ vars.blender_mcp_port }}/"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
+GHIDRA_INSTALL_DIR = "/opt/homebrew/opt/ghidra/libexec"
 GHIDRA_PROJECT_DIR = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
 GHIDRA_JAVA_OPTIONS = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
 GHIDRA_HEADLESS_MAXMEM = "{% if os() == 'macos' %}{{ (exec(command='/usr/sbin/sysctl -n hw.memsize') | int / 1073741824 / 4) | int }}G{% endif %}"
@@ -89,40 +83,10 @@ imagemagick = "latest"
 roslyn-codelens = { program = "{{ mise_bin }}", args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx", "--http", "--port", "7401"], working_directory = "{{config_root}}", keep_alive = true }
 nuget = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7402", "--", "dotnet", "dnx", "NuGet.Mcp.Server"], working_directory = "{{config_root}}", keep_alive = true }
 binlog = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7403", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"], working_directory = "{{config_root}}", keep_alive = true }
-ast-grep = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7404", "--", "ast-grep-server"], working_directory = "{{config_root}}", keep_alive = true }
-rhino-mcp-platform = { program = "{{ mise_bin }}", args = [
-    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7406",
-    "--hide", "run_python",
-    "--hide", "g1_start",
-    "--hide", "g1_solve_graph",
-    "--hide", "g1_search_components",
-    "--hide", "g1_describe_component",
-    "--hide", "g1_place_component",
-    "--hide", "g1_place_slider",
-    "--hide", "g1_apply_graph",
-    "--hide", "g1_connect",
-    "--hide", "g1_connect_many",
-    "--hide", "g1_delete_component",
-    "--hide", "g1_clear_canvas",
-    "--hide", "g1_get_canvas_graph",
-    "--", "rhino-mcp-router",
-], working_directory = "{{config_root}}", keep_alive = true }
-blender = { program = "{{ mise_bin }}", args = [
-    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ env.BLENDER_MCP_HTTP_PORT }}",
-    "--hide", "execute_blender_code_for_cli",
-    "--hide", "get_blendfile_summary_datablocks_for_cli",
-    "--hide", "get_blendfile_summary_missing_files_for_cli",
-    "--hide", "get_blendfile_summary_of_linked_libraries_for_cli",
-    "--hide", "get_blendfile_summary_path_info_for_cli",
-    "--hide", "get_blendfile_summary_usage_guess_for_cli",
-    "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp",
-], working_directory = "{{config_root}}", keep_alive = true }
-mcp-for-blender = { program = "{{ mise_bin }}", args = [
-    "exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408",
-    "--hide", "disable_telemetry",
-    "--hide", "record_trajectory_feedback",
-    "--", "mcp-for-blender",
-], working_directory = "{{config_root}}", keep_alive = true }
+ast-grep = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7404", "--", "ast-grep-server", "--config", "sgconfig.yml"], environment = { AST_GREP_PATH = "ast-grep --custom-languages allow" }, working_directory = "{{config_root}}", keep_alive = true }
+rhino-mcp-platform = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.rhino_mcp_port }}", "--hide", "run_python", "--hide", "g1_*", "--", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"], environment = { RHINO_MCP_DEFAULT_VERSION = "9" }, working_directory = "{{config_root}}", keep_alive = true }
+blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.blender_mcp_port }}", "--hide", "*_for_cli", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"], environment = { BLENDER_MCP_PORT = "9877" }, working_directory = "{{config_root}}", keep_alive = true }
+mcp-for-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408", "--hide", "disable_telemetry", "--hide", "record_trajectory_feedback", "--", "mcp-for-blender"], environment = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, working_directory = "{{config_root}}", keep_alive = true }
 adobe = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts", "--port", "7409"], working_directory = "{{config_root}}", keep_alive = true }
 argus = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true }
 playwright = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "mcp", "--host", "127.0.0.1", "--port", "7411", "--user-data-dir", "{{config_root}}/.cache/playwright/profile", "--shared-browser-context", "--caps=config,network,pdf,storage,testing,vision,devtools"], working_directory = "{{config_root}}", keep_alive = true }

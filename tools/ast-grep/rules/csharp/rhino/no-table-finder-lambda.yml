@@ -35,7 +35,7 @@ utils:
         kind: parameter
         all:
             - has: {field: name, regex: '^Find(Id|Index|Name)$'}
-            - has: {field: type, regex: '^(System\.)?Func<'}
+            - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Func$'}}}}
     finder-holder:
         kind: record_declaration
         all:
@@ -53,7 +53,12 @@ utils:
     finder-call:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^(TableOps\s*\.\s*)?Find(\s*<.+>)?$'}
+            - has:
+                field: function
+                any:
+                    - kind: identifier, generic_name
+                      matches: {csharp-type-name: {name: {regex: '^Find$'}}}
+                    - matches: {csharp-owner-member: {type: {regex: '^TableOps$'}, member: {regex: '^Find$'}}}
             - not: {has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {stopBy: end, matches: other-finder}}}}}
     holder-creation:
         kind: implicit_object_creation_expression, object_creation_expression

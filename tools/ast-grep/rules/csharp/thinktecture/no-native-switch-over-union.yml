@@ -187,7 +187,7 @@ utils:
                         has:
                             stopBy: end
                             matches: declared-union
-                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(SmartEnum|Union|AdHocUnion)(Attribute)?(<.+>)?$'}}}
+                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^(SmartEnum|Union|AdHocUnion)(Attribute)?$'}}}}}}
                 - all:
                     - has: {nthChild: 1, matches: governed-key}
                     - inside:
@@ -196,7 +196,7 @@ utils:
                         has:
                             stopBy: end
                             matches: declared-union
-                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?SmartEnum(Attribute)?(<.+>)?$'}}}
+                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^SmartEnum(Attribute)?$'}}}}}}
                 - all:
                     - has: {nthChild: 1, matches: governed-value}
                     - inside:
@@ -205,7 +205,7 @@ utils:
                         has:
                             stopBy: end
                             matches: declared-union
-                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(Union(Attribute)?<.+>|AdHocUnion(Attribute)?)$'}}}
+                            has: {kind: attribute_list, has: {kind: attribute, has: {field: name, any: [{matches: {csharp-type-name: {name: {regex: '^Union(Attribute)?$'}}}, has: {stopBy: end, kind: type_argument_list}}, {matches: {csharp-type-name: {name: {regex: '^AdHocUnion(Attribute)?$'}}}}]}}}
             - any: [{has: {matches: dispatch-arm}}, {has: {field: body, has: {matches: dispatch-arm}}}]
     catch-all-pattern:
         any:

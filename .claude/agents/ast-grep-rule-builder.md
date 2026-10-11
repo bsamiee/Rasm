@@ -45,14 +45,13 @@ Step 3 reads a category from `confirmed_findings` of the prompt's category under
 | :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------ |
 |  [01]   | Package capability or default | `search-code` over the installed package                                                          |
 |  [02]   | Node kinds of one node        | `mcp__ast-grep__dump_syntax_tree(language: "<lang>", format: "cst")`                              |
-|  [03]   | Node kinds past one node      | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                        |
-|  [04]   | Instances of a shape in scope | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>")`                          |
-|  [05]   | Captures of a shape in scope  | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>", output_format: "json")`   |
-|  [06]   | Diagnostic a checker owns     | Diagnostic line of the mapping section of `observation`                                           |
-|  [07]   | Pattern a checker reports     | Step 8 checker output at the instance lines                                                       |
-|  [08]   | Draft width over the tree     | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>")`, its `Found N matches` line      |
-|  [09]   | Width of every placed rule    | `jq -r '.ruleId' after.jsonl \| sort \| uniq -c` after step 8                                     |
-|  [10]   | Instances at a commit         | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads |
+|  [03]   | Instances of a shape in scope | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>")`                          |
+|  [04]   | Captures of a shape in scope  | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>/<scope>", output_format: "json")`   |
+|  [05]   | Diagnostic a checker owns     | Diagnostic line of the mapping section of `observation`                                           |
+|  [06]   | Pattern a checker reports     | Step 8 checker output at the instance lines                                                       |
+|  [07]   | Draft width over the tree     | `mcp__ast-grep__find_code_by_rule(project_folder: "<worktree>")`, its `Found N matches` line      |
+|  [08]   | Width of every placed rule    | `jq -r '.ruleId' after.jsonl \| sort \| uniq -c` after step 8                                     |
+|  [09]   | Instances at a commit         | `git show <commit>:<path> \| ast-grep scan --custom-languages allow --rule <rule> --stdin --json` |
 
 Installed source or binary decides over a page.
 
@@ -60,14 +59,15 @@ Installed source or binary decides over a page.
 
 <decision>
 
-- `ast-grep scan <path>` prints `ERROR: <path>: No such file or directory` at exit 0 for a missing path, `find_code_by_rule` prints `No matches found`
-- `ast-grep scan --filter '^(<ids>)$'` exits 3 with `Rule not found` when no rule file declares an id of the group
+- `ast-grep scan --custom-languages allow <path>` prints `ERROR: <path>: No such file or directory` at exit 0 for a missing path, `find_code_by_rule` prints `No matches found`
+- `ast-grep scan --custom-languages allow --filter '^(<ids>)$'` exits 3 with `Rule not found` when no rule file declares an id of the group
 - Rules earn their place or are refused under the bar section of `rule-building`, your `bar_verdict` row per category is the one verdict
-- Rules under `ruleDirs` report over the whole tree
+- Rules under `ruleDirs` report over every path `files:` admits, the whole tree with no `files:`
 - Hits of a placed rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's
 - Reply adds `nx run rasm:rewrite -- --filter='^<rule id>$' <path>` under a rule with a `fix`
 - Drafts calling a global util count by the placed-rule row after placement
 - Counts over real code decide width, a rule firing wider than the correction is refused
+- Cost hits are rules in `after-cost.json` past the CPU limit of `rule-building`
 - Corrections with no one-template form over every sibling become a rule with `message` and `note` and no `fix`, with the variant named
 - Sibling rule of another language supplies the message, note, and guards of a new rule
 - `git log -p <file>` is read before a rebuilt rule is written, every sibling and near miss an earlier revision held returns
@@ -79,14 +79,15 @@ Installed source or binary decides over a page.
 1. State the correction in one line: shape before, shape after, reason, a category's from its rows' `text`, `replacement`, and `message`
 2. Search every language's rules and utils for the shape and reason, extend an overlapping rule of the site's language
 3. Clear a new id by the free-id line of `observation`, exit 1, a sibling's slug with the site's language suffix is the new id
-4. Enumerate the siblings and near misses under the derivation section of `rule-building`, each node shape from the node kinds rows
+4. Enumerate the siblings and near misses under the derivation section of `rule-building`, each node shape from the node kinds row
 5. Draft the rule from `Read` of `templates/rule.yml` of `use-ast-grep`, one line each for `fix`, `message`, `note`
 6. Count the draft by the width row, read every hit as an instance or a defect, a draft under the bar ends as findings alone
 7. Place the rule through `Write` of `<worktree>/<rules>/<lang>/<package>/<rule id>.yml`
-8. Run `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > after.jsonl` once, `jq -c 'select(.ruleId == "<rule id>")' after.jsonl` per placed rule, `checker_owned` per `confirmed` site, other hits the reply's
-9. Apply each edit as one `Edit` exact-string replacement
-10. Run `yamllint <files>` and `yamlfmt -lint <files>` over the derived rule and util files, fix each line
-11. Bound draft cycles at 3 per rule
+8. Run `ast-grep scan --custom-languages allow --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > after.jsonl` once, `jq -c 'select(.ruleId == "<rule id>")' after.jsonl` per placed rule, `checker_owned` per `confirmed` site, other hits the reply's
+9. Run the cost commands of `rule-building` once with `<state>` `after`, rebuild each cost hit under the cost section of `use-ast-grep`
+10. Apply each edit as one `Edit` exact-string replacement
+11. Run `yamllint <files>` and `yamlfmt -lint <files>` over the derived rule and util files, fix each line
+12. Bound draft cycles at 3 per rule
 
 Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` the refusing row of the bar table of `rule-building`, `:earns` 0, then `transition.sql` of `observation` per site, `:state` `confirmed`, `:verdict` that row. Step 8 runs `transition.sql` per site, `:state` `checker_owned`, `:evidence` `ast-grep:<rule id>`. Both bind `:actor` `agent` and `:actor_id` `<id>`.
 
@@ -97,6 +98,7 @@ Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` 
 - Every instance the placed rule reports is a `checker_owned` row or a line of the reply, or the category holds its refusing verdict
 - Every derived rule holds a `fix` where one template corrects every sibling, and names the variant without a template otherwise
 - Derived rule is the one rule holding its correction and reason
+- `after-cost.json` holds no cost hit
 - No partial edit, deferred value, or workaround remains
 
 </done_when>

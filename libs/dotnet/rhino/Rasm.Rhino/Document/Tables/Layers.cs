@@ -314,23 +314,8 @@ public static class Layers {
                     from added in IO.lift(() => Conversions.Present(TableKinds.Layers.Add(document, staged)).ToFin(new Taken(nameof(LayerTable.Add), create.Name)))
                     select unit,
                     static staged => IO.lift(staged.Dispose)),
-            addPath: static (document, add) => {
-                IO<Guid> Ensure(Guid parent, string name) =>
-                    IO.lift(() => Optional(document.Layers.FindNameHash(new NameHash(name, parent, ModelComponentType.Layer)))).Bind(found => found.Match(
-                        Some: static row => IO.pure(row.Id),
-                        None: () => DisposalOps.Within(Layer.GetDefaultLayerProperties, staged =>
-                            from id in IO.lift(Guid.NewGuid)
-                            from named in TableOps.Named(staged, Some(name))
-                            from settings in IO.lift(() => {
-                                staged.ParentLayerId = parent;
-                                staged.Id = id;
-                                staged.Color = add.Color.IfNone(static () => AppearanceSettings.DefaultLayerColor);
-                            })
-                            from added in IO.lift(() => Conversions.Required(document.Layers.Add(staged), nameof(LayerTable.Add)))
-                            select id,
-                            static staged => IO.lift(staged.Dispose))));
-                return add.Path.Segments.FoldM(Guid.Empty, Ensure).As().Map(static _ => unit);
-            },
+            addPath: static (document, add) =>
+                add.Path.Segments.FoldM(Guid.Empty, (parent, name) => Ensured(document, add, parent, name)).As().Map(static _ => unit),
             modify: static (document, modify) =>
                 from row in Resolve(document, modify.Target)
                 from landed in Landed(document, row, staged => Written(document, staged, modify.Edits))
@@ -384,6 +369,24 @@ public static class Layers {
                 from rows in panel.Targets.TraverseM(address => Resolve(document, address)).As()
                 from shown in IO.lift(() => Missing.Unless(document.Layers.Select(rows.Map(static row => row.Index), panel.Deselect), nameof(LayerTable.Select)))
                 select shown);
+
+    private static IO<Guid> Ensured(RhinoDoc document, LayerOp.AddPath add, Guid parent, string name) =>
+        IO.lift(() => Optional(document.Layers.FindNameHash(new NameHash(name, parent, ModelComponentType.Layer)))).Bind(found => found.Match(
+            Some: static row => IO.pure(row.Id),
+            None: () => Created(document, add, parent, name)));
+
+    private static IO<Guid> Created(RhinoDoc document, LayerOp.AddPath add, Guid parent, string name) =>
+        DisposalOps.Within(Layer.GetDefaultLayerProperties, staged =>
+            from id in IO.lift(Guid.NewGuid)
+            from named in TableOps.Named(staged, Some(name))
+            from settings in IO.lift(() => {
+                staged.ParentLayerId = parent;
+                staged.Id = id;
+                staged.Color = add.Color.IfNone(static () => AppearanceSettings.DefaultLayerColor);
+            })
+            from added in IO.lift(() => Conversions.Required(document.Layers.Add(staged), nameof(LayerTable.Add)))
+            select id,
+            static staged => IO.lift(staged.Dispose));
 
     private static IO<Unit> Landed(RhinoDoc doc, Layer live, Func<Layer, IO<Unit>> stage) =>
         DisposalOps.Within(() => TableKinds.Layers.Copy(live), staged =>

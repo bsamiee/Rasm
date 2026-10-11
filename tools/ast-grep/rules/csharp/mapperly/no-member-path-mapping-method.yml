@@ -64,7 +64,7 @@ rule:
                 has:
                     kind: attribute
                     all:
-                        - has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?UserMapping(Attribute)?$'}
+                        - has: {field: name, matches: {csharp-type-name: {name: {regex: '^UserMapping(Attribute)?$'}}}}
                         - not: {has: {kind: attribute_argument_list, has: {kind: attribute_argument, regex: '^Default\s*=\s*false$'}}}
         - has:
             field: parameters

@@ -77,8 +77,8 @@ utils:
                     field: function
                     all:
                         - any:
-                            - regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'
-                            - regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>\s*\.\s*Some$'
+                            - matches: {csharp-type-name: {name: {regex: '^Some$'}}}
+                            - matches: {csharp-owner-member: {type: {regex: '^Option$'}, member: {regex: '^Some$'}}}
                         - any:
                             - has: {stopBy: end, kind: type_argument_list, pattern: $TYPES}
                             - not: {has: {stopBy: end, kind: type_argument_list}}
@@ -89,7 +89,7 @@ utils:
                         - not: {has: {kind: argument, nthChild: 2}}
             - kind: cast_expression
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>$', has: {stopBy: end, kind: type_argument_list, pattern: $TYPES}}
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}, has: {stopBy: end, kind: type_argument_list, pattern: $TYPES}}
                 - has: {field: value, matches: read, pattern: $V}
             - kind: identifier
               pattern: $V

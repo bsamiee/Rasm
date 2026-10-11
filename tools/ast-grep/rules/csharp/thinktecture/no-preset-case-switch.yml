@@ -8,7 +8,7 @@ utils:
     host-type:
         kind: identifier, generic_name, qualified_name, member_access_expression
         regex: '^[A-Z]'
-        not: {regex: '^(global::)?(LanguageExt\.)?(Option|Fin|Either|Validation|Try|Seq|Lst|Arr|HashMap|Map|HashSet|Set)\b'}
+        not: {matches: {csharp-type-name: {name: {regex: '^(Option|Fin|Either|Validation|Try|Seq|Lst|Arr|HashMap|Map|HashSet|Set)$'}}}}
     case-argument:
         kind: argument
         has: {field: name, kind: identifier}

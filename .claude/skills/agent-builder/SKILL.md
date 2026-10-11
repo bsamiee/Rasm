@@ -74,7 +74,6 @@ Markdown parses text against an opening tag as one HTML block, and a blank line 
 
 [PROCEDURES]:
 - Steps write paths from repository root and name a tool in call form with a deciding argument
-- Steps spell commands as the allow list grants them
 - Each edit is one exact-string replacement
 - Checkers of the role's files sit in one step that runs them over scope and fixes each finding
 - Tables one step uses sit under it, tables more than one step names sit in their own element between `decision` and `procedure`
@@ -117,7 +116,7 @@ Sentences that state what another file owns, or bind the run past its prompt, go
 ## [05]-[CHECKS]
 
 Checks on a finished file:
-- `ast-grep scan --no-ignore hidden <agent>` prints nothing
+- `ast-grep scan --custom-languages allow --no-ignore hidden <agent>` prints nothing
 - `claude plugin validate <agents dir>` for a project agent, `claude plugin validate <plugin>` for a plugin agent, prints `Validation passed`
 - Every path and `skills` entry the file names exists on disk
 - Every target and MCP tool the file names exists, `nx show project <project> --json | jq '.targets|keys'` and `ToolSearch(query: "select:<tool>")`

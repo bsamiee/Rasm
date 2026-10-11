@@ -332,7 +332,7 @@ public static class FilePublication {
             from written in (
                 from stream in IO.lift(() => {
                     string folder = Path.GetDirectoryName((string)path)!;
-                    Directory.CreateDirectory(folder);
+                    _ = Directory.CreateDirectory(folder);
                     return new FileStream(Path.Combine(folder, $"{Path.GetRandomFileName()}.tmp"), new FileStreamOptions {
                         Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Share = FileShare.None, Options = FileOptions.Asynchronous,
                     });

@@ -1,17 +1,15 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Circular lens maps, independent spectral integration, and iris aberration."""
 
 import functools
 
 import bpy
-from expression import Ok, Option, Result, Some
+from expression import Ok, Result, Some
 import PyOpenColorIO
 
 from rasm.blender.commands.operators import Call, Done, Operator, Save
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Key
-from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderRenderingFault, BlenderResult
+from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderRenderingFault, BlenderResult
 from rasm.blender.nodes import graphs
 from rasm.blender.nodes.graphs import (
     compared,
@@ -198,7 +196,7 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         The sampled image and graph, or accumulated native construction faults.
     """
-    coefficient = shell.socket(Distortion.distortion.__name__)
+    coefficient = shell.socket(Distortion.distortion.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def built(lens: NodeGroup, frame: FrameSpace, extension: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         corner = (
@@ -208,7 +206,7 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
         )
         fitted = (
             compared("positive", "GREATER_THAN", coefficient, 0.0)
-            .bind(lambda positive: node("fitted", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(Distortion.fit.__name__), "Boolean_001": positive}, {"operation": "AND"}))
+            .bind(lambda positive: node("fitted", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(Distortion.fit.__name__), "Boolean_001": positive}, {"operation": "AND"}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .map(ended("fitted", "Boolean"))
         )
         return (
@@ -227,15 +225,15 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
                 lambda placed: menu(
                     "direction",
                     "VECTOR",
-                    shell.socket(Distortion.direction.__name__),
-                    shell.items[Distortion.direction.__name__,],
+                    shell.socket(Distortion.direction.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    shell.items[Distortion.direction.__name__,],  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     {Direction.DISTORT.label: placed, Direction.UNDISTORT.label: (placed[0], End(node="radial", socket="lens"))},
                 )
             )
             .bind(lambda position: sampled("map", shell.source, frame, extension, position))
         )
 
-    extension = Distortion.extension.__name__
+    extension = Distortion.extension.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return paired(
         paired(radial(), framed("frame", shell.source, shell.aspect, shell.scale)),
         menu("extension", "MENU", shell.socket(extension), shell.items[extension,], {member.label: (Extension.EXTEND if member is Extension.MIRROR else member).label for member in Extension}),
@@ -255,7 +253,7 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
     def gathered(frame: FrameSpace, bokeh: tuple[Fragment, End], split: Fragment, channel: str, ratio: float) -> BlenderResult[tuple[Fragment, End]]:
         key = channel.lower()
         return (
-            math(f"{key}_radius", "MULTIPLY", shell.socket(Aberration.axial.__name__), ratio)
+            math(f"{key}_radius", "MULTIPLY", shell.socket(Aberration.axial.__name__), ratio)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             .bind(lambda radius: pixels(f"{key}_size", frame, radius))
             .bind(lambda size: node(f"{key}_gather", bpy.types.CompositorNodeBokehBlur, {"Image": ended("split", channel)(split), "Bokeh": bokeh, "Size": size}, {}))
             .map(ended(f"{key}_gather", "Image"))
@@ -274,7 +272,7 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
     def dispersed(lens: NodeGroup, frame: FrameSpace, extension: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         def waved(index: int, coefficient: float, weight: Rgb) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
             sample = (
-                math(f"wave_{index}", "MULTIPLY", shell.socket(Aberration.dispersion.__name__), coefficient)
+                math(f"wave_{index}", "MULTIPLY", shell.socket(Aberration.dispersion.__name__), coefficient)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 .bind(lambda spread: nested(f"radial_{index}", lens, {"point": frame.point, "extent": frame.extent, "share": 1.0, "distortion": spread, "scale": 1.0}, "rectilinear"))
                 .bind(lambda placed: sampled(f"sample_{index}", shell.source, frame, extension, placed))
             )
@@ -291,9 +289,9 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda sums: node("lateral", bpy.types.CompositorNodeSetAlpha, {"Image": sums[0], "Alpha": sums[1], "Type": "Replace Alpha"}, {}))
             .map(ended("lateral", "Image"))
         )
-        return paired(lateral, iris("iris", shell, Aberration.iris.__name__)).bind(lambda parts: defocused(frame, *parts))
+        return paired(lateral, iris("iris", shell, Aberration.iris.__name__)).bind(lambda parts: defocused(frame, *parts))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
-    extension = Aberration.extension.__name__
+    extension = Aberration.extension.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return paired(
         paired(radial(), framed("frame", shell.source, shell.aspect, shell.scale)),
         menu("extension", "MENU", shell.socket(extension), shell.items[extension,], {member.label: (Extension.EXTEND if member is Extension.MIRROR else member).label for member in Extension}),
@@ -337,8 +335,7 @@ def exported(call: Call[Named]) -> BlenderResult[Done]:
             paired(paired(config, entry), framing), lambda parts: written(parts[0][0], parts[0][1].effect, parts[1])
         )
 
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-    return Result[bpy.types.Scene, BlenderFaults].bind(scene, ready)
+    return call.root(bpy.types.Scene).bind(ready)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

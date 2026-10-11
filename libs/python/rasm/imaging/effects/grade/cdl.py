@@ -10,7 +10,7 @@ import PyOpenColorIO
 from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.faults import accumulated, ImagingLutFault, ImagingReadFault, ImagingResult
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Channel(msgspec.Struct, frozen=True, kw_only=True):
@@ -39,7 +39,7 @@ class Cdl(Effect, frozen=True, kw_only=True, tag=12):
         return Ok(Some(PyOpenColorIO.CDLTransform(slope=slope, offset=offset, power=power, sat=self.saturation)))
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def read(path: str) -> ImagingResult[tuple[tuple[Option[str], Cdl], ...]]:
@@ -69,6 +69,6 @@ def read(path: str) -> ImagingResult[tuple[tuple[Option[str], Cdl], ...]]:
     return accumulated(map(entry, group))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Cdl", "Channel", "read"]

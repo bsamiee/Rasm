@@ -5,9 +5,9 @@ severity: error
 files: ['**/rhino/**']
 utils:
     host-success:
-        regex: '^((global::)?Rhino\.Commands\.)?Result\.Success$'
+        matches: {csharp-owner-member: {type: {regex: '^Result$'}, member: {regex: '^Success$'}}}
     host-failure:
-        regex: '^((global::)?Rhino\.Commands\.)?Result\.Failure$'
+        matches: {csharp-owner-member: {type: {regex: '^Result$'}, member: {regex: '^Failure$'}}}
     success:
         any:
             - kind: lambda_expression
@@ -41,8 +41,9 @@ utils:
                 - has:
                     field: body
                     kind: conditional_expression
-                    regex: '\bResult\.Failure\s*$'
-                    has: {field: consequence, regex: '^((global::)?Rhino\.Commands\.)?Result\.\w+$'}
+                    all:
+                        - has: {field: alternative, matches: {csharp-owner-member: {type: {regex: '^Result$'}, member: {regex: '^Failure$'}}}}
+                        - has: {field: consequence, matches: {csharp-owner-member: {type: {regex: '^Result$'}, member: {regex: '^'}}}}
     success-map:
         kind: invocation_expression
         all:
@@ -133,7 +134,7 @@ utils:
     effect-answer:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
             - any:
                 - has:
                     field: arguments

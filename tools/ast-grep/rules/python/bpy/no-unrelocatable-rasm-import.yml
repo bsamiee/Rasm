@@ -4,7 +4,7 @@ language: python
 severity: error
 files:
     - libs/python/rasm/**/*.py
-    - apps/**/blender/**/*.py
+    - apps/blender/**/*.py
 rule:
     pattern: $MODULE
     matches: python-imported-module

@@ -1,5 +1,4 @@
 import type { AgentSpawnArgs, AgentSpawnResult } from 'claude-code';
-import { counted } from '../composition.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,7 +23,7 @@ const outcome = (spawn: Spawn, result: AgentSpawnResult): string => {
     return result.deny === undefined ? `spawned ${spawn.agent}${result.agentId === undefined ? '' : ` ${result.agentId}`} over ${subject}` : `${spawn.agent} spawn refused over ${subject}, ${result.deny}`;
 };
 
-const delivered = (findings: readonly string[], branch: string): readonly string[] => (findings.length === 0 ? [] : [`${counted(findings.length, 'finding', 'findings')} on ${branch}, ids ${findings.join(', ')}. Use observation skill for delivered findings`]);
+const delivered = (findings: readonly string[], branch: string): readonly string[] => (findings.length === 0 ? [] : [`${findings.length} ${findings.length === 1 ? 'finding' : 'findings'} on ${branch}, ids ${findings.join(', ')}. Use observation skill for delivered findings`]);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

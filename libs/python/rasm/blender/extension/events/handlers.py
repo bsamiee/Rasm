@@ -4,6 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from enum import auto, Flag
 from pathlib import Path
+from typing import Protocol
 
 import bpy
 from expression import Nothing, Ok, Option
@@ -24,13 +25,23 @@ class Change(Flag):
     SHADING = auto()
 
 
+class Handlers[E](Protocol):
+    """Native handler list accepting callbacks of one argument shape, lists of wider callback unions included."""
+
+    def append(self, entry: E, /) -> None:
+        """Holds the callback on the host list."""
+
+    def remove(self, entry: E, /) -> None:
+        """Drops the callback from the host list."""
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class SceneHandler(msgspec.Struct, frozen=True, kw_only=True):
     """Scene callback skipping the extension's owned runtime preview scenes."""
 
-    handlers: list[Callable[[bpy.types.Scene], None]]
+    handlers: Handlers[Callable[[bpy.types.Scene], None]]
     body: Callable[[bpy.types.Scene], BlenderResult[None]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
@@ -54,7 +65,7 @@ class SceneHandler(msgspec.Struct, frozen=True, kw_only=True):
 class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
     """Frame callback receiving the evaluated dependency graph without update filtering."""
 
-    handlers: list[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
+    handlers: Handlers[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
     body: Callable[[bpy.types.Scene, bpy.types.Depsgraph], BlenderResult[None]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
@@ -78,7 +89,7 @@ class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
 class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
     """Load or save callback receiving an absent path for the startup file."""
 
-    handlers: list[Callable[[str], None]]
+    handlers: Handlers[Callable[[str], None]]
     body: Callable[[Option[Path]], BlenderResult[None]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
@@ -102,7 +113,7 @@ class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
 class UpdateHandler(msgspec.Struct, frozen=True, kw_only=True):
     """Scene callback receiving updates of its ID types and optional change kinds."""
 
-    handlers: list[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
+    handlers: Handlers[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
     ids: tuple[type[bpy.types.ID], ...]
     body: Callable[[bpy.types.Scene, tuple[bpy.types.DepsgraphUpdate, ...]], BlenderResult[None]]
     changes: Option[Change] = Nothing
@@ -128,7 +139,7 @@ class UpdateHandler(msgspec.Struct, frozen=True, kw_only=True):
 class ImportHandler(msgspec.Struct, frozen=True, kw_only=True):
     """Append or link callback receiving the native read-only import context."""
 
-    handlers: list[Callable[[bpy.types.BlendImportContext], None]]
+    handlers: Handlers[Callable[[bpy.types.BlendImportContext], None]]
     body: Callable[[bpy.types.BlendImportContext], BlenderResult[None]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
@@ -167,7 +178,7 @@ def changed(update: bpy.types.DepsgraphUpdate) -> Change:
 
 
 @contextmanager
-def appended[E](handlers: list[E], entry: E) -> Generator[None]:
+def appended[E](handlers: Handlers[E], entry: E) -> Generator[None]:
     """Holds one persistent callback on its native handler list.
 
     Args:
@@ -186,4 +197,4 @@ def appended[E](handlers: list[E], entry: E) -> Generator[None]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change", "FrameHandler", "ImportHandler", "PathHandler", "SceneHandler", "UpdateHandler", "appended", "changed"]
+__all__ = ["Change", "FrameHandler", "Handlers", "ImportHandler", "PathHandler", "SceneHandler", "UpdateHandler", "appended", "changed"]

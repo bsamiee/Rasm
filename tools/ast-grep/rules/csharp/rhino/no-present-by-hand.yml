@@ -104,7 +104,7 @@ utils:
               has: {field: function, has: {field: name, regex: '^(Filter|Where)$'}}
     guid-typed:
         any:
-            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {regex: '^((global::)?System\.)?Guid$'}}}}
+            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^Guid$'}}}}}}}
             - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?Guid\s*>$'}}
     guid-nullable:
         has:
@@ -114,15 +114,15 @@ utils:
             matches: {csharp-declared-type: {type: {regex: '^(((global::)?System\.)?Guid\s*\?|((global::)?System\.)?Nullable\s*<\s*((global::)?System\.)?Guid\s*>)$'}}}
     string-typed:
         any:
-            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {regex: '^((global::)?System\.)?(string|String)\s*\??$'}}}}
+            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^(string|String)$'}}}}}}}
             - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(string|String)\s*\??\s*>$'}}
     int-typed:
         any:
-            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {regex: '^((global::)?System\.)?(int|Int32)$'}}}}
+            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^(int|Int32)$'}}}}}}}
             - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(int|Int32)\s*>$'}}
     uint-typed:
         any:
-            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {regex: '^((global::)?System\.)?(uint|UInt32)$'}}}}
+            - has: {stopBy: end, kind: identifier, pattern: $V, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^(uint|UInt32)$'}}}}}}}
             - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(uint|UInt32)\s*>$'}}
     negation:
         any:
@@ -174,7 +174,7 @@ utils:
     explicit-lift:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Some|Optional)(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Some|Optional)$'}}}}
             - has:
                 field: arguments
                 all:
@@ -300,7 +300,7 @@ utils:
     option:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Optional|Some)(\s*<.+>)?$'}
+              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Optional|Some)$'}}}}
             - kind: identifier
               pattern: $OPTION
               inside:
@@ -310,18 +310,18 @@ utils:
                     stopBy: end
                     any:
                         - kind: parameter
-                          all: [{has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}}, {has: {field: name, pattern: $OPTION}}]
+                          all: [{has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}, {has: {field: name, pattern: $OPTION}}]
                         - kind: variable_declaration
-                          all: [{has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}}, {has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}}]
+                          all: [{has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}, {has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}}]
     to-seq:
-        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?toSeq(\s*<.+>)?$'
+        matches: {csharp-type-name: {name: {regex: '^toSeq$'}}}
     empty:
         any:
             - kind: collection_expression
               not: {has: {kind: expression_element}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?System\.)?((Linq\.)?Enumerable\s*\.\s*Empty|Array\s*\.\s*Empty)\s*<.+>$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}}
                 - has: {field: arguments, not: {has: {kind: argument}}}
     items:
         any:
@@ -354,14 +354,14 @@ utils:
     slot-lift:
         kind: argument
         any:
-            - has: {regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Optional$'}
+            - has: {matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}
             - has:
                 matches: slot-lambda
                 has:
                     field: body
                     kind: invocation_expression
                     all:
-                        - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Optional(\s*<.+>)?$'}
+                        - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $SLOT}, not: {has: {kind: argument, nthChild: 2}}}
     null-test:
         any:
@@ -372,7 +372,7 @@ utils:
             - kind: is_expression
               all:
                 - has: {field: left, pattern: $SLOT}
-                - has: {field: right, regex: '^((global::)?System\.)?(object|Object)$'}
+                - has: {field: right, matches: {csharp-type-name: {name: {regex: '^(object|Object)$'}}}}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^!=$'}

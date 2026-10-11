@@ -35,16 +35,16 @@ utils:
                 any:
                     - matches: assignment
                     - inside: {kind: assignment, stopBy: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}, matches: assignment}
-    lexical-scope:
+    lexical-scope: &lexical-scope
         kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-    nested-scope:
-        any: [{matches: lexical-scope}, {kind: class_definition}]
+    nested-scope: &nested-scope
+        any: [*lexical-scope, {kind: class_definition}]
     scope-binding:
-        has: {stopBy: {matches: nested-scope}, matches: binding}
+        has: {stopBy: *nested-scope, matches: binding}
     assigned-scope:
         all:
-            - has: {stopBy: {matches: nested-scope}, matches: assignment}
-            - not: {has: {stopBy: {matches: nested-scope}, matches: conflicting-binding}}
+            - has: {stopBy: *nested-scope, all: [&assignment-node {kind: 'assignment, named_expression'}, {matches: assignment}]}
+            - not: {has: {stopBy: *nested-scope, matches: conflicting-binding}}
     bound-scope:
         any:
             - matches: assigned-scope
@@ -57,35 +57,33 @@ utils:
             - inside:
                 matches: first-iterable
                 field: right
-                stopBy: {matches: nested-scope}
-                inside: {all: [{matches: lexical-scope}, {matches: enclosing-lookup}]}
-            - not: {inside: {matches: first-iterable, field: right, stopBy: {matches: nested-scope}}}
+                stopBy: *nested-scope
+                inside: {all: [*lexical-scope, {matches: enclosing-lookup}]}
+            - not: {inside: {matches: first-iterable, field: right, stopBy: *nested-scope}}
               inside:
-                matches: lexical-scope
-                stopBy: {matches: lexical-scope}
-                all: [{matches: bound-scope}]
+                stopBy: *lexical-scope
+                all: [*lexical-scope, {matches: bound-scope}]
     lookup:
         any:
             - inside:
                 matches: first-iterable
                 field: right
-                stopBy: {matches: nested-scope}
-                inside: {all: [{matches: lexical-scope}, {matches: lookup}]}
-            - not: {inside: {matches: first-iterable, field: right, stopBy: {matches: nested-scope}}}
+                stopBy: *nested-scope
+                inside: {all: [*lexical-scope, {matches: lookup}]}
+            - not: {inside: {matches: first-iterable, field: right, stopBy: *nested-scope}}
               any:
                 - inside:
-                    matches: lexical-scope
-                    stopBy: {matches: nested-scope}
-                    all: [{matches: bound-scope}]
+                    stopBy: *nested-scope
+                    all: [*lexical-scope, {matches: bound-scope}]
                 - inside:
                     kind: class_definition
-                    stopBy: {matches: nested-scope}
+                    stopBy: *nested-scope
                     any:
                         - matches: assigned-scope
                         - not: {matches: scope-binding}
                           matches: enclosing-lookup
     candidate:
-        inside: {matches: nested-scope, stopBy: end, has: {stopBy: {matches: nested-scope}, matches: assignment}}
+        inside: {stopBy: end, all: [*nested-scope], has: {stopBy: *nested-scope, all: [*assignment-node, {matches: assignment}]}}
 rule:
     kind: identifier
     all: [{pattern: $NAME}, {matches: candidate}, {matches: lookup}]

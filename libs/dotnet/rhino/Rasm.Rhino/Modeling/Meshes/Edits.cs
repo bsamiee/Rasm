@@ -92,14 +92,17 @@ public static class MeshEdits {
         DisposalOps.Acquire(
             output => DisposalOps.Within(
                 () => new MeshExtruder(source, components),
-                extruder => IO.lift(() => configure(extruder)).Bind(_ => Copies.Owned(
-                    () => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Components: map),
-                    made =>
-                        from accepted in IO.lift(Refused.Unless(made.Accepted, made.Mesh, nameof(MeshExtruder.ExtrudedMesh)))
-                        from mesh in IO.lift(() => Measurements.Valid(accepted, nameof(MeshExtruder.ExtrudedMesh)))
-                        from walls in IO.lift(() => toSeq(extruder.GetWallFaces()))
-                        select (Mesh: mesh, Components: toSeq(made.Components), WallFaces: walls),
-                    static made => IO.lift(made.Mesh.Dispose), output)),
+                extruder => Extruded(extruder, configure, output),
                 static extruder => IO.lift(extruder.Dispose)),
             (_, release) => retain(release));
+
+    private static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extruded(MeshExtruder extruder, Action<MeshExtruder> configure, Action<IDisposable> output) =>
+        IO.lift(() => configure(extruder)).Bind(_ => Copies.Owned(
+            () => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Components: map),
+            made =>
+                from accepted in IO.lift(Refused.Unless(made.Accepted, made.Mesh, nameof(MeshExtruder.ExtrudedMesh)))
+                from mesh in IO.lift(() => Measurements.Valid(accepted, nameof(MeshExtruder.ExtrudedMesh)))
+                from walls in IO.lift(() => toSeq(extruder.GetWallFaces()))
+                select (Mesh: mesh, Components: toSeq(made.Components), WallFaces: walls),
+            static made => IO.lift(made.Mesh.Dispose), output));
 }

@@ -7,8 +7,8 @@ user-invocable: false
 # [OBSERVATION]
 
 Database `<db>` under the main worktree, one per repository, holds a row per event the hooks record while option `observation` is true, views over event rows, and finding tables agents write. Placeholders hold values of the loading session:
-- `<db>`: !`git worktree list --porcelain | rg -m1 -r '$p/.cache/observation/observation.db' '^worktree (?P<p>.+)'`
-- `<worktree>`: !`git rev-parse --show-toplevel`
+- `<db>`: line `git worktree list --porcelain | rg -m1 -r '$p/.cache/observation/observation.db' '^worktree (?P<p>.+)'` prints
+- `<worktree>`: line `git rev-parse --show-toplevel` prints
 - `<session>`: `${CLAUDE_SESSION_ID}`, or the id of a session a reader names
 - `<branch>`: line `git branch --show-current` prints
 
@@ -142,7 +142,7 @@ sqlite3 -json -cmd ".param set :worktree '<worktree>'" <db> "select * from runni
 
 ## [03]-[FINDINGS]
 
-Lookup tables `checker`, `transition_state`, `transition_actor`, `delivery_channel`, `range_kind`, and `bar_verdict` hold the values of finding columns `checker`, `state`, `actor`, `channel`, `kind`, and `verdict`. Finding tables are `strict`:
+Lookup tables `transition_state`, `transition_actor`, `delivery_channel`, `range_kind`, and `bar_verdict` hold the values of finding columns `state`, `actor`, `channel`, `kind`, and `verdict`. Finding tables are `strict`:
 
 | [INDEX] | [TABLE]              | [PURPOSE]                                                                  | [WRITER]                         |
 | :-----: | :------------------- | :------------------------------------------------------------------------- | :------------------------------- |
@@ -266,7 +266,7 @@ Checker commands run from `<worktree>` over `<paths>` relative to it, each outpu
 
 ```bash
 # [AST_GREP] Rule hits as JSON
-ast-grep scan --no-ignore hidden --json=compact <paths>
+ast-grep scan --custom-languages allow --no-ignore hidden --json=compact <paths>
 
 # [RUFF] Diagnostics as JSON
 ruff check --output-format json <paths>

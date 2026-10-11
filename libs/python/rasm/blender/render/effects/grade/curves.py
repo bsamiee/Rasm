@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Native RGB and HSY curve tables, editable knots, and covered-frame insertion."""
 
 from bisect import bisect_left
@@ -39,18 +37,19 @@ def _bindings(record: Curves | HueCurves) -> dict[str, tuple[Points, CurvePoints
     def bare(shape: native.Type) -> native.Type:
         return bare(shape.type) if isinstance(shape, native.Metadata) else shape
 
-    answer: dict[str, tuple[Points, CurvePoints]] = {}
-    for field, curve, knots in zip(msgspec.structs.fields(type(record)), record.curves(), msgspec.structs.astuple(record)):
-        match bare(native.type_info(field.type)):  # type: ignore[exhaustive-match]
-            case native.VarTupleType(item_type=native.StructType(fields=fields)):
-                axes = {field.name: bare(field.type) for field in fields}
-                match axes[Knot.x.__name__], axes[Knot.y.__name__]:  # type: ignore[misc, exhaustive-match]  # ty: ignore[invalid-attribute-access]
-                    case native.FloatType() as x, native.FloatType() as y:
-                        low_x, high_x, low_y, high_y = (next(bound for bound in choices if bound is not None) for choices in ((x.ge, x.gt), (x.le, x.lt), (y.ge, y.gt), (y.le, y.lt)))
-                        table = tuple((float(left), float(right)) for left, right in sampled(curve, 257, (low_x, high_x)))
-                        editor = CurvePoints(maps=(tuple((point.x, point.y) for point in knots),), clip=Some((low_x, low_y, high_x, high_y)), handle="AUTO", clipped=True)
-                        answer[field.name] = table, editor
-    return answer
+    return {
+        field.name: (
+            tuple((float(left), float(right)) for left, right in sampled(curve, 257, (low_x, high_x))),
+            CurvePoints(maps=(tuple((point.x, point.y) for point in knots),), clip=Some((low_x, low_y, high_x, high_y)), handle="AUTO", clipped=True),
+        )
+        for field, curve, knots in zip(msgspec.structs.fields(type(record)), record.curves(), msgspec.structs.astuple(record))
+        for shape in (bare(native.type_info(field.type)),)
+        if isinstance(shape, native.VarTupleType) and isinstance(shape.item_type, native.StructType)
+        for axes in ({axis.name: bare(axis.type) for axis in shape.item_type.fields},)
+        for x, y in ((axes[Knot.x.__name__], axes[Knot.y.__name__]),)  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+        if isinstance(x, native.FloatType) and isinstance(y, native.FloatType)
+        for low_x, high_x, low_y, high_y in (tuple(next(bound for bound in choices if bound is not None) for choices in ((x.ge, x.gt), (x.le, x.lt), (y.ge, y.gt), (y.le, y.lt))),)
+    }
 
 
 # --- [GRAPHS]
@@ -59,7 +58,7 @@ def _bindings(record: Curves | HueCurves) -> dict[str, tuple[Points, CurvePoints
 def curved(shell: Shell[Curves]) -> BlenderResult[tuple[Fragment, End]]:
     """Applies channel tables before the master table on both compositor devices."""
     bindings = _bindings(shell.record)
-    red, green, blue, master = Curves.red.__name__, Curves.green.__name__, Curves.blue.__name__, Curves.master.__name__
+    red, green, blue, master = Curves.red.__name__, Curves.green.__name__, Curves.blue.__name__, Curves.master.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     identity = tuple((value, value) for value, _ in bindings[master][0])
     clip = bindings[master][1].clip
 
@@ -92,13 +91,13 @@ def hue_curved(shell: Shell[HueCurves]) -> BlenderResult[tuple[Fragment, End]]:
     """Maps all seven native HSY curves in OCIO's saturation and luma order."""
     bindings = _bindings(shell.record)
     hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = (
-        HueCurves.hue_hue.__name__,
-        HueCurves.hue_sat.__name__,
-        HueCurves.hue_lum.__name__,
-        HueCurves.lum_sat.__name__,
-        HueCurves.sat_sat.__name__,
-        HueCurves.lum_lum.__name__,
-        HueCurves.sat_lum.__name__,
+        HueCurves.hue_hue.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        HueCurves.hue_sat.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        HueCurves.hue_lum.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        HueCurves.lum_sat.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        HueCurves.sat_sat.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        HueCurves.lum_lum.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        HueCurves.sat_lum.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     )
     hue, saturation = (End(node="split", socket=key) for key in ("Red", "Green"))
     stops = End(node="stops", socket="Blue")
@@ -153,15 +152,17 @@ def consumed[R: (Curves, HueCurves)](row: CompositorEffect[R], identity: Identit
 
     def inserted(record: R, inputs: dict[str, float], bindings: dict[str, tuple[Points, CurvePoints]]) -> Option[R]:
         convert = catch(msgspec.convert, exception=msgspec.ValidationError)
-        changes = {}
-        for field, knots in zip(msgspec.structs.fields(record), msgspec.structs.astuple(record)):
+
+        def knotted(field: msgspec.structs.FieldInfo, knots: tuple[Knot[float, float], ...]) -> Option[object]:
             value = inputs[field.name]
-            position = bisect_left(knots, value, key=lambda point: point.x)
-            if position < len(knots) and knots[position].x == value:
-                continue
-            cursor = value, float(np.interp(value, *np.asarray(bindings[field.name][0]).T))
-            for accepted in convert(knots[:position] + (cursor,) + knots[position:], field.type).to_option().to_list():  # ruff: ignore[collection-literal-concatenation]
-                changes[field.name] = accepted
+            position: int = bisect_left(knots, value, key=lambda point: point.x)
+            return (
+                Nothing
+                if position < len(knots) and knots[position].x == value
+                else convert((*knots[:position], (value, float(np.interp(value, *np.asarray(bindings[field.name][0]).T))), *knots[position:]), field.type).to_option()
+            )
+
+        changes = {field.name: accepted for field, knots in zip(msgspec.structs.fields(record), msgspec.structs.astuple(record)) for accepted in knotted(field, knots).to_list()}
         return Some(msgspec.structs.replace(record, **changes)) if changes else Nothing
 
     def grown(record: R, mean: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[R]:
@@ -176,24 +177,24 @@ def consumed[R: (Curves, HueCurves)](row: CompositorEffect[R], identity: Identit
         def rgb(values: tuple[tuple[PyOpenColorIO.CPUProcessor, ...], npt.NDArray[np.float32]]) -> BlenderResult[R]:
             (forward, inverse), weights = values
             stops = applied(forward, mean)
-            channels = Curves.red.__name__, Curves.green.__name__, Curves.blue.__name__
+            channels = Curves.red.__name__, Curves.green.__name__, Curves.blue.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             output = np.asarray([splines[key](value) for key, value in zip(channels, stops)], dtype=np.float32)
             working_y = float(applied(inverse, output) @ weights)
             master = float(applied(forward, np.full(3, working_y, dtype=np.float32))[0])
-            return inserted(record, dict(zip(channels, map(float, stops))) | {Curves.master.__name__: master}, bindings).to_result_with(lambda: unread)
+            return inserted(record, dict(zip(channels, map(float, stops))) | {Curves.master.__name__: master}, bindings).to_result_with(lambda: unread)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
         def hue(values: tuple[tuple[PyOpenColorIO.CPUProcessor, ...], PyOpenColorIO.CPUProcessor]) -> BlenderResult[R]:
             (forward, _inverse), conversion = values
             hue, saturation, luminance = map(float, applied(conversion, mean))
             stops = float(applied(forward, np.full(3, luminance, dtype=np.float32))[0])
             hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = (
-                HueCurves.hue_hue.__name__,
-                HueCurves.hue_sat.__name__,
-                HueCurves.hue_lum.__name__,
-                HueCurves.lum_sat.__name__,
-                HueCurves.sat_sat.__name__,
-                HueCurves.lum_lum.__name__,
-                HueCurves.sat_lum.__name__,
+                HueCurves.hue_hue.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                HueCurves.hue_sat.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                HueCurves.hue_lum.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                HueCurves.lum_sat.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                HueCurves.sat_sat.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                HueCurves.lum_lum.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                HueCurves.sat_lum.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             )
             at = {hue_hue: hue, hue_sat: hue, hue_lum: hue, lum_sat: stops, sat_sat: saturation, lum_lum: stops}
             at[sat_lum] = float(np.prod([max(0.0, float(splines[key](at[key]))) for key in (sat_sat, lum_sat, hue_sat)]))
@@ -207,7 +208,7 @@ def consumed[R: (Curves, HueCurves)](row: CompositorEffect[R], identity: Identit
             else Result[tuple[tuple[PyOpenColorIO.CPUProcessor, ...], PyOpenColorIO.CPUProcessor], BlenderFaults].bind(
                 paired(
                     logs,
-                    processor(PyOpenColorIO.Config(), PyOpenColorIO.FixedFunctionTransform(PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN))
+                    processor(PyOpenColorIO.Config(), PyOpenColorIO.FixedFunctionTransform(PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     .map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
                     .map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
                 ),
@@ -225,9 +226,7 @@ def consumed[R: (Curves, HueCurves)](row: CompositorEffect[R], identity: Identit
         return (
             Result[npt.NDArray[np.float32], BlenderFaults]
             .bind(mean, lambda mean: grown(held.effect, mean, config))
-            .bind(
-                lambda changed: row.write(identity, entry.id_data, entry, Entry(effect=changed, blend=held.blend))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            )
+            .bind(lambda changed: row.write(identity, entry.id_data, entry, Entry(effect=changed, blend=held.blend)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             .map(lambda _: Some("Insert Knots"))
         )
 

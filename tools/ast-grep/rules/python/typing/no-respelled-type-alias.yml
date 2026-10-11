@@ -2,11 +2,19 @@
 id: no-respelled-type-alias
 language: python
 severity: error
+utils:
+    type-expression:
+        any:
+            - inside: {kind: type, stopBy: end}
+            - inside:
+                kind: subscript
+                field: subscript
+                has: {field: value, regex: '^((\w+\.)*[A-Z][a-z]\w*|dict|frozenset|list|set|tuple|type)$'}
 rule:
     kind: binary_operator, union_type, generic_type, subscript
     all:
         - pattern: $SPELLING
-        - matches: python-type-expression
+        - matches: type-expression
         - not: {inside: {kind: type, inside: {kind: type_alias_statement, field: right}}}
         - inside:
             stopBy: end

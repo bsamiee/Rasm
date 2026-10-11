@@ -10,7 +10,7 @@ utils:
     xml-call:
         any:
             - kind: 'object_creation_expression, implicit_object_creation_expression'
-              has: {field: type, regex: '^((global::)?System\.Xml\.Linq\.)?X(Element|Attribute)$'}
+              has: {field: type, matches: {csharp-type-name: {name: {regex: '^X(Element|Attribute)$'}}}}
             - kind: invocation_expression
               has:
                 field: function

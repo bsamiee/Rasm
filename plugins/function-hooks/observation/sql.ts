@@ -7,11 +7,14 @@ type Column = (typeof _OBSERVATION)[number][0];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _FOLDER = '.cache/observation';
-const DELTA = `${_FOLDER}/delta.sql`;
+const _DATABASE = `${_FOLDER}/observation.db`;
+const _DELTA = `${_FOLDER}/delta.sql`;
+const _TIMEOUT = '.timeout 10000';
+const OPENER: Invocation = ['sqlite3', '-bail', ':memory:'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sqlite = (root: string): Invocation => ['sqlite3', '-bail', '-cmd', '.timeout 10000', `${root}/${_FOLDER}/observation.db`];
+const sqlite = (root: string): Invocation => ['sqlite3', '-bail', '-cmd', _TIMEOUT, `${root}/${_DATABASE}`];
 const _normalized = (text: string): string => `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
 const _lineage = (main: string, worktree: string, branch: string): string => `iif(${worktree} = ${main}, '.', substr(${worktree}, length(rtrim(${worktree}, replace(${worktree}, '/', ''))) + 1)) || '/' || ${branch}`;
 const bound = (values: object, statement: string): string => `.parameter init\ninsert into temp.sqlite_parameters(key, value) select ':' || key, value from json_each('${JSON.stringify(values).replaceAll("'", "''")}');\n${statement}`;
@@ -46,13 +49,12 @@ const _TABLES: readonly (readonly [name: string, body: string, rows?: readonly o
         ],
     ],
     ['transition_actor', '(actor text primary key) strict', [{ actor: 'user' }, { actor: 'agent' }, { actor: 'check' }]],
-    ['checker', '(tool text primary key) strict', [{ tool: 'ast-grep' }, { tool: 'ruff' }, { tool: 'biome' }, { tool: 'roslyn' }]],
     ['delivery_channel', '(channel text primary key) strict', [{ channel: 'additionalContext' }, { channel: 'report' }]],
     ['range_kind', '(kind text primary key) strict', [{ kind: 'edit' }]],
     ['bar_verdict', '(verdict text primary key, earns integer not null check (earns in (0, 1))) strict'],
     [
         'finding',
-        `(checker text references checker(tool), category text not null, path text not null, text text not null, ntext text generated always as (${_normalized('text')}) stored, text_hash text generated always as (lower(hex(sha3(ntext, 256)))) stored, occurrence integer not null, finding_id text generated always as (lower(hex(sha3(coalesce(checker || ':', '') || category || char(0) || path || char(0) || text_hash || char(0) || occurrence, 256)))) stored unique, start_line integer not null, start_column integer not null, end_line integer not null, end_column integer not null, byte_start integer, byte_end integer, subject_hash text not null, severity text, message text not null, replacement text, session_id text, prompt_id text, agent_id text, tool_use_id text, observed_at integer not null) strict`,
+        `(checker text, category text not null, path text not null, text text not null, ntext text generated always as (${_normalized('text')}) stored, text_hash text generated always as (lower(hex(sha3(ntext, 256)))) stored, occurrence integer not null, finding_id text generated always as (lower(hex(sha3(coalesce(checker || ':', '') || category || char(0) || path || char(0) || text_hash || char(0) || occurrence, 256)))) stored unique, start_line integer not null, start_column integer not null, end_line integer not null, end_column integer not null, byte_start integer, byte_end integer, subject_hash text not null, severity text, message text not null, replacement text, session_id text, prompt_id text, agent_id text, tool_use_id text, observed_at integer not null) strict`,
     ],
     [
         'finding_transition',
@@ -102,33 +104,38 @@ const _VIEWS: readonly string[] = [
     "create view category_fires as select f.checker, f.category, count(distinct f.finding_id) as sites, count(t.rowid) as sightings, count(distinct f.prompt_id) as prompts_fired, min(t.at) as first_at, max(t.at) as last_at from finding f left join finding_transition t on t.finding_id = f.finding_id and t.actor = 'check' where f.checker is not null group by f.checker, f.category;",
     "create view missed_sites as select finding_id, category, path, start_line, start_column, evidence, at from finding_state where state = 'checker_silent';",
 ];
-const OPEN = bound(
-    { rows: Object.fromEntries(_TABLES.flatMap(([name, _body, rows]) => (rows === undefined ? [] : [[name, rows]]))) },
-    [
-        'pragma journal_mode=wal;',
-        ..._TABLES.map(([name, body]) => `create temp table ${name}${body};`),
-        ..._INDEXES,
-        'begin immediate;',
-        `.output ${DELTA}`,
-        "select 'drop ' || m.type || ' ' || m.name || ';' from sqlite_master m left join sqlite_temp_master w on w.type = m.type and lower(w.name) = lower(m.name) where m.type = 'view' or (m.type = 'index' and m.sql <> w.sql);",
-        "select 'create table ' || w.name || '__delta' || substr(w.sql, instr(w.sql, '(')) || ';' || char(10) || 'insert into ' || w.name || '__delta(' || coalesce(c.cols, '') || ') select ' || coalesce(c.cols, '') || ' from ' || w.name || ';' || char(10) || 'drop table ' || w.name || ';' || char(10) || 'alter table ' || w.name || '__delta rename to ' || w.name || ';' from sqlite_temp_master w join sqlite_master m on m.type = 'table' and lower(m.name) = lower(w.name) and substr(m.sql, instr(m.sql, '(')) <> substr(w.sql, instr(w.sql, '(')) left join (select t.name as tbl, group_concat(p.name, ', ' order by p.cid) as cols from sqlite_temp_master t, pragma_table_info(t.name, 'temp') p join pragma_table_info(t.name, 'main') q on q.name = p.name group by t.name) c on c.tbl = w.name;",
-        '.output',
-        ..._TABLES.map(([name]) => `drop table temp.${name};`),
-        `.read ${DELTA}`,
-        ..._TABLES.map(([name, body]) => `create table if not exists ${name}${body};`),
-        ..._INDEXES,
-        `.output ${DELTA}`,
-        `select 'delete from ' || l.key || ' where ' || k.name || ' not in (select value ->> ' || quote('$.' || k.name) || ' from json_each(' || quote(l.value) || '))' || coalesce((select group_concat(' and not exists (select 1 from ' || m.name || ' r where r.' || f."from" || ' = ' || l.key || '.' || k.name || ')', '') from sqlite_master m, pragma_foreign_key_list(m.name) f where m.type = 'table' and f."table" = l.key), '') || ';' || char(10) || 'insert into ' || l.key || '(' || (select group_concat(c.name, ', ') from pragma_table_info(l.key) c) || ') select ' || (select group_concat('value ->> ' || quote('$.' || c.name), ', ') from pragma_table_info(l.key) c) || ' from json_each(' || quote(l.value) || ') where true on conflict do ' || coalesce('update set ' || (select group_concat(c.name || ' = excluded.' || c.name, ', ') from pragma_table_info(l.key) c where c.pk = 0), 'nothing') || ';' from json_each(:rows) l, pragma_table_info(l.key) k where k.pk = 1;`,
-        '.output',
-        `.read ${DELTA}`,
-        ..._VIEWS,
-        'commit;',
-    ].join('\n'),
-);
+const OPEN = [
+    bound({ folder: _FOLDER }, 'select writefile(:folder, null, 16877);'),
+    `.open ${_DATABASE}`,
+    _TIMEOUT,
+    bound(
+        { rows: Object.fromEntries(_TABLES.flatMap(([name, _body, rows]) => (rows === undefined ? [] : [[name, rows]]))) },
+        [
+            'pragma journal_mode=wal;',
+            ..._TABLES.map(([name, body]) => `create temp table ${name}${body};`),
+            ..._INDEXES,
+            'begin immediate;',
+            `.output ${_DELTA}`,
+            "select 'drop ' || m.type || ' ' || m.name || ';' from sqlite_master m left join sqlite_temp_master w on w.type = m.type and lower(w.name) = lower(m.name) where m.type = 'view' or (m.type = 'index' and m.sql <> w.sql) or (m.type = 'table' and m.name not like 'sqlite\\_%' escape '\\' and w.name is null);",
+            "select 'create table ' || w.name || '__delta' || substr(w.sql, instr(w.sql, '(')) || ';' || char(10) || 'insert into ' || w.name || '__delta(' || coalesce(c.cols, '') || ') select ' || coalesce(c.cols, '') || ' from ' || w.name || ';' || char(10) || 'drop table ' || w.name || ';' || char(10) || 'alter table ' || w.name || '__delta rename to ' || w.name || ';' from sqlite_temp_master w join sqlite_master m on m.type = 'table' and lower(m.name) = lower(w.name) and substr(m.sql, instr(m.sql, '(')) <> substr(w.sql, instr(w.sql, '(')) left join (select t.name as tbl, group_concat(p.name, ', ' order by p.cid) as cols from sqlite_temp_master t, pragma_table_info(t.name, 'temp') p join pragma_table_info(t.name, 'main') q on q.name = p.name group by t.name) c on c.tbl = w.name;",
+            '.output',
+            ..._TABLES.map(([name]) => `drop table temp.${name};`),
+            `.read ${_DELTA}`,
+            ..._TABLES.map(([name, body]) => `create table if not exists ${name}${body};`),
+            ..._INDEXES,
+            `.output ${_DELTA}`,
+            `select 'delete from ' || l.key || ' where ' || k.name || ' not in (select value ->> ' || quote('$.' || k.name) || ' from json_each(' || quote(l.value) || '))' || coalesce((select group_concat(' and not exists (select 1 from ' || m.name || ' r where r.' || f."from" || ' = ' || l.key || '.' || k.name || ')', '') from sqlite_master m, pragma_foreign_key_list(m.name) f where m.type = 'table' and f."table" = l.key), '') || ';' || char(10) || 'insert into ' || l.key || '(' || (select group_concat(c.name, ', ') from pragma_table_info(l.key) c) || ') select ' || (select group_concat('value ->> ' || quote('$.' || c.name), ', ') from pragma_table_info(l.key) c) || ' from json_each(' || quote(l.value) || ') where true on conflict do ' || coalesce('update set ' || (select group_concat(c.name || ' = excluded.' || c.name, ', ') from pragma_table_info(l.key) c where c.pk = 0), 'nothing') || ';' from json_each(:rows) l, pragma_table_info(l.key) k where k.pk = 1;`,
+            '.output',
+            `.read ${_DELTA}`,
+            ..._VIEWS,
+            'commit;',
+        ].join('\n'),
+    ),
+].join('\n');
 
 // --- [STATEMENTS] ----------------------------------------------------------------------
 
-const INSERT = `insert into observation(${_OBSERVATION.map(([name]) => name).join(', ')}) values (${_OBSERVATION.map(([name]) => `:${name}`).join(', ')});`;
+const INSERT = `insert into observation(${_OBSERVATION.map(([name]) => name).join(', ')}) select ${_OBSERVATION.map(([name]) => `value ->> '$.${name}'`).join(', ')} from json_each(:rows);`;
 const BOUNDARY = `insert into temp.sqlite_parameters(key, value) values (':key', ${_lineage(':main', ':worktree', ':branch')});
 create temp table decision as with r(f) as (select coalesce(max(to_ts), 0) from judged_range where kind = 'edit' and lineage_key = :key), e as materialized (select v.session_id, v.file_path, v.agent_id from unjudged_edits v, r where v.ts > r.f and v.ts <= :to and instr(v.cwd || '/', :worktree || '/') = 1), a as materialized (select count(*) filter (where agent_id in (select agent_id from e)) = 0 as quiet, count(*) filter (where agent_type = :editAgent and instr(cwd || '/', :worktree || '/') = 1) = 0 as rangeIdle, count(*) filter (where agent_type = :categoryAgent and instr(cwd || '/', :worktree || '/') = 1) = 0 as categoryIdle from running_agents), c(category) as (select category from recurring_categories where sites >= :categoryThreshold and not exists (select 1 from json_each(reported_on) where value = :key) order by sites desc, category limit 1), spawn(value) as (select json_object('kind', 'range', 'agent', :editAgent, 'from', r.f, 'to', :to) from r, a where :editThreshold > 0 and a.quiet and a.rangeIdle and exists (select 1 from e where session_id = :session) and (select count(distinct file_path) from e) >= :editThreshold union all select json_object('kind', 'category', 'agent', :categoryAgent, 'category', c.category) from c, a where :categoryThreshold > 0 and a.quiet and a.categoryIdle) select a.quiet and a.rangeIdle as idle, (select json_group_array(json(value)) from spawn) as spawns from a;
 begin immediate;
@@ -142,4 +149,4 @@ const REPORT = "insert into finding_delivery(finding_id, lineage_key, session_id
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Column };
-export { BOUNDARY, bound, DELTA, INSERT, JUDGE, OPEN, REPORT, sqlite };
+export { BOUNDARY, bound, INSERT, JUDGE, OPEN, OPENER, REPORT, sqlite };

@@ -18,14 +18,7 @@ const _Actions = Schema.Struct({
     ),
     actions: Schema.Array(Schema.Struct({ runs: Schema.Struct({ steps: _Steps }) })),
 });
-const _Secrets = Config.all(
-    (
-        [
-            ['dev', ['BLENDERMCP_POLYPIZZA_API_KEY', 'BLENDERMCP_SKETCHFAB_API_KEY']],
-            ['dev_repo', ['BUF_TOKEN', 'DOPPLER_TOKEN', 'GITHUB_TOKEN', 'NUGET_USER', 'PULUMI_ACCESS_TOKEN', 'RHINO_TOKEN', 'SIXLABORSLICENSEKEY']],
-        ] as const
-    ).flatMap(([config, names]) => names.map((name) => Config.map(Config.Redacted(name), (value) => ({ config, name, value })))),
-);
+const _Secrets = Config.all((['DOPPLER_TOKEN', 'GITHUB_TOKEN', 'PULUMI_ACCESS_TOKEN', 'SIXLABORSLICENSEKEY'] as const).map((name) => Config.map(Config.Redacted(name), (value) => ({ name, value }))));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -56,7 +49,7 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
     return {
         repository: repository.fullName,
         configs: Record.values(configs),
-        secrets: secrets.map(({ config, name, value }) => new Secret(`${projectArgs.name}.${config}.${name}`, { project: project.name, config: configs[config], name, value: Redacted.value(value) } satisfies SecretArgs).name),
+        secrets: secrets.map(({ name, value }) => new Secret(`${projectArgs.name}.${branchArgs.name}.${name}`, { project: project.name, config: configs[branchArgs.name], name, value: Redacted.value(value) } satisfies SecretArgs).name),
         ciSecrets: [new ActionsSecret(`${repositoryArgs.name}-actions-doppler-token`, ciSecretArgs).secretName, new DependabotSecret(`${repositoryArgs.name}-dependabot-doppler-token`, ciSecretArgs).secretName],
         securityUpdates: new RepositoryDependabotSecurityUpdates(`${repositoryArgs.name}-security-updates`, { repository: vulnerabilityAlerts.repository, enabled: true }).enabled,
         ruleset: new RepositoryRuleset(`${repositoryArgs.name}-main`, {

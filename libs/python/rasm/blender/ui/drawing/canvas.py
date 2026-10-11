@@ -78,9 +78,10 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, area: bpy.types.Area, region: bpy.types.Region, pointer: Option[tuple[int, int]] = Nothing) -> Self:
         """Reads the visible extent from Blender's stored region rectangles."""
+        metrics = Metrics.read()
         left, bottom = region.x, region.y
         right, top = left + region.width - 1, bottom + region.height - 1
-        for sibling in (other for other in area.regions if other != region and Theme(space=area.type, region=other.type).overlaps):
+        for sibling in (other for other in area.regions if other != region and Theme(space=area.type, region=other.type, preferences=metrics.preferences).overlaps):
             x, y = sibling.x, sibling.y
             xmax, ymax = x + sibling.width - 1, y + sibling.height - 1
             if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
@@ -91,8 +92,8 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
                 bottom, top = (ymax if abs(bottom - y) < 2 else bottom), (y if abs(top - ymax) < 2 else top)
         origin_x, origin_y = pointer.map(lambda _: (0, 0)).default_value((region.x, region.y))
         return cls(
-            theme=Theme(space=area.type, region=region.type),
-            metrics=Metrics.read(),
+            theme=Theme(space=area.type, region=region.type, preferences=metrics.preferences),
+            metrics=metrics,
             extent=Rect(x=float(left - origin_x), y=float(bottom - origin_y), width=float(right - left + 1), height=float(top - bottom + 1)),
             pointer=pointer,
             space=Option.of_optional(area.spaces.active),
@@ -120,10 +121,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         match view.tag:
             case "some":
                 origin_x, origin_y, _, _ = gpu.state.viewport_get()
-                (left, bottom), (right, top) = (  # type: ignore[misc]
-                    (origin_x + x, origin_y + y)  # type: ignore[has-type]
-                    for x, y in (view.some.view_to_region(*corner, clip=False) for corner in corners)
-                )
+                (left, bottom), (right, top) = ((origin_x + column, origin_y + row) for column, row in (view.some.view_to_region(*corner, clip=False) for corner in corners))  # type: ignore[misc, has-type]
             case "none":
                 (left, bottom), (right, top) = ((round(x), round(y)) for x, y in corners)
         held = gpu.state.scissor_get()

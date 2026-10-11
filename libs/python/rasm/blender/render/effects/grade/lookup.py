@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Authored-domain native LUT sampling and tetrahedral compositor tables."""
 
 from collections.abc import Mapping
@@ -18,7 +16,7 @@ from rasm.blender.commands.operators import Call, Done, Operator
 from rasm.blender.data.ids.images import Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
 from rasm.blender.extension.identity import Identity, Key
-from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, Generated, INPUTS, Interface, item_key, math, nested, node, NodeGroup, Operand, Socket, vector
 from rasm.blender.render.color.luts import lut_files
 from rasm.blender.render.color.spaces import space_item
@@ -207,13 +205,13 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
                         part
                         for axis in "XYZ"
                         for part in (
-                            math(f"{key}_{axis}_offset", "ADD", End(node=f"{key}_channels", socket=axis), 2.0**low),
-                            math(f"{key}_{axis}_positive", "MAXIMUM", End(node=f"{key}_{axis}_offset"), float(np.finfo(np.float32).tiny)),
-                            math(f"{key}_{axis}_log", "LOGARITHM", End(node=f"{key}_{axis}_positive"), 2.0),
-                            math(f"{key}_{axis}_fit", "MULTIPLY_ADD", End(node=f"{key}_{axis}_log"), 1.0 / span, -low / span),
+                            math(f"{key}_{axis.lower()}_offset", "ADD", End(node=f"{key}_channels", socket=axis), 2.0**low),
+                            math(f"{key}_{axis.lower()}_positive", "MAXIMUM", End(node=f"{key}_{axis.lower()}_offset"), float(np.finfo(np.float32).tiny)),
+                            math(f"{key}_{axis.lower()}_log", "LOGARITHM", End(node=f"{key}_{axis.lower()}_positive"), 2.0),
+                            math(f"{key}_{axis.lower()}_fit", "MULTIPLY_ADD", End(node=f"{key}_{axis.lower()}_log"), 1.0 / span, -low / span),
                         )
                     ),
-                    node(f"{key}_encoded", bpy.types.ShaderNodeCombineXYZ, {axis: End(node=f"{key}_{axis}_fit") for axis in "XYZ"}, {}),
+                    node(f"{key}_encoded", bpy.types.ShaderNodeCombineXYZ, {axis: End(node=f"{key}_{axis.lower()}_fit") for axis in "XYZ"}, {}),
                 ).map(ended(f"{key}_encoded", "Vector"))
             case Rational():
                 return vector(f"{key}_positive", "MAXIMUM", source, (0.0,) * 3).bind(
@@ -246,10 +244,10 @@ def looked_up(shell: Shell[Lookup]) -> BlenderResult[tuple[Fragment, End]]:
                 .map(lambda pair: applied(pair[0].getDefaultCPUProcessor(), pair[1]))
                 .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
             )
-            return Result[npt.NDArray[np.float32], BlenderFaults].bind(sampled, lambda plane: tabled(item_key(Lookup.prefix.__name__), f"{name} Prefix", lattice, plane, shell.source, shell.config))
+            return Result[npt.NDArray[np.float32], BlenderFaults].bind(sampled, lambda plane: tabled(item_key(Lookup.prefix.__name__), f"{name} Prefix", lattice, plane, shell.source, shell.config))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
         entering = prefix(record.prefix.value) if len(head) and record.prefix.enabled else Ok((Fragment(), shell.source))
-        return entering.bind(lambda source: suffix.map(lambda table: tabled(item_key(Lookup.source.__name__), name, *table, source, shell.config)).default_value(Ok(source)))
+        return entering.bind(lambda source: suffix.map(lambda table: tabled(item_key(Lookup.source.__name__), name, *table, source, shell.config)).default_value(Ok(source)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     return (
         lut_files
@@ -306,12 +304,11 @@ def prepared(
 
 def reloaded(call: Call[Named]) -> BlenderResult[Done]:
     """Rebuilds a named LUT entry from current file content."""
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
     return (
-        Result[bpy.types.Scene, BlenderFaults]
+        call
+        .root(bpy.types.Scene)
         .bind(
-            scene,
-            lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: lookup.read(call.identity, entry).bind(lambda held: lookup.write(call.identity, scene, entry, held))),
+            lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: lookup.read(call.identity, entry).bind(lambda held: lookup.write(call.identity, scene, entry, held)))
         )
         .map(lambda _: Done())
     )

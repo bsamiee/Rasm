@@ -1,6 +1,3 @@
-# mypy: disable-error-code="attr-defined,union-attr"
-# ty: ignore[unresolved-attribute]
-
 """Owned native layer stacks, source graphs, edits, and layered documents."""
 
 from collections.abc import Callable, Generator
@@ -23,7 +20,6 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm.blender.commands.calls import called
 from rasm.blender.commands.modal import Gesture, Modal, Travel
 from rasm.blender.commands.operators import Call, Command, Done, Empty, InvokePopup, Open, Operator, Own, Placed, Properties
 from rasm.blender.data.ids.images import loaded, Tag
@@ -79,6 +75,7 @@ from rasm.blender.render.effects.stack import (
     KeyPath,
     Pinned,
     Placeable,
+    relocated,
     Shell,
     viewed,
 )
@@ -133,14 +130,14 @@ layer_names = Choices(
         (layer.key, layer.name, "")
         for name in identity.reports.reported(identity.name)(Name.ATTACHMENT, LayerStacks.ownership.key).to_list()
         for tree, _ in LayerStacks.ownership.held(identity)
-        if tree.name == owner.stack
+        if tree.name == owner.stack  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         for layer in getattr(tree, name).layers
     )
 )
 node_types = Choices(
     lambda _identity, _owner, _context: (
-        (kind.bl_rna.identifier, kind.bl_rna.name, kind.bl_rna.description, kind.bl_icon, index)
-        for index, name in enumerate(dir(bpy.types))
+        (kind.__name__, kind.bl_rna.name, kind.bl_rna.description)  # type: ignore[attr-defined]
+        for name in dir(bpy.types)
         for kind in (getattr(bpy.types, name),)
         if isinstance(kind, type) and issubclass(kind, bpy.types.CompositorNode) and kind.is_registered_node_type()
     )
@@ -303,7 +300,7 @@ class LayerStacking[E: Effect]:
     def sources(self, scene: bpy.types.Scene, layers: LayerStack[Source, E], tree: Option[bpy.types.NodeTree] = Nothing) -> BlenderResult[dict[Key, dict[str, str]]]:
         """Reads enabled outputs on an isolated native source graph with copied settings."""
         with ExitStack() as release:
-            scratch: bpy.types.CompositorNodeTree = bpy.data.node_groups.new("Layer Sources", bpy.types.CompositorNodeTree.bl_rna.identifier)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            scratch: bpy.types.CompositorNodeTree = bpy.data.node_groups.new("Layer Sources", "CompositorNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             release.callback(bpy.data.node_groups.remove, scratch)
 
             def copied(_: Changes) -> BlenderResult[dict[Key, dict[str, str]]]:
@@ -378,7 +375,7 @@ class LayerStacking[E: Effect]:
                     lambda changes: self.framing.of.map(
                         lambda read: (
                             read(self.identity, scene, viewed(scene))
-                            .bind(lambda frame: accumulated(entered(self.identity, entry, (), frame) for entry in scene.compositor_effects if entry.node_group == tree))
+                            .bind(lambda frame: accumulated(entered(self.identity, entry, (Shell.frame,), frame) for entry in scene.compositor_effects if entry.node_group == tree))
                             .map(lambda _: changes)
                         )
                     ).default_value(Ok(changes))
@@ -395,10 +392,7 @@ class LayerStacking[E: Effect]:
                 )
             )
         )
-        path = Result[bpy.types.Preferences, BlenderFaults].bind(
-            root_in(bpy.types.Preferences, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="preferences"),)),
-            lambda preferences: self.routed.pathed.path(scene, preferences, datetime.datetime.now(datetime.UTC).date()),
-        )
+        path = self.routed.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date())
         return paired(paired(desired, self.stack.config()), path).bind(lambda parts: built(*parts[0], parts[1]))
 
     def refreshed(self) -> BlenderResult[Option[str]]:
@@ -545,7 +539,7 @@ class LayerStacking[E: Effect]:
                     rollback.callback(scene.compositor_effects.remove, entry)
                 return (
                     written(entry, "node_group", tree)
-                    .bind(lambda _: called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": 0}, override=Some(context.temp_override(scene=scene))))
+                    .bind(lambda _: relocated(scene, entry, 0))
                     .bind(lambda _: self.reconciled(scene, tree, context))
                     .map(lambda _: rollback.pop_all())
                     .map(lambda _: None)
@@ -644,9 +638,7 @@ class LayerStacking[E: Effect]:
                         layer.effects.value,
                         index,
                         lambda held: (
-                            self.stack.offering(type(held.value.effect)).map(lambda row: structs.replace(held, value=Entry(effect=row.seeded(entry.id_data))))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                            if action is Edit.RESET
-                            else Ok(held)
+                            self.stack.offering(type(held.value.effect)).map(lambda row: structs.replace(held, value=Entry(effect=row.seeded(entry.id_data)))) if action is Edit.RESET else Ok(held)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                         ),
                     ).bind(lambda pair: saved(structs.replace(layer, effects=structs.replace(layer.effects, value=pair[0]))))
 
@@ -705,7 +697,7 @@ class LayerStacking[E: Effect]:
             return (
                 call
                 .root(bpy.types.Scene)
-                .bind(lambda scene: LayerStacks.ownership.made(self.identity, lambda: Ok(bpy.data.node_groups.new(LayerStacks.title, bpy.types.CompositorNodeTree.bl_rna.identifier)), of=Some(scene)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                .bind(lambda scene: LayerStacks.ownership.made(self.identity, lambda: Ok(bpy.data.node_groups.new(LayerStacks.title, "CompositorNodeTree")), of=Some(scene)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 .bind(lambda group: self.attached.write(group, self.form()).bind(lambda _: self.switched(call.context, group)))
                 .map(lambda _: Done())
             )
@@ -793,18 +785,14 @@ class LayerStacking[E: Effect]:
         def media(call: Call[Empty]) -> BlenderResult[Done]:
             return (
                 accumulated(loaded(str(path), Tag()) for path in call.paths)
-                .bind(
-                    lambda images: accumulated(
-                        self.add_node(call.context, bpy.types.CompositorNodeImage.bl_rna.identifier, functools.partial(written, identifier="image", value=image)) for image in images
-                    )
-                )
+                .bind(lambda images: accumulated(self.add_node(call.context, bpy.types.CompositorNodeImage.__name__, functools.partial(written, identifier="image", value=image)) for image in images))
                 .map(lambda _: Done())
             )
 
         def group(call: Call[Switched]) -> BlenderResult[Done]:
             return (
                 tree(call.record.stack)
-                .bind(lambda group: self.add_node(call.context, bpy.types.CompositorNodeGroup.bl_rna.identifier, functools.partial(written, identifier="node_tree", value=group)))
+                .bind(lambda group: self.add_node(call.context, bpy.types.CompositorNodeGroup.__name__, functools.partial(written, identifier="node_tree", value=group)))
                 .map(lambda _: Done())
             )
 
@@ -869,7 +857,7 @@ class LayerStacking[E: Effect]:
                     case RenderPass() | NodeSource():
                         return Ok(structs.replace(layer, source=structs.replace(layer.source, output=call.record.output)))
                     case Adjustment() | Recombined():
-                        return Error((BlenderAbsentFault(owner=layer.name, key=OutputChoice.output.__name__),))
+                        return Error((BlenderAbsentFault(owner=layer.name, key=OutputChoice.output.__name__),))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
             return changed(call.context, chosen, Some(call.record.layer)).map(lambda _: Done())
 
@@ -943,7 +931,7 @@ class LayerStacking[E: Effect]:
                 description="Load image and movie footage",
                 form=Empty,
                 run=media,
-                invoke=Some(Open(extensions=lambda _: (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie)))),
+                invoke=Some(Open(extensions=lambda _: (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie)))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             ),
             self.output,
             self.masking,
@@ -967,7 +955,7 @@ class LayerStacking[E: Effect]:
 
     def _layer_list(self) -> ItemList:
         """Binds the native collection and screen selection, with visibility columns."""
-        layer = self.attached.group.struct.bl_rna.properties["layers"].fixed_type
+        layer = self.attached.group.struct.bl_rna.properties["layers"].fixed_type  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return ItemList(
             key="layer_stack_layers",
             item=type(layer),
@@ -978,7 +966,7 @@ class LayerStacking[E: Effect]:
             ),
             active=Member(root=bpy.types.Screen, path=f"{self.view.name}.active", reach=Some(lambda context: Option.of_optional(context.screen))),
             columns=tuple(Property(target=Member(root=type(layer), path=name), text=Some("")) for name in ("visible", "solo", "matte.enabled")),
-            enabled=Some(lambda context, item: self.selected(context).map(lambda selected: any(held.key == item.key for held, _ in selected[1].composited()))),
+            enabled=Some(lambda context, item: self.selected(context).map(lambda selected: any(held.key == item.key for held, _ in selected[1].composited()))),  # ty: ignore[unresolved-attribute]
             sort_reverse=True,
         )
 
@@ -1045,15 +1033,18 @@ class LayerStacking[E: Effect]:
         commands = {command.key: command for command in self.commands}
 
         def draw(listing: RowDraw) -> RowDraw:
-            def button(layout: bpy.types.UILayout, command: Placed, text: str = "") -> None:
-                alerted(layout, command.invocation(self.identity).bind(lambda placement: operated(layout.operator(placement[0], text=text), placement[0]).bind(placement[1])))
+            def button(layout: bpy.types.UILayout, command: Placed, text: Option[str] = Nothing) -> None:
+                def pressed(idname: str) -> BlenderResult[bpy.types.OperatorProperties]:
+                    return text.map(lambda label: operated(layout.operator(idname, text=label), idname)).default_with(lambda: operated(layout.operator(idname), idname))
+
+                alerted(layout, command.invocation(self.identity).bind(lambda placement: pressed(placement[0]).bind(placement[1])))
 
             def edits(layout: bpy.types.UILayout, target: LayerAt | EffectAt | LayerMaskAt | EffectMaskAt) -> None:
                 line = layout.row(align=True)
                 for action in Edit:
                     button(line, Own(command=self.editing[action], values=Addressed(target=target)))
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 line = layout.row(align=True)
                 for key in ("layer_stack_new", "layer_stack_duplicate", "layer_stack_remove", "layer_stack_switch"):
                     button(line, commands[key])
@@ -1068,7 +1059,7 @@ class LayerStacking[E: Effect]:
                     if view.active >= len(record.layers):
                         continue
                     layer = record.layers[view.active]
-                    native = self.attached.struct(tree).layers[view.active]
+                    native = self.attached.struct(tree).layers[view.active]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     for name in ("name", "visible", "solo"):
                         layout.prop(native, name)
                     edits(layout, LayerAt(layer=view.active))
@@ -1079,12 +1070,11 @@ class LayerStacking[E: Effect]:
                             layout.prop(source_values, field.name)
                     button(layout, Own(command=self.masking, values=Addressed(target=LayerAt(layer=view.active))))
                     nodes = marked(tree, self.identity)
-                    source = nodes.get(f"{layer.key}_source")
-                    if source is not None:
+                    for source in Option.of_optional(nodes.get(f"{layer.key}_source")).to_list():
                         source.draw_buttons_ext(context, layout)
                         layout.template_node_inputs(source)
                         for output in (output for output in source.outputs if output.enabled):
-                            button(layout, Own(command=self.output, values=OutputChoice(layer=view.active, output=output.name)), output.name)
+                            button(layout, Own(command=self.output, values=OutputChoice(layer=view.active, output=output.name)), Some(output.name))
                     for key, current in nodes.items():
                         match current:
                             case bpy.types.ShaderNodeValToRGB() if key.startswith(f"{layer.key}_"):
@@ -1139,7 +1129,7 @@ class LayerStacking[E: Effect]:
                                     lambda pixels: (
                                         view
                                         .map(lambda shown: shown.form(config, pixels))
-                                        .default_with(lambda: viewed(scene).form(config, pixels, exposure=scene.view_settings.exposure, gamma=scene.view_settings.gamma))
+                                        .default_with(lambda: viewed(scene).form(config, pixels, exposure=scene.view_settings.exposure, gamma=scene.view_settings.gamma))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                                         .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
                                     )
                                 )
@@ -1305,8 +1295,8 @@ def inlined(prefix: Key, group: NodeGroup, outer: Callable[[Key], End]) -> Blend
 def unit[E: Effect](layer: Layer[Source, E], below: End, base: End, planning: Planning, *, mixes: bool) -> BlenderResult[tuple[Fragment, InterfacePanel, tuple[tuple[FileItem, End], ...]]]:
     """Constructs a source, gated effects, affine sampling, masks, and covered content."""
     key = layer.key
-    context = {field.name: End(node=INPUTS, socket=field.name) for field in structs.fields(CameraFrame)}
-    frame = context["aspect"], context["scale"]
+    context = {key: End(node=INPUTS, socket=key) for field in structs.fields(CameraFrame) for key in (item_key(Shell.frame, field.name),)}
+    frame = context[item_key(Shell.frame, "aspect")], context[item_key(Shell.frame, "scale")]
 
     def outer(*parts: Key | int) -> End:
         return End(node=INPUTS, socket=item_key(key, *parts))
@@ -1483,7 +1473,8 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning) -> Ble
         ).map(framed_group)
 
     return paired(
-        accumulated(unit(layer, below, base, planning, mixes=layer.key in shown) for layer, below, base in zip(record.layers, covered, running)), paired(background, Interface.of(CameraFrame))
+        accumulated(unit(layer, below, base, planning, mixes=layer.key in shown) for layer, below, base in zip(record.layers, covered, running)),
+        paired(background, Interface.of(CameraFrame).map(lambda face: under(Shell.frame, face))),
     ).bind(lambda parts: built(parts[0], *parts[1]))
 
 
@@ -1553,7 +1544,7 @@ class LayerStacks[E: Effect]:
         """Acquires and composes the complete native recipe listings."""
 
         def draw(rows: tuple[RowDraw, ...]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for row in rows:
                     row(layout, holder, context)
 

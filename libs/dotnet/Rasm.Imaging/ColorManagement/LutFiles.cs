@@ -974,7 +974,7 @@ public static class LutFiles {
 
     private static StringBuilder Rows<T>(StringBuilder builder, ReadOnlySpan<T> values, int width) where T : struct, INumberBase<T> {
         for (int at = 0; at < values.Length; at++)
-            builder.Append(CultureInfo.InvariantCulture, $"{values[at]}{(at % width == width - 1 ? '\n' : ' ')}");
+            _ = builder.Append(CultureInfo.InvariantCulture, $"{values[at]}{(at % width == width - 1 ? '\n' : ' ')}");
         return builder;
     }
 }

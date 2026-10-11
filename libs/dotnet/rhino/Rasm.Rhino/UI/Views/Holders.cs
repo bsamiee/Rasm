@@ -186,23 +186,26 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
                     Callbacks.Handler<PaintEventArgs>(_ => DisposalOps.Replace(owned => {
                         Eto.Drawing.Size pixels = Eto.Drawing.Size.Ceiling((Eto.Drawing.SizeF)drawable.Size * drawable.ParentWindow.LogicalPixelSize);
                         return read(buttonIndex, new(pixels.Width, pixels.Height), owned);
-                    }, (found, release) => found.Match(
-                        Some: value => {
-                            Eto.Drawing.Bitmap priorImage = Image(drawable);
-                            string priorTip = drawable.ToolTip;
-                            Seq<IDisposable> prior = atomic(() => { Seq<IDisposable> held = images.Value; images.Value = held.Add(release); return held; });
-                            IO<Unit> rejected = IO.lift(() => atomic(() => images.Value = prior)).Bind(_ => IO.lift(release.Dispose));
-                            IO<Unit> restore = IO.lift(() => { Image(drawable) = priorImage; drawable.ToolTip = priorTip; });
-                            return DisposalOps.OnFailure(IO.lift(() => { Image(drawable) = value.Image; drawable.ToolTip = value.ToolTip; }), restore.Bind(_ => rejected))
-                                .Bind(_ => IO.lift(() => atomic(() => images.Value = Seq(release))))
-                                .Bind(_ => DisposalOps.Release(prior));
-                        },
-                        None: () => DisposalOps.Release(Seq(release)))).Map(static _ => unit), site), retain).Run(environment);
+                    }, (found, release) => Published(drawable, images, found, release)).Map(static _ => unit), site), retain).Run(environment);
                 controls.Add(drawable);
                 index++;
             }
             return toSeq(controls);
         });
+
+    private static IO<Unit> Published(ButtonDrawable drawable, Ref<Seq<IDisposable>> images, Option<(Eto.Drawing.Bitmap Image, string ToolTip)> found, IDisposable release) =>
+        found.Match(
+            Some: value => {
+                Eto.Drawing.Bitmap priorImage = Image(drawable);
+                string priorTip = drawable.ToolTip;
+                Seq<IDisposable> prior = atomic(() => { Seq<IDisposable> held = images.Value; images.Value = held.Add(release); return held; });
+                IO<Unit> rejected = IO.lift(() => atomic(() => images.Value = prior)).Bind(_ => IO.lift(release.Dispose));
+                IO<Unit> restore = IO.lift(() => { Image(drawable) = priorImage; drawable.ToolTip = priorTip; });
+                return DisposalOps.OnFailure(IO.lift(() => { Image(drawable) = value.Image; drawable.ToolTip = value.ToolTip; }), restore.Bind(_ => rejected))
+                    .Bind(_ => IO.lift(() => atomic(() => images.Value = Seq(release))))
+                    .Bind(_ => DisposalOps.Release(prior));
+            },
+            None: () => DisposalOps.Release(Seq(release)));
 
     private static IO<ButtonDrawable> Create(IHeaderButtonHandler header, int index, Eto.Drawing.Bitmap image, string toolTip, Ref<Seq<IDisposable>> images, Action<IDisposable> retain) =>
         DisposalOps.Within<IDisposable, ButtonDrawable>(owned => {

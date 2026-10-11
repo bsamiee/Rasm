@@ -1,5 +1,3 @@
-# mypy: disable-error-code="union-attr,has-type,misc"
-# ty: ignore[unresolved-attribute]
 """Native image pixels, file readings, owned images, proxies, and render-result export."""
 
 from collections.abc import Callable, Generator
@@ -37,22 +35,6 @@ from rasm.imaging.parameters import Case
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Downscale = Scaled | Bounded
-
-# --- [SERVICES] -------------------------------------------------------------------------
-
-intermediates: set[int] = set()
-productions: dict[tuple[int, Option[int]], Option["Production"]] = {}
-
-
-@contextmanager
-def intermediate(scene: bpy.types.Scene) -> Generator[None]:
-    """Holds native captures outside completed-image consumers for the render scope."""
-    intermediates.add(scene.session_uid)
-    try:
-        yield
-    finally:
-        intermediates.remove(scene.session_uid)
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -152,6 +134,22 @@ class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
         return Ok(((Band.APP_HANDLERS, acquired()),))
 
 
+# --- [SERVICES] -------------------------------------------------------------------------
+
+intermediates: set[int] = set()
+productions: dict[tuple[int, Option[int]], Option[Production]] = {}
+
+
+@contextmanager
+def intermediate(scene: bpy.types.Scene) -> Generator[None]:
+    """Holds native captures outside completed-image consumers for the render scope."""
+    intermediates.add(scene.session_uid)
+    try:
+        yield
+    finally:
+        intermediates.remove(scene.session_uid)
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [LOADS]
@@ -197,7 +195,7 @@ def fingerprinted(image: bpy.types.Image) -> BlenderResult[Option[ContentHash]]:
     """
     if (source := (image.source)) in {"MOVIE", "SEQUENCE", "TILED"} or (source == "VIEWER" and not image.has_data):
         return Ok(Nothing)
-    (width, height), channels = image.size, image.channels
+    (width, height), channels = np.asarray(image.size), image.channels
     if not width * height or image.type in {"MULTILAYER", "RENDER_RESULT"} or image.is_multiview:
         return Ok(Nothing)
     try:
@@ -208,18 +206,18 @@ def fingerprinted(image: bpy.types.Image) -> BlenderResult[Option[ContentHash]]:
     members = tuple(Descriptor(root=type(image), owner="", prop=prop) for prop in Snapshot.members(image.bl_rna) if prop != bpy.types.Image.bl_rna.properties["pixels"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     buffers = Snapshot.of(bpy.types.Image, {"type": image.type, "is_float": image.is_float})
     return Snapshot.capture(image, Some(members)).map(
-        lambda snapshot: Some(content_hash(bpy.types.Image, snapshot, buffers, arrays=(pixels, *(np.frombuffer(part.packed_file.data, np.uint8) for part in image.packed_files))))
+        lambda snapshot: Some(content_hash(bpy.types.Image, snapshot, buffers, arrays=(pixels, *(np.frombuffer(part.packed_file.data, np.uint8) for part in image.packed_files))))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     )
 
 
 def _associated(image: bpy.types.Image) -> bool:
     """Returns whether the native byte buffer stores straight color with alpha."""
-    return not image.is_float and image.channels == 4 and not image.colorspace_settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}
+    return not image.is_float and image.channels == 4 and not image.colorspace_settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
 def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
     """Returns associated float32 pixels top first and their native buffer colorspace."""
-    (width, height), channels, settings = image.size, image.channels, image.colorspace_settings
+    (width, height), channels, settings = np.asarray(image.size), image.channels, image.colorspace_settings
     if not width * height:
         return Error((BlenderAbsentFault(owner=repr(image), key=image.filepath),))
     try:
@@ -231,7 +229,7 @@ def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[
             np.multiply(plane[..., :3], alpha, out=plane[..., :3], where=alpha != 0.0)
     except MemoryError as error:
         return Error((BlenderReadFault(request=repr(image), error=error),))
-    return Ok(ImageFile(pixels=plane, colorspace=config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName() if image.is_float and not settings.is_data else settings.name))
+    return Ok(ImageFile(pixels=plane, colorspace=config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName() if image.is_float and not settings.is_data else settings.name))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
 def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
@@ -316,12 +314,13 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
         path, depth = str(origin.with_name(f"{origin.stem}.{width}x{height}{origin.suffix}")), row.depths[-1] if image.is_float else Depth.UINT8
 
         def stored(values: npt.NDArray[np.float32]) -> ImagingResult[str]:
-            dtype = depth.name.lower()
             match depth:
-                case Depth.UINT8 | Depth.UINT16:
-                    return ImageFile(pixels=codes(unassociated(values), np.iinfo(dtype).bits), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
-                case Depth.HALF | Depth.FLOAT:
-                    return ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).write(path, Storage(depth=np.finfo(dtype).bits), {}, config)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                case Depth.UINT8:
+                    return ImageFile(pixels=codes(unassociated(values), 8), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
+                case Depth.UINT16:
+                    return ImageFile(pixels=codes(unassociated(values), 16), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
+                case Depth.HALF | Depth.FLOAT as floated:
+                    return ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).write(path, Storage(depth=16 if floated is Depth.HALF else 32), {}, config)
 
         def marked() -> BlenderResult[str]:
             try:
@@ -394,7 +393,7 @@ def viewer_image() -> BlenderResult[bpy.types.Image]:
 
 
 def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
-    """Exports the scene's displayed result and all passes, restoring its entire format."""
+    """Exports the scene's displayed result and all passes, restoring every direct member of its format, the members the export writes."""
     settings, path = scene.render.image_settings, str(Path(bpy.app.tempdir, f"{scene.session_uid}.exr"))
     form: tuple[tuple[str, Value], ...] = (
         ("media_type", "MULTI_LAYER_IMAGE"),
@@ -427,7 +426,8 @@ def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
             case "error":
                 return Error(outcome.error)
 
-    return render_result().bind(lambda image: Snapshot.capture(settings).bind(lambda capture: exported(image, capture)))
+    direct = tuple(Descriptor(root=bpy.types.ImageFormatSettings, owner="", prop=prop) for prop in Snapshot.members(settings.bl_rna) if not isinstance(prop, bpy.types.PointerProperty))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    return render_result().bind(lambda image: Snapshot.capture(settings, Some(direct)).bind(lambda capture: exported(image, capture)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

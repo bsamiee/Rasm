@@ -12,7 +12,7 @@ utils:
     held:
         any:
             - all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?repeatUntil(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^repeatUntil$'}}}}
                 - not: {has: {field: arguments, has: {kind: argument, nthChild: 3}}}
             - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {kind: identifier, not: {inside: {kind: argument, field: name}}}}}
             - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {matches: outer-read}}}
@@ -44,7 +44,7 @@ rule:
         - pattern: {context: 'class C { object F() => $CALLEE($$$ARGUMENTS); }', selector: invocation_expression, strictness: cst}
         - any:
             - has: {field: function, has: {field: name, regex: '^(Repeat|Retry)(While|Until)(IO)?(\s*<.+>)?$'}}
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(repeat|retry)(While|Until)(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(repeat|retry)(While|Until)$'}}}}
         - matches: predicate
         - any:
             - all:

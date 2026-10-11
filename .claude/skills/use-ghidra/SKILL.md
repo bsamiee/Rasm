@@ -40,7 +40,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
 - Files: `<log>`, `<scriptlog>`, and `<macros>` go under `<main>/.artifacts/ghidra/<name>/`
-- Files: Main worktree `<main>` is !`dirname "$(git rev-parse --path-format=absolute --git-common-dir)"`
+- Files: Main worktree `<main>` is the line `dirname "$(git rev-parse --path-format=absolute --git-common-dir)"` prints
 - Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`
 - Logs: `<log>` holds one run's messages and its scripts' printed lines, `<scriptlog>` the printed lines alone
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
@@ -67,15 +67,15 @@ Imports:
 - Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
 ```
 
 `<run>` opens the saved program without analysis:
 
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath ${CLAUDE_SKILL_DIR}/scripts -log <log> -scriptlog <scriptlog>
+"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath ${CLAUDE_SKILL_DIR}/scripts -log <log> -scriptlog <scriptlog>
 ```
 
 After import:

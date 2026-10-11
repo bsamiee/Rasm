@@ -65,15 +65,18 @@ public abstract class JobEffect<TEffect, TState, TParameter, TError, TResource> 
                 let state = Held.Current
                 let metres = RenderRuns.Find(pipeline.RenderingId).Bind(static run => run.Metres)
                 from _ in Opening
-                from queued in use(() => new Job(Rewrite(state, extent, metres, site)))
-                    .Bind(job => use(IO.lift(() => Missing.Unless(pipeline.ThreadEngine(), nameof(PostEffectPipeline.ThreadEngine))))
-                        .Bind(engine => IO.lift(() => Refused.Unless(
-                            engine.RunPostEffect(job, pipeline, this, rect, EffectPipeline.Ids(TResource.Channels(state))), nameof(PostEffectThreadEngine.RunPostEffect))))
-                        .Bracket())
-                    .Bracket()
+                from queued in Queued(pipeline, rect, state, extent, metres, site)
                 select queued,
                 site),
         };
+
+    private IO<Unit> Queued(PostEffectPipeline pipeline, Rectangle rect, TState state, PixelExtent extent, Option<float> metres, CallbackSite site) =>
+        use(() => new Job(Rewrite(state, extent, metres, site)))
+            .Bind(job => use(IO.lift(() => Missing.Unless(pipeline.ThreadEngine(), nameof(PostEffectPipeline.ThreadEngine))))
+                .Bind(engine => IO.lift(() => Refused.Unless(
+                    engine.RunPostEffect(job, pipeline, this, rect, EffectPipeline.Ids(TResource.Channels(state))), nameof(PostEffectThreadEngine.RunPostEffect))))
+                .Bracket())
+            .Bracket();
 
     // --- [JOBS]
     private Func<Rectangle, PostEffectJobChannels, bool> Rewrite(TState state, PixelExtent extent, Option<float> metres, CallbackSite site) =>

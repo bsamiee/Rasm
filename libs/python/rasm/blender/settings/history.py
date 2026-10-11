@@ -30,7 +30,7 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
     form: type[T]
     read: Callable[[O], BlenderResult[T]]
     write: Callable[[O, T], BlenderResult[U]]
-    storage: Callable[[O], bpy.types.bpy_struct]  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    storage: "Callable[[O], bpy.types.bpy_struct[object]]"
     key: str
 
     # --- [STORAGE]

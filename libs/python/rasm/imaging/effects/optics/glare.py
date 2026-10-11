@@ -22,7 +22,7 @@ from rasm.imaging.faults import ImagingDiffractionFault, ImagingResult, ImagingS
 from rasm.imaging.hashing import content_hash, rng
 from rasm.imaging.parameters import Gated, GraphForm, Presentation, Quantity, Rgb, Seed
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Highlights(msgspec.Struct, frozen=True, kw_only=True):
@@ -185,6 +185,6 @@ class Halation(Effect, frozen=True, kw_only=True, tag=30):
     color: Annotated[Rgb, msgspec.Meta(description="Film re-exposure per channel")] = Rgb(red=1.0, green=0.1, blue=0.0)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Bloom", "Dirt", "Flares", "Glare", "Halation", "Highlights", "Pupil", "Specks"]

@@ -158,7 +158,7 @@ def existing(path: Path) -> Path:
     return next(folder for folder in (path, *path.parents) if folder.is_dir())
 
 
-def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct]" = Nothing) -> bool:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> bool:
     """Returns whether a requirement holds, rooting nested collection conditions at an item."""
     match condition:
         case Setting(descriptor=descriptor, accepted=accepted):
@@ -198,7 +198,7 @@ def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
             return all(holds(member, context, item) for member in members)
 
 
-def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct]" = Nothing) -> BlenderResult[None]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[None]:
     """Returns success or every unmet member of a conjunction in declaration order."""
     match condition:
         case AllOf(conditions=members):

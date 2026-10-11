@@ -18,9 +18,6 @@ defaults:
     run:
         shell: bash
 
-env:
-    DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
-
 jobs:
     check:
         runs-on: ubuntu-26.04
@@ -31,9 +28,14 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
+            - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
-            - run: nx affected -t check --exclude='tag:host:macos,tag:host:rhino,function-hooks'
+              env:
+                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+            - run: nx affected -t check --exclude='tag:host:macos,tag:host:rhino,tag:host:claude'
+              env:
+                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 
     macos:
         runs-on: xcode-27
@@ -44,10 +46,12 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
-            - uses: maxim-lobanov/setup-xcode@v1.7.0
+            - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= COMPILER_INDEX_STORE_ENABLE=NO
+            - run: nx affected -t check --exclude='!tag:host:macos' --configuration ci
             - run: nx affected -t check --exclude='!tag:host:rhino'
+              env:
+                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 
     required:
         needs: [check, macos]

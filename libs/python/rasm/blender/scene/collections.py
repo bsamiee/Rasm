@@ -237,9 +237,6 @@ def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection
 
 def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, copies: frozenset[type[bpy.types.ID]]) -> BlenderResult[bpy.types.Collection]:
     """Duplicates a local hierarchy and selected object data, rolling back every acquired ID."""
-    collections: dict[bpy.types.Collection, bpy.types.Collection] = {}
-    objects: dict[bpy.types.Object, bpy.types.Object] = {}
-    data: dict[bpy.types.ID, bpy.types.ID] = {}
 
     def expanded(frontier: tuple[bpy.types.Collection, ...]) -> Option[tuple[bpy.types.Collection, tuple[bpy.types.Collection, ...]]]:
         match frontier:
@@ -252,118 +249,119 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
     tree = tuple(dict.fromkeys(Block.unfold(expanded, seed)))
     with ExitStack() as rollback:
 
-        def copied[T: bpy.types.ID](block: T, into: dict[T, T]) -> BlenderResult[None]:
-            made = Option.of_optional(block.copy())
-            for held in made.to_list():
-                rollback.callback(bpy.data.batch_remove, ids=(held,))
-                into[block] = held
-            return made.to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="copy"),)).map(lambda _: None)
+        def copied[T: bpy.types.ID](blocks: Iterable[T]) -> BlenderResult[dict[T, T]]:
+            def made(block: T) -> BlenderResult[tuple[T, T]]:
+                copy = Option.of_optional(block.copy())
+                for held in copy.to_list():
+                    rollback.callback(bpy.data.batch_remove, ids=(held,))
+                return copy.to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="copy"),)).map(lambda held: (block, held))
 
-        mapping: dict[bpy.types.ID, bpy.types.ID] = {}
-        seen: set[tuple[int, type[object]]] = set()
-        owned: set[bpy.types.ID] = set()
+            return accumulated(map(made, blocks)).map(dict)
 
-        def custom(group: IDPropertyGroup) -> BlenderResult[None]:
-            def changed(name: str, value: object) -> BlenderResult[None]:
-                match value:
-                    case bpy.types.ID() if value in mapping:
-                        try:
-                            group.update({name: mapping[value]})
+        def finished(
+            collections: dict[bpy.types.Collection, bpy.types.Collection], objects: dict[bpy.types.Object, bpy.types.Object], data: dict[bpy.types.ID, bpy.types.ID]
+        ) -> BlenderResult[bpy.types.Collection]:
+            mapping: dict[bpy.types.ID, bpy.types.ID] = dict(chain(collections.items(), objects.items(), data.items()))
+            seen: set[tuple[int, type[object]]] = set()
+            owned: set[bpy.types.ID] = set(mapping.values())
+
+            def custom(group: IDPropertyGroup) -> BlenderResult[None]:
+                def changed(name: str, value: object) -> BlenderResult[None]:
+                    match value:
+                        case bpy.types.ID() if value in mapping:
+                            try:
+                                group.update({name: mapping[value]})
+                                return Ok(None)
+                            except ReferenceError as error:
+                                return Error((BlenderEditFault(request=f"{group!r}[{name!r}]", error=error),))
+                        case IDPropertyGroup():
+                            return custom(value)
+                        case list():
+                            return accumulated(custom(item) for item in value).map(lambda _: None)
+                        case _:
                             return Ok(None)
-                        except ReferenceError as error:
-                            return Error((BlenderEditFault(request=f"{group!r}[{name!r}]", error=error),))
-                    case IDPropertyGroup():
-                        return custom(value)
-                    case list():
-                        return accumulated(custom(item) for item in value).map(lambda _: None)
-                    case _:
-                        return Ok(None)
 
-            return accumulated(starmap(changed, group.items())).map(lambda _: None)
+                return accumulated(starmap(changed, group.items())).map(lambda _: None)
 
-        def repointed(owner: bpy.types.bpy_struct) -> BlenderResult[None]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-            if (identity := ((owner.as_pointer(), type(owner)))) in seen:
-                return Ok(None)
-            seen.add(identity)
+            def repointed(owner: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
+                if (identity := ((owner.as_pointer(), type(owner)))) in seen:
+                    return Ok(None)
+                seen.add(identity)
 
-            def member(prop: bpy.types.Property) -> BlenderResult[None]:
-                match prop:
-                    case bpy.types.PointerProperty():
-                        value: bpy.types.bpy_struct | None = getattr(owner, prop.identifier)  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-                        match value:
-                            case bpy.types.ID() if not prop.is_readonly and value in mapping:
-                                return Descriptor(root=type(owner), owner="", prop=prop).write(owner, mapping[value]).map(lambda _: None)
-                            case bpy.types.ID(is_embedded_data=True) if prop.is_readonly:
-                                owned.add(value)
-                                return repointed(value)
-                            case bpy.types.ID() | None:
-                                return Ok(None)
-                            case _ if value.id_data in owned:
-                                return repointed(value)
-                            case _:
-                                return Ok(None)
-                    case bpy.types.CollectionProperty():
-                        return accumulated(repointed(item) for item in getattr(owner, prop.identifier) if item.id_data in owned).map(lambda _: None)
-                    case _:
-                        return Ok(None)
+                def member(prop: bpy.types.Property) -> BlenderResult[None]:
+                    match prop:
+                        case bpy.types.PointerProperty():
+                            match getattr(owner, prop.identifier):
+                                case bpy.types.ID() as value if not prop.is_readonly and value in mapping:
+                                    return Descriptor(root=type(owner), owner="", prop=prop).write(owner, mapping[value]).map(lambda _: None)
+                                case bpy.types.ID(is_embedded_data=True) as value if prop.is_readonly:
+                                    owned.add(value)
+                                    return repointed(value)
+                                case bpy.types.ID() | None:
+                                    return Ok(None)
+                                case bpy.types.bpy_struct(id_data=held) as value if held in owned:
+                                    return repointed(value)
+                                case _:
+                                    return Ok(None)
+                        case bpy.types.CollectionProperty():
+                            return accumulated(repointed(item) for item in getattr(owner, prop.identifier) if item.id_data in owned).map(lambda _: None)
+                        case _:
+                            return Ok(None)
 
-            return accumulated((
-                *(member(prop) for prop in owner.bl_rna.properties),
-                *(custom(owner.id_properties_ensure()) for _ in (owner,) if hasattr(owner, bpy.types.bpy_struct.__getitem__.__name__)),
-            )).map(lambda _: None)
+                return accumulated((
+                    *(member(prop) for prop in owner.bl_rna.properties),
+                    *(custom(owner.id_properties_ensure()) for _ in (owner,) if hasattr(owner, bpy.types.bpy_struct.__getitem__.__name__)),
+                )).map(lambda _: None)
 
-        def mirrored(original: bpy.types.Collection) -> BlenderResult[None]:
-            made = collections[original]
-            members = (*original.objects, *original.children)
-            wanted: tuple[bpy.types.Object | bpy.types.Collection, ...] = (*(objects[item] for item in original.objects), *(collections.get(child, child) for child in original.children))
-            return (
-                accumulated(Snapshot.capture(held) for held in (*original.collection_objects, *original.collection_children))
-                .bind(
-                    lambda values: (
-                        parted(made, members)
-                        .bind(lambda _: joined(made, wanted))
-                        .bind(lambda _: accumulated(entry(made, item).bind(lambda held: snapshot.apply(held).outcome) for item, snapshot in zip(wanted, values)))
+            def mirrored(original: bpy.types.Collection) -> BlenderResult[None]:
+                made = collections[original]
+                members = (*original.objects, *original.children)
+                wanted: tuple[bpy.types.Object | bpy.types.Collection, ...] = (*(objects[item] for item in original.objects), *(collections.get(child, child) for child in original.children))
+                return (
+                    accumulated(Snapshot.capture(held) for held in (*original.collection_objects, *original.collection_children))
+                    .bind(
+                        lambda values: (
+                            parted(made, members)
+                            .bind(lambda _: joined(made, wanted))
+                            .bind(lambda _: accumulated(entry(made, item).bind(lambda held: snapshot.apply(held).outcome) for item, snapshot in zip(wanted, values)))
+                        )
                     )
+                    .map(lambda _: None)
                 )
-                .map(lambda _: None)
-            )
 
-        def placed(_: tuple[None, ...]) -> BlenderResult[bpy.types.Collection]:
-            made = collections[collection]
-            rows = tuple(zip((*parent.children, *parent.objects), (*parent.collection_children, *parent.collection_objects)))
-            ordered = (*(row[0] for row in sorted((row for row in rows if row[1].sort_index >= 0), key=lambda row: row[1].sort_index)), *(item for item, held in rows if held.sort_index < 0))
-            members = tuple(Handle.of(member) for item in ordered for member in ((item, made) if item == collection else (item,)))
-            return (
-                entry(parent, collection)
-                .bind(Snapshot.capture)
-                .bind(
-                    lambda values: (
-                        joined(parent, (made,))
-                        .bind(lambda _: entry(parent, made))
-                        .bind(lambda held: values.apply(held).outcome)
-                        .bind(lambda _: reconciled(CollectionTree(members=Some(members)), parent))
+            def placed(_: tuple[None, ...]) -> BlenderResult[bpy.types.Collection]:
+                made = collections[collection]
+                rows = tuple(zip((*parent.children, *parent.objects), (*parent.collection_children, *parent.collection_objects)))
+                ordered = (*(row[0] for row in sorted((row for row in rows if row[1].sort_index >= 0), key=lambda row: row[1].sort_index)), *(item for item, held in rows if held.sort_index < 0))
+                members = tuple(Handle.of(member) for item in ordered for member in ((item, made) if item == collection else (item,)))
+                return (
+                    entry(parent, collection)
+                    .bind(Snapshot.capture)
+                    .bind(
+                        lambda values: (
+                            joined(parent, (made,))
+                            .bind(lambda _: entry(parent, made))
+                            .bind(lambda held: values.apply(held).outcome)
+                            .bind(lambda _: reconciled(CollectionTree(members=Some(members)), parent))
+                        )
                     )
+                    .map(lambda _: made)
                 )
-                .map(lambda _: made)
-            )
 
-        def remapped(_: tuple[None, ...]) -> BlenderResult[tuple[None, ...]]:
-            mapping.update(collections.items())
-            mapping.update(objects.items())
-            mapping.update(data)
-            owned.update(mapping.values())
             inverse = Descriptor.resolve(bpy.types.Object, "matrix_parent_inverse", bpy.types.FloatProperty)
-            return accumulated(repointed(made) for made in mapping.values()).bind(
-                lambda _: inverse.bind(lambda prop: accumulated(prop.write(made, prop.read(original)).map(lambda _: None) for original, made in objects.items()))
+            return (
+                accumulated(repointed(made) for made in mapping.values())
+                .bind(lambda _: inverse.bind(lambda prop: accumulated(prop.write(made, prop.read(original)).map(lambda _: None) for original, made in objects.items())))
+                .bind(lambda _: accumulated(mirrored(held) for held in tree))
+                .bind(placed)
             )
 
-        result = (
-            accumulated(copied(held, collections) for held in tree)
-            .bind(lambda _: accumulated(copied(item, objects) for item in dict.fromkeys(item for held in tree for item in held.objects)))
-            .bind(lambda _: accumulated(copied(block, data) for block in dict.fromkeys(block for item in objects for block in Option.of_optional(item.data).to_list() if type(block) in copies)))
-            .bind(remapped)
-            .bind(lambda _: accumulated(mirrored(held) for held in tree))
-            .bind(placed)
+        result = copied(tree).bind(
+            lambda collections: copied(dict.fromkeys(item for held in tree for item in held.objects)).bind(
+                lambda objects: copied(dict.fromkeys(block for item in objects for block in Option.of_optional(item.data).to_list() if type(block) in copies)).bind(
+                    lambda data: finished(collections, objects, data)
+                )
+            )
         )
         if result.is_ok():
             rollback.pop_all()

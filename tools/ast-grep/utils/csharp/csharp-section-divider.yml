@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: csharp-section-divider
-language: csharp
-rule:
-    kind: comment
-    all:
-        - matches: text-section-divider
-        - matches: csharp-file-level

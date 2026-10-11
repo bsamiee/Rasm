@@ -3,6 +3,31 @@ id: no-boolean-as-number
 language: python
 severity: error
 utils:
+    literal-truth:
+        any:
+            - kind: 'comparison_operator, not_operator, true, false'
+            - matches: builtins-predicate-call
+            - kind: parenthesized_expression
+              has: {matches: literal-truth}
+            - kind: boolean_operator
+              all:
+                - has: {field: left, matches: literal-truth}
+                - has: {field: right, matches: literal-truth}
+    bool-parameter:
+        matches: {python-typed-parameter: {type: {regex: '^bool$'}}}
+    bool-name:
+        matches: {python-assigned-name: {value: {matches: literal-truth}}}
+    truth-value:
+        any:
+            - matches: literal-truth
+            - kind: identifier
+              any: [{matches: bool-parameter}, {matches: bool-name}]
+            - kind: parenthesized_expression
+              has: {matches: truth-value}
+            - kind: boolean_operator
+              all:
+                - has: {field: left, matches: truth-value}
+                - has: {field: right, matches: truth-value}
     truth:
         any:
             - kind: true, false, not_operator
@@ -28,7 +53,7 @@ utils:
             - kind: call
               all:
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^int$'}}}}
-                - has: {field: arguments, has: {nthChild: 1, matches: python-truth-value}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {nthChild: 1, matches: truth-value}, not: {has: {nthChild: 2}}}
             - kind: parenthesized_expression
               has: {matches: boolean-number}
     string-literal:
@@ -82,9 +107,9 @@ utils:
               has: {matches: boolean-number}
     truth-index:
         any:
-            - matches: python-truth-value
+            - matches: truth-value
             - kind: slice
-              has: {matches: python-truth-value}
+              has: {matches: truth-value}
     use:
         any:
             - kind: subscript
@@ -106,9 +131,8 @@ utils:
     literal:
         any:
             - kind: integer, float, true, false, none, ellipsis
-            - kind: string
-              not: {has: {any: [{kind: interpolation}, {kind: string_start, regex: '^[rR]?[tT]|^[tT][rR]?'}]}}
-            - kind: concatenated_string, parenthesized_expression, tuple, list
+            - matches: python-plain-string
+            - kind: parenthesized_expression, tuple, list
               not: {has: {pattern: $_, not: {matches: literal}}}
     pair:
         any:
@@ -144,7 +168,7 @@ utils:
                 - kind: subscript
                   all:
                     - has: {field: value, matches: pair}
-                    - has: {field: subscript, any: [{matches: boolean-number}, {matches: python-truth-value}]}
+                    - has: {field: subscript, any: [{matches: boolean-number}, {matches: truth-value}]}
                     - not: {matches: target}
                 - kind: binary_operator
                   any:
@@ -187,7 +211,7 @@ rewriters:
         kind: subscript
         all:
             - has: {field: value, matches: pair}
-            - has: {field: subscript, any: [{matches: counted}, {pattern: $T, matches: python-truth-value}]}
+            - has: {field: subscript, any: [{matches: counted}, {pattern: $T, matches: truth-value}]}
       fix: $TRUE if $T else $FALSE
     - id: kept-bytes
       rule:

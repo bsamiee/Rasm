@@ -64,18 +64,16 @@ class Instance(msgspec.Struct, frozen=True, kw_only=True):
                 matrix=item.matrix_world.copy(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 show_self=item.show_self,
                 show_particles=item.show_particles,
-                instancing=Some(
-                    Instancing(
-                        instancer=item.parent.original,  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+                instancing=Option.of_optional(item.parent).map(
+                    lambda parent: Instancing(
+                        instancer=parent.original,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                         persistent_id=tuple(item.persistent_id),  # type: ignore[arg-type]
                         random_id=item.random_id,
                         orco=item.orco.copy(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                         uv=Vector(item.uv),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                         particle_system=Option.of_optional(item.particle_system).map(lambda system: system.name),
                     )
-                )
-                if item.is_instance
-                else Nothing,
+                ),
             )
             for item in depsgraph.object_instances
         )
@@ -108,11 +106,10 @@ class Hit(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def evaluated(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Depsgraph]:
-    """Returns the updated layer graph, or an edit fault when evaluation is already running."""
-    return (
-        catch(view_layer.update, exception=RuntimeError)()  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-        .map(lambda _: view_layer.depsgraph)
-        .map_error(lambda error: (BlenderEditFault(request=repr(view_layer), error=error),))
+    """Returns the updated layer graph, an edit fault when evaluation is already running, or the layer's absent graph."""
+    return Result[None, BlenderFaults].bind(
+        catch(view_layer.update, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(view_layer), error=error),)),
+        lambda _: Option.of_optional(view_layer.depsgraph).to_result_with(lambda: (BlenderAbsentFault(owner=repr(view_layer), key="depsgraph"),)),
     )
 
 

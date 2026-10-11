@@ -1,6 +1,7 @@
 """Catalogued native compositor assets and publication into user libraries."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, ClassVar
 
@@ -20,7 +21,7 @@ from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult, BlenderWriteFault
 from rasm.blender.files.assets import AssetLibrary, AssetMark, CatalogPath, published
 from rasm.blender.nodes.graphs import Generated, NodeGroup
-from rasm.blender.render.effects.stack import Context, EffectStack
+from rasm.blender.render.effects.stack import Context, EffectStack, Placeable
 from rasm.blender.settings.properties import Choices
 from rasm.blender.ui.resources.previews import written as previewed
 from rasm.blender.ui.resources.theme import Metrics
@@ -73,28 +74,41 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
     thumbnail: Option[Callable[[Identity, Effect, bpy.types.Scene], BlenderResult[npt.NDArray[np.float32]]]] = Nothing
     saved: ClassVar[Key] = "saved_effect"
 
-    def published(self, identity: Identity, scene: bpy.types.Scene, *, context: Context = Nothing) -> BlenderResult[tuple[Path, ...]]:
-        """Publishes changed native groups using their complete generated-content identities."""
-        rows, folder = self.stack.standalone, self.library.located(identity)
-        checker = Metrics.read().checker()
-        files: BlenderResult[tuple[Path, ...]] = catch(lambda: tuple(folder.glob("effects_*.blend")), exception=OSError)().map_error(
-            lambda error: (BlenderReadFault(request=str(folder), error=error),)
+    def files(self, identity: Identity) -> BlenderResult[tuple[Path, ...]]:
+        """Lists every published effect file in the extension's asset folder."""
+        folder = self.library.located(identity)
+        return catch(lambda: tuple(folder.glob("effects_*.blend")), exception=OSError)().map_error(lambda error: (BlenderReadFault(request=str(folder), error=error),))
+
+    def retired(self, identity: Identity) -> BlenderResult[None]:
+        """Removes published files of rows the stack no longer offers."""
+        kinds = tuple(f"effects_{row.kind}." for row in self.stack.standalone)
+        return self.files(identity).bind(
+            lambda files: accumulated(
+                catch(file.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(file), error=error),)) for file in files if not file.name.startswith(kinds)
+            ).map(lambda _: None)
         )
 
+    def published(self, identity: Identity, scene: bpy.types.Scene, row: Placeable, *, context: Context = Nothing) -> BlenderResult[Option[Path]]:
+        """Publishes one row's changed native group under its complete generated-content identity."""
+        folder = self.library.located(identity)
+        checker = Metrics.read().checker()
+
         def entry(record: Entry[Effect], group: NodeGroup) -> BlenderResult[tuple[bpy.types.ID, AssetMark]]:
-            def tiled(tree: bpy.types.NodeTree) -> BlenderResult[tuple[bpy.types.ID, AssetMark]]:
-                mark = AssetMark(key=group.key, catalog=f"{identity.manifest.name}/{bpy.path.display_name(record.effect.stage.name.lower())}", description=record.effect.__doc__ or "")
+            mark = AssetMark(
+                key=group.key, catalog=f"{identity.manifest.name}/{bpy.path.display_name(record.effect.stage.name.lower())}", description=Option.of_optional(record.effect.__doc__).default_value("")
+            )
 
-                def shown(plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
-                    return (
-                        catch(lambda: previewed(tree.preview_ensure(), plane, checker), exception=RuntimeError)()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                        .map_error(lambda error: (BlenderEditFault(request=repr(tree), error=error),))
-                        .map(lambda _: None)
-                    )
+            def shown(tree: bpy.types.NodeTree, plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
+                return (
+                    catch(lambda: previewed(tree.preview_ensure(), plane, checker), exception=RuntimeError)()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    .map_error(lambda error: (BlenderEditFault(request=repr(tree), error=error),))
+                    .map(lambda _: None)
+                )
 
-                return self.thumbnail.map(lambda thumbnail: thumbnail(identity, record.effect, scene).bind(shown)).default_value(Ok(None)).map(lambda _: (tree, mark))
+            def tiled(plane: Option[npt.NDArray[np.float32]]) -> BlenderResult[tuple[bpy.types.ID, AssetMark]]:
+                return group.made(identity).bind(lambda tree: plane.map(lambda pixels: shown(tree, pixels)).default_value(Ok(None)).map(lambda _: (tree, mark)))
 
-            return group.made(identity).bind(tiled)
+            return self.thumbnail.map(lambda thumbnail: thumbnail(identity, record.effect, scene).map(Some)).default_value(Ok(Nothing)).bind(tiled)
 
         def wrote(kind: Key, record: Entry[Effect], group: NodeGroup, config: PyOpenColorIO.Config, files: tuple[Path, ...]) -> BlenderResult[Option[Path]]:
             content = tuple(
@@ -118,21 +132,10 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
             return Ok(Nothing) if target in files else entry(record, group).bind(lambda asset: published(identity, folder, stem, (asset,))).bind(stale)
 
-        def refreshed(pair: tuple[PyOpenColorIO.Config, tuple[Path, ...]]) -> BlenderResult[tuple[Path, ...]]:
-            config, files = pair
-            return accumulated(
-                row.grouped(identity, scene, record, config, context=context).bind(lambda group: wrote(row.kind, record, group, config, files))
-                for row in rows
-                for record in (Entry(effect=row.seeded(scene)),)
-            ).bind(
-                lambda paths: accumulated(
-                    catch(file.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(file), error=error),))
-                    for file in files
-                    if not any(file.name.startswith(f"effects_{row.kind}.") for row in rows)
-                ).map(lambda _: tuple(path for held in paths for path in held.to_list()))
-            )
-
-        return Result[tuple[PyOpenColorIO.Config, tuple[Path, ...]], BlenderFaults].bind(paired(self.stack.config(), files), refreshed)
+        record = Entry(effect=row.seeded(scene))
+        return paired(self.stack.config(), self.files(identity)).bind(
+            lambda pair: row.grouped(identity, scene, record, pair[0], context=context).bind(lambda group: wrote(row.kind, record, group, *pair))
+        )
 
     def saving(self, call: Call[Saving]) -> BlenderResult[Done]:
         """Writes the active effect into the chosen user's native asset library."""
@@ -158,28 +161,35 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
         return Result[tuple[bpy.types.NodeTree, Path], BlenderFaults].bind(paired(group, folder), saved)
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns the library, save action, and startup/file-load publication declaration."""
+    @contextmanager
+    def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
+        """Holds the library, save action, and file-load publication queued one row per main-loop tick."""
+        rows = {row.kind: row for row in self.stack.standalone}
 
-        def loaded(_path: Option[Path]) -> BlenderResult[None]:
-            return Result[bpy.types.Scene, BlenderFaults].bind(
-                Option.of_optional(bpy.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="scene"),)),
-                lambda scene: self.published(identity, scene).map(lambda _: None),
-            )
+        def publish(kind: Key) -> BlenderResult[Option[str]]:
+            scene: BlenderResult[bpy.types.Scene] = Option.of_optional(bpy.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="scene"),))
+            return Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda scene: self.published(identity, scene, rows[kind])).map(lambda _: Nothing)
 
-        return Ok((
-            self.library,
-            Operator(
-                key="effect_save_asset",
-                title="Save Effect Asset",
-                description="Saves the active compositor effect into a user asset library",
-                form=Saving,
-                run=self.saving,
-                invoke=Some(Properties()),
-                undo=False,
-            ),
-            PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        ))
+        with identity.reports.deferred(publish) as queued:
+
+            def loaded(_path: Option[Path]) -> BlenderResult[None]:
+                for kind in rows:
+                    queued(kind)
+                return self.retired(identity)
+
+            yield Ok((
+                self.library,
+                Operator(
+                    key="effect_save_asset",
+                    title="Save Effect Asset",
+                    description="Saves the active compositor effect into a user asset library",
+                    form=Saving,
+                    run=self.saving,
+                    invoke=Some(Properties()),
+                    undo=False,
+                ),
+                PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            ))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -4,7 +4,7 @@ language: csharp
 severity: error
 utils:
     bool-type:
-        regex: '^(bool|((global::)?System\.)?Boolean)\??$'
+        matches: {csharp-type-name: {name: {regex: '^(bool|Boolean)$'}}}
     interface-member:
         has: {field: name, regex: '^(TryFormat|TryGetValue|TryParse)$'}
         inside: {kind: declaration_list, inside: {has: {kind: base_list, regex: '\bI(ReadOnly)?Dictionary\s*<|\bI(Utf8)?(Span)?(Parsable|Formattable)\b'}}}
@@ -17,7 +17,7 @@ utils:
             - has: {kind: modifier, regex: '^out$'}
             - has: {field: type, matches: bool-type}
     result-type:
-        regex: '^((global::)?LanguageExt\.)?(Option|Fin|IO)<'
+        matches: {csharp-type-name: {name: {regex: '^(Option|Fin|IO)$'}}}
     host-answer-adapter:
         any:
             - kind: method_declaration

@@ -11,7 +11,7 @@ utils:
         kind: binary_expression
         any: [{pattern: "$R.kind === 'ok'"}, {pattern: "$R.kind !== 'fault'"}]
     propagated:
-        any: [{pattern: $R}, {pattern: fault($R.fault)}, {pattern: fault<$_T>($R.fault)}]
+        any: [{pattern: $R}, {pattern: {context: "({ kind: 'fault', faults: $R.faults })", selector: object}}]
     propagating-return:
         kind: return_statement
         has: {nthChild: 1, matches: propagated}

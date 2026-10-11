@@ -21,7 +21,7 @@ from rasm.blender.ui.layout.sections import Drawn, Each, Section, Single
 from rasm.blender.ui.resources.icons import Icons
 from rasm.blender.ui.surfaces.preferences import listening, PreferencesPage
 from rasm.imaging.faults import accumulated, paired
-from rasm.imaging.parameters import Case
+from rasm.imaging.parameters import Case, markers
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -44,7 +44,9 @@ editors = Choices(
         if identifier in spaces
     )
 )
-categories = Choices(lambda _, owner, __: ((name, name, "") for name in sidebars().get(getattr(owner, Joined.space.__name__), ())))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+categories = Choices(
+    lambda _, owner, __: ((name, name, "") for field in msgspec.structs.fields(Joined) if editors in markers(field.type, Choices) for name in sidebars().get(getattr(owner, field.name), ()))
+)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -188,9 +190,10 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
                 tail = (*drawn.tail.to_list(), *((painted(header),) if header else ()))
 
                 def preset(panel: bpy.types.Panel, context: bpy.types.Context) -> None:
-                    line = panel.layout.row(align=True)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                    for paint in tail:
-                        paint(line, context)
+                    for layout in Option.of_optional(panel.layout).to_list():
+                        line = layout.row(align=True)
+                        for paint in tail:
+                            paint(line, context)
 
                 return type(
                     drawing.name,

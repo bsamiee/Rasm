@@ -4,7 +4,11 @@ language: csharp
 severity: error
 utils:
     text-type:
-        regex: '^(var|string|((global::)?System\.)?String|((global::)?System\.Text\.)?StringBuilder|((global::)?System\.)?(ReadOnly)?Span\s*<\s*char\s*>)\??$'
+        any:
+            - kind: implicit_type
+            - matches: {csharp-type-name: {name: {regex: '^(string|String|StringBuilder)$'}}}
+            - matches: {csharp-type-name: {name: {regex: '^(ReadOnly)?Span$'}}}
+              has: {stopBy: end, kind: type_argument_list, has: {regex: '^char$'}}
     declared-receiver:
         kind: identifier
         pattern: $RECEIVER
@@ -30,7 +34,7 @@ utils:
     member-name:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?System\.)?Enum\.GetName(<[^()]*>)?$'}
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Enum$'}, member: {regex: '^GetName$'}}}}
             - matches: name-string
             - kind: invocation_expression
               has: {field: function, regex: '^nameof$'}
@@ -41,11 +45,11 @@ utils:
                 - not: {has: {kind: interpolation, nthChild: {position: 2, ofRule: {kind: interpolation}}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?System\.)?Convert\.ToString$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Convert$'}, member: {regex: '^ToString$'}}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: declared-receiver}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?System\.)?(string|String)\.Format$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^Format$'}}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^"\{0(:[GgFf])?\}"$'}}, {has: {kind: argument, nthChild: 2, has: {matches: declared-receiver}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     name-value:
         any:
@@ -96,13 +100,13 @@ utils:
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: any-name}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?System\.)?(string|String)\.Equals$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^Equals$'}}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: any-name}}}, {has: {kind: argument, nthChild: 2, has: {matches: any-name}}}]}
 rule:
     any:
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '^((global::)?System\.)?Enum\.(TryParse|Parse)(<[^()]*>)?$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Enum$'}, member: {regex: '^(TryParse|Parse)$'}}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: name-value}}}
         - kind: invocation_expression
           all:
@@ -111,7 +115,7 @@ rule:
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|Where|Filter)$'}
-                    - has: {field: expression, regex: '^((global::)?System\.)?Enum\.GetValues'}
+                    - has: {field: expression, matches: {csharp-owner-member: {type: {regex: '^Enum$'}, member: {regex: '^GetValues$'}}}}
             - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: name-equality}}}}
         - kind: switch_expression
           all:

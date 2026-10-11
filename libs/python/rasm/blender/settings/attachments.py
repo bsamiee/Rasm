@@ -1,5 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
 """Native record attachments with value locks, startup seeds, and explicit storage removal."""
 
 from collections import deque
@@ -48,9 +46,9 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
     reference_code: ClassVar[int] = 0
     name: str
     decoder: msgspec.msgpack.Decoder[T]
-    encoder: msgspec.msgpack.Encoder = msgspec.field(default_factory=lambda: msgspec.msgpack.Encoder(order="deterministic"))
+    encoder: msgspec.msgpack.Encoder = msgspec.field(default_factory=msgspec.msgpack.Encoder)
 
-    def read(self, host: bpy.types.bpy_struct) -> BlenderResult[Option[T]]:
+    def read(self, host: "bpy.types.bpy_struct[object]") -> BlenderResult[Option[T]]:
         """Returns a decoded stored value, explicit absence, or native storage and codec faults."""
         try:
             held = host.get(self.name)
@@ -60,33 +58,37 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             return Ok(Nothing)
 
         def decoded(kind: type[object], value: object) -> object:
-            """Retains native ID answers and delegates other custom types to the caller codec."""
-            if issubclass(kind, bpy.types.ID):
+            """Retains values the declared kind already admits, resolved ID references among them, and delegates other custom types to the caller codec."""
+            if isinstance(value, kind):
                 return value
             if self.decoder.dec_hook is None:
                 raise TypeError(kind)
             return self.decoder.dec_hook(kind, value)
 
         try:
-            decoder = msgspec.msgpack.Decoder(
-                self.decoder.type,
-                strict=self.decoder.strict,
-                dec_hook=decoded,
-                ext_hook=lambda code, data: (
-                    held[Slot.REFERENCES][bytes(data).decode()]
-                    if code == self.reference_code
-                    else self.decoder.ext_hook(code, data)
-                    if self.decoder.ext_hook is not None
-                    else msgspec.msgpack.Ext(code, data)
-                ),
+            return Ok(
+                Some(
+                    msgspec.msgpack.decode(
+                        held[Slot.DATA],
+                        type=self.decoder.type,
+                        strict=self.decoder.strict,
+                        dec_hook=decoded,
+                        ext_hook=lambda code, data: (
+                            held[Slot.REFERENCES][bytes(data).decode()]
+                            if code == self.reference_code
+                            else self.decoder.ext_hook(code, data)
+                            if self.decoder.ext_hook is not None
+                            else msgspec.msgpack.Ext(code, data)
+                        ),
+                    )
+                )
             )
-            return Ok(Some(decoder.decode(held[Slot.DATA])))
         except (msgspec.DecodeError, TypeError, KeyError, UnicodeError, NotImplementedError) as error:
             return Error((BlenderReadFault(request=f"{host!r}[{self.name!r}]", error=error),))
         except ReferenceError as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
 
-    def write(self, host: bpy.types.bpy_struct, record: T) -> BlenderResult[None]:
+    def write(self, host: "bpy.types.bpy_struct[object]", record: T) -> BlenderResult[None]:
         """Encodes once and replaces one native group, returning codec or native edit faults."""
         references: dict[str, bpy.types.ID] = {}
 
@@ -96,18 +98,20 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
                 key = str(len(references))
                 references[key] = value
                 return msgspec.msgpack.Ext(self.reference_code, key.encode())
-            if self.encoder.enc_hook is None:
-                raise TypeError(type(value))
-            return self.encoder.enc_hook(value)
+            match self.encoder.enc_hook:
+                case None:
+                    raise TypeError(type(value))
+                case hook:
+                    return hook(value)
 
         try:
-            data = msgspec.msgpack.Encoder(enc_hook=encoded, decimal_format=self.encoder.decimal_format, uuid_format=self.encoder.uuid_format, order=self.encoder.order).encode(record)
+            data = msgspec.msgpack.encode(record, enc_hook=encoded, order="deterministic")
             host[self.name] = {Slot.DATA: data, Slot.REFERENCES: references}
         except (msgspec.EncodeError, AttributeError, KeyError, TypeError, ValueError, OverflowError, ReferenceError, NotImplementedError) as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
         return Ok(None)
 
-    def removed(self, host: bpy.types.bpy_struct) -> BlenderResult[None]:
+    def removed(self, host: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
         """Removes the stored record and its ID references, preserving native refusals."""
         try:
             del host[self.name]
@@ -253,7 +257,7 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 @contextmanager
-def pointed(owner: type[bpy.types.bpy_struct], name: str, definition: bpy.props._PropertyDeferred) -> Generator[BlenderResult[None]]:
+def pointed(owner: "type[bpy.types.bpy_struct[object]]", name: str, definition: bpy.props._PropertyDeferred) -> Generator[BlenderResult[None]]:
     """Acquires one unoccupied native property or returns its collision or declaration refusal."""
     request = f"{owner.__name__}.{name}"
     if name in owner.bl_rna.properties or name in owner.bl_rna.functions or hasattr(owner, name):  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -272,13 +276,19 @@ def pointed(owner: type[bpy.types.bpy_struct], name: str, definition: bpy.props.
 
 def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: Callable[[bpy.types.AddonPreferences], BlenderResult[T]]) -> BlenderResult[T]:
     """Marks attempted preference writes dirty and returns their actual native outcome."""
-    match Option.of_optional(preferences.addons.get(identity.package)).bind(lambda addon: Option.of_optional(addon.preferences)):
-        case Option(tag="some", some=holder):
-            answer = write(holder)  # type: ignore[unreachable]
-            preferences.is_dirty = True
-            return answer
-        case _:
-            return Error((BlenderAbsentFault(owner=repr(preferences), key=identity.package),))
+
+    def marked(holder: bpy.types.AddonPreferences) -> BlenderResult[T]:
+        answer = write(holder)
+        preferences.is_dirty = True
+        return answer
+
+    return (
+        Option
+        .of_optional(preferences.addons.get(identity.package))
+        .bind(lambda addon: Option.of_optional(addon.preferences))
+        .map(marked)
+        .default_with(lambda: Error((BlenderAbsentFault(owner=repr(preferences), key=identity.package),)))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

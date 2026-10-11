@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,misc"
-# ty: ignore[unresolved-attribute,invalid-attribute-access]
 """Display quantization with ordered Bayer thresholds and native HSY hue retention."""
 
 import bpy
@@ -14,7 +12,7 @@ from rasm.imaging.effects.stylize.palettes import Channels, Palette, Posterize
 from rasm.imaging.faults import paired
 from rasm.imaging.parameters import Gated
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
@@ -27,11 +25,11 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
         Straight color for the stack's alpha scope, or accumulated builder faults.
     """
     source = shell.source
-    prefix = (Palette.posterize.__name__, Gated.value.__name__)
-    channels = (*prefix, Posterize.channels.__name__)
-    dither = (*prefix, Posterize.dither.__name__)
-    cell = (*prefix, Posterize.dither_cell.__name__)
-    gradient = item_key(Palette.gradient.__name__, Gated.value.__name__)
+    prefix = (Palette.posterize.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    channels = (*prefix, Posterize.channels.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    dither = (*prefix, Posterize.dither.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    cell = (*prefix, Posterize.dither_cell.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    gradient = item_key(Palette.gradient.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
     bits = range(3)
     spans = tuple(2.0**bit for bit in bits)
     periods = tuple(2.0 * span for span in spans)
@@ -40,10 +38,10 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
     def retained(converters: tuple[NodeGroup, NodeGroup], frame: FrameSpace, grid: PixelGrid) -> BlenderResult[tuple[Fragment, End]]:
         forward, inverse = converters
         return Fragment.joined(
-            pixels("cell_width", frame, shell.socket(*cell, Gated.value.__name__), "VECTOR"),
+            pixels("cell_width", frame, shell.socket(*cell, Gated.value.__name__), "VECTOR"),  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
             vector("cell_minimum", "MAXIMUM", (1.0, 1.0, 0.0), End(node="cell_width", socket="Vector")),
             switched("cell", "VECTOR", shell.socket(*cell), (1.0, 1.0, 0.0), End(node="cell_minimum", socket="Vector")),
-            math("amplitude", "MULTIPLY", shell.socket(*dither), shell.socket(*dither, Gated.value.__name__)),
+            math("amplitude", "MULTIPLY", shell.socket(*dither), shell.socket(*dither, Gated.value.__name__)),  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
             vector("cells", "DIVIDE", grid.point, End(node="cell", socket="Output")),
             vector("indices", "FLOOR", End(node="cells", socket="Vector")),
             node("coordinates", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="indices", socket="Vector")}, {}),
@@ -56,7 +54,7 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
             vector("threshold", "DOT_PRODUCT", End(node="rank", socket="Vector"), tuple(4.0 ** (len(bits) - 1 - bit) / (span * count) for bit, span in zip(bits, spans))),
             math("centered", "ADD", End(node="threshold"), 0.5 / count - 0.5),
             math("offset", "MULTIPLY", End(node="centered"), End(node="amplitude")),
-            math("steps", "SUBTRACT", shell.socket(*prefix, Posterize.levels.__name__), 1.0),
+            math("steps", "SUBTRACT", shell.socket(*prefix, Posterize.levels.__name__), 1.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             node("grey", bpy.types.CompositorNodeRGBToBW, {"Image": source}, {}),
             menu("channels", "VECTOR", shell.socket(*channels), shell.items[channels], {Channels.RGB.label: source, Channels.LUMINANCE.label: End(node="grey", socket="Val")}),
             vector("scaled", "MULTIPLY_ADD", End(node="channels", socket="Output"), End(node="steps"), End(node="offset")),
@@ -85,12 +83,12 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
                 {"mode": "RGB"},
             ),
             nested("kept_rgb", inverse, {COLOR_INPUT.key: End(node="kept_hsy", socket="Image")}, COLOR_RESULT.key),
-            math("retention", "MULTIPLY", shell.socket(*prefix, Posterize.retain_hue.__name__), End(node="channels", socket=Channels.RGB.label)),
+            math("retention", "MULTIPLY", shell.socket(*prefix, Posterize.retain_hue.__name__), End(node="channels", socket=Channels.RGB.label)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             mixed("hue_retained", "RGBA", End(node="retention"), End(node="quantized", socket="Vector"), End(node="kept_rgb", socket=COLOR_RESULT.key)),
-            switched("posterized", "RGBA", shell.socket(Palette.posterize.__name__), source, End(node="hue_retained", socket="Result_Color")),
+            switched("posterized", "RGBA", shell.socket(Palette.posterize.__name__), source, End(node="hue_retained", socket="Result_Color")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             node("tone", bpy.types.CompositorNodeRGBToBW, {"Image": End(node="posterized", socket="Output")}, {}),
             node(gradient, bpy.types.ShaderNodeValToRGB, {"Fac": End(node="tone", socket="Val")}, {}, Some(shell.record.gradient.value)),
-            switched("mapped", "RGBA", shell.socket(Palette.gradient.__name__), End(node="posterized", socket="Output"), End(node=gradient, socket="Color")),
+            switched("mapped", "RGBA", shell.socket(Palette.gradient.__name__), End(node="posterized", socket="Output"), End(node=gradient, socket="Color")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         ).map(ended("mapped", "Output"))
 
     return paired(paired(hsy(PyOpenColorIO.TRANSFORM_DIR_FORWARD), hsy(PyOpenColorIO.TRANSFORM_DIR_INVERSE)), paired(framed("frame", source, shell.aspect, shell.scale), gridded("grid", source))).bind(
@@ -98,11 +96,11 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
     )
 
 
-# --- [COMPOSITION] -----------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 palette = CompositorEffect(record=Palette, graph=paletted, straight=True)
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["palette", "paletted"]

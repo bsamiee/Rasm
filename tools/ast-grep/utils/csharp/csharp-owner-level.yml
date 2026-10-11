@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: csharp-owner-level
-language: csharp
-rule:
-    any:
-        - inside: {matches: csharp-member-list, stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}
-        - inside: {kind: block, inside: {kind: constructor_declaration, has: {field: name, regex: '^extension$'}}}

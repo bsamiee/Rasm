@@ -5,13 +5,13 @@ severity: error
 files: ['**/rhino/**']
 utils:
     sequence-type:
-        regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?)?(Seq|Lst|Arr|Iterable|IterableNE|List|IEnumerable|IReadOnlyList|IReadOnlyCollection|ICollection|IList)\s*<|\[\]$'
+        any: [{matches: {csharp-type-name: {name: {regex: '^(Seq|Lst|Arr|Iterable|IterableNE|List|IEnumerable|IReadOnlyList|IReadOnlyCollection|ICollection|IList)$'}}}}, {kind: array_type}]
     sequence-value:
         any:
             - kind: identifier
               matches: {csharp-declared-type: {type: {matches: sequence-type}}}
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(toSeq|Seq)(\s*<.+>)?$'}
+              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(toSeq|Seq)$'}}}}
             - kind: identifier
               pattern: $SEQUENCE_MEMBER
               inside:
@@ -68,33 +68,33 @@ utils:
     release-call:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?DisposalOps\s*\.\s*Release(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Release$'}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $ITEM}}
     release-callback:
         kind: argument
         any:
-            - has: {regex: '^((global::)?Rasm\.Rhino\.)?DisposalOps\s*\.\s*Release$'}
+            - has: {matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Release$'}}}}
             - has:
                 matches: element-lambda
                 has: {field: body, any: [{matches: release-call}, {has: {stopBy: end, matches: release-call}}]}
     option-factory:
-        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Optional|Some)(\s*<.+>)?$'
+        matches: {csharp-type-name: {name: {regex: '^(Optional|Some)$'}}}
     option-declaration:
         any:
             - kind: parameter, property_declaration
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}
                 - has: {field: name, pattern: $OPTION}
             - kind: variable_declaration
               all:
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}
                 - has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}
             - kind: field_declaration
               has: {kind: variable_declaration, matches: option-declaration}
     option-method:
         kind: method_declaration, local_function_statement
         all:
-            - has: {field: returns, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
+            - has: {field: returns, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}
             - has: {field: name, pattern: $OPTION_METHOD}
     option-value:
         any:
@@ -134,7 +134,7 @@ utils:
                     inside:
                         kind: argument_list
                         has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}
-                        inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}
+                        inside: {kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^use$'}}}}}
             - kind: member_access_expression
               all:
                 - has: {field: expression, pattern: this}
@@ -148,7 +148,7 @@ utils:
               has: {field: body, matches: option-value}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*(lift|pure)(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|pure)$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}}
 rule:
     any:
@@ -167,7 +167,7 @@ rule:
                     - has: {matches: element-release}
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '^((global::)?System\s*\.\s*)?Array\s*\.\s*ForEach(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Array$'}, member: {regex: '^ForEach$'}}}}
             - has:
                 field: arguments
                 all:
@@ -187,7 +187,7 @@ rule:
                 - has: {stopBy: end, kind: element_access_expression, pattern: $ITEM, has: {field: expression, pattern: $SEQ}}
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^use$'}}}}
             - has:
                 field: arguments
                 all:

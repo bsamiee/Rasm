@@ -5,7 +5,7 @@ description: "Use when listing a file's declarations, reading, searching, or rew
 
 # [AST_GREP]
 
-MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
+MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly with `--custom-languages allow` for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -29,27 +29,28 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `regex` is a Rust regex with no look-around or back-reference, `|` inside a name escapes, `(?i)` sets flags inline
 - `(?x)` in a `|-` block scalar holds one alternative per line with `\ ` for a space inside a phrase, `(?-x:...)` keeps a phrase verbatim
 - `mcp__ast-grep__dump_syntax_tree` with `format=cst` prints one top-level node's kinds, fields, and tokens, `format=pattern` how a pattern parsed
-- Multi-statement snippets take `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree prints on stderr before exit 8
+- Multi-statement snippets take `ast-grep run --custom-languages allow -l <lang> -p '<code>' --debug-query=cst`, tree prints on stderr before exit 8
 
 ## [02]-[RULES]
 
 - Ids share one namespace across languages, a category checked in more than one names each rule `<category>-<language>`, in one the category alone
-- Rule objects are unordered `all`s with keys applied atomic, composite, then relational, `all:` keeps list order
+- Rule objects are unordered `all`s with keys applied atomic, then `all`, `any`, `not`, `matches`, then relational, `all:` keeps list order
 - Rules need a kind set from `pattern` or `kind`, `regex`, `range`, `nthChild`, `not`, `all: []`, or `any: []` alone fails the load
 - `kind` takes a named node, an anonymous token (`then`) fails the load with `Cannot parse rule`, exit 8
 - `not` guards over a capture sit after its binding clause in `all:`, the first clause naming `$VAR` binds it
 - Rules test one node, `has: {all: [<a>, <b>]}` demands one child with both shapes, one `has` per required child
 - Repeated `not:` or `has:` keys in one map fail the load as `duplicate field <key>`, `not: {any: [<guards>]}` or an `all:` holds both
-- `kind` and `pattern` restrict candidate nodes by kind, `regex` restricts none, `matches: <param>` prunes beside a `kind` alone
-- `has` and `inside` at `stopBy: end` walk the whole subtree or ancestor chain per candidate, `field` narrows `has` to one child first
+- `pattern: $X` alone and a map holding `matches:` alone supply no kind set
 - Kindless `any:` arms widen the kind set to every kind, `all:` narrows it to the intersection of its items
 - One `$VAR` across clauses requires sameness, `not:` on a rebound pattern requires difference, `$_VAR` skips both
 - `has` binds `$VAR` to earliest matching child, later clauses rejecting bound child fail the rule, narrower `has` precedes wider one
-- Captures bound on one node re-match their text inside a later `not: {has: ...}` or `not: {inside: ...}`, the form for a fact every sibling repeats
+- Captures re-match their text in a later `not: {has: ...}` or `not: {inside: ...}` stopping at owner kinds, the form for a fact every sibling repeats
 - `nthChild` counts named siblings, counts include comments the block holds, `ofRule: {not: {kind: comment}}` counts semantic slots
-- `stopBy` default neighbor serves direct relations, `end` the whole axis, a rule a bounded walk including the stop node
+- `stopBy` default `neighbor` reads direct relations, a rule `stopBy` ends the walk at the first node it matches, that node included
+- `stopBy: end` walks a candidate's whole axis (`has` the subtree, `inside` every ancestor, `follows` and `precedes` every sibling on that side)
 - `stopBy: {kind: <function-kind>}` on `has` keeps an inner function's `return` from satisfying the outer owner
 - `field:` binding names the final relation and survives `stopBy: end` (callee vs argument, key vs value)
+- `field` beside a rule `stopBy` reads the field child and its direct children alone, `has: {field: <role>, has: {stopBy: <stop>, ...}}` descends
 - Unnamed token fields (`operator`) take `has: {field: <role>, pattern: $$_X}`
 - `has: {field: <role>, kind: <kind>}` tests the first child with the field alone, a repeated field (`argument`) takes `nthChild` or a fieldless `has`
 - Relational objects hold a rule key beside `field` and `stopBy`, `has: {field: <role>}` alone fails the load
@@ -69,12 +70,27 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Parameterized utils take `arguments` at the global level alone, arguments are mandatory, a string `matches: <id>` of a parameterized util exits 8
 - Rules call a parameterized util as `matches: {<util-id>: {<arg>: <rule>}}`, each argument a rule, calls under one `matches` combine as `all`
 - Parameterized calls under `has`, `inside`, or `ofRule` in a util record no load-order edge and fail random loads as `Rule <id> is not defined`
+- Utils named only under a relation load in random order and can widen a caller to every kind, `matches` in `all`, `any`, or `not` loads them first
 - String `matches: <name>` resolves a parameter, then a local util, then a global util
 - Global utils called under `constraints` alone need no kind set
 - Local util captures reach the caller's `fix`, global util captures stay private
 - Captures an argument rule binds reach the caller's `fix`, `message`, and `labels`, a local util named through `matches` in an argument neither sees nor exports caller captures
 
-## [04]-[FIX]
+## [04]-[COST]
+
+Scans parse each file once, try a rule at each node of its kind set, and walk each candidate's relations with no match result cached across candidates, rules, or `matches` calls:
+- Rules target the rarest kind the correction names (declaration, import, owner, call of the named callee)
+- Rules target a frequent kind (identifier, call, member access, argument, string, block) when its own `field` children decide the match
+- Walks toward an owner stop at the owner kinds the correction covers, members at fixed depth take `has` with `field` and an `any:` arm per wrapper
+- Rules joining nodes by name target the declaration and search its scope once
+- Rules fixing a name's use reach its declaration through `inside` to the owner and a neighbor `has`
+- `regex` reads a node's full text with children, a composite node takes `has` with `field` to the leaf the `regex` tests (callee, keyword, operator)
+- `all:` lists capture-free `field` tests, binding clauses in capture order, walks, then `not:` guards
+- `matches:` evaluations take a reference on one util registry every scan thread shares, a util named as a walk target runs at each visited node
+- Walk targets and `stopBy` rules hold an atomic `kind`, a kind list used more than once is a YAML anchor (`&owner`) later sites alias (`*owner`)
+- Rules checking a file-wide fact per candidate place `inside: {kind: <root kind>, stopBy: end, regex: '<name>'}` before the walk
+
+## [05]-[FIX]
 
 `fix` replaces a match with a template, `transform` derives text, and `rewriters` change structure inside captures:
 - Templates are unparsed text, captures substitute anywhere in them without a syntax or precedence check
@@ -102,15 +118,17 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `fix` as a list of `{title, template}` offers alternatives, `-U` and `--json` take the first and `-i` offers each
 - Overlapping fixes never compose, a `program`-level fix blocks every other fix
 
-## [05]-[CONFIG]
+## [06]-[CONFIG]
 
 - `ruleDirs` and `utilDirs` resolve relative to `sgconfig.yml`
 - `languageGlobs.<language>` maps file globs to a language ahead of extension detection
 - `customLanguages.<name>` holds `libraryPath` and `extensions`, with optional `expandoChar`, `languageSymbol`, and `outlineRules`
+- `AST_GREP_CONFIG` names root `sgconfig.yml`, an `ast-grep` call without `--custom-languages allow` exits 33 with `Language xml is not supported`
 - `files:` and `ignores:` globs match paths relative to the config directory with no `./` prefix, `ignores:` reads first
+- `files:` and `ignores:` drop a rule per path after the file parses, CLI `--globs` alone skips parsing
 - `scan -r` reads `files:` from the rule file
 - Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, `**/<name>` every file of that name
-- Scopes name the folder a rule's cause covers
+- Scopes name the folders a rule's cause covers, a package rule's the folders of projects referencing the package
 - Dot directories under a walked path need `--no-ignore hidden`, a dot path named on the command needs no flag
 - Injection entries capture the embedded source as `$CONTENT` and name the parser in `injected`, a language or a candidate list with `$LANG`
 - `injected` names a built-in language or a `customLanguages` key, `run -l <injected>` walks every file of a host that injects it
@@ -122,11 +140,11 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `unused-suppression` reports a comment suppressing nothing at `hint`, `--filter`, `--off`, `--min-severity`, `-r`, or `--inline-rules` turns it off
 - `no-suppress-all` reports an idless comment and is off, `--error=<id>` raises either built-in rule
 
-## [06]-[GRAMMAR]
+## [07]-[GRAMMAR]
 
 Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precedence can differ from the language parser's:
 - `ERROR` constructs are unenforceable, the enclosing statement pattern matches them
-- `kind: ERROR` and `ast-grep run -k ERROR -l <lang>` find the recovered form
+- `kind: ERROR` and `ast-grep run --custom-languages allow -k ERROR -l <lang>` find the recovered form
 - `no-parse-error-<language>` reports each outermost `ERROR` and a file's first `MISSING` token, a grammar gap tracked code needs takes an `unreported` arm and a clause in the rule's `note`
 
 | [INDEX] | [PYTHON]                         | [SHAPE]                                                                                           |
@@ -195,6 +213,6 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 - `normal_function_arguments` holds `distinct` in unnamed field `modifier`, outside the arguments and `order_by_clause` `nthChild` counts
 - Operator tokens of `binary_expression`, `unary_expression`, `like_expression`, and `is_null_expression` sit in field `operator`
 
-## [07]-[OUTLINE]
+## [08]-[OUTLINE]
 
 `ast-grep outline` returns a declaration's parsed range, a text search every occurrence of the name with no boundary between definition, use, and body. Use an outline for a file too long to read whole in a language with no richer navigator.

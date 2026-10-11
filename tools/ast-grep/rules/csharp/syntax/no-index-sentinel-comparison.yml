@@ -10,7 +10,7 @@ utils:
         kind: prefix_unary_expression
         regex: '^-\s*1$'
     array-type:
-        regex: '^((global::)?System\.)?Array$'
+        matches: {csharp-type-name: {name: {regex: '^Array$'}}}
     arity-one:
         kind: argument_list
         all: [{has: {kind: argument, nthChild: 1}}, {not: {has: {kind: argument, nthChild: 2}}}]
@@ -40,13 +40,8 @@ utils:
                     - has: {field: function, all: [{has: {field: name, regex: '^(Last)?IndexOf$'}}, {not: {has: {field: expression, matches: array-type}}}]}
                     - has:
                         field: arguments
-                        any:
-                            - all:
-                                - matches: arity-one
-                                - not: {has: {kind: argument, has: {kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'}}}
-                            - all:
-                                - matches: arity-two
-                                - has: {kind: argument, nthChild: 2, regex: '^((global::)?System\.)?StringComparison\.\w+$'}
+                        matches: arity-one
+                        not: {has: {kind: argument, has: {kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'}}}
                 - all:
                     - has: {field: function, has: {field: name, regex: '^Find(Last)?Index$'}}
                     - any:

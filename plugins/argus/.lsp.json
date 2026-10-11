@@ -29,7 +29,7 @@
         "command": "jdtls",
         "extensionToLanguage": { ".java": "java" },
         "diagnostics": false,
-        "workspaceFolder": "${CLAUDE_PROJECT_DIR}/${user_config.javaWorkspace}",
+        "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",
         "startupTimeout": 120000,
         "initializationOptions": {
             "settings": { "java": { "autobuild": { "enabled": false } } }
@@ -59,35 +59,12 @@
         "command": "taplo",
         "args": ["lsp", "stdio"],
         "extensionToLanguage": { ".toml": "toml" },
-        "diagnostics": false,
-        "settings": {}
+        "diagnostics": false
     },
     "bash": {
         "command": "bash-language-server",
         "args": ["start"],
         "extensionToLanguage": { ".sh": "shellscript", ".bash": "shellscript" },
         "diagnostics": false
-    },
-    "c": {
-        "command": "clangd",
-        "args": ["--background-index"],
-        "extensionToLanguage": { ".c": "c", ".h": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp", ".hxx": "cpp", ".m": "objective-c", ".mm": "objective-cpp" },
-        "diagnostics": false
-    },
-    "lua": {
-        "command": "lua-language-server",
-        "extensionToLanguage": { ".lua": "lua" },
-        "diagnostics": false
-    },
-    "nix": {
-        "command": "nixd",
-        "extensionToLanguage": { ".nix": "nix" },
-        "diagnostics": false,
-        "settings": {
-            "nixd": {
-                "nixpkgs": { "expr": "import (builtins.getFlake \"git+file://${CLAUDE_PROJECT_DIR}\").inputs.nixpkgs {}" },
-                "formatting": { "command": ["alejandra"] }
-            }
-        }
     }
 }

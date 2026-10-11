@@ -22,17 +22,21 @@ def _reported[E](result: Result[int, E]) -> int:
         case Err(ExceptionGroup() as errors):
             structlog.get_logger(__name__).error("Extension operation failed", exc_info=errors)
             return 1
+        case Err(CallToolResult() as error):
+            sys.stderr.write(f"{error.model_dump_json(by_alias=True)}\n")
+            return 1
+        case Err(RemoteFailure(message=message)):
+            sys.stderr.write(f"{message}\n")
+            return 1
+        case Err(subprocess.CalledProcessError(returncode=status, stdout=stdout, stderr=stderr) as error):
+            sys.stderr.write(f"{error}\n")
+            if stdout:
+                sys.stdout.buffer.write(stdout)
+            if stderr:
+                sys.stderr.buffer.write(stderr)
+            return status
         case Err(error):
-            if isinstance(error, CallToolResult):
-                sys.stderr.write(f"{error.model_dump_json(by_alias=True)}\n")
-                return 1
-            sys.stderr.write(f"{error.message if isinstance(error, RemoteFailure) else error}\n")
-            if isinstance(error, subprocess.CalledProcessError):
-                if error.stdout:
-                    sys.stdout.buffer.write(error.stdout)
-                if error.stderr:
-                    sys.stderr.buffer.write(error.stderr)
-                return error.returncode
+            sys.stderr.write(f"{error}\n")
             return 1
 
 

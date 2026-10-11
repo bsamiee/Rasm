@@ -25,9 +25,10 @@ utils:
         inside: {stopBy: end, kind: method_declaration, has: {kind: modifier, regex: '^public$'}}
     answer-error:
         kind: object_creation_expression
-        has: {field: type, regex: '^((global::)?Rasm\.Rhino\.)?Refused$'}
+        has: {field: type, matches: {csharp-type-name: {name: {regex: '^Refused$'}}}}
 rule:
     kind: invocation_expression
+    not: {matches: {csharp-owner-body: {type: {regex: '^Conversions$'}, member: {regex: '^(Required|NonEmpty|Present)$'}}}}
     any:
         - all:
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ToFin$'}}
@@ -38,13 +39,13 @@ rule:
                     field: expression
                     kind: invocation_expression
                     all:
-                        - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Conversions\s*\.\s*Present$'}
+                        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^Present$'}}}}
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Conversions\s*\.\s*(NonEmpty|Required)(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|Required)$'}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?(Refused|Missing|CountMismatch)$'}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless$'}}, {has: {field: expression, matches: {csharp-type-name: {name: {regex: '^(Refused|Missing|CountMismatch)$'}}}}}]}
             - has:
                 field: arguments
                 has:

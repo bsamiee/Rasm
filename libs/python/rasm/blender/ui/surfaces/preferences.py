@@ -1,5 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
 """Native add-on preferences, typed record access, change listeners, and page acquisition."""
 
 from collections import defaultdict
@@ -14,6 +12,7 @@ from expression import Error, Nothing, Option, Result, Some
 import msgspec
 
 from rasm.blender.commands import keymaps, operators
+from rasm.blender.extension.events.timers import Timer
 from rasm.blender.extension.identity import Identity, Name
 from rasm.blender.extension.registration import Acquisitions, Band, Registrable
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
@@ -97,7 +96,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 nonlocal paint
                 scalars, nest, draws = parts
 
-                def body(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+                def body(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                     for each in scalars:
                         each(layout, holder, context)
                     nest(layout, holder, context, prefix)
@@ -112,7 +111,19 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                     fields(group, identity).bind(lambda pair: placed(pair[0], identity).map(lambda scalars: (scalars, pair[1]))), accumulated(section.drawn(identity) for section in sections)
                 ).map(lambda pair: arranged((*pair[0], pair[1])))
 
-            return (*self.rows, *((Band.GROUPS, nested) for built in (group, flags) for nested in built.nested), *commands, *sections, (Band.PREFERENCES, kind), (Band.INTERFACE, prepared()))
+            def seeded() -> BlenderResult[Option[float]]:
+                """Writes the record read, so record defaults of collections RNA cannot default become native items the page edits."""
+                return read(identity, self.record).bind(lambda settings: write(identity, settings)).map(lambda _: Nothing)
+
+            return (
+                *self.rows,
+                *((Band.GROUPS, nested) for built in (group, flags) for nested in built.nested),
+                *commands,
+                *sections,
+                (Band.PREFERENCES, kind),
+                (Band.INTERFACE, prepared()),
+                Timer(body=seeded),
+            )
 
         return paired(
             paired(RecordGroup.bound(identity, "preferences", self.record, Some(notified(identity)), bindings=self.bindings), RecordGroup.bound(identity, "preferences_asks", asked)),
@@ -131,7 +142,7 @@ _listeners: defaultdict[Identity, list[Changed]] = defaultdict(list)
 def notified(identity: Identity) -> Changed:
     """Returns a native update callback dispatching to active preference listeners."""
 
-    def body(holder: bpy.types.bpy_struct, context: bpy.types.Context, row: bpy.types.Property) -> None:
+    def body(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context, row: bpy.types.Property) -> None:
         for heard in tuple(_listeners.get(identity, ())):
             heard(holder, context, row)
 

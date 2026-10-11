@@ -21,11 +21,11 @@ utils:
                     - not: {inside: {kind: member_access_expression, field: name}}
                 - all:
                     - has: {kind: identifier, nthChild: 1, regex: '^K$'}
-                    - has: {kind: type_argument_list, has: {nthChild: 1, regex: '^((global::)?LanguageExt\.)?(IO|Eff\s*<.+>)$'}}
+                    - has: {kind: type_argument_list, has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^(IO|Eff)$'}}}}}
                     - not: {inside: {kind: member_access_expression, field: name}}
                 - all:
                     - has: {kind: identifier, nthChild: 1, regex: '^pure$'}
-                    - inside: {kind: member_access_expression, field: name, has: {field: expression, regex: '^((global::)?LanguageExt\.)?IO$'}}
+                    - inside: {kind: member_access_expression, field: name, has: {field: expression, matches: {csharp-type-name: {name: {regex: '^IO$'}}}}}
     owner:
         kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration, property_declaration
     result-local:
@@ -56,7 +56,7 @@ utils:
     pure-result:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?LanguageExt\.)?IO\s*\.\s*pure$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: result-local}}, not: {has: {kind: argument, nthChild: 2}}}
             - not: {matches: typed-position}
     tried:

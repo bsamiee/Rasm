@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-choice-by-hand
+language: sql
+severity: error
+utils:
+    null-test:
+        any:
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: _VALUE}
+                - has: {field: right, kind: null_literal}
+                - any: [{not: {has: {regex: '(?i)^distinct$'}}}, {has: {regex: '(?i)^not$'}}]
+            - kind: is_null_expression
+              all:
+                - has: {field: operand, pattern: _VALUE}
+                - has: {field: operator, regex: '(?i)^isnull$'}
+    not-null-test:
+        any:
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: _VALUE}
+                - any:
+                    - has: {field: right, kind: unary_expression, all: [{has: {field: operator, regex: '(?i)^not$'}}, {has: {field: operand, kind: null_literal}}]}
+                    - all: [{has: {field: right, kind: null_literal}}, {has: {regex: '(?i)^distinct$'}}, {not: {has: {regex: '(?i)^not$'}}}]
+            - kind: is_null_expression
+              all:
+                - has: {field: operand, pattern: _VALUE}
+                - not: {has: {field: operator, regex: '(?i)^isnull$'}}
+    equality-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^==?$'}
+            - any:
+                - all: [{has: {field: left, pattern: _VALUE}}, {has: {field: right, pattern: _OTHER}}]
+                - all: [{has: {field: right, pattern: _VALUE}}, {has: {field: left, pattern: _OTHER}}]
+    searched-case:
+        kind: case_expression
+        not: {has: {field: subject, regex: '.'}}
+    coalescing:
+        any:
+            - all:
+                - pattern: {context: 'select case when _ANYTEST then _ANYTHEN else _ANYELSE end', selector: case_expression}
+                - any:
+                    - all: [{has: {field: when, matches: null-test}}, {has: {field: then, pattern: _DEFAULT}}, {has: {field: else, pattern: _VALUE}}]
+                    - all: [{has: {field: when, matches: not-null-test}}, {has: {field: then, pattern: _VALUE}}, {has: {field: else, pattern: _DEFAULT}}]
+            - all:
+                - matches: sql-choice-call
+                - has:
+                    field: arguments
+                    any:
+                        - all: [{has: {nthChild: 1, matches: null-test}}, {has: {nthChild: 2, pattern: _DEFAULT}}, {has: {nthChild: 3, pattern: _VALUE}}]
+                        - all: [{has: {nthChild: 1, matches: not-null-test}}, {has: {nthChild: 2, pattern: _VALUE}}, {has: {nthChild: 3, pattern: _DEFAULT}}]
+    nullifying:
+        any:
+            - all:
+                - pattern: {context: 'select case when _ANYTEST then _ANYTHEN else _VALUE end', selector: case_expression}
+                - has: {field: then, kind: null_literal}
+                - has: {field: when, matches: equality-test}
+            - all:
+                - pattern: {context: 'select case _VALUE when _OTHER then _ANYTHEN else _VALUE end', selector: case_expression}
+                - has: {field: then, kind: null_literal}
+            - all:
+                - matches: sql-choice-call
+                - has: {field: arguments, all: [{has: {nthChild: 3, pattern: _VALUE}}, {has: {nthChild: 2, kind: null_literal}}, {has: {nthChild: 1, matches: equality-test}}]}
+    inner-choice:
+        any:
+            - matches: searched-case
+            - {matches: sql-choice-call, has: {field: arguments, all: [{has: {nthChild: 2, pattern: _ANYTHEN}}, {not: {has: {nthChild: 4}}}]}}
+    choice-chain:
+        any:
+            - {matches: searched-case, has: {field: else, matches: inner-choice}}
+            - {matches: sql-choice-call, has: {field: arguments, all: [{has: {nthChild: 3, matches: inner-choice}}, {not: {has: {nthChild: 4}}}]}}
+rule:
+    pattern: _NODE
+    any:
+        - matches: coalescing
+        - matches: nullifying
+        - matches: choice-chain
+rewriters:
+    - id: coalesced
+      rule: {matches: coalescing}
+      fix: coalesce($VALUE, $DEFAULT)
+    - id: nullified
+      rule: {matches: nullifying}
+      fix: nullif($VALUE, $OTHER)
+    - id: merged-case
+      rule:
+        regex: '(?i)^else$'
+        inside: {matches: searched-case}
+        precedes: {matches: inner-choice, pattern: _INNER}
+      transform:
+        ARMS: {rewrite: {source: $INNER, rewriters: [case-arms, call-arms]}}
+      fix: {template: $ARMS, expandEnd: {matches: inner-choice}}
+    - id: merged-call
+      rule:
+        matches: choice-chain
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, pattern: _CHAINCOND}
+                - has: {nthChild: 2, pattern: _CHAINTHEN}
+                - has: {nthChild: 3, pattern: _INNER}
+      transform:
+        ARMS: {rewrite: {source: $INNER, rewriters: [case-arms, call-arms]}}
+      fix: case when $CHAINCOND then $CHAINTHEN $ARMS end
+    - id: case-arms
+      rule: {matches: searched-case, pattern: _INNERCASE}
+      transform:
+        BODY: {substring: {source: $INNERCASE, startChar: 4, endChar: -3}}
+        CASE_ARMS: {replace: {source: $BODY, replace: '^\s+|\s+$', by: ''}}
+      fix: $CASE_ARMS
+    - id: call-arms
+      rule:
+        matches: sql-choice-call
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, pattern: _ARMCOND}
+                - has: {nthChild: 2, pattern: _ARMTHEN}
+                - any: [{has: {nthChild: 3, pattern: _ARMELSE}}, {not: {has: {nthChild: 3}}}]
+      transform:
+        ELSE_ARM: {replace: {source: $ARMELSE, replace: '(?s)^(.+)$', by: ' else $1'}}
+      fix: when $ARMCOND then $ARMTHEN$ELSE_ARM
+transform:
+    FIXED: {rewrite: {source: $NODE, rewriters: [coalesced, nullified, merged-case, merged-call]}}
+fix: $FIXED
+message: '`$NODE` selects by hand what `$FIXED` states'
+note: 'Use `coalesce(<value>, <default>)` for a null default, `nullif(<value>, <other>)` for a value nulled on a match, and one searched CASE in place of a choice nested in another choice''s else arm'

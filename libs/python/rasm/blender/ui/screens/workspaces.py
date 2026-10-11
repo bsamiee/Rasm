@@ -87,7 +87,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
         listed: tuple[Registrable, ...] = (
             (
                 PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: self.filtered(identity)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                *(() if bpy.app.background else (Timer(body=lambda: self.filtered(identity).map(lambda _: Nothing)),)),
+                Timer(body=lambda: self.filtered(identity).map(lambda _: Nothing)),
             )
             if self.owners.is_some()
             else ()
@@ -124,30 +124,27 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
         def built() -> BlenderResult[bpy.types.WorkSpace]:
             """Copies native screens and tools without requesting a pending layout switch."""
 
-            def copied(source: bpy.types.WorkSpace) -> BlenderResult[bpy.types.WorkSpace]:
+            def copied(workspace: bpy.types.WorkSpace) -> BlenderResult[bpy.types.WorkSpace]:
                 """Owns copied screens through the complete marked workspace acquisition."""
-                workspace: bpy.types.WorkSpace = source.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                 screens.callback(bpy.data.batch_remove, ids=tuple(workspace.screens))
                 with ExitStack() as pending:
                     pending.callback(bpy.data.batch_remove, ids=(workspace,))
-                    answer = named(workspace, self.name).bind(moded)
-                    match answer.tag:
-                        case "ok":
-                            pending.pop_all()
-                            return answer
-                        case "error":
-                            return answer
+                    if (answer := named(workspace, self.name).bind(moded)).is_ok():
+                        pending.pop_all()
+                    return answer
 
-            return Option.of_optional(bpy.data.workspaces.get(self.source)).map(copied).default_with(lambda: Error((BlenderAbsentFault(owner=repr(bpy.data.workspaces), key=self.source),)))
+            return (
+                Option
+                .of_optional(bpy.data.workspaces.get(self.source))
+                .bind(lambda source: Option.of_optional(source.copy()))
+                .map(copied)
+                .default_with(lambda: Error((BlenderAbsentFault(owner=repr(bpy.data.workspaces), key=self.source),)))
+            )
 
         with ExitStack() as screens:
-            answer = self.ownership.made(identity, built).map(lambda workspace: self._configured(identity, workspace))
-            match answer.tag:
-                case "ok":
-                    screens.pop_all()
-                    return answer
-                case "error":
-                    return answer
+            if (answer := self.ownership.made(identity, built).map(lambda workspace: self._configured(identity, workspace))).is_ok():
+                screens.pop_all()
+            return answer
 
     def activated(self, identity: Identity, window: bpy.types.Window) -> BlenderResult[Activation]:
         """Requests the owned workspace and returns its deferred activation lifetime."""

@@ -6,7 +6,7 @@ utils:
     mutator:
         regex: '^(Swap|SwapIO|SwapMaybe|SwapMaybeIO|SwapKey|Add|AddOrUpdate|AddOrUpdateRange|AddRange|Clear|FilterInPlace|MapInPlace|BindInPlace|FindOrAdd|FindOrMaybeAdd|Insert|InsertRange|Push|Remove|RemoveAll|RemoveAt|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update|Commute)$'
     collection-type:
-        regex: '^((global::)?System\.Collections\.Generic\.)?(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|Queue|Stack|LinkedList)\s*<|\[[^\]]*\]$'
+        any: [{matches: {csharp-type-name: {name: {regex: '^(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|Queue|Stack|LinkedList)$'}}}}, {kind: array_type}]
     collection-local:
         kind: identifier
         pattern: $CELL
@@ -36,7 +36,7 @@ utils:
               has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: mutator}}, {has: {field: expression, pattern: $CELL, matches: cell}}]}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(swap|commute)$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(swap|commute)$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL, matches: csharp-atom-cell}}}
             - kind: assignment_expression
               has: {field: left, kind: element_access_expression, has: {field: expression, pattern: $CELL, matches: collection-local}}
@@ -52,7 +52,7 @@ utils:
             kind: argument
             inside:
                 kind: argument_list
-                inside: {kind: invocation_expression, has: {field: function, regex: '^(global::)?(LanguageExt\.)?(Prelude\.)?(IO\.(lift|liftAsync)|atomic|atomicIO|snapshot|serial)(\s*<.+>)?$'}}
+                inside: {kind: invocation_expression, has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync)$'}}}}, {matches: {csharp-type-name: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}}]}}
     opaque-callback:
         kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
         not:

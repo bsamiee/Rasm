@@ -8,7 +8,6 @@ from typing import Annotated, ClassVar
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.collections import Block
 import gpu
 from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix
@@ -30,7 +29,7 @@ from rasm.blender.nodes.editing import Chosen, inserted
 from rasm.blender.nodes.placement import NodeSpacing
 from rasm.blender.render.color.luts import Baking, Enabled, Writing
 from rasm.blender.render.effects.stack import EffectStack, viewed
-from rasm.blender.render.outputs.exports import image_type
+from rasm.blender.render.outputs.exports import image_type, plane
 from rasm.blender.render.review.frames import Access, Bound, editor, framed, FrameRegion, Free, HANDLE, overlaid
 from rasm.blender.scene.materials import matrix, matrix_inputs
 from rasm.blender.settings.attachments import Attached, Attachment
@@ -48,7 +47,6 @@ from rasm.imaging.color.processors import applied, DisplayView, processor
 from rasm.imaging.effects.grade.primaries import Mixer, Primaries
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.files.images import ImageFile
-from rasm.imaging.files.multilayer import Multilayer
 from rasm.imaging.geometry.homography import Quad
 from rasm.imaging.geometry.panoramas import PanoramaView
 from rasm.imaging.geometry.stmaps import StMap
@@ -90,6 +88,11 @@ class Pairing(Choice):
     TARGET = 2, "target image"
 
 
+# --- [POINTERS] -------------------------------------------------------------------------
+
+sampled_pointer = Definition[bpy.types.Image](poll=Some(lambda identity, _owner, image: sampled_image(identity, image)))
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -104,11 +107,7 @@ class Sampled(Case, frozen=True, kw_only=True, tag=2):
     """Target of a second image's samples."""
 
     title = "Image"
-    image: Annotated[
-        bpy.types.Image | None,
-        msgspec.Meta(description="Image whose samples the source maps onto"),
-        Definition[bpy.types.Image](poll=Some(lambda identity, _owner, image: sampled_image(identity, image))),
-    ] = None
+    image: Annotated[bpy.types.Image | None, msgspec.Meta(description="Image whose samples the source maps onto"), sampled_pointer] = None
 
 
 class ChartImage(msgspec.Struct, frozen=True, kw_only=True):
@@ -125,7 +124,7 @@ class ChartImage(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Charting(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart, normalization, clamp, and overlay opacity a new calibration takes."""
+    """Chart, normalization, clamp, and overlay opacity one calibration takes."""
 
     chart: Annotated[Chart, msgspec.Meta(title="Chart", description="Chart a placement lays out")] = Chart.COLORCHECKER_CLASSIC
     normalized: Annotated[bool, msgspec.Meta(title="Normalize", description="Keep the source neutral's luma and hold the gain as exposure")] = True
@@ -136,15 +135,11 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
 class Calibrating(msgspec.Struct, frozen=True, kw_only=True):
     """Scene's calibration pairing and fit choices."""
 
-    source: Annotated[
-        bpy.types.Image | None,
-        msgspec.Meta(title="Source", description="Sampled image the calibration maps from"),
-        Definition[bpy.types.Image](poll=Some(lambda identity, _owner, image: sampled_image(identity, image))),
-    ] = None
+    source: Annotated[bpy.types.Image | None, msgspec.Meta(title="Source", description="Sampled image the calibration maps from"), sampled_pointer] = None
     target: Annotated[Target, msgspec.Meta(title="Target", description="Colors the source's samples map onto")] = Reference()
     direction: Annotated[Direction, msgspec.Meta(title="Direction", description="Source onto target, or target back onto source")] = Direction.FORWARD
     gain: Annotated[bool, msgspec.Meta(title="Keep Gain", description="Fold the exposure gain into the applied and exported transform")] = False
-    charting: Annotated[Charting, msgspec.Meta(title="Defaults", description="Chart, normalization, clamp, and opacity")] = Charting()
+    charting: Annotated[Charting, msgspec.Meta(title="Options", description="Chart, normalization, clamp, and opacity")] = Charting()
 
 
 class Framing(msgspec.Struct, frozen=True, kw_only=True):
@@ -177,8 +172,6 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
         fills, lines = gpu.shader.from_builtin("FLAT_COLOR"), gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
 
         def formed(scene: bpy.types.Scene, config: PyOpenColorIO.Config, image: bpy.types.Image) -> BlenderResult[Option[Callable[[npt.NDArray[np.float32]], BlenderResult[npt.NDArray[np.float32]]]]]:
-            display: bpy.types.ColorManagedDisplaySettings = scene.display_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            view: bpy.types.ColorManagedViewSettings = scene.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             match image.type:
                 case "RENDER_RESULT":
                     return self.stack.forming(self.identity, scene, config, Enabled.RENDER).map(
@@ -191,16 +184,30 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
                         )
                     )
                 case _ if image.use_view_as_render:
-                    return Ok(Some(lambda values: viewed(scene).form(config, values, exposure=view.exposure, gamma=view.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),))))
-                case _:
-                    return Ok(
-                        Some(
-                            lambda values: (
-                                DisplayView(display=display.display_device, view=config.getDefaultView(display.display_device))
-                                .form(config, values)
-                                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                    return (
+                        Option
+                        .of_optional(scene.view_settings)
+                        .map(
+                            lambda view: Some(
+                                lambda values: viewed(scene).form(config, values, exposure=view.exposure, gamma=view.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
                             )
                         )
+                        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),))
+                    )
+                case _:
+                    return (
+                        Option
+                        .of_optional(scene.display_settings)
+                        .map(
+                            lambda display: Some(
+                                lambda values: (
+                                    DisplayView(display=display.display_device, view=config.getDefaultView(display.display_device))
+                                    .form(config, values)
+                                    .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                                )
+                            )
+                        )
+                        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="display_settings"),))
                     )
 
         def patched(scene: bpy.types.Scene, config: PyOpenColorIO.Config, image: bpy.types.Image, record: ChartImage, opacity: float) -> BlenderResult[Option[tuple[Handle[bpy.types.Image], Drawn]]]:
@@ -308,14 +315,14 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
         )
     )
     stack: EffectStack
-    settings: Callable[[Identity], BlenderResult[Charting]]
     across: Glyph
     upright: Glyph
+    settings: Option[Callable[[Identity], BlenderResult[Charting]]] = Nothing
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
-        """Image charts and the scene's calibration seeded from the preference record, which the preferences page acquires."""
-        return (charts, msgspec.structs.replace(calibrations, seed=Some(lambda bound: self.settings(bound).map(lambda charting: Calibrating(charting=charting)))))
+        """Image charts and the scene's calibration, seeded from the settings reader when one is given, which the preferences page acquires."""
+        return (charts, msgspec.structs.replace(calibrations, seed=self.settings.map(lambda read: lambda bound: read(bound).map(lambda charting: Calibrating(charting=charting)))))
 
     def operators(self, identity: Identity) -> ChartCommands:
         """Builds the operator rows over the image editor and node editor conditions."""
@@ -676,7 +683,7 @@ class Calibrator(Line, frozen=True, kw_only=True):
             ((chart, held), ((image_rows, image_nest), (scene_rows, scene_nest))), pressed = parts
             press = joined(pressed)
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for group in (chart.struct(image) for image in editor_image(context).to_option().filter(chart.stored).to_list()):
                     image_rows(layout, group, context)
                     image_nest(layout, group, context, chart.name)
@@ -817,19 +824,6 @@ def squared(ratio: float, reference: ChartReference) -> Quad:
 def planed(context: bpy.types.Context, image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[npt.NDArray[np.float32]]:
     """Reads an image's scene-linear RGBA plane, the Render Result through its saved multilayer file."""
 
-    def combined(path: str, layer: bpy.types.ViewLayer) -> BlenderResult[npt.NDArray[np.float32]]:
-        name = f"{layer.name}.Combined"
-
-        def selected(file: Multilayer) -> BlenderResult[npt.NDArray[np.float32]]:
-            match Block.of_seq(file.layers).filter(lambda layer: layer.name == name).try_head():
-                case Option(tag="some", some=layer):
-                    return file.plane(layer, layer.channels).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                case Option():
-                    return Error((BlenderAbsentFault(owner=path, key=name),))
-
-        file: BlenderResult[Multilayer] = Multilayer.read(path).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-        return Result[Multilayer, BlenderFaults].bind(file, selected)
-
     def linear(found: ImageFile[np.float32]) -> BlenderResult[npt.NDArray[np.float32]]:
         return (
             processor(config, PyOpenColorIO.ColorSpaceTransform(src=found.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
@@ -845,7 +839,7 @@ def planed(context: bpy.types.Context, image: bpy.types.Image, config: PyOpenCol
                     root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
                     root_in(bpy.types.ViewLayer, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),)),
                 ),
-                lambda pair: saved(pair[0]).bind(lambda path: combined(path, pair[1])),
+                lambda pair: saved(pair[0]).bind(lambda path: plane(path, ("", f"{pair[1].name}.Combined"), ("R", "G", "B", "A"))),
             )
         case _:
             return read(image, config).bind(linear)

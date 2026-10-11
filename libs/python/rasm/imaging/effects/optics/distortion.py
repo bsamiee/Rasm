@@ -15,7 +15,7 @@ from rasm.imaging.effects.optics.defocus import Aperture
 from rasm.imaging.geometry.stmaps import Extension
 from rasm.imaging.parameters import Choice, GraphForm, Presentation, Quantity, Rgb
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Direction(Choice):
@@ -25,7 +25,7 @@ class Direction(Choice):
     UNDISTORT = 2, "Undistort"
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Radial(msgspec.Struct, frozen=True, kw_only=True):
@@ -127,6 +127,6 @@ class Aberration(Effect, frozen=True, kw_only=True, tag=26):
         return tuple((float(-0.25 * position), Rgb(red=float(weight[0]), green=float(weight[1]), blue=float(weight[2]))) for position, weight in zip(across, weights))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Aberration", "Direction", "Distortion", "Radial"]

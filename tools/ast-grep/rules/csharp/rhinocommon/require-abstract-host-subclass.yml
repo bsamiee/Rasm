@@ -2,7 +2,7 @@
 id: require-abstract-host-subclass
 language: csharp
 severity: error
-files: ['libs/**']
+files: ['libs/**/rhino/**']
 utils:
     host-type:
         kind: 'identifier, qualified_name'

@@ -2,10 +2,11 @@
 id: no-throwing-key-getter-csharp
 language: csharp
 severity: error
+files: ['**/rhino/**']
 utils:
     dictionary-type:
         any:
-            - regex: '^((global::)?Rhino\.Collections\.)?ArchivableDictionary\??$'
+            - matches: {csharp-type-name: {name: {regex: '^ArchivableDictionary$'}}}
             - kind: identifier
               pattern: $ALIAS
               inside:
@@ -16,7 +17,7 @@ utils:
                     kind: using_directive
                     all:
                         - has: {field: name, pattern: $ALIAS}
-                        - has: {nthChild: 2, regex: '^((global::)?Rhino\.Collections\.)?ArchivableDictionary$'}
+                        - has: {nthChild: 2, matches: {csharp-type-name: {name: {regex: '^ArchivableDictionary$'}}}}
     dictionary-container:
         regex: '^((global::)?LanguageExt\.)?(Option|Seq|Lst|Arr|IO|Fin|Eff)\s*<\s*((global::)?Rhino\.Collections\.)?ArchivableDictionary\s*>$'
     container-node:
@@ -160,7 +161,7 @@ utils:
             - kind: invocation_expression
               has: {field: function, regex: '^nameof$'}
             - kind: identifier
-              matches: {csharp-declared-type: {type: {regex: '^((global::)?System\.)?(string|String)\??$'}}}
+              matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^(string|String)$'}}}}}}
     write:
         inside: {kind: assignment_expression, field: left, has: {field: operator, regex: '^=$'}}
 rule:

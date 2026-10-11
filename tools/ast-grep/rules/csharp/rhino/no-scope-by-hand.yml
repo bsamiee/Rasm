@@ -6,7 +6,7 @@ files: ['**/rhino/**']
 utils:
     registration:
         kind: invocation_expression
-        has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?use$'}
+        has: {field: function, matches: {csharp-type-name: {name: {regex: '^use$'}}}}
     use-call:
         matches: registration
         has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}

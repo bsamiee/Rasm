@@ -2,11 +2,22 @@
 id: no-host-thread-invoke
 language: csharp
 severity: error
+files: ['**/rhino/**']
 utils:
+    eto-instance:
+        matches: {csharp-owner-member: {type: {regex: '^Application$'}, member: {regex: '^Instance$'}}}
     eto-application:
-        regex: '^((global::)?Eto\.Forms\.)?Application\s*\.\s*Instance\s*!?$'
+        any:
+            - matches: eto-instance
+            - kind: postfix_unary_expression
+              has: {matches: eto-instance}
+    current-context:
+        matches: {csharp-owner-member: {type: {regex: '^SynchronizationContext$'}, member: {regex: '^Current$'}}}
     sync-context:
-        regex: '^((global::)?System\.Threading\.)?SynchronizationContext\s*\.\s*Current\s*!?$'
+        any:
+            - matches: current-context
+            - kind: postfix_unary_expression
+              has: {matches: current-context}
     relayed:
         any:
             - kind: identifier
@@ -42,10 +53,10 @@ utils:
                             - kind: parameter, property_declaration
                               all:
                                 - has: {field: name, pattern: $HOLDER}
-                                - has: {field: type, regex: '^((global::)?System\.Threading\.)?SynchronizationContext\s*\??$'}
+                                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^SynchronizationContext$'}}}}
                             - kind: variable_declaration
                               all:
-                                - has: {field: type, regex: '^((global::)?System\.Threading\.)?SynchronizationContext\s*\??$'}
+                                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^SynchronizationContext$'}}}}
                                 - has: {kind: variable_declarator, has: {field: name, pattern: $HOLDER}}
     eto-invoke:
         regex: '^(Invoke|AsyncInvoke|InvokeAsync)(\s*<.+>)?$'
@@ -54,15 +65,15 @@ utils:
     main-thread-invoke:
         regex: '^(Begin)?InvokeOnMainThread$'
     main-queue:
-        regex: '^((global::)?CoreFoundation\.)?DispatchQueue\s*\.\s*MainQueue$'
+        matches: {csharp-owner-member: {type: {regex: '^DispatchQueue$'}, member: {regex: '^MainQueue$'}}}
     main-thread:
-        regex: '^((global::)?Foundation\.)?NSThread\s*\.\s*MainThread$'
+        matches: {csharp-owner-member: {type: {regex: '^NSThread$'}, member: {regex: '^MainThread$'}}}
 rule:
     kind: identifier, member_access_expression, conditional_access_expression
     pattern: $CALL
     any:
         - kind: member_access_expression
-          regex: '^((global::)?Rhino\.)?RhinoApp\s*\.\s*(InvokeAndWait|InvokeOnUiThread)$'
+          matches: {csharp-owner-member: {type: {regex: '^RhinoApp$'}, member: {regex: '^(InvokeAndWait|InvokeOnUiThread)$'}}}
         - kind: identifier
           matches: main-thread-invoke
           inside: {kind: invocation_expression, field: function}

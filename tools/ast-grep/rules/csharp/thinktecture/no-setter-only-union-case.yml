@@ -5,7 +5,7 @@ severity: error
 utils:
     lift:
         kind: invocation_expression
-        has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.lift$'}
+        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
     host-write:
         kind: assignment_expression
         all:

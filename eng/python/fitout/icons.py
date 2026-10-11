@@ -12,8 +12,9 @@ from picosvg.geometric_types import Rect
 from picosvg.svg import SVG
 from picosvg.svg_pathops import skia_path
 from picosvg.svg_transform import Affine2D
+from picosvg.svg_types import SVGShape
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Point = tuple[float, float]
 type Knot = tuple[Point, Point, Point]
@@ -21,7 +22,7 @@ type Contours = tuple[tuple[Knot, ...], ...]
 type RGBA = tuple[float, float, float, float]
 type Glyphs = dict[str, tuple[tuple[RGBA, Contours], ...]]
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def outlined(source: Path) -> Glyphs:
@@ -65,25 +66,26 @@ def outlined(source: Path) -> Glyphs:
         def _closePath(self) -> None:
             self.contours.append(tuple((segment[0], previous[2], segment[1]) for previous, segment in pairwise((self.segments[-1], *self.segments))))
 
+    def paint(shape: SVGShape, root_opacity: float, ancestry: float, transform: Affine2D) -> tuple[RGBA, Contours]:
+        color = Color("white" if shape.fill.lower() == "currentcolor" else shape.fill).convert("srgb-linear").fit()
+        red, green, blue = color.coords(nans=False)
+        alpha = color.alpha(nans=False) * root_opacity * shape.opacity * ancestry
+        pen = Cubics()
+        skia_path(shape.as_path().remove_overlaps().as_cmd_seq(), "nonzero").transform(*transform).draw(ExplicitClosingLinePen(pen))  # type: ignore[no-untyped-call]
+        return (red, green, blue, alpha), tuple(pen.contours)
+
     glyphs: Glyphs = {}
     for master in sorted(source.glob("*.svg")):
-        svg: SVG = SVG.parse(master).apply_style_attributes()  # type: ignore[no-untyped-call]
-        root_opacity = float(svg.svg_root.get("opacity", "1"))
-        svg = svg.topicosvg()  # type: ignore[no-untyped-call]
-        if (viewbox := svg.view_box()) is None:
+        styled: SVG = SVG.parse(master).apply_style_attributes()  # type: ignore[no-untyped-call]
+        root_opacity = float(styled.svg_root.get("opacity", "1"))
+        if (viewbox := (svg := styled.topicosvg()).view_box()) is None:  # type: ignore[no-untyped-call]
             raise ValueError(f"SVG master has no viewport dimensions: {master}")
         transform = Affine2D.flip_y() @ Affine2D.rect_to_rect(viewbox, Rect(-1, -1, 2, 2), svg.svg_root.get("preserveAspectRatio", "xMidYMid meet"))
-        paints: list[tuple[RGBA, Contours]] = []
-        for context in svg.depth_first():  # type: ignore[no-untyped-call]
-            if context.is_shape():
-                shape = context.shape()
-                color = Color("white" if shape.fill.lower() == "currentcolor" else shape.fill).convert("srgb-linear").fit()
-                red, green, blue = color.coords(nans=False)
-                alpha = color.alpha(nans=False) * root_opacity * shape.opacity * prod(float(ancestor.get("opacity", "1")) for ancestor in context.element.iterancestors())
-                pen = Cubics()
-                skia_path(shape.as_path().remove_overlaps().as_cmd_seq(), "nonzero").transform(*transform).draw(ExplicitClosingLinePen(pen))  # type: ignore[no-untyped-call]
-                paints.append(((red, green, blue, alpha), tuple(pen.contours)))
-        glyphs[master.stem] = tuple(paints)
+        glyphs[master.stem] = tuple(
+            paint(context.shape(), root_opacity, prod(float(ancestor.get("opacity", "1")) for ancestor in context.element.iterancestors()), transform)
+            for context in svg.depth_first()
+            if context.is_shape()
+        )
     return glyphs
 
 

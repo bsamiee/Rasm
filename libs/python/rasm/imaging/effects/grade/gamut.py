@@ -13,7 +13,7 @@ from rasm.imaging.color.processors import applied, processor
 from rasm.imaging.faults import ImagingResult, paired
 from rasm.imaging.parameters import ColorSpace, Presentation
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Channel(msgspec.Struct, frozen=True, kw_only=True):
@@ -85,6 +85,6 @@ class GamutCompression(Effect, frozen=True, kw_only=True, tag=10):
         ).map(converted)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Channel", "GamutCompression"]

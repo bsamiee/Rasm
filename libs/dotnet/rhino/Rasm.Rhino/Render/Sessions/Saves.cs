@@ -145,31 +145,48 @@ public static class Saves {
             : IO.pure(HashMap<RenderWindow.StandardChannels, PixelFrame>())
         from written in DisposalOps.Within(static () => new Derivations(), derivations =>
             Callbacks.Each(book.Targets.Zip(placed).Map(output =>
-                from built in output.First.FileFormat.Write(output.First).Switch(
-                    (Source: source, Target: output.First, Derivations: derivations, Channels: channels),
-                    raster: static (save, raster) => Displayed(save.Source, save.Target, raster.Depth, save.Derivations)
-                        .Bind(frame => IO.lift(raster.Still(frame, Some(save.Target.DisplayDevice.Encoding)))),
-                    dib: static (save, dib) => Displayed(save.Source, save.Target, OutputDepth.UInt8, save.Derivations)
-                        .Bind(frame => IO.lift(dib.Still(frame))),
-                    raw: static (save, raw) => save.Source.Match(
-                        Left: captured => IO.lift(captured.Run.Scene.ToFin(new SceneUntapped(captured.Rendering)))
-                            .Bind(scene => IO.lift(() => raw.Still(scene, Some(captured.Run)))),
-                        Right: recorded => IO.lift(() => raw.Still(recorded.Scene, None))),
-                    layers: static (save, layers) => save.Source.Match(
-                        Left: captured => IO.lift(captured.Run.Scene.ToFin(new SceneUntapped(captured.Rendering)))
-                            .Bind(scene => Passes(None, scene, save.Channels, Some(captured.Run), layers, save.Target)),
-                        Right: recorded => Passes(None, recorded.Scene, save.Channels, None, layers, save.Target)),
-                    layered: static (save, _) =>
-                        from frame in Displayed(save.Source, save.Target, save.Target.ColorDepth, save.Derivations)
-                        from name in IO.lift(Conversions.Validated<PassName, string, InvalidOutput>(nameof(RenderWindow.StandardChannels.RGBA)))
-                        from auxiliary in toSeq(SavedChannel.Items).Filter(channel => save.Target.ColorDepth.Levels.IsNone && save.Channels.ContainsKey(channel.Key))
-                            .TraverseM(channel => Layer(None, channel, save.Channels[channel.Key], Some(save.Target.DisplayDevice.Encoding))).As()
-                        from layeredDocument in IO.lift(LayeredDocument.From(save.Target.ColorDepth, Some(save.Target.DisplayDevice.Encoding),
-                            new DocumentLayer.Raster(name, frame, BlendingMode.Mix, Mix.Full, Visible: true, Mask: None).Cons(auxiliary)).ToFin())
-                        select (StillFormat)new StillFormat.Document(layeredDocument))
+                from built in Built(source, output.First, derivations, channels)
                 from saved in StillWriter.Write(built, metadata, output.Second.Path)
                 select unit)), static derivations => IO.lift(derivations.Dispose))
         select placed;
+
+    private static IO<StillFormat> Built(
+        Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
+        OutputTarget target, Derivations derivations, HashMap<RenderWindow.StandardChannels, PixelFrame> channels) =>
+        target.FileFormat.Write(target).Switch(
+            (Source: source, Target: target, Derivations: derivations, Channels: channels),
+            raster: static (save, raster) => Displayed(save.Source, save.Target, raster.Depth, save.Derivations)
+                .Bind(frame => IO.lift(raster.Still(frame, Some(save.Target.DisplayDevice.Encoding)))),
+            dib: static (save, dib) => Displayed(save.Source, save.Target, OutputDepth.UInt8, save.Derivations)
+                .Bind(frame => IO.lift(dib.Still(frame))),
+            raw: static (save, raw) => RawStill(save.Source, raw),
+            layers: static (save, layers) => LayerStill(save.Source, save.Target, save.Channels, layers),
+            layered: static (save, _) => Layered(save.Source, save.Target, save.Derivations, save.Channels));
+
+    private static IO<StillFormat> RawStill(Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source, TargetWrite.Raw raw) =>
+        source.Match(
+            Left: captured => IO.lift(captured.Run.Scene.ToFin(new SceneUntapped(captured.Rendering)))
+                .Bind(scene => IO.lift(() => raw.Still(scene, Some(captured.Run)))),
+            Right: recorded => IO.lift(() => raw.Still(recorded.Scene, None)));
+
+    private static IO<StillFormat> LayerStill(
+        Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
+        OutputTarget target, HashMap<RenderWindow.StandardChannels, PixelFrame> channels, TargetWrite.Layers layers) =>
+        source.Match(
+            Left: captured => IO.lift(captured.Run.Scene.ToFin(new SceneUntapped(captured.Rendering)))
+                .Bind(scene => Passes(None, scene, channels, Some(captured.Run), layers, target)),
+            Right: recorded => Passes(None, recorded.Scene, channels, None, layers, target));
+
+    private static IO<StillFormat> Layered(
+        Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
+        OutputTarget target, Derivations derivations, HashMap<RenderWindow.StandardChannels, PixelFrame> channels) =>
+        from frame in Displayed(source, target, target.ColorDepth, derivations)
+        from name in IO.lift(Conversions.Validated<PassName, string, InvalidOutput>(nameof(RenderWindow.StandardChannels.RGBA)))
+        from auxiliary in toSeq(SavedChannel.Items).Filter(channel => target.ColorDepth.Levels.IsNone && channels.ContainsKey(channel.Key))
+            .TraverseM(channel => Layer(None, channel, channels[channel.Key], Some(target.DisplayDevice.Encoding))).As()
+        from layeredDocument in IO.lift(LayeredDocument.From(target.ColorDepth, Some(target.DisplayDevice.Encoding),
+            new DocumentLayer.Raster(name, frame, BlendingMode.Mix, Mix.Full, Visible: true, Mask: None).Cons(auxiliary)).ToFin())
+        select (StillFormat)new StillFormat.Document(layeredDocument);
 
     private static IO<PixelFrame> Displayed(
         Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
@@ -185,17 +202,7 @@ public static class Saves {
             Lights = None,
         }
         from prepared in source.Match(
-            Left: captured => (from formation in captured.Run.Formation
-                               from scene in captured.Run.Scene
-                               where captured.Run.NativeLate.IsEmpty
-                               select (Frame: scene.Copy(), Passes: formation(context).ToSeq() + captured.Run.Late.Choose(pass => pass(context)))).Match(
-                Some: static held => IO.pure(held),
-                None: () => captured.Run.NativeLate.IsEmpty || target.DisplayDevice == EffectPipeline.Display
-                    ? IO.lift(captured.Run.Output.ToFin(new FrameUnformed(captured.Rendering)))
-                        .Bind(output => IO.lift(output.Frame.Map(held => (Frame: held.Frame.Copy(),
-                            Passes: held.Encoding.To(context.Display.Encoding).Map<PixelPass>(static step => new PixelPass.Color(step))
-                                + output.Prefix.ToSeq().Bind(prefix => captured.Run.Late.Skip(prefix).Choose(pass => pass(context)))))))
-                    : IO.fail<(PixelFrame Frame, Seq<PixelPass> Passes)>(new NativeOutputUnavailable(captured.Rendering, captured.Run.NativeLate))),
+            Left: captured => Prepared(captured, target, context),
             Right: recorded => EffectPipeline.Chain(recorded.Request.Set,
                     recorded.Request.Chain.Filter(static kind => kind.State != typeof(Dither)),
                     context with { Signal = TransferCurve.Linear, Lights = None })
@@ -206,6 +213,22 @@ public static class Saves {
         from formed in prepared.Passes.TraverseM(pass => IO.lift(() => pass.Run(prepared.Frame, new Progress<int>()))).As()
         from quantized in depth.Levels.Traverse(levels => IO.lift(() => target.Dithering.Pass(levels).Run(prepared.Frame, new Progress<int>()))).As()
         select prepared.Frame;
+
+    private static IO<(PixelFrame Frame, Seq<PixelPass> Passes)> Prepared((Guid Rendering, RenderRun Run) captured, OutputTarget target, PassContext context) =>
+        (from formation in captured.Run.Formation
+         from scene in captured.Run.Scene
+         where captured.Run.NativeLate.IsEmpty
+         select (Frame: scene.Copy(), Passes: formation(context).ToSeq() + captured.Run.Late.Choose(pass => pass(context)))).Match(
+            Some: static held => IO.pure(held),
+            None: () => captured.Run.NativeLate.IsEmpty || target.DisplayDevice == EffectPipeline.Display
+                ? Formed(captured, context)
+                : IO.fail<(PixelFrame Frame, Seq<PixelPass> Passes)>(new NativeOutputUnavailable(captured.Rendering, captured.Run.NativeLate)));
+
+    private static IO<(PixelFrame Frame, Seq<PixelPass> Passes)> Formed((Guid Rendering, RenderRun Run) captured, PassContext context) =>
+        IO.lift(captured.Run.Output.ToFin(new FrameUnformed(captured.Rendering)))
+            .Bind(output => IO.lift(output.Frame.Map(held => (Frame: held.Frame.Copy(),
+                Passes: held.Encoding.To(context.Display.Encoding).Map<PixelPass>(static step => new PixelPass.Color(step))
+                    + output.Prefix.ToSeq().Bind(prefix => captured.Run.Late.Skip(prefix).Choose(pass => pass(context)))))));
 
     private static Func<PixelFrame, Fin<PixelFrame>> Placed(Option<RenderRegion> region, OverscanFrame overscan) =>
         region.Map(held => held.Pixels(overscan.Frame)).IfNone(overscan.DataWindow) switch {

@@ -1,6 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
-
 """Native template binding policy and data-block preview rows."""
 
 from collections.abc import Callable, Mapping
@@ -34,7 +31,7 @@ class Wheel(Line, frozen=True, kw_only=True):
         def draw(parts: tuple[Resolved, ...]) -> RowDraw:
             color, *light = parts
 
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for owner, key in located(color, holder, context).to_list():
                     gridded(layout, Some("")).template_color_picker(owner, key, value_slider=True, lock_luminosity=True, cubic=True)
                     for source, member in (found for held in light for found in located(held, holder, context).to_list()):
@@ -61,7 +58,7 @@ class Ranged(Line, frozen=True, kw_only=True):
         """Acquires every declared range in enum order and retains each wheel's condition."""
 
         def draw(choices: type[Choice], draws: Mapping[Choice, RowDraw]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for owner, key in located(self.chooser, holder, context).to_list():
                     row = layout.row()
                     row.use_property_split = False
@@ -171,8 +168,8 @@ class Shortcut(Line, frozen=True, kw_only=True):
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
         """Returns live key caps without capturing replaceable user keymap items."""
 
-        def shown(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
-            for _, item in self.keymap.counterparts(context):
+        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            for _, _, item in self.keymap.counterparts(context):
                 layout.template_event_from_keymap_item(item, text=item.name)
 
         return Ok(shown)
@@ -182,12 +179,17 @@ class Shortcut(Line, frozen=True, kw_only=True):
 
 
 def templated(
-    binding: Binding, kinds: tuple[type[bpy.types.bpy_struct], ...], forms: tuple[type[object], ...], place: Callable[[bpy.types.UILayout, Owner, str, bpy.types.Context], None], *, split: bool = True
+    binding: Binding,
+    kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]",
+    forms: tuple[type[object], ...],
+    place: Callable[[bpy.types.UILayout, Owner, str, bpy.types.Context], None],
+    *,
+    split: bool = True,
 ) -> BlenderResult[RowDraw]:
     """Admits static or reached native metadata and preserves template alignment."""
 
     def draw(held: Resolved) -> RowDraw:
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for owner, key in located(held, holder, context).to_list():
                 line = layout if split else layout.column()
                 if not split:

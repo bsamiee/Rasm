@@ -1,6 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
-
 """Native operators, invocation forms, property placements, and macros."""
 
 from abc import abstractmethod
@@ -76,9 +73,9 @@ class Call[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     record: T
     paths: tuple[Path, ...] = ()
 
-    def root[K: bpy.types.bpy_struct](self, kind: type[K]) -> BlenderResult[K]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    def root[K: "bpy.types.bpy_struct[object]"](self, kind: type[K]) -> BlenderResult[K]:
         """Returns a required native context root or its typed absence."""
-        return root_in(kind, self.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.context), key=kind.bl_rna.identifier),))
+        return root_in(kind, self.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.context), key=kind.bl_rna.identifier),))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 class Confirm[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
@@ -86,7 +83,7 @@ class Confirm[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     message: Option[Callable[[bpy.types.Context, T], BlenderResult[str]]] = Nothing
     confirm_text: Option[str] = Nothing
-    icon: str = bpy.types.WindowManager.bl_rna.functions["invoke_confirm"].parameters["icon"].default
+    icon: str = bpy.types.WindowManager.bl_rna.functions["invoke_confirm"].parameters["icon"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     title: Option[str] = Nothing
     text_ctxt: Option[str] = Nothing
     translate: bool = True
@@ -95,7 +92,7 @@ class Confirm[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 class Properties(msgspec.Struct, frozen=True, kw_only=True):
     """Editable dialog executing on confirmation."""
 
-    width: int = bpy.types.WindowManager.bl_rna.functions["invoke_props_dialog"].parameters["width"].default
+    width: int = bpy.types.WindowManager.bl_rna.functions["invoke_props_dialog"].parameters["width"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     confirm_text: Option[str] = Nothing
     cancel_default: bool = False
     title: Option[str] = Nothing
@@ -113,7 +110,7 @@ class Suppressible[T: msgspec.Struct](Properties, frozen=True, kw_only=True):
 class Floating(msgspec.Struct, frozen=True, kw_only=True):
     """Property popup that does not execute the body."""
 
-    width: int = bpy.types.WindowManager.bl_rna.functions["invoke_popup"].parameters["width"].default
+    width: int = bpy.types.WindowManager.bl_rna.functions["invoke_popup"].parameters["width"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     auto_keymap: bool = False
 
 
@@ -261,9 +258,9 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
             def projected(record: T) -> tuple[T, tuple[Path, ...]]:
                 match self.invoke.to_optional():
                     case Open():
-                        paths = tuple(Path(operator.directory, item.name) for item in operator.files) or (Path(operator.filepath),)
+                        paths = tuple(Path(operator.directory, item.name) for item in operator.files) or (Path(operator.filepath),)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     case Save(destinations=destinations):
-                        path = Path(operator.filepath)
+                        path = Path(operator.filepath)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         paths = destinations.map(lambda project: project(path, record)).default_value((path,))
                     case _:
                         paths = ()
@@ -273,7 +270,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
         def performed(operator: bpy.types.Operator, context: bpy.types.Context, record: T, paths: tuple[Path, ...]) -> BlenderResult[Done]:
             result = self.run(Call(identity=identity, context=context, report=operator.report, record=record, paths=paths))
-            if isinstance(self.invoke.to_optional(), Suppressible) and operator.suppress:
+            if isinstance(self.invoke.to_optional(), Suppressible) and operator.suppress:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 result = result.bind(lambda done: preferred(identity, context.preferences, lambda holder: written(holder, self.ask, False).map(lambda _: None)).map(lambda _: done))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             return result
 
@@ -296,7 +293,8 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
             for body in self.draw.to_list():
-                body(operator.layout, context, operator.properties)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                for layout in Option.of_optional(operator.layout).to_list():
+                    body(layout, context, operator.properties)
 
         members: dict[str, object] = {
             "__record_defaults__": vars(group.struct)["__record_defaults__"],
@@ -310,9 +308,12 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
         }
         bases: tuple[type, ...] = (bpy.types.Operator,)
         lifetime: tuple[Acquisition, ...] = ()
-        opening: Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.Event, T], BlenderResult[set[rna_enums.OperatorReturnItems]]] = lambda operator, context, _event, _record: Ok(
-            execute(operator, context)
+        opening: Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.WindowManager, bpy.types.Event, T], BlenderResult[set[rna_enums.OperatorReturnItems]]] = (
+            lambda operator, context, _manager, _event, _record: Ok(execute(operator, context))
         )
+
+        def managed(context: bpy.types.Context) -> BlenderResult[bpy.types.WindowManager]:
+            return Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),))
 
         match self.invoke.to_optional():
             case Pick(cursor=cursor):
@@ -320,13 +321,15 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 members["bl_cursor_pending"] = cursor
             case Confirm(message=message) as confirmation:
 
-                def confirming(operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event, record: T) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
+                def confirming(
+                    operator: bpy.types.Operator, context: bpy.types.Context, manager: bpy.types.WindowManager, event: bpy.types.Event, record: T
+                ) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
                     return (
                         message
                         .map(lambda body: body(context, record).map(Some))
                         .default_value(Ok(Nothing))
                         .map(
-                            lambda text: context.window_manager.invoke_confirm(  # type: ignore[union-attr]
+                            lambda text: manager.invoke_confirm(
                                 operator,
                                 event,
                                 **{
@@ -343,20 +346,22 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 members["__annotations__"] = {**made, "suppress": bpy.props.BoolProperty(name="Don't ask again", options={"SKIP_SAVE"})}
 
                 def asking(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
-                    layout = operator.layout
-                    layout.use_property_split = True  # type: ignore[union-attr]  # ty: ignore[invalid-assignment]
-                    layout.label_multiline(  # type: ignore[union-attr]
-                        text=binding.read(operator.properties).map(lambda record: suppressed.message(context, record)).default_with(lambda faults: " ".join(text for _, text in rendered(faults))),
-                        icon=suppressed.icon,
-                    )
-                    draw(operator, context)
-                    for prop in () if self.draw.is_some() else shown(operator.properties):
-                        layout.prop(operator, prop.identifier)  # type: ignore[union-attr]
-                    layout.prop(operator, "suppress")  # type: ignore[union-attr]
+                    for layout in Option.of_optional(operator.layout).to_list():
+                        layout.use_property_split = True
+                        layout.label_multiline(
+                            text=binding.read(operator.properties).map(lambda record: suppressed.message(context, record)).default_with(lambda faults: " ".join(text for _, text in rendered(faults))),
+                            icon=suppressed.icon,
+                        )
+                        draw(operator, context)
+                        for prop in () if self.draw.is_some() else shown(operator.properties):
+                            layout.prop(operator, prop.identifier)
+                        layout.prop(operator, "suppress")
 
-                def asked(operator: bpy.types.Operator, context: bpy.types.Context, _event: bpy.types.Event, _record: T) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
+                def asked(
+                    operator: bpy.types.Operator, context: bpy.types.Context, manager: bpy.types.WindowManager, _event: bpy.types.Event, _record: T
+                ) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
                     return Ok(
-                        context.window_manager.invoke_props_dialog(  # type: ignore[union-attr]
+                        manager.invoke_props_dialog(
                             operator,
                             **{
                                 key: value
@@ -365,27 +370,27 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                                 for value in (held.to_list() if isinstance(held, Option) else (held,))
                             },
                         )
-                        if getattr(context.preferences.addons[identity.package].preferences, self.ask)  # type: ignore[union-attr]
+                        if getattr(context.preferences.addons[identity.package].preferences, self.ask)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                         else execute(operator, context)
                     )
 
                 members["draw"] = asking
                 opening = asked
             case Properties() as dialog:
-                opening = lambda operator, context, _event, _record: Ok(
-                    context.window_manager.invoke_props_dialog(  # type: ignore[union-attr]
-                        operator, **{key: value for key, held in msgspec.structs.asdict(dialog).items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
-                    )
+                opening = lambda operator, _context, manager, _event, _record: Ok(
+                    manager.invoke_props_dialog(operator, **{key: value for key, held in msgspec.structs.asdict(dialog).items() for value in (held.to_list() if isinstance(held, Option) else (held,))})
                 )
             case Floating() as floating:
-                opening = lambda operator, context, _event, _record: Ok(context.window_manager.invoke_popup(operator, **msgspec.structs.asdict(floating)))  # type: ignore[union-attr]
+                opening = lambda operator, _context, manager, _event, _record: Ok(manager.invoke_popup(operator, **msgspec.structs.asdict(floating)))
             case InvokePopup.REDO:
                 flags |= frozenset["rna_enums.OperatorTypeFlagItems"]({"UNDO"})
-                opening = lambda operator, context, event, _record: Ok(context.window_manager.invoke_props_popup(operator, event))  # type: ignore[union-attr]
+                opening = lambda operator, _context, manager, event, _record: Ok(manager.invoke_props_popup(operator, event))
             case InvokePopup.SEARCH:
 
-                def searched(operator: bpy.types.Operator, context: bpy.types.Context, _event: bpy.types.Event, _record: T) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
-                    context.window_manager.invoke_search_popup(operator)  # type: ignore[union-attr]
+                def searched(
+                    operator: bpy.types.Operator, _context: bpy.types.Context, manager: bpy.types.WindowManager, _event: bpy.types.Event, _record: T
+                ) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
+                    manager.invoke_search_popup(operator)
                     return Ok({"RUNNING_MODAL"})
 
                 opening = searched
@@ -406,12 +411,12 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                         "files": bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={"HIDDEN", "SKIP_SAVE"}),
                         "directory": bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN", "SKIP_SAVE"}),
                     }
-                    opening = lambda operator, context, _event, _record: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=browser.confirm_text))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
+                    opening = lambda operator, context, _manager, _event, _record: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=browser.confirm_text))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
                 else:
                     bases = (ExportHelper, bpy.types.Operator)
                     members["filename_ext"] = property(lambda operator: formats(operator)[0])
                     members["check"] = lambda operator, context: any((ExportHelper.check(operator, context), *self.check.map(lambda callback: callback(operator, context)).to_list()))
-                    opening = lambda operator, context, event, _record: Ok(ExportHelper.invoke(operator, context, event))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
+                    opening = lambda operator, context, _manager, event, _record: Ok(ExportHelper.invoke(operator, context, event))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
                     if browser.destinations.is_some():
                         annotations["check_existing"] = bpy.props.BoolProperty(default=False, options={"HIDDEN", "SKIP_SAVE"})
 
@@ -431,13 +436,15 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                                 collisions = catch(lambda: tuple(destination for destination in paths if destination.exists()), exception=OSError)().map_error(
                                     lambda error: (BlenderReadFault(request=repr(paths), error=error),)
                                 )
-                                return collisions.map(
-                                    lambda existing: (
-                                        context.window_manager.invoke_confirm(  # type: ignore[union-attr]
-                                            operator, None, title="Replace existing files?", message="\n".join(str(destination) for destination in existing), confirm_text="Replace"
+                                return managed(context).bind(
+                                    lambda manager: collisions.map(
+                                        lambda existing: (
+                                            manager.invoke_confirm(
+                                                operator, None, title="Replace existing files?", message="\n".join(str(destination) for destination in existing), confirm_text="Replace"
+                                            )
+                                            if existing
+                                            else accepted(operator, context)
                                         )
-                                        if existing
-                                        else accepted(operator, context)
                                     )
                                 )
 
@@ -492,10 +499,12 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
                     return result.map(answered).default_with(lambda faults: cancelled(operator, context, rendered(faults)))
 
-                def began(operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event, _record: T) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
+                def began(
+                    operator: bpy.types.Operator, context: bpy.types.Context, manager: bpy.types.WindowManager, event: bpy.types.Event, _record: T
+                ) -> BlenderResult[set["rna_enums.OperatorReturnItems"]]:
                     def running(outcome: "rna_enums.OperatorReturnItems") -> set["rna_enums.OperatorReturnItems"]:
                         active.add(operator)
-                        context.window_manager.modal_handler_add(operator)  # type: ignore[union-attr]
+                        manager.modal_handler_add(operator)
                         return {outcome}
 
                     return interactive.began(operator, context, event).map(running)
@@ -523,7 +532,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 binding
                 .read(operator.properties)
                 .bind(lambda record: self.seed.map(lambda seed: seed(record, event)).map(lambda fresh: binding.write(operator.properties, fresh).map(lambda _: fresh)).default_value(Ok(record)))
-                .bind(lambda record: opening(operator, context, event, record))
+                .bind(lambda record: managed(context).bind(lambda manager: opening(operator, context, manager, event, record)))
                 .default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
             )
 
@@ -564,7 +573,7 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
         """Resolves native operator properties and returns their write boundary."""
-        idname = self.operator.idname_py()
+        idname = self.operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
         def member(kind: bpy.types.Struct, key: str) -> BlenderResult[Descriptor]:
             return (
@@ -575,7 +584,7 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         try:
-            kind = self.operator.get_rna_type()
+            kind = self.operator.get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         except KeyError:
             return Error((BlenderAbsentFault(owner="bpy.ops", key=idname),))
         return accumulated(member(kind, key) for key in self.values).map(

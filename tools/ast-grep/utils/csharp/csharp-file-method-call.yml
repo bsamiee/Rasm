@@ -61,7 +61,7 @@ rule:
                 stopBy: end
                 kind: compilation_unit
                 has:
-                    stopBy: end
+                    stopBy: {kind: 'block, arrow_expression_clause, accessor_list, parameter_list, attribute_list, base_list'}
                     matches: type-declaration
                     all:
                         - has: {field: name, pattern: $TYPE}

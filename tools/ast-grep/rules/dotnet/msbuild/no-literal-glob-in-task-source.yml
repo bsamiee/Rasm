@@ -6,7 +6,7 @@ rule:
     pattern: _TASK
     all:
         - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Copy|Move|Unzip|Delete|Touch)$'}}}
-        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^(SourceFiles|Files)$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
+        - matches: {msbuild-metadata: {name: {regex: '^(SourceFiles|Files)$'}, value: {kind: AttValue, pattern: _GLOB, regex: '[*?]'}}}
 rewriters:
     - id: pass-item
       rule:

@@ -36,8 +36,8 @@ rule:
                             - all:
                                 - kind: property_declaration
                                 - has: {field: name, regex: '^Size$'}
-                                - has: {field: type, regex: '^((global::)?Eto\.Drawing\.)?SizeF$'}
-                                - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list, has: {regex: '^((global::)?Grasshopper2\.Doc\.Attributes\.)?IResizableAttributes$'}}}}
+                                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^SizeF$'}}}}
+                                - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^IResizableAttributes$'}}}}}}}
                     matches: member-owner
         - kind: field_declaration
           pattern: $FIELD

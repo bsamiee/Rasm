@@ -154,7 +154,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
         };
 
     public IO<SunPaths> Paths(SunMoment moment, Sphere dome, TimeProvider clock) =>
-        from placed in IO.lift(Refused.Unless(dome.IsValid, dome, nameof(Sphere.IsValid)))
+        from placed in IO.lift(Refused.Unless(dome.IsValid, dome, nameof(dome)))
         let year = ((LocalDateTime)moment).Year
         let days = toSeq(new DateInterval(new LocalDate(year, 1, 1), new LocalDate(year, 12, 31)))
         let hours = toSeq(Range(0, NodaConstants.HoursPerDay)).Map(static hour => LocalTime.Midnight.PlusHours(hour))

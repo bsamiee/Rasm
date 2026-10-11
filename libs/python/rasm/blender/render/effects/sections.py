@@ -13,7 +13,7 @@ import PyOpenColorIO
 from rasm.blender.commands.operators import Call, Done, InvokePopup, Operator, Own
 from rasm.blender.data.ids.ownership import Mark
 from rasm.blender.data.rna.conditions import AllOf, check, Condition, Setting
-from rasm.blender.data.rna.descriptors import Descriptor, struct_at
+from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
@@ -28,6 +28,8 @@ from rasm.blender.render.effects.stack import (
     expanded,
     formation,
     graphed,
+    interface_input,
+    KeyPath,
     Named,
     Placeable,
     reached,
@@ -76,9 +78,9 @@ class EffectButtons(Line, frozen=True, kw_only=True):
         operators = self.stack.operators
         admissions = tuple((enabled, field) for field in msgspec.structs.fields(Configured) for enabled in markers(field.type, Enabled))
 
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-            if isinstance(holder, bpy.types.SceneCompositorEffect):
-                row = next((held.row for held in self.stack.held(identity, holder.id_data) if held.entry == holder), Nothing)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
+            if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(scene := holder.id_data, bpy.types.Scene):
+                row = next((held.row for held in self.stack.held(identity, scene) if held.entry == holder), Nothing)
                 actions = (
                     *(
                         Property(
@@ -135,79 +137,77 @@ class EffectBody(Line, frozen=True, kw_only=True):
         def locked(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, path: tuple[Key | int, ...], context: bpy.types.Context) -> BlenderResult[None]:
             return accumulated(realized(locks(Some(path)), identity).map(lambda draw: draw(layout, entry, context)) for locks in self.locks.to_list()).map(lambda _: None)
 
+        def toggled(header: bpy.types.UILayout, body: Option[bpy.types.UILayout], name: str, value: "bpy.types.bpy_struct[object]") -> None:
+            header.prop(value, "value", text=name)
+            for inner in body.to_list():
+                inner.active = value.value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
         def inputs(
             layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, face: Interface, hidden: frozenset[Key], paths: Mapping[Key, tuple[Key | int, ...]], context: bpy.types.Context
         ) -> BlenderResult[None]:
+            def lock(line: bpy.types.UILayout, key: Key) -> tuple[BlenderResult[None], ...]:
+                return tuple(locked(line, entry, path, context) for path in Option.of_optional(paths.get(key)).to_list())
+
+            def panel(owner: bpy.types.UILayout, key: Key, name: str, closed: bool, toggle: Option[bool]) -> tuple[Option[bpy.types.UILayout], tuple[BlenderResult[None], ...]]:
+                header, body = owner.panel(f"{entry.name}_{key}", default_closed=closed)
+                if toggle.is_none():
+                    header.label(text=name)
+                return Option.of_optional(body), (
+                    *(entry_input(identity, entry, key).map(lambda value: toggled(header, Option.of_optional(body), name, value)) for _ in toggle.to_list()),
+                    *lock(header, key),
+                )
+
+            def socket(owner: bpy.types.UILayout, key: Key, name: str) -> tuple[BlenderResult[None], ...]:
+                line = owner.row(align=True)
+                return (entry_input(identity, entry, key).map(lambda value: line.prop(value, "value", text=name)).map(lambda _: None), *lock(line, key))
+
             bodies: dict[Option[Key], Option[bpy.types.UILayout]] = {Nothing: Some(layout)}
             answers: list[BlenderResult[None]] = []
             for key, item, parent, _ in face.walked():
                 host = bodies[parent] if key not in hidden else Nothing
                 match item:
                     case InterfacePanel(name=name, closed=closed, toggle=toggle):
-                        bodies[Some(key)] = Nothing
-                        for owner in host.to_list():
-                            header, body = owner.panel(f"{entry.name}_{key}", default_closed=closed)
-                            bodies[Some(key)] = Option.of_optional(body)
-                            if toggle.is_none():
-                                header.label(text=name)
-                            else:
-
-                                def toggled(value: bpy.types.bpy_struct) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-                                    header.prop(value, "value", text=name)
-                                    for inner in Option.of_optional(body).to_list():
-                                        inner.active = value.value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-
-                                answers.append(entry_input(identity, entry, key).map(toggled))
-                            if key in paths:
-                                answers.append(locked(header, entry, paths[key], context))
+                        bodies[Some(key)], drawn = host.map(lambda owner: panel(owner, key, name, closed, toggle)).default_value((Nothing, ()))
+                        answers.extend(drawn)
                     case (Socket(name=name, members=members), "INPUT") if key != Shell.image and not any(
                         descriptor.prop.identifier == "hide_in_modifier" and value for descriptor, value in members.items()
                     ):
-                        for owner in host.to_list():
-                            line = owner.row(align=True)
-                            answers.append(entry_input(identity, entry, key).map(lambda value: line.prop(value, "value", text=name)).map(lambda _: None))
-                            if key in paths:
-                                answers.append(locked(line, entry, paths[key], context))
+                        answers.extend(answer for owner in host.to_list() for answer in socket(owner, key, name))
             return accumulated(answers).map(lambda _: None)
 
         def native(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, gates: dict[str, Condition], context: bpy.types.Context) -> None:
-            bodies: dict[int, Option[bpy.types.UILayout]] = {}
-            first = next((item for item in group.interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"), None)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            for item in group.interface.items_tree:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                host = Option.of_optional(item.parent).map(lambda panel: bodies[panel.as_pointer()]).default_value(Some(layout))
+            def panel(owner: bpy.types.UILayout, item: bpy.types.NodeTreeInterfacePanel) -> Option[bpy.types.UILayout]:
+                header, body = owner.panel(f"{entry.name}_{item.identifier}", default_closed=item.default_closed)
+                if (toggle := next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None)) is None:
+                    header.label(text=item.name)
+                else:
+                    alerted(header, interface_input(entry, toggle.identifier).map(lambda value: toggled(header, Option.of_optional(body), item.name, value)))
+                return Option.of_optional(body)
+
+            def socket(owner: bpy.types.UILayout, item: bpy.types.NodeTreeInterfaceSocket) -> None:
+                row = owner.row()
+                if (condition := gates.get(item.identifier)) is not None:
+                    held = check(condition, context, Some(entry))
+                    row.active = held.is_ok()
+                    alerted(row, held)
+                alerted(
+                    row,
+                    interface_input(entry, item.identifier).map(
+                        lambda value: row.prop(value, "value", text=item.name, expand=isinstance(item, bpy.types.NodeTreeInterfaceSocketMenu) and item.menu_expanded)
+                    ),
+                )
+
+            face: bpy.types.NodeTreeInterface = group.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            bodies = {root.as_pointer(): Some(layout) for root in Option.of_optional(face.root_panel).to_list()}
+            first = next((item for item in face.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"), None)
+            for item in face.items_tree:
+                host = Option.of_optional(item.parent).bind(lambda parent: bodies[parent.as_pointer()])
                 match item:
                     case bpy.types.NodeTreeInterfacePanel():
-                        bodies[item.as_pointer()] = Nothing
-                        for owner in host.to_list():
-                            header, body = owner.panel(f"{entry.name}_{item.identifier}", default_closed=item.default_closed)
-                            bodies[item.as_pointer()] = Option.of_optional(body)
-                            if (toggle := (next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None))) is None:
-                                header.label(text=item.name)
-                            else:
-
-                                def toggled(value: bpy.types.bpy_struct | bpy.types.bpy_prop_collection) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-                                    header.prop(value, "value", text=item.name)
-                                    for inner in Option.of_optional(body).to_list():
-                                        inner.active = value.value  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-
-                                alerted(
-                                    header,
-                                    struct_at(entry, f"properties.inputs.{toggle.identifier}").to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=toggle.identifier),)).map(toggled),
-                                )
+                        bodies[item.as_pointer()] = host.bind(lambda owner: panel(owner, item))
                     case bpy.types.NodeTreeInterfaceSocket(in_out="INPUT", hide_in_modifier=False, is_panel_toggle=False) if item != first:
                         for owner in host.to_list():
-                            row = owner.row()
-                            selected: Option[Condition] = Option.of_optional(gates.get(item.identifier))
-                            for condition in selected.to_list():
-                                held = check(condition, context, Some(entry))
-                                row.active = held.is_ok()
-                                alerted(row, held)
-                            alerted(
-                                row,
-                                struct_at(entry, f"properties.inputs.{item.identifier}")
-                                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=item.identifier),))
-                                .map(lambda value: row.prop(value, "value", text=item.name, expand=isinstance(item, bpy.types.NodeTreeInterfaceSocketMenu) and item.menu_expanded)),
-                            )
+                            socket(owner, item)
 
         def owned(
             layout: bpy.types.UILayout, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, row: Placeable, record: Entry[Effect], context: bpy.types.Context
@@ -226,36 +226,42 @@ class EffectBody(Line, frozen=True, kw_only=True):
                 if any(isinstance(part, type) and not isinstance(reached(value, path[:index]), part) for index, part in enumerate(path))
             )
 
+            def widget(node: bpy.types.Node, key: Key, title: str, shape: inspect.Type) -> BlenderResult[None]:
+                inner = layout.column()
+                inner.use_property_split = False
+                header = inner.row(align=True)
+                header.label(text=title)
+                answer = locked(header, entry, paths[key], context)
+                match shape:
+                    case inspect.VarTupleType(item_type=inspect.StructType(cls=kind)) if (get_origin(kind) or kind) is Knot:
+                        inner.template_curve_mapping(node, "mapping", type="NONE")
+                    case inspect.StructType(cls=kind) if kind is Ramp:
+                        inner.template_color_ramp(node, "color_ramp", expand=True)
+                    case inspect.VarTupleType():
+                        pass
+                    case _:
+                        inner.template_node_inputs(node)
+                return answer
+
+            def graph_field(value: msgspec.Struct, path: KeyPath, key: Key, field: msgspec.structs.FieldInfo, shape: inspect.Type) -> tuple[BlenderResult[None], ...]:
+                title = next((meta.title for meta in markers(field.type, msgspec.Meta) if meta.title is not None), field.name.replace("_", " ").title())
+                match reached(value, path):
+                    case str() as space if GraphForm.COLOR_SPACE in markers(field.type, GraphForm):
+                        line = layout.row(align=True)
+                        button(line, self.colorspace, SpaceField(name=entry.name, field=key, space=space), title)
+                        return (locked(line, entry, paths[key], context),)
+                    case _:
+                        return tuple(widget(node, key, title, shape) for node in group.nodes if Mark.read(identity, node).filter(lambda mark: mark.key == key).is_some())
+
             def graph_fields() -> BlenderResult[None]:
-                answers: list[BlenderResult[None]] = []
-                for value, prefix, _ in values:
-                    for path, (field, shape) in graphed(type(value), value=Some(value)).items():
-                        if (key := (item_key(*prefix, *path))) in hidden:
-                            continue
-                        title = next((meta.title for meta in markers(field.type, msgspec.Meta) if meta.title is not None), field.name.replace("_", " ").title())
-                        if GraphForm.COLOR_SPACE in markers(field.type, GraphForm):
-                            line = layout.row(align=True)
-                            button(line, self.colorspace, SpaceField(name=entry.name, field=key, space=reached(value, path)), title)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                            answers.append(locked(line, entry, paths[key], context))
-                        else:
-                            for node in group.nodes:
-                                if Mark.read(identity, node).filter(lambda mark: mark.key == key).is_none():
-                                    continue
-                                inner = layout.column()
-                                inner.use_property_split = False
-                                header = inner.row(align=True)
-                                header.label(text=title)
-                                answers.append(locked(header, entry, paths[key], context))
-                                match shape:
-                                    case inspect.VarTupleType(item_type=inspect.StructType(cls=kind)) if (get_origin(kind) or kind) is Knot:
-                                        inner.template_curve_mapping(node, "mapping", type="NONE")
-                                    case inspect.StructType(cls=kind) if kind is Ramp:
-                                        inner.template_color_ramp(node, "color_ramp", expand=True)
-                                    case inspect.VarTupleType():
-                                        pass
-                                    case _:
-                                        inner.template_node_inputs(node)
-                return accumulated(answers).map(lambda _: None)
+                return accumulated(
+                    answer
+                    for value, prefix, _ in values
+                    for path, (field, shape) in graphed(type(value), value=Some(value)).items()
+                    for key in (item_key(*prefix, *path),)
+                    if key not in hidden
+                    for answer in graph_field(value, path, key, field, shape)
+                ).map(lambda _: None)
 
             def attached() -> BlenderResult[None]:
                 def drawn[T: msgspec.Struct](attachment: Attachment[T]) -> BlenderResult[None]:
@@ -295,40 +301,42 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
                         .map(lambda encoded: layout.label(text="Requires an encoding-only formation", icon="STATUS_ERROR_FILLED") if encoded.is_none() else None)
                     )
-                if isinstance(record.effect, DisplayView):
-                    for space in record.effect.colorspace(config).to_list():
-                        if DynamicRange.of(space) is DynamicRange.HIGH and not any(window.support_hdr_color for window in Option.of_optional(context.window).to_list()):
-                            split(layout)[1].label(
-                                text="HDR not supported with OpenGL backend" if gpu.platform.backend_type_get() == "OPENGL" else "HDR display not supported", icon="STATUS_INFO_FILLED"
-                            )
+                if (
+                    isinstance(record.effect, DisplayView)
+                    and any(DynamicRange.of(space) is DynamicRange.HIGH for space in record.effect.colorspace(config).to_list())
+                    and not any(window.support_hdr_color for window in Option.of_optional(context.window).to_list())
+                ):
+                    split(layout)[1].label(text="HDR not supported with OpenGL backend" if gpu.platform.backend_type_get() == "OPENGL" else "HDR display not supported", icon="STATUS_INFO_FILLED")
                 return Ok(None)
 
             return paired(stack.config(), formation.current(identity, scene)).bind(lambda parts: shown(parts[0], parts[1].default_value(viewed(scene))))
 
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-            if isinstance(holder, bpy.types.SceneCompositorEffect):
-                entry, scene, group = holder, holder.id_data, holder.node_group
-                if group is None:
+        def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
+            match holder:
+                case bpy.types.SceneCompositorEffect(node_group=None):
                     layout.label(text="Requires an effect node group", icon="STATUS_ERROR_FILLED")
-                    return
-                row = next((held.row for held in stack.held(identity, scene) if held.entry == entry), Nothing)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                for offered in row.to_list():
-                    alerted(
-                        layout,
-                        offered.read(identity, entry).bind(
-                            lambda record: owned(layout, scene, entry, group, offered, record, context).bind(lambda _: notices(layout, scene, entry, offered, record, context))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                        ),
-                    )
-                if row.is_none():
-                    pinned = next((pinned for pinned in stack.pinned if Mark.read(identity, group).filter(lambda mark: mark.key == pinned.ownership.key).is_some()), None)
-                    gates: BlenderResult[dict[Key, Condition]] = pinned.conditions.map(lambda conditions: conditions(identity, entry)).default_value(Ok({})) if pinned is not None else Ok({})
-                    alerted(
-                        layout, paired(addresses(group, identity), gates).map(lambda parts: native(layout, entry, group, {parts[0][key]: condition for key, condition in parts[1].items()}, context))
-                    )
-                buttons = layout.row(align=True)
-                button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.entering.node, socket=EffectViewer.entering.socket), "Input")
-                button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.leaving.node, socket=EffectViewer.leaving.socket), "Result")
-                button(buttons, self.viewer.clearing, Named(name=entry.name), "Clear")
+                case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, node_group=bpy.types.NodeTree() as group) as entry:
+                    row = next((held.row for held in stack.held(identity, scene) if held.entry == entry), Nothing)
+                    for offered in row.to_list():
+                        alerted(
+                            layout,
+                            offered.read(identity, entry).bind(
+                                lambda record: owned(layout, scene, entry, group, offered, record, context).bind(lambda _: notices(layout, scene, entry, offered, record, context))
+                            ),
+                        )
+                    if row.is_none():
+                        pinned = next((pinned for pinned in stack.pinned if Mark.read(identity, group).filter(lambda mark: mark.key == pinned.ownership.key).is_some()), None)
+                        gates: BlenderResult[dict[Key, Condition]] = pinned.conditions.map(lambda conditions: conditions(identity, entry)).default_value(Ok({})) if pinned is not None else Ok({})
+                        alerted(
+                            layout,
+                            paired(addresses(group, identity), gates).map(lambda parts: native(layout, entry, group, {parts[0][key]: condition for key, condition in parts[1].items()}, context)),
+                        )
+                    buttons = layout.row(align=True)
+                    button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.entering.node, socket=EffectViewer.entering.socket), "Input")
+                    button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.leaving.node, socket=EffectViewer.leaving.socket), "Result")
+                    button(buttons, self.viewer.clearing, Named(name=entry.name), "Clear")
+                case _:
+                    pass
 
         return Ok(shown)
 
@@ -364,7 +372,7 @@ def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: R
     )
     body = EffectBody(viewer=viewer, colorspace=colorspace, locks=locks)
 
-    def empty(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, _context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    def empty(layout: bpy.types.UILayout, _holder: object, _context: bpy.types.Context) -> None:
         layout.menu("SCENE_MT_add_compositor_effect", text="Add Effect")
 
     return Each(

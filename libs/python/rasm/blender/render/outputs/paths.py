@@ -1,6 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
-
 """Scene output grammar, native stored names, versioning, and planned text edits."""
 
 from collections.abc import Callable, Generator, Iterable
@@ -89,7 +86,7 @@ class Rename(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Native string edit with its original, requested, and predicted stored spelling."""
 
     node: bpy.types.Node
-    owner: bpy.types.bpy_struct  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    owner: bpy.types.Node | bpy.types.NodeCompositorFileOutputItem
     prop: bpy.types.StringProperty
     before: str
     requested: str
@@ -235,11 +232,11 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     attached: Attached[Outputs]
     scope: Stored[OutputPath]
 
-    def path(self, scene: bpy.types.Scene, preferences: bpy.types.Preferences, day: datetime.date) -> BlenderResult[OutputPath]:
+    def path(self, scene: bpy.types.Scene, day: datetime.date) -> BlenderResult[OutputPath]:
         """Returns retained render paths or composes scene settings at the given day."""
 
         def rooted(outputs: Outputs) -> BlenderResult[tuple[str, Path]]:
-            folder = preferences.filepaths.render_output_directory
+            folder = bpy.context.preferences.filepaths.render_output_directory  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             return (
                 Option
                 .of_optional(bpy.data.project)
@@ -268,11 +265,11 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
             case Kind.EXR | Kind.IMAGE:
                 return accumulated(path.text(layer, output, Some(name)) for name in passes).map(lambda texts: NodePaths(members={self.directory: path.root, self.file_name: ""}, items=settled(texts)))
 
-    def recomposed(self, scene: bpy.types.Scene, preferences: bpy.types.Preferences) -> BlenderResult[None]:
+    def recomposed(self, scene: bpy.types.Scene) -> BlenderResult[None]:
         """Writes the current scene output only when its native value differs."""
         return (
             self
-            .path(scene, preferences, datetime.datetime.now(datetime.UTC).astimezone().date())
+            .path(scene, datetime.datetime.now(datetime.UTC).astimezone().date())
             .bind(lambda path: path.scene_output(scene))
             .bind(lambda text: self.filepath.write(scene.render, text))
             .map(lambda _: None)
@@ -280,29 +277,25 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
     def refreshed(self, identity: Identity) -> BlenderResult[None]:
         """Recomposes stored nonowned-runtime scenes, retaining all independent failures."""
-        if (preferences := (bpy.context.preferences)) is None:
-            return Error((BlenderAbsentFault(owner=repr(bpy.context), key="preferences"),))
-        return accumulated(self.recomposed(scene, preferences) for scene in bpy.data.scenes if self.attached.stored(scene) and not (scene.is_runtime_data and identity.manifest.id in scene)).map(  # type: ignore[operator]
-            lambda _: None
-        )
+        return accumulated(
+            self.recomposed(scene)
+            for scene in bpy.data.scenes
+            if self.attached.stored(scene) and not (scene.is_runtime_data and identity.manifest.id in scene)  # type: ignore[operator]
+        ).map(lambda _: None)
 
-    def took(self, scene: bpy.types.Scene, preferences: bpy.types.Preferences, day: datetime.date) -> BlenderResult[int]:
+    def took(self, scene: bpy.types.Scene, day: datetime.date) -> BlenderResult[int]:
         """Writes the next take from one scene-settings snapshot."""
 
         def wrote(path: OutputPath) -> BlenderResult[int]:
             version = path.next_version()
             return self.attached.write(scene, msgspec.structs.replace(path.outputs, version=version)).map(lambda _: version)
 
-        return self.path(scene, preferences, day).bind(wrote)
+        return self.path(scene, day).bind(wrote)
 
     def taken(self, call: Call[Empty]) -> BlenderResult[Done]:
         """Runs the take action and returns its native report entry."""
-        scene: BlenderResult[bpy.types.Scene] = call.root(bpy.types.Scene)
-        preferences: BlenderResult[bpy.types.Preferences] = call.root(bpy.types.Preferences)
         return (
-            Result[tuple[bpy.types.Scene, bpy.types.Preferences], BlenderFaults]
-            .bind(paired(scene, preferences), lambda pair: self.took(*pair, datetime.datetime.now(datetime.UTC).astimezone().date()))
-            .map(lambda version: Done(notes=(("INFO", f"Version {version}"),)))
+            call.root(bpy.types.Scene).bind(lambda scene: self.took(scene, datetime.datetime.now(datetime.UTC).astimezone().date())).map(lambda version: Done(notes=(("INFO", f"Version {version}"),)))
         )
 
 
@@ -332,7 +325,9 @@ def planned(nodes: Iterable[bpy.types.Node], record: Replace) -> BlenderResult[t
     def renames(pattern: re.Pattern[str], node: bpy.types.Node) -> BlenderResult[tuple[Rename, ...]]:
         texts = tuple(prop for prop in node.bl_rna.properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
         items = tuple(
-            (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in Option.of_optional(item.bl_rna.name_property).to_list()
+            (item, prop)
+            for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ())
+            for prop in Option.of_optional(item.bl_rna.name_property).to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
         before, held = tuple(getattr(node, prop.identifier) for prop in texts), tuple(getattr(item, prop.identifier) for item, prop in items)
         fields = accumulated(substituted(pattern, text) for text in before).map(
@@ -404,7 +399,7 @@ def bumped(call: Call[Bump]) -> BlenderResult[Done]:
                 for before in (getattr(node, prop.identifier),)
                 for text in stepped(before, call.record.offset).to_list()
             )
-            named = tuple((item, prop) for item in node.file_output_items for prop in Option.of_optional(item.bl_rna.name_property).to_list())
+            named = tuple((item, prop) for item in node.file_output_items for prop in Option.of_optional(item.bl_rna.name_property).to_list())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             held = tuple(getattr(item, prop.identifier) for item, prop in named)
             moved = tuple(stepped(name, call.record.offset).default_value(name) for name in held)
             items = tuple(
@@ -446,7 +441,8 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     folder: ClassVar[Key] = "output_folder"
     edited: ClassVar[tuple[Setting, Setting]] = (
         Setting(
-            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="", prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.bl_rna.identifier,)
+            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="", prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]),
+            accepted=(bpy.types.CompositorNodeTree.bl_rna.identifier,),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         ),
         Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree", prop=bpy.types.NodeTree.bl_rna.properties["is_editable"])),
     )
@@ -455,19 +451,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     @contextmanager
     def changed(identity: Identity) -> Generator[Changed]:
         """Retains main-thread update admission for the native attachment lifetime."""
-        with identity.reports.deferred(
-            lambda handle: (
-                handle
-                .resolve()
-                .bind(
-                    lambda scene: Result[bpy.types.Preferences, BlenderFaults].bind(
-                        Option.of_optional(bpy.context.preferences).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="preferences"),)),
-                        lambda preferences: ScenePaths().bound(identity).bind(lambda pathed: pathed.recomposed(scene, preferences)),
-                    )
-                )
-                .map(lambda _: Nothing)
-            )
-        ) as write:
+        with identity.reports.deferred(lambda handle: handle.resolve().bind(lambda scene: ScenePaths().bound(identity).bind(lambda pathed: pathed.recomposed(scene))).map(lambda _: Nothing)) as write:
             yield lambda group, _context, _property: write(Handle.of(group.id_data))
 
     attachment: ClassVar[Attachment[Outputs]] = Attachment(key="outputs", form=Outputs, owner=bpy.types.Scene, changed=Some(changed))
@@ -495,16 +479,14 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     def scope(identity: Identity) -> BlenderResult[Stored[OutputPath]]:
         """Names persistent render paths shared by preparation, workers, and finishing."""
         return identity.name(Name.ATTACHMENT, "output_path").map(
-            lambda name: Stored(
-                name=name, decoder=msgspec.msgpack.Decoder(OutputPath, dec_hook=lambda kind, value: kind(value)), encoder=msgspec.msgpack.Encoder(enc_hook=Path.as_posix, order="deterministic")
-            )
+            lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(OutputPath, dec_hook=lambda kind, value: kind(value)), encoder=msgspec.msgpack.Encoder(enc_hook=Path.as_posix))
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns nested declarations whose bodies bind the registered attachment when called."""
         active = Setting(
             descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]),
-            accepted=(bpy.types.CompositorNodeOutputFile.bl_rna.identifier,),
+            accepted=(bpy.types.CompositorNodeOutputFile.bl_rna.identifier,),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
         return Ok((
             *self.page_rows,

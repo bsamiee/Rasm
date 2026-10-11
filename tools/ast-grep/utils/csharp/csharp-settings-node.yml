@@ -2,9 +2,17 @@
 id: csharp-settings-node
 language: csharp
 utils:
+    persistent-settings:
+        matches: {csharp-type-name: {name: {regex: '^PersistentSettings$'}}}
+    host-type:
+        matches: {csharp-type-name: {name: {regex: '^(PlugIn|Command|FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|UtilityPlugIn)$'}}}
+    settings-container:
+        matches: {csharp-type-name: {name: {regex: '^(Option|Seq|Lst|Arr|IO|Fin|Eff)$'}}}
+    plugin-settings-read:
+        matches: {csharp-owner-member: {type: {regex: '^PlugIn$'}, member: {regex: '^GetPluginSettings$'}}}
     settings-type:
         any:
-            - regex: '^((global::)?Rhino\.)?PersistentSettings\??$'
+            - matches: persistent-settings
             - kind: identifier
               pattern: $ALIAS
               inside:
@@ -15,10 +23,10 @@ utils:
                     kind: using_directive
                     all:
                         - has: {field: name, pattern: $ALIAS}
-                        - has: {nthChild: 2, regex: '^((global::)?Rhino\.)?PersistentSettings$'}
+                        - has: {nthChild: 2, matches: persistent-settings}
     host-owner:
         kind: class_declaration
-        has: {kind: base_list, regex: '^:\s*((global::)?Rhino\.(PlugIns|Commands)\.)?(PlugIn|Command|FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|UtilityPlugIn)\b'}
+        has: {kind: base_list, has: {nthChild: 1, matches: host-type}}
     host:
         any:
             - regex: '^this$'
@@ -35,7 +43,7 @@ utils:
                     stopBy: end
                     kind: parameter, variable_declaration, property_declaration
                     all:
-                        - has: {field: type, regex: '^((global::)?Rhino\.(PlugIns|Commands)\.)?(PlugIn|Command)$'}
+                        - has: {field: type, matches: host-type}
                         - any:
                             - has: {field: name, pattern: $OWNER}
                             - has: {kind: variable_declarator, has: {field: name, pattern: $OWNER}}
@@ -51,7 +59,7 @@ utils:
                     kind: parameter
                     all:
                         - has: {field: name, pattern: $CONTAINER}
-                        - has: {field: type, regex: '^((global::)?LanguageExt\.)?(Option|Seq|Lst|Arr|IO|Fin|Eff)\s*<\s*((global::)?Rhino\.)?PersistentSettings\s*>$'}
+                        - has: {field: type, matches: settings-container, has: {stopBy: end, kind: type_argument_list, all: [{has: {nthChild: 1, matches: persistent-settings}}, {not: {has: {nthChild: 2}}}]}}
 rule:
     any:
         - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: csharp-settings-node}}}}
@@ -73,7 +81,7 @@ rule:
                   all:
                     - has: {field: name, regex: '^FromPlugInId$'}
                     - has: {field: expression, matches: settings-type}
-                - regex: '^((global::)?Rhino\.PlugIns\.)?PlugIn\s*\.\s*GetPluginSettings$'
+                - matches: plugin-settings-read
         - kind: invocation_expression
           all:
             - has:

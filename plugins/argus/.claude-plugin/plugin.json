@@ -4,13 +4,5 @@
     "description": "Language servers, each started on the first edit of a file with one of its extensions",
     "author": {
         "name": "Bardia Samiee"
-    },
-    "userConfig": {
-        "javaWorkspace": {
-            "type": "string",
-            "title": "Java workspace",
-            "description": "Folder of Java sources jdtls type-checks, relative to the project root",
-            "default": ".claude/skills/use-ghidra/scripts"
-        }
     }
 }

@@ -203,61 +203,63 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
                     new DenoiseGuideUncovered(input.Channel))
                 select (input.Role, Frame: frame)).As().Map(static selected => selected.As()))
         from token in cancelToken
-        from result in IO.lift(() => {
-            using Lock.Scope serialized = gate.EnterScope();
-            if (state.Quality.Since > version)
-                return Fin.Fail<PixelFrame>(new OidnQualityUnsupported(state.Quality, version));
-            nuint bytes = (nuint)color.Block.Length * sizeof(float);
-            (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
-                (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),
-                static (packed, input) => (packed.Size + ((nuint)input.Frame.Block.Length * sizeof(float)), packed.Inputs.Add((input.Role, input.Frame, packed.Size))));
-            Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = state.Prefilter == GuidePrefilter.Accurate ? inputs.Tail : [];
-            using SafeOidnBufferHandle buffer = oidnNewBuffer(device, size);
-            nuint pixelStride = (nuint)Marshal.SizeOf<Vector4>();
-            ProgressMonitor monitor = (step, n) => {
-                rows.Report((int)((step + n) / (prefiltered.Count + 1) * color.Size.Height));
-                return !token.IsCancellationRequested;
-            };
-            Fin<Unit> Execute(Seq<(string Role, PixelFrame Frame, nuint Offset)> images, (PixelFrame Frame, nuint Offset) target, int step, Seq<(string Name, bool Value)> flags) {
-                const int FormatFloat3 = 3;
-                using SafeOidnFilterHandle filter = oidnNewFilter(device, "RT");
-                return Status(device).Bind(_ => {
-                    _ = images.Add(("output", target.Frame, target.Offset)).Iter(image => oidnSetFilterImage(
-                        filter, image.Role, buffer, FormatFloat3, (nuint)color.Size.Width, (nuint)color.Size.Height,
-                        image.Offset + (((nuint)(((long)color.Origin.Y - image.Frame.Origin.Y) * image.Frame.Size.Width) + (nuint)((long)color.Origin.X - image.Frame.Origin.X)) * pixelStride),
-                        pixelStride, (nuint)image.Frame.Size.Width * pixelStride));
-                    _ = flags.Iter(flag => oidnSetFilterBool(filter, flag.Name, flag.Value));
-                    oidnSetFilterInt(filter, "quality", state.Quality.Value);
-                    oidnSetFilterProgressMonitorFunction(filter, Marshal.GetFunctionPointerForDelegate(monitor), step);
-                    return Status(device);
-                }).Bind(_ => {
-                    oidnCommitFilter(filter);
-                    return Status(device);
-                }).Bind(_ => {
-                    oidnExecuteFilter(filter);
-                    GC.KeepAlive(monitor);
-                    return Status(device);
-                });
-            }
-            return (from allocated in Status(device)
-                    from written in inputs.TraverseM(input => {
-                        oidnWriteBuffer(buffer, input.Offset, (nuint)input.Frame.Block.Length * sizeof(float), input.Frame.Block);
-                        return Status(device);
-                    }).As()
-                    from filtered in prefiltered.Map(static (guide, step) => (Guide: guide, Step: step))
-                        .TraverseM(input => Execute([input.Guide], (input.Guide.Frame, input.Guide.Offset), input.Step, [])).As()
-                    from denoised in Execute(inputs, (color, 0), prefiltered.Count, Seq(("hdr", true), ("cleanAux", inputs.Count > 1 && state.Prefilter != GuidePrefilter.Fast)))
-                    let output = new PixelFrame(color.Origin, color.Size, color.Extent, block => oidnReadBuffer(buffer, 0, bytes, block))
-                    from read in Status(device)
-                    select output).Map(output => {
-                        if (state.Blend == Mix.Full)
-                            return output;
-                        using SpanOwner<float> weights = SpanOwner<float>.Allocate(color.Size.Width);
-                        weights.Span.Fill(state.Blend);
-                        for (int line = 0; line < color.Size.Height; line++)
-                            BlendingMode.Mix.Mixed(color.View.Span.GetRowSpan(line), output.View.Span.GetRowSpan(line), weights.Span);
-                        return output;
-                    });
-        })
+        from result in IO.lift(() => Denoised(state, color, selected, token, rows))
         select result;
+
+    private Fin<PixelFrame> Denoised(DenoiseState state, PixelFrame color, Seq<(string Role, PixelFrame Frame)> selected, CancellationToken token, IProgress<int> rows) {
+        using Lock.Scope serialized = gate.EnterScope();
+        if (state.Quality.Since > version)
+            return Fin.Fail<PixelFrame>(new OidnQualityUnsupported(state.Quality, version));
+        nuint bytes = (nuint)color.Block.Length * sizeof(float);
+        (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
+            (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),
+            static (packed, input) => (packed.Size + ((nuint)input.Frame.Block.Length * sizeof(float)), packed.Inputs.Add((input.Role, input.Frame, packed.Size))));
+        Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = state.Prefilter == GuidePrefilter.Accurate ? inputs.Tail : [];
+        using SafeOidnBufferHandle buffer = oidnNewBuffer(device, size);
+        nuint pixelStride = (nuint)Marshal.SizeOf<Vector4>();
+        ProgressMonitor monitor = (step, n) => {
+            rows.Report((int)((step + n) / (prefiltered.Count + 1) * color.Size.Height));
+            return !token.IsCancellationRequested;
+        };
+        Fin<Unit> Execute(Seq<(string Role, PixelFrame Frame, nuint Offset)> images, (PixelFrame Frame, nuint Offset) target, int step, Seq<(string Name, bool Value)> flags) {
+            const int FormatFloat3 = 3;
+            using SafeOidnFilterHandle filter = oidnNewFilter(device, "RT");
+            return Status(device).Bind(_ => {
+                _ = images.Add(("output", target.Frame, target.Offset)).Iter(image => oidnSetFilterImage(
+                    filter, image.Role, buffer, FormatFloat3, (nuint)color.Size.Width, (nuint)color.Size.Height,
+                    image.Offset + (((nuint)(((long)color.Origin.Y - image.Frame.Origin.Y) * image.Frame.Size.Width) + (nuint)((long)color.Origin.X - image.Frame.Origin.X)) * pixelStride),
+                    pixelStride, (nuint)image.Frame.Size.Width * pixelStride));
+                _ = flags.Iter(flag => oidnSetFilterBool(filter, flag.Name, flag.Value));
+                oidnSetFilterInt(filter, "quality", state.Quality.Value);
+                oidnSetFilterProgressMonitorFunction(filter, Marshal.GetFunctionPointerForDelegate(monitor), step);
+                return Status(device);
+            }).Bind(_ => {
+                oidnCommitFilter(filter);
+                return Status(device);
+            }).Bind(_ => {
+                oidnExecuteFilter(filter);
+                GC.KeepAlive(monitor);
+                return Status(device);
+            });
+        }
+        return (from allocated in Status(device)
+                from written in inputs.TraverseM(input => {
+                    oidnWriteBuffer(buffer, input.Offset, (nuint)input.Frame.Block.Length * sizeof(float), input.Frame.Block);
+                    return Status(device);
+                }).As()
+                from filtered in prefiltered.Map(static (guide, step) => (Guide: guide, Step: step))
+                    .TraverseM(input => Execute([input.Guide], (input.Guide.Frame, input.Guide.Offset), input.Step, [])).As()
+                from denoised in Execute(inputs, (color, 0), prefiltered.Count, Seq(("hdr", true), ("cleanAux", inputs.Count > 1 && state.Prefilter != GuidePrefilter.Fast)))
+                let output = new PixelFrame(color.Origin, color.Size, color.Extent, block => oidnReadBuffer(buffer, 0, bytes, block))
+                from read in Status(device)
+                select output).Map(output => {
+                    if (state.Blend == Mix.Full)
+                        return output;
+                    using SpanOwner<float> weights = SpanOwner<float>.Allocate(color.Size.Width);
+                    weights.Span.Fill(state.Blend);
+                    for (int line = 0; line < color.Size.Height; line++)
+                        BlendingMode.Mix.Mixed(color.View.Span.GetRowSpan(line), output.View.Span.GetRowSpan(line), weights.Span);
+                    return output;
+                });
+    }
 }

@@ -8,14 +8,9 @@ utils:
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^(Clock|Random)$'}
-                - has:
-                    field: object
-                    any:
-                        - matches: {syntax-import-reference: {source: {regex: '^effect$'}, exported: {regex: '^(Clock|Random)$'}}}
-                        - matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^$'}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Clock|Random)$'}}}}
             - kind: identifier
               matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^(Clock|Random)$'}}}
-              not: {matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^$'}}}}
     service-implementation:
         pattern: $_
         any:

@@ -21,12 +21,13 @@ from rasm.blender.settings.properties import Choices
 from rasm.blender.ui.layout import rows
 from rasm.blender.ui.layout.rows import Member, OperatorButton
 from rasm.blender.ui.layout.templates import templated
+from rasm.blender.ui.surfaces.panels import enumerated
 from rasm.imaging.faults import accumulated, paired
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
-link_state: bpy.types.EnumProperty = bpy.types.CollectionLightLinking.bl_rna.properties["link_state"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-states = Choices(lambda identity, owner, context: ((item.identifier, item.name, item.description) for item in link_state.enum_items))
+link_state = next(prop for prop in bpy.types.CollectionLightLinking.bl_rna.properties if isinstance(prop, bpy.types.EnumProperty) and prop.identifier == "link_state")
+states = Choices(lambda *_: enumerated(link_state))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -42,9 +43,10 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
     """Row of the receiver and blocker sets with their link and unlink operators."""
 
     sets: ClassVar[dict[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]]] = {
-        Descriptor(root=bpy.types.ObjectLightLinking, owner="", prop=prop): Ownership(kind=bpy.types.Collection, key=prop.identifier, saved=Saved.USED)  # type: ignore[arg-type]
+        Descriptor(root=bpy.types.ObjectLightLinking, owner="", prop=prop): Ownership(kind=bpy.types.Collection, key=prop.identifier, saved=Saved.USED)
         for prop in bpy.types.ObjectLightLinking.bl_rna.properties
-        if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.Collection)
+        if isinstance(prop, bpy.types.PointerProperty)
+        if isinstance(prop.fixed_type, bpy.types.Collection)
     }
 
     @staticmethod

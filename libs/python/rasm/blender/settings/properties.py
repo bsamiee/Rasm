@@ -1,10 +1,7 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
 """Native record fields bound to Blender properties and custom-property metadata."""
 
 from collections.abc import Callable, Iterable, Mapping
 from enum import Enum
-import functools
 import math
 from types import GenericAlias, MemberDescriptorType
 import typing
@@ -22,30 +19,51 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 from rasm.blender.data.rna.descriptors import IdName, written
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.faults import BlenderEditFault, BlenderReadFault, BlenderResult
+from rasm.blender.settings.shapes import (
+    Color,
+    Components,
+    Declared,
+    Entries,
+    Enumerated,
+    Fields,
+    Flag,
+    Flags,
+    Integer,
+    Literals,
+    Nested,
+    Number,
+    OptionalText,
+    Pointer,
+    property_fields,
+    PropertyShape,
+    Record,
+    Records,
+    Tagged,
+    Text,
+    Vector,
+)
 from rasm.imaging.faults import accumulated
-from rasm.imaging.parameters import Case, Choice, Gated, GraphForm, Knot, markers, Presentation, Quantity, Ramp, Rgb
+from rasm.imaging.parameters import Case, Choice, Gated, GraphForm, markers, Presentation, Quantity, Rgb
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
-# --- [TYPES] -----------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-type Changed = Callable[[bpy.types.bpy_struct, bpy.types.Context, bpy.types.Property], None]
-type SearchSource = Callable[[bpy.types.bpy_struct, bpy.types.Context, str], Iterable[str | tuple[str, str]]]
-type PointerPoll[T: bpy.types.ID = bpy.types.ID] = Callable[[Identity, bpy.types.bpy_struct, T], bool]
+type Changed = Callable[[bpy.types.bpy_struct[object], bpy.types.Context, bpy.types.Property], None]
+type SearchSource = Callable[[bpy.types.bpy_struct[object], bpy.types.Context, str], Iterable[str | tuple[str, str]]]
+type PointerPoll[T: bpy.types.ID = bpy.types.ID] = Callable[[Identity, bpy.types.bpy_struct[object], T], bool]
 type EnumRows = Iterable[tuple[str, str, str] | tuple[str, str, str, str | int, int] | None]
 
-# --- [MODELS] ----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Choices:
+class Choices(msgspec.Struct, frozen=True, eq=False):
     """Dynamic native rows with persistent identifiers and retained callback strings."""
 
-    def __init__(self, source: Callable[[Identity, bpy.types.bpy_struct, bpy.types.Context | None], EnumRows]) -> None:
-        """Owns source rows and their session identifiers."""
-        self.source = source
-        self.numbers: dict[str, int] = {}
-        self.rows: dict[int, list[tuple[str, str, str, str | int, int] | None]] = {}
+    source: "Callable[[Identity, bpy.types.bpy_struct[object], bpy.types.Context | None], EnumRows]"
+    numbers: dict[str, int] = msgspec.field(default_factory=dict)
+    rows: dict[int, list[tuple[str, str, str, str | int, int] | None]] = msgspec.field(default_factory=dict)
 
     def defined(self, identity: Identity, key: str, default: object) -> bpy.props._PropertyDeferred:
         """Builds native callbacks retaining identifiers across item changes."""
@@ -53,16 +71,16 @@ class Choices:
         def number(identifier: str) -> int:
             return self.numbers.setdefault(identifier, len(self.numbers))
 
-        def listed(owner: bpy.types.bpy_struct, context: bpy.types.Context | None) -> list[tuple[str, str, str, str | int, int] | None]:
+        def listed(owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context | None) -> list[tuple[str, str, str, str | int, int] | None]:
             rows = self.rows[owner.as_pointer()] = [
                 (*row[:3], row[3] if len(row) == 5 else "NONE", number(row[0]) if row[0] else -1) if row is not None else None for row in self.source(identity, owner, context)
             ]
             return rows
 
-        def selected(owner: bpy.types.bpy_struct) -> int:
+        def selected(owner: "bpy.types.bpy_struct[object]") -> int:
             return number(owner.get(key, default))
 
-        def stored(owner: bpy.types.bpy_struct, value: int) -> None:
+        def stored(owner: "bpy.types.bpy_struct[object]", value: int) -> None:
             owner[key] = next(identifier for identifier, held in self.numbers.items() if held == value)
 
         return bpy.props.EnumProperty(items=listed, get=selected, set=stored)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
@@ -98,34 +116,34 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
                 return cls(vector="COLOR")
             case native.IntType():
                 return cls(number="FACTOR" if (kind.ge, kind.le) == (0, 1) else "NONE")
+            case native.FloatType(ge=low, le=high):
+                return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if (low, high) == (0, 1) else "NONE"))
+            case native.TupleType(item_types=items):
+                factor = all(isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for raw in items for item in (raw.type if isinstance(raw, native.Metadata) else raw,))
+                return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if factor else "NONE"))
             case _:
-                presentation = next(iter(markers(annotation, Presentation)), Presentation())
-        match presentation.quantity:
+                return cls.quantified(annotation).default_with(cls)
+
+    @classmethod
+    def quantified(cls, annotation: object) -> Option[Self]:
+        """Returns the host presentation of the annotation's declared quantity, absent without one."""
+        match next(iter(markers(annotation, Presentation)), Presentation()).quantity:
             case Option(tag="some", some=Quantity.LENGTH):
-                return cls(number="DISTANCE", vector="XYZ_LENGTH")
+                return Some(cls(number="DISTANCE", vector="XYZ_LENGTH"))
             case Option(tag="some", some=Quantity.CAMERA_LENGTH):
-                return cls(number="DISTANCE_CAMERA", unit="CAMERA", scale=1000.0)
+                return Some(cls(number="DISTANCE_CAMERA", unit="CAMERA", scale=1000.0))
             case Option(tag="some", some=Quantity.ANGLE):
-                return cls(number="ANGLE", vector="EULER")
+                return Some(cls(number="ANGLE", vector="EULER"))
             case Option(tag="some", some=Quantity.DURATION):
-                return cls(number="TIME_ABSOLUTE", unit="TIME_ABSOLUTE")
+                return Some(cls(number="TIME_ABSOLUTE", unit="TIME_ABSOLUTE"))
             case Option(tag="some", some=Quantity.COLOR_TEMPERATURE):
-                return cls(number="COLOR_TEMPERATURE", unit="COLOR_TEMPERATURE")
+                return Some(cls(number="COLOR_TEMPERATURE", unit="COLOR_TEMPERATURE"))
             case Option(tag="some", some=Quantity.IRRADIANCE | Quantity.LUMINANCE):
-                return cls()
+                return Some(cls())
             case Option(tag="some"):
-                return cls(number="FACTOR", vector="XYZ")
-            case _:
-                match kind:
-                    case native.FloatType(ge=low, le=high):
-                        return cls(number="FACTOR" if (low, high) == (0, 1) else "NONE")
-                    case native.TupleType():
-                        factor = all(
-                            isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for raw in kind.item_types for item in (raw.type if isinstance(raw, native.Metadata) else raw,)
-                        )
-                        return cls(number="FACTOR" if factor else "NONE")
-                    case _:
-                        return cls()
+                return Some(cls(number="FACTOR", vector="XYZ"))
+            case Option():
+                return Nothing
 
     # --- [STORAGE]
 
@@ -239,7 +257,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         return self.bounds(kind).bind(converted)
 
 
-class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
+class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Constructed native classes binding one record to host storage."""
 
     record: type[T]
@@ -249,7 +267,7 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
     def nested(self) -> tuple[type[bpy.types.PropertyGroup], ...]:
         """Nested classes from the retained native property declarations."""
 
-        def classes(struct: type[bpy.types.bpy_struct]) -> tuple[type[bpy.types.PropertyGroup], ...]:
+        def classes(struct: "type[bpy.types.bpy_struct[object]]") -> tuple[type[bpy.types.PropertyGroup], ...]:
             return tuple(
                 child
                 for prop in struct.__annotations__.values()
@@ -262,17 +280,6 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
         return classes(self.struct)
 
     # --- [CONSTRUCTION]
-
-    @staticmethod
-    def vector(kind: native.Type) -> bool:
-        """Whether a fixed tuple has Blender's shared float-vector socket shape."""
-        match kind:
-            case native.Metadata(type=inner):
-                return RecordGroup.vector(inner)
-            case native.TupleType(item_types=(native.FloatType() as component, *tail)):
-                return len(tail) in {1, 2, 3} and all(item == component for item in tail)
-            case _:
-                return False
 
     @staticmethod
     def components(field: msgspec.structs.FieldInfo) -> tuple[msgspec.structs.FieldInfo, ...]:
@@ -309,6 +316,7 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
         identity: Identity, root: Key, record: type[R], changed: Option[Changed] = Nothing, bindings: Option[Mapping[MemberDescriptorType, Choices]] = Nothing
     ) -> "BlenderResult[RecordGroup[R]]":
         """Builds the host classes with native constraints, defaults, and callbacks."""
+        enabled_field, value_field = Gated.__struct_fields__
 
         def group(path: Key, definitions: dict[str, bpy.props._PropertyDeferred], defaults: Option[dict[str, object]] = Nothing) -> BlenderResult[type[bpy.types.PropertyGroup]]:
             return identity.name(Name.GROUP, path).map(lambda name: type(name, (bpy.types.PropertyGroup,), {"__annotations__": definitions, "__record_defaults__": defaults.default_value({})}))
@@ -316,22 +324,21 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
         def pointer(built: BlenderResult[type[bpy.types.PropertyGroup]]) -> BlenderResult[bpy.props._PropertyDeferred]:
             return built.map(lambda struct: bpy.props.PointerProperty(type=struct, override={"LIBRARY_OVERRIDABLE"}))
 
-        def defined(field: msgspec.structs.FieldInfo, kind: native.Type, path: Key, annotation: object, title: str | None = None, description: str = "") -> BlenderResult[bpy.props._PropertyDeferred]:
+        def defined(
+            field: msgspec.structs.FieldInfo, declared: Declared[PropertyShape], path: Key, annotation: object, title: str | None = None, summary: str = ""
+        ) -> BlenderResult[bpy.props._PropertyDeferred]:
+            shape = declared.shape
             default = field.default
-            if isinstance(kind, native.Metadata):
-                metadata = kind.extra_json_schema
-                return defined(
-                    field,
-                    kind.type,
-                    path,
-                    annotation,
-                    metadata.get("title", title) if metadata is not None else title,
-                    metadata.get("description", description) if metadata is not None else description,
-                )
+            blank = "" if isinstance(shape, OptionalText) and default is None else default
+            description = declared.description.default_value(summary)
             binding = next(iter(markers(field.type, Definition)), Definition())
             presentation = next(iter(markers(annotation, Presentation)), Presentation())
-            unit = Unit.of(annotation, kind)
-            name = title if title is not None else field.name.replace("_", " ").title()
+            name = declared.title.or_else(Option.of_optional(title)).default_value(field.name.replace("_", " ").title())
+            unit = Unit.of(annotation, shape.kind) if isinstance(shape, Number | Vector | Color | Integer) else Unit.quantified(annotation).default_with(Unit)
+
+            def defaulted(prop: bpy.props._PropertyDeferred, value: object) -> BlenderResult[bpy.props._PropertyDeferred]:
+                prop.keywords.update({} if value is msgspec.NODEFAULT else {"default": value})
+                return Ok(prop)
 
             def shown(value: object) -> str:
                 match value:
@@ -351,29 +358,17 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                         return str(value)
 
             def represented() -> BlenderResult[bpy.props._PropertyDeferred]:
-                match kind:
-                    case native.TupleType() if not RecordGroup.vector(kind):
+                match shape:
+                    case Components(items=items):
                         return pointer(
                             accumulated(
-                                defined(component, native.type_info(component.type), f"{path}_{component.name}", component.type).map(lambda prop: (component.name, prop))
-                                for component in RecordGroup.components(field)
+                                defined(component, item, f"{path}_{component.name}", component.type).map(lambda prop: (component.name, prop))
+                                for component, item in zip(RecordGroup.components(field), items)
                             )
                             .map(dict)
                             .bind(lambda definitions: group(path, definitions))
                         )
-                    case native.FloatType() | native.TupleType() | native.StructType():
-                        if isinstance(kind, native.StructType) and (typing.get_origin(kind.cls) or kind.cls) is not Rgb:
-                            gated = typing.get_origin(kind.cls) is Gated
-                            selected = (
-                                annotation
-                                if gated
-                                and any(
-                                    isinstance(marker, Presentation | Choices)
-                                    for marker in inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
-                                )
-                                else msgspec.NODEFAULT
-                            )
-                            return pointer(recorded(path, kind.cls, default, selected, name if gated else None))
+                    case Number(kind=kind) | Vector(kind=kind) | Color(kind=kind):
 
                         def ranged(interval: tuple[float | None, float | None]) -> BlenderResult[bpy.props._PropertyDeferred]:
                             low, high = interval
@@ -388,23 +383,36 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                             prop.keywords.update(presentation.decimals.map(lambda decimals: {"precision": decimals}).default_value({}))
                             prop.keywords.update(subtype=unit.number if isinstance(kind, native.FloatType) else unit.vector, unit=unit.unit)
 
-                            def defaulted(value: float | tuple[float, ...]) -> bpy.props._PropertyDeferred:
+                            def stored(value: float | tuple[float, ...]) -> bpy.props._PropertyDeferred:
                                 prop.keywords["default"] = value
                                 return prop
 
-                            return unit.stored(msgspec.to_builtins(default) if isinstance(kind, native.StructType) else default, kind).map(defaulted) if default is not msgspec.NODEFAULT else Ok(prop)
+                            return unit.stored(msgspec.to_builtins(default) if isinstance(shape, Color) else default, kind).map(stored) if default is not msgspec.NODEFAULT else Ok(prop)
 
                         return unit.bounds(kind).bind(ranged)
-                    case native.IntType(ge=ge, le=le, gt=gt, lt=lt):
+                    case Nested(record=record):
+                        gated = typing.get_origin(record) is Gated
+                        selected = (
+                            annotation
+                            if gated
+                            and any(
+                                isinstance(marker, Presentation | Choices) for marker in inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
+                            )
+                            else msgspec.NODEFAULT
+                        )
+                        return pointer(recorded(path, record, default, selected, name if gated else None))
+                    case Integer(kind=native.IntType(ge=ge, le=le, gt=gt, lt=lt)):
                         prop = bpy.props.IntProperty()
                         low, high = ge if ge is not None else gt + 1 if gt is not None else None, le if le is not None else lt - 1 if lt is not None else None
-                        prop.keywords.update({key: value for key, value in (("min", low), ("max", high)) if value is not None})
+                        storage = np.iinfo(np.int32)
+                        prop.keywords.update({key: min(max(value, int(storage.min)), int(storage.max)) for key, value in (("min", low), ("max", high)) if value is not None})
                         prop.keywords.update(presentation.soft.map(lambda limits: {"soft_min": int(limits[0]), "soft_max": int(limits[1])}).default_value({}))
                         prop.keywords.update(presentation.step.map(lambda step: {"step": int(step)}).default_value({}))
                         prop.keywords["subtype"] = unit.number
-                    case native.BoolType():
-                        prop = bpy.props.BoolProperty()
-                    case native.StrType():
+                        return defaulted(prop, default)
+                    case Flag():
+                        return defaulted(bpy.props.BoolProperty(), default)
+                    case Text() | OptionalText():
                         sources = markers(annotation, Choices) or markers(field.type, Choices)
                         source = (
                             sources[0]
@@ -419,35 +427,36 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                             else None
                         )
                         if source is not None:
-                            prop = source.defined(identity, field.name, default if default is not msgspec.NODEFAULT else "")
+                            prop = source.defined(identity, field.name, blank if blank is not msgspec.NODEFAULT else "")
                             prop.keywords["options"] = set(binding.options) - {"ANIMATABLE"}
                             return Ok(prop)
                         prop = bpy.props.StringProperty(subtype=binding.text)
                         prop.keywords.update(binding.search.map(lambda callback: {"search": callback, "search_options": {"SORT", *({"SUGGESTION"} if binding.suggestion else ())}}).default_value({}))
-                    case native.EnumType(cls=enum):
+                        return defaulted(prop, blank)
+                    case Enumerated(enum=enum):
                         prop = bpy.props.EnumProperty(items=())
                         prop.keywords["items"] = tuple((member.name, member.label, "", member.value) if isinstance(member, Choice) else (member.name, member.name, "") for member in enum)
                         if default is not msgspec.NODEFAULT:
                             prop.keywords["default"] = next(member.name for member in enum if member == default)
                         return Ok(prop)
-                    case native.LiteralType(values=values) if all(type(value) is int for value in values):
+                    case Literals(values=values):
                         prop = bpy.props.EnumProperty(items=())
                         prop.keywords["items"] = tuple((identifier, identifier, "", value) for value in values for identifier in (str(value),))
                         if default is not msgspec.NODEFAULT:
                             prop.keywords["default"] = str(default)
                         return Ok(prop)
-                    case native.VarTupleType(item_type=native.StructType(cls=item)):
+                    case Records(record=record):
 
                         def collection(struct: type[bpy.types.PropertyGroup]) -> bpy.props._PropertyDeferred:
                             return bpy.props.CollectionProperty(type=struct, override={"LIBRARY_OVERRIDABLE", "USE_INSERTION"})
 
-                        return recorded(path, item, msgspec.NODEFAULT, inherited=(bpy.types.PropertyGroup.bl_rna.name_property.identifier,)).map(collection)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    case native.DictType(key_type=native.EnumType(cls=enum)):
+                        return recorded(path, record, msgspec.NODEFAULT, inherited=(bpy.types.PropertyGroup.bl_rna.name_property.identifier,)).map(collection)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    case Entries(enum=enum):
                         return pointer(
                             accumulated(
                                 defined(
                                     entry,
-                                    native.type_info(entry.type),
+                                    Declared(shape=Nested(record=entry.type)),
                                     f"{path}_{entry.name.lower()}",
                                     entry.type,
                                     title=enum[entry.name].label if issubclass(enum, Choice) else entry.name.replace("_", " ").title(),
@@ -457,47 +466,31 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                             .map(dict)
                             .bind(lambda definitions: group(path, definitions))
                         )
-                    case native.FrozenSetType(item_type=native.EnumType(cls=enum)):
-                        definitions = {}
-                        for member in enum:
+                    case Flags(enum=enum):
+
+                        def flag(member: Enum) -> bpy.props._PropertyDeferred:
                             leaf = bpy.props.BoolProperty(name=member.label if isinstance(member, Choice) else member.name.replace("_", " ").title(), override={"LIBRARY_OVERRIDABLE"})
-                            if default is not msgspec.NODEFAULT:
-                                leaf.keywords["default"] = member in default
-                            leaf.keywords.update(changed.map(lambda body: {"update": lambda holder, context, key=member.name: body(holder, context, holder.bl_rna.properties[key])}).default_value({}))
-                            definitions[member.name] = leaf
-                        return pointer(group(path, definitions))
-                    case native.UnionType(types=(native.CustomType(cls=id_type), native.NoneType())) | native.UnionType(types=(native.NoneType(), native.CustomType(cls=id_type))) if issubclass(
-                        id_type, bpy.types.ID
-                    ):
-                        prop = bpy.props.PointerProperty(type=id_type)
-                        prop.keywords.update(binding.poll.map(lambda poll: {"poll": functools.partial(poll, identity)}).default_value({}))
+                            leaf.keywords.update({} if default is msgspec.NODEFAULT else {"default": member in default})
+                            leaf.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[member.name])}).default_value({}))
+                            return leaf
+
+                        return pointer(group(path, {member.name: flag(member) for member in enum}))
+                    case Pointer(block=block):
+                        prop = bpy.props.PointerProperty(type=block)
+                        prop.keywords.update(binding.poll.map(lambda poll: {"poll": lambda holder, block: poll(identity, holder, block)}).default_value({}))
                         prop.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[field.name])}).default_value({}))
                         return Ok(prop)
-                    case native.UnionType(types=(native.StructType(tag_field=str() as tag_field), *_) as cases):
-                        definitions = {}
-                        items = []
-                        branches = []
-                        for case in cases:
-                            match case:
-                                case native.StructType(cls=case_type, tag=int() as tag) if issubclass(case_type, Case):
-                                    items.append((case_type.__name__, case_type.title, case_type.__doc__ or "", tag))
-                                    branches.append(
-                                        pointer(recorded(f"{path}_{case_type.__name__.lower()}", case_type, default if isinstance(default, case_type) else msgspec.NODEFAULT)).map(
-                                            lambda prop: (case_type.__name__, prop)
-                                        )
-                                    )
+                    case Tagged(tag_field=tag_field, cases=cases):
+                        branches = accumulated(
+                            pointer(recorded(f"{path}_{case.__name__.lower()}", case, default if isinstance(default, case) else msgspec.NODEFAULT)).map(lambda prop: (case.__name__, prop))
+                            for case, _ in cases
+                        )
                         selector = bpy.props.EnumProperty(items=(), name=name, override={"LIBRARY_OVERRIDABLE"})
-                        selector.keywords["items"] = items
+                        selector.keywords["items"] = [(case.__name__, case.title, case.__doc__ or "", tag) for case, tag in cases]
                         if default is not msgspec.NODEFAULT:
                             selector.keywords["default"] = type(default).__name__
                         selector.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[tag_field])}).default_value({}))
-                        definitions[tag_field] = selector
-                        return pointer(accumulated(branches).bind(lambda props: group(path, definitions | dict(props))))
-                    case _:
-                        raise TypeError(f"No property representation for {kind!r}")
-                if default is not msgspec.NODEFAULT and not isinstance(kind, native.FloatType | native.TupleType | native.StructType):
-                    prop.keywords["default"] = default
-                return Ok(prop)
+                        return pointer(branches.bind(lambda props: group(path, {tag_field: selector} | dict(props))))
 
             def described(prop: bpy.props._PropertyDeferred) -> bpy.props._PropertyDeferred:
                 prop.keywords.update(name=name, description=description)
@@ -507,237 +500,231 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                     prop.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[field.name])}).default_value({}))
                 if not presentation.quantity.map(lambda quantity: quantity in {Quantity.LENGTH, Quantity.ANGLE}).default_value(False):
                     bounds = tuple(f"{key.title()}: {value:g}" for key, value in prop.keywords.items() if key in {"min", "max"})
-                    default_text = (f"Default: {shown(default)}",) if default is not msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT else ()
+                    default_text = (f"Default: {shown(blank)}",) if blank is not msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT else ()
                     prop.keywords["description"] = ". ".join(part for part in (description, *bounds, *default_text) if part)
                 return prop
 
             return represented().map(described)
 
         def recorded(
-            path: Key, record_type: type[msgspec.Struct] | GenericAlias, default: object, presentation: object = msgspec.NODEFAULT, title: str | None = None, inherited: tuple[str, ...] = ()
+            path: Key, record_type: Record, default: object, presentation: object = msgspec.NODEFAULT, title: str | None = None, inherited: tuple[str, ...] = ()
         ) -> BlenderResult[type[bpy.types.PropertyGroup]]:
-            fields = tuple(
-                bindings
-                .bind(lambda rows: Option.of_optional(rows.get(getattr(typing.get_origin(record_type) or record_type, field.name))))
-                .map(lambda source: msgspec.structs.replace(field, type=typing.Annotated[field.type, source]))
-                .default_value(field)
-                for field in msgspec.structs.fields(record_type)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            )
-            kinds = native.multi_type_info(field.type for field in fields)
-            defaults = {
-                field.name: getattr(default, field.name) if default is not msgspec.NODEFAULT else field.default_factory() if field.default_factory is not msgspec.NODEFAULT else field.default
-                for field, raw in zip(fields, kinds)
-                for kind in (raw.type if isinstance(raw, native.Metadata) else raw,)
-                for form in (kind.item_type if isinstance(kind, native.VarTupleType) else kind,)
-                if not ({GraphForm.IMAGE, GraphForm.SETTING} & set(markers(field.type, GraphForm)))
-                and not (isinstance(form, native.StructType) and (form.cls is Ramp or typing.get_origin(form.cls) is Knot))
-                and field.name not in inherited
-            }
-            definitions = (
-                defined(
-                    msgspec.structs.replace(field, default=defaults[field.name]),
-                    raw,
-                    f"{path}_{field.name.lower()}",
-                    presentation if field.name == Gated.value.__name__ and presentation is not msgspec.NODEFAULT else field.type,  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-                    title if field.name == Gated.enabled.__name__ else None,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                ).map(lambda prop: (field.name, prop))
-                for field, raw in zip(fields, kinds)
-                if field.name in defaults
-            )
-            return (
-                accumulated(definitions)
-                .map(dict)
-                .bind(
-                    lambda declarations: group(
-                        path,
-                        declarations,
-                        Some({
-                            field.name: defaults[field.name]
-                            for field, raw in zip(fields, kinds)
-                            for kind in (raw.type if isinstance(raw, native.Metadata) else raw,)
-                            if field.name in declarations
-                            and (isinstance(kind, native.VarTupleType) or (declarations[field.name].function is bpy.props.EnumProperty and "get" in declarations[field.name].keywords))
-                        }),
+            def declared(rows: Fields[PropertyShape]) -> BlenderResult[type[bpy.types.PropertyGroup]]:
+                fields = tuple(
+                    (
+                        bindings
+                        .bind(lambda sources: Option.of_optional(sources.get(getattr(typing.get_origin(record_type) or record_type, field.name))))
+                        .map(lambda source: msgspec.structs.replace(field, type=typing.Annotated[field.type, source]))
+                        .default_value(field),
+                        shape,
+                    )
+                    for field, shape in rows
+                    if field.name not in inherited
+                )
+                defaults = {
+                    field.name: getattr(default, field.name) if default is not msgspec.NODEFAULT else field.default_factory() if field.default_factory is not msgspec.NODEFAULT else field.default
+                    for field, _ in fields
+                }
+                return (
+                    accumulated(
+                        defined(
+                            msgspec.structs.replace(field, default=defaults[field.name]),
+                            shape,
+                            f"{path}_{field.name.lower()}",
+                            presentation if field.name == value_field and presentation is not msgspec.NODEFAULT else field.type,
+                            title if field.name == enabled_field else None,
+                        ).map(lambda prop: (field.name, prop))
+                        for field, shape in fields
+                    )
+                    .map(dict)
+                    .bind(
+                        lambda declarations: group(
+                            path,
+                            declarations,
+                            Some({
+                                field.name: defaults[field.name]
+                                for field, shape in fields
+                                if isinstance(shape.shape, Records) or (declarations[field.name].function is bpy.props.EnumProperty and "get" in declarations[field.name].keywords)
+                            }),
+                        )
                     )
                 )
-            )
+
+            return property_fields(record_type).bind(declared)
 
         return recorded(root, record, msgspec.NODEFAULT).map(lambda struct: RecordGroup(record=record, struct=struct))
 
     @property
     def pointer(self: "RecordGroup[T, bpy.types.PropertyGroup]") -> bpy.props._PropertyDeferred:
         """Root pointer definition with native override support."""
-        return bpy.props.PointerProperty(type=self.struct, description=self.record.__doc__ or "", override={"LIBRARY_OVERRIDABLE"})
+        prop = bpy.props.PointerProperty(type=self.struct, override={"LIBRARY_OVERRIDABLE"})
+        prop.keywords.update(Option.of_optional(self.record.__doc__).map(lambda doc: {"description": doc}).default_value({}))
+        return prop
 
     # --- [READING]
 
-    def read(self, holder: bpy.types.bpy_struct) -> BlenderResult[T]:
+    def read(self, holder: "bpy.types.bpy_struct[object]") -> BlenderResult[T]:
         """Constructs the record from the acquired native field representations."""
+        enabled_field, value_field = Gated.__struct_fields__
 
-        def value(field: msgspec.structs.FieldInfo, kind: native.Type, owner: bpy.types.bpy_struct, default: object, annotation: object) -> BlenderResult[object]:
-            if isinstance(kind, native.Metadata):
-                return value(field, kind.type, owner, default, annotation)
+        def value(field: msgspec.structs.FieldInfo, shape: PropertyShape, owner: "bpy.types.bpy_struct[object]", default: object, annotation: object) -> BlenderResult[object]:
             held = (
                 owner.get(field.name, default if default is not msgspec.NODEFAULT else "")
-                if isinstance(kind, native.StrType) and isinstance(owner.bl_rna.properties[field.name], bpy.types.EnumProperty)
+                if isinstance(shape, Text) and isinstance(owner.bl_rna.properties[field.name], bpy.types.EnumProperty)
                 else getattr(owner, field.name)
             )
-            match kind:
-                case native.TupleType() if not RecordGroup.vector(kind):
+            match shape:
+                case Components(items=items):
                     return accumulated(
-                        value(component, native.type_info(component.type), held, component.default, component.type)
-                        for component in RecordGroup.components(msgspec.structs.replace(field, default=default))
+                        value(component, item.shape, held, component.default, component.type) for component, item in zip(RecordGroup.components(msgspec.structs.replace(field, default=default)), items)
                     )
-                case native.FloatType() | native.TupleType():
+                case Number(kind=kind) | Vector(kind=kind):
                     return Unit.of(annotation, kind).restored(held, kind)
-                case native.EnumType(cls=enum):
+                case Color(kind=kind):
+                    return Unit.of(annotation, kind).restored(held, kind).map(lambda values: kind.cls(**{channel.name: item for channel, item in zip(msgspec.structs.fields(kind.cls), values)}))
+                case Enumerated(enum=enum):
                     return Ok(enum[held])
-                case native.LiteralType():
+                case Literals():
                     return Ok(int(held))
-                case native.StructType(cls=record_type) if (typing.get_origin(record_type) or record_type) is Rgb:
-                    return Unit.of(annotation, kind).restored(held, kind).map(lambda values: record_type(**{field.name: item for field, item in zip(msgspec.structs.fields(record_type), values)}))
-                case native.StructType(cls=record_type):
+                case Nested(record=record_type):
                     return record(held, record_type, type(held), annotation if typing.get_origin(record_type) is Gated and markers(annotation, Presentation) else msgspec.NODEFAULT)
-                case native.VarTupleType(item_type=native.StructType(cls=item)):
+                case Records(record=item):
                     return accumulated(record(entry, item, type(entry)) for entry in held) if owner.is_property_set(field.name) else Ok(default if default is not msgspec.NODEFAULT else ())
-                case native.DictType(key_type=native.EnumType(cls=enum), value_type=inner):
+                case Entries(enum=enum, value=inner):
                     return accumulated(
-                        value(leaf, inner, entry, type(entry).__dict__["__record_defaults__"].get(leaf.name, msgspec.NODEFAULT), leaf.type).map(lambda held: (enum[member.name], held))
+                        value(leaf, inner.shape, entry, type(entry).__dict__["__record_defaults__"].get(leaf.name, msgspec.NODEFAULT), leaf.type).map(lambda held: (enum[member.name], held))
                         for member in RecordGroup.entries(field, enum)
                         for leaf in msgspec.structs.fields(member.type)
-                        if leaf.name == Gated.value.__name__  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+                        if leaf.name == value_field
                         for entry in (getattr(held, member.name),)
-                        if getattr(entry, Gated.enabled.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        if getattr(entry, enabled_field)
                     ).map(dict)
-                case native.FrozenSetType(item_type=native.EnumType(cls=enum)):
+                case Flags(enum=enum):
                     return Ok(frozenset(member for member in enum if getattr(held, member.name)))
-                case native.UnionType(types=(native.CustomType(), native.NoneType())) | native.UnionType(types=(native.NoneType(), native.CustomType())):
+                case Pointer():
                     return Ok(held)
-                case native.UnionType(types=(native.StructType(tag_field=str() as tag_field), *_) as cases):
-                    for case in cases:
-                        match case:
-                            case native.StructType(cls=case_type) if getattr(held, tag_field) == case_type.__name__:
-                                selected = getattr(held, case_type.__name__)
-                                return record(selected, case_type, type(selected))
-                    raise TypeError(f"No selected case for {kind!r}")
-                case native.StrType():
+                case OptionalText():
+                    return Ok(held or None)
+                case Tagged(tag_field=tag_field, cases=cases):
+                    chosen = {case.__name__: case for case, _ in cases}[getattr(held, tag_field)]
+                    selected = getattr(held, chosen.__name__)
+                    return record(selected, chosen, type(selected))
+                case Text():
                     return catch(lambda: msgspec.convert(held, field.type), exception=msgspec.ValidationError)().map_error(
                         lambda error: (BlenderReadFault(request=f"{owner!r}.{field.name}", error=error),)
                     )
-                case native.IntType() | native.BoolType():
+                case Integer() | Flag():
                     return Ok(held)
-                case _:
-                    return Error((BlenderReadFault(request=f"{owner!r}.{field.name}", error=TypeError(f"No property representation for {kind!r}")),))
 
-        def record[R: msgspec.Struct](owner: bpy.types.bpy_struct, record_type: type[R], struct: type[bpy.types.bpy_struct], presentation: object = msgspec.NODEFAULT) -> BlenderResult[R]:
-            fields = msgspec.structs.fields(record_type)
-            kinds = native.multi_type_info(field.type for field in fields)
-            return accumulated(
-                value(
-                    field,
-                    kind,
-                    owner,
-                    struct.__dict__["__record_defaults__"].get(field.name, msgspec.NODEFAULT),
-                    presentation if field.name == Gated.value.__name__ and presentation is not msgspec.NODEFAULT else field.type,  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-                ).map(lambda held: (field.name, held))
-                for field, raw in zip(fields, kinds)
-                for kind in (raw.type if isinstance(raw, native.Metadata) else raw,)
-                if field.name in owner.bl_rna.properties
-            ).map(lambda values: record_type(**dict(values)))
+        def record[R: msgspec.Struct](
+            owner: "bpy.types.bpy_struct[object]", record_type: type[R], struct: "type[bpy.types.bpy_struct[object]]", presentation: object = msgspec.NODEFAULT
+        ) -> BlenderResult[R]:
+            return property_fields(record_type).bind(
+                lambda rows: accumulated(
+                    value(
+                        field,
+                        shape.shape,
+                        owner,
+                        struct.__dict__["__record_defaults__"].get(field.name, msgspec.NODEFAULT),
+                        presentation if field.name == value_field and presentation is not msgspec.NODEFAULT else field.type,
+                    ).map(lambda held: (field.name, held))
+                    for field, shape in rows
+                    if field.name in owner.bl_rna.properties
+                ).map(lambda values: record_type(**dict(values)))
+            )
 
         return record(holder, self.record, self.struct)
 
     # --- [WRITING]
 
-    def write(self, holder: bpy.types.bpy_struct, record: T) -> BlenderResult[None]:
+    def write(self, holder: "bpy.types.bpy_struct[object]", record: T) -> BlenderResult[None]:
         """Writes independent changed leaves through the native RNA writer."""
+        enabled_field, value_field = Gated.__struct_fields__
 
-        def value(field: msgspec.structs.FieldInfo, kind: native.Type, owner: bpy.types.bpy_struct, desired: object, default: object, annotation: object) -> BlenderResult[None]:
-            match kind, desired:
-                case native.Metadata(type=inner), _:
-                    return value(field, inner, owner, desired, default, annotation)
-                case native.TupleType(), tuple() as items if not RecordGroup.vector(kind):
+        def value(field: msgspec.structs.FieldInfo, shape: PropertyShape, owner: "bpy.types.bpy_struct[object]", desired: object, default: object, annotation: object) -> BlenderResult[None]:
+            match shape:
+                case Components(items=items):
                     return accumulated(
-                        value(component, native.type_info(component.type), getattr(owner, field.name), item, component.default, component.type)
-                        for component, item in zip(RecordGroup.components(msgspec.structs.replace(field, default=default)), items)
+                        value(component, item.shape, getattr(owner, field.name), part, component.default, component.type)
+                        for component, item, part in zip(RecordGroup.components(msgspec.structs.replace(field, default=default)), items, msgspec.convert(desired, tuple))
                     ).map(lambda _: None)
-                case native.FloatType(), float() | int():
-                    return written(owner, field.name, desired * Unit.of(annotation, kind).scale).map(lambda _: None)
-                case native.TupleType(), tuple():
+                case Number():
+                    return written(owner, field.name, msgspec.convert(desired, float) * Unit.of(annotation, shape.kind).scale).map(lambda _: None)
+                case Vector(kind=kind):
                     scale = Unit.of(annotation, kind).scale
-                    return written(owner, field.name, tuple(component * scale for component in desired)).map(lambda _: None)
-                case native.EnumType(), Enum():
-                    return written(owner, field.name, desired.name).map(lambda _: None)
-                case native.LiteralType(), _:
+                    return written(owner, field.name, tuple(component * scale for component in msgspec.convert(desired, tuple[float, ...]))).map(lambda _: None)
+                case Enumerated(enum=enum):
+                    return written(owner, field.name, enum(desired).name).map(lambda _: None)
+                case Literals():
                     return written(owner, field.name, str(desired)).map(lambda _: None)
-                case native.StructType(cls=record_type), Rgb() if (typing.get_origin(record_type) or record_type) is Rgb:
-                    return written(owner, field.name, msgspec.structs.astuple(desired)).map(lambda _: None)
-                case native.StructType(cls=record_type), msgspec.Struct():
+                case Color(kind=kind):
+                    return written(owner, field.name, tuple(getattr(desired, channel.name) for channel in msgspec.structs.fields(kind.cls))).map(lambda _: None)
+                case Nested(record=record_type):
                     held = getattr(owner, field.name)
                     return stored(held, desired, type(held), record_type, annotation if typing.get_origin(record_type) is Gated and markers(annotation, Presentation) else msgspec.NODEFAULT)
-                case native.VarTupleType(item_type=native.StructType(cls=record_type)), tuple():
+                case Records(record=record_type):
                     collection = getattr(owner, field.name)
-                    if not owner.is_property_set(field.name) and desired == (default if default is not msgspec.NODEFAULT else ()):
-                        return Ok(None)
+                    items = msgspec.convert(desired, tuple)
                     if not owner.is_property_set(field.name):
                         collection.add()
-                    for index in range(len(collection) - 1, len(desired) - 1, -1):
+                    for index in range(len(collection) - 1, len(items) - 1, -1):
                         collection.remove(index)
-                    for _ in range(len(desired) - len(collection)):
+                    for _ in range(len(items) - len(collection)):
                         collection.add()
-                    return accumulated(stored(item, desired_item, type(item), record_type) for item, desired_item in zip(collection, desired)).map(lambda _: None)
-                case native.FrozenSetType(item_type=native.EnumType(cls=enum)), frozenset():
-                    return accumulated(written(getattr(owner, field.name), member.name, member in desired) for member in enum).map(lambda _: None)
-                case native.DictType(key_type=native.EnumType(cls=enum)), dict():
+                    return accumulated(stored(item, desired_item, type(item), record_type) for item, desired_item in zip(collection, items)).map(lambda _: None)
+                case Flags(enum=enum):
+                    members = msgspec.convert(desired, frozenset)
+                    return accumulated(written(getattr(owner, field.name), member.name, member in members) for member in enum).map(lambda _: None)
+                case Entries(enum=enum):
+                    entries = msgspec.convert(desired, dict)
                     return accumulated(
-                        stored(entry, Gated(enabled=True, value=desired[key]), type(entry), member.type) if key in desired else written(entry, Gated.enabled.__name__, False).map(lambda _: None)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        stored(entry, Gated(enabled=True, value=entries[key]), type(entry), member.type) if key in entries else written(entry, enabled_field, False).map(lambda _: None)
                         for member in RecordGroup.entries(field, enum)
                         for key in (enum[member.name],)
                         for entry in (getattr(getattr(owner, field.name), member.name),)
                     ).map(lambda _: None)
-                case native.UnionType(types=(native.CustomType(), native.NoneType())) | native.UnionType(types=(native.NoneType(), native.CustomType())), bpy.types.ID() | None:
-                    return written(owner, field.name, IdName.of(desired) if desired is not None else None).map(lambda _: None)
-                case native.UnionType(types=(native.StructType(tag_field=str() as tag_field), *_) as cases), msgspec.Struct():
-                    for case in cases:
-                        match case:
-                            case native.StructType(cls=case_type) if isinstance(desired, case_type):
-                                group = getattr(owner, field.name)
-                                held = getattr(group, case_type.__name__)
-                                return written(group, tag_field, case_type.__name__).bind(lambda _: stored(held, desired, type(held), case_type))
-                    raise TypeError(f"No selected case for {kind!r}")
-                case native.StrType(), str():
-                    equal = isinstance(owner.bl_rna.properties[field.name], bpy.types.EnumProperty) and owner.get(field.name, default if default is not msgspec.NODEFAULT else "") == desired
-                    return Ok(None) if equal else written(owner, field.name, desired).map(lambda _: None)
-                case native.IntType() | native.BoolType(), int():
-                    return written(owner, field.name, desired).map(lambda _: None)
-                case _:
-                    raise TypeError(f"No property value representation for {kind!r}, {desired!r}")
+                case Pointer():
+                    return written(owner, field.name, IdName.of(desired) if isinstance(desired, bpy.types.ID) else None).map(lambda _: None)
+                case Tagged(tag_field=tag_field, cases=cases):
+                    chosen = next(case for case, _ in cases if isinstance(desired, case))
+                    group = getattr(owner, field.name)
+                    held = getattr(group, chosen.__name__)
+                    return written(group, tag_field, chosen.__name__).bind(lambda _: stored(held, desired, type(held), chosen))
+                case Text():
+                    text = msgspec.convert(desired, str)
+                    equal = isinstance(owner.bl_rna.properties[field.name], bpy.types.EnumProperty) and owner.get(field.name, default if default is not msgspec.NODEFAULT else "") == text
+                    return Ok(None) if equal else written(owner, field.name, text).map(lambda _: None)
+                case OptionalText():
+                    return written(owner, field.name, Option.of_optional(msgspec.convert(desired, str | None)).default_value("")).map(lambda _: None)
+                case Integer():
+                    return written(owner, field.name, msgspec.convert(desired, int)).map(lambda _: None)
+                case Flag():
+                    return written(owner, field.name, msgspec.convert(desired, bool)).map(lambda _: None)
 
         def stored(
-            owner: bpy.types.bpy_struct, desired: msgspec.Struct, struct: type[bpy.types.bpy_struct], record_type: type[msgspec.Struct] | GenericAlias, presentation: object = msgspec.NODEFAULT
+            owner: "bpy.types.bpy_struct[object]", desired: object, struct: "type[bpy.types.bpy_struct[object]]", record_type: Record, presentation: object = msgspec.NODEFAULT
         ) -> BlenderResult[None]:
-            fields = msgspec.structs.fields(record_type)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            kinds = native.multi_type_info(field.type for field in fields)
-            return accumulated(
-                value(
-                    field,
-                    kind,
-                    owner,
-                    getattr(desired, field.name),
-                    struct.__dict__["__record_defaults__"].get(field.name, msgspec.NODEFAULT),
-                    presentation if field.name == Gated.value.__name__ and presentation is not msgspec.NODEFAULT else field.type,  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-                )
-                for field, raw in zip(fields, kinds)
-                for kind in (raw.type if isinstance(raw, native.Metadata) else raw,)
-                if field.name in owner.bl_rna.properties
-            ).map(lambda _: None)
+            return property_fields(record_type).bind(
+                lambda rows: accumulated(
+                    value(
+                        field,
+                        shape.shape,
+                        owner,
+                        getattr(desired, field.name),
+                        struct.__dict__["__record_defaults__"].get(field.name, msgspec.NODEFAULT),
+                        presentation if field.name == value_field and presentation is not msgspec.NODEFAULT else field.type,
+                    )
+                    for field, shape in rows
+                    if field.name in owner.bl_rna.properties
+                ).map(lambda _: None)
+            )
 
         return stored(holder, record, self.struct, self.record)
 
-    def reset(self, holder: bpy.types.bpy_struct) -> BlenderResult[None]:
-        """Restores acquired native defaults and returns pointer-write refusals."""
+    def reset(self, holder: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
+        """Restores acquired native defaults, writing record defaults into collections RNA cannot default, and returns read or write refusals."""
 
-        def reset(owner: bpy.types.bpy_struct, definitions: dict[str, bpy.props._PropertyDeferred]) -> BlenderResult[None]:
+        def reset(owner: "bpy.types.bpy_struct[object]", definitions: dict[str, bpy.props._PropertyDeferred]) -> BlenderResult[None]:
             outcomes: list[BlenderResult[None]] = []
             for key, definition in definitions.items():
                 prop = owner.bl_rna.properties[key]
@@ -754,20 +741,21 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                         owner.path_resolve(key, False).update()
             return accumulated(outcomes).map(lambda _: None)
 
-        return reset(holder, {key: definition for key, definition in self.struct.__annotations__.items() if key in self.record.__struct_fields__})
+        return (
+            reset(holder, {key: definition for key, definition in self.struct.__annotations__.items() if key in self.record.__struct_fields__})
+            .bind(lambda _: self.read(holder))
+            .bind(lambda record: self.write(holder, record))
+        )
 
     # --- [CUSTOM_PROPERTIES]
 
     def stamp(self, owner: bpy.types.ID, prefix: str, record: T) -> BlenderResult[None]:
         """Writes custom values with UI metadata from the registered RNA definitions."""
 
-        def stamped(field: msgspec.structs.FieldInfo) -> BlenderResult[None]:
+        def stamped(field: msgspec.structs.FieldInfo, shape: PropertyShape) -> BlenderResult[None]:
             key = f"{prefix}{field.encode_name}"
             prop = self.struct.bl_rna.properties[field.name]
             value = getattr(record, field.name)
-            kind = native.type_info(field.type)
-            kind = kind.type if isinstance(kind, native.Metadata) else kind
-            unit = Unit.of(field.type, kind)
 
             def assigned(data: Mapping[str, object], value: object) -> BlenderResult[None]:
                 try:
@@ -777,8 +765,8 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                 except (AttributeError, KeyError, TypeError, ValueError, OverflowError, ReferenceError) as error:
                     return Error((BlenderEditFault(request=f"{owner!r}[{key!r}]", error=error),))
 
-            match prop, kind:
-                case bpy.types.FloatProperty(), native.FloatType() | native.TupleType() | native.StructType():
+            match prop, shape:
+                case bpy.types.FloatProperty(), Number(kind=kind) | Vector(kind=kind) | Color(kind=kind):
                     data: dict[str, object] = {
                         "min": prop.hard_min,
                         "max": prop.hard_max,
@@ -788,46 +776,49 @@ class RecordGroup[T: msgspec.Struct, S: bpy.types.bpy_struct = bpy.types.Propert
                         "precision": prop.precision,
                         "default": tuple(prop.default_array) if prop.is_array else prop.default,  # type: ignore[arg-type]
                     }
-                    return unit.stored(msgspec.structs.astuple(value) if isinstance(kind, native.StructType) else value, kind).bind(lambda lowered: assigned(data, lowered))
+                    return Unit.of(field.type, kind).stored(msgspec.structs.astuple(value) if isinstance(shape, Color) else value, kind).bind(lambda lowered: assigned(data, lowered))
                 case bpy.types.IntProperty(), _:
                     data = {"min": prop.hard_min, "max": prop.hard_max, "soft_min": prop.soft_min, "soft_max": prop.soft_max, "step": prop.step, "default": prop.default}
+                case bpy.types.StringProperty(), OptionalText():
+                    return assigned({"default": prop.default}, Option.of_optional(value).default_value(""))
                 case bpy.types.EnumProperty(), _:
-                    value = value if isinstance(kind, native.LiteralType) else value.value
+                    value = value if isinstance(shape, Literals) else value.value
                     data = {"items": tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in prop.enum_items), "default": prop.enum_items[prop.default].value}
                 case bpy.types.BoolProperty() | bpy.types.StringProperty(), _:
                     data = {"default": prop.default}
                 case _:
-                    return Error((BlenderReadFault(request=f"{owner!r}[{key!r}]", error=TypeError(f"No custom property representation for {kind!r}")),))
+                    return Error((BlenderReadFault(request=f"{owner!r}[{key!r}]", error=TypeError(f"No custom property representation for {prop!r}")),))
             return assigned(data, value)
 
-        outcome = accumulated(map(stamped, msgspec.structs.fields(record))).map(lambda _: None)
+        outcome = property_fields(self.record).bind(lambda rows: accumulated(stamped(field, shape.shape) for field, shape in rows)).map(lambda _: None)
         owner.update_tag()
         return outcome
 
     def stamped(self, owner: bpy.types.ID, prefix: str) -> BlenderResult[T]:
         """Constructs the record from present native custom values."""
-        fields = msgspec.structs.fields(self.record)
-        kinds = native.multi_type_info(field.type for field in fields)
 
-        def value(field: msgspec.structs.FieldInfo, kind: native.Type, key: str) -> BlenderResult[object]:
-            match kind:
-                case native.FloatType() | native.TupleType():
+        def value(field: msgspec.structs.FieldInfo, shape: PropertyShape, key: str) -> BlenderResult[object]:
+            match shape:
+                case Number(kind=kind) | Vector(kind=kind):
                     return Unit.of(field.type, kind).restored(owner[key], kind)
-                case native.StructType(cls=record):
-                    return Unit.of(field.type, kind).restored(owner[key], kind).map(lambda values: record(**{channel.name: item for channel, item in zip(msgspec.structs.fields(record), values)}))
-                case _:
+                case Color(kind=kind):
+                    return Unit.of(field.type, kind).restored(owner[key], kind).map(lambda values: kind.cls(**{channel.name: item for channel, item in zip(msgspec.structs.fields(kind.cls), values)}))
+                case OptionalText():
+                    return Ok(owner[key] or None)
+                case Integer() | Flag() | Text() | Enumerated() | Literals() | Components() | Nested() | Records() | Entries() | Flags() | Pointer() | Tagged():
                     return catch(lambda: msgspec.convert(owner[key], field.type), exception=msgspec.ValidationError)().map_error(lambda error: (BlenderReadFault(request=repr(owner), error=error),))
 
-        return accumulated(
-            value(field, kind, key).map(lambda held: (field.name, held))
-            for field, raw in zip(fields, kinds)
-            for kind in (raw.type if isinstance(raw, native.Metadata) else raw,)
-            for key in (f"{prefix}{field.encode_name}",)
-            if key in owner  # type: ignore[operator]
-        ).bind(lambda values: catch(lambda: self.record(**dict(values)), exception=TypeError)().map_error(lambda error: (BlenderReadFault(request=repr(owner), error=error),)))
+        return property_fields(self.record).bind(
+            lambda rows: accumulated(
+                value(field, shape.shape, key).map(lambda held: (field.name, held))
+                for field, shape in rows
+                for key in (f"{prefix}{field.encode_name}",)
+                if key in owner  # type: ignore[operator]
+            ).bind(lambda values: catch(lambda: self.record(**dict(values)), exception=TypeError)().map_error(lambda error: (BlenderReadFault(request=repr(owner), error=error),)))
+        )
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = ["Changed", "Choices", "Definition", "EnumRows", "PointerPoll", "RecordGroup", "SearchSource", "Unit"]

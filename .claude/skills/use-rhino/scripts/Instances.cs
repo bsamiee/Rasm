@@ -14,7 +14,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Grasshopper;
-using Grasshopper2.UI;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Rhino;
@@ -42,9 +41,6 @@ internal sealed class ShownAttribute(string present, string absent) : Attribute 
     };
 }
 
-internal sealed record Server(Uri Url);
-internal sealed record Servers([property: JsonPropertyName("rhino-mcp-platform")] Server Router);
-internal sealed record Config(Servers McpServers);
 internal sealed record Slot(string SlotId, int Port, int Pid, Uri Endpoint);
 internal sealed record Routed(Slot[]? Payload = null);
 internal sealed record Fault(string Message);
@@ -91,7 +87,6 @@ internal sealed record Listing(
 }
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
-[JsonSerializable(typeof(Config))]
 [JsonSerializable(typeof(Routed))]
 [JsonSerializable(typeof(Faulted))]
 [JsonSerializable(typeof(Output))]
@@ -113,9 +108,9 @@ internal static class Program {
         _ => Usage(args),
     };
 
-    private static async Task<int> RunAsync([CallerFilePath] string source = "") {
+    private static async Task<int> RunAsync() {
         Console.WriteLine(await IO.lift(static () => new HttpClient())
-            .Bracket(Use: http => IO.liftAsync(env => RouterAsync(new FileInfo(source).Directory, env.Token)).Bind(router => List(http, router)), Fin: static http => IO.lift(http.Dispose))
+            .Bracket(Use: static http => Router().Bind(router => List(http, router)), Fin: static http => IO.lift(http.Dispose))
             .Catch(Unanswered, static error => IO.pure($"Rhino: unknown, {error.Message}"))
             .RunAsync(CancellationToken.None).ConfigureAwait(false));
         return 0;
@@ -129,11 +124,9 @@ internal static class Program {
     private static void Answer(IReadOnlyDictionary<int, string> slots) =>
         Console.Write(Wire.Write(new Reply(RhinoApp.ExeVersion, RhinoApp.IsPreRelease, Environment.ProcessId, Listing.Query(slots))));
 
-    private static async Task<Uri> RouterAsync(DirectoryInfo? directory, CancellationToken cancellation) => directory?.GetFiles(".mcp.json") switch {
-        [FileInfo config] => Wire.Read<Config>(await File.ReadAllTextAsync(config.FullName, cancellation).ConfigureAwait(false)).McpServers.Router.Url,
-        [] => await RouterAsync(directory.Parent, cancellation).ConfigureAwait(false),
-        _ => throw new FileNotFoundException("No .mcp.json in a folder above the script", ".mcp.json"),
-    };
+    private static IO<Uri> Router() => Environment.GetEnvironmentVariable("RHINO_MCP_URL") is { } url
+        ? IO.pure(new Uri(url))
+        : IO.fail<Uri>(new Refused("RHINO_MCP_URL is unset"));
 
     private static IO<string> List(HttpClient http, Uri router) =>
         from reply in Call(http, router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)

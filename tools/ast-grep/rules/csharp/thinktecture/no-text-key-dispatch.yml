@@ -19,7 +19,7 @@ utils:
                         - has:
                             kind: variable_declaration
                             all:
-                                - has: {field: type, regex: '^(string|((global::)?System\.)?String)$'}
+                                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^(string|String)$'}}}}
                                 - has: {kind: variable_declarator, has: {field: name, pattern: $KEY}}
     text-pattern:
         any:

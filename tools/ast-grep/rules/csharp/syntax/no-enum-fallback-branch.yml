@@ -16,7 +16,7 @@ utils:
         kind: enum_declaration
         all:
             - has: {field: name, pattern: $ENUM}
-            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^((global::)?System\.)?Flags(Attribute)?$'}}}}
+            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^Flags(Attribute)?$'}}}}}}}
     file-enum:
         inside:
             kind: compilation_unit

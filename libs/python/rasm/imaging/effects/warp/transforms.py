@@ -15,12 +15,12 @@ from rasm.imaging.geometry.panoramas import Elevation, PanoramaView, Rectilinear
 from rasm.imaging.geometry.stmaps import Extension
 from rasm.imaging.parameters import Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Seed
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type _Amplitude = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Tilt(msgspec.Struct, frozen=True, kw_only=True):
@@ -69,6 +69,6 @@ class Transform(Effect, frozen=True, kw_only=True, tag=38):
     motion_blur: Annotated[bool, msgspec.Meta(description="Integrate spatial travel and timed shake across the exposure")] = False
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Shake", "Tilt", "Transform"]

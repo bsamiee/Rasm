@@ -16,7 +16,7 @@ rule:
                                     (?x)^(
                                         _?(abc|argparse|contextlib|ctypes|enum|functools|io|ipaddress|itertools|multiprocessing|operator|sqlite3|tempfile|threading|types|unittest|warnings
                                         |weakref)
-                                        |_collections_abc|concurrent\.futures\.process|attrs?|av|bmesh|bpy|flint|google\.protobuf|lxml|matplotlib|netCDF4|networkx|numpy
+                                        |_collections_abc|concurrent\.futures\.process|av|bmesh|bpy|flint|google\.protobuf|lxml|matplotlib|netCDF4|networkx|numpy
                                         |pandas|regex|rustworkx|scipy|shapely
                                     )(\..+)?$
                             name:
@@ -30,7 +30,7 @@ rule:
                                         |BaseListProxy|Connection|Finalize|IMapIterator|IMapUnorderedIterator|Synchronized|SynchronizedArray|SynchronizedBase
                                         |_BaseDictProxy|_ConnectionBase|attrgetter|itemgetter|Binary|_TemporaryFileWrapper|serialize_iterator|UnionType|TextTestResult
                                         |_AssertLogsContext|_patch|catch_warnings|CallableProxyType|ProxyType|finalize|dict_items|dict_keys|dict_values|_WorkItem
-                                        |Attribute|Converter|Packet|BMElemSeq|BMIter|BMLayerCollection|BMLayerItem|bpy_prop_collection|bpy_prop_collection_idprop
+                                        |Packet|BMElemSeq|BMIter|BMLayerCollection|BMLayerItem|bpy_prop_collection|bpy_prop_collection_idprop
                                         |bpy_struct|flint_mat|flint_mod_mpoly_context|flint_mpoly|flint_mpoly_context|flint_poly|flint_series|TypeChecker
                                         |TypeCheckerWithDefault|_ExtensionDict|ElementTreeProducer|Grouper|GrouperView|MathTextParser|_Stack|Variable
                                         |DegreeView|DiDegreeView|DiGraph|DiMultiDegreeView|EdgeDataView|Graph|InDegreeView|InEdgeDataView|InMultiDegreeView

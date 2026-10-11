@@ -5,7 +5,8 @@ Each `plugins/<name>` directory is one plugin, listed in the marketplace file of
 ## [01]-[LAYOUT]
 
 Plugin folders hold the manifest, components at the root, and the code those components run:
-- `.claude-plugin/plugin.json` holds `name`, `version`, `description`, and `author`
+- `.claude-plugin/plugin.json` holds `name`, `description`, and `author`, with `version` only where plugin code reads it
+- Harnesses load local marketplace plugins in place with no version pin
 - Components sit at plugin root: `skills/<skill>/SKILL.md`, `agents/<agent>.md`, `commands/<command>.md`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`
 - Claude plugin configuration paths take `${CLAUDE_PLUGIN_ROOT}`, skill text paths are relative to the skill folder
 - `CLAUDE.md` sits in the code folder it describes and loads as nested project memory when a file there is read
@@ -15,10 +16,14 @@ Plugin folders hold the manifest, components at the root, and the code those com
 ## [02]-[HARNESSES]
 
 Claude Code and Codex load one plugin folder, each through its own manifest, marketplace row, and enable row:
-- Function-hook `modules`, `agents/`, and `.lsp.json` load in Claude Code alone, a plugin holding nothing else takes no Codex manifest
-- Codex reads `.codex-plugin/plugin.json` (`name`, `version`, `description`, `interface.displayName`), else `.claude-plugin/plugin.json`
-- Servers and hooks one harness alone loads sit inline in its manifest, a root `.mcp.json` or `hooks/hooks.json` loads in both harnesses
-- `plugins/.claude-plugin/marketplace.json` rows hold `name`, `source` `./<name>`, and `description`, both harnesses read the one file
+- Function-hook `modules`, `agents/`, and `.lsp.json` load in Claude Code alone
+- Plugins with Claude Code components alone (`function-hooks`) take no Codex manifest
+- Plugins loading different components in each harness (`argus`) hold a `CLAUDE.md` naming which harness loads which
+- Command hooks Codex alone runs sit in `.codex/hooks/` and import nothing from `plugins/`
+- Codex reads `.codex-plugin/plugin.json` (`name`, `description`, `interface.displayName`), else `.claude-plugin/plugin.json`
+- Servers and hooks one harness alone loads sit inline in its manifest, a root `.mcp.json` (`playwright`) or `hooks/hooks.json` loads in both harnesses
+- `plugins/.claude-plugin/marketplace.json` rows hold `name` and `source` `./<name>`, both harnesses read the one file
+- Harnesses show each manifest's `description` in their marketplace listing
 - Codex repository marketplaces take `[marketplaces.<marketplace>]` in `.codex/config.toml` with an absolute local source path
 - Repository skills both harnesses run link from `.codex/skills/<skill>` to `../../.claude/skills/<skill>`
 - Plugin skills take no `.codex/skills` link, Codex lists them once from the installed plugin copy
@@ -36,12 +41,11 @@ Components move into a plugin in one change, leaving no declaration at their old
 2. MCP servers leave `.mcp.json` and `.codex/config.toml` for the plugin's `.mcp.json`
 3. Settings hooks leave `.claude/settings.json` for `hooks/hooks.json` with `${CLAUDE_PLUGIN_ROOT}` paths
 4. CLAUDE.md routing rows, agent `skills` lists, and skill cross-references name each moved skill as `<name>:<skill>`
-5. `.claude/settings.json` permissions name a moved server's tools as `mcp__plugin_<name>_<server>__*`
 
 ## [04]-[VALIDATION]
 
 Checks of added and converted plugins run at user request alone:
-- `claude plugin validate plugins --strict` and `claude plugin validate plugins/<name> --strict`, every warning a failure
+- `claude plugin validate plugins` and `claude plugin validate plugins/<name>`, every warning but a missing `version` a failure
 - `claude -p --debug 'Reply done'` then `rg '<name>' ~/.claude/debug/latest` shows the plugin's load lines
 - `claude -p --debug-file <log>` with a Write of a file each changed `.lsp.json` server handles shows the server start
 - `claude plugin validate` reads no `.lsp.json`, one invalid row skips every server of the file at load

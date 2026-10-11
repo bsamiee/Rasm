@@ -4,7 +4,7 @@ language: csharp
 severity: error
 utils:
     result-type:
-        regex: '^((global::)?LanguageExt\s*\.\s*)?(Fin|Validation)\s*<'
+        matches: {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}
     result-member:
         kind: method_declaration, local_function_statement
         has: {field: returns, matches: result-type}
@@ -36,7 +36,7 @@ utils:
     outcome:
         kind: invocation_expression
         any:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Conversions\s*\.\s*FromResult$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^FromResult$'}}}}
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless(\s*<.+>)?$'}}
                 - has:

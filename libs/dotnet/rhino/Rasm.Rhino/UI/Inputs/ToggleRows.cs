@@ -31,14 +31,16 @@ public static class ToggleRows {
         let site = new CallbackSite(scope.Sink, typeof(CheckBox), nameof(CheckBox.CheckedChanged))
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => box.CheckedChanged += h, h => box.CheckedChanged -= h,
-            edit => Callbacks.Handler<EventArgs>(_ =>
-                from ticked in IO.lift(() => Optional(box.Checked))
-                from held in scope.Read(source)
-                from committed in ticked.Traverse(state => edit.Commit(lens.Set(state, held))).As()
-                select unit, site),
+            edit => Callbacks.Handler<EventArgs>(_ => Ticked(edit, box, source, lens, scope), site),
             value => IO.lift(() => { (box.ThreeState, box.Checked) = (value.IsNone, value.Map(lens.Get).ToNullable()); }),
             scope, site, owned)
         select new RowCells(
             box, None, None, None, [], [], new RowHelp(None, None), bound.Shown, Some<RowEdit>(bound),
             Some(ChoiceRows.Context(box, [], [], scope.Sink))), (_, lease) => retain(lease));
+
+    private static IO<Unit> Ticked<TRecord>(RowEdit<TRecord> edit, CheckBox box, RowSource<TRecord> source, Lens<TRecord, bool> lens, RowScope scope) where TRecord : notnull =>
+        from ticked in IO.lift(() => Optional(box.Checked))
+        from held in scope.Read(source)
+        from committed in ticked.Traverse(state => edit.Commit(lens.Set(state, held))).As()
+        select unit;
 }

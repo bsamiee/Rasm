@@ -1,16 +1,14 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Affine black and white point adjustment in the compositor."""
 
 import bpy
-from expression import Nothing, Option, option, Result, Some
+from expression import Nothing, Option, option, Some
 import numpy as np
 import PyOpenColorIO
 
 from rasm.blender.commands.operators import Done, Operator
 from rasm.blender.data.rna.conditions import Job
 from rasm.blender.extension.identity import Identity
-from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from rasm.blender.faults import BlenderImagingFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, math, mixed, node
 from rasm.blender.render.effects.stack import CompositorEffect, Named, Shell
 from rasm.blender.render.effects.viewers import ViewerRead
@@ -21,12 +19,12 @@ from rasm.imaging.effects.tone.levels import Levels
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.files.images import ImageFile
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
     """Subtracts the covered black point and applies the white span in stops."""
-    source, black, white = shell.source, shell.socket(Levels.black.__name__), shell.socket(Levels.white.__name__)
+    source, black, white = shell.source, shell.socket(Levels.black.__name__), shell.socket(Levels.white.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return (
         paired(
             node("coverage", bpy.types.CompositorNodeSeparateColor, {"Image": source}, {})
@@ -50,13 +48,7 @@ def measured(identity: Identity, entry: bpy.types.SceneCompositorEffect, file: I
     )
     return (
         paired(found, levels.read(identity, entry))
-        .bind(
-            lambda values: accumulated(
-                levels.write(identity, entry.id_data, entry, Entry(effect=record, blend=held.blend))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                for records, held in (values,)
-                for record in records.to_list()
-            )
-        )
+        .bind(lambda values: accumulated(levels.write(identity, entry.id_data, entry, Entry(effect=record, blend=held.blend)) for records, held in (values,) for record in records.to_list()))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         .map(lambda writes: Some(auto_levels.title) if writes else Nothing)
     )
 
@@ -72,11 +64,9 @@ auto_levels = Operator(
     undo=False,
     condition=Some(Job(kind="RENDER")),
     run=lambda call: (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(
-            Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),)),
-            lambda scene: levels.named(call.identity, scene, call.record.name),
-        )
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: levels.named(call.identity, scene, call.record.name))
         .bind(lambda entry: reading.entering(call.identity, entry))
         .map(lambda _: Done(notes=(("INFO", "Measuring the frame entering levels"),)))
     ),
@@ -84,6 +74,6 @@ auto_levels = Operator(
 levels: CompositorEffect[Levels] = CompositorEffect(record=Levels, graph=leveled, registrables=(auto_levels, reading))
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["auto_levels", "leveled", "levels", "measured", "reading"]

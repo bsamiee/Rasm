@@ -12,7 +12,7 @@ from rasm.imaging.effects.optics.defocus import Aperture
 from rasm.imaging.effects.optics.glare import Highlights
 from rasm.imaging.parameters import Case, Choice, Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Ramp, Rgb, Seed, Stop
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Reading(Choice):
@@ -31,7 +31,7 @@ class Grading(Choice):
 
 type Source = FramePosition | BoundObject
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class FramePosition(Case, frozen=True, kw_only=True, tag=1):
@@ -178,6 +178,6 @@ class LensFlare(Effect, frozen=True, kw_only=True, tag=36):
     seed: Annotated[Seed, msgspec.Meta(title="Seed", description="Streak and ghost pattern of equal statistics")] = 0
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Anamorphic", "BoundObject", "FramePosition", "Ghosts", "Grading", "Halo", "Hotspot", "LensFlare", "LightRays", "Reading", "Source", "Starburst"]

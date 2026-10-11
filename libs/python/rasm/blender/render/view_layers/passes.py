@@ -171,7 +171,7 @@ class FamilyFlags(msgspec.Struct, frozen=True, kw_only=True):
 class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
     """Pass flags of the running build with each family's and entity's flags and the Depth flag, resolved once."""
 
-    roster: tuple[tuple[type[bpy.types.bpy_struct], Descriptor[bpy.types.BoolProperty]], ...]  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    roster: "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[bpy.types.BoolProperty]], ...]"
     families: dict[Family, FamilyFlags]
     entities: dict[Entity, Descriptor[bpy.types.BoolProperty]]
     depth: Descriptor[bpy.types.BoolProperty]
@@ -454,13 +454,8 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Ok` once every scene reconciled; `Error` of every scene's faults, accumulated.
         """
-        data, preferences = context.blend_data, context.preferences
-        match data, preferences:
-            case bpy.types.BlendData(), bpy.types.Preferences():
-                pass
-            case _:
-                first, *rest = tuple(BlenderAbsentFault(owner=repr(context), key=key) for key, value in (("blend_data", data), ("preferences", preferences)) if value is None)
-                return Error((first, *rest))
+        if (data := context.blend_data) is None:
+            return Error((BlenderAbsentFault(owner=repr(context), key="blend_data"),))
         scenes = (
             scene
             for scene in data.scenes
@@ -468,7 +463,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def refresh(scene: bpy.types.Scene) -> BlenderResult[Changes]:
-            return self.pathed.path(scene, preferences, day).bind(lambda path: self.reconciled(scene, context, path))
+            return self.pathed.path(scene, day).bind(lambda path: self.reconciled(scene, context, path))
 
         return accumulated(map(refresh, scenes)).map(lambda _: None)
 
@@ -481,12 +476,8 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Ok` of the pending text, `Nothing` for a current tree; `Error` of the path, plan, and read faults.
         """
-        scene, preferences = context.scene, context.preferences
-        match scene, preferences:
-            case bpy.types.Scene(), bpy.types.Preferences():
-                pass
-            case _:
-                return Ok(Nothing)
+        if (scene := context.scene) is None:
+            return Ok(Nothing)
 
         def pending(tree: bpy.types.NodeTree, group: NodeGroup, _: dict[str, LayerPlan]) -> BlenderResult[Option[str]]:
             return (
@@ -496,7 +487,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda count: Some(f"{count} changes pending") if count else Nothing)
             )
 
-        return self.pathed.path(scene, preferences, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(
+        return self.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(
             lambda path: (
                 self.held(scene).map(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: pending(tree, *planned))).default_with(lambda: Ok(Some("Update builds the routing group")))
             )
@@ -527,7 +518,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
         groups = tuple((attached.group.struct, prop) for attached in (self.routing, self.pathed.attached, self.layers) for prop in attached.group.struct.bl_rna.properties if prop.is_runtime)
 
-        def resolved(owner: type[bpy.types.bpy_struct], member: str) -> BlenderResult[tuple[type[bpy.types.bpy_struct], bpy.types.Property]]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        def resolved(owner: "type[bpy.types.bpy_struct[object]]", member: str) -> "BlenderResult[tuple[type[bpy.types.bpy_struct[object]], bpy.types.Property]]":
             return Descriptor.resolve(owner, member, bpy.types.Property).map(lambda found: (owner, found.prop))
 
         return accumulated(itertools.starmap(resolved, watched)).map(
@@ -564,14 +555,10 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def updated(call: Call[Empty]) -> BlenderResult[Done]:
-            scene: BlenderResult[bpy.types.Scene] = call.root(bpy.types.Scene)
-            preferences: BlenderResult[bpy.types.Preferences] = call.root(bpy.types.Preferences)
             return (
-                Result[tuple[bpy.types.Scene, bpy.types.Preferences], BlenderFaults]
-                .bind(
-                    paired(scene, preferences),
-                    lambda pair: self.pathed.path(*pair, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(lambda path: self.reconciled(pair[0], call.context, path)),
-                )
+                call
+                .root(bpy.types.Scene)
+                .bind(lambda scene: self.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(lambda path: self.reconciled(scene, call.context, path)))
                 .map(lambda _: Done())
             )
 
@@ -615,10 +602,9 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
         def stock(enabled: frozenset[str], routing: Routing) -> PassPreset:
             owners = tuple(dict.fromkeys(flag.owner for _, flag in self.flags.roster))
-            definition: bpy.types.Struct = bpy.types.ViewLayer.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return PassPreset(
                 flags=Snapshot(
-                    struct=definition.identifier,
+                    struct=bpy.types.ViewLayer.bl_rna.identifier,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     tree=Tree(roots=owners, owners={owner: Owner(values={flag.prop.identifier: flag.path in enabled for _, flag in self.flags.roster if flag.owner == owner}) for owner in owners}),
                 ),
                 routing=routing,
@@ -718,13 +704,14 @@ class PassSet(Line, frozen=True):
             def targeted(paths: NodePaths) -> tuple[tuple[bpy.types.ImageFormatSettings, Option[str], Map[str, str]], ...]:
                 match filing.kind:
                     case Kind.LAYERED:
-                        return ((live.format, Nothing, Map.of_seq(zip(paths.items, (source.name for source in filing.sources)))),)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+                        return tuple((settings, Nothing, Map.of_seq(zip(paths.items, (source.name for source in filing.sources)))) for settings in Option.of_optional(live.format).to_list())
                     case Kind.EXR | Kind.IMAGE:
                         stored = {item.name: item for item in live.file_output_items}
-                        return tuple(  # ty: ignore[invalid-return-type]
-                            (item.format if item.override_node_format else live.format, Some(name), Map.of_seq((("", source.name),)))  # type: ignore[misc]
+                        return tuple(
+                            (settings, Some(name), Map.of_seq((("", source.name),)))
                             for name, source, kept in zip(names, filing.sources, paths.items)
                             for item in Option.of_optional(stored.get(kept)).to_list()
+                            for settings in Option.of_optional(item.format if item.override_node_format else live.format).to_list()
                         )
 
             def filed_at(settings: bpy.types.ImageFormatSettings, item: Option[str], passes: Map[str, str], suffix: str) -> BlenderResult[Option[Written]]:
@@ -764,19 +751,7 @@ class PassSet(Line, frozen=True):
         return (
             self
             .bound(identity)
-            .bind(
-                lambda routing: (
-                    path
-                    .map(Ok)
-                    .default_with(
-                        lambda: Result[bpy.types.Preferences, BlenderFaults].bind(
-                            Option.of_optional(bpy.context.preferences).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="preferences"),)),
-                            lambda preferences: routing.pathed.path(scene, preferences, datetime.datetime.now(datetime.UTC).astimezone().date()),
-                        )
-                    )
-                    .map(lambda chosen: (routing, chosen))
-                )
-            )
+            .bind(lambda routing: path.map(Ok).default_with(lambda: routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date())).map(lambda chosen: (routing, chosen)))
             .bind(lambda found: collected(*found))
         )
 
@@ -905,11 +880,11 @@ class PassSet(Line, frozen=True):
 
         return self.bound(identity).bind(lambda routing: routing.watched().map(lambda rows: acquired(routing, rows)))
 
-    def section(self, retention: Callable[[Identity], BlenderResult[Retention]]) -> Single[Routing]:
+    def section(self, retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing) -> Single[Routing]:
         """Section keyed `passes`, titled File Output, over the context layer's routing store and the row's own rows.
 
         Args:
-            retention: Preference reader of the store's history retention.
+            retention: Reader of the store's history retention, absent for the record default.
 
         Returns:
             The section.
@@ -923,21 +898,21 @@ class PassSet(Line, frozen=True):
 # --- [FLAGS]
 
 
-def pass_flags() -> tuple[tuple[type[bpy.types.bpy_struct], Descriptor[bpy.types.BoolProperty]], ...]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+def pass_flags() -> "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[bpy.types.BoolProperty]], ...]":
     """Answers every writable pass flag of `ViewLayer` and of each struct its pointers reach, paired with the class owning it.
 
     Returns:
         The flags in RNA order, the `ViewLayer` flags first.
     """
-    root: bpy.types.Struct = bpy.types.ViewLayer.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    structs: tuple[tuple[str, type[bpy.types.bpy_struct], bpy.types.Struct], ...] = (  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-        ("", bpy.types.ViewLayer, root),
-        *((prop.identifier, type(prop.fixed_type), prop.fixed_type) for prop in root.properties if isinstance(prop, bpy.types.PointerProperty)),  # type: ignore[arg-type]
-    )  # ty: ignore[invalid-assignment]
+    root = bpy.types.ViewLayer.bl_rna
+    structs = (
+        ("", bpy.types.ViewLayer, root.properties),
+        *((prop.identifier, type(fixed), fixed.properties) for prop in root.properties if isinstance(prop, bpy.types.PointerProperty) for fixed in Option.of_optional(prop.fixed_type).to_list()),
+    )
     return tuple(
         (owner, Descriptor(root=bpy.types.ViewLayer, owner=path, prop=prop))
-        for path, owner, struct in structs
-        for prop in struct.properties
+        for path, owner, properties in structs
+        for prop in properties
         if isinstance(prop, bpy.types.BoolProperty) and not prop.is_readonly and prop.identifier.startswith("use_pass_")
     )
 
@@ -955,11 +930,12 @@ def required(scene: bpy.types.Scene, context: bpy.types.Context, requests: tuple
         `Ok` once every flag reads on; `Error` of `unmet` for a failing condition, `absent` for a missing layer or owner, and each refused write.
     """
 
-    def held(descriptor: Descriptor, root: bpy.types.bpy_struct, value: Value) -> BlenderResult[None]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-        located: BlenderResult[bpy.types.bpy_struct | bpy.types.bpy_prop_collection] = struct_at(root, descriptor.owner).to_result_with(  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-            lambda: (BlenderAbsentFault(owner=repr(root), key=descriptor.path),)
+    def held(descriptor: Descriptor, root: bpy.types.ViewLayer | bpy.types.Scene, value: Value) -> BlenderResult[None]:
+        return (
+            struct_at(root, descriptor.owner)
+            .map(lambda owner: descriptor.write(owner, value).map(lambda _: None))
+            .default_with(lambda: Error((BlenderAbsentFault(owner=repr(root), key=descriptor.path),)))
         )
-        return Result[bpy.types.bpy_struct | bpy.types.bpy_prop_collection, BlenderFaults].bind(located, lambda owner: descriptor.write(owner, value).map(lambda _: None))  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
 
     def met(request: PassRequest) -> BlenderResult[None]:
         gate: BlenderResult[None] = (
@@ -1342,7 +1318,7 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
         return (
             Materials.attachment
             .bound(identity)
-            .bind(lambda attached: attached.read(material.node_tree))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            .bind(lambda attached: Option.of_optional(material.node_tree).map(attached.read).default_with(lambda: Error((BlenderAbsentFault(owner=repr(material), key="node_tree"),))))
             .map(lambda shading: {member.name.lower(): member.kind for member in shading.setup.passes} if isinstance(shading.setup, Utility) else {})
         )
 
@@ -1472,8 +1448,6 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blend
         `Ok` once every file is written; `Error` of the bind's faults, `imaging`, `absent` for a matte or manifest name the scene lacks, and `collision` for a path equal to the source's.
     """
     frame = scene.frame_current
-    if (preferences := (bpy.context.preferences)) is None:
-        return Error((BlenderAbsentFault(owner=repr(bpy.context), key="preferences"),))
 
     def stored(matte: Matte, known: dict[str, Rgb], target: str, _: tuple[None, ...]) -> BlenderResult[str]:
         return multilayer.written(
@@ -1513,7 +1487,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blend
         .bind(
             lambda routing: Result[tuple[OutputPath, tuple[Matte, ...]], BlenderFaults].bind(
                 paired(
-                    routing.pathed.path(scene, preferences, datetime.datetime.now(datetime.UTC).astimezone().date()),
+                    routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()),
                     Multilayer.read(file.path).bind(Matte.found).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
                 ),
                 lambda found: wrote(routing, *found),
@@ -1533,12 +1507,12 @@ def unfiled(identity: Identity, context: bpy.types.Context) -> BlenderResult[tup
     Returns:
         `Ok` of one item per source name, none for a layer without `use`; `Error` of the bind, read, path, and plan faults.
     """
-    layer, scene, preferences = context.view_layer, context.scene, context.preferences
-    match layer, scene, preferences:
-        case bpy.types.ViewLayer(), bpy.types.Scene(), bpy.types.Preferences():
+    layer, scene = context.view_layer, context.scene
+    match layer, scene:
+        case bpy.types.ViewLayer(), bpy.types.Scene():
             pass
         case _:
-            first, *rest = tuple(BlenderAbsentFault(owner=repr(context), key=key) for key, value in (("view_layer", layer), ("scene", scene), ("preferences", preferences)) if value is None)
+            first, *rest = tuple(BlenderAbsentFault(owner=repr(context), key=key) for key, value in (("view_layer", layer), ("scene", scene)) if value is None)
             return Error((first, *rest))
 
     def listed(layer: bpy.types.ViewLayer, record: Routing, _: NodeGroup, plans: dict[str, LayerPlan]) -> tuple[tuple[str, str, str], ...]:
@@ -1557,11 +1531,7 @@ def unfiled(identity: Identity, context: bpy.types.Context) -> BlenderResult[tup
     return (
         PassSet()
         .bound(identity)
-        .bind(
-            lambda routing: paired(routing.routing.read(layer), routing.pathed.path(scene, preferences, datetime.datetime.now(datetime.UTC).astimezone().date())).bind(
-                lambda found: searched(routing, *found)
-            )
-        )
+        .bind(lambda routing: paired(routing.routing.read(layer), routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date())).bind(lambda found: searched(routing, *found)))
     )
 
 

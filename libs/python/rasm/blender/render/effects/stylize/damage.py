@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Staged footprint-filtered film damage and native lamp flicker."""
 
 from collections.abc import Mapping
@@ -22,7 +20,7 @@ from rasm.imaging.effects.stylize.damage import Damage, Flicker
 from rasm.imaging.faults import paired
 from rasm.imaging.parameters import Motion
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def prepared(
@@ -76,21 +74,21 @@ def flickered(shell: Shell[Flicker]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Exposed scene-linear color with its graph, or accumulated native graph faults.
     """
-    clock = Clock(key="clock", speed=shell.socket(Flicker.motion.__name__, Motion.speed.__name__), hold=shell.socket(Flicker.motion.__name__, Motion.hold.__name__))
-    return paired(clock.value, origin("flicker_origin", shell.socket(Flicker.seed.__name__), 8)).bind(
+    clock = Clock(key="clock", speed=shell.socket(Flicker.motion.__name__, Motion.speed.__name__), hold=shell.socket(Flicker.motion.__name__, Motion.hold.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    return paired(clock.value, origin("flicker_origin", shell.socket(Flicker.seed.__name__), 8)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         lambda inputs: Fragment.joined(
             node("flicker_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": inputs[1]}, {}),
-            math("flicker_step", "MULTIPLY", inputs[0], shell.socket(Flicker.rate.__name__)),
+            math("flicker_step", "MULTIPLY", inputs[0], shell.socket(Flicker.rate.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             math("flicker_at", "ADD", End(node="flicker_step"), End(node="flicker_axes", socket="X")),
             node("flicker_wave", bpy.types.ShaderNodeTexNoise, {"W": End(node="flicker_at"), "Scale": 1.0}, {"noise_dimensions": "1D"}),
             math("flicker_signed", "MULTIPLY_ADD", End(node="flicker_wave", socket="Fac"), 2.0, -1.0),
-            math("flicker_stops", "MULTIPLY", End(node="flicker_signed"), shell.socket(Flicker.amplitude.__name__)),
+            math("flicker_stops", "MULTIPLY", End(node="flicker_signed"), shell.socket(Flicker.amplitude.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             node("flicker_exposed", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": End(node="flicker_stops")}, {}),
         ).map(ended("flicker_exposed", "Image"))
     )
 
 
-# --- [COMPOSITION] -----------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 damage: CompositorEffect[Damage] = CompositorEffect(
@@ -104,6 +102,6 @@ damage: CompositorEffect[Damage] = CompositorEffect(
 flicker = CompositorEffect(record=Flicker, graph=flickered, requested=Some(lambda _record, layer: Ok(PassRequest(layer=layer, precise=True))))
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["damage", "flicker", "flickered", "prepared"]

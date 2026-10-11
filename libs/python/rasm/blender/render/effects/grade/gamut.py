@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Stable ACES gamut compression through native compositor math."""
 
 from itertools import starmap
@@ -17,9 +15,9 @@ from rasm.imaging.effects.grade.gamut import Channel, GamutCompression
 
 def compressed(shell: Shell[GamutCompression]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns compression with bounded powers and the defined zero-achromatic case."""
-    limit, threshold = Channel.limit.__name__, Channel.threshold.__name__
-    exponent = End(node=INPUTS, socket=item_key(GamutCompression.power.__name__))
-    channels = ((GamutCompression.cyan.__name__, "Red"), (GamutCompression.magenta.__name__, "Green"), (GamutCompression.yellow.__name__, "Blue"))
+    limit, threshold = Channel.limit.__name__, Channel.threshold.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    exponent = End(node=INPUTS, socket=item_key(GamutCompression.power.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    channels = ((GamutCompression.cyan.__name__, "Red"), (GamutCompression.magenta.__name__, "Green"), (GamutCompression.yellow.__name__, "Blue"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     peak, achromatic, sign, magnitude, nonzero, inverse = (End(node=key) for key in ("peak", "achromatic", "sign", "magnitude", "nonzero", "inverse"))
 
     def channel(key: Key, socket: str) -> BlenderResult[Fragment]:

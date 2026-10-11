@@ -24,9 +24,8 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def resolve(self) -> BlenderResult[T]:
         """Returns the live original, or an absent fault for an expired session identity."""
-        blocks = collection(bpy.data, self.kind)
-        return Option.of_optional(next((block for block in blocks if isinstance(block, self.kind) and block.session_uid == self.uid), None)).to_result_with(
-            lambda: (BlenderAbsentFault(owner=repr(blocks), key=self.uid),)
+        return Option.of_optional(next((block for block in blocks(bpy.data, self.kind) if block.session_uid == self.uid), None)).to_result_with(
+            lambda: (BlenderAbsentFault(owner=self.kind.__name__, key=self.uid),)
         )
 
 
@@ -39,9 +38,9 @@ def member(kind: type[bpy.types.ID]) -> str:
     return next(stores[parent] for parent in kind.__mro__ if parent in stores)
 
 
-def collection(data: bpy.types.BlendData, kind: type[bpy.types.ID]) -> bpy.types.bpy_prop_collection:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-    """Returns the kind's native collection in an open or temporary BlendData store."""
-    return getattr(data, member(kind))  # type: ignore[no-any-return]
+def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T, ...]:
+    """Returns the kind's data-blocks in native collection order from an open or temporary BlendData store."""
+    return tuple(block for block in getattr(data, member(kind)) if isinstance(block, kind))
 
 
 def named[T: bpy.types.ID](block: T, name: str) -> BlenderResult[T]:
@@ -55,4 +54,4 @@ def named[T: bpy.types.ID](block: T, name: str) -> BlenderResult[T]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Handle", "collection", "member", "named"]
+__all__ = ["Handle", "blocks", "member", "named"]

@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-manual-validate-conversion
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    raw-argument:
+        kind: argument
+        nthChild: 1
+        not: {has: {regex: '^(out|ref|in)$'}}
+        pattern: $VALUE
+    provider-argument:
+        kind: argument
+        nthChild: 2
+        any:
+            - has: {field: name, regex: '^provider$'}
+            - all:
+                - not: {has: {field: name, pattern: $_}}
+                - has:
+                    any:
+                        - kind: null_literal
+                        - kind: default_expression
+                        - kind: identifier
+                          regex: '^(provider|formatProvider|culture)$'
+                        - kind: member_access_expression
+                          matches: {csharp-owner-member: {type: {regex: '^(CultureInfo|NumberFormatInfo|DateTimeFormatInfo)$'}, member: {regex: '^'}}}
+    out-argument:
+        kind: argument
+        has: {regex: '^out$'}
+    crossing:
+        any:
+            - all:
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier
+                          regex: '^Validate$'
+                        - kind: member_access_expression
+                          has: {field: name, regex: '^Validate$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {matches: raw-argument}
+                        - has: {matches: provider-argument}
+                        - has: {nthChild: 3, matches: out-argument}
+                        - not: {has: {kind: argument, nthChild: 4}}
+            - all:
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier
+                          regex: '^TryCreate$'
+                        - kind: member_access_expression
+                          has: {field: name, regex: '^TryCreate$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {matches: raw-argument}
+                        - has: {nthChild: 2, matches: out-argument}
+                        - not: {has: {kind: argument, nthChild: 3, not: {matches: out-argument}}}
+                        - not: {has: {kind: argument, nthChild: 4}}
+rule:
+    kind: invocation_expression
+    all:
+        - matches: crossing
+        - not:
+            any:
+                - inside: {stopBy: end, matches: csharp-validation-hook}
+                - inside: {stopBy: end, kind: method_declaration, has: {field: name, regex: '^Validate$'}}
+                - matches:
+                    csharp-owner-body:
+                        type: {regex: '^Conversions$'}
+                        member: {regex: '^Validated$'}
+message: "`$VALUE` crosses into its value type through a hand-written `Validate` or `TryCreate` answer in place of `Conversions.Validated`"
+note: Use `Conversions.Validated<<type>, <raw>, <error>>(<value>)` and delete any helper with the conversion as its body

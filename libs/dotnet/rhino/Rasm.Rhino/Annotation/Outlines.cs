@@ -31,12 +31,16 @@ public static partial class Outlines {
             Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
             None: () => IO.lift(() => doc.DimStyles.Current))
         from face in text.Face.Resolve()
-        from outlines in DisposalOps.Acquire(output => DisposalOps.Within((Action<IDisposable> held) =>
+        from outlines in DisposalOps.Acquire(output => Typeset(doc, text, parent, face, options, create, member, output), retain)
+        select outlines;
+
+    private static IO<Seq<Seq<T>>> Typeset<T>(RhinoDoc doc, OutlineText text, DimensionStyle parent, Font face, OutlineOptions options,
+        Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member, Action<IDisposable> output) where T : GeometryBase =>
+        DisposalOps.Within((Action<IDisposable> held) =>
             from entity in Copies.Acquire(() => TextEntity.Create(text.Text, text.Plane, parent, wrapped: false, rectWidth: 0.0, rotationRadians: 0.0), nameof(TextEntity.Create), held)
             from assigned in IO.lift(() => Update((face, text.Height), entity))
             from generated in Generate(doc, entity, options, create, member, output)
-            select generated, DisposalOps.Release), retain)
-        select outlines;
+            select generated, DisposalOps.Release);
 
     private static IO<Seq<Seq<T>>> Generate<T>(RhinoDoc doc, TextEntity text, OutlineOptions options,
         Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member, Action<IDisposable> retain) where T : GeometryBase =>

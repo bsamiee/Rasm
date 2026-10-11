@@ -96,12 +96,7 @@ public static class MomentRows {
             }).IfNone(wall)).Map(static value => Some(value)))
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => picker.ValueChanged += h, h => picker.ValueChanged -= h,
-            edit => Callbacks.Handler<EventArgs>(_ =>
-                from held in scope.Read(source)
-                from answered in Optional(picker.Value).Match(
-                    Some: picked => edit.Preview(merged(held, LocalDateTime.FromDateTime(picked)), Some(Accessors.StepEventsDelay)),
-                    None: () => edit.Commit(Fin.Succ(Option<TValue>.None)).Map(static _ => unit))
-                select answered, site),
+            edit => Callbacks.Handler<EventArgs>(_ => Answered(edit, source, picker, merged, scope), site),
             held => IO.lift(() => {
                 picker.Value = held.Bind(static value => value).Map(static value => value.ToValue().ToDateTimeUnspecified()).ToNullable();
             }),
@@ -109,6 +104,14 @@ public static class MomentRows {
         select new RowCells(
             picker, None, None, None, [], [], new RowHelp(Some((pattern.Format(TValue.MinValue.ToValue()), pattern.Format(TValue.MaxValue.ToValue()))), None),
             bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(picker, [], [], scope.Sink))), (_, lease) => retain(lease));
+
+    private static IO<Unit> Answered<TValue>(
+        RowEdit<Option<TValue>> edit, RowSource<Option<TValue>> source, DateTimePicker picker, Func<Option<TValue>, LocalDateTime, Fin<Option<TValue>>> merged, RowScope scope) =>
+        from held in scope.Read(source)
+        from answered in Optional(picker.Value).Match(
+            Some: picked => edit.Preview(merged(held, LocalDateTime.FromDateTime(picked)), Some(Accessors.StepEventsDelay)),
+            None: () => edit.Commit(Fin.Succ(Option<TValue>.None)).Map(static _ => unit))
+        select answered;
 
     private static IO<RowCells> Ranged<TRecord>(
         RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write,
@@ -129,13 +132,7 @@ public static class MomentRows {
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => Callbacks.Each(Seq(IO.lift(() => start.ValueChanged += h), IO.lift(() => end.ValueChanged += h))).Run(),
             h => Callbacks.Each(Seq(IO.lift(() => start.ValueChanged -= h), IO.lift(() => end.ValueChanged -= h))).Run(),
-            edit => Callbacks.Handler<EventArgs>(_ =>
-                from narrowed in IO.lift(() => Narrowed(start, end, walls))
-                from held in scope.Read(source)
-                from routed in (Optional(start.Value), Optional(end.Value))
-                    .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
-                    .Match(Some: picked => edit.Preview(write(held, picked), Some(Accessors.StepEventsDelay)), None: () => edit.Cancel)
-                select routed, site),
+            edit => Callbacks.Handler<EventArgs>(_ => Routed(edit, source, write, start, end, walls, scope), site),
             held => IO.lift(() => Spanned(start, end, walls, held.Map(read))),
             scope, site, owned)
         select new RowCells(
@@ -144,6 +141,17 @@ public static class MomentRows {
                 Some((pattern.Format(limits.Min), pattern.Format(limits.Max))),
                 Some(read(source.Default)).Map(dates => RowText.Localize("{0} – {1}", arguments: [pattern.Format(dates.Start), pattern.Format(dates.End)]).Local)),
             bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Labelled([], [], scope.Sink))), (_, lease) => retain(lease));
+
+    private static IO<Unit> Routed<TRecord>(
+        RowEdit<TRecord> edit, RowSource<TRecord> source, Func<TRecord, DateInterval, Fin<TRecord>> write, DateTimePicker start, DateTimePicker end,
+        (DateTime Min, DateTime Max) walls, RowScope scope)
+        where TRecord : notnull =>
+        from narrowed in IO.lift(() => Narrowed(start, end, walls))
+        from held in scope.Read(source)
+        from routed in (Optional(start.Value), Optional(end.Value))
+            .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
+            .Match(Some: picked => edit.Preview(write(held, picked), Some(Accessors.StepEventsDelay)), None: () => edit.Cancel)
+        select routed;
 
     private static void Narrowed(DateTimePicker start, DateTimePicker end, (DateTime Min, DateTime Max) walls) =>
         (start.MaxDate, end.MinDate) = (end.Value ?? walls.Max, start.Value ?? walls.Min);

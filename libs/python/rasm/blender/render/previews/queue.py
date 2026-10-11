@@ -102,7 +102,7 @@ class Backlog(msgspec.Struct, kw_only=True):
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     """Registration row owning preview execution, feeds, failures, and timer steps."""
 
-    budget: Callable[[Identity], BlenderResult[Budget]]
+    budget: Callable[[Identity], BlenderResult[Budget]] = lambda _identity: Ok(Budget())
     interval: ClassVar[float] = 0.15
     held: ClassVar[dict[str, Backlog]] = {}
 
@@ -150,7 +150,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         context, again = bpy.context, Some(PreviewQueue.interval)
         backlog = PreviewQueue.held[identity.package]
 
-        def stepped() -> BlenderResult[None]:
+        def stepped(manager: bpy.types.WindowManager) -> BlenderResult[None]:
             """Combines successful feeds with pending work and reports every independent refusal."""
             budget = self.budget(identity)
             reads = Block.of_seq((feed, feed(identity, context)) for feed in tuple(backlog.feeds))
@@ -167,7 +167,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
                     case _:
                         backlog.requests.pop(place, None)
                         backlog.requests[place] = Request(job=job)
-            playing = any(window.screen.is_animation_playing for window in context.window_manager.windows)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            playing = any(window.screen.is_animation_playing for window in manager.windows)
             start = time.perf_counter()
             return accumulated((
                 budget.map(lambda _: None),
@@ -182,14 +182,17 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
                         .of_seq(request for request in backlog.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing))
                         .sort_with(lambda queued: queued.job.rank)
                         .try_head()
+                        .to_list()
                     )
                 ),
             )).map(lambda _: None)
 
-        if not context.window_manager.is_interface_locked:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            shifted = backlog.slot.map(lambda slot: render_result().map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
-            return Ok(shifted.bind(lambda held: Ok(None) if held else stepped()).map(lambda _: again).map_error(identity.reports.hold).default_value(again))
-        return Ok(again)
+        match context.window_manager:
+            case bpy.types.WindowManager(is_interface_locked=False) as manager:
+                shifted = backlog.slot.map(lambda slot: render_result().map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
+                return Ok(shifted.bind(lambda held: Ok(None) if held else stepped(manager)).map(lambda _: again).map_error(identity.reports.hold).default_value(again))
+            case _:
+                return Ok(again)
 
     # --- [FEEDS]
 

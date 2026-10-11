@@ -115,17 +115,19 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         from flushed in IO.lift(Flush)
         from environments in IO.lift(() => Collect(owned =>
             DisposalOps.Within(GetQueueRenderSettings,
-                settings => toSeq(Enum.GetValues<RenderSettings.EnvironmentUsage>()).TraverseM(usage =>
-                    from environment in IO.lift(() => Optional(EnvironmentFromOriginalInstanceId(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.ForRendering))))
-                    from copy in environment.TraverseM(source =>
-                        DisposalOps.Acquire(IO.lift(() => Missing.Unless((RenderEnvironment?)source.MakeCopy(), nameof(RenderContent.MakeCopy))),
-                            static copied => IO.lift(copied.Dispose), owned)).As()
-                    select (usage, copy)).As()
+                settings => toSeq(Enum.GetValues<RenderSettings.EnvironmentUsage>()).TraverseM(usage => Copied(settings, usage, owned)).As()
                     .Map(static rows => new SceneBatch { Environments = new(rows, tryAdd: false) }),
                 static settings => IO.lift(settings.Dispose))))
         from published in atomicIO(() => feed.Swap(static held => held.Map(static current => current.Publish())))
         from woken in Signal
         select unit;
+
+    private IO<(RenderSettings.EnvironmentUsage Usage, Option<RenderEnvironment> Copy)> Copied(RenderSettings settings, RenderSettings.EnvironmentUsage usage, Action<IDisposable> owned) =>
+        from environment in IO.lift(() => Optional(EnvironmentFromOriginalInstanceId(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.ForRendering))))
+        from copy in environment.TraverseM(source =>
+            DisposalOps.Acquire(IO.lift(() => Missing.Unless((RenderEnvironment?)source.MakeCopy(), nameof(RenderContent.MakeCopy))),
+                static copied => IO.lift(copied.Dispose), owned)).As()
+        select (usage, copy);
 
     private IO<Unit> Signal => wake.TraverseM(static signal => signal).As().Map(static _ => unit);
 

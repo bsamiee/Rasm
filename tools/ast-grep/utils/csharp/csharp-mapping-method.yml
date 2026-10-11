@@ -2,19 +2,23 @@
 id: csharp-mapping-method
 language: csharp
 utils:
+    mapping-attribute:
+        matches: {csharp-type-name: {name: {regex: '^(User|Named)Mapping(Attribute)?$'}}}
+    mapper-attribute:
+        matches: {csharp-type-name: {name: {regex: '^Mapper(Attribute)?$'}}}
     mapper-class:
         kind: class_declaration
         has:
             kind: attribute_list
             has:
                 kind: attribute
-                has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?Mapper(Attribute)?$'}
+                has: {field: name, matches: mapper-attribute}
     user-mapping:
         has:
             kind: attribute_list
             has:
                 kind: attribute
-                has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?(User|Named)Mapping(Attribute)?$'}
+                has: {field: name, matches: mapping-attribute}
     generated-mapping:
         all:
             - has: {kind: modifier, regex: '^partial$'}
@@ -29,6 +33,7 @@ utils:
     use-helper:
         all:
             - has: {field: name, pattern: $HELPER}
+            - inside: {kind: compilation_unit, stopBy: end, regex: '\bUse\b'}
             - any:
                 - inside:
                     kind: declaration_list

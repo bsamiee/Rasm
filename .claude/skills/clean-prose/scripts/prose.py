@@ -22,19 +22,25 @@ from wcwidth import wcswidth
 
 
 class Marker(Enum):
-    """Comment sign per source language with the suffixes it owns, markdown the member with no sign."""
+    """Comment sign per source language with the suffixes it owns and the openings of its preamble lines, markdown the member with no sign."""
 
     sign: str
     suffixes: tuple[str, ...]
-    MARKDOWN = "", (".md",)
-    HASH = "#", (".py", ".sh", ".toml", ".nix", ".yml", ".yaml")
-    SLASH = "//", (".ts", ".tsx", ".js", ".jsx", ".java", ".swift", ".jsonc")
-    DASH = "--", (".sql", ".lua")
+    preamble: str
+    MARKDOWN = "", (".md",), "(?!)"
+    HASH = "#", (".py", ".sh", ".toml", ".nix", ".yml", ".yaml"), r"#!|import |from [\w.]+ import |if (?:typing\.)?TYPE_CHECKING:|set [-+]\w"
+    SLASH = (
+        "//",
+        (".cs", ".ts", ".tsx", ".js", ".jsx", ".java", ".swift", ".jsonc"),
+        r"#[!:]|(?:@\w+ )?import |(?:global )?using (?:static )?[\w.]+(?: = [^;]+)?;|namespace [\w.]+;|package [\w.]+;|extern alias \w+;|\[assembly: ",
+    )
+    DASH = "--", (".sql", ".lua"), "(?!)"
 
-    def __init__(self, sign: str, suffixes: tuple[str, ...]) -> None:
-        """Keep the sign and the owned suffixes on the member."""
+    def __init__(self, sign: str, suffixes: tuple[str, ...], preamble: str) -> None:
+        """Keep the sign, the owned suffixes, and the preamble openings on the member."""
         self.sign = sign
         self.suffixes = suffixes
+        self.preamble = preamble
 
     @property
     def kinds(self) -> Kind:
@@ -43,7 +49,7 @@ class Marker(Enum):
 
 
 class Kind(Flag):
-    """Block kinds in claim order, each pattern matching a whole block with its text spans as `t`, `claimed` a line an earlier kind claims, `sign` the comment sign."""
+    """Block kinds in claim order, each pattern matching a whole block with its text spans as `t`, `claimed` a line an earlier kind claims, `sign` the comment sign, `preamble` a preamble opening."""
 
     pattern: str
     rx: regex.Pattern[str]
@@ -57,23 +63,25 @@ class Kind(Flag):
     DIVIDER = r"^(?P<head>[ \t]*(?&sign) --- )(?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?$"
     DIRECTIVE = r"^[ \t]*(?&sign) (?:@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b).*$"
     COMMENT = r"^[ \t]*(?&sign) (?P<t>\S.*)$"
+    PREAMBLE = r"^(?&preamble).*$(?:\n(?:(?&preamble)|(?![ \t]*(?&sign) )[ \t)\]}]).*$)*"
     BLANK = r"^[ \t]*$"
     PARAGRAPH = r"^(?P<t>.+)$(?:\n(?!(?&claimed))(?P<t>.+)$)*"
     CODE = r"^.+$(?:\n(?!(?&claimed)).+$)*"
 
     def __new__(cls, pattern: str) -> Self:
-        """Member with the next bit, its pattern, and the pattern compiled alone, `claimed` matching nothing and `sign` any comment sign."""
+        """Member with the next bit, its pattern, and the pattern compiled alone, `claimed` matching nothing, `sign` any comment sign, and `preamble` any preamble opening."""
         member = object.__new__(cls)
         member._value_ = 2 ** len(cls.__members__)
         member.pattern = pattern
         signs = "|".join(regex.escape(m.sign) for m in Marker if m.sign)
-        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs}))\A{pattern}", regex.MULTILINE)
+        openings = "|".join(m.preamble for m in Marker)
+        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs})(?P<preamble>{openings}))\A{pattern}", regex.MULTILINE)
         return member
 
 
 TEXT = reduce(or_, (k for k in Kind if "t" in k.rx.groupindex))
 MARKDOWN = Kind.FRONTMATTER | Kind.FENCE | Kind.HEADING | Kind.TABLE | Kind.ENTRY | Kind.LABEL | Kind.PARAGRAPH
-SOURCE = Kind.METADATA | Kind.DIVIDER | Kind.DIRECTIVE | Kind.COMMENT | Kind.CODE
+SOURCE = Kind.METADATA | Kind.DIVIDER | Kind.DIRECTIVE | Kind.COMMENT | Kind.PREAMBLE | Kind.CODE
 
 
 class Align(Enum):
@@ -307,13 +315,6 @@ def wrap(block: Block) -> Block:
     return replace(block, lines=(replace(block.head, text=" ".join((block.head.text, *(line.text.strip() for line in block.lines[1:])))),))
 
 
-def divider(block: Block) -> Block:
-    """`<marker> --- [TOKEN]` with nothing after the token, a full divider's fill padded with `-` to end at column 90."""
-    m = parts(block.kind, block.text)
-    line = m["head"] + token(m["tok"])
-    return block.retext(f"{line} ".ljust(90, "-") if m["fill"] else line)
-
-
 # --- [TABLES]
 
 
@@ -400,6 +401,65 @@ def spacing(blocks: list[Block]) -> list[Block]:
     return [x for a, b in pairwise(solid) for x in (a, *run(a, b))] + solid[-1:]
 
 
+# --- [DIVIDERS]
+
+
+def full(block: Block) -> bool:
+    """Whether the block is a divider with dash fill."""
+    return block.kind is Kind.DIVIDER and parts(block.kind, block.text)["fill"] is not None
+
+
+def subject(block: Block) -> Line:
+    """Divider's first line naming its token."""
+    return Line(block.head.n, parts(block.kind, block.text)["tok"])
+
+
+def divider(block: Block) -> Block:
+    """`<marker> --- [TOKEN]` with nothing after the token, fill padded with `-` to end at column 90 at file level and dropped from an indented divider."""
+    m = parts(block.kind, block.text)
+    line = m["head"] + token(m["tok"])
+    return block.retext(f"{line} ".ljust(90, "-") if m["fill"] and not line[0].isspace() else line)
+
+
+def unlabeled(blocks: list[Block]) -> list[Block]:
+    """Dividers dropped with the blank lines after them when no comment or code follows before the next divider of their level or above, none left ending the file."""
+
+    def bare(i: int) -> bool:
+        stop = full if full(blocks[i]) else (lambda b: b.kind is Kind.DIVIDER)
+        return blocks[i].kind is Kind.DIVIDER and not any(b.kind in SOURCE & ~(Kind.DIVIDER | Kind.PREAMBLE) for b in takewhile(lambda b: not stop(b), blocks[i + 1 :]))
+
+    drops = list(accumulate(range(len(blocks)), lambda prior, i: bare(i) or (prior and blocks[i].kind is Kind.BLANK), initial=False))[1:]
+    kept = [b for b, drop in zip(blocks, drops, strict=True) if not drop]
+    return kept if kept == blocks else kept[: len(kept) - len(list(takewhile(lambda b: b.kind is Kind.BLANK, reversed(kept))))]
+
+
+def repeats(d: Doc) -> list[Line]:
+    """Full dividers with a token an earlier full divider used."""
+    fulls = [subject(b) for b in d.blocks if full(b)]
+    return [line for i, line in enumerate(fulls) if any(earlier.text == line.text for earlier in fulls[:i])]
+
+
+def orphans(d: Doc) -> list[Line]:
+    """Sub dividers before the first full divider."""
+    return [subject(b) for b in takewhile(lambda b: not full(b), d.blocks)]
+
+
+def ranked(sections: list[str]) -> Callable[[Doc], list[Line]]:
+    """Lift the section table to a report over full dividers naming a section the table places before one an earlier full divider named, labels outside the table skipped."""
+
+    def late(d: Doc) -> list[Line]:
+        named = [(line, sections.index(line.text)) for b in d.blocks if full(b) and (line := subject(b)).text in sections]
+        return [line for (line, rank), peak in zip(named, accumulate((rank for _, rank in named), max, initial=-1), strict=False) if rank < peak]
+
+    return late
+
+
+def overs(d: Doc) -> list[Line]:
+    """Dividers before the last preamble block."""
+    last = max((i for i, b in enumerate(d.blocks) if b.kind is Kind.PREAMBLE), default=0)
+    return [subject(b) for b in d.blocks[:last] if b.kind is Kind.DIVIDER]
+
+
 # --- [REPORTS]
 
 
@@ -431,33 +491,6 @@ def counted(words: list[str]) -> Callable[[Doc], list[Line]]:
     return lambda d: [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in rx.finditer(spoken(line.text))]
 
 
-def full(block: Block) -> bool:
-    """Whether the block is a divider with dash fill."""
-    return block.kind is Kind.DIVIDER and parts(block.kind, block.text)["fill"] is not None
-
-
-def subject(block: Block) -> Line:
-    """Divider's first line naming its token."""
-    return Line(block.head.n, parts(block.kind, block.text)["tok"])
-
-
-def repeats(d: Doc) -> list[Line]:
-    """Full dividers with a token an earlier full divider used."""
-    fulls = [subject(b) for b in d.blocks if full(b)]
-    return [line for i, line in enumerate(fulls) if any(earlier.text == line.text for earlier in fulls[:i])]
-
-
-def empties(d: Doc) -> list[Line]:
-    """Full dividers with nothing but dividers before the next full divider or the end of the file."""
-    starts = [i for i, b in enumerate(d.blocks) if full(b)]
-    return [subject(d.blocks[i]) for i, j in pairwise([*starts, len(d.blocks)]) if all(b.kind is Kind.DIVIDER for b in d.blocks[i + 1 : j])]
-
-
-def orphans(d: Doc) -> list[Line]:
-    """Sub dividers before the first full divider."""
-    return [subject(b) for b in takewhile(lambda b: not full(b), d.blocks)]
-
-
 @cache
 def narrow(path: Path, info: str) -> range:
     """Indent steps below the `.editorconfig` space indent size of the info string's language beside the path, none for plain text or an unknown language."""
@@ -467,12 +500,12 @@ def narrow(path: Path, info: str) -> range:
 
 
 def shallow(d: Doc) -> list[Line]:
-    """Fence lines indented fewer columns past the nearest earlier line at or below their depth than their language's indent size, a one-column step aligning a doc comment star."""
+    """Fence lines indented fewer columns past the nearest earlier line at or below their depth than their language's indent size, a list item's depth starting at its content after `- `, a one-column step aligning a doc comment star."""
 
     def opened(b: Block) -> list[Line]:
         steps = narrow(d.path.resolve(), parts(b.kind, b.text)["info"])
-        solid = [(line, len(line.text) - len(line.text.lstrip(" "))) for line in b.lines[1:-1] if line.text.strip()]
-        return [Line(line.n, line.text.strip()) for i, (line, n) in enumerate(solid) if n - next((p for _, p in reversed(solid[:i]) if p <= n), 0) in steps]
+        solid = [(line, n, n + 2 if body.startswith("- ") else n) for line in b.lines[1:-1] if (body := line.text.lstrip(" ")).strip() for n in (len(line.text) - len(body),)]
+        return [Line(line.n, line.text.strip()) for i, (line, n, _) in enumerate(solid) if n - next((depth for _, _, depth in reversed(solid[:i]) if depth <= n), 0) in steps]
 
     return [line for b in d.blocks for line in opened(b)]
 
@@ -480,6 +513,7 @@ def shallow(d: Doc) -> list[Line]:
 # --- [REGISTRY] -------------------------------------------------------------------------
 
 WORD_MAP = (Path(__file__).parents[1] / "references" / "word-map.md").read_text(encoding="utf-8")
+STANDARDS = (Path(__file__).parents[4] / "CLAUDE.md").read_text(encoding="utf-8")
 RULES: tuple[Fix | Report, ...] = (
     Fix(TEXT | Kind.BLANK, lift_block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
     Fix(TEXT & MARKDOWN, lift_text(opaque(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s)))),
@@ -488,6 +522,7 @@ RULES: tuple[Fix | Report, ...] = (
     Fix(Kind.ENTRY, lift_sequence(cards)),
     Fix(Kind.TABLE, lift_block(header)),
     Fix(Kind.DIVIDER, lift_block(divider)),
+    Fix(Kind.DIVIDER, lift_sequence(unlabeled)),
     Fix(Kind.HEADING, lift_sequence(headings)),
     Fix(Kind.LABEL, lift_sequence(labels)),
     Fix(Kind.PARAGRAPH | Kind.ENTRY, lift_block(wrap)),
@@ -502,8 +537,9 @@ RULES: tuple[Fix | Report, ...] = (
     Report(Kind.ENTRY, "Entry prose runs past column 150", wide(spoken)),
     Report(Kind.TABLE, "Table runs past column 150", wide(str)),
     Report(Kind.DIVIDER, "Divider `{}` repeats an earlier full divider", repeats),
-    Report(SOURCE, "Divider `{}` opens an empty section", empties),
     Report(Kind.DIVIDER, "Sub divider `{}` precedes the first full divider", orphans),
+    Report(Kind.DIVIDER, "Section `{}` follows a section the table places after it", ranked(regex.findall(r"^\| +\[\d+\] +\| `(\[[A-Z_]+\])`", STANDARDS, regex.MULTILINE))),
+    Report(Kind.DIVIDER | Kind.PREAMBLE, "Divider `{}` sits over the preamble", overs),
     Report(Kind.FENCE, "Fence line `{}` indents by fewer columns than `.editorconfig` sets for its language", shallow),
 )
 
@@ -515,7 +551,7 @@ def lex(path: Path, marker: Marker) -> list[Block]:
     src = path.read_text(encoding="utf-8").removesuffix("\n")
     kinds = {name: k for name, k in Kind.__members__.items() if k in marker.kinds}
     *claimed, rest = (f"(?P<{name}>{k.pattern})" for name, k in kinds.items())
-    lexer = regex.compile(f"(?(DEFINE)(?P<sign>{regex.escape(marker.sign)}))(?P<claimed>{'|'.join(claimed)})|{rest}", regex.MULTILINE)
+    lexer = regex.compile(f"(?(DEFINE)(?P<sign>{regex.escape(marker.sign)})(?P<preamble>{marker.preamble}))(?P<claimed>{'|'.join(claimed)})|{rest}", regex.MULTILINE)
 
     def claim(m: regex.Match[str]) -> Block:
         first = src.count("\n", 0, m.start()) + 1
@@ -533,7 +569,7 @@ def lint(path: Path, marker: Marker) -> Doc:
 
 
 def files(paths: list[Path]) -> dict[Path, Marker]:
-    """Every named file and every file under the named folders, the working directory when no path is named, that git tracks or leaves unignored, with its marker, markdown files first."""
+    """Every named file and every file under the named folders, the working directory when no path is named, that git tracks or leaves unignored and is no symlink, with its marker, markdown files first."""
     named, folders = [p for p in paths if p.is_file()], [p for p in paths if p.is_dir()]
     listed = (
         subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], capture_output=True, check=True, text=True).stdout  # ruff: ignore[start-process-with-partial-path]
@@ -541,7 +577,7 @@ def files(paths: list[Path]) -> dict[Path, Marker]:
         else ""
     )
     found = sorted({*named, *(Path(f) for f in listed.split("\0")[:-1])})
-    return {f: m for m in Marker for f in found if f.suffix in m.suffixes and f.is_file()}
+    return {f: m for m in Marker for f in found if f.suffix in m.suffixes and f.is_file() and not f.is_symlink()}
 
 
 def show(found: list[Finding]) -> str:
@@ -560,11 +596,12 @@ def check(paths: list[Path]) -> int:
 
 
 def fix(paths: list[Path]) -> int:
-    """Write every file a fix changed, print the reports that remain, exit 1 on any report."""
-    docs = list(starmap(lint, files(paths).items()))
+    """Write every file a fix changed, print the reports that remain at their lines in the written files, exit 1 on any report."""
+    targets = files(paths)
+    docs = list(starmap(lint, targets.items()))
     for d in (d for d in docs if d.fixed):
         d.path.write_text("".join(f"{b.text}\n" for b in d.blocks), encoding="utf-8")
-    left = [f for d in docs for f in d.found]
+    left = [f for d in docs for f in (lint(d.path, targets[d.path]).found if d.fixed else d.found)]
     sys.stdout.write(show(left) + f"Fixed {sum(d.fixed for d in docs)}, {len(left)} remaining\n")
     return int(bool(left))
 

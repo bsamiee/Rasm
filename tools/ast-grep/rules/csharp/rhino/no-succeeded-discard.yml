@@ -15,7 +15,7 @@ utils:
     succeeded:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
             - has: {field: function, pattern: $CALLEE}
             - matches: in-order
             - has:
@@ -38,7 +38,7 @@ rule:
           inside: {kind: expression_statement}
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?ignore(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: succeeded}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
 transform:
     ANSWER:

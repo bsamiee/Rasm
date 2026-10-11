@@ -75,10 +75,11 @@ class StyleSpacing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Metrics(msgspec.Struct, frozen=True, kw_only=True):
-    """Interface scale and pixel size with Blender's derived sizes."""
+    """Interface scale and pixel size with Blender's derived sizes, read from the running preferences."""
 
     scale: float
     pixel_size: int
+    preferences: bpy.types.Preferences
     unscaled: ClassVar[StyleSpacing] = StyleSpacing(column=8, template=5, box=5, button_x=8, button_y=2, panel=8, panel_outer=4)
 
     # --- [READING]
@@ -86,8 +87,8 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def read(cls) -> Self:
         """Reads interface scale and pixel size from running preferences."""
-        system = bpy.context.preferences.system  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        return cls(scale=system.ui_scale, pixel_size=int(system.pixel_size))
+        preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return cls(scale=preferences.system.ui_scale, pixel_size=int(preferences.system.pixel_size), preferences=preferences)
 
     # --- [SIZING]
 
@@ -127,7 +128,7 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
 
     def checker(self) -> Checker:
         """Reads transparency checker colors and device-pixel cell size."""
-        ui = bpy.context.preferences.themes[0].user_interface  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        ui = self.preferences.themes[0].user_interface
         return Checker(primary=color(ui.transparent_checker_primary), secondary=color(ui.transparent_checker_secondary), cell=ui.transparent_checker_size * self.pixel_size)
 
 
@@ -136,15 +137,20 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     space: "rna_enums.SpaceTypeItems"
     region: "rna_enums.RegionTypeItems"
+    preferences: bpy.types.Preferences
 
     # --- [READING]
 
     @property
     def editor(self) -> bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient:
-        """Native theme space selected by the editor type."""
-        theme = bpy.context.preferences.themes[0]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        """Native theme space selected by the editor type, the 3D View's where the editor has no theme member."""
+        theme = self.preferences.themes[0]
         member = "preferences" if self.space == "PROJECT" else self.space.lower()
-        return theme.path_resolve(f"{member if member in theme.bl_rna.properties else 'view_3d'}.space")  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        match theme.path_resolve(f"{member}.space") if member in theme.bl_rna.properties else None:
+            case bpy.types.ThemeSpaceGeneric() | bpy.types.ThemeSpaceGradient() as space:
+                return space
+            case _:
+                return theme.view_3d.space
 
     @property
     def overlaps(self) -> bool:
@@ -152,10 +158,10 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
         match self.space, self.region:
             case _, "HUD":
                 return True
-            case _ if not bpy.context.preferences.system.use_region_overlap:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            case _ if not self.preferences.system.use_region_overlap:
                 return False
             case "VIEW_3D", "HEADER":
-                return bpy.context.preferences.themes[0].view_3d.space.header[3] < 1.0  # type: ignore[index, no-any-return, union-attr]  # ty: ignore[unresolved-attribute]
+                return color(self.preferences.themes[0].view_3d.space.header)[3] < 1.0
             case "NODE_EDITOR", "TOOLS" | "UI" | "ASSET_SHELF" | "ASSET_SHELF_HEADER":
                 return True
             case ("VIEW_3D" | "IMAGE_EDITOR", "TOOLS" | "UI" | "TOOL_PROPS" | "FOOTER" | "TOOL_HEADER" | "ASSET_SHELF" | "ASSET_SHELF_HEADER"):
@@ -166,7 +172,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def text(self) -> Color:
         """Text color resolved by Blender's TH_TEXT rule."""
-        theme = bpy.context.preferences.themes[0]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        theme = self.preferences.themes[0]
         match self.space, self.region:
             case (_, "UI" | "TOOLS") | ("PROPERTIES" | "PREFERENCES" | "PROJECT", _):
                 return color(theme.user_interface.panel_text)
@@ -178,13 +184,13 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def text_hi(self) -> Color:
         """Highlighted text color resolved by Blender's TH_TEXT_HI rule."""
-        regions = bpy.context.preferences.themes[0].regions  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        regions = self.preferences.themes[0].regions
         return color(regions.channels.text_selected if self.region == "CHANNELS" else self.editor.text_hi)
 
     @property
     def back(self) -> Color:
         """Unassociated display color of the region background."""
-        theme, space = bpy.context.preferences.themes[0], self.editor  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        theme, space = self.preferences.themes[0], self.editor
         stored: mathutils.Color | bpy.types.bpy_prop_array
         match self.region:
             case "WINDOW":

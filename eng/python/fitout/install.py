@@ -1,6 +1,8 @@
 """Installs extensions through Blender's native handler in the owning process."""
 
-import subprocess
+import errno
+import os
+import shutil
 import sys
 from typing import Annotated
 
@@ -35,7 +37,7 @@ class RemoteFailure(msgspec.Struct, frozen=True, tag="error", tag_field="status"
     stderr: str = ""
 
 
-type InstallError = OSError | subprocess.CalledProcessError | msgspec.DecodeError | ExceptionGroup[OSError | httpx2.HTTPError | MCPError | ValidationError] | CallToolResult | RemoteFailure
+type InstallError = OSError | msgspec.ValidationError | ExceptionGroup[OSError | httpx2.HTTPError | MCPError | ValidationError] | CallToolResult | RemoteFailure
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -55,13 +57,14 @@ async def install(
         The native handler's status, or an executable, transport,
         response-decoding, or remote execution error. Native output is forwarded.
     """
+    match shutil.which(blender):
+        case None:
+            return Err(FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), blender))
+        case found:
+            executable = anyio.Path(found)
     try:
-        host = await anyio.run_process(
-            (blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", "import bpy, json, sys; sys.stderr.write(json.dumps(bpy.app.binary_path))"), stdout=None
-        )
-        executable = anyio.Path(msgspec.json.decode(host.stderr, type=str))
         pids = [process.pid for process in await anyio.to_thread.run_sync(tuple, psutil.process_iter(("exe",))) if (path := process.info["exe"]) and await executable.samefile(path)]
-    except (OSError, subprocess.CalledProcessError, msgspec.DecodeError) as error:
+    except OSError as error:
         return Err(error)
     arguments = ("install-file", "--repo", "user_default", "--enable", str(archive))
     if not pids:

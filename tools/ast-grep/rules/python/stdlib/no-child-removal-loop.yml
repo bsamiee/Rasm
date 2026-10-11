@@ -41,7 +41,7 @@ utils:
     collection:
         any:
             - matches: {python-typed-parameter: {type: {regex: '^((collections\.)?deque|list|set)\b'}}}
-            - matches: {python-assigned-name: {value: {any: [{kind: 'list, set, list_comprehension, set_comprehension'}, {kind: call, has: {field: function, regex: '^((collections\.)?deque|list|set)$'}}]}}}
+            - matches: {python-assigned-name: {value: {any: [{kind: 'list, set, list_comprehension, set_comprehension'}, {kind: call, has: {field: function, any: [{matches: {python-builtin-name: {name: {regex: '^(list|set)$'}}}}, {matches: {python-member-use: {module: {regex: '^collections$'}, name: {regex: '^deque$'}}}}]}}]}}}
             - kind: attribute
               has: {field: attribute, regex: '^(background_images|bake_items|bundle_items|capture_items|colors|combine_list_items|compositor_effects|enum_items|fcurves|file_output_items|format_items|generation_items|gizmos|grid_items|index_switch_items|input_items|inputs|keyframe_points|keymaps|links|list_items|main_items|nodes|output_items|outputs|owner_ids|paths|rasterize_items|repeat_items|sample_attribute_items|shader_effects|state_items|targets|timeline_markers|vertex_groups|viewer_items)$'}
               inside: {kind: module, stopBy: end, has: {stopBy: end, matches: python-imported-module, regex: '^bpy\b'}}

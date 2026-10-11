@@ -7,7 +7,7 @@ utils:
     lift:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
             - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
     thunk-body:
         kind: lambda_expression
@@ -50,9 +50,9 @@ utils:
                         stopBy: end
                         any:
                             - kind: method_declaration
-                              all: [{has: {field: name, pattern: $METHOD}}, {has: {field: returns, regex: '^((global::)?LanguageExt\.)?Fin\s*<'}}]
+                              all: [{has: {field: name, pattern: $METHOD}}, {has: {field: returns, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}}]
                             - kind: local_function_statement
-                              all: [{has: {field: name, pattern: $METHOD}}, {has: {field: type, regex: '^((global::)?LanguageExt\.)?Fin\s*<'}}]
+                              all: [{has: {field: name, pattern: $METHOD}}, {has: {field: type, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}}]
     precheck:
         matches: lift
         has:
@@ -65,12 +65,12 @@ utils:
     missing-host:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.)?Missing\s*\.\s*Unless$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Missing$'}, member: {regex: '^Unless$'}}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {kind: invocation_expression}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     host-step:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.Shapes\.)?Copies\s*\.\s*Acquire(NonEmpty)?(\s*<.+>)?$'}
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Copies$'}, member: {regex: '^Acquire(NonEmpty)?$'}}}}
             - matches: lift
               has: {field: arguments, has: {kind: argument, has: {matches: thunk-body, has: {field: body, matches: missing-host}}}}
 rule:

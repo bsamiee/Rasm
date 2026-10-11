@@ -174,10 +174,12 @@ def written(
     lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
 
     def subimage(group: tuple[Pass, ...]) -> Subimage[np.float32]:
-        types = tuple(OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is Role.DATA or storage.depth == 32 else OpenImageIO.HALF) for item in group for _ in item.channels)
-        spec = OpenImageIO.ImageSpec(*size, len(types), types[0])
-        spec.channelnames = tuple(f"{item.layer}.{channel}" for item in group for channel in item.channels)
-        spec.channelformats = types
+        channels = tuple(
+            (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is Role.DATA or storage.depth == 32 else OpenImageIO.HALF)) for item in group for channel in item.channels
+        )
+        spec = OpenImageIO.ImageSpec(*size, len(channels), channels[0][1])
+        spec.channelnames = tuple(name for name, _ in channels)
+        spec.channelformats = tuple(kind for _, kind in channels)
         stored = msgspec.structs.replace(storage, compression=Some(Deflate())) if lossy and any(item.role is Role.DATA for item in group) else storage
         named = (("name", OpenImageIO.TypeString, group[0].layer),) if layout is Layout.PARTS else ()
         return Subimage(

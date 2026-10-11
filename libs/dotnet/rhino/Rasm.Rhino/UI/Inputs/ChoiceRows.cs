@@ -290,14 +290,16 @@ public static class ChoiceRows {
                         ? Seq<Func<Action<IDisposable>, IO<MenuItem>>>(static keep =>
                             DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), static held => IO.lift(held.Dispose), keep).Map(static separator => (MenuItem)separator))
                         : Seq<Func<Action<IDisposable>, IO<MenuItem>>>())
-                    .Map((factory, index) => (Func<Action<IDisposable>, IO<Unit>>)(keep =>
-                        from item in factory(keep)
-                        from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<MenuItem>(item, held => items.Remove(held))), static held => IO.lift(held.Dispose), keep)
-                        from inserted in IO.lift(() => items.Insert(index, item))
-                        select unit)),
+                    .Map((factory, index) => (Func<Action<IDisposable>, IO<Unit>>)(keep => Placed(items, factory, index, keep))),
                 DisposalOps.Release, (_, lease) => atomic(() =>
                     owned.Held.ToFin(Errors.Cancelled).Map(_ => shown.Value = Seq(lease)).ThrowIfFail())))
                 .Map(static _ => unit)).ToSeq()).Map(static _ => unit), site), retain)
+        select unit;
+
+    private static IO<Unit> Placed(MenuItemCollection items, Func<Action<IDisposable>, IO<MenuItem>> factory, int index, Action<IDisposable> keep) =>
+        from item in factory(keep)
+        from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<MenuItem>(item, held => items.Remove(held))), static held => IO.lift(held.Dispose), keep)
+        from inserted in IO.lift(() => items.Insert(index, item))
         select unit;
 
     private static IO<Unit> Removed(MenuItemCollection items, Seq<MenuItem> held) =>

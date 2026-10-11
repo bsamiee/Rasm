@@ -57,14 +57,14 @@ def prepared(
         try:
             native: dict[Ramp, bpy.types.ShaderNodeValToRGB] = {}
             if ramps:
-                tree: bpy.types.NodeTree = bpy.data.node_groups.new(record.title, bpy.types.ShaderNodeTree.bl_rna.identifier)  # type: ignore[assignment,attr-defined]  # ty: ignore[invalid-assignment,unresolved-attribute]
+                tree: bpy.types.NodeTree = bpy.data.node_groups.new(record.title, "ShaderNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                 scope.callback(bpy.data.node_groups.remove, tree)
-                native = {ramp: tree.nodes.new(bpy.types.ShaderNodeValToRGB.bl_rna.identifier) for ramp in ramps}  # type: ignore[misc,attr-defined]  # ty: ignore[invalid-assignment,unresolved-attribute]
+                native = {ramp: tree.nodes.new(bpy.types.ShaderNodeValToRGB.__name__) for ramp in ramps}  # type: ignore[misc]  # ty: ignore[invalid-assignment]
         except (MemoryError, RuntimeError) as error:
             return Error((BlenderEditFault(request=record.title, error=error),))
 
         def gradient(ramp: Ramp, tones: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-            return Ok(np.asarray([native[ramp].color_ramp.evaluate(float(tone)) for tone in tones], dtype=np.float64)[:, :3])  # type: ignore[misc,union-attr]  # ty: ignore[unresolved-attribute]
+            return Ok(np.asarray([native[ramp].color_ramp.evaluate(float(tone)) for tone in tones], dtype=np.float64)[:, :3])  # type: ignore[misc, union-attr]  # ty: ignore[unresolved-attribute]
 
         return paired(accumulated(graphs.stored(ramp, live, identity) for ramp, live in native.items()), shutter.of.some(identity, scene, record)).bind(
             lambda parts: (

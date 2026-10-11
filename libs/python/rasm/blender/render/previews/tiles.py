@@ -15,7 +15,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from rasm.blender.data.ids.images import Bounded, ResultRead
-from rasm.blender.data.rna.descriptors import root_in
+from rasm.blender.data.rna.descriptors import root_in, struct_at
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.events.handlers import PathHandler, SceneHandler, UpdateHandler
 from rasm.blender.extension.identity import Identity
@@ -47,7 +47,7 @@ class Proxied(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     key: ContentHash
 
 
-class Wanted(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Wanted(msgspec.Struct, frozen=True, kw_only=True):
     """Effect and UI scale requested by one drawn tile slot."""
 
     record: Effect
@@ -101,7 +101,11 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
         def captured(mirror: Mirrored) -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
             values = mirror.row.map(lambda row: row.read(identity, mirror.entry).map(lambda record: (record,))).default_with(
-                lambda: Snapshot.capture(mirror.entry.properties.inputs).map(lambda inputs: (inputs,))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                lambda: (
+                    struct_at(mirror.entry, "properties.inputs")
+                    .map(lambda inputs: Snapshot.capture(inputs).map(lambda snapshot: (snapshot,)))
+                    .default_with(lambda: Error((BlenderAbsentFault(owner=repr(mirror.entry), key="properties.inputs"),)))
+                )
             )
             return paired(values, fingerprinted(mirror.group)).map(lambda parts: parts[1].map(lambda key: (*parts[0], key)))
 
@@ -124,7 +128,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
                 lambda proxy: head.map(lambda pixels: ((pixels.shape[0], pixels.shape[1]), scaled(proxy.framing, proxy.plane.shape[:2], pixels.shape[:2])))
             )
             chain = self.chain(identity, source, record, head) if isinstance(record, Effect) else record(head)
-            return paired(chain, lighting.environment(bpy.context.preferences)).bind(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            return paired(chain, lighting.environment).bind(
                 lambda pair: (
                     PreviewScene(stack=self.stack)
                     .rendered(
@@ -150,9 +154,8 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
     def icon(self, identity: Identity, slot: str, record: Effect, scale: float) -> Option[int]:
         """Records draw demand and returns the slot's successfully published native icon."""
-        wanted = Tiles.held[identity.package].wanted
-        if (prior := (wanted.get(slot))) is None or prior.record != record or prior.scale != scale:
-            wanted[slot] = Wanted(record=record, scale=scale)
+        if (wanted := Tiles.held[identity.package].wanted).get(slot) != (request := Wanted(record=record, scale=scale)):
+            wanted[slot] = request
         return Previews(identity=identity).icon_id(slot)
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
@@ -244,7 +247,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             FrameSize.attachment,
             ResultRead(consume=lambda scene, path: self.consumed(identity, scene, path)),
             UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.ID,), body=invalidated),
-            SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=invalidated),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=invalidated),
             PathHandler(handlers=bpy.app.handlers.load_post, body=cleared),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         ))
 

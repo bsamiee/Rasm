@@ -12,7 +12,7 @@ from expression.extra.result import catch
 import idprop
 import msgspec
 
-from rasm.blender.data.ids.store import collection, named
+from rasm.blender.data.ids.store import blocks, named
 from rasm.blender.extension.events.handlers import ImportHandler
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisition, Band
@@ -46,24 +46,13 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
         match holder.get(identity.manifest.id):
             case idprop.types.IDPropertyGroup() as group:
                 return (
-                    catch(
-                        lambda: msgspec.convert(group.get(cls.key.__name__), Key),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        exception=msgspec.ValidationError,
-                    )()
+                    catch(lambda: msgspec.convert(group.get("key"), Key), exception=msgspec.ValidationError)()
                     .to_option()
                     .map(
                         lambda key: cls(
                             key=key,
-                            of=Option.of_optional(
-                                group.get(cls.of.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                            ).filter(lambda value: isinstance(value, bpy.types.ID)),
-                            content=catch(
-                                lambda: msgspec.convert(
-                                    group.get(cls.content.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                                    ContentHash,
-                                ),
-                                exception=msgspec.ValidationError,
-                            )().to_option(),
+                            of=Option.of_optional(group.get("of")).filter(lambda value: isinstance(value, bpy.types.ID)),
+                            content=catch(lambda: msgspec.convert(group.get("content"), ContentHash), exception=msgspec.ValidationError)().to_option(),
                         )
                     )
                 )
@@ -71,17 +60,9 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
                 return Nothing
 
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> BlenderResult[None]:
-        """Writes the mark under its extension ID, preserving native property refusals."""
+        """Writes the mark's present fields under its extension ID, preserving native property refusals."""
         try:
-            holder[identity.manifest.id] = {
-                type(self).key.__name__: self.key,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                **self.of.map(
-                    lambda block: {type(self).of.__name__: block}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                ).default_value({}),
-                **self.content.map(
-                    lambda content: {type(self).content.__name__: content}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                ).default_value({}),
-            }
+            holder[identity.manifest.id] = {name: value for name, held in msgspec.structs.asdict(self).items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
         except (AttributeError, KeyError, TypeError, ValueError) as error:
             return Error((BlenderEditFault(request=identity.manifest.id, error=error),))
         return Ok(None)
@@ -99,9 +80,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def held(self, identity: Identity) -> tuple[tuple[T, Mark], ...]:
         """Returns matching data-blocks and their admitted marks in native collection order."""
-        return tuple(
-            (block, mark) for block in collection(bpy.data, self.kind) if isinstance(block, self.kind) for mark in Mark.read(identity, block).filter(lambda mark: mark.key == self.key).to_list()
-        )
+        return tuple((block, mark) for block in blocks(bpy.data, self.kind) for mark in Mark.read(identity, block).filter(lambda mark: mark.key == self.key).to_list())
 
     def owned(self, identity: Identity, block: T, mark: Mark) -> BlenderResult[T]:
         """Sets a new block's mark and lifetime, removing the block on refusal."""

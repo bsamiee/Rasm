@@ -609,6 +609,7 @@
         <PackageVersion Include="Microsoft.Diagnostics.Runtime"                           Version="4.1.745802" />            <!-- Inspection API over live process memory and crash dumps -->
         <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent"                Version="3.2.8" />                 <!-- ETW and EventPipe trace collection and parsing -->
         <PackageVersion Include="Microsoft.Extensions.DependencyModel"                    Version="11.0.0-rc.1.26425.128" /> <!-- Runtime dependency graph reading from deps.json files -->
+        <PackageVersion Include="System.Reflection.MetadataLoadContext"                   Version="11.0.0-rc.1.26425.128" /> <!-- Type inspection of assemblies loaded as metadata alone -->
     </ItemGroup>
 
     <ItemGroup Label="Observability">

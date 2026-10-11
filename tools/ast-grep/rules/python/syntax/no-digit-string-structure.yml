@@ -42,7 +42,7 @@ utils:
     joined:
         kind: call
         all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, kind: string, not: {has: {kind: interpolation}}}}, {has: {field: attribute, regex: '^join$'}}]}
+            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: python-plain-string}}, {has: {field: attribute, regex: '^join$'}}]}
             - has: {field: arguments, matches: joined-source}
     concatenated:
         kind: binary_operator

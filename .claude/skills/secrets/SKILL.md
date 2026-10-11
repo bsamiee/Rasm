@@ -31,7 +31,7 @@ Doppler resources exist alone as typed `infra/cli.ts` rows of `Project`, `Enviro
 - `Secret` rows name `project`, `config`, `name`, and `value`, `@pulumiverse/doppler` stores `value` as a Pulumi secret
 - `Secret` import ids take the form `<project>.<config>.<name>`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
-- Target `rasm:infra` runs `doppler run --project rasm --config dev_repo -- node infra/cli.ts`
+- Target `rasm:infra` runs `doppler run --project rasm --config dev_repo --no-fallback --attempts 1 -- node infra/cli.ts`
 - `infra/cli.ts` reads each `Secret` value from the environment `dev_repo` injects, a branch config inheriting every `dev` secret
 - `dev_repo` supplies `DOPPLER_TOKEN` to `@pulumiverse/doppler`, `PULUMI_ACCESS_TOKEN` to Pulumi, and `GITHUB_TOKEN` to `@pulumi/github`, each its own `Secret` row
 - `nx run rasm:infra:up` applies rows, `nx run rasm:infra:refresh` reads live state into the stack

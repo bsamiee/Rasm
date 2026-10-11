@@ -43,7 +43,7 @@ Read in order before the first row, `<paths>` the `file_path` values step 1 prin
 5. Changes, the change reader of `observation` with `:ids` `<tool_use_ids>`, its `structuredPatch` lines or a Write's `content` the text you judge
 6. Rows on scope paths, proposed, or stale, the state reader of `observation` with `:paths` the `<scope>` lines as one JSON array
 7. Rules with their corrections, the rules line of the findings section of `observation`
-8. Declaration holding each changed line, `ast-grep outline <path> --json=compact` for its `range`, then `Read` with `offset` and `limit` over it
+8. Declaration holding each changed line, `ast-grep outline --custom-languages allow <path> --json=compact` for its `range`, then `Read` with `offset` and `limit` over it
 9. `Skill(dotnet-coding)` when `<scope>` holds a `.cs` file
 10. `ToolSearch` with `query` `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree`, `max_results` 3
 

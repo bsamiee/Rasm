@@ -5,11 +5,7 @@ severity: error
 utils:
     array-member:
         kind: member_expression
-        has:
-            field: object
-            any:
-                - matches: {syntax-import-reference: {source: {regex: '^effect$'}, exported: {regex: '^Array$'}}}
-                - matches: {syntax-import-reference: {source: {regex: '^effect/Array$'}, exported: {regex: '^$'}}}
+        has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
     flat-map:
         kind: call_expression
         has: {field: function, kind: member_expression, has: {field: property, pattern: $FILTER, regex: '^flatMap$'}}

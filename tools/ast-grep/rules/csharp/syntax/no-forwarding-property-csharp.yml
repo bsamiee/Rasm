@@ -6,7 +6,7 @@ utils:
     owner-type:
         kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'
     cell-type:
-        regex: '^((global::)?[\w.]+\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|Lazy|Channel|ThreadLocal|AsyncLocal|StrongBox)\s*<'
+        matches: {csharp-type-name: {name: {regex: '^(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|Lazy|Channel|ThreadLocal|AsyncLocal|StrongBox)$'}}}
     member-declaration:
         any:
             - kind: 'property_declaration, method_declaration, event_declaration'
@@ -135,7 +135,7 @@ rule:
             - has: {kind: attribute_list}
             - has: {kind: explicit_interface_specifier}
             - all:
-                - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
+                - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}}}
                 - has: {kind: modifier, regex: '^public$'}
                 - not: {has: {kind: modifier, regex: '^static$'}}
             - all:

@@ -16,7 +16,7 @@ utils:
 rule:
     all:
         - matches: {msbuild-element: {name: {pattern: _ITEM}}}
-        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^(Update|Remove)$'}, value: {kind: AttValue}}}}}
+        - matches: {msbuild-metadata: {name: {regex: '^(Update|Remove)$'}, value: {kind: AttValue}}}
         - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
         - not: {follows: {stopBy: end, matches: import}}
         - not: {inside: {kind: element, stopBy: end, follows: {stopBy: end, matches: import}}}

@@ -5,7 +5,7 @@ import math
 from typing import ClassVar, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 import gpu
 from gpu_extras.batch import batch_for_shader
 import msgspec
@@ -14,7 +14,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm.blender.data.ids import images
-from rasm.blender.faults import BlenderImagingFault, BlenderResult
+from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResult
 from rasm.blender.ui.drawing.canvas import Align, Canvas, Rect
 from rasm.blender.ui.resources.textures import uploaded
 from rasm.blender.ui.resources.theme import Color, Metrics
@@ -22,7 +22,7 @@ from rasm.imaging.analysis.scopes import Bands, Chromaticity, Histogram
 from rasm.imaging.chain import GREY
 from rasm.imaging.color import observer
 from rasm.imaging.color.processors import applied, DisplayView, processor
-from rasm.imaging.faults import paired
+from rasm.imaging.faults import ImagingFaults, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -245,14 +245,8 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         def traced(found: npt.NDArray[np.intp]) -> gpu.types.GPUBatch:
             """Builds occupied cell centers with logarithmic peak-normalized opacity."""
             alpha = Well.trace[3] * np.log1p(counts[tuple(found.T)]) / np.log1p(counts.max())
-            return batch_for_shader(
-                point_shader,
-                "POINTS",
-                {  # ty: ignore[invalid-argument-type]
-                    "pos": ((found + 0.5) / counts.shape * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32),  # type: ignore[dict-item]
-                    "color": np.column_stack((np.ones((len(found), 3)), alpha)).astype(np.float32),  # type: ignore[dict-item]
-                },
-            )
+            positions = ((found + 0.5) / counts.shape * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
+            return batch_for_shader(point_shader, "POINTS", {"pos": positions, "color": np.column_stack((np.ones((len(found), 3)), alpha)).astype(np.float32)})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
         grid = (*(point for x in tenths[0] for point in ((x, low[1]), (x, low[1] + span[1]))), *(point for y in tenths[1] for point in ((low[0], y), (low[0] + span[0], y))))
         return cls(
@@ -357,12 +351,16 @@ class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
 
         def keyed(view: DisplayView) -> BlenderResult[Option[KeyPlot]]:
             """Builds the key only when the selected view has constant bands."""
-            formation = Bands.of(config, msgspec.structs.replace(view, display=config.getDefaultDisplay()))
-            match formation.tag:
-                case "ok":
-                    return formation.ok.map(lambda held: KeyPlot.of(metrics, held).map(Some)).default_value(Ok(Nothing))
-                case "error":
-                    return Error((BlenderImagingFault(faults=formation.error),))
+
+            def imaged(faults: ImagingFaults) -> BlenderFaults:
+                return (BlenderImagingFault(faults=faults),)
+
+            return (
+                Bands
+                .of(config, msgspec.structs.replace(view, display=config.getDefaultDisplay()))
+                .map_error(imaged)
+                .bind(lambda bands: bands.map(lambda held: KeyPlot.of(metrics, held).map(Some)).default_value(Ok(Nothing)))
+            )
 
         return self.source().bind(lambda view: view.map(keyed).default_value(Ok(Nothing)))
 

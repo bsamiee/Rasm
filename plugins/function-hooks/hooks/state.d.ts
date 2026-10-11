@@ -4,17 +4,19 @@ declare module 'claude-code' {
     interface PluginState {
         'function-hooks': {
             database: Option<Option<string>>;
+            rows: readonly Row[];
             notice: Option<Notice>;
             down: readonly Service[];
-            edits: StateFamily<{ readonly format: readonly string[]; readonly diagnostics: readonly string[] }>;
-            capture: StateFamily<Option<Capture>>;
+            edits: StateFamily<Queue>;
             plan: Plan;
             said: StateFamily<readonly string[]>;
+            logged: readonly string[];
         };
     }
 }
 
 export type Option<A> = { readonly kind: 'some'; readonly value: A } | { readonly kind: 'none' };
+export type Row = Readonly<Record<string, string | number>>;
 
 export interface Notice {
     readonly text: string;
@@ -22,20 +24,13 @@ export interface Notice {
 }
 export interface Service {
     readonly name: string;
-    readonly port: string;
+    readonly label: string;
+}
+export interface Queue {
+    readonly format: readonly string[];
+    readonly diagnostics: readonly string[];
 }
 export interface Plan {
     readonly path: Option<string>;
     readonly taskFile: Option<string>;
-}
-export interface Comparison {
-    readonly changed: number;
-    readonly diff: string;
-    readonly outside: boolean;
-}
-export type Recorded = { readonly kind: 'rhino'; readonly view: string; readonly mode: Option<string>; readonly changed: Option<number> } | { readonly kind: 'blender'; readonly view: string; readonly size: readonly [number, number]; readonly comparison: Option<Comparison> };
-export interface Capture {
-    readonly path: string;
-    readonly record: Option<Recorded>;
-    readonly generation: number;
 }

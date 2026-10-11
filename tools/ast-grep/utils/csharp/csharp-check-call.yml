@@ -2,6 +2,14 @@
 id: csharp-check-call
 language: csharp
 utils:
+    unique-check:
+        matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Unique$'}}}
+    conversion-check:
+        matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|FromResult|Validated)$'}}}
+    guard-name:
+        matches: {csharp-type-name: {name: {regex: '^guard$'}}}
+    io-lift:
+        matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
     plain-arguments:
         kind: argument_list
         not: {has: {stopBy: end, matches: csharp-mutation-call}}
@@ -24,17 +32,17 @@ rule:
                 field: function
                 kind: member_access_expression
                 any:
-                    - all: [{has: {field: name, regex: '^Unique(\s*<.+>)?$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?Callbacks$'}}]
-                    - all: [{has: {field: name, regex: '^(NonEmpty|FromResult|Validated)(\s*<.+>)?$'}}, {has: {field: expression, regex: '^((global::)?Rasm\.Rhino\.)?Conversions$'}}]
+                    - matches: unique-check
+                    - matches: conversion-check
             - has: {field: arguments, matches: plain-arguments}
         - all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?guard(\s*<.+>)?$'}
+            - has: {field: function, matches: guard-name}
             - has: {field: arguments, matches: plain-arguments}
         - all:
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Traverse|TraverseM)(\s*<.+>)?$'}}
             - has: {field: arguments, matches: check-callback}
         - all:
-            - has: {field: function, kind: member_access_expression, regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<.+>)?$'}
+            - has: {field: function, matches: io-lift}
             - has: {field: arguments, any: [{matches: check-callback}, {all: [{matches: lone-argument}, {has: {kind: argument, has: {matches: csharp-check-call}}}]}]}
         - all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(As|ToFin|ToValidation|ToEither)$'}}, {has: {field: expression, matches: csharp-check-call}}]}

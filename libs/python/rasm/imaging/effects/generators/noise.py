@@ -24,7 +24,7 @@ from rasm.imaging.color.processors import basis as color_basis
 from rasm.imaging.faults import accumulated, ImagingGeneratorFault, ImagingMatrixFault, ImagingResult
 from rasm.imaging.parameters import Case, Choice, Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Ramp, Rgb, Seed, Stops
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Fractal(Choice):
@@ -83,13 +83,13 @@ type Basis = Perlin | Voronoi | Wave | Gabor | Magic | White
 type Spectrum = Tint | Incandescence | Gradient
 
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 
 _FIRE_SHORT_SIDE: Final = 9.0 / 16.0
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Cut(msgspec.Struct, frozen=True, kw_only=True):
@@ -116,25 +116,24 @@ class Cut(msgspec.Struct, frozen=True, kw_only=True):
 class Precision(msgspec.Struct, frozen=True, kw_only=True):
     """Caller-selected scrambled Sobol resolution and independent error replicates."""
 
-    power: Annotated[int, msgspec.Meta(ge=0, le=64, title="Samples Exponent", description="Each complete scrambled Sobol net contains 2 to this power observations per support and replicate")]
-    replicates: Annotated[int, msgspec.Meta(ge=2, title="Replicates", description="Independent scrambles used to estimate sampling standard error")]
-    seed: Annotated[Seed, msgspec.Meta(title="Scramble Seed", description="Deterministic seed of the numerical integration scrambles")]
+    power: Annotated[int, msgspec.Meta(ge=0, le=64, title="Samples Exponent", description="Each complete scrambled Sobol net contains 2 to this power observations per support and replicate")] = 6
+    replicates: Annotated[int, msgspec.Meta(ge=2, title="Replicates", description="Independent scrambles used to estimate sampling standard error")] = 4
+    seed: Annotated[Seed, msgspec.Meta(title="Scramble Seed", description="Deterministic seed of the numerical integration scrambles")] = 0
     absolute: Annotated[
         float,
         msgspec.Meta(ge=0.0, le=float_info.max, title="Profile Absolute Tolerance", description="Adaptive angular quadrature target in unit-radius profile area; distinct from pixel sampling error"),
-    ]
+    ] = 1e-4
     relative: Annotated[
         float,
         msgspec.Meta(
             ge=0.0, le=float_info.max, title="Profile Relative Tolerance", description="Adaptive angular quadrature target as a fraction of profile area; attained accuracy is not guaranteed"
         ),
-    ]
+    ] = 1e-3
 
     def points(self, dimensions: int, replicate: int, *, key: tuple[int, ...] = ()) -> npt.NDArray[np.float64]:
         """Returns a complete independently scrambled Sobol net for one replicate."""
         digest = hashlib.blake2b(cbor2.dumps((self.seed, replicate, key), canonical=True), digest_size=16).digest()
-        rng = np.random.Generator(np.random.Philox(key=int.from_bytes(digest, "little")))
-        return qmc.Sobol(dimensions, scramble=True, bits=64, rng=rng).random_base2(self.power)
+        return qmc.Sobol(dimensions, scramble=True, bits=64, rng=np.random.Generator(np.random.Philox(int.from_bytes(digest, "little")))).random_base2(self.power)
 
 
 class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -369,7 +368,7 @@ class NoiseField(Effect, frozen=True, kw_only=True, tag=32):
     seed: Annotated[Seed, msgspec.Meta(title="Seed", description="Field of equal statistics the entry samples")] = 0
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def uniforms(cell: tuple[int, ...], *, seed: int, stream: int = 0, count: int = 4) -> npt.NDArray[np.float64]:
@@ -727,7 +726,7 @@ def _coordinates(points: npt.NDArray[np.float64], size: float, rank: int) -> npt
     return coordinates
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Basis",

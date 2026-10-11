@@ -84,28 +84,28 @@ utils:
                 - has: {field: function, has: {field: name, pattern: $FAIL_CASE}}
                 - has: {field: arguments, has: {nthChild: 1, matches: identity-argument}}
                 - has: {field: arguments, has: {nthChild: 2, matches: fallback-argument}}
-                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Try|IO)\s*<'}}}}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^(Fin|Try|IO)$'}}}}}}}}
             - all:
                 - matches: positional-match
                 - has: {field: function, has: {field: name, pattern: $FAIL_CASE}}
                 - has: {field: arguments, has: {nthChild: 2, matches: identity-argument}}
                 - has: {field: arguments, has: {nthChild: 1, matches: fallback-argument}}
-                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Validation\s*<'}}}}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^Validation$'}}}}}}}}
             - all:
                 - matches: positional-match
                 - has: {field: function, has: {field: name, pattern: $RIGHT_CASE}}
                 - has: {field: arguments, has: {nthChild: 1, matches: identity-argument}}
                 - has: {field: arguments, has: {nthChild: 2, matches: fallback-argument}}
-                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Either\s*<'}}}}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^Either$'}}}}}}}}
             - all:
                 - matches: positional-match
                 - has: {field: function, has: {field: name, pattern: $LEFT_CASE}}
                 - has: {field: arguments, has: {nthChild: 2, matches: identity-argument}}
                 - has: {field: arguments, has: {nthChild: 1, matches: fallback-argument}}
-                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Either\s*<'}}}}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^Either$'}}}}}}}}
             - all:
                 - kind: invocation_expression
-                - has: {field: function, pattern: $CALLEE, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
+                - has: {field: function, pattern: $CALLEE, matches: {csharp-type-name: {name: {regex: '^match$'}}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
                 - has: {field: arguments, has: {nthChild: 1, matches: positional, has: {pattern: $INPUT}}}
                 - any:
@@ -117,7 +117,7 @@ utils:
     match-call:
         any:
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Match$'}}
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^match$'}}}}
     kept-fallback:
         has:
             field: arguments

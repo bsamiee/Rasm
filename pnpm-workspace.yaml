@@ -1,7 +1,6 @@
 # --- [WORKSPACE] ------------------------------------------------------------------------
 packages:
     - 'libs/typescript/*'
-    - 'apps/*'
     - 'apps/*/*'
     - 'tests/typescript/*'
     - 'plugins/*'

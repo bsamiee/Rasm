@@ -1,1 +1,0 @@
-../../.claude/hooks/root-cause.sh

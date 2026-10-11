@@ -10,7 +10,7 @@ from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.compositing.recombination import Terms
 from rasm.imaging.parameters import Case, Choice, Gated, Presentation
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Guides(Choice):
@@ -38,7 +38,7 @@ class Quality(Choice):
     FAST = 4, "Fast"
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Filter(msgspec.Struct, frozen=True, kw_only=True):
@@ -105,6 +105,6 @@ class TemporalDenoise(Effect, frozen=True, kw_only=True, tag=20):
     tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Motion Tolerance", description="Allowed reverse-motion disagreement in pixels")] = 1.0
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Filter", "Frame", "Groups", "Guides", "Passes", "Prefilter", "Quality", "SpatialDenoise", "TemporalDenoise"]

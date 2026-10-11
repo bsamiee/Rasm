@@ -8,7 +8,6 @@ interface Program {
     readonly arities?: ReadonlyMap<string, number>;
     readonly bodies?: readonly string[];
     readonly flags?: readonly string[];
-    readonly ends?: readonly string[];
     readonly leading?: number;
     readonly leadingOptions?: readonly string[];
     readonly recursive?: readonly string[];
@@ -217,97 +216,6 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
         'ast-grep': _AST_GREP,
         sg: _AST_GREP,
-        fd: {
-            valued: [
-                '-C',
-                '--base-directory',
-                '--search-path',
-                '-d',
-                '--max-depth',
-                '--min-depth',
-                '--exact-depth',
-                '-E',
-                '--exclude',
-                '-t',
-                '--type',
-                '-e',
-                '--extension',
-                '-S',
-                '--size',
-                '--changed-within',
-                '--changed-before',
-                '-o',
-                '--owner',
-                '--format',
-                '--batch-size',
-                '--ignore-file',
-                '-c',
-                '--color',
-                '--ignore-contain',
-                '-j',
-                '--threads',
-                '--max-results',
-                '--path-separator',
-                '--and',
-            ],
-            ends: ['-x', '--exec', '-X', '--exec-batch'],
-            leading: 1,
-        },
-        rg: {
-            valued: [
-                '-A',
-                '--after-context',
-                '-B',
-                '--before-context',
-                '-C',
-                '--context',
-                '-d',
-                '--max-depth',
-                '-E',
-                '--encoding',
-                '-e',
-                '--regexp',
-                '-f',
-                '--file',
-                '-g',
-                '--glob',
-                '--iglob',
-                '-j',
-                '--threads',
-                '-M',
-                '--max-columns',
-                '-m',
-                '--max-count',
-                '-r',
-                '--replace',
-                '-t',
-                '--type',
-                '-T',
-                '--type-not',
-                '--type-add',
-                '--type-clear',
-                '--max-filesize',
-                '--color',
-                '--colors',
-                '--sort',
-                '--sortr',
-                '--path-separator',
-                '--pre',
-                '--pre-glob',
-                '--ignore-file',
-                '--dfa-size-limit',
-                '--regex-size-limit',
-                '--engine',
-                '--field-context-separator',
-                '--field-match-separator',
-                '--context-separator',
-                '--hostname-bin',
-                '--hyperlink-format',
-                '--generate',
-            ],
-            leading: 1,
-            leadingOptions: ['-e', '--regexp', '-f', '--file', '--files', '--type-list'],
-        },
         grep: {
             valued: [
                 '-A',
@@ -362,11 +270,6 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
             recursive: ['-r', '-R', '--recursive', '--dereference-recursive'],
             stdin: 'default',
         },
-        du: { valued: ['-B', '-I', '-d', '-t'] },
-        tree: {
-            valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width', '-F', '--classify', '--absolute', '--color', '--colour', '--color-scale', '--color-scale-mode', '--icons', '--hyperlink', '--time-style'],
-        },
-        ls: { valued: ['-D'], recursive: ['-R'] },
         lsof: { valued: ['-c', '-d', '-D', '-f', '-F', '-g', '-i', '-L', '-o', '-p', '-r', '-s', '-S', '-T', '-u', '-x', '+d', '+D'] },
         wait: { valued: ['-p'] },
         cat: { stdin: 'default' },
@@ -447,7 +350,7 @@ const _split = (program: string, args: readonly string[], at: number): Operands 
     const [head, ...rest] = args;
     const flagged = head !== undefined && head !== '-' && head !== '--' && (head.startsWith('-') || (head.startsWith('+') && row.valued?.some((name) => name.startsWith('+')) === true)) && known(program, head);
     const { names, taken, joined } = flagged ? _option(row, head) : { names: [], taken: 0, joined: [] };
-    const tail = head === undefined || head === '--' || names.some((name) => row.ends?.includes(name) === true) ? empty : _split(program, rest.slice(taken), at + 1 + taken);
+    const tail = head === undefined || head === '--' ? empty : _split(program, rest.slice(taken), at + 1 + taken);
     return head === '--'
         ? { ...empty, inputs: rest }
         : {

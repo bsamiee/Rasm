@@ -16,12 +16,12 @@ from rasm.imaging.color.processors import basis, matrix
 from rasm.imaging.faults import ImagingBaseFault, ImagingContrastFault, ImagingResult, ImagingWhiteFault
 from rasm.imaging.parameters import Case, ColorSpace, Finite, Gated, Presentation, Stops
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type DisplayWhite = Annotated[float, msgspec.Meta(ge=0.2, le=16.0), Presentation(soft=Some((0.5, 1.0)), decimals=Some(3))]
 type Curve = Sigmoid | PiecewisePower | Logarithmic | ReinhardExtended
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Sigmoid(Case, frozen=True, kw_only=True, tag=1):
@@ -201,7 +201,7 @@ class Tony(Effect, frozen=True, kw_only=True, tag=49):
     space: ClassVar[str] = "lin_rec709_scene"
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def metered[T: Logarithmic | ReinhardExtended | Hable](curve: T, white: float) -> ImagingResult[T]:
@@ -215,7 +215,7 @@ def metered[T: Logarithmic | ReinhardExtended | Hable](curve: T, white: float) -
     )
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = [

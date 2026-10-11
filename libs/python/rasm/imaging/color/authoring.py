@@ -254,15 +254,14 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def replaced(config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
-            text = config.serialize()
-            try:
-                path = stage / "config.ocio"
-                path.write_text(text, encoding="utf-8", newline="")
-                if folder.exists():
-                    shutil.rmtree(folder)
-                return Ok(stage.rename(folder) / path.name)
-            except OSError as error:
-                return Error((ImagingWriteFault(request=str(folder), error=error),))
+            path = stage / "config.ocio"
+            return (
+                catch(path.write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
+                .bind(lambda _: catch(shutil.rmtree, exception=OSError)(folder).or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error)))
+                .bind(lambda _: catch(stage.rename, exception=OSError)(folder))
+                .map(lambda installed: installed / path.name)
+                .map_error(lambda error: (ImagingWriteFault(request=str(folder), error=error),))
+            )
 
         try:
             folder.parent.mkdir(parents=True, exist_ok=True)

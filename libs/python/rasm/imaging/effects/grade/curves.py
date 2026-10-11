@@ -15,7 +15,7 @@ from rasm.imaging.color.processors import applied
 from rasm.imaging.faults import ImagingCoincidentFault, ImagingCurveFault, ImagingResult, paired
 from rasm.imaging.parameters import Knot
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Axis = Annotated[float, msgspec.Meta(ge=-7.0, le=7.0)]
 type Hue = Annotated[float, msgspec.Meta(ge=0.0, lt=1.0)]
@@ -25,7 +25,7 @@ type Gain = Annotated[float, msgspec.Meta(ge=0.0, le=2.0)]
 type ChannelCurve = Annotated[tuple[Knot[Axis, Axis], ...], msgspec.Meta(min_length=2, max_length=15)]
 type HueCurve[X: float, Y: float] = Annotated[tuple[Knot[X, Y], ...], msgspec.Meta(min_length=2, max_length=8)]
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Curves(Effect, frozen=True, kw_only=True, tag=16):
@@ -102,7 +102,7 @@ class HueCurves(Effect, frozen=True, kw_only=True, tag=17):
         return Ok(Some(PyOpenColorIO.GradingHueCurveTransform(values=self.values(), style=PyOpenColorIO.GRADING_LIN)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def admitted[R: (Curves, HueCurves)](record: R) -> ImagingResult[R]:
@@ -121,21 +121,21 @@ def admitted[R: (Curves, HueCurves)](record: R) -> ImagingResult[R]:
 def sampled(curve: PyOpenColorIO.GradingBSplineCurve, count: int, axis: tuple[float, float]) -> npt.NDArray[np.float32]:
     """Samples a native spline as float32 input/output rows over the supplied axis."""
     transform: PyOpenColorIO.Transform
-    kind = curve.getSplineType()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    if kind == PyOpenColorIO.BSplineType.B_SPLINE:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        transform = PyOpenColorIO.GradingRGBCurveTransform(values=PyOpenColorIO.GradingRGBCurve(master=curve), style=PyOpenColorIO.GRADING_LIN)
-        transform.setBypassLinToLog(True)
-    else:
-        graph = PyOpenColorIO.GradingHueCurve(PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        graph.hue_sat.setSplineType(kind)
-        graph.hue_sat = curve
-        graph.setDrawCurveOnly(True)
-        transform = PyOpenColorIO.GradingHueCurveTransform(values=graph, style=PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    match curve.getSplineType():  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        case PyOpenColorIO.BSplineType.B_SPLINE:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            transform = PyOpenColorIO.GradingRGBCurveTransform(values=PyOpenColorIO.GradingRGBCurve(master=curve), style=PyOpenColorIO.GRADING_LIN)
+            transform.setBypassLinToLog(True)
+        case kind:
+            graph = PyOpenColorIO.GradingHueCurve(PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            graph.hue_sat.setSplineType(kind)
+            graph.hue_sat = curve
+            graph.setDrawCurveOnly(True)
+            transform = PyOpenColorIO.GradingHueCurveTransform(values=graph, style=PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     inputs = np.linspace(*axis, count, dtype=np.float32)
     outputs = applied(PyOpenColorIO.Config().getProcessor(transform).getOptimizedCPUProcessor(PyOpenColorIO.OPTIMIZATION_NONE), np.repeat(inputs[:, np.newaxis], 3, axis=1))[:, 0]
     return np.stack((inputs, outputs), axis=-1)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Axis", "ChannelCurve", "Curves", "Gain", "HsySaturation", "Hue", "HueCurve", "HueCurves", "MappedHue", "admitted", "sampled"]

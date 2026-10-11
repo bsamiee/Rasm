@@ -2,7 +2,7 @@
 id: no-host-override-event-union
 language: csharp
 severity: error
-files: ['libs/**']
+files: ['libs/**/rhino/**']
 utils:
     union-case:
         any:
@@ -41,13 +41,13 @@ utils:
     answered-send:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^(Answer|Succeeded|ToResult)$'}}}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^(Answer|Succeeded|ToResult)$'}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: ran-send}}}
     interface-member:
         all:
             - has: {kind: modifier, regex: '^public$'}
             - not: {has: {kind: modifier, regex: '^static$'}}
-            - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
+            - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}}}
     override-send:
         kind: method_declaration
         all:

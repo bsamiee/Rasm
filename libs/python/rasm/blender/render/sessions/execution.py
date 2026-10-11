@@ -20,10 +20,10 @@ from rasm.blender.commands.calls import called
 from rasm.blender.data.ids.images import filled, intermediate, produced, Production, saved, Tag
 from rasm.blender.data.ids.ownership import Mark, Saved
 from rasm.blender.data.ids.store import Handle
-from rasm.blender.data.rna.descriptors import IdName, written
+from rasm.blender.data.rna.descriptors import IdName, struct_at, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.identity import Identity, Key
-from rasm.blender.faults import BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderWriteFault
+from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderWriteFault
 from rasm.blender.nodes.graphs import End, FileItem, FileItems, Fragment, INPUTS, item_key, node
 from rasm.blender.render.effects.stack import capturing, EffectStack, entered, formation, graphed, Shell, StackEntry, stored_graphs, viewed
 from rasm.blender.render.outputs.formats import Kind, OutputFormat
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Prepared = tuple[Entry[Effect], Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]
+type Staged = tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree, Snapshot, Entry[Effect]]
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -56,7 +57,7 @@ class Execution:
         self.config = PyOpenColorIO.GetCurrentConfig()
         self.scope = ExitStack()
         self.replay: dict[tuple[int, int, str, str], Tile] = {}
-        self.prepared: dict[int, tuple[tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree, Snapshot, Entry[Effect]], ...]] = {}
+        self.prepared: dict[int, tuple[Staged, ...]] = {}
         self.files: set[Path] = set()
         self.sources: tuple[bpy.types.Scene, ...] = ()
 
@@ -68,23 +69,28 @@ class Execution:
         with ExitStack() as scope:
 
             @cache
-            def copied(tree: bpy.types.CompositorNodeTree) -> bpy.types.CompositorNodeTree:
-                result: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                scope.callback(bpy.data.node_groups.remove, result)
-                for live in result.nodes:
-                    if isinstance(live, bpy.types.CompositorNodeGroup) and isinstance(child := live.node_tree, bpy.types.CompositorNodeTree):
-                        live.node_tree = copied(child)
-                    elif isinstance(live, bpy.types.CompositorNodeOutputFile | bpy.types.CompositorNodeViewer):
-                        live.mute = True
-                return result
+            def copied(tree: bpy.types.CompositorNodeTree) -> BlenderResult[bpy.types.CompositorNodeTree]:
+                match tree.copy():
+                    case bpy.types.CompositorNodeTree() as result:
+                        scope.callback(bpy.data.node_groups.remove, result)
+                        for live in result.nodes:
+                            if isinstance(live, bpy.types.CompositorNodeOutputFile | bpy.types.CompositorNodeViewer):
+                                live.mute = True
+                        return accumulated(
+                            copied(child).bind(lambda group: written(live, "node_tree", group))
+                            for live in result.nodes
+                            if isinstance(live, bpy.types.CompositorNodeGroup) and isinstance(child := live.node_tree, bpy.types.CompositorNodeTree)
+                        ).map(lambda _: result)
+                    case _:
+                        return Error((BlenderAbsentFault(owner=repr(tree), key="copy"),))
 
-            def assigned(entry: bpy.types.SceneCompositorEffect, original: bpy.types.CompositorNodeTree, inputs: Snapshot) -> BlenderResult[None]:
-                group = copied(original)
+            def assigned(entry: bpy.types.SceneCompositorEffect, original: bpy.types.CompositorNodeTree, pair: tuple[Snapshot, bpy.types.CompositorNodeTree]) -> BlenderResult[None]:
+                inputs, group = pair
                 scope.callback(self.restored, ((entry, original, inputs),))
-                return written(entry, "node_group", group).bind(lambda _: inputs.apply(entry.properties.inputs).outcome).map(lambda _: None)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                return written(entry, "node_group", group).bind(lambda _: interface(entry)).bind(lambda found: inputs.apply(found).outcome).map(lambda _: None)
 
             yield accumulated(
-                Snapshot.capture(entry.properties.inputs).bind(partial(assigned, entry, tree))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                paired(interface(entry).bind(Snapshot.capture), copied(tree)).bind(partial(assigned, entry, tree))
                 for source in sources
                 for entry in source.compositor_effects
                 if entry.enable_for_render and isinstance(tree := entry.node_group, bpy.types.CompositorNodeTree)
@@ -133,8 +139,7 @@ class Execution:
         width, height, left, bottom, right, top = self.bounds(source)
 
         def plane(layer: Layer) -> BlenderResult[None]:
-            owner = next((name for name in names if layer.name.startswith(f"{name}.")), None)
-            if owner is None:
+            if (owner := next((name for name in names if layer.name.startswith(f"{name}.")), None)) is None:
                 return Ok(None)
             part = file.parts[layer.part]
             view = part.header.get("view", "")
@@ -171,7 +176,7 @@ class Execution:
 
     def formatted(self, tree: bpy.types.NodeTree) -> BlenderResult[None]:
         """Sets full-float data capture with interleaved views and no display conversion."""
-        capture = next(live for live in tree.nodes if Mark.read(self.identity, live).filter(lambda mark: mark.key == "capture_file").is_some())
+        capture = next(live for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeOutputFile) and Mark.read(self.identity, live).filter(lambda mark: mark.key == "capture_file").is_some())
         return (
             OutputFormat
             .of(Output.DATA, Kind.EXR)
@@ -271,7 +276,8 @@ class Execution:
             self.scope.callback(bpy.data.node_groups.remove, group)
             return (
                 written(held.entry, "node_group", group)
-                .bind(lambda _: before.apply(held.entry.properties.inputs).outcome)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                .bind(lambda _: interface(held.entry))
+                .bind(lambda found: before.apply(found).outcome)
                 .bind(lambda _: stored_graphs(self.identity, group, (((), effective.effect, row.record.stage.domain), ((Shell.blend,), effective.blend, row.record.stage.domain))))
                 .bind(
                     lambda _: paired(
@@ -283,13 +289,17 @@ class Execution:
             )
 
         with bpy.context.temp_override(scene=self.scene):
-            return Snapshot.capture(reading.properties.inputs).bind(  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                lambda before: (
-                    accumulated(selected(key) for key in views[0][1][1])
-                    .bind(lambda images: row.grouped(self.identity, self.scene, effective, self.config, entry=Some(held.entry), prepared=True, images=dict(images)))
-                    .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
-                    .bind(lambda group: group.made(self.identity, of=Some(self.scene)))
-                    .bind(lambda group: assigned(group, before))
+            return (
+                interface(reading)
+                .bind(Snapshot.capture)
+                .bind(
+                    lambda before: (
+                        accumulated(selected(key) for key in views[0][1][1])
+                        .bind(lambda images: row.grouped(self.identity, self.scene, effective, self.config, entry=Some(held.entry), prepared=True, images=dict(images)))
+                        .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
+                        .bind(lambda group: group.made(self.identity, of=Some(self.scene)))
+                        .bind(lambda group: assigned(group, before))
+                    )
                 )
             )
 
@@ -298,39 +308,52 @@ class Execution:
     def native(self, properties: Mapping[str, object]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
         """Records the explicit job's output encoding at production, before restoring authored controls."""
         enabled = tuple(held for held in self.stack.held(self.identity, self.scene) if held.entry.enable_for_render) if self.scene.render.use_compositing else ()
-        space: BlenderResult[Option[str]] = Ok(Some(self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()))
-        viewer: BlenderResult[Option[str]] = Ok(Nothing)
-        for held in enabled:
-            entering = space
-            if held.row.is_none():
-                space = Ok(Nothing)
-            elif held.row.value.record is DisplayView:
-                space = space.bind(lambda _: formation.read(self.identity, held.entry).map(lambda record: record.effect.colorspace(self.config).map(lambda found: found.getName())))
-            for tree in Option.of_optional(held.entry.node_group).to_list():
-                for live in tree.nodes:
-                    if not held.entry.is_active or not isinstance(live, bpy.types.CompositorNodeViewer):
-                        continue
-                    for link in live.inputs[0].links:  # type: ignore[index, union-attr]  # ty: ignore[not-iterable, not-subscriptable]
-                        match link.from_node:
-                            case bpy.types.NodeGroupInput():
-                                viewer = entering
-                            case bpy.types.CompositorNodeImage(image=bpy.types.Image() as image) if image.colorspace_settings.is_data:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                                viewer = Ok(Some(image.colorspace_settings.name))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                            case bpy.types.CompositorNodeConvertToDisplay() as display:
-                                viewer = Ok(viewed(display).colorspace(self.config).map(lambda found: found.getName()))
-                            case bpy.types.CompositorNodeConvertColorSpace() as conversion:
-                                viewer = Ok(Some(self.config.getColorSpace(conversion.to_color_space).getName()))
-                            case _:
-                                viewer = space if any(isinstance(edge.to_node, bpy.types.NodeGroupOutput) and edge.from_socket == link.from_socket for edge in tree.links) else Ok(Nothing)
+
+        def routed(tree: bpy.types.NodeTree, link: bpy.types.NodeLink, entering: BlenderResult[Option[str]], space: BlenderResult[Option[str]]) -> BlenderResult[Option[str]]:
+            match link.from_node:
+                case bpy.types.NodeGroupInput():
+                    return entering
+                case bpy.types.CompositorNodeImage(image=bpy.types.Image(colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings(is_data=True, name=name))):
+                    return Ok(Some(name))
+                case bpy.types.CompositorNodeConvertToDisplay() as display:
+                    return Ok(viewed(display).colorspace(self.config).map(lambda found: found.getName()))
+                case bpy.types.CompositorNodeConvertColorSpace() as conversion:
+                    return Ok(Some(self.config.getColorSpace(conversion.to_color_space).getName()))
+                case _:
+                    return space if any(isinstance(edge.to_node, bpy.types.NodeGroupOutput) and edge.from_socket == link.from_socket for edge in tree.links) else Ok(Nothing)
+
+        def stepped(state: tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]], held: StackEntry) -> tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]]:
+            entering, viewer = state
+            space: BlenderResult[Option[str]] = (
+                Ok(Nothing)
+                if held.row.is_none()
+                else entering.bind(lambda _: formation.read(self.identity, held.entry).map(lambda record: record.effect.colorspace(self.config).map(lambda found: found.getName())))
+                if held.row.value.record is DisplayView
+                else entering
+            )
+            shown = (
+                routed(tree, link, entering, space)
+                for tree in Option.of_optional(held.entry.node_group).to_list()
+                if held.entry.is_active
+                for live in tree.nodes
+                if isinstance(live, bpy.types.CompositorNodeViewer)
+                for link in tree.links
+                if link.to_node == live
+            )
+            return space, (viewer, *shown)[-1]
+
+        initial: tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]] = (Ok(Some(self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName())), Ok(Nothing))
+        space, viewer = reduce(stepped, enabled, initial)
         layer = (
             "Composite.Combined"
             if enabled
             else f"{Option.of_optional(properties.get('layer')).bind(lambda value: value if isinstance(value, Option) else Some(value)).default_value(self.scene.view_layers[0].name)}.Combined"
         )
         view = (
-            Nothing
-            if any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in enabled)
-            else Some((viewed(self.scene), self.scene.view_settings.exposure, self.scene.view_settings.gamma))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            Option
+            .of_optional(self.scene.view_settings)
+            .filter(lambda _: not any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in enabled))
+            .map(lambda settings: (viewed(self.scene), settings.exposure, settings.gamma))
         )
 
         def rendered(origins: tuple[Option[str], Option[str]]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
@@ -361,7 +384,7 @@ class Execution:
         """Restores authored pointers before their original native input values."""
         for entry, group, inputs in original:
             entry.node_group = group
-            for faults in inputs.apply(entry.properties.inputs).outcome.swap().to_option().to_list():  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for faults in interface(entry).bind(lambda found: inputs.apply(found).outcome).swap().to_option().to_list():
                 self.identity.reports.hold(faults)
 
     def selected(self, scene: bpy.types.Scene, _graph: bpy.types.Depsgraph | None = None) -> None:
@@ -369,10 +392,14 @@ class Execution:
         if scene.session_uid == self.scene.session_uid:
             for entry, group, inputs, effective in self.prepared[self.scene.frame_current]:
                 entry.node_group = group
-                answer = inputs.apply(entry.properties.inputs).outcome.bind(  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                    lambda _: paired(
-                        entered(self.identity, entry, (), effective.effect, frozenset(graphed(type(effective.effect), value=Some(effective.effect)))),
-                        entered(self.identity, entry, (Shell.blend,), effective.blend),
+                answer = (
+                    interface(entry)
+                    .bind(lambda found: inputs.apply(found).outcome)
+                    .bind(
+                        lambda _: paired(
+                            entered(self.identity, entry, (), effective.effect, frozenset(graphed(type(effective.effect), value=Some(effective.effect)))),
+                            entered(self.identity, entry, (Shell.blend,), effective.blend),
+                        )
                     )
                 )
                 for faults in answer.swap().to_option().to_list():
@@ -399,33 +426,41 @@ class Execution:
         self.scene.frame_set(frame, subframe=subframe)
         name, path, spec = self.raster(frame)
         self.files.add(path)
-        completed: list[tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree, Snapshot, Entry[Effect]]] = []
-        for index, held in enumerate(self.stack.stages(self.identity, self.scene)):
-            declaration = self.output(name, spec, demand=index == 0)
-            if declaration.is_error():
-                return Error(declaration.error)
+        sources = tuple(source for source, _original_engine in engines)
+
+        def prefixed(held: StackEntry, declaration: Fragment) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
             with ExitStack() as capture:
-                for source, _original_engine in engines:
+                for source in sources:
                     capture.enter_context(intermediate(source))
-                isolated = capture.enter_context(self.isolated(tuple(source for source, _original_engine in engines)))
-                leased = capture.enter_context(capturing(self.identity, held.entry, declaration.ok, stop=True))
-                answer = (
-                    isolated.bind(lambda _: leased).bind(lambda entry: self.formatted(entry.node_group)).bind(lambda _: called(bpy.ops.render.render, {"scene": self.scene.name, "write_still": False}))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                isolated = capture.enter_context(self.isolated(sources))
+                leased = capture.enter_context(capturing(self.identity, held.entry, declaration, stop=True))
+                return (
+                    isolated
+                    .bind(lambda _: leased)
+                    .bind(lambda entry: Option.of_optional(entry.node_group).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="node_group"),)))
+                    .bind(self.formatted)
+                    .bind(lambda _: called(bpy.ops.render.render, {"scene": self.scene.name, "write_still": False}))
                 )
-            if answer.is_error():
-                return Error(answer.error)
-            if index == 0:
-                captured = accumulated(self.captured(source, frame) for source, _original_engine in engines)
-                if captured.is_error():
-                    return Error(captured.error)
-                for source, _original_engine in engines:
-                    source.render.engine = engine  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            prepared = self.stage(held, path, spec)
-            if prepared.is_error():
-                return Error(prepared.error)
-            completed.append((held.entry, *prepared.ok))
-        self.prepared[frame] = tuple(completed)
-        return Ok(None)
+
+        def switched(_: tuple[None, ...]) -> None:
+            for source in sources:
+                source.render.engine = engine  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+
+        def staged(index: int, held: StackEntry) -> BlenderResult[Staged]:
+            return (
+                self
+                .output(name, spec, demand=index == 0)
+                .bind(partial(prefixed, held))
+                .bind(lambda _: accumulated(self.captured(source, frame) for source in sources).map(switched) if index == 0 else Ok(None))
+                .bind(lambda _: self.stage(held, path, spec))
+                .map(lambda prepared: (held.entry, *prepared))
+            )
+
+        return reduce(
+            lambda done, pair: done.bind(lambda completed: staged(*pair).map(lambda entry: (*completed, entry))),
+            enumerate(self.stack.stages(self.identity, self.scene)),
+            Result[tuple[Staged, ...], BlenderFaults](ok=()),
+        ).map(lambda completed: self.prepared.update({frame: completed}))
 
     def rendered(self, properties: Mapping[str, object]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
         """Holds all resources through the final native still, animation, or movie output."""
@@ -433,15 +468,13 @@ class Execution:
         pending = deque((scene,))
         found: dict[int, bpy.types.Scene] = {}
         while pending:
-            source = pending.popleft()
-            if source.session_uid in found:
+            if (source := pending.popleft()).session_uid in found:
                 continue
             found[source.session_uid] = source
             trees = deque(entry.node_group for entry in source.compositor_effects if entry.enable_for_render and entry.node_group is not None)
             seen: set[int] = set()
             while trees:
-                tree = trees.popleft()
-                if tree.session_uid in seen:
+                if (tree := trees.popleft()).session_uid in seen:
                     continue
                 seen.add(tree.session_uid)
                 trees.extend(live.node_tree for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeGroup) and not live.mute and live.node_tree is not None)
@@ -460,7 +493,7 @@ class Execution:
         frames = tuple(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)) if animation else (scene.frame_current,)
         at, subframe = scene.frame_current, scene.frame_subframe
         sample = 0.0 if animation else subframe
-        original = accumulated(Snapshot.capture(held.entry.properties.inputs).map(lambda inputs: (held.entry, held.entry.node_group, inputs)) for held in self.stack.stages(self.identity, scene))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        original = accumulated(interface(held.entry).bind(Snapshot.capture).map(lambda inputs: (held.entry, held.entry.node_group, inputs)) for held in self.stack.stages(self.identity, scene))
 
         def completed(engine: str) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
             for source, _original_engine in engines:
@@ -493,6 +526,11 @@ class Execution:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def interface(entry: bpy.types.SceneCompositorEffect) -> "BlenderResult[bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]]":
+    """Resolves the group-generated `properties.inputs` struct, absent while the entry holds no group."""
+    return struct_at(entry, "properties.inputs").to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="properties.inputs"),))
+
+
 def rendered(identity: Identity, stack: EffectStack, scene: bpy.types.Scene, precision: Precision, properties: Mapping[str, object]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
     """Runs numerical stages where present, otherwise invokes the native renderer directly."""
     execution = Execution(identity, stack, scene, precision)
@@ -502,4 +540,4 @@ def rendered(identity: Identity, stack: EffectStack, scene: bpy.types.Scene, pre
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Execution", "rendered"]
+__all__ = ["Execution", "interface", "rendered"]

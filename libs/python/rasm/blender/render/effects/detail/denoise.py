@@ -1,6 +1,3 @@
-# mypy: disable-error-code="attr-defined,union-attr,misc"
-# ty: ignore[unresolved-attribute,invalid-attribute-access]
-
 """Spatial denoiser units and motion-aligned temporal reconstruction."""
 
 from collections.abc import Callable
@@ -12,7 +9,7 @@ from typing import ClassVar, Self
 import bpy
 from expression import Nothing, Option, Some
 import msgspec
-from msgspec import inspect, structs
+from msgspec import structs
 
 from rasm.blender.data.ids.images import ImageFrames, Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
@@ -22,6 +19,7 @@ from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
 from rasm.blender.nodes.graphs import (
     compared,
+    described,
     End,
     ended,
     Fragment,
@@ -97,14 +95,14 @@ class Filters(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls) -> Self:
         """Derives paths from the record's native slot and term metadata."""
-        target = (SpatialDenoise.target.__name__,)
+        target = (SpatialDenoise.target.__name__,)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         return cls(
             target=target,
-            fireflies=(SpatialDenoise.fireflies.__name__,),
-            frame=(*target, Frame, Frame.filter.__name__),
-            terms=Terms(**{field.name: (*target, Passes, Passes.terms.__name__, field.name, Gated.value.__name__) for field in structs.fields(Terms[Gated[Filter]])}),
-            occlusion=(*target, Passes, Passes.occlusion.__name__, Gated.value.__name__),
-            groups=(*target, Groups, Groups.filter.__name__),
+            fireflies=(SpatialDenoise.fireflies.__name__,),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            frame=(*target, Frame, Frame.filter.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            terms=Terms(**{field.name: (*target, Passes, Passes.terms.__name__, field.name, Gated.value.__name__) for field in structs.fields(Terms[Gated[Filter]])}),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+            occlusion=(*target, Passes, Passes.occlusion.__name__, Gated.value.__name__),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+            groups=(*target, Groups, Groups.filter.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
 
     @property
@@ -267,8 +265,8 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
         The unit group with filtered and noisy outputs, or accumulated graph faults.
     """
     image = End(node=INPUTS, socket=COLOR_INPUT.key)
-    fireflies = item_key(SpatialDenoise.fireflies.__name__)
-    guides = next(field for field in structs.fields(Filter) if field.name == Filter.guides.__name__)
+    fireflies = item_key(SpatialDenoise.fireflies.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    guides = next(field for field in structs.fields(Filter) if field.name == Filter.guides.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     joint = Guides.ALBEDO_NORMAL.label
     ring = tuple((float(dx), float(dy), 0.0) for dy in range(-2, 3) for dx in range(-2, 3) if max(abs(dx), abs(dy)) == 2)
     rank = 4
@@ -337,20 +335,20 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
             node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": uv}, {}),
             *(
                 Fragment.joined(
-                    math(f"{key}_{axis}_lower", "GREATER_THAN", end, 0.0),
-                    math(f"{key}_{axis}_upper", "LESS_THAN", end, 1.0),
-                    math(f"{key}_{axis}_inside", "MULTIPLY", End(node=f"{key}_{axis}_lower"), End(node=f"{key}_{axis}_upper")),
+                    math(f"{key}_{axis.lower()}_lower", "GREATER_THAN", end, 0.0),
+                    math(f"{key}_{axis.lower()}_upper", "LESS_THAN", end, 1.0),
+                    math(f"{key}_{axis.lower()}_inside", "MULTIPLY", End(node=f"{key}_{axis.lower()}_lower"), End(node=f"{key}_{axis.lower()}_upper")),
                 )
                 for axis, end in axes.items()
             ),
-            math(f"{key}_valid", "MULTIPLY", *(End(node=f"{key}_{axis}_inside") for axis in axes)),
+            math(f"{key}_valid", "MULTIPLY", *(End(node=f"{key}_{axis.lower()}_inside") for axis in axes)),
         ).map(lambda body: (body, End(node=key, socket="Image"), End(node=f"{key}_valid")))
 
     def limited(luminance: Operand, fourth: Operand, enough: Operand) -> BlenderResult[tuple[Fragment, End]]:
         return Fragment.joined(
             math("ratio", "DIVIDE", fourth, luminance),
             paired(
-                math("limit", "MULTIPLY", fourth, End(node=INPUTS, socket=item_key(fireflies, Gated.value.__name__))).bind(lambda limit: math("spike", "GREATER_THAN", luminance, limit)),
+                math("limit", "MULTIPLY", fourth, End(node=INPUTS, socket=item_key(fireflies, Gated.value.__name__))).bind(lambda limit: math("spike", "GREATER_THAN", luminance, limit)),  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
                 compared("lit", "GREATER_EQUAL", luminance, 0.0001),
             )
             .bind(lambda flags: math("positive_spike", "MULTIPLY", *flags))
@@ -374,7 +372,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
                 "albedo",
                 "RGBA",
                 End(node=INPUTS, socket=guides.name),
-                MenuItems.of(inspect.type_info(guides.type)),
+                MenuItems.of(Guides, described(guides.type)),
                 {Guides.ALBEDO.label: End(node=INPUTS, socket="albedo"), joint: End(node=INPUTS, socket="albedo")},
             ),
             "Normal": switched("normal", "VECTOR", End(node="albedo", socket=joint), (0.0, 0.0, 0.0), End(node=INPUTS, socket="normal")),
@@ -385,7 +383,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
                 lambda ends: node(
                     "denoise",
                     bpy.types.CompositorNodeDenoise,
-                    {**dict(zip(routes, ends)), "HDR": True, "Prefilter": End(node=INPUTS, socket=Filter.prefilter.__name__), "Quality": End(node=INPUTS, socket=Filter.quality.__name__)},
+                    {**dict(zip(routes, ends)), "HDR": True, "Prefilter": End(node=INPUTS, socket=Filter.prefilter.__name__), "Quality": End(node=INPUTS, socket=Filter.quality.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     {},
                 )
             )
@@ -414,10 +412,10 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
 
 def unit(key: Key, group: NodeGroup, path: KeyPath, socket: Callable[[Key], End], source: Operand, pair: Pair) -> BlenderResult[tuple[Fragment, End]]:
     """Builds one unit from its filter path, guide ends, and firefly controls."""
-    fireflies = SpatialDenoise.fireflies.__name__
+    fireflies = SpatialDenoise.fireflies.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     controls = {
         **{field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)},
-        **{held: socket(held) for held in (item_key(fireflies), item_key(fireflies, Gated.value.__name__))},
+        **{held: socket(held) for held in (item_key(fireflies), item_key(fireflies, Gated.value.__name__))},  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
     }
     return nested(key, group, {COLOR_INPUT.key: source, "albedo": pair.albedo, "normal": pair.normal, **controls}, COLOR_RESULT.key)
 

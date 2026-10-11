@@ -5,14 +5,12 @@ severity: error
 files: ['**/*.csproj', '**/*.props']
 rule:
     pattern: _TARGET
-    matches: {msbuild-element: {name: {regex: '^Target$'}}}
-    has:
-        matches: msbuild-tag
-        has:
-            matches:
-                msbuild-attribute:
-                    name: {regex: '^Name$'}
-                    value: {regex: '(?i)^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Target$'}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^Name$'}
+                value: {regex: '(?i)^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
 rewriters:
     - id: rename
       rule:

@@ -1,5 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
 """Native menus compiled from ordered rows or context-selected keyed content."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable, Mapping
@@ -7,7 +5,7 @@ from contextlib import contextmanager, ExitStack
 from enum import Enum
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 from msgspec import inspect
 
@@ -145,11 +143,11 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
         """Resolves selected settings once into capture, match, and apply policies."""
 
         def listed(selected: tuple[Descriptor, ...]) -> Listing[Snapshot]:
-            def captured(context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.bpy_struct, Snapshot]]:
+            def captured(context: bpy.types.Context) -> "BlenderResult[tuple[bpy.types.bpy_struct[object], Snapshot]]":
                 return (
                     root_in(self.scope.owner_type, context)
                     .map(lambda owner: Snapshot.capture(owner, Some(selected)).map(lambda snapshot: (owner, snapshot)))
-                    .default_with(lambda: Result[tuple[bpy.types.bpy_struct, Snapshot], BlenderFaults](error=(BlenderAbsentFault(owner="bpy.context", key=self.scope.owner_type.__name__),)))
+                    .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key=self.scope.owner_type.__name__),)))
                 )
 
             def finished(outcomes: tuple[Applied, ...]) -> Done:
@@ -227,7 +225,8 @@ def registered(
         paint = heading.map(lambda held: searched(draw, held)).default_value(draw)
 
         def shown(menu: bpy.types.Menu, context: bpy.types.Context) -> None:
-            paint(menu.layout, context)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            for layout in Option.of_optional(menu.layout).to_list():
+                paint(layout, context)
 
         return type(
             name,

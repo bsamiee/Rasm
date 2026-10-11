@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,misc"
-# ty: ignore[invalid-attribute-access,unresolved-attribute]
 """Native whole-frame scatter, spectral diffraction, ghosts, and film halation."""
 
 import bpy
@@ -51,7 +49,7 @@ def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
         Bloomed light and graph, or native construction and acquisition faults.
     """
     dirt = shell.record.dirt.value.specks
-    path = (Bloom.dirt.__name__, Gated.value.__name__)
+    path = (Bloom.dirt.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
     content = content_hash(Specks, shell.record.dirt, arrays=tuple(np.asarray(frame.size[::-1], dtype=np.int64) for _, frame in shell.context.to_list()), providers=(np,))
 
     def plane() -> BlenderResult[Option[npt.NDArray[np.float32]]]:
@@ -73,7 +71,7 @@ def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda info: node("sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("dimensions", "Dimensions")(info)}, {}))
             .bind(lambda sides: math("smaller", "MINIMUM", ended("sides", "X")(sides), End(node="sides", socket="Y")))
         )
-        size = paired(pixels("span", frame, shell.socket(Bloom.size.__name__)), smaller).bind(lambda spans: math("size", "DIVIDE", *spans))
+        size = paired(pixels("span", frame, shell.socket(Bloom.size.__name__)), smaller).bind(lambda spans: math("size", "DIVIDE", *spans))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         mean = size.bind(
             lambda size: node(
                 "mean",
@@ -83,13 +81,13 @@ def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
             )
         ).map(ended("mean", "Glare"))
 
-        scatter = shell.socket(Bloom.scatter.__name__)
+        scatter = shell.socket(Bloom.scatter.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         clean = mean.bind(lambda mean: mixed("scatter", "VECTOR", scatter, shell.source, mean))
-        gain = math("dirt_gain", "MULTIPLY", scatter, shell.socket(*path, Dirt.strength.__name__))
+        gain = math("dirt_gain", "MULTIPLY", scatter, shell.socket(*path, Dirt.strength.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         light = mean.bind(lambda mean: vector("dirt_light", "MULTIPLY", mean, field))
         gained = paired(light, gain).bind(lambda parts: vector("dirt_gained", "SCALE", *parts))
         dirtied = paired(clean, gained).bind(lambda parts: vector("dirt_added", "ADD", *parts))
-        return paired(clean, dirtied).bind(lambda parts: switched("result", "VECTOR", shell.socket(Bloom.dirt.__name__), *parts))
+        return paired(clean, dirtied).bind(lambda parts: switched("result", "VECTOR", shell.socket(Bloom.dirt.__name__), *parts))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     return paired(framed("frame", shell.source, shell.aspect, shell.scale), field).bind(lambda parts: scattered(*parts))
 
@@ -144,18 +142,18 @@ def glared(shell: Shell[Glare]) -> BlenderResult[tuple[Fragment, End]]:
                 "Highlights Threshold": 0.0,
                 "Highlights Smoothness": 0.0,
                 "Clamp Highlights": False,
-                "Size": shell.socket(Glare.veil.__name__, Gated.value.__name__),
+                "Size": shell.socket(Glare.veil.__name__, Gated.value.__name__),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
             },
             {},
         )
         .map(ended("veil", "Glare"))
-        .bind(lambda spread: switched("veiled", "RGBA", shell.socket(Glare.veil.__name__), shell.source, spread))
+        .bind(lambda spread: switched("veiled", "RGBA", shell.socket(Glare.veil.__name__), shell.source, spread))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     )
     return paired(veil, kernel).bind(
         lambda parts: (
             node("diffraction", bpy.types.CompositorNodeConvolve, {"Image": parts[0], "Kernel Data Type": "Color", "Color Kernel": parts[1], "Normalize Kernel": False}, {})
             .map(ended("diffraction", "Image"))
-            .bind(lambda spread: switched("result", "RGBA", shell.socket(Glare.aperture.__name__), parts[0], spread))
+            .bind(lambda spread: switched("result", "RGBA", shell.socket(Glare.aperture.__name__), parts[0], spread))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
     )
 
@@ -177,12 +175,12 @@ def flared(shell: Shell[Flares]) -> BlenderResult[tuple[Fragment, End]]:
                 "Image": shell.source,
                 "Type": "Ghosts",
                 "Quality": "High",
-                "Highlights Threshold": shell.socket(Flares.highlights.__name__, Highlights.threshold.__name__),
-                "Highlights Smoothness": shell.socket(Flares.highlights.__name__, Highlights.smoothness.__name__),
+                "Highlights Threshold": shell.socket(Flares.highlights.__name__, Highlights.threshold.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                "Highlights Smoothness": shell.socket(Flares.highlights.__name__, Highlights.smoothness.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 "Clamp Highlights": False,
-                "Strength": shell.socket(Flares.strength.__name__),
-                "Iterations": shell.socket(Flares.iterations.__name__),
-                "Color Modulation": shell.socket(Flares.color_modulation.__name__),
+                "Strength": shell.socket(Flares.strength.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                "Iterations": shell.socket(Flares.iterations.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                "Color Modulation": shell.socket(Flares.color_modulation.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             },
             {},
         )
@@ -200,13 +198,13 @@ def halated(shell: Shell[Halation]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         The re-exposed image and graph, or accumulated native construction faults.
     """
-    highlights = keyed("key", shell.source, shell.socket(Halation.highlights.__name__, Highlights.threshold.__name__), shell.socket(Halation.highlights.__name__, Highlights.smoothness.__name__))
-    size = framed("frame", shell.source, shell.aspect, shell.scale).bind(lambda frame: pixels("radius", frame, shell.socket(Halation.radius.__name__), kind="VECTOR"))
+    highlights = keyed("key", shell.source, shell.socket(Halation.highlights.__name__, Highlights.threshold.__name__), shell.socket(Halation.highlights.__name__, Highlights.smoothness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    size = framed("frame", shell.source, shell.aspect, shell.scale).bind(lambda frame: pixels("radius", frame, shell.socket(Halation.radius.__name__), kind="VECTOR"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return (
         paired(highlights, size)
         .bind(lambda parts: node("halo", bpy.types.CompositorNodeBlur, {"Image": parts[0], "Size": parts[1], "Type": "Gaussian"}, {}))
         .map(ended("halo", "Image"))
-        .bind(lambda halo: vector("film_response", "MULTIPLY", halo, shell.socket(Halation.color.__name__)))
+        .bind(lambda halo: vector("film_response", "MULTIPLY", halo, shell.socket(Halation.color.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         .bind(lambda response: mixed("result", "RGBA", 1.0, shell.source, response, "ADD"))
     )
 

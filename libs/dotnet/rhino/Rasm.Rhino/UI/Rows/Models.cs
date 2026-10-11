@@ -44,9 +44,12 @@ public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<R
         from found in IO.lift(() => Optional(doc.RuntimeData.TryGetValue<LiveModel<TState>>(this)))
         from live in found.Match(
             Some: static held => IO.pure(held),
-            None: () => read(doc).Bind(initial => IO.lift(() => doc.RuntimeData.GetValue(this, _ => new LiveModel<TState>(initial)))))
+            None: () => Registered(doc))
         from shown in live.Show(read(doc), retain)
         select live;
+
+    private IO<LiveModel<TState>> Registered(RhinoDoc doc) =>
+        read(doc).Bind(initial => IO.lift(() => doc.RuntimeData.GetValue(this, _ => new LiveModel<TState>(initial))));
 
     private IO<Unit> Refresh(HashMap<Option<uint>, Unit> marked) =>
         from docs in IO.lift(() => toSeq(marked.Keys).Exists(static serial => serial.IsNone)

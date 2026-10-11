@@ -39,7 +39,7 @@ class Status(Line, frozen=True, kw_only=True):
                 case "OPERATOR":
                     return "CHECKMARK", False
 
-        def draw(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, _context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        def draw(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
             layout.template_reports_banner()
             for kind, text in identity.reports.entries:
                 icon, alert = marked(kind)

@@ -10,10 +10,8 @@ type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly 
 
 interface Host {
     readonly scan: Scanner;
-    readonly repo: () => Promise<Option<string>>;
+    readonly root: () => Promise<Option<string>>;
     readonly exists: (path: string) => Promise<boolean>;
-    readonly real: (path: string) => Promise<Option<string>>;
-    readonly home: () => Promise<Option<string>>;
 }
 interface GitRow {
     readonly reason: string;
@@ -46,21 +44,9 @@ interface Rewrite {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _CLOUD = 'Library/CloudStorage';
 const _WORKTREE = 'creates a second checkout with its own metadata and sync cost. Work in the main checkout';
-const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
-const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
-const _TRAILING = /\/$/u;
 const _BINLOG = /^(?:--?|\/)(?:bl|binarylogger)(?::|$)/iu;
-const _NX_ENTRY = /(?:^|\/)nx\/bin\/nx(?:\.js)?$/u;
-const _DOTNET: ReadonlyMap<string, string> = new Map(
-    Object.entries({
-        build: 'compiles outside the Nx task graph and its cache. Run nx run <project>:build, -- forwarding MSBuild switches and --skip-nx-cache forcing the run, then read the binary log under .artifacts/dotnet/binlog/ through the binlog MCP',
-        test: 'runs tests outside the Nx task graph and its cache. Run nx run <project>:test',
-        format: 'checks or rewrites files outside the Nx task graph. Run nx run rasm:lint:dotnet-format to check or nx run rasm:format to write',
-    }),
-);
 const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
     [/^project\.json$/u, 'package.json'],
     [/^\.nxignore$/u, '.gitignore'],
@@ -212,82 +198,28 @@ const _subcommand = (invocation: Invocation): Option<string> => {
     return program !== 'dotnet' || subcommand === undefined || _informational(program, operands(invocation).options) ? none : some(subcommand);
 };
 
-const _dotnet = (commands: readonly Command[]): readonly string[] =>
-    commands
+const _dotnet = (commands: readonly Command[], project: string): readonly string[] => {
+    const reasons: ReadonlyMap<string, string> = new Map(
+        Object.entries({
+            build: 'compiles outside the Nx task graph and its cache. Run nx run <project>:build, -- forwarding MSBuild switches and --skip-nx-cache forcing the run, then read the binary log under .artifacts/dotnet/binlog/ through the binlog MCP',
+            test: 'runs tests outside the Nx task graph and its cache. Run nx run <project>:test',
+            format: `checks or rewrites files outside the Nx task graph. Run nx run ${project}:lint:dotnet-format to check or nx run ${project}:format to write`,
+        }),
+    );
+    return commands
         .flatMap((command) => command.invocations)
         .flatMap((invocation) => {
             const subcommand = _subcommand(invocation);
-            const reason = subcommand.kind === 'some' ? _DOTNET.get(subcommand.value) : undefined;
+            const reason = subcommand.kind === 'some' ? reasons.get(subcommand.value) : undefined;
             return subcommand.kind === 'none' || reason === undefined ? [] : [`dotnet ${subcommand.value} ${reason}`];
         });
-
-// --- [WALK]
-
-const _starts = (invocation: Invocation): readonly string[] => {
-    const [program, ...args] = invocation;
-    const { inputs, options, values } = operands(invocation);
-    const here = (words: readonly string[]): readonly string[] => (words.length === 0 ? ['.'] : words);
-    const given = (names: readonly string[]): readonly string[] => values.flatMap(([name, value]) => (names.includes(name) ? [value] : []));
-    const recursive = (): readonly string[] => (options.some((name) => declared(program).recursive?.includes(name) === true) ? here(inputs) : []);
-    const walkers: ReadonlyMap<string, () => readonly string[]> = new Map(
-        Object.entries({
-            fd: () => here([...inputs, ...given(['-C', '--base-directory', '--search-path'])]),
-            find: () => {
-                const primary = args.findIndex((word) => _PRIMARY.test(word));
-                return here(operands([program, ...args.slice(0, primary < 0 ? args.length : primary)]).inputs);
-            },
-            rg: () => here(inputs),
-            grep: () => (given(['-d', '--directories']).includes('recurse') ? here(inputs) : recursive()),
-            du: () => here(inputs),
-            tree: () => here(inputs),
-            ls: recursive,
-            lsof: () => given(['+D']),
-        } satisfies Record<string, () => readonly string[]>),
-    );
-    return walkers.get(program)?.() ?? [];
-};
-
-const _located = async (real: Host['real'], path: string): Promise<Option<string>> => {
-    const cut = path.lastIndexOf('/');
-    const own = await real(path);
-    const found = own.kind === 'some' ? own : await real(cut < 0 ? '.' : path.slice(0, cut + 1)).then((folder) => (folder.kind === 'some' ? some(`${folder.value.replace(_TRAILING, '')}/${path.slice(cut + 1)}`) : none));
-    return found.kind === 'some' ? some(`${found.value.replace(_TRAILING, '')}/`) : none;
-};
-
-const _descends = (invocation: Invocation, cloud: string, places: ReadonlyMap<string, string>): boolean => {
-    const folders = _starts(invocation).flatMap((word) => places.get(word) ?? []);
-    const excluded = invocation.some((word) => word.includes(basename(_CLOUD)));
-    return folders.some((folder) => folder.startsWith(cloud)) || (!excluded && folders.some((folder) => cloud.startsWith(folder)));
-};
-
-const _walk = async (real: Host['real'], home: string, commands: readonly Command[]): Promise<readonly string[]> => {
-    const starts = commands.flatMap((command) => command.invocations).flatMap(_starts);
-    const [cloud, located] = await Promise.all([
-        _located(real, `${home}/${_CLOUD}`),
-        Promise.all(
-            starts.map(
-                async (word) =>
-                    [
-                        word,
-                        await _located(
-                            real,
-                            word.replace(_HOME, () => home),
-                        ),
-                    ] as const,
-            ),
-        ),
-    ]);
-    const places = new Map(located.flatMap(([word, place]) => (place.kind === 'some' ? [[word, place.value] as const] : [])));
-    return cloud.kind === 'none'
-        ? []
-        : commands.flatMap((command) => (command.invocations.some((invocation) => _descends(invocation, cloud.value, places)) ? [`${command.words.join(' ')} descends into ~/${_CLOUD}. Dataless cloud placeholders there hang walkers on the file provider. Start outside ~/${_CLOUD} or exclude ${basename(_CLOUD)}`] : []));
 };
 
 // --- [REWRITE]
 
 const _quoted = (text: string): string => `'${text.replaceAll("'", "'\\''")}'`;
 
-const _sourceWrites = (commands: readonly Command[]): readonly Splice[] => {
+const _sourceWrites = (commands: readonly Command[], project: string): readonly Splice[] => {
     const modes = ['-U', '--update-all', '-i', '--interactive'];
     const calls = commands.flatMap((command) => command.invocations.map((invocation, index) => ({ command, invocation, at: offset(command, index), parsed: operands(invocation) })));
     const writers = calls.filter(({ invocation, parsed }) => (invocation[0] === 'ast-grep' || invocation[0] === 'sg') && parsed.inputs[0] === 'scan' && parsed.options.some((option) => modes.includes(option)) && !parsed.options.includes('--stdin'));
@@ -295,7 +227,7 @@ const _sourceWrites = (commands: readonly Command[]): readonly Splice[] => {
         const start = command.spans[at];
         const scan = command.spans[at + 1];
         const interactive = parsed.options.includes('-i') || parsed.options.includes('--interactive');
-        return start === undefined || scan === undefined ? [] : [{ start: start.start, end: scan.end, text: `mise exec -- nx run rasm:rewrite${interactive ? ' --args=-i' : ''} --` }];
+        return start === undefined || scan === undefined ? [] : [{ start: start.start, end: scan.end, text: `nx run ${project}:rewrite${interactive ? ' --args=-i' : ''} --` }];
     });
     const positions = writers.flatMap(({ command, at, parsed }) => parsed.positions.map(({ at: position, names }) => ({ span: command.spans[at + position], names })));
     const flags = positions
@@ -330,28 +262,6 @@ const _sd = (command: Command): readonly (Splice & { readonly option: '-A' | '--
                   ];
               });
 
-const _managed = (command: Command): boolean => command.invocations.some(([program]) => program === 'mise');
-const _runsNx = (invocation: Invocation): boolean =>
-    invocation[0] === 'nx' ||
-    (invocation[0] === 'node' &&
-        operands(invocation)
-            .inputs.slice(0, 1)
-            .some((entry) => _NX_ENTRY.test(entry)));
-
-const _nx = (commands: readonly Command[]): readonly Splice[] => [
-    ...new Map(
-        commands.flatMap((command, position) => {
-            const root = commands.slice(0, position + 1).findLast((other) => !other.nested);
-            const index = command.invocations.findIndex(_runsNx);
-            const prior = command.invocations[index - 1]?.[0];
-            const launched = !command.nested && prior !== undefined && ['npx', 'npm', 'pnpm'].includes(prior);
-            const from = command.nested ? root?.spans[0] : command.spans[offset(command, launched ? index - 1 : index)];
-            const to = command.spans[offset(command, index)];
-            return index < 0 || _managed(command) || root === undefined || _managed(root) || from === undefined || to === undefined ? [] : [[from.start, { start: from.start, end: launched ? to.start : from.start, text: 'mise exec -- ' }] as const];
-        }),
-    ).values(),
-];
-
 const _builds = (command: Command): readonly Build[] =>
     command.nested
         ? []
@@ -361,22 +271,32 @@ const _builds = (command: Command): readonly Build[] =>
               return subcommand.kind === 'none' || !['publish', 'pack', 'msbuild'].includes(subcommand.value) || invocation.slice(2).some((word) => _BINLOG.test(word)) || named === undefined ? [] : [{ at: named.end, subcommand: subcommand.value }];
           });
 
-const _rewrite = (commands: readonly Command[], text: string, root: Option<string>, id: string): Option<Rewrite> => {
+const _fd = (command: Command): readonly Splice[] =>
+    command.nested
+        ? []
+        : command.invocations.flatMap((invocation, index) => {
+              const flags = operands(invocation).positions.flatMap(({ names }) => names);
+              const run = flags.findIndex((name) => ['-x', '-X', '--exec', '--exec-batch'].includes(name));
+              const named = command.spans[offset(command, index)];
+              return invocation[0] !== 'fd' || named === undefined || flags.slice(0, run < 0 ? flags.length : run).some((name) => ['-H', '--hidden', '-u', '--unrestricted', '--help', '-h', '--version'].includes(name)) ? [] : [{ start: named.end, end: named.end, text: ' --hidden' }];
+          });
+
+const _rewrite = (commands: readonly Command[], text: string, root: Option<string>, id: string, project: string): Option<Rewrite> => {
     const actions = { '-A': 'Pass -A on a find holding a line break', '--': 'Pass -- before a find opening with -' } as const;
     const sd = commands.flatMap(_sd);
+    const fd = commands.flatMap(_fd);
     const added = [...new Set(sd.map(({ option }) => option))];
-    const unmanaged = _nx(commands);
-    const writers = _sourceWrites(commands);
+    const writers = _sourceWrites(commands, project);
     const builds = root.kind === 'none' ? [] : commands.flatMap(_builds).map(({ at, subcommand }, index) => ({ at, path: `${root.value}/.artifacts/dotnet/binlog/${subcommand}-${id}-${index + 1}.binlog` }));
     const notes: readonly (readonly [notice: string, ...actions: string[]])[] = [
         ...(sd.length === 0 ? [] : [[`sd ran with ${added.join(' and ')} added`, ...added.map((option) => actions[option])] as const]),
-        ...(unmanaged.length === 0 ? [] : [['nx ran under mise exec', 'Call nx as mise exec -- nx'] as const]),
         ...(builds.length === 0 ? [] : [['dotnet ran with -bl added', `Diagnose a failed build from ${builds.map(({ path }) => path).join(' and ')} with the dotnet-msbuild-diagnostics skill`] as const]),
-        ...(writers.length === 0 ? [] : [['ast-grep writes run through rasm:rewrite', 'Nx owns rewrite execution and source exclusion'] as const]),
+        ...(writers.length === 0 ? [] : [[`ast-grep writes run through ${project}:rewrite`, 'Nx owns rewrite execution and source exclusion'] as const]),
+        ...(fd.length === 0 ? [] : [['fd ran with --hidden added, it skips dot-folders without it'] as const]),
     ];
     const bytes = new TextEncoder().encode(text);
     const decoder = new TextDecoder();
-    const spliced = [...sd, ...unmanaged, ...writers, ...builds.map(({ at, path }) => ({ start: at, end: at, text: ` -bl:${_quoted(path)}` }))]
+    const spliced = [...sd, ...writers, ...fd, ...builds.map(({ at, path }) => ({ start: at, end: at, text: ` -bl:${_quoted(path)}` }))]
         .toSorted((left, right) => left.start - right.start)
         .reduce<{ readonly at: number; readonly pieces: readonly string[] }>((head, { start, end, text: inserted }) => ({ at: end, pieces: [...head.pieces, decoder.decode(bytes.subarray(head.at, start)), inserted] }), { at: 0, pieces: [] });
     return notes.length === 0
@@ -390,28 +310,27 @@ const _rewrite = (commands: readonly Command[], text: string, root: Option<strin
 
 // --- [DECISION]
 
-const _refusal = async (host: Host, tool: 'Bash' | 'Monitor', script: Script, walkPolicy: boolean): Promise<Option<string>> => {
+const _refusal = async (host: Host, tool: 'Bash' | 'Monitor', script: Script, project: string): Promise<Option<string>> => {
     const { commands } = script;
     const calls = _calls(commands);
     const named = calls.flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
-    const [existing, home] = await Promise.all([Promise.all(named.map(async (path) => ((await host.exists(path)) ? [path] : []))), walkPolicy && tool === 'Bash' ? host.home() : none]);
-    const walked = home.kind === 'some' ? await _walk(host.real, home.value, commands) : [];
-    const reasons = [_git(calls, existing.flat()), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script), _dotnet(commands)] : []), walked].find((found) => found.length > 0);
+    const existing = await Promise.all(named.map(async (path) => ((await host.exists(path)) ? [path] : [])));
+    const reasons = [_git(calls, existing.flat()), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script), _dotnet(commands, project)] : [])].find((found) => found.length > 0);
     return reasons === undefined ? none : some([...new Set(reasons)].join('. '));
 };
 
-const _allowed = async (host: Host, tool: 'Bash' | 'Monitor', commands: readonly Command[], text: string, id: string): Promise<Decision> => {
-    const root = tool === 'Bash' && commands.some((command) => _builds(command).length > 0) ? await host.repo() : none;
-    return { kind: 'allow', rewrite: _rewrite(commands, text, root, id) };
+const _allowed = async (host: Host, tool: 'Bash' | 'Monitor', commands: readonly Command[], text: string, id: string, project: string): Promise<Decision> => {
+    const root = tool === 'Bash' && commands.some((command) => _builds(command).length > 0) ? await host.root() : none;
+    return { kind: 'allow', rewrite: _rewrite(commands, text, root, id, project) };
 };
 
-const commandDecision = async (host: Host, tool: 'Bash' | 'Monitor', command: string, id: string, walkPolicy: boolean): Promise<Decision> => {
+const commandDecision = async (host: Host, tool: 'Bash' | 'Monitor', command: string, id: string, project: string): Promise<Decision> => {
     const parsed = await parse(host.scan, command);
     if (parsed.kind === 'fault') {
         return { kind: 'deny', reason: `command not parsed, ${rendered(parsed.faults)}` };
     }
-    const refusal = await _refusal(host, tool, parsed.value, walkPolicy);
-    return refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : _allowed(host, tool, parsed.value.commands, command, id);
+    const refusal = await _refusal(host, tool, parsed.value, project);
+    return refusal.kind === 'some' ? { kind: 'deny', reason: refusal.value } : _allowed(host, tool, parsed.value.commands, command, id, project);
 };
 
 const pathRefusal = (paths: readonly string[]): Option<string> => {
@@ -423,5 +342,5 @@ const worktreeRefusal = (tool: 'EnterWorktree' | 'Agent'): string => `${tool ===
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Decision, Host, Rewrite };
+export type { Decision, Host };
 export { commandDecision, pathRefusal, worktreeRefusal };

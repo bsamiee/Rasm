@@ -1,4 +1,4 @@
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 globalThis.JOB_TYPE = {
     description: 'Render frame chunks with task dependencies',
@@ -6,7 +6,7 @@ globalThis.JOB_TYPE = {
     settings: [{ description: 'Installed extension command for frame rendering', key: 'render_command', required: true, type: 'string', visible: 'web' }],
 };
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 globalThis.compileJob = (job) => {
     const tasks = job.settings.jobs.map((entry, part) =>

@@ -6,7 +6,7 @@ from enum import auto, Enum
 from functools import partial
 import math
 from pathlib import Path
-from typing import Annotated, TYPE_CHECKING
+from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -26,6 +26,7 @@ from rasm.blender.render.previews.queue import Job, PreviewQueue, Rank
 from rasm.blender.render.previews.scenes import Chain
 from rasm.blender.render.previews.tiles import Tiles
 from rasm.blender.render.review.frames import Before, editor, Wipe
+from rasm.blender.settings.attachments import Attached, Attachment
 from rasm.blender.ui.drawing.canvas import Canvas, Rect
 from rasm.blender.ui.drawing.handlers import Drawing, Overlay, Signal
 from rasm.blender.ui.layout.rows import Line, OperatorButton, realized, RowDraw
@@ -67,7 +68,7 @@ THUMBNAIL_SIDE = (32.0, 256.0)
 
 
 class BrowserLayout(msgspec.Struct, frozen=True, kw_only=True):
-    """Per-section layout, with disabled size fitting the available browser width."""
+    """Screen's browser layout, with disabled size fitting the available browser width."""
 
     mode: BrowserMode = BrowserMode.GRID
     size: Gated[Annotated[float, msgspec.Meta(ge=THUMBNAIL_SIDE[0], le=THUMBNAIL_SIDE[1])]] = Gated(enabled=False, value=128.0)
@@ -83,15 +84,14 @@ class Demand[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=Fa
 
 
 class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
-    """One existing preset listing with caller-owned recipes and native preferences."""
+    """One existing preset listing with caller-owned recipes and the screen's layout."""
 
+    layouts: ClassVar[Attachment[BrowserLayout]] = Attachment(key="browser_layout", form=BrowserLayout, owner=bpy.types.Screen)
     listing: Listing[T]
     tiles: Tiles
     candidate: Callable[[Identity, bpy.types.Context, T, Option[npt.NDArray[np.float32]]], BlenderResult[Chain]]
     observed: Callable[[bpy.types.Context], BlenderResult[tuple[Hashable, Callable[[tuple[T, ...]], BlenderResult[tuple[bool, ...]]]]]]
     main: AreaQuery
-    layout: Callable[[Identity], BlenderResult[BrowserLayout]]
-    stored: Callable[[Identity, BrowserLayout], BlenderResult[None]]
 
     @property
     def key(self) -> str:
@@ -108,9 +108,8 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             )
             at = Result[tuple[bpy.types.Window, bpy.types.Area], BlenderFaults].bind(origin, lambda pair: RegionView.of(Located(window=pair[0], area=pair[1])))
 
-            def acquired(values: tuple[RegionView, BrowserLayout]) -> BlenderResult[Session[T]]:
-                view, layout = values
-                session = Session(self, identity, view, layout, Option.of_optional(context.region))
+            def acquired(view: RegionView, held: Attached[BrowserLayout], layout: BrowserLayout) -> BlenderResult[Session[T]]:
+                session = Session(self, identity, view, held, layout, Option.of_optional(context.region))
                 session.pointer = Option.of_optional(context.region).map(lambda region: (travel.x + region.x, travel.y + region.y))
                 session.shift = travel.precise
                 with ExitStack() as scope:
@@ -118,7 +117,7 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                         session.scope = scope.pop_all()
                     return result
 
-            return paired(at, self.layout(identity)).bind(acquired)
+            return paired(at, Browser.layouts.bound(identity)).bind(lambda pair: pair[1].read(pair[0].located.window.screen).bind(lambda layout: acquired(*pair, layout)))
 
         return operators.Operator(
             key=self.key,
@@ -156,9 +155,9 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 class Session[T: msgspec.Struct]:
     """One modal browser's native drawing, dwell, requests, and file-action lifetime."""
 
-    def __init__(self, browser: Browser[T], identity: Identity, view: RegionView, layout: BrowserLayout, origin: Option[bpy.types.Region]) -> None:
+    def __init__(self, browser: Browser[T], identity: Identity, view: RegionView, held: Attached[BrowserLayout], layout: BrowserLayout, origin: Option[bpy.types.Region]) -> None:
         """Captures the native origin and initializes an unacquired session."""
-        self.browser, self.identity, self.view, self.layout = browser, identity, view, layout
+        self.browser, self.identity, self.view, self.held, self.layout = browser, identity, view, held, layout
         self.origin = origin
         self.main: Option[RegionView] = Nothing
         self.area = view.located.area.as_pointer()
@@ -185,7 +184,7 @@ class Session[T: msgspec.Struct]:
         self.failures: dict[Demand[T], BlenderFaults] = {}
         self.before: Option[Before] = Nothing
         self.dwell: Option[Callable[[], None]] = Nothing
-        self.actions = browser.listing.commands(identity)
+        self.actions = browser.listing.commands(identity).verbs
 
     # --- [LIFECYCLE]
 
@@ -355,7 +354,7 @@ class Session[T: msgspec.Struct]:
 
     def read(self, _metrics: Metrics) -> BlenderResult[Option[bpy.types.Preferences]]:
         """Reads native preferences within this session's acquired lifetime."""
-        return Ok(Option.of_optional(bpy.context.preferences) if self.active else Nothing)
+        return Ok(Some(bpy.context.preferences) if self.active else Nothing)  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]
 
     def drawn(self, canvas: Canvas, preferences: bpy.types.Preferences) -> None:
         """Paints the native-themed browser only in its exact selected WINDOW region."""
@@ -549,7 +548,7 @@ class Session[T: msgspec.Struct]:
                 self.layout = msgspec.structs.replace(self.layout, size=Gated(enabled=True, value=THUMBNAIL_SIDE[0] + (x - rect.x) / rect.width * (THUMBNAIL_SIDE[1] - THUMBNAIL_SIDE[0])))
                 return (
                     result
-                    .bind(lambda _: self.browser.stored(self.identity, self.layout))
+                    .bind(lambda _: self.held.write(self.view.located.window.screen, self.layout))
                     .bind(lambda _: self.hovered(Nothing, shifted=event.shift))
                     .bind(lambda _: self.rehovered())
                     .bind(lambda _: self.signal.fired())
@@ -595,7 +594,7 @@ class Session[T: msgspec.Struct]:
                         return result.map(lambda _: "CANCELLED")
                 return (
                     result
-                    .bind(lambda _: self.browser.stored(self.identity, self.layout))
+                    .bind(lambda _: self.held.write(self.view.located.window.screen, self.layout))
                     .bind(lambda _: self.hovered(Nothing, shifted=event.shift))
                     .bind(lambda _: self.rehovered())
                     .bind(lambda _: self.signal.fired())
@@ -615,13 +614,19 @@ class Session[T: msgspec.Struct]:
                 self.selected = frozenset(self.shown)
             case "LEFT_ARROW" | "RIGHT_ARROW" | "UP_ARROW" | "DOWN_ARROW" | "HOME" | "END":
                 if visible := (self.shown):
-                    index = visible.index(self.lead.some) if self.lead.is_some() and self.lead.some in visible else 0
+                    current = self.lead.filter(lambda stem: stem in visible).map(visible.index).default_value(0)
                     tiles = tuple(rect for target, rect in self.cells(canvas) if isinstance(target, str))
                     across = sum(rect.y == tiles[0].y for rect in tiles) if tiles else 1
-                    step = across if event.type in {"UP_ARROW", "DOWN_ARROW"} else 1
-                    index = 0 if event.type == "HOME" else len(visible) - 1 if event.type == "END" else (index + (-step if event.type in {"LEFT_ARROW", "UP_ARROW"} else step)) % len(visible)
+                    index = {
+                        "HOME": 0,
+                        "END": len(visible) - 1,
+                        "LEFT_ARROW": (current - 1) % len(visible),
+                        "RIGHT_ARROW": (current + 1) % len(visible),
+                        "UP_ARROW": (current - across) % len(visible),
+                        "DOWN_ARROW": (current + across) % len(visible),
+                    }[event.type]
                     self.lead = Some(visible[index])
-                    first, last = sorted((visible.index(self.anchor.some), index)) if event.shift and self.anchor.is_some() and self.anchor.some in visible else (index, index)
+                    first, last = sorted((self.anchor.filter(lambda stem: event.shift and stem in visible).map(visible.index).default_value(index), index))
                     self.selected = frozenset(visible[first : last + 1])
                     self.anchor = self.anchor if event.shift else self.lead
                     if index < self.offset or index >= self.offset + len(tiles):

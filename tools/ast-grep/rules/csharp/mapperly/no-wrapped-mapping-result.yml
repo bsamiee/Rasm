@@ -55,7 +55,7 @@ utils:
                   has: {kind: 'identifier, generic_name, null_literal'}
     type-switch-default:
         kind: throw_expression
-        has: {kind: object_creation_expression, has: {field: type, regex: '^((global::)?System\.(Diagnostics\.)?)?UnreachableException$'}}
+        has: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^UnreachableException$'}}}}}
         inside:
             kind: switch_expression_arm
             has: {kind: discard, nthChild: 1}

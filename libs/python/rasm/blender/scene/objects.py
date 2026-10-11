@@ -115,8 +115,9 @@ class Reconciled(msgspec.Struct, frozen=True, kw_only=True):
 class SubdivisionLevels(msgspec.Struct, frozen=True, kw_only=True):
     """Viewport and render levels supplied by native subdivision metadata."""
 
-    viewport: ClassVar[bpy.types.IntProperty] = bpy.types.SubsurfModifier.bl_rna.properties["levels"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    render: ClassVar[bpy.types.IntProperty] = bpy.types.SubsurfModifier.bl_rna.properties["render_levels"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    native: ClassVar[dict[str, bpy.types.IntProperty]] = {prop.identifier: prop for prop in bpy.types.SubsurfModifier.bl_rna.properties if isinstance(prop, bpy.types.IntProperty)}
+    viewport: ClassVar[bpy.types.IntProperty] = native["levels"]
+    render: ClassVar[bpy.types.IntProperty] = native["render_levels"]
     levels: Annotated[
         int,
         msgspec.Meta(ge=viewport.hard_min, le=viewport.hard_max, title=viewport.name, description=viewport.description),
@@ -353,17 +354,17 @@ def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.typ
 
 def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]]:
     """Returns each reached object once and every view layer reaching it."""
+
+    def reaching(layers: tuple[bpy.types.ViewLayer, ...]) -> tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]:
+        owners: dict[bpy.types.Object, list[bpy.types.ViewLayer]] = {}
+        for layer in layers:
+            for item in layer.objects:
+                owners.setdefault(item, []).append(layer)
+        return tuple((item, tuple(held)) for item, held in owners.items())
+
     match scope:
         case Scenes(names=names) | ViewLayers(scenes=names):
-            match ViewLayers(scenes=names).owners(context):
-                case Result(tag="ok", ok=layers):
-                    owners: dict[bpy.types.Object, list[bpy.types.ViewLayer]] = {}
-                    for layer in layers:
-                        for item in layer.objects:
-                            owners.setdefault(item, []).append(layer)
-                    return Ok(tuple((item, tuple(layers)) for item, layers in owners.items()))
-                case Result(error=faults):
-                    return Error(faults)
+            return ViewLayers(scenes=names).owners(context).map(reaching)
         case Selection() | Objects():
             return paired(scope.owners(context), Option.of_optional(context.view_layer).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),))).map(
                 lambda pair: tuple((item, (pair[1],)) for item in pair[0])

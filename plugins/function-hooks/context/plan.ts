@@ -1,19 +1,11 @@
 import { none, type Option, some } from '../composition.ts';
 import type { Plan } from '../hooks/state.d.ts';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _TASK = /^\d+\. /mu;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const touched = (plan: Plan, path: string, written: Option<string>, home: string): Option<Plan> => {
-    const inside = (folder: string): boolean => path.endsWith('.md') && path.startsWith(`${folder}/`);
-    if (inside(`${home}/.claude/plans`)) {
-        return some({ ...plan, path: some(path) });
-    }
-    return written.kind === 'some' && ['/tmp', '/private/tmp'].some(inside) && _TASK.test(written.value) ? some({ ...plan, taskFile: some(path) }) : none;
-};
+const _moved = (held: Option<string>, path: string): boolean => held.kind === 'none' || held.value !== path;
+const planned = (plan: Plan, path: string): Option<Plan> => (_moved(plan.path, path) ? some({ ...plan, path: some(path) }) : none);
+const tasked = (plan: Plan, path: string, temp: string): Option<Plan> => (path.endsWith('.md') && path.startsWith(`${temp}/`) && _moved(plan.taskFile, path) ? some({ ...plan, taskFile: some(path) }) : none);
 
 const pointer = ({ path, taskFile }: Plan): Option<string> => {
     const named = [...(path.kind === 'some' ? [`plan ${path.value}`] : []), ...(taskFile.kind === 'some' ? [`task file ${taskFile.value}`] : [])];
@@ -22,4 +14,4 @@ const pointer = ({ path, taskFile }: Plan): Option<string> => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { pointer, touched };
+export { planned, pointer, tasked };

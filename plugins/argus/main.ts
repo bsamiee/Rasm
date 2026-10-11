@@ -50,7 +50,6 @@ import {
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver-protocol/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { formatEdited, type WriterProject } from '../function-hooks/repository/format.ts';
 import plugin from './.claude-plugin/plugin.json' with { type: 'json' };
 import lsp from './.lsp.json' with { type: 'json' };
 import { EditContext, nativeEdits, TranscriptFailed } from './edits.ts';
@@ -458,18 +457,19 @@ const feedback = Effect.fn('feedback')(function* (workspace: Workspace, owned: S
         return added;
     });
 });
-const format = Effect.fn('format')(function* (workspace: Workspace, project: WriterProject, owned: Session) {
+const format = Effect.fn('format')(function* (workspace: Workspace, project: string, owned: Session) {
     const events = Array.filter(owned.formatting.values(), ({ uri }) => owned.owned.get(uri) === workspace.edits.get(uri));
-    const failures = yield* Effect.tryPromise({
-        try: (signal) =>
-            formatEdited(
-                workspace.root,
-                events.map(({ uri }) => fileURLToPath(uri)),
-                signal,
-                project,
-            ),
-        catch: (cause) => new RequestFailed({ cause }),
-    });
+    const failures: readonly string[] =
+        events.length === 0
+            ? []
+            : yield* Effect.tryPromise({
+                  try: (signal) =>
+                      promisify(execFile)('nx', ['run', `${project}:format:files`, '--output-style=static', '--', ...events.map(({ uri }) => fileURLToPath(uri))], { cwd: workspace.root, signal, maxBuffer: Number.POSITIVE_INFINITY }).then(
+                          (): readonly string[] => [],
+                          (error: { readonly code?: unknown; readonly stdout: string; readonly stderr: string }) => (typeof error.code === 'number' ? [`${error.stdout}${error.stderr}`.trim()] : Promise.reject(error)),
+                      ),
+                  catch: (cause) => new RequestFailed({ cause }),
+              });
     Array.forEach(events, (event) => {
         if (failures.length === 0) {
             owned.formatting.delete(event.uri);
@@ -521,23 +521,9 @@ const initialize = Effect.fn('initialize')(function* () {
         { concurrency: 'unbounded' },
     ).pipe(Effect.mapError((cause) => new RequestFailed({ cause })));
     const ignore = ignored.flat().map((path) => resolve(root, path));
-    const {
-        name: projectName,
-        nx: {
-            targets: {
-                format: {
-                    metadata: { writers },
-                },
-            },
-        },
-    } = readJsonFile<{ readonly name: string; readonly nx: { readonly targets: { readonly format: { readonly metadata: { readonly writers: WriterProject['writers'] } } } } }>(resolve(root, 'package.json'));
-    const project: WriterProject = { name: projectName, writers };
-    const variables: NodeJS.Dict<string> = {
-        ...process.env,
-        ...Record.singleton('CLAUDE_PROJECT_DIR', root),
-        ...Record.mapEntries(plugin.userConfig, (option, key) => [`user_config.${key}`, option.default]),
-    };
-    const replace = (value: string): string => value.replace(/\$\{(?<name>[\w.]+)\}/gu, (match, name: string) => variables[name] ?? match);
+    const { name: project } = readJsonFile<{ readonly name: string }>(resolve(root, 'package.json'));
+    const variables: NodeJS.Dict<string> = { ...process.env, ...Record.singleton('CLAUDE_PROJECT_DIR', root) };
+    const replace = (value: string): string => value.replace(/\$\{(?<name>\w+)\}/gu, (match, name: string) => variables[name] ?? match);
     const substitute = (value: Schema.Json): Schema.Json =>
         Match.value(value).pipe(
             Match.when(Match.string, replace),

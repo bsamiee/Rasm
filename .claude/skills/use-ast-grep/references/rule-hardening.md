@@ -6,23 +6,22 @@ Widen each rule to every form its correction covers, attach behavior-preserving 
 
 Before editing, compare the forms a rule reports with the correction its `note` requires and name the form each rule misses:
 
-| [INDEX] | [WEAKNESS]                                                      | [GENERAL_FORM]                                                       |
-| :-----: | :-------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | One literal callee where the module's siblings share a contract | `field: property` with a `regex` over the family, module pinned      |
-|  [02]   | One overload of a data-first and data-last pair                 | `any:` arm per overload, the shape in a util                         |
-|  [03]   | One container where the correction reads the same over another  | Util per container, one `any:` over them                             |
-|  [04]   | One position where the shape is produced before its consumption | Match where the shape is produced, no position guard                 |
-|  [05]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name              |
-|  [06]   | `note` naming the instance's fix                                | Correction as the shape to produce                                   |
-|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract admits, counted over that file    |
-|  [08]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                        |
-|  [09]   | Default `stopBy` where the related node sits levels away        | `stopBy: end` or a same-kind `stopBy`                                |
-|  [10]   | `constraints` on a `$$$` capture or under `not`                 | Structural guard in the rule, `$ITEM` inside the list                |
-|  [11]   | Fix with no guard where a variant breaks the template           | Guard per unfixable variant, comments and required evaluation kept   |
-|  [12]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid |
-|  [13]   | Function exposed through more modules than the rule covers      | Exporting-module `regex` on `field: object`, a case per module       |
-|  [14]   | Expensive clauses before a cheap independent `has`              | Explicit `all:` ordered by capture dependency, then cost             |
-|  [15]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relayed value, restated type, rename, wrapper      |
+| [INDEX] | [WEAKNESS]                                                      | [GENERAL_FORM]                                                         |
+| :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | One literal callee where the module's siblings share a contract | `field: property` with a `regex` over the family, module pinned        |
+|  [02]   | One overload of a data-first and data-last pair                 | `any:` arm per overload, the shape in a util                           |
+|  [03]   | One container where the correction reads the same over another  | Util per container, one `any:` over them                               |
+|  [04]   | One position where the shape is produced before its consumption | Match where the shape is produced, no position guard                   |
+|  [05]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name                |
+|  [06]   | `note` naming the instance's fix                                | Correction as the shape to produce                                     |
+|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract admits, counted over that file      |
+|  [08]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                          |
+|  [09]   | Default `stopBy` where the related node sits levels away        | `stopBy` at the owner kinds, fixed depth through `has` with `field`    |
+|  [10]   | `constraints` on a `$$$` capture or under `not`                 | Structural guard in the rule, `$ITEM` inside the list                  |
+|  [11]   | Fix with no guard where a variant breaks the template           | Guard per unfixable variant, comments and required evaluation kept     |
+|  [12]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid   |
+|  [13]   | Function exposed through more modules than the rule covers      | Exporting-module `regex` on `field: object`, a case per module         |
+|  [14]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relaying declaration, restated type, rename, wrapper |
 
 ## [02]-[PATTERN]
 
@@ -63,8 +62,7 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 |  [09]   | Single capture that must fit a name grammar, outside `not` | `constraints: {<VAR>: {regex, kind}}`                                    |
 |  [10]   | List split into groups by member shape                     | One filtering rewriter over the `$$$` and one `rewrite` per group        |
 |  [11]   | Fix that selects the member by the arm's shape             | Rewriter per shape emitting the name, one transform joins them           |
-|  [12]   | Walk to an owner from every node of a kind, a slow rule    | Capture-free prefilter under `all:` ahead of the relational keys         |
-|  [13]   | Fix text that differs by the matched node's style          | Capture and transform per exclusive `any:` arm, unbound ones empty       |
+|  [12]   | Fix text that differs by the matched node's style          | Capture and transform per exclusive `any:` arm, unbound ones empty       |
 
 Mechanisms changing no result go.
 

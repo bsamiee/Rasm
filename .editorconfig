@@ -120,12 +120,10 @@ dotnet_diagnostic.MA0038.severity = none                                      # 
 dotnet_diagnostic.MA0041.severity = none                                      # Deprecated static-property checker; CA1822 owns the policy
 dotnet_diagnostic.MA0048.severity = none                                      # File organization groups a concern's types in one file, one type per file splits a concern
 dotnet_diagnostic.MA0051.severity = none                                      # A length cap forces extracted helpers, the density standard keeps one operation in one body
-dotnet_diagnostic.CS0169.severity = error                                     # Unused private fields
 dotnet_diagnostic.CA1021.severity = error                                     # Off under latest-all: no out parameters
 dotnet_diagnostic.CA1045.severity = error                                     # Off under latest-all: no ref parameters
 dotnet_diagnostic.CA1062.severity = none                                      # Nullable annotations carry the null contract, a guard on a non-nullable parameter is junk validation
 dotnet_diagnostic.CA1516.severity = error                                     # Off under latest-all: cross-platform intrinsics over x86-only or Arm-only ones
-dotnet_diagnostic.CS0649.severity = error                                     # Fields that are never assigned
 dotnet_diagnostic.CA1307.severity = error                                     # Explicit StringComparison on string comparison overloads
 dotnet_diagnostic.CA1310.severity = error                                     # Explicit StringComparison on culture-sensitive comparisons
 

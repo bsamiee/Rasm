@@ -25,7 +25,7 @@ Categories a package member decides need package source beside code, searches fi
 ## [03]-[FIX]
 
 Rewrites edit only selections where the fix keeps behavior, other forms violating the rule stay findings, an invalid rule is deleted unweakened:
-- `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > <state>.jsonl` records the before or after state
+- `ast-grep scan --custom-languages allow --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > <state>.jsonl` records the before or after state
 - `<ids>` joins with `|` the id of each rule the round edits, places, or collapses and of each caller of a util it edits
 - `jq -r '[.ruleId, .file, (.range.start.line + 1 | tostring)] | join(":")' <state>.jsonl | sort > <state>.keys` writes each state's keys
 - Rows grouped by `ruleId` count each rule, `comm -3` over both `<state>.keys` files lists gained and lost rows
@@ -46,6 +46,16 @@ Rewrites edit only selections where the fix keeps behavior, other forms violatin
 |  [08]   | `tsx`        | `*.{ts,tsx}`                                             |
 |  [09]   | `xml`        | `{*.xml,*.csproj,*.props,*.targets,*.slnx,NuGet.config}` |
 |  [10]   | `yaml`       | `*.{yml,yaml}`                                           |
+
+Placed rules hold single-thread user CPU within twice `no-parse-error-<language>` over `<globs>`, `<rule ids>` the `<ids>` joined by `,`:
+
+```bash
+hyperfine -N -i -r 3 -L id 'no-parse-error-<language>,<rule ids>' --export-json <state>-cost.json \
+    "ast-grep scan -j 1 --custom-languages allow --no-ignore hidden --filter '^{id}$' --globs '<globs>' --json=stream ."
+jq -r '.results[] | [.parameters.id, .user] | @tsv' <state>-cost.json
+```
+
+`-i` keeps timing past an `error` match's exit 1.
 
 ## [04]-[BAR]
 
@@ -72,7 +82,7 @@ Findings group by correction and reason, instances with both in common become si
 - Diff supplies instances, language and package contracts decide the rest of the family
 - Siblings enumerate per module function, exporting module, overload, container kind, spelling, position, and callback form
 - Siblings are real when the after form, written once per sibling, is the same
-- Siblings include each form that silences the rule and keeps its cause (relayed value, restated type, rename, wrapper)
+- Siblings include each form that silences the rule and keeps its cause (declaration relaying the value, restated type, rename, wrapper)
 - Criterion derives from the diff's forms, package overloads, and near misses
 - Fixed predicates with one caller stay in the rule, repeated predicates share a utility refined at each caller
 - Default-parameter corrections preserve evaluation timing and argument-binding errors, repeated positional, keyword, and unpacked values included

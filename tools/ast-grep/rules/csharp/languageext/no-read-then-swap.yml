@@ -5,7 +5,7 @@ severity: error
 utils:
     transaction:
         kind: invocation_expression
-        has: {field: function, regex: '^(global::)?(LanguageExt\.)?(Prelude\.)?(atomic|atomicIO|snapshot|serial)$'}
+        has: {field: function, matches: {csharp-type-name: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}}
     callback:
         kind: 'lambda_expression, anonymous_method_expression'
     receiver:

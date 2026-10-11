@@ -12,12 +12,12 @@ from rasm.imaging.color.processors import matrix
 from rasm.imaging.faults import ImagingResult
 from rasm.imaging.parameters import Case, ColorSpace, Finite, Presentation, Rgb
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Weight = Annotated[Finite, Presentation(soft=Some((-2.0, 2.0)), decimals=Some(3))]
 type Remap = Mixer | Conversion
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Weights(msgspec.Struct, frozen=True, kw_only=True):
@@ -75,6 +75,6 @@ class Primaries(Effect, frozen=True, kw_only=True, tag=9):
         return Ok(Some(self.remap.transform))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Conversion", "Mixer", "Primaries", "Remap", "Weight", "Weights"]

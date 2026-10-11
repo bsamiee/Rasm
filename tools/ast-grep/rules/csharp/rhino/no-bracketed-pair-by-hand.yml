@@ -21,7 +21,7 @@ utils:
     lift:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*lift$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
             - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
     begin:
         matches: lift

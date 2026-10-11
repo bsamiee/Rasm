@@ -17,7 +17,7 @@ from rasm.imaging.faults import accumulated, ImagingFaults, paired
 from rasm.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Rgb, Stops
 from rasm.rendering.faults import RenderingArithmeticFault, RenderingFaults, RenderingImagingFault, RenderingResult, RenderingSizeFault
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Radius = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 type Emitter = Point | Spot | Disk | Sun
@@ -34,7 +34,7 @@ class Role(Choice):
     ACCENT = 5, "Accent"
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Point(Case, frozen=True, tag=1):
@@ -403,7 +403,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
         }
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> float:
@@ -413,6 +413,6 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> float:
     return math.ldexp(math.prod(mantissa for mantissa, _ in parts) * math.exp2(fraction), sum(exponent for _, exponent in parts) + int(whole))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Radius", "Rig", "Role", "Spot", "Sun"]

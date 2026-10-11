@@ -9,7 +9,7 @@ from expression.collections import Block
 import msgspec
 
 from rasm.blender.commands.operators import Call, Done, Empty, Operator
-from rasm.blender.data.rna.descriptors import Descriptor
+from rasm.blender.data.rna.descriptors import Descriptor, IdName
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.events.handlers import PathHandler
 from rasm.blender.extension.identity import Identity
@@ -51,7 +51,7 @@ class CollectionState(msgspec.Struct, frozen=True, kw_only=True):
     """Desired restriction on a collection within one named view layer."""
 
     layer: Annotated[str, msgspec.Meta(min_length=1, title="View Layer", description="View layer the edit writes")]
-    collection: Annotated[bpy.types.Collection | None, msgspec.Meta(title="Collection", description="Collection the edit writes")]
+    collection: Annotated[IdName, msgspec.Meta(title="Collection", description="Collection the edit writes")]
     flag: Annotated[Flag, msgspec.Meta(title="Flag", description="Collection restriction the edit writes")]
     value: Annotated[bool, msgspec.Meta(title="Value", description="Restriction value written")]
     extent: Annotated[Extent, msgspec.Meta(title="Extent", description="Collections the edit reaches")] = Extent.ONE
@@ -128,12 +128,12 @@ class CollectionStates(Line, frozen=True, kw_only=True):
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Returns the realized collection grid and its clipboard controls."""
 
-        def built(states: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> BlenderResult[RowDraw]:
+        def built(states: dict[Flag, Descriptor[bpy.types.BoolProperty]], visible: Descriptor[bpy.types.BoolProperty]) -> BlenderResult[RowDraw]:
             state, *clipboard = self.commands(states)
 
             def toggled(layer: str, cell: bpy.types.LayerCollection, collection: bpy.types.Collection) -> tuple[Toggle[CollectionState], ...]:
                 return tuple(
-                    Toggle(record=CollectionState(layer=layer, collection=collection, flag=flag, value=not on), icon=member.prop.icon, depress=on)
+                    Toggle(record=CollectionState(layer=layer, collection=IdName.of(collection), flag=flag, value=not on), icon=member.prop.icon, depress=on)
                     for flag, member in states.items()
                     for on in (bool(member.read(cell)),)
                 )
@@ -145,12 +145,12 @@ class CollectionStates(Line, frozen=True, kw_only=True):
                 tree=tree,
                 command=state,
                 toggles=toggled,
-                active=Some(bpy.types.LayerCollection.visible_get),
+                active=Some(lambda cell: bool(visible.read(cell))),
                 marks=(Property(target=Member(root=bpy.types.Collection, path="hide_render"), text=Some(""), icon_only=True),),
             )
             return placed((matrix, Caption(rows=tuple(OperatorButton(target=row) for row in clipboard), flow=Flow.GRID)), identity).map(joined)
 
-        return flags().bind(built)
+        return paired(flags(), Descriptor.resolve(bpy.types.LayerCollection, "is_visible", bpy.types.BoolProperty)).bind(lambda pair: built(*pair))
 
     def section(self) -> Single[Empty]:
         """Returns the collection grid's section."""
@@ -188,9 +188,9 @@ def flags() -> BlenderResult[dict[Flag, Descriptor[bpy.types.BoolProperty]]]:
     return accumulated(Descriptor.resolve(bpy.types.LayerCollection, flag.name.lower(), bpy.types.BoolProperty).map(lambda member: (flag, member)) for flag in Flag).map(dict)
 
 
-def found(layer: bpy.types.ViewLayer, collection: bpy.types.Collection) -> Option[LayerPath]:
+def found(layer: bpy.types.ViewLayer, collection: IdName) -> Option[LayerPath]:
     """Returns the collection's first native tree occurrence and root-first ancestors."""
-    return Block.of_seq((node, ancestors) for node, ancestors in walked(layer.layer_collection) if node.collection == collection).try_head()
+    return Block.of_seq((node, ancestors) for node, ancestors in walked(layer.layer_collection) if IdName.of(node.collection) == collection).try_head()
 
 
 def applied(state: CollectionState, scene: bpy.types.Scene, flags: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> BlenderResult[int]:
@@ -210,13 +210,12 @@ def applied(state: CollectionState, scene: bpy.types.Scene, flags: dict[Flag, De
                 writes = tuple((node, state.value == (node in kept)) for node, parents in walked(layer.layer_collection) if parents)
         return accumulated(member.write(node, value) for node, value in writes if node != layer.layer_collection).map(lambda prior: sum(value.is_some() for value in prior))
 
-    def located(layer: bpy.types.ViewLayer, collection: bpy.types.Collection) -> BlenderResult[int]:
-        target: BlenderResult[LayerPath] = found(layer, collection).to_result_with(lambda: (BlenderAbsentFault(owner=repr(layer.layer_collection), key=collection.name),))
+    def located(layer: bpy.types.ViewLayer) -> BlenderResult[int]:
+        target: BlenderResult[LayerPath] = found(layer, state.collection).to_result_with(lambda: (BlenderAbsentFault(owner=repr(layer.layer_collection), key=state.collection.name),))
         return Result[LayerPath, BlenderFaults].bind(target, lambda path: written(layer, *path))
 
     layer: BlenderResult[bpy.types.ViewLayer] = Option.of_optional(scene.view_layers.get(state.layer)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.view_layers), key=state.layer),))
-    collection: BlenderResult[bpy.types.Collection] = Option.of_optional(state.collection).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.collection), key="collection"),))
-    return Result[tuple[bpy.types.ViewLayer, bpy.types.Collection], BlenderFaults].bind(paired(layer, collection), lambda pair: located(*pair))
+    return Result[bpy.types.ViewLayer, BlenderFaults].bind(layer, located)
 
 
 def isolates(layer: bpy.types.ViewLayer, collection: bpy.types.Collection, flag: Flag, flags: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> bool:
@@ -228,7 +227,7 @@ def isolates(layer: bpy.types.ViewLayer, collection: bpy.types.Collection, flag:
 def grid(layers: tuple[bpy.types.ViewLayer, ...]) -> tuple[Branch[bpy.types.Collection, bpy.types.LayerCollection], ...]:
     """Returns collection branches across the native view-layer order of one scene."""
     return tuple(
-        Branch(depth=len(ancestors) - 1, label=node.collection, cells=tuple(found(layer, node.collection).starmap(lambda held, _ancestors: held) for layer in layers))
+        Branch(depth=len(ancestors) - 1, label=node.collection, cells=tuple(found(layer, IdName.of(node.collection)).starmap(lambda held, _ancestors: held) for layer in layers))
         for node, ancestors in walked(layers[0].layer_collection)
         if ancestors
     )

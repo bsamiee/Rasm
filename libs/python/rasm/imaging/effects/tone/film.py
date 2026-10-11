@@ -15,13 +15,13 @@ from rasm.imaging.color.luts import Lattice, Logarithmic
 from rasm.imaging.faults import ImagingContrastFault, ImagingMatrixFault, ImagingResult
 from rasm.imaging.parameters import Gated, Presentation, Quantity, Rgb, Stops
 
-# --- [TYPES] -----------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Positive = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 type Share = Annotated[float, msgspec.Meta(gt=0.0, lt=1.0)]
 type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 
-# --- [MODELS] ----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Sensitivity(msgspec.Struct, frozen=True, kw_only=True):
@@ -161,6 +161,6 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         return self.lattice.samples().bind(self.developed).map(self.lattice.transform)
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Characteristic", "Film", "Sensitivity", "Stock"]

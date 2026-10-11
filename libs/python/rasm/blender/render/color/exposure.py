@@ -113,16 +113,16 @@ class Exposing(msgspec.Struct, frozen=True, kw_only=True):
 
     def consumed(self, identity: Identity, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
         """Writes absolute metered stops and names one undo step when samples exist."""
-        scene: bpy.types.Scene = entry.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        match paired(self.stack.config(), self.attached.read(scene)):
-            case Result(tag="ok", ok=(config, metering)):
-                pass
-            case Result(error=faults):
-                return Error(faults)
-        return Result[Option[float], BlenderFaults].bind(
-            metering.meter.stops(config, file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-            lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + metering.bias).map(lambda _: Some(self.title))).default_with(lambda: Ok(Nothing)),
-        )
+        match entry.id_data:
+            case bpy.types.Scene() as scene:
+                return paired(self.stack.config(), self.attached.read(scene)).bind(
+                    lambda pair: Result[Option[float], BlenderFaults].bind(
+                        pair[1].meter.stops(pair[0], file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                        lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + pair[1].bias).map(lambda _: Some(self.title))).default_with(lambda: Ok(Nothing)),
+                    )
+                )
+            case _:
+                return Error((BlenderAbsentFault(owner=repr(entry), key="id_data"),))
 
     def stepped(self, handle: Handle[bpy.types.Scene], target: float) -> BlenderResult[Option[str]]:
         """Moves enabled following toward a target beyond its dead band without undo."""

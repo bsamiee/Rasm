@@ -243,13 +243,15 @@ public sealed class RowGrid : Panel {
             attachments.Add(IO.lift(() => value.Content = line.Value).Map(static _ => unit));
         })
         from rendered in line.Caption.Filter(_ => line.Columned && !beside).Match(
-            Some: label =>
-                from panel in DisposalOps.Acquire(IO.lift(static () => new Panel()), static panel => IO.lift(panel.Dispose), retain)
-                from assigned in IO.lift(() => attachments.Add(IO.lift(() => panel.Content = label).Map(static _ => unit)))
-                from stack in Stacked(Seq(new StackLayoutItem(panel) { HorizontalAlignment = HorizontalAlignment.Left }, new StackLayoutItem(table)), retain)
-                select (Control)stack,
+            Some: label => Headed(label, table, attachments, retain),
             None: () => IO.pure<Control>(table))
         select (rendered, Callbacks.Each(toSeq(attachments)).Map(static _ => unit));
+
+    private IO<Control> Headed(Control label, TableLayout table, List<IO<Unit>> attachments, Action<IDisposable> retain) =>
+        from panel in DisposalOps.Acquire(IO.lift(static () => new Panel()), static panel => IO.lift(panel.Dispose), retain)
+        from assigned in IO.lift(() => attachments.Add(IO.lift(() => panel.Content = label).Map(static _ => unit)))
+        from stack in Stacked(Seq(new StackLayoutItem(panel) { HorizontalAlignment = HorizontalAlignment.Left }, new StackLayoutItem(table)), retain)
+        select (Control)stack;
 
     private static IO<Seq<(TableCell Cell, IO<Unit> Attach)>> Fixed(Option<Control> control, Option<float> width, Action<IDisposable> retain) =>
         width.Traverse(held => DisposalOps.Acquire(IO.lift(static () => new Panel()), static panel => IO.lift(panel.Dispose), retain)

@@ -8,7 +8,7 @@ rule:
     all:
         - has: {kind: Name, regex: '^WriteLinesToFile$'}
         - not: {has: {kind: Attribute, has: {kind: Name, regex: '^WriteOnlyWhenDifferent$'}}}
-        - not: {inside: {stopBy: end, matches: {msbuild-element: {name: {regex: '^Target$'}}}, has: {matches: msbuild-tag, has: {kind: Attribute, has: {kind: Name, regex: '^Outputs$'}}}}}
+        - not: {inside: {stopBy: end, all: [{matches: {msbuild-element: {name: {regex: '^Target$'}}}}, {matches: {msbuild-metadata: {name: {regex: '^Outputs$'}, value: {kind: AttValue}}}}]}}
         - any:
             - has: {matches: {msbuild-attribute: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^["'']\s*(true|on|yes|!false|!off|!no)\s*["'']$'}}}}
             - all:

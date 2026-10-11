@@ -4,18 +4,16 @@ language: csharp
 severity: error
 files: ['**/rhino/**']
 utils:
-    answer-call:
-        matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}
     unit-value:
         any:
             - kind: identifier
               regex: '^unit$'
-            - kind: member_access_expression
-              regex: '^((global::)?(LanguageExt\.)?Unit\s*\.\s*Default|(global::)?(LanguageExt\.)?Prelude\s*\.\s*unit)$'
+            - matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^unit$'}}}
             - kind: default_expression
               any:
                 - regex: '^default$'
-                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Unit$'}
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Unit$'}}}}
     lazy-unit:
         kind: lambda_expression
         all:
@@ -24,12 +22,12 @@ utils:
     some-effect:
         kind: argument
         nthChild: 1
-        has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'}}
+        has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}}
     answer:
-        matches: answer-call
+        kind: invocation_expression
         any:
             - all:
-                - has: {field: function, regex: 'Answer$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -38,7 +36,7 @@ utils:
                         - has: {kind: argument, nthChild: 3}
                         - not: {has: {kind: argument, nthChild: 4}}
             - all:
-                - has: {field: function, regex: 'Answer$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -52,7 +50,7 @@ utils:
                                 - has: {matches: some-effect}
                                 - has: {kind: argument, nthChild: 2, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
             - all:
-                - has: {field: function, regex: 'Succeeded$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -120,7 +118,8 @@ utils:
                 - has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $ARGS}}
                 - not: {has: {kind: parameter, nthChild: 3}}
     generic-type:
-        regex: '^((global::)?System\.)?EventHandler\s*<'
+        matches: {csharp-type-name: {name: {regex: '^EventHandler$'}}}
+        has: {stopBy: end, kind: type_argument_list}
     subscription:
         kind: assignment_expression
         all:
@@ -157,7 +156,10 @@ utils:
                     kind: argument_list
                     inside:
                         kind: invocation_expression
-                        has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Events\.)?Subscriptions\s*\.\s*Attach\s*<\s*((global::)?System\.)?EventHandler\s*<'}
+                        has:
+                            field: function
+                            matches: {csharp-owner-member: {type: {regex: '^Subscriptions$'}, member: {regex: '^Attach$'}}}
+                            has: {stopBy: end, kind: type_argument_list, has: {nthChild: 1, matches: generic-type}}
             - inside:
                 kind: variable_declarator
                 inside: {kind: variable_declaration, has: {field: type, matches: generic-type}}

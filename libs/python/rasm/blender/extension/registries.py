@@ -8,7 +8,7 @@ import bpy
 from expression import Ok, Option, Result
 import msgspec
 
-from rasm.blender.extension.identity import Identity, Key, Manifest, Name
+from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisition, Band
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderRegisterFault, BlenderResult
 
@@ -127,14 +127,7 @@ class ManualMap(msgspec.Struct, frozen=True, kw_only=True):
             Option
             .of_optional(identity.manifest.website)
             .map(lambda website: ((Band.REGISTRIES, self.registered(identity, website)),))
-            .to_result_with(
-                lambda: (
-                    BlenderAbsentFault(
-                        owner=identity.package,
-                        key=Manifest.website.__name__,  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                    ),
-                )
-            )
+            .to_result_with(lambda: (BlenderAbsentFault(owner=identity.package, key="website"),))
         )
 
     @staticmethod

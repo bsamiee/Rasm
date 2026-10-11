@@ -92,7 +92,7 @@ Read in order before the first edit:
 4. Read the file a tool names at its `file(line)` through `exec_command` with a shell command selecting the line range, an owned file whole
 5. Read the Roslyn sources rows for a compiler error, analyzer error, task exception, or generated file, return the item to your caller
 6. Fix a cause in an owned file, each edit one exact-string replacement
-7. Run `ast-grep scan <edited files>`, fix each finding
+7. Run `ast-grep scan --custom-languages allow <edited files>`, fix each finding
 8. Bound fix and capture cycles at 3
 9. Delete `<tempdir>` when a pair wrote it
 10. Run `mcp__binlog__list_mcp_instances`, then `mcp__binlog__stop_instance` on each `"isOrphaned":true` entry

@@ -78,7 +78,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def base(self) -> BlenderResult[PyOpenColorIO.Config]:
         """Bundled base configuration independent of a user installation."""
-        return opened(ConfigFile(path=bpy.utils.system_resource("DATAFILES", path="colormanagement/config.ocio")), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return opened(ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def staged(self, stage: Path) -> BlenderResult[PyOpenColorIO.Config]:
         """Stages the full build in the caller's resource scope."""
@@ -118,10 +118,12 @@ def changed(call: Call[WorkingSpace]) -> BlenderResult[Done]:
             for inputs_prop in properties.bl_rna.properties
             if isinstance(inputs_prop, bpy.types.PointerProperty) and inputs_prop.identifier == "inputs"
             for group in struct_at(properties, inputs_prop.identifier).to_list()
-            for prop in inputs_prop.fixed_type.bl_rna.properties  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for sockets in Option.of_optional(inputs_prop.fixed_type).to_list()
+            for prop in sockets.properties
             if isinstance(prop, bpy.types.PointerProperty)
             for item in struct_at(group, prop.identifier).to_list()
-            for color in prop.fixed_type.bl_rna.properties  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for socket in Option.of_optional(prop.fixed_type).to_list()
+            for color in socket.properties
             if isinstance(color, bpy.types.FloatProperty) and color.identifier == "value" and color.subtype == "COLOR"
             for descriptor in (Descriptor(root=type(item), owner="", prop=color),)
         )

@@ -1,6 +1,3 @@
-# mypy: disable-error-code="type-arg"
-# ty: ignore[missing-type-argument]
-
 """Native output format value sets and the storage facts of written files."""
 
 from enum import Enum
@@ -35,7 +32,7 @@ class Holder(Enum):
     NODE = bpy.types.CompositorNodeOutputFile, "format"
     ITEM = bpy.types.NodeCompositorFileOutputItem, "format"
 
-    def __init__(self, struct: type[bpy.types.bpy_struct], pointer: str) -> None:
+    def __init__(self, struct: "type[bpy.types.bpy_struct[object]]", pointer: str) -> None:
         """Retains the native owner and its pointer."""
         self.struct, self.pointer = struct, pointer
 
@@ -109,7 +106,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
             else Ok(Nothing)
         )
 
-    def applied(self, target: bpy.types.bpy_struct) -> BlenderResult[Applied]:
+    def applied(self, target: bpy.types.Node | bpy.types.NodeCompositorFileOutputItem) -> BlenderResult[Applied]:
         """Applies owner settings before the format they constrain, returning native outcomes."""
         own = self.own.apply(target)
 
@@ -166,13 +163,13 @@ def native_readouts(settings: bpy.types.ImageFormatSettings, display: str, *, sa
     )
 
 
-def output_rows(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:
+def output_rows(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
     """Draws the actual native output format, depth, and display policy."""
     for scene in Option.of_optional(context.scene).to_list():
         settings = scene.render.image_settings
-        display: bpy.types.ColorManagedDisplaySettings = settings.display_settings if settings.color_management == "OVERRIDE" else scene.display_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        for row in native_readouts(settings, display.display_device, save_as_render=True):
-            layout.label(text=row.text)
+        for display in Option.of_optional(settings.display_settings if settings.color_management == "OVERRIDE" else scene.display_settings).to_list():
+            for row in native_readouts(settings, display.display_device, save_as_render=True):
+                layout.label(text=row.text)
 
 
 def kind(settings: bpy.types.ImageFormatSettings) -> Kind:
@@ -230,7 +227,12 @@ def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
 
     trees = reached(tuple(effect.node_group for effect in scene.compositor_effects if effect.node_group is not None), frozenset())
     nodes = tuple(node for tree in trees for node in tree.nodes if isinstance(node, bpy.types.CompositorNodeOutputFile))
-    return (scene.render.image_settings, *(node.format for node in nodes), *(item.format for node in nodes for item in node.file_output_items if item.override_node_format))  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]
+    items = tuple(item for node in nodes for item in node.file_output_items if item.override_node_format)
+    return (
+        scene.render.image_settings,
+        *(held for node in nodes for held in Option.of_optional(node.format).to_list()),
+        *(held for item in items for held in Option.of_optional(item.format).to_list()),
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

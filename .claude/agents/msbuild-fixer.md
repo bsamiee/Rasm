@@ -51,7 +51,7 @@ Read in order before the first edit:
 6. `yq -r '[.id, .message] | join(" | ")' tools/ast-grep/rules/dotnet/msbuild/*.yml`, the entries the rule family reports, paired by message
 7. Every in-scope file whole through `Read`
 8. `rg -n 'build_check' .editorconfig`, the severity each `BC` code reports under, no line means each code's default
-9. `ast-grep scan --report-style short <files>` and `-check` build of `<projects>` as the baseline, a `-check` failure with no `BC` line ends run
+9. `ast-grep scan --custom-languages allow --report-style short <files>` and `-check` build of `<projects>` as the baseline, a `-check` failure with no `BC` line ends run
 
 </context_gathering>
 
@@ -59,9 +59,9 @@ Read in order before the first edit:
 
 | [INDEX] | [QUESTION]                          | [SOURCE]                                                                                        |
 | :-----: | :---------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | Catalog entries a rule reports      | `ast-grep scan --report-style short <files>`, each hit `file:line`                              |
-|  [02]   | Catalog entry with no rule          | `ast-grep scan --inline-rules '<yaml>' --report-style short <files>`, `language: xml`           |
-|  [03]   | Node kinds of an MSBuild element    | `ast-grep run -p '<pattern>' -l xml --debug-query=cst --stdin`                                  |
+|  [01]   | Catalog entries a rule reports      | `ast-grep scan --custom-languages allow --report-style short <files>`, each hit `file:line`     |
+|  [02]   | XML catalog entry with no rule      | `ast-grep scan --custom-languages allow --inline-rules '<yaml>' --report-style short <files>`   |
+|  [03]   | Node kinds of an MSBuild element    | `ast-grep run --custom-languages allow -p '<pattern>' -l xml --debug-query=cst --stdin`         |
 |  [04]   | BuildCheck findings of the scope    | `nx run-many -t build -p <projects> --skip-nx-cache -- -t:Rebuild -check`, its `error BC` lines |
 |  [05]   | BuildCheck reports of a capture     | `mcp__binlog__binlog_errors`, then `mcp__binlog__binlog_warnings`, with `category=BuildCheck`   |
 |  [06]   | Value behind a placement question   | `dotnet msbuild <project> -getProperty:A,B -getItem:C \| jq`, one project per call              |

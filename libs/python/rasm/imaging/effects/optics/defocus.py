@@ -15,7 +15,7 @@ from scipy.integrate import quad_vec
 from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.parameters import Case, Position, Presentation, Quantity
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Aperture(msgspec.Struct, frozen=True, kw_only=True):
@@ -195,6 +195,6 @@ class Defocus(Effect, frozen=True, kw_only=True, tag=24):
     fringe: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Bokeh rim color shift, toward blue above 0")] = 0.0
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Aperture", "Defocus", "DepthOfField", "FieldCurvature", "TiltShift"]

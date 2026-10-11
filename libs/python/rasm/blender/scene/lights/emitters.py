@@ -22,6 +22,7 @@ from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderResult
 from rasm.blender.nodes.graphs import End, Graph, Link, Node, reconciling
+from rasm.blender.scene.materials import tree_of
 from rasm.blender.scene.objects import ObjectState, reconciled, spawned
 from rasm.blender.settings.attachments import Attachment
 from rasm.blender.ui.layout.rows import acquired, Member, OperatorButton
@@ -57,7 +58,7 @@ class MeshLight(msgspec.Struct, frozen=True, kw_only=True):
 class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     """Row attaching `MeshLight` to objects with its add operator, reconcile, and section."""
 
-    retention: Callable[[Identity], BlenderResult[Retention]]
+    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def reshaped(light: Handle[bpy.types.Object], identity: Identity) -> BlenderResult[Option[str]]:
@@ -124,43 +125,44 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
     Returns:
         Each linked or positive strength socket of an Emission or Principled node, in walk order.
     """
-    pending: deque[tuple[bpy.types.NodeSocket, tuple[bpy.types.ShaderNodeGroup, ...]]] = deque(
-        (socket, ())
-        for output in Option.of_optional(material.node_tree.get_output_node("CYCLES")).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        for socket in output.inputs
+    type State = tuple[bpy.types.Node, bpy.types.NodeSocket, tuple[bpy.types.ShaderNodeGroup, ...]]
+    emitted: dict[type[bpy.types.Node], str] = {bpy.types.ShaderNodeEmission: "Strength", bpy.types.ShaderNodeBsdfPrincipled: "Emission Strength"}
+    pending: deque[State] = deque(
+        (output, socket, ()) for tree in Option.of_optional(material.node_tree).to_list() for output in Option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs
     )
-    visited: set[tuple[bpy.types.NodeSocket, tuple[bpy.types.ShaderNodeGroup, ...]]] = set()
+    visited: set[State] = set()
     found: dict[bpy.types.NodeSocketFloat, None] = {}
     while pending:
-        socket, path = state = pending.popleft()
+        node, socket, path = state = pending.popleft()
         if state in visited:
             continue
         visited.add(state)
-        node: bpy.types.Node = socket.node  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         match node:
             case _ if not socket.is_output:
-                pending.extend((link.from_socket, path) for link in socket.links if link.is_valid and not link.is_muted)  # type: ignore[misc,union-attr]  # ty: ignore[invalid-argument-type,not-iterable]
+                pending.extend(
+                    (source, link.from_socket, path)
+                    for link in socket.links  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                    if link.is_valid and not link.is_muted and (source := link.from_node) is not None and link.from_socket is not None
+                )
             case _ if node.mute:
-                pending.extend((link.from_socket, path) for link in node.internal_links if link.to_socket == socket)  # type: ignore[misc]  # ty: ignore[invalid-argument-type]
+                pending.extend((node, link.from_socket, path) for link in node.internal_links if link.to_socket == socket and link.from_socket is not None)
             case bpy.types.ShaderNodeGroup(node_tree=tree) if tree is not None:
                 pending.extend(
-                    (inner, (*path, node))
+                    (output, inner, (*path, node))
                     for output in tree.nodes
                     if isinstance(output, bpy.types.NodeGroupOutput) and output.is_active_output
                     for inner in output.inputs
                     if inner.identifier == socket.identifier
                 )
             case bpy.types.NodeGroupInput() if path:
-                pending.extend((outer, path[:-1]) for outer in path[-1].inputs if outer.identifier == socket.identifier)
+                pending.extend((path[-1], outer, path[:-1]) for outer in path[-1].inputs if outer.identifier == socket.identifier)
             case _:
-                strengths: tuple[bpy.types.NodeSocketFloat, ...] = tuple(
-                    node.inputs[identifier]  # type: ignore[misc]
-                    for identifier in (
-                        Some("Strength") if isinstance(node, bpy.types.ShaderNodeEmission) else Some("Emission Strength") if isinstance(node, bpy.types.ShaderNodeBsdfPrincipled) else Nothing
-                    ).to_list()
-                )  # ty: ignore[invalid-assignment]
-                found.update((strength, None) for strength in strengths if any(link.is_valid and not link.is_muted for link in strength.links) or strength.default_value > 0.0)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
-                pending.extend((inner, path) for inner in node.inputs)
+                found.update(
+                    (strength, None)
+                    for name in Option.of_optional(emitted.get(type(node))).to_list()
+                    if isinstance(strength := node.inputs[name], bpy.types.NodeSocketFloat) and (any(link.is_valid and not link.is_muted for link in strength.links) or strength.default_value > 0.0)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                )
+                pending.extend((node, inner, path) for inner in node.inputs)
     return tuple(found)
 
 
@@ -297,11 +299,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
 
         def retained(material: bpy.types.Material) -> BlenderResult[bpy.types.Material]:
             rollback.callback(bpy.data.batch_remove, ids=(material,))
-            try:
-                material.node_tree.nodes.clear()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                return Ok(material)
-            except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request="Mesh Light material", error=error),))
+            return tree_of(material).map(lambda tree: tree.nodes.clear()).map(lambda _: material)
 
         def built() -> BlenderResult[bpy.types.Material]:
             try:
@@ -324,7 +322,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
                     .default_with(built)
                     .bind(
                         lambda material: paired(
-                            wanted.reconciled(material.node_tree, identity),  # type: ignore[arg-type]
+                            tree_of(material).bind(lambda tree: wanted.reconciled(tree, identity)),
                             written(material.cycles, "emission_sampling", "FRONT" if record.single_sided else "AUTO"),  # type: ignore[arg-type]
                         ).bind(lambda _: reconciled(ObjectState(material_slots=Some((Snapshot.of(bpy.types.MaterialSlot, {"material": IdName.of(material)}),)), values=Some(visibility)), item, ()))
                     )

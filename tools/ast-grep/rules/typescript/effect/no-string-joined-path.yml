@@ -2,7 +2,7 @@
 id: no-string-joined-path
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**', '.codex/hooks/**']
+ignores: ['plugins/function-hooks/**']
 utils:
     directory-read:
         any:

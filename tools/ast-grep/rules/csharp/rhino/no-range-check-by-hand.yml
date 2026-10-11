@@ -10,7 +10,7 @@ utils:
         kind: member_access_expression
         all:
             - has: {field: name, regex: '^(MinValue|MaxValue)$'}
-            - has: {field: expression, any: [{kind: predefined_type}, {regex: '^((global::)?System\.)?(S?Byte|U?Int(16|32|64|128|Ptr)|Half|Single|Double|Decimal)$'}]}
+            - has: {field: expression, any: [{kind: predefined_type}, {matches: {csharp-type-name: {name: {regex: '^(S?Byte|U?Int(16|32|64|128|Ptr)|Half|Single|Double|Decimal)$'}}}}]}
     lower:
         kind: binary_expression
         not: {has: {matches: type-limit}}
@@ -122,11 +122,11 @@ utils:
                 any:
                     - kind: member_access_expression
                       has: {field: name, regex: '^Unless$'}
-                    - regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?guard(\s*<.+>)?$'
+                    - matches: {csharp-type-name: {name: {regex: '^guard$'}}}
                     - kind: identifier, generic_name
                       regex: '^Unless(\s*<.+>)?$'
             - all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(when|unless)(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|unless)$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: failing}}}
     rejecting-site:
         inside:

@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,union-attr"
-# ty: ignore[unresolved-attribute]
 """Camera chief rays and scene-linear vignette falloffs."""
 
 import functools
@@ -65,13 +63,13 @@ def vignetted(shell: Shell[Vignette]) -> BlenderResult[tuple[Fragment, End]]:
         The vignetted image and graph, or accumulated native construction faults.
     """
     entering = {"image": shell.source, "aspect": shell.aspect, "scale": shell.scale}
-    falloff = Vignette.falloff.__name__
+    falloff = Vignette.falloff.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     natural = chief_ray().bind(lambda group: nested("chief_ray", group, {"image": shell.source}, "cosine")).bind(lambda cosine: math("natural", "POWER", cosine, 4.0))
     shaped = masks.shape().bind(
-        lambda group: nested("shape", group, masks.relayed(lambda key: entering[key] if key in entering else shell.socket(falloff, Shaped, Shaped.shape.__name__, key), group.interface), "key")
+        lambda group: nested("shape", group, masks.relayed(lambda key: entering[key] if key in entering else shell.socket(falloff, Shaped, Shaped.shape.__name__, key), group.interface), "key")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     )
-    pull = menu("pull", "RGBA", shell.socket(falloff), shell.items[falloff,], {Natural.title: (0.0, 0.0, 0.0, 1.0), Shaped.title: shell.socket(falloff, Shaped, Shaped.color.__name__)})
-    alpha = node("alpha", bpy.types.CompositorNodeSeparateColor, {"Image": shell.source}, {"mode": "RGB"}).map(ended("alpha", "Alpha"))
+    pull = menu("pull", "RGBA", shell.socket(falloff), shell.items[falloff,], {Natural.title: (0.0, 0.0, 0.0, 1.0), Shaped.title: shell.socket(falloff, Shaped, Shaped.color.__name__)})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    alpha = node("pull_alpha", bpy.types.CompositorNodeSeparateColor, {"Image": shell.source}, {"mode": "RGB"}).map(ended("pull_alpha", "Alpha"))
     weight = paired(natural, shaped).bind(lambda ends: switched("weight", "FLOAT", End(node="pull", socket=Shaped.title), *ends))
     covered = (
         paired(pull, alpha)

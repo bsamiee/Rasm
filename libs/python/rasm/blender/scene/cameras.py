@@ -108,7 +108,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
 class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
     """Render-view attachment and native stereo controls over the current scene."""
 
-    retention: Callable[[Identity], BlenderResult[Retention]]
+    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def synced(scene: Handle[bpy.types.Scene], identity: Identity) -> BlenderResult[Option[str]]:
@@ -195,14 +195,17 @@ def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> Bl
     """Applies requirements with persistent earliest and actual final native values."""
 
     def applied(key: str) -> BlenderResult[tuple[Applied, ...]]:
-        stored = Stored(name=key, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Option[Tree[tuple[tuple[object, str], object]]]]))
+        stored = Stored(name=key, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
 
         def prepared(camera: bpy.types.Camera) -> BlenderResult[tuple[bpy.types.Camera, Tree[tuple[tuple[object, str], object]], Tree[NativeValue], Option[Tree[NativeValue]]]]:
             prior = stored.read(camera).bind(
                 lambda held: held.map(
                     lambda pair: (
                         Result[Tree[tuple[tuple[object, str], object]], BlenderFaults]
-                        .bind(pair[1].to_result_with(lambda: (BlenderAbsentFault(owner=repr(camera), key=f"{key}.after"),)), lambda after: paired(Snapshot.decoded(pair[0]), Snapshot.decoded(after)))
+                        .bind(
+                            Option.of_optional(pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=repr(camera), key=f"{key}.after"),)),
+                            lambda after: paired(Snapshot.decoded(pair[0]), Snapshot.decoded(after)),
+                        )
                         .map(lambda endpoints: (Some(endpoints[0]), Some(endpoints[1])))
                     )
                 ).default_value(Ok((Nothing, Nothing)))
@@ -225,12 +228,12 @@ def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> Bl
                 .capture(camera, native=True)
                 .map(lambda after: previous.map(lambda held: merge(merge(current, transfer(current, held)), transfer(current, after))).default_value(after))
                 .bind(Snapshot.persisted)
-                .bind(lambda after: stored.write(camera, (before, Some(after))))
+                .bind(lambda after: stored.write(camera, (before, after)))
             )
             return paired(outcome.outcome, endpoint).map(lambda _: outcome)
 
         return accumulated(prepared(camera) for camera in dict.fromkeys(render_cameras(scene).values())).bind(
-            lambda rows: accumulated(stored.write(camera, (before, Nothing)) for camera, before, _, _ in rows).bind(lambda _: accumulated(changed(row) for row in rows))
+            lambda rows: accumulated(stored.write(camera, (before, None)) for camera, before, _, _ in rows).bind(lambda _: accumulated(changed(row) for row in rows))
         )
 
     return identity.name(Name.ATTACHMENT, "camera_prior").bind(applied)
@@ -240,7 +243,7 @@ def released(identity: Identity) -> BlenderResult[tuple[Applied, ...]]:
     """Restores requirements still equal to their actual final values, preserving edits."""
 
     def restored(key: str) -> BlenderResult[tuple[Applied, ...]]:
-        stored = Stored(name=key, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Option[Tree[tuple[tuple[object, str], object]]]]))
+        stored = Stored(name=key, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
 
         def camera_back(camera: bpy.types.Camera) -> BlenderResult[tuple[Applied, ...]]:
             return stored.read(camera).bind(
@@ -249,7 +252,7 @@ def released(identity: Identity) -> BlenderResult[tuple[Applied, ...]]:
                         paired(
                             Snapshot.decoded(pair[0]),
                             Result[Tree[tuple[tuple[object, str], object]], BlenderFaults].bind(
-                                pair[1].to_result_with(lambda: (BlenderAbsentFault(owner=repr(camera), key=f"{key}.after"),)), Snapshot.decoded
+                                Option.of_optional(pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=repr(camera), key=f"{key}.after"),)), Snapshot.decoded
                             ),
                         )
                         .map(lambda endpoints: Snapshot.restore(*endpoints))

@@ -44,7 +44,7 @@ Forms and facts per tool an agent step names, run from repository root.
 - `nx show project <project> --json | jq '.targets|keys'` lists targets, `jq '.targets.<target>.inputs'` the hashed inputs
 - `nx run rasm:outline -- <path> --items structure` maps a file, `--view names`, `signatures`, `expanded`, or `digest` set depth
 - `-l <lang>` outlines a directory of one language, `--json=compact` prints one array
-- `--color never` fails outline target's schema, `NO_COLOR=1` in `.claude/settings.json` `env` reaches every tool subprocess
+- `--color never` fails outline target's schema, the target sets `NO_COLOR=1` for its own run
 - Outline maps bundled languages, markdown included, and custom languages `sgconfig.yml` names, and prints `nothing found` for the rest
 
 ## [05]-[PACKAGE_MANAGERS]
@@ -67,14 +67,15 @@ Use `dotnet-msbuild-diagnostics` for binlog capture.
 
 ## [07]-[AST_GREP]
 
-- `ast-grep scan <missing>` prints `ERROR: <path>: No such file or directory` at exit 0, `ast-grep run -p '<p>' -l <lang> <missing>` exits 1
-- `printf '%s' '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin` exits 1 on an `error` match, 0 with `[]` on a miss, 8 on a parse error
+- `ast-grep scan --custom-languages allow <missing>` prints `ERROR: <path>: No such file or directory` at exit 0
+- `ast-grep run --custom-languages allow -p '<p>' -l <lang> <missing>` exits 1
+- `printf '%s' '<code>' | ast-grep scan --custom-languages allow --inline-rules '<yaml>' --json --stdin` exits 1 on an `error` match, 0 with `[]` on a miss, 8 on a parse error
 - `--stdin` reports every inline rule, `--filter` selects among them
 - Rules below `severity: error` print `warning[<id>]` or `help[<id>]` at exit 0 on a match
-- `ast-grep scan --inspect entity <file> 2>&1 >/dev/null | rg '\|<id>:'` lists a registered rule, `--inspect summary` prints `scannedFileCount`
-- `ast-grep scan --no-ignore hidden <scope>` reaches hidden trees
-- `ast-grep run -p '<old>' -r '<new>' -l tsx -U <dir>` rewrites under one directory
-- `ast-grep scan --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c` counts hits per rule in one scan
+- `ast-grep scan --custom-languages allow --inspect entity <file> 2>&1 >/dev/null | rg '\|<id>:'` lists a registered rule, `--inspect summary` prints `scannedFileCount`
+- `ast-grep scan --custom-languages allow --no-ignore hidden <scope>` reaches hidden trees
+- `ast-grep run --custom-languages allow -p '<old>' -r '<new>' -l tsx -U <dir>` rewrites under one directory
+- `ast-grep scan --custom-languages allow --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c` counts hits per rule in one scan
 - `mcp__ast-grep__find_code_by_rule` with `output_format: text` and `max_results` prints `showing first N of M`, the JSON form goes to a file
 - `hyperfine -N -r 8 '<scan>'` measures one rule
 - `difft --display inline <a> <b>` diffs files with no escape byte under a pipe

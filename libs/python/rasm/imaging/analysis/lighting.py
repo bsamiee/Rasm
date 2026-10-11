@@ -118,9 +118,10 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 covered & (columns >= math.floor(inset * width)) & (columns < width - math.floor(inset * width)) & (rows >= math.floor(inset * height)) & (rows < height - math.floor(inset * height))
                 for inset in (0.12, 0.25, 0.18)
             )
-            levels = np.where(covered, np.maximum(samples.luminance, Samples.floor), np.nan)
-            if (found := (levels[subject])).size == 0:
+            if not subject.any():
                 return Ok(Nothing)
+            levels = np.where(covered, np.maximum(samples.luminance, Samples.floor), np.nan)
+            found = levels[subject]
             count = min(size, found.size)
             colors, points, raw = samples.color[subject].astype(np.float64), positions[subject], samples.luminance[subject]
             coordinates = 2.0 * points - 1.0

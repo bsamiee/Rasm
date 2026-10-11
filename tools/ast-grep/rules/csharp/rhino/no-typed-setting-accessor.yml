@@ -3,12 +3,150 @@ id: no-typed-setting-accessor
 language: csharp
 severity: error
 files: ['**/rhino/**']
+utils:
+    string-type:
+        matches: {csharp-type-name: {name: {regex: '^(string|String)$'}}}
+    string-key:
+        kind: identifier
+        pattern: $TEXT
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter
+                      all: [{has: {field: name, pattern: $TEXT}}, {has: {field: type, matches: string-type}}]
+                    - kind: variable_declaration
+                      all:
+                        - has: {field: type, matches: string-type}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $TEXT}}
+    key-argument:
+        kind: argument
+        has:
+            nthChild: 1
+            any:
+                - kind: string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal
+                - kind: invocation_expression
+                  has: {field: function, regex: '^nameof$'}
+                - matches: string-key
+    throwing-getter:
+        kind: invocation_expression
+        has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+        any:
+            - has: {field: function, has: {field: name, regex: '^Get(Bool|Byte|Integer|UnsignedInteger|Double|Char|String|StringList|StringDictionary|Date|Color|Guid|Point|Point3d|Size|Rectangle)$'}}
+            - all:
+                - has: {field: function, has: {field: name, regex: '^GetEnumValue\s*<.+>$'}}
+                - has: {field: arguments, has: {matches: key-argument}}
+    setting-accessor:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(TryGet|Get)(Bool|Byte|Integer|UnsignedInteger|Double|Char|String|StringList|StringDictionary|Date|Color|Guid|Point|Point3d|Size|Rectangle|EnumValue)(\s*<.+>)?$'}
+                    - has: {field: expression, matches: csharp-settings-node}
+            - not: {matches: throwing-getter}
+    found-call:
+        kind: invocation_expression
+        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Found$'}}}}
+    non-enum-parameter:
+        inside:
+            stopBy: end
+            kind: method_declaration, local_function_statement, class_declaration, record_declaration, struct_declaration, interface_declaration
+            all:
+                - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $TYPE}}}
+                - not:
+                    has:
+                        kind: type_parameter_constraints_clause
+                        all:
+                            - has: {kind: identifier, nthChild: 1, pattern: $TYPE}
+                            - has: {kind: type_parameter_constraint, has: {field: type, matches: {csharp-type-name: {name: {regex: '^Enum$'}}}}}
+    shadowing-lambda:
+        kind: lambda_expression
+        has:
+            field: parameters
+            any:
+                - kind: implicit_parameter
+                  pattern: $V
+                - kind: parameter_list
+                  has: {kind: parameter, has: {field: name, pattern: $V}}
+    named-call:
+        kind: invocation_expression
+        has: {field: arguments, has: {kind: argument, has: {field: name, kind: identifier}}}
+    named-read:
+        kind: invocation_expression
+        any:
+            - matches: named-call
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: named-call}}}
+    scoped-out:
+        inside:
+            stopBy: {kind: 'block, arrow_expression_clause, lambda_expression'}
+            kind: block, arrow_expression_clause, lambda_expression
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $V
+                not:
+                    any:
+                        - inside: {kind: declaration_expression, field: name}
+                        - inside: {stopBy: end, matches: found-call, has: {stopBy: end, kind: declaration_expression, has: {field: name, pattern: $V}}}
+                        - inside: {stopBy: end, matches: shadowing-lambda}
+    found-read:
+        kind: invocation_expression
+        all:
+            - matches: found-call
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: setting-accessor}}}
+            - any:
+                - all:
+                    - pattern: Callbacks.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
+                    - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {has: {field: function, has: {field: name, regex: '^TryGet(Bool|Integer|UnsignedInteger|Double|String|Color)$'}}}}}
+                - pattern: Callbacks.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
+                - all:
+                    - any:
+                        - all:
+                            - pattern: Callbacks.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
+                            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {stopBy: end, kind: declaration_expression, has: {field: type, not: {regex: '^var$'}}}}}
+                        - pattern: Callbacks.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
+                    - not: {matches: non-enum-parameter}
+            - not: {matches: scoped-out}
+            - not: {matches: named-read}
+rewriters:
+    - id: typed-read
+      rule:
+        pattern: Callbacks.Found($STORE.$READ($ENTRY, out $TYPE $V), $V)
+      constraints:
+        READ: {regex: '^TryGet(Bool|Integer|UnsignedInteger|Double|String|Color)$'}
+      transform:
+        KIND: {replace: {source: $READ, replace: '^TryGet', by: ''}}
+      fix: SettingType.$KIND.Read($STORE, $ENTRY)
+    - id: found-optional-color
+      rule:
+        pattern: Callbacks.Found($STORE.TryGetColor($ENTRY, out $_ $V), Optional($V))
+      fix: SettingType.Color.Read($STORE, $ENTRY)
+    - id: found-enum
+      rule:
+        any:
+            - pattern: Callbacks.Found($STORE.TryGetEnumValue($ENTRY, out $TYPE $V), $V)
+            - pattern: Callbacks.Found($STORE.TryGetEnumValue<$TYPE>($ENTRY, out $_ $V), $V)
+      fix: SettingType.Enumeration<$TYPE>().Read($STORE, $ENTRY)
 rule:
     kind: invocation_expression
+    pattern: $SITE
     all:
-        - matches: csharp-setting-accessor
-        - has: {field: function, has: {field: name, pattern: $MEMBER}}
-        - not: {inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {matches: csharp-setting-found-read}}}}
+        - any:
+            - all:
+                - matches: found-read
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {has: {field: function, has: {field: name, pattern: $MEMBER}}}}}
+            - all:
+                - matches: setting-accessor
+                - has: {field: function, has: {field: name, pattern: $MEMBER}}
+                - not: {inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {matches: found-read}}}}
         - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration', has: {field: name, regex: '^SettingType$'}}}
+transform:
+    ROW:
+        rewrite: {source: $SITE, rewriters: [typed-read, found-optional-color, found-enum]}
+fix: $ROW
 message: '`$MEMBER` reads a `PersistentSettings` value outside its `SettingType` row'
-note: Use `SettingType.<Kind>.Read(<settings>, <key>)` and match its answer where the read feeds a condition or a later statement, adding a row for a missing kind, `Read` telling an absent key from stored text its kind rejects, and writes through the kind row's `Set`
+note: Use `SettingType.<Kind>.Read(<settings>, <key>)` and match its answer, `SettingType.Enumeration<T>()` for an enum, `Read` answering `None` for an absent key and `UnreadText` for stored text its kind rejects where `Callbacks.Found` over a typed `TryGet*` reads both as absent, writes through the kind row's `Set`, a missing kind adding its row, the fix rewriting `Callbacks.Found` reads alone since a bare accessor read keeps its statements

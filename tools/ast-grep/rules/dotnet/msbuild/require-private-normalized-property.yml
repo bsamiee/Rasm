@@ -17,8 +17,6 @@ rule:
             inside:
                 kind: element
                 stopBy: end
-                has:
-                    matches: msbuild-tag
-                    has: {matches: {msbuild-attribute: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}}
+                matches: {msbuild-metadata: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}
 message: Global property of the same name skips a public property's self-normalizing assignment
 note: Assign the normalized value to a private property

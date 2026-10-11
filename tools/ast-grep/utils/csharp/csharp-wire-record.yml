@@ -1,6 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-wire-record
 language: csharp
+utils:
+    serializable-attribute:
+        matches: {csharp-type-name: {name: {regex: '^JsonSerializable(Attribute)?$'}}}
 rule:
     kind: record_declaration
     all:
@@ -12,5 +15,5 @@ rule:
                 stopBy: end
                 kind: attribute
                 all:
-                    - has: {field: name, regex: '^(global::)?(System\.Text\.Json\.Serialization\.)?JsonSerializable(Attribute)?$'}
+                    - has: {field: name, matches: serializable-attribute}
                     - has: {stopBy: end, kind: typeof_expression, has: {field: type, pattern: $WIRE}}

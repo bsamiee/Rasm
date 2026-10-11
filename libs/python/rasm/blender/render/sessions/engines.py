@@ -5,7 +5,7 @@ from contextlib import contextmanager, ExitStack
 from typing import Annotated, ClassVar, Literal
 
 import bpy
-from expression import Error, Nothing, Ok, Option
+from expression import Error, Nothing, Ok, Option, Result
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ import numpy.typing as npt
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Band, entered
 from rasm.blender.extension.reports import rendered
-from rasm.blender.faults import BlenderAbsentFault, BlenderResult
+from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from rasm.imaging.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -48,10 +48,12 @@ class Pass(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Shot(msgspec.Struct, frozen=True, kw_only=True):
-    """Engine and its evaluated render dependencies."""
+    """Engine, its evaluated render dependencies, and their scene and view layer."""
 
     engine: bpy.types.RenderEngine
     depsgraph: bpy.types.Depsgraph
+    scene: bpy.types.Scene
+    layer: bpy.types.ViewLayer
 
 
 class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -109,8 +111,13 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
         def render(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> None:
             """Writes the body's tiles and reports every refused operation to Blender."""
-            shot = Shot(engine=engine, depsgraph=depsgraph)
-            for faults in written(shot, self.render(shot)).swap().to_option().to_list():
+            shot: BlenderResult[Shot] = (
+                Option
+                .of_optional(depsgraph.scene)
+                .bind(lambda scene: Option.of_optional(depsgraph.view_layer).map(lambda layer: Shot(engine=engine, depsgraph=depsgraph, scene=scene, layer=layer)))
+                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(depsgraph), key="view_layer"),))
+            )
+            for faults in Result[Shot, BlenderFaults].bind(shot, lambda held: written(held, self.render(held))).swap().to_option().to_list():
                 for _, text in rendered(faults):
                     engine.report({"ERROR"}, text)
 
@@ -179,7 +186,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
         def rendered(shot: Shot) -> Iterable[BlenderResult[Tile]]:
             current = frame()
             for (at, source, layer, _view), captured in planes.items():
-                if at != current or source != shot.depsgraph.scene.session_uid or layer != shot.depsgraph.view_layer.name:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                if at != current or source != shot.scene.session_uid or layer != shot.layer.name:
                     continue
                 yield Ok(captured)
 
@@ -223,7 +230,7 @@ def written(shot: Shot, tiles: Iterable[BlenderResult[Tile]]) -> BlenderResult[i
             return Error(answer.error)
         tile = answer.ok
         height, width = tile.planes[0][1].shape[:2]
-        if (result := shot.engine.begin_result(tile.x, tile.y, width, height, layer=shot.depsgraph.view_layer.name, view=tile.view.default_value(""))) is None:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        if (result := shot.engine.begin_result(tile.x, tile.y, width, height, layer=shot.layer.name, view=tile.view.default_value(""))) is None:
             continue
         try:
             for pass_, plane in tile.planes:

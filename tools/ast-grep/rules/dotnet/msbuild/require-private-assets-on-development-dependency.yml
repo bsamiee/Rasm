@@ -7,13 +7,10 @@ utils:
         any:
             - all:
                 - matches: {msbuild-element: {name: {regex: '^PackageReference$'}}}
-                - has:
-                    matches: msbuild-tag
-                    has:
-                        matches:
-                            msbuild-attribute:
-                                name: {regex: '^Include$'}
-                                value: {regex: '^["''][A-Za-z0-9.]*(?i:\.(analyzers?|sourcegenerators?|generators?|codefixes))["'']$|^["''][A-Za-z0-9.]*[a-z0-9](Analyzers?|SourceGenerators?)["'']$'}
+                - matches:
+                    msbuild-metadata:
+                        name: {regex: '^Include$'}
+                        value: {regex: '^["''][A-Za-z0-9.]*(?i:\.(analyzers?|sourcegenerators?|generators?|codefixes))["'']$|^["''][A-Za-z0-9.]*[a-z0-9](Analyzers?|SourceGenerators?)["'']$'}
             - all:
                 - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
                 - matches: {msbuild-metadata: {name: {regex: '^OutputItemType$'}, value: {regex: '^["'']?\s*Analyzer\s*["'']?$'}}}
@@ -36,7 +33,7 @@ utils:
         kind: element
         any:
             - all:
-                - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^PrivateAssets$'}, value: {matches: all-assets}}}}}
+                - matches: {msbuild-metadata: {name: {regex: '^PrivateAssets$'}, value: {kind: AttValue, matches: all-assets}}}
                 - not:
                     has:
                         kind: content

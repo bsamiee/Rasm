@@ -115,7 +115,6 @@ type Source = MaterialSource | LightSource | WorldSource | GeometrySource | Comp
 type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.types.Light
 GroupNode = bpy.types.ShaderNodeGroup | bpy.types.GeometryNodeGroup | bpy.types.CompositorNodeGroup
 OutputNode = bpy.types.ShaderNodeOutputMaterial | bpy.types.ShaderNodeOutputWorld | bpy.types.ShaderNodeOutputLight | bpy.types.NodeGroupOutput
-Skipped = bpy.types.NodeFrame | bpy.types.NodeReroute | bpy.types.NodeGroupInput
 
 
 # --- [ROSTERS] --------------------------------------------------------------------------
@@ -311,7 +310,6 @@ class Shown(msgspec.Struct, frozen=True, kw_only=True):
 
     display: Display
     cells: dict[Editor, tuple[Cell, ...]]
-    preferences: bpy.types.Preferences
 
 
 class NodeState(msgspec.Struct, kw_only=True):
@@ -332,7 +330,7 @@ class Counts(Line, frozen=True):
     def drawn(identity: Identity, /) -> BlenderResult[RowDraw]:
         """Answers the label reading the queue backlog and the texture cache at each draw."""
 
-        def shown(layout: bpy.types.UILayout, _holder: bpy.types.bpy_struct, _context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
             backlog = PreviewQueue.held[identity.package]
             queued, failed = len(backlog.jobs), len(backlog.failed)
             cache = TextureCache(identity=identity)
@@ -349,17 +347,11 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, _metrics: Metrics, /) -> BlenderResult[Option[Shown]]:
         """Reads the display settings and every editor's cells while previews show, cells holding no GPU geometry."""
-        return self.settings(self.identity).map(
-            lambda settings: (
-                Some(Shown(display=settings.display, cells=NodePreview.state[self.identity.package].cells, preferences=bpy.context.preferences))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                if settings.enabled
-                else Nothing
-            )
-        )
+        return self.settings(self.identity).map(lambda settings: Some(Shown(display=settings.display, cells=NodePreview.state[self.identity.package].cells)) if settings.enabled else Nothing)
 
     def drawn(self, canvas: Canvas, state: Shown) -> None:
         """Draws each node's cells beside it in the editor the canvas draws, the active node's grid last."""
-        metrics, display, theme, style = canvas.metrics, state.display, state.preferences.themes[0], state.preferences.ui_styles[0].widget
+        metrics, display, theme, style = canvas.metrics, state.display, bpy.context.preferences.themes[0], bpy.context.preferences.ui_styles[0].widget  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         cache, points, pad, gap, checker = TextureCache(identity=self.identity), metrics.text(style), metrics.spacing.button_y, metrics.spacing.template, metrics.checker()
         shader = gpu.shader.from_builtin("IMAGE_COLOR")
         marks = {Status.QUEUED: ("…", color(theme.info.info_warning_text)), Status.FAILED: ("!", color(theme.info.info_error_text))} if display.status else {}
@@ -441,7 +433,7 @@ class NodePreview:
         tiles: Tiles,
         settings: Callable[[Identity], BlenderResult[NodePreviews]],
         stored: Callable[[Identity, NodePreviews], BlenderResult[None]],
-        retention: Callable[[Identity], BlenderResult[Retention]],
+        retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing,
     ) -> None:
         """Retains native command declarations once for every registration placement."""
         self.stack, self.tiles, self.settings, self.stored, self.retention = stack, tiles, settings, stored, retention
@@ -520,9 +512,9 @@ class NodePreview:
                 depth = row.depths[-1]
                 match depth:
                     case Depth.UINT8 | Depth.UINT16:
-                        image = ImageFile(pixels=codes(unassociated(plane), np.iinfo(depth.name.lower()).bits), colorspace=space).write(str(path), Storage(), {}, config)  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
+                        image = ImageFile(pixels=codes(unassociated(plane), 8) if depth is Depth.UINT8 else codes(unassociated(plane), 16), colorspace=space).write(str(path), Storage(), {}, config)
                     case Depth.HALF | Depth.FLOAT:
-                        image = ImageFile(pixels=plane, colorspace=space).write(str(path), Storage(depth=np.finfo(depth.name.lower()).bits), {}, config)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        image = ImageFile(pixels=plane, colorspace=space).write(str(path), Storage(depth=16 if depth is Depth.HALF else 32), {}, config)
                 return image.map_error(lambda faults: (BlenderImagingFault(faults=faults),))
 
             return Result[Format, BlenderFaults].bind(chosen, write)
@@ -558,7 +550,7 @@ class NodePreview:
             )
             return (
                 paired(paired(viewing, active), paired(self.settings(call.identity), self.stack.config()))
-                .bind(lambda parts: chosen(*parts[0][0], parts[0][1], parts[1][0]).bind(lambda render: wrote(call.context.scene, render, *parts[1])))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                .bind(lambda parts: chosen(*parts[0][0], parts[0][1], parts[1][0]).bind(lambda render: call.root(bpy.types.Scene).bind(lambda scene: wrote(scene, render, *parts[1]))))
                 .bind(lambda name: loaded(name, Tag()).map(lambda _: name) if call.record.opened else Ok(name))
                 .map(lambda name: Done(notes=(("INFO", f"Wrote {name}"),)))
             )
@@ -577,7 +569,7 @@ class NodePreview:
         """Renders a target isolated through routed copies in the preview scene as its source stages it."""
         lighting, target = settings.lighting, render.target
         aov: BlenderResult[Option[str]] = identity.name(Name.ATTACHMENT, PreviewScene.value).map(Some) if render.valued else Ok(Nothing)
-        environment = lighting.environment(bpy.context.preferences)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        environment = lighting.environment
 
         def wired[H: Holder](source: BlenderResult[H], output: type[bpy.types.Node]) -> BlenderResult[Routed[H]]:
             return paired(source.bind(lambda found: resources.enter_context(routed(identity, found, target.route))), aov).bind(
@@ -626,7 +618,7 @@ class NodePreview:
                 case GeometrySource():
                     aim = Vector((0.3, -0.6, 0.9)).normalized().to_track_quat("Z", "Y").to_euler()
                     staging = (
-                        paired(clayed(identity, target, clay, resources), msgspec.structs.replace(lighting, strength=0.25).environment(bpy.context.preferences)).map(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        paired(clayed(identity, target, clay, resources), msgspec.structs.replace(lighting, strength=0.25).environment).map(
                             lambda pair: msgspec.structs.replace(staged(pair[1], Lamp(energy=4.0, rotation=(aim.x, aim.y, aim.z))), subject=Some(pair[0]), view=Framed())
                         )
                         if render.kind is RenderKind.GEOMETRY_CLAY
@@ -746,7 +738,8 @@ class NodePreview:
         failed = PreviewQueue.held[identity.package].failed
         views = tuple(
             (editor, space, region, tree)
-            for window in context.window_manager.windows  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for manager in Option.of_optional(context.window_manager).to_list()
+            for window in manager.windows
             for area in window.screen.areas
             for space in (area.spaces.active,)
             if isinstance(space, bpy.types.SpaceNodeEditor)
@@ -758,8 +751,9 @@ class NodePreview:
 
         def rank(planned: Planned) -> Rank:
             node, region = planned.node, planned.region
-            x, y = region.view2d.view_to_region(node.location_absolute[0] * metrics.scale, node.location_absolute[1] * metrics.scale, clip=False)  # type: ignore[misc]
-            return Rank.ACTIVE if node.select or node == planned.tree.nodes.active else Rank.SHOWN if 0 <= x <= region.width and 0 <= y <= region.height else Rank.REST  # type: ignore[has-type]
+            position: tuple[int, int] = region.view2d.view_to_region(node.location_absolute[0] * metrics.scale, node.location_absolute[1] * metrics.scale, clip=False)  # type: ignore[assignment]
+            x, y = position
+            return Rank.ACTIVE if node.select or node == planned.tree.nodes.active else Rank.SHOWN if 0 <= x <= region.width and 0 <= y <= region.height else Rank.REST
 
         def planned(scene: bpy.types.Scene, settings: NodePreviews, config: PyOpenColorIO.Config, name: str) -> BlenderResult[tuple[Job, ...]]:
             def staging(render: Render, size: int, source: bpy.types.Scene) -> Staged:
@@ -910,9 +904,8 @@ class NodePreview:
             )
             return paired(editors, stages).map(lambda parts: (*parts[0], *(job for group in parts[1] for job in group)))
 
-        return paired(self.settings(identity), paired(self.stack.config(), identity.name(Name.ATTACHMENT, PreviewScene.value))).bind(
-            lambda parts: planned(context.scene, parts[0], *parts[1])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        )
+        scene: BlenderResult[bpy.types.Scene] = Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
+        return paired(paired(scene, self.settings(identity)), paired(self.stack.config(), identity.name(Name.ATTACHMENT, PreviewScene.value))).bind(lambda parts: planned(*parts[0], *parts[1]))
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
@@ -945,12 +938,13 @@ class NodePreview:
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Answers the state scope, the texture cache, the queue feed, the operator rows, the context menu, the overlay, and the update and frame rows."""
         signal = Signal()
-        stores: list[type[bpy.types.ID]] = []
-        for prop in bpy.types.BlendData.bl_rna.properties:
-            if isinstance(prop, bpy.types.CollectionProperty):
-                fixed: bpy.types.bpy_struct = prop.fixed_type  # type: ignore[assignment, type-arg]  # ty: ignore[invalid-assignment, missing-type-argument]
-                if isinstance(fixed, bpy.types.ID) and type(fixed) not in {bpy.types.ID, bpy.types.Object}:
-                    stores.append(type(fixed))
+        stores = tuple(
+            kind
+            for prop in bpy.types.BlendData.bl_rna.properties
+            if isinstance(prop, bpy.types.CollectionProperty)
+            for kind in (type(prop.fixed_type),)
+            if issubclass(kind, bpy.types.ID) and kind not in {bpy.types.ID, bpy.types.Object}  # type: ignore[unreachable]
+        )
 
         @contextmanager
         def scoped() -> Generator[BlenderResult[None]]:
@@ -968,8 +962,8 @@ class NodePreview:
             return read.map(lambda _: None)
 
         def dropped(_scene: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> BlenderResult[None]:
-            for update in updates:
-                NodePreview.state[identity.package].held.pop(Handle.of(update.id), None)  # type: ignore[type-var, arg-type]
+            for block in (held for update in updates for held in Option.of_optional(update.id).to_list()):
+                NodePreview.state[identity.package].held.pop(Handle.of(block), None)
             return forgotten(lambda settings: settings.automatic)
 
         def cleared(_path: Option[Path]) -> BlenderResult[None]:
@@ -1001,9 +995,9 @@ class NodePreview:
                 rows=(OperatorButton(target=self.mark), OperatorButton(target=self.export), OperatorButton(target=self.refresh)),
             ),
             overlay,
-            UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=tuple(stores), body=dropped),
+            UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=stores, body=dropped),  # type: ignore[arg-type]
             UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,), body=dropped, changes=Some(Change.GEOMETRY | Change.SHADING)),
-            SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=lambda _: forgotten(lambda settings: settings.frames)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=lambda _: forgotten(lambda settings: settings.frames)),
             PathHandler(handlers=bpy.app.handlers.load_post, body=cleared),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         ))
 
@@ -1020,7 +1014,7 @@ class StageThumbnail(Line, frozen=True, kw_only=True):
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
         """Records the original Group Output target and draws its published icon."""
 
-        def shown(layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(holder.id_data, bpy.types.Scene) and isinstance(holder.node_group, bpy.types.NodeTree):
                 scene = holder.id_data
 
@@ -1066,7 +1060,12 @@ def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settin
     candidates = tuple(
         node
         for node in tree.nodes
-        if not (isinstance(node, Skipped) or node.mute or node.name in zones or (isinstance(node, bpy.types.NodeGroupOutput) and not isinstance(tree, bpy.types.CompositorNodeTree)))
+        if not (
+            isinstance(node, bpy.types.NodeFrame | bpy.types.NodeReroute | bpy.types.NodeGroupInput)
+            or node.mute
+            or node.name in zones
+            or (isinstance(node, bpy.types.NodeGroupOutput) and not isinstance(tree, bpy.types.CompositorNodeTree))
+        )
     )
     return (
         NodePreview.setting
@@ -1210,7 +1209,9 @@ def clayed(identity: Identity, target: Target, clay: Callable[[], BlenderResult[
 
         return paired(
             tree_of(carried.holder),
-            Ownership(kind=bpy.types.Object, key=PreviewScene.routes.key, saved=Saved.NEVER, single=False).made(identity, lambda: Ok(item.copy())).map(acquired),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            Ownership(kind=bpy.types.Object, key=PreviewScene.routes.key, saved=Saved.NEVER, single=False)
+            .made(identity, lambda: Option.of_optional(item.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="copy"),)))
+            .map(acquired),
         ).bind(
             lambda pair: accumulated((
                 written(pair[1], "parent", None),
@@ -1325,8 +1326,8 @@ def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
         def walked(frontier: tuple[bpy.types.Node, ...], seen: frozenset[str]) -> frozenset[str]:
             match frontier:
                 case (head, *rest):
-                    fresh = {link.to_node.name: link.to_node for socket in (() if head == end else head.outputs) for link in socket.links if link.to_node.name not in seen}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute, not-iterable]
-                    return walked((*rest, *fresh.values()), seen | fresh.keys())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    fresh = {node.name: node for link in tree.links if head != end and link.from_node == head for node in Option.of_optional(link.to_node).to_list() if node.name not in seen}
+                    return walked((*rest, *fresh.values()), seen | fresh.keys())
                 case _:
                     return seen
 
@@ -1392,8 +1393,7 @@ def attributes(group: Iterable[bpy.types.Attribute]) -> tuple[npt.NDArray[np.flo
     """Reads every numeric attribute's values through `foreach_get` into a buffer typed by its value property."""
 
     def read(
-        values: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct]",  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
-        prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty,
+        values: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]", prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty
     ) -> npt.NDArray[np.float32 | np.int32 | np.bool]:
         count = len(values) * max(prop.array_length, 1)
         match prop:
@@ -1411,12 +1411,13 @@ def attributes(group: Iterable[bpy.types.Attribute]) -> tuple[npt.NDArray[np.flo
         for attribute in group
         for data in (attribute.bl_rna.properties["data"],)
         if isinstance(data, bpy.types.CollectionProperty)
-        for prop in data.fixed_type.bl_rna.properties  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        for item in Option.of_optional(data.fixed_type).to_list()
+        for prop in item.properties
         if isinstance(prop, bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty)
     )
 
 
-def coordinates[P: bpy.types.bpy_struct](points: "bpy.types.bpy_prop_collection[P]") -> npt.NDArray[np.float32]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+def coordinates[P: "bpy.types.bpy_struct[object]"](points: "bpy.types.bpy_prop_collection[P]") -> npt.NDArray[np.float32]:
     """Reads the `co` member of every point of a collection through `foreach_get`, its width from the item's RNA."""
     buffer = np.empty(sum(prop.array_length for item in points for prop in (item.bl_rna.properties["co"],) if isinstance(prop, bpy.types.FloatProperty)), np.float32)
     points.foreach_get("co", buffer)

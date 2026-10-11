@@ -25,17 +25,18 @@ public sealed class PlugInSession {
     // --- [OPEN]
     public IO<Unit> Open(Seq<Func<Action<IDisposable>, IO<Unit>>> rows) =>
         IO.pure<Action<IDisposable>>(lease => _ = atomic(() => state.Swap(held => held.Map(open => open with { Releases = open.Releases.Add(lease) })))
-                .IfNone(static () => Errors.Cancelled.Throw<Held>())).Bind(retain => DisposalOps.OnFailure(
-            from opened in atomicIO(() => state.Swap(static _ => Some(new Held(static report => ErrorOps.Report(report.Error, report.Owner, report.Member), []))))
-            from post in Subscriptions.Queued(
-                Buffer<(Error Error, Type Owner, string Member)>.Unbounded,
-                static report => ErrorOps.Report(report.Error, report.Owner, report.Member).Post(),
-                static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).Post(), retain)
-            from published in atomicIO(() => state.Swap(held => held.Map(open => open with { Post = post })))
-                .Bind(static held => held.Match(Some: static _ => IO.pure(unit), None: static () => IO.fail<Unit>(Errors.Cancelled)))
-            from acquired in rows.TraverseM(row => IO.pure(retain).Bind(row)).As()
-            select unit,
-            Close()));
+                .IfNone(static () => Errors.Cancelled.Throw<Held>())).Bind(retain => DisposalOps.OnFailure(Opened(rows, retain), Close()));
+
+    private IO<Unit> Opened(Seq<Func<Action<IDisposable>, IO<Unit>>> rows, Action<IDisposable> retain) =>
+        from opened in atomicIO(() => state.Swap(static _ => Some(new Held(static report => ErrorOps.Report(report.Error, report.Owner, report.Member), []))))
+        from post in Subscriptions.Queued(
+            Buffer<(Error Error, Type Owner, string Member)>.Unbounded,
+            static report => ErrorOps.Report(report.Error, report.Owner, report.Member).Post(),
+            static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).Post(), retain)
+        from published in atomicIO(() => state.Swap(held => held.Map(open => open with { Post = post })))
+            .Bind(static held => held.Match(Some: static _ => IO.pure(unit), None: static () => IO.fail<Unit>(Errors.Cancelled)))
+        from acquired in rows.TraverseM(row => IO.pure(retain).Bind(row)).As()
+        select unit;
 
     // --- [REPORT]
     public void Report(Error error, Type owner, string member) =>

@@ -90,13 +90,13 @@ Read in order before the first edit:
 
 1. Route by symptom to the skill section and follow it there:
 
-| [INDEX] | [SYMPTOM]               | [ROUTE]                                                                                                 |
-| :-----: | :---------------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | Failed build            | `dotnet-msbuild-diagnostics`, failed build triage, one row per error class                              |
-|  [02]   | Slow build              | `dotnet-msbuild-diagnostics`, build performance, a measured pair under `<tempdir>`                      |
-|  [03]   | Shared path or 2 builds | `dotnet-msbuild-diagnostics`, shared output paths                                                       |
-|  [04]   | Unexpected rebuild      | `references/evaluation-and-incrementality.md`, incrementality, a pair under `<tempdir>`                 |
-|  [05]   | Wrong property or item  | `mcp__binlog__binlog_explain_property`, then `dotnet-msbuild-evaluation`, troubleshooting               |
+| [INDEX] | [SYMPTOM]               | [ROUTE]                                                                                   |
+| :-----: | :---------------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | Failed build            | `dotnet-msbuild-diagnostics`, failed build triage, one row per error class                |
+|  [02]   | Slow build              | `dotnet-msbuild-diagnostics`, build performance, a measured pair under `<tempdir>`        |
+|  [03]   | Shared path or 2 builds | `dotnet-msbuild-diagnostics`, shared output paths                                         |
+|  [04]   | Unexpected rebuild      | `references/evaluation-and-incrementality.md`, incrementality, a pair under `<tempdir>`   |
+|  [05]   | Wrong property or item  | `mcp__binlog__binlog_explain_property`, then `dotnet-msbuild-evaluation`, troubleshooting |
 
 2. Restore the pair a route names with `dotnet restore <build> --artifacts-path <tempdir>`
 3. Run the prompt's build twice with `--no-restore --artifacts-path <tempdir> -bl:<logs><purpose>-{}.binlog`, the pair

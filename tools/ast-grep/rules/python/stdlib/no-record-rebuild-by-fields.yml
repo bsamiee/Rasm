@@ -9,20 +9,20 @@ utils:
             kind: assignment
             all:
                 - has: {field: left, kind: identifier}
-                - has: {field: type, kind: type, not: {regex: '^(typing\.)?ClassVar\b'}}
+                - has: {field: type, kind: type, not: {has: {stopBy: end, matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^ClassVar$'}}}}}}
+    struct-base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
+            - matches: {python-base-class: {superclasses: {has: {matches: struct-base}}}}
     struct-class:
         kind: class_definition
         all:
             - has: {field: name, pattern: $C}
-            - any:
-                - has: {field: superclasses, has: {regex: '^(msgspec\.)?Struct$'}}
-                - inside: {kind: decorated_definition, has: {kind: decorator, regex: '^@((attrs?\.)?(frozen|define|mutable|s|attrs)|(dataclasses\.)?dataclass)\b'}}
+            - has: {field: superclasses, has: {matches: struct-base}}
             - has: {field: body, has: {matches: struct-field}}
     frozen-struct:
         matches: struct-class
-        any:
-            - has: {field: superclasses, has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}}
-            - inside: {kind: decorated_definition, has: {kind: decorator, regex: '^@(attrs?\.)?frozen\b|\bfrozen\s*=\s*True\b'}}
+        has: {field: superclasses, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^frozen$'}}, {has: {field: value, kind: 'true'}}]}}
     first-field:
         matches: struct-field
         has: {kind: assignment, has: {field: left, pattern: $FIRST}}
@@ -89,7 +89,7 @@ utils:
         any:
             - kind: call
               all:
-                - has: {field: function, regex: '^((dataclasses|attrs?|msgspec\.structs)\.)?asdict$|^vars$'}
+                - has: {field: function, any: [{matches: {python-member-use: {module: {regex: '^msgspec\.structs$'}, name: {regex: '^asdict$'}}}}, {matches: {python-builtin-name: {name: {regex: '^vars$'}}}}]}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: record}}, {not: {has: {nthChild: 2}}}]}
             - kind: attribute
               all: [{has: {field: object, matches: record}}, {has: {field: attribute, regex: '^__dict__$'}}]

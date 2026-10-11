@@ -64,8 +64,10 @@ public static class EditorShell {
     public static IO<Editor> Show(RhinoDoc document) =>
         IO.lift(static () => Optional(Editor.Instance)).Bind(found => found.Match(
             Some: static _ => IO.lift(static () => Editor.ShowEditor()),
-            None: () => Macros.ExecuteCommand(document, "_GH2")
-                .Bind(static _ => IO.lift(static () => Missing.Unless(Editor.Instance, nameof(Editor.Instance))))));
+            None: () => Launched(document)));
+
+    private static IO<Editor> Launched(RhinoDoc document) =>
+        Macros.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Missing.Unless(Editor.Instance, nameof(Editor.Instance))));
 
     // --- [GETTERS]
 

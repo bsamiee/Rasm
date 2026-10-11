@@ -22,11 +22,11 @@ utils:
                 - has: {field: arguments, matches: handler-arguments}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
                 - has: {field: arguments, matches: handler-arguments}
                 - inside: {kind: binary_expression, field: right, all: [{has: {field: operator, regex: '^\|$'}}, {has: {field: left, pattern: $EFFECT}}]}
     unit-value:
-        regex: '^((global::)?(LanguageExt\.)?Prelude\.)?unit$'
+        matches: {csharp-type-name: {name: {regex: '^unit$'}}}
     release:
         not:
             any:

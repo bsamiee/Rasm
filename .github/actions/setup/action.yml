@@ -4,7 +4,8 @@ description: Installs the toolchain and dependencies
 runs:
     using: composite
     steps:
-        - uses: nrwl/nx-set-shas@v5
+        - uses: maxim-lobanov/setup-xcode@v1.7.0
+          if: runner.os == 'macOS'
         - uses: jdx/mise-action@v5.1.1
           with:
             auto_update: true

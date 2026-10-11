@@ -2,6 +2,8 @@
 id: csharp-release-handler
 language: csharp
 utils:
+    error-type:
+        matches: {csharp-type-name: {name: {regex: '^Error$'}}}
     fail:
         regex: '^((global::)?(LanguageExt\.)?IO\.fail\s*<.+>|((global::)?(LanguageExt\.)?Prelude\.)?(error\s*<|fail\s*<\s*(global::)?(LanguageExt\.Common\.)?Error\s*,)\s*(global::)?(LanguageExt\.)?IO\s*,.+>)$'
     combined:
@@ -77,7 +79,7 @@ utils:
                         kind: 'method_declaration, local_function_statement'
                         all:
                             - has: {field: name, pattern: $RELAY}
-                            - has: {field: parameters, has: {kind: parameter, all: [{has: {field: type, regex: '^((global::)?LanguageExt\.Common\.)?Error$'}}, {has: {field: name, pattern: $RELAYED}}]}}
+                            - has: {field: parameters, has: {kind: parameter, all: [{has: {field: type, matches: error-type}}, {has: {field: name, pattern: $RELAYED}}]}}
                             - has:
                                 field: body
                                 has:

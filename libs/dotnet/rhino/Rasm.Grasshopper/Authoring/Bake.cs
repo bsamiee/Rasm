@@ -28,12 +28,7 @@ public static class BakeOps {
         Map<BakeKey, GeometryPair> desired) =>
         DisposalOps.Within<ObjectAttributes, Seq<Guid>>(retain =>
             from held in IO.lift(() => toSeq(read().Filter(row => scope(row.Key) || desired.ContainsKey(row.Key)).OrderBy(static row => row.Id)).Strict())
-            from rows in desired.ToSeq().TraverseM(row =>
-                from copied in IO.lift(row.Value.Geometry.EnsurePrivateCopy)
-                from attributes in DisposalOps.Acquire(
-                    IO.lift(() => row.Value.Attributes.Match(Some: static attributes => attributes.Duplicate(), None: defaults)),
-                    static attributes => IO.lift(attributes.Dispose), retain)
-                select (row.Key, row.Value.Geometry, Attributes: attributes)).As()
+            from rows in desired.ToSeq().TraverseM(row => Prepared(row, defaults, retain)).As()
             from plan in IO.lift(() => rows.Map(row => {
                 Option<Guid> previous = held.Find(found => row.Key.CompareTo(found.Key) == 0).Map(static found => found.Id);
                 Guid id = previous.IfNone(Guid.NewGuid);
@@ -54,6 +49,13 @@ public static class BakeOps {
             from values in plan.TraverseM(row => write(row.Previous, row.Geometry, row.Attributes)).As()
             from pruned in prune(stale)
             select values, DisposalOps.Release);
+
+    private static IO<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes)> Prepared((BakeKey Key, GeometryPair Value) row, Func<ObjectAttributes> defaults, Action<ObjectAttributes> retain) =>
+        from copied in IO.lift(row.Value.Geometry.EnsurePrivateCopy)
+        from attributes in DisposalOps.Acquire(
+            IO.lift(() => row.Value.Attributes.Match(Some: static attributes => attributes.Duplicate(), None: defaults)),
+            static attributes => IO.lift(attributes.Dispose), retain)
+        select (row.Key, row.Value.Geometry, Attributes: attributes);
 
     // --- [DOCUMENT]
     public static IO<Seq<string>> Bake(

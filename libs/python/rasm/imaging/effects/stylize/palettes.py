@@ -9,7 +9,7 @@ import msgspec
 from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.parameters import Choice, Gated, Presentation, Quantity, Ramp
 
-# --- [TYPES] -----------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Channels(Choice):
@@ -19,7 +19,7 @@ class Channels(Choice):
     LUMINANCE = 3, "Luminance"
 
 
-# --- [MODELS] ----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Posterize(msgspec.Struct, frozen=True, kw_only=True):
@@ -47,6 +47,6 @@ class Palette(Effect, frozen=True, kw_only=True, tag=43):
     gradient: Annotated[Gated[Ramp], msgspec.Meta(title="Gradient Map", description="Luminance mapped through a color ramp")] = Gated(enabled=False, value=Ramp())
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Channels", "Palette", "Posterize"]

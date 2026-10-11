@@ -59,18 +59,20 @@ public static class AttachedData {
         from found in IO.lift(() => Conversions.Rows(archive.PlugInData).Find(data => data.PlugInId == plugIn))
         from payload in found.Traverse((
             from data in Eff.runtime<File3dmPlugInData>()
-            from captured in Callbacks.Captured<T>((
-                from answer in Eff.runtime<Action<Fin<T>>>()
-                from called in IO.lift(() => {
-                    _ = archive.PlugInData.TryRead(data, (_, reader) => {
-                        Fin<T> outcome = Try.lift(read(reader).Run).Run();
-                        answer(outcome);
-                        return outcome.IsSucc;
-                    });
-                })
-                select called).RunIO, nameof(File3dmPlugInDataTable.TryRead))
+            from captured in Callbacks.Captured<T>(Answered(archive, data, read).RunIO, nameof(File3dmPlugInDataTable.TryRead))
             select captured).RunIO).As()
         select payload;
+
+    private static Eff<Action<Fin<T>>, Unit> Answered<T>(File3dm archive, File3dmPlugInData data, Func<BinaryArchiveReader, IO<T>> read) =>
+        from answer in Eff.runtime<Action<Fin<T>>>()
+        from called in IO.lift(() => {
+            _ = archive.PlugInData.TryRead(data, (_, reader) => {
+                Fin<T> outcome = Try.lift(read(reader).Run).Run();
+                answer(outcome);
+                return outcome.IsSucc;
+            });
+        })
+        select called;
 
     // --- [USER_DATA]
     public static IO<Option<TData>> Find<TData>(CommonObject target) where TData : UserData =>
@@ -82,12 +84,7 @@ public static class AttachedData {
         from found in Find<TData>(target)
         from stored in found.Match(
             Some: held => IO.lift(() => { held.State = Some(state); }),
-            None:
-                IO.lift(static () => new TData()).Bind(data => DisposalOps.OnFailure(
-                    IO.lift(() => { data.State = Some(state); })
-                        .Bind(_ => IO.lift(() => Refused.Unless(target.UserData.Add(data), nameof(UserDataList.Add))))
-                        .Catch(static error => error.HasException<ArgumentException>(), static error => IO.fail<Unit>(new NotAttachable(typeof(TData), error))),
-                    IO.lift(data.Dispose))).Uninterruptible())
+            None: Attached<TData, TState>(target, state))
         select stored;
 
     public static IO<Unit> Remove<TData>(CommonObject target) where TData : UserData =>
@@ -101,4 +98,13 @@ public static class AttachedData {
         IO.lift(() => UserData.MoveUserDataFrom(source)).Bind(id => DisposalOps.OnFailure(
             IO.lift(() => UserData.MoveUserDataTo(destination, id, append)),
             IO.lift(() => UserData.MoveUserDataTo(source, id, append: true)))).Uninterruptible();
+
+    private static IO<Unit> Attached<TData, TState>(CommonObject target, TState state)
+        where TData : DefinedUserData<TState>, new()
+        where TState : notnull =>
+        IO.lift(static () => new TData()).Bind(data => DisposalOps.OnFailure(
+            IO.lift(() => { data.State = Some(state); })
+                .Bind(_ => IO.lift(() => Refused.Unless(target.UserData.Add(data), nameof(UserDataList.Add))))
+                .Catch(static error => error.HasException<ArgumentException>(), static error => IO.fail<Unit>(new NotAttachable(typeof(TData), error))),
+            IO.lift(data.Dispose))).Uninterruptible();
 }

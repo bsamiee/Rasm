@@ -127,8 +127,8 @@ class Bands(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         def banded(formed: npt.NDArray[np.float32]) -> "Option[Bands]":
             colors = formed[0]
             same = (colors[1:] == colors[:-1]).all(axis=-1)
-            starts = np.flatnonzero(same & ~np.r_[False, same[:-1]])
-            ends = np.flatnonzero(same & ~np.r_[same[1:], False]) + 1
+            steps = np.diff(np.pad(same, 1).astype(np.int8))
+            starts, ends = np.flatnonzero(steps == 1), np.flatnonzero(steps == -1)
             selected, edges = colors[starts], np.exp2((exposures[ends[:-1]] + exposures[starts[1:]]) / 2.0)
             for array in (selected, edges):
                 array.setflags(write=False)

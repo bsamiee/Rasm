@@ -13,3 +13,4 @@ rule:
         any:
             - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}
             - matches: typing-type-checking-block
+            - inside: {kind: type_alias_statement, field: right, stopBy: end}

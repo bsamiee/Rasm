@@ -1,7 +1,7 @@
 """Declared keyframes, drivers, modifiers, and sampling of RNA channels."""
 
 from collections.abc import Iterable
-from typing import Annotated
+from typing import Annotated, TYPE_CHECKING
 
 import bpy
 from bpy_extras import anim_utils
@@ -16,6 +16,9 @@ from rasm.blender.data.rna.descriptors import Descriptor, struct_at, Value, writ
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from rasm.imaging.faults import accumulated, paired
 from rasm.imaging.parameters import Case
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -49,7 +52,7 @@ class Driven(Case, frozen=True, kw_only=True, tag=2):
 class Modifier(msgspec.Struct, frozen=True, kw_only=True):
     """Native F-curve modifier type and its property values."""
 
-    kind: str
+    kind: "rna_enums.FmodifierTypeItems"
     values: dict[str, Value] = msgspec.field(default_factory=dict)
 
 
@@ -110,22 +113,34 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 and coordinates
                 and all(key.interpolation == "BEZIER" and key.handle_left_type == key.handle_right_type == "AUTO_CLAMPED" for key in curve.keyframe_points)
             )
-            if not keys or len(curve.modifiers) != len(self.modifiers) or any(held.type != row.kind for held, row in zip(curve.modifiers, self.modifiers)):
+            match self.source:
+                case Driven(expression=expression, variables=variables):
+                    driven = (
+                        Option
+                        .of_optional(curve.driver)
+                        .filter(
+                            lambda driver: (
+                                driver.type == "SCRIPTED"
+                                and driver.expression == expression
+                                and not driver.use_self
+                                and len(driver.variables) == len(variables)
+                                and all(
+                                    held.type == "SINGLE_PROP"
+                                    and held.name == row.name
+                                    and held.targets[0].id == owner
+                                    and held.targets[0].id_type == owner.id_type
+                                    and held.targets[0].data_path == row.path
+                                    and not held.targets[0].use_fallback_value
+                                    for held, row in zip(driver.variables, variables)
+                                )
+                            )
+                        )
+                        .is_some()
+                    )
+                case Keys():
+                    driven = True
+            if not keys or not driven or len(curve.modifiers) != len(self.modifiers) or any(held.type != row.kind for held, row in zip(curve.modifiers, self.modifiers)):
                 return Ok(False)
-            if isinstance(self.source, Driven):
-                driver: bpy.types.Driver = curve.driver  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                if driver.type != "SCRIPTED" or driver.expression != self.source.expression or driver.use_self or len(driver.variables) != len(self.source.variables):
-                    return Ok(False)
-                if any(
-                    held.type != "SINGLE_PROP"
-                    or held.name != row.name
-                    or held.targets[0].id != owner
-                    or held.targets[0].id_type != owner.id_type
-                    or held.targets[0].data_path != row.path
-                    or held.targets[0].use_fallback_value
-                    for held, row in zip(driver.variables, self.source.variables)
-                ):
-                    return Ok(False)
             return accumulated(
                 Descriptor.resolve(held, name, bpy.types.Property).map(lambda descriptor: descriptor.equal(descriptor.read(held), value))
                 for held, row in zip(curve.modifiers, self.modifiers)
@@ -134,13 +149,19 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
         def modified(curve: bpy.types.FCurve) -> BlenderResult[None]:
             def added(row: Modifier) -> BlenderResult[None]:
-                native: bpy.types.EnumProperty = bpy.types.FModifier.bl_rna.properties["type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                accepted = tuple(
+                    item.identifier
+                    for prop in bpy.types.FModifier.bl_rna.properties
+                    if isinstance(prop, bpy.types.EnumProperty) and prop.identifier == "type"
+                    for item in prop.enum_items
+                    if item.value
+                )
                 return (
-                    catch(lambda: curve.modifiers.new(row.kind), exception=TypeError)()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    catch(lambda: curve.modifiers.new(row.kind), exception=TypeError)()
                     .to_option()
                     .bind(Option.of_optional)
                     .map(lambda made: accumulated(written(made, name, value) for name, value in row.values.items()).map(lambda _: None))
-                    .default_with(lambda: Error((BlenderChoiceFault(path=repr(curve.modifiers), identifier=row.kind, accepted=tuple(item.identifier for item in native.enum_items if item.value)),)))
+                    .default_with(lambda: Error((BlenderChoiceFault(path=repr(curve.modifiers), identifier=row.kind, accepted=accepted),)))
                 )
 
             return accumulated(map(added, self.modifiers)).map(lambda _: None)
@@ -182,17 +203,20 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                             data.drivers.remove(curve)
                         curve = data.drivers.new(path, index=index)
                         curve.update_autoflags(owner)
-                        driver: bpy.types.Driver = curve.driver  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                        driver.type = "SCRIPTED"
-                        driver.expression = expression
-                        for row in variables:
-                            variable = driver.variables.new()
-                            variable.name = row.name
-                            target = variable.targets[0]
-                            target.id_type = owner.id_type
-                            target.id = owner
-                            target.data_path = row.path
-                        return modified(curve).map(lambda _: Some(driver))
+                        match curve.driver:
+                            case bpy.types.Driver() as driver:
+                                driver.type = "SCRIPTED"
+                                driver.expression = expression
+                                for row in variables:
+                                    variable = driver.variables.new()
+                                    variable.name = row.name
+                                    target = variable.targets[0]
+                                    target.id_type = owner.id_type
+                                    target.id = owner
+                                    target.data_path = row.path
+                                return modified(curve).map(lambda _: Some(driver))
+                            case None:
+                                return Error((BlenderAbsentFault(owner=repr(curve), key="driver"),))
             except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError) as error:
                 return Error((BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
 
@@ -255,7 +279,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _animation_data(owner: bpy.types.ID) -> Option[bpy.types.AnimData]:
-    return catch(lambda: owner.animation_data, exception=AttributeError)().to_option().bind(Option.of_optional)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    return struct_at(owner, "animation_data").bind(lambda data: Some(data) if isinstance(data, bpy.types.AnimData) else Nothing)
 
 
 def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> BlenderResult[tuple[float, ...]]:

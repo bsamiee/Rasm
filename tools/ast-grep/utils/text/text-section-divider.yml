@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: text-section-divider
-language: python
-rule:
-    matches: text-labeled-divider
-    regex: ' -+$'

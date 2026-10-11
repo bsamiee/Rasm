@@ -10,7 +10,7 @@ import msgspec
 from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Ramp, Rgb
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class IdSource(Choice):
@@ -31,7 +31,7 @@ class Placement(Choice):
 type Paints = Anisotropic | Classic
 type Widths = FrameWidth | WorldWidth
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Paint(Case, frozen=True, kw_only=True):
@@ -138,7 +138,7 @@ class Edges(Effect, frozen=True, kw_only=True, tag=42):
     paper: Annotated[Gated[Rgb[Finite]], msgspec.Meta(title="Paper", description="Display color beneath lines, replacing the image")] = Gated(enabled=False, value=Rgb(red=1.0, green=1.0, blue=1.0))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = ["Anisotropic", "Classic", "Edges", "FrameWidth", "IdSource", "Inner", "Outer", "Paint", "Paints", "Placement", "Taper", "Widths", "WorldWidth"]

@@ -32,31 +32,38 @@ utils:
             - matches: {python-member-use: {module: {regex: '^bisect$'}, name: {regex: '^insort(_left|_right)?$'}}}
             - matches: {python-member-use: {module: {regex: '^random$'}, name: {regex: '^shuffle$'}}}
             - matches: {python-member-use: {module: {regex: '^numpy$'}, name: {regex: '^(copyto|put|place|putmask|put_along_axis|fill_diagonal)$'}}}
+    parameter-call: {kind: call, has: {field: function, kind: attribute, has: {field: object, pattern: $P}}}
+    released:
+        all:
+            - has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, kind: finally_clause, has: {stopBy: end, matches: parameter-call}}
+            - has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, matches: parameter-call, not: {inside: {kind: finally_clause, stopBy: end}}}
 rule:
-    pattern: $WRITE
-    any:
-        - kind: call
-          has:
-            field: function
-            kind: attribute
-            all:
-                - has: {field: object, matches: written}
-                - has: {field: attribute, regex: '^(append|appendleft|extend|extendleft|insert|add|update|setdefault|subtract|remove|discard|pop|popleft|popitem|clear|sort|reverse|rotate|move_to_end|difference_update|intersection_update|symmetric_difference_update|frombytes|fromlist|fromfile|fromunicode|fill|put|partition|resize)$'}
-        - kind: call
-          all:
-            - has: {field: function, matches: mutator}
-            - has: {field: arguments, has: {nthChild: 1, matches: written}}
-        - kind: call
-          all:
-            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(foreach_get|readinto1?|recv_into|recvfrom_into)$'}}
-            - has: {field: arguments, has: {matches: written}}
-        - kind: call
-          has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^out$'}}, {has: {field: value, matches: written}}]}}
-        - kind: augmented_assignment
-          has: {field: left, matches: written}
-        - kind: assignment
-          has: {field: left, matches: assigned}
-        - kind: delete_statement
-          has: {matches: assigned}
+    all:
+        - pattern: $WRITE
+          any:
+            - kind: call
+              has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: object, matches: written}
+                    - has: {field: attribute, regex: '^(append|appendleft|extend|extendleft|insert|add|update|setdefault|subtract|remove|discard|pop|popleft|popitem|clear|sort|reverse|rotate|move_to_end|difference_update|intersection_update|symmetric_difference_update|frombytes|fromlist|fromfile|fromunicode|fill|put|partition|resize)$'}
+            - kind: call
+              all:
+                - has: {field: function, matches: mutator}
+                - has: {field: arguments, has: {nthChild: 1, matches: written}}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(foreach_get|readinto1?|recv_into|recvfrom_into)$'}}
+                - has: {field: arguments, has: {matches: written}}
+            - kind: call
+              has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^out$'}}, {has: {field: value, matches: written}}]}}
+            - kind: augmented_assignment
+              has: {field: left, matches: written}
+            - kind: assignment
+              has: {field: left, matches: assigned}
+            - kind: delete_statement
+              has: {matches: assigned}
+        - not: {inside: {kind: function_definition, stopBy: {kind: function_definition}, has: {field: body, matches: released}}}
 message: '`$WRITE` writes into the container parameter `$P`'
 note: 'Use `return` for a new container or `yield` for its items, a domain function writes only its return value'

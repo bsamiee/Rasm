@@ -3,4 +3,4 @@ id: python-plain-string
 language: python
 rule:
     kind: string, concatenated_string
-    not: {has: {stopBy: end, kind: interpolation}}
+    not: {has: {stopBy: end, any: [{kind: interpolation}, {kind: string_start, regex: '^[A-Za-z]*[tT]'}]}}

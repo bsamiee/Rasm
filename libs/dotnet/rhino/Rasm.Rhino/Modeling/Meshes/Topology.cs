@@ -53,7 +53,11 @@ public static class MeshTopology {
     // --- [BOOLEANS]
     public static IO<Seq<(Mesh Mesh, Seq<int> Inputs)>> Boolean(MeshBoolean method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         from token in cancelToken
-        from answer in Copies.Owned(
+        from answer in Booleaned(method, tolerances, progress, retain, token)
+        select answer;
+
+    private static IO<Seq<(Mesh Mesh, Seq<int> Inputs)>> Booleaned(MeshBoolean method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain, CancellationToken token) =>
+        Copies.Owned(
             () => method.Switch(
                 MeshTopologyMapper.Boolean((tolerances.MeshIntersection, token, progress.ValueUnsafe())),
                 booleanUnion: static (options, of) => (Meshes: Mesh.CreateBooleanUnion(of.Meshes, options, out Result result, out int[][] map), Result: result, Map: map, Member: nameof(Mesh.CreateBooleanUnion)),
@@ -69,8 +73,7 @@ public static class MeshTopology {
                 from rows in (Missing.Unless(made.Meshes, made.Member).Bind(meshes => Measurements.Valid([.. meshes], made.Member)).ToValidation(), Missing.Unless(made.Map, made.Member).ToValidation())
                     .Apply(static (meshes, map) => meshes.Zip(toSeq(map), static (mesh, inputs) => (Mesh: mesh, Inputs: toSeq(inputs)))).As().ToFin()
                 select rows,
-            static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain)
-        select answer;
+            static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain);
 
     // --- [SPLITS]
     public static IO<Option<Seq<Mesh>>> Split(Mesh mesh, MeshSplit method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain) =>

@@ -393,17 +393,24 @@ public static class SectionRows {
             let show = stage.Match(Some: static input => input.Read, None: static () => IO.pure(Option<PixelFrame>.None))
                 .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(static _ => unit)
             let site = new CallbackSite(scope.Sink, typeof(Eto.Forms.Command), nameof(Eto.Forms.Command.Executed))
-            from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ =>
-                    from held in scope.Read(exposure)
-                    from forked in stage.Match(
-                        Some: input => input.Read.Bind(frame => frame.Match(
-                            Some: read => DisposalOps.Fork(IO.lift<Fin<ExposureState>>(() => held.Metered(read, input.Context.Working)).Bind(answer => mailbox((unit, answer))), retain).Map(static _ => unit),
-                            None: static () => IO.pure(unit))),
-                        None: static () => IO.pure(unit))
-                    select forked, site), retain)
+            from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ => Metered(scope, exposure, stage, mailbox, retain), site), retain)
             from button in ButtonRows.Push(command, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), show, None, None),
             RowText.Localize("Exposure meter").Local, RowText.Localize("Meters the stage input once and writes its exposure").Local, RowRules.Always) { Wording = Wording.Localized };
+
+    private static IO<Unit> Metered(
+        RowScope scope, RowSource<ExposureState> exposure, Option<StageInput> stage, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
+        from held in scope.Read(exposure)
+        from forked in stage.Match(
+            Some: input => input.Read.Bind(frame => frame.Match(
+                Some: read => Forked(held, read, input, mailbox, retain),
+                None: static () => IO.pure(unit))),
+            None: static () => IO.pure(unit))
+        select forked;
+
+    private static IO<Unit> Forked(
+        ExposureState held, PixelFrame read, StageInput input, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
+        DisposalOps.Fork(IO.lift<Fin<ExposureState>>(() => held.Metered(read, input.Context.Working)).Bind(answer => mailbox((unit, answer))), retain).Map(static _ => unit);
 
     private static IO<Unit> Committed<TRecord>(RowScope scope, RowSource<TRecord> source, TRecord value, Seq<IStateParameter<TRecord>> writes) where TRecord : IStateRecord<TRecord> =>
         from diff in scope.Commit(new BindingGroup(Seq(source.Values(scope))), ValueSet.Fields(source.Owner, value, writes))

@@ -4,105 +4,15 @@
         "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000",
         "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "80",
         "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "50000",
-        "CLAUDE_CODE_THRIFTY_SONIC": "0",
         "BASH_DEFAULT_TIMEOUT_MS": "300000",
         "CLAUDE_CODE_SHELL": "bash",
         "NO_COLOR": "1",
         "FORCE_COLOR": "0"
     },
-    "permissions": {
-        "allow": [
-            "Bash(/usr/libexec/PlistBuddy *)",
-            "Bash(actionlint *)",
-            "Bash(analyzeHeadless *)",
-            "Bash(ast-grep *)",
-            "Bash(biome *)",
-            "Bash(brew *)",
-            "Bash(claude *)",
-            "Bash(codex *)",
-            "Bash(curl *)",
-            "Bash(defaults *)",
-            "Bash(difft *)",
-            "Bash(doppler *)",
-            "Bash(dotnet *)",
-            "Bash(duckdb *)",
-            "Bash(fd *)",
-            "Bash(gh *)",
-            "Bash(ghidra *)",
-            "Bash(git *)",
-            "Bash(google-java-format *)",
-            "Bash(hyperfine *)",
-            "Bash(jq *)",
-            "Bash(lipo *)",
-            "Bash(loc *)",
-            "Bash(magick *)",
-            "Bash(mise *)",
-            "Bash(mypy *)",
-            "Bash(ncu *)",
-            "Bash(nx *)",
-            "Bash(op *)",
-            "Bash(osascript *)",
-            "Bash(playwright *)",
-            "Bash(pmd *)",
-            "Bash(pnpm *)",
-            "Bash(pulumi *)",
-            "Bash(pytest *)",
-            "Bash(rg *)",
-            "Bash(ruff *)",
-            "Bash(sd *)",
-            "Bash(security *)",
-            "Bash(sqlite3 *)",
-            "Bash(sudo *)",
-            "Bash(swc *)",
-            "Bash(tar *)",
-            "Bash(tree *)",
-            "Bash(tree-sitter *)",
-            "Bash(tsc *)",
-            "Bash(tvly *)",
-            "Bash(ty *)",
-            "Bash(unzip *)",
-            "Bash(uv *)",
-            "Bash(vite *)",
-            "Bash(vitest *)",
-            "Bash(yamlfmt *)",
-            "Bash(yamllint *)",
-            "Bash(yq *)",
-            "mcp__ast-grep__*",
-            "mcp__binlog__*",
-            "mcp__blender__*",
-            "mcp__claudeCodeDocs__*",
-            "mcp__context7__*",
-            "mcp__deepwiki__*",
-            "mcp__exa__*",
-            "mcp__github__*",
-            "mcp__lldb__*",
-            "mcp__mcp-for-blender__*",
-            "mcp__nuget__*",
-            "mcp__openaiDeveloperDocs__*",
-            "mcp__plugin_playwright_playwright-test__*",
-            "mcp__plugin_playwright_playwright__*",
-            "mcp__rhino-mcp-platform__*",
-            "mcp__roslyn-codelens__*",
-            "mcp__xcode__*"
-        ],
-        "deny": [],
-        "ask": [],
-        "defaultMode": "bypassPermissions"
-    },
     "enableAllProjectMcpServers": true,
     "disabledMcpjsonServers": ["greptile", "arena"],
     "hooks": {
         "SessionStart": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-                        "timeout": 30,
-                        "statusMessage": "mise-env"
-                    }
-                ]
-            },
             {
                 "matcher": "startup|clear|compact",
                 "hooks": [
@@ -118,7 +28,7 @@
                     {
                         "type": "command",
                         "command": "uv",
-                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
+                        "args": ["run", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
                         "timeout": 10
                     }
                 ]
@@ -130,7 +40,7 @@
                     {
                         "type": "command",
                         "command": "uv",
-                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
+                        "args": ["run", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
                         "timeout": 10
                     }
                 ]
@@ -144,18 +54,6 @@
                         "type": "command",
                         "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/root-cause.sh",
                         "args": []
-                    }
-                ]
-            }
-        ],
-        "CwdChanged": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-                        "timeout": 30,
-                        "statusMessage": "mise-env"
                     }
                 ]
             }

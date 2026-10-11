@@ -6,7 +6,12 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 
 ```text
 Rasm/
-├── apps/                     # One directory per app or group of related apps
+├── apps/                     # One directory per host application
+│   ├── blender/
+│   ├── creative-cloud/
+│   ├── macos/
+│   ├── rhino/
+│   └── web/
 ├── libs/                     # Packages, one directory per language
 │   ├── dotnet/
 │   ├── python/
@@ -31,8 +36,8 @@ Rasm/
 ├── Directory.Packages.props  # .NET central package versions
 ├── Directory.Build.props     # .NET build defaults and project classification by tree position
 ├── Directory.Build.targets   # .NET items, host package references, and build targets
-├── NuGet.config              # NuGet source and package folder
 ├── Workspace.slnx            # .NET solution
+├── NuGet.config              # NuGet source and package folder
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits at project level
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
@@ -98,6 +103,7 @@ flowchart LR
 
 - Targets call one tool, arguments on the command, configuration in the tool's own file
 - `nx run rasm:check` runs every `lint:<checker>` and `typecheck:<checker>` root target, `nx run rasm:lint:<checker>` one checker
+- `nx run rasm:<target> -- <paths>` runs a Ruff, ast-grep, Biome, ty, or mypy target over named paths
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build
 - `--skip-nx-cache` runs a build in place of an Nx cache replay
@@ -110,7 +116,8 @@ flowchart LR
 - Workspace plugin names each project's tags and targets by project file and Python edges by import, `@nx/dotnet` and `@nx/vitest` infer theirs
 - File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
 - `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
-- Project `vite.config.ts` infers `build`, run from that project, and its `serve` configuration runs the Vite development server
+- `nx run rasm:format:files -- <paths>` runs each portable writer over the named paths it formats
+- Project `vite.config.ts` infers `build` and continuous `serve` for the Vite development server, both run from that project
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its skill states why not
@@ -126,7 +133,7 @@ flowchart LR
 |  [05]   | .NET tool package              | `dotnet dnx <id>` on the command                                                                     |
 |  [06]   | Task graph                     | `nx.json`, root `package.json` `nx`                                                                  |
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                         | Doppler, through consuming commands with `doppler run`                                              |
+|  [08]   | Secret                         | Doppler, through consuming commands with `doppler run`                                               |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:infra:up`                           |
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
 |  [11]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                                         |
@@ -134,7 +141,7 @@ flowchart LR
 |  [13]   | Swift package version          | `.xcodeproj` package requirement                                                                     |
 |  [14]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [15]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
-|  [16]   | MCP tool a skill replaces      | `--hide <tool>` on server's `mise.toml` launchd agent row                                            |
+|  [16]   | MCP tool a skill replaces      | `--hide <glob>` on server's `mise.toml` launchd agent row                                            |
 |  [17]   | Python runtime version         | Root Ruff `per-file-target-version` for files, nested `requires-python` for host trees               |
 
 - Tool rows name a release where `latest` resolves a development build
@@ -151,7 +158,7 @@ flowchart LR
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Checker decisions: PMD `AvoidAccessibilityAlteration` skips `use-ghidra` `Headers.run`, Ghidra's `PreProcessor` takes a `DefineTable` through package-private field `defs` alone
 - Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
-- Writers: `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format` per Xcode project
+- Writers: `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format`
 - Checks run through Nx targets alone, each target with every command, dependency, and path the target declares
 - .NET build, restore, publish, and install commands write `.artifacts/dotnet/binlog/<purpose>-{}.binlog` for `binlog` MCP
 - Failing checks are fixed in the code or the rule, severity stays as configured
@@ -160,13 +167,16 @@ flowchart LR
 
 - `eng/<language>/` owns engineering workflows over repository projects and artifacts
 - `tools/` provides capabilities for development tools and applications
-- Apps group by product under `apps/<product>/`, with a `<host>/` folder per host application
+- Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
 - Libraries group by language under `libs/<language>/`, with host-bound packages under a `<host>/` folder
 - Build and task graph take .NET hosts from the `<host>/` path folder, Blender hosts from `blender_manifest.toml`
 - `libs/` packages point down an acyclic graph, each .NET and TypeScript package consumable alone through declared dependencies
 - Python packages build into one `rasm` wheel
 - First-party Python imports use `from rasm.<module> import <member>` for private Blender extension relocation
-- Projects under a `rhino` folder compile against `RhinoCommon`, `RhinoHost` token `grasshopper` adds `Grasshopper2`
+- Projects under a `rhino` folder compile against `RhinoCommon`
+- `Grasshopper2` package references add Grasshopper 2 global usings
+- Yak packs mark a `.rhp` holding no `Rhino.PlugIns.PlugIn` class as Grasshopper-only
+- Projects compile no file of a project nested in their folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`
 - Project files are `.csproj`, `.cs` files opening with `#!`, `package.json` with `tsconfig.json`, `py.typed`, `blender_manifest.toml`, and `.xcodeproj`

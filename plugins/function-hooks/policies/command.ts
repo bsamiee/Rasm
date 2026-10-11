@@ -57,12 +57,12 @@ const _redirect = (id: 'write' | 'read', relation: string): string => `id: ${id}
 language: bash
 ${_OWNER}
 rule: {kind: file_redirect, all: [{has: {field: destination, pattern: $DEST, not: {kind: number}}}, {matches: owner}, ${relation}]}`;
-const SCAN: Invocation = [
+const scan = (config: string): Invocation => [
     'ast-grep',
     'scan',
     '--stdin',
     '--config',
-    '/dev/null',
+    config,
     '--json=compact',
     '--inline-rules',
     [
@@ -124,14 +124,14 @@ const _bodies = (command: Command): readonly string[] => {
 
 const _joined = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), clocks: scripts.flatMap(({ clocks }) => clocks) });
 
-const _parse = async (scan: Scanner, text: string, context: Context): Promise<Result<Script>> =>
-    bind(decoded<readonly Hit[]>('ast-grep', await scan(text)), async (hits): Promise<Result<Script>> => {
+const _parse = async (scanner: Scanner, text: string, context: Context): Promise<Result<Script>> =>
+    bind(decoded<readonly Hit[]>('ast-grep', await scanner(text)), async (hits): Promise<Result<Script>> => {
         const script = _script(hits, context);
-        const expanded = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scan, body, { ...command, nested: true })))), (inner) => _joined([{ commands: [command], clocks: [] }, ...inner]))));
+        const expanded = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scanner, body, { ...command, nested: true })))), (inner) => _joined([{ commands: [command], clocks: [] }, ...inner]))));
         return map(all(expanded), (scripts) => _joined([{ commands: [], clocks: script.clocks }, ...scripts]));
     });
 
-const parse = (scan: Scanner, command: string): Promise<Result<Script>> => _parse(scan, command, { looped: false, polled: false, fed: false, nested: false });
+const parse = (scanner: Scanner, command: string): Promise<Result<Script>> => _parse(scanner, command, { looped: false, polled: false, fed: false, nested: false });
 
 // --- [SPANS]
 
@@ -140,4 +140,4 @@ const offset = (command: Command, index: number): number => command.words.length
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Command, Scanner, Script };
-export { offset, parse, SCAN };
+export { offset, parse, scan };

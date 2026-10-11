@@ -33,6 +33,7 @@ Deletion rows remove their words, replacement rows substitute the listed word, n
 |  [25]   | Version markers  | `since version`, `as of`, `in version`, `upgrade from`                                                                |
 |  [26]   | Version words    | `legacy`, `new and current` (as a version), `migrate` (to a version)                                                  |
 |  [27]   | Contrast fillers | `still`, `already`, `rather than` (when the contrasted form is absent from the sentence)                              |
+|  [28]   | Reason markers   | `because`, `due to the fact that` (clause goes whole or becomes the condition)                                        |
 
 ## [02]-[REPLACEMENTS]
 
@@ -55,7 +56,7 @@ Deletion rows remove their words, replacement rows substitute the listed word, n
 |  [15]   | `functionality`                                   | `feature`, `function`                  |
 |  [16]   | `in order to`                                     | `to`                                   |
 |  [17]   | `prior to`                                        | `before`                               |
-|  [18]   | `due to`, `due to the fact that`, `because`       | `from`, or the condition               |
+|  [18]   | `due to`                                          | `from`, or the condition               |
 |  [19]   | `except for`                                      | `except`                               |
 |  [20]   | `in the event that`                               | `if`                                   |
 |  [21]   | `however`, `nevertheless`, `that said`            | `but`, or delete                       |

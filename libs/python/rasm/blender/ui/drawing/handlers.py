@@ -56,7 +56,7 @@ type Refresh = Watch | Updated | Signal | list[Callable[[bpy.types.Scene], None]
 class Watch(msgspec.Struct, frozen=True, kw_only=True):
     """Native property whose notifications invalidate a drawing's read."""
 
-    owner: type[bpy.types.bpy_struct]  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+    owner: "type[bpy.types.bpy_struct[object]]"
     identifier: str
 
 
@@ -146,10 +146,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
                 held = _Phase.RELEASED
 
         followers = (
-            PathHandler(
-                handlers=bpy.app.handlers.load_post,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                body=lambda _: refreshed(),
-            ).acquisitions(identity),
+            PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()).acquisitions(identity),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             *(followed(refresh) for refresh in self.refreshes),
         )
         return accumulated(followers).map(lambda rows: (((Band.DRAW_HANDLERS, cleared()), *(pair for row in rows for pair in row)), drew))

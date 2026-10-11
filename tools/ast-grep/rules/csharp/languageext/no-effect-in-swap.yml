@@ -46,7 +46,7 @@ utils:
                 all:
                     - has: {kind: variable_declarator, has: {nthChild: 2, kind: 'invocation_expression, await_expression'}}
                     - any:
-                        - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Unit$'}
+                        - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Unit$'}}}}
                         - has: {kind: variable_declarator, has: {field: name, regex: '^_$'}}
     effect-member:
         kind: identifier

@@ -1,22 +1,21 @@
 {
     "name": "function-hooks",
-    "version": "1.0.0",
-    "description": "Tool policies, workspace edit formatting, Nx diagnostics, captures, service status, and optional event records and finding delivery",
+    "description": "Tool policies, edit formatting and diagnostics through Nx targets, service status, and optional event records and finding delivery",
     "author": {
         "name": "Bardia Samiee"
     },
     "types": "./hooks/state.d.ts",
     "userConfig": {
+        "project": {
+            "type": "string",
+            "title": "Project",
+            "description": "Nx project owning the repository's format, lint, and rewrite targets",
+            "default": "rasm"
+        },
         "observation": {
             "type": "boolean",
             "title": "Observation",
             "description": "Recording of hook events and refused calls as database rows, agent spawns and finding delivery at stop boundaries",
-            "default": false
-        },
-        "walkPolicy": {
-            "type": "boolean",
-            "title": "Walk policy",
-            "description": "Refusal of a Bash walker that descends into ~/Library/CloudStorage",
             "default": false
         },
         "editThreshold": {

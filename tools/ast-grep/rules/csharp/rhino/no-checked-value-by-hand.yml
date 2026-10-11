@@ -5,7 +5,7 @@ severity: error
 files: ['**/rhino/**']
 utils:
     owner:
-        regex: '^((global::)?Rasm\.Rhino\.)?(Refused|InvalidAnswer)$'
+        matches: {csharp-type-name: {name: {regex: '^(Refused|InvalidAnswer)$'}}}
     unsafe:
         any:
             - kind: member_access_expression, element_access_expression, conditional_access_expression, cast_expression
@@ -18,7 +18,7 @@ utils:
             - kind: lambda_expression
             - not: {any: [{matches: unsafe}, {has: {stopBy: {kind: lambda_expression}, matches: unsafe}}]}
     typed:
-        has: {regex: '^((global::)?LanguageExt\.)?Fin\s*<'}
+        has: {matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}
     result:
         inside:
             any:

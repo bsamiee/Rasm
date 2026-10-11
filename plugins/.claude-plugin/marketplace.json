@@ -7,18 +7,15 @@
     "plugins": [
         {
             "name": "function-hooks",
-            "source": "./function-hooks",
-            "description": "Refuses, rewrites, and queues tool calls by policy, draws edit diagnostics, captures, notices, and down services, runs writers at stop, and with observation on records hook events and delivers findings"
+            "source": "./function-hooks"
         },
         {
             "name": "argus",
-            "source": "./argus",
-            "description": "Language servers, each started on the first edit of a file with one of its extensions"
+            "source": "./argus"
         },
         {
             "name": "playwright",
-            "source": "./playwright",
-            "description": "Playwright CLI and trace skills adapted from playwright-core, the browser and test MCP servers, and the test planner, generator, and healer agents"
+            "source": "./playwright"
         }
     ]
 }

@@ -652,9 +652,12 @@ public sealed class Derivations : IDisposable {
                         return value;
                     }).Run();
                     return prepared.Match(
-                        Succ: ready => previous.Traverse(static old => Try.lift(old.Dispose).Run()).As().Bind(_ => Try.lift(() => use(ready)).Run()),
+                        Succ: ready => Used(previous, ready, use),
                         Fail: error => (Fin.Fail<TResult>(error), Try.lift(value.Dispose).Run()).Apply(static (result, _) => result).As());
                 });
+
+            static Fin<TResult> Used(Option<IDisposable> previous, TValue ready, Func<TValue, Fin<TResult>> use) =>
+                previous.Traverse(static old => Try.lift(old.Dispose).Run()).As().Bind(_ => Try.lift(() => use(ready)).Run());
         }
     }
 

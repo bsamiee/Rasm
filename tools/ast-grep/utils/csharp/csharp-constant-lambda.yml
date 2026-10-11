@@ -3,11 +3,13 @@ id: csharp-constant-lambda
 language: csharp
 arguments: [value]
 utils:
+    boolean-type:
+        matches: {csharp-type-name: {name: {regex: '^(bool|Boolean)$'}}}
     literal:
         any:
             - kind: boolean_literal
             - kind: default_expression
-              not: {has: {field: type, not: {regex: '^((global::)?System\.)?(bool|Boolean)$'}}}
+              not: {has: {field: type, not: {matches: boolean-type}}}
     literal-operand:
         any:
             - matches: literal

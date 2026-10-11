@@ -3,7 +3,7 @@ id: csharp-error-record
 language: csharp
 utils:
     error-base:
-        regex: '^(global::)?(LanguageExt\.(Common\.)?)?(Expected|Exceptional|Error)$'
+        matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional|Error)$'}}}
 rule:
     kind: 'record_declaration'
     has:

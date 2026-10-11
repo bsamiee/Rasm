@@ -16,7 +16,7 @@ utils:
     atomic-ref:
         kind: argument
         regex: '^ref\s'
-        inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?System\.Threading\.)?(Interlocked|Volatile)\s*\.'}}}
+        inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Interlocked|Volatile)$'}, member: {regex: '^'}}}}}}
     atomic-field:
         all:
             - has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}
@@ -43,7 +43,7 @@ rule:
             any:
                 - kind: nullable_type
                 - kind: 'generic_name, qualified_name'
-                  regex: '^(global::)?(System\.)?Nullable\s*<'
+                  matches: {csharp-type-name: {name: {regex: '^Nullable$'}}}
         - not:
             any:
                 - has: {matches: serializer-attributes}

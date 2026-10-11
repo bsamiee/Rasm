@@ -155,12 +155,14 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     private IO<Seq<TRecord>> Close(Func<OpenEdit<TRecord>, IO<Seq<TRecord>>> closing) =>
         envIO.Bind(environment =>
             state.ValueIO.Bind(held => held.Match(
-                Some: open =>
-                    from stopped in IO.lift(timer.Stop)
-                    from written in IO.liftVAsync(() => closing(open).RunAsync(environment))
-                    from closed in atomicIO(() => state.Value = None)
-                    select written,
+                Some: open => Closed(open, closing, environment),
                 None: static () => IO.pure(Seq<TRecord>()))).Uninterruptible());
+
+    private IO<Seq<TRecord>> Closed(OpenEdit<TRecord> open, Func<OpenEdit<TRecord>, IO<Seq<TRecord>>> closing, EnvIO environment) =>
+        from stopped in IO.lift(timer.Stop)
+        from written in IO.liftVAsync(() => closing(open).RunAsync(environment))
+        from closed in atomicIO(() => state.Value = None)
+        select written;
 
     private IO<Seq<TRecord>> Committed(TRecord value, OpenEdit<TRecord> open) =>
         from applied in scope.Within(ValueStore.Commit(open.Targets.Map(target => Edit(target.Store, value)), open.Owed))

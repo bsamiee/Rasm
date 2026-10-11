@@ -2,13 +2,8 @@
     "name": "function-hooks",
     "private": true,
     "type": "module",
-    "dependencies": {
-        "nx": "catalog:"
-    },
-    "devDependencies": {
-        "@types/node": "catalog:"
-    },
     "nx": {
+        "tags": ["host:claude"],
         "targets": {
             "typecheck": {
                 "inputs": ["...", { "runtime": "claude --version" }]

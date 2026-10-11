@@ -11,8 +11,7 @@
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
         <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
-        <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">common</RhinoHost>
-        <RhinoHost Condition="'$(RhinoHost)' == 'common' and $(MSBuildProjectDirectory.EndsWith('grasshopper', StringComparison.OrdinalIgnoreCase))">grasshopper</RhinoHost>
+        <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
         <AssemblyName Condition="'$(RhinoPlugIn)' != ''">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
     </PropertyGroup>
 
@@ -23,7 +22,6 @@
         <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
         <RhinoInstallPath>$(RHINO_PATH)</RhinoInstallPath>
         <DefaultItemExcludes Condition="'$(_RhinoTargetPlatform)' != 'macos'">$(DefaultItemExcludes);**/macOS/**</DefaultItemExcludes>
-        <DefaultItemExcludes Condition="'$(RhinoHost)' == 'common'">$(DefaultItemExcludes);grasshopper/**</DefaultItemExcludes>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
@@ -37,9 +35,8 @@
         <PublishReferencesSymbols>false</PublishReferencesSymbols>
         <UseCurrentRuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('OSX')) or $([MSBuild]::IsOSPlatform('Windows'))">true</UseCurrentRuntimeIdentifier>
         <PlatformTarget>AnyCPU</PlatformTarget>
-        <_ProductDir>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', $(_RepoRelativeDir.Substring(1, $(_RepoRelativeDir.IndexOf('/rhino/'))))))</_ProductDir>
-        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(_ProductDir)', 'icons'))</PlugInIcons>
-        <PlugInIconSource>$(_ProductDir)icon.svg</PlugInIconSource>
+        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'icons'))</PlugInIcons>
+        <PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'icon.svg'))</PlugInIconSource>
         <PlugInPackageIcon Condition="Exists('$(PlugInIconSource)')">icon.png</PlugInPackageIcon>
     </PropertyGroup>
 

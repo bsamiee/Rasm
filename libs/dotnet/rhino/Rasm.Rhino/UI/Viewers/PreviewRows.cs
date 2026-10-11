@@ -102,24 +102,7 @@ public static partial class PreviewRows {
             from editing in prior.Shown.Traverse(static shown => shown.Grid.Editing).As()
             from replaced in editing.Contains(true) || prior.Shown.Exists(shown => shown.Input == context)
                 ? prior.Shown.Traverse(shown => shown.Grid.Refresh(keys)).As().Map(static _ => unit)
-                : IO.lift(() => rows(input.Map(value => value with {
-                    Read = read.Bind(current => current.Filter(next => next.Context == value.Context && next.Pick == value.Pick)
-                        .Traverse(static next => next.Read).As()).Map(static frame => frame.Bind(identity)),
-                }))).Bind(children => DisposalOps.Replace(
-                    keep => from grid in RowGrid.Realize(children, children, scope, keep)
-                            from linked in attached.Traverse(attach => attach(grid, keep)).As()
-                            select grid,
-                    (grid, release) => {
-                        Control? priorContent = panel.Content;
-                        held.Value = (prior.Shown, prior.Releases.Add(release));
-                        return DisposalOps.OnFailure(
-                            IO.lift(() => panel.Content = grid).Map(static _ => unit),
-                            IO.lift(() => panel.Content = priorContent)
-                                .Bind(_ => IO.lift(() => held.Value = prior))
-                                .Bind(_ => DisposalOps.Release(Seq(release))))
-                            .Bind(_ => IO.lift(() => held.Value = (Some((context, grid)), Seq(release))))
-                            .Bind(_ => DisposalOps.Release(prior.Releases));
-                    })).Map(static _ => unit)
+                : IO.lift(() => Children(read, rows, input)).Bind(children => Replaced(held, panel, prior, context, children, attached, scope))
             select replaced
         from post in Subscriptions.Idle<Unit, Unit>(_ => refresh)(new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Contextual)), retain)
         from subscribed in changes.TraverseM(change => change.Inline(raised => post((raised, raised)), scope.Sink, retain)).As()
@@ -128,6 +111,32 @@ public static partial class PreviewRows {
         select new RowCells(panel, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None) {
             NestedEditing = held.ValueIO.Bind(static current => current.Shown.Traverse(static shown => shown.Grid.Editing).As()).Map(static editing => editing.IfNone(noneValue: false)),
         };
+
+    private static Seq<ControlRow> Children(IO<Option<StageInput>> read, Func<Option<StageInput>, Seq<ControlRow>> rows, Option<StageInput> input) =>
+        rows(input.Map(value => value with {
+            Read = read.Bind(current => current.Filter(next => next.Context == value.Context && next.Pick == value.Pick)
+                .Traverse(static next => next.Read).As()).Map(static frame => frame.Bind(identity)),
+        }));
+
+    private static IO<Unit> Replaced(
+        Ref<(Option<(Option<(PassContext Context, Option<FramePicker> Pick)> Input, RowGrid Grid)> Shown, Seq<IDisposable> Releases)> held, Panel panel,
+        (Option<(Option<(PassContext Context, Option<FramePicker> Pick)> Input, RowGrid Grid)> Shown, Seq<IDisposable> Releases) prior,
+        Option<(PassContext Context, Option<FramePicker> Pick)> context, Seq<ControlRow> children, Option<Func<RowGrid, Action<IDisposable>, IO<Unit>>> attached, RowScope scope) =>
+        DisposalOps.Replace(
+            keep => from grid in RowGrid.Realize(children, children, scope, keep)
+                    from linked in attached.Traverse(attach => attach(grid, keep)).As()
+                    select grid,
+            (grid, release) => {
+                Control? priorContent = panel.Content;
+                held.Value = (prior.Shown, prior.Releases.Add(release));
+                return DisposalOps.OnFailure(
+                    IO.lift(() => panel.Content = grid).Map(static _ => unit),
+                    IO.lift(() => panel.Content = priorContent)
+                        .Bind(_ => IO.lift(() => held.Value = prior))
+                        .Bind(_ => DisposalOps.Release(Seq(release))))
+                    .Bind(_ => IO.lift(() => held.Value = (Some((context, grid)), Seq(release))))
+                    .Bind(_ => DisposalOps.Release(prior.Releases));
+            }).Map(static _ => unit);
 
     // --- [TILES]
     public static ControlRow Tile(string caption, string help, TileSource source, RowRules rules) =>
@@ -205,15 +214,17 @@ public static partial class PreviewRows {
         DisposalOps.Replace(acquired => DisposalOps.Within((Action<IDisposable> temporary) =>
             from raster in FrameView.Raster(sink, view, tile, source.Encoding, temporary)
             from staged in DisposalOps.Acquire(IO.lift(() => new Bitmap(tile.Size.Width, tile.Size.Height, PixelFormat.Format32bppRgba)), static bitmap => IO.lift(bitmap.Dispose), acquired)
-            from drawn in DisposalOps.Within(() => new Graphics(staged), graphics =>
-             from canvas in PlotCanvas.Of(graphics, 1f, EtoFonts.SmallFont, enabled: true, focused: false)
-             let bounds = new RectangleF(0f, 0f, tile.Size.Width, tile.Size.Height)
-             from board in Thumbnails.Checker(canvas, bounds, Checkerboard.Content)
-             from drawn in Plots.Raster(canvas, bounds, raster)
-             select drawn, static graphics => IO.lift(graphics.Dispose))
+            from drawn in DisposalOps.Within(() => new Graphics(staged), graphics => Drawn(graphics, tile, raster), static graphics => IO.lift(graphics.Dispose))
             from icon in DisposalOps.Acquire(IO.lift(() => new Icon(scale, staged)), static icon => IO.lift(icon.Dispose), acquired)
             select (Tile: tile, Scale: scale, Staged: staged, Icon: icon), DisposalOps.Release),
             publish);
+
+    private static IO<Unit> Drawn(Graphics graphics, PixelFrame tile, Bitmap raster) =>
+        from canvas in PlotCanvas.Of(graphics, 1f, EtoFonts.SmallFont, enabled: true, focused: false)
+        let bounds = new RectangleF(0f, 0f, tile.Size.Width, tile.Size.Height)
+        from board in Thumbnails.Checker(canvas, bounds, Checkerboard.Content)
+        from drawn in Plots.Raster(canvas, bounds, raster)
+        select drawn;
 
     private static IO<Unit> Dragged(ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held, MouseEventArgs e) =>
         from swapped in Swapped(held, state => state with {

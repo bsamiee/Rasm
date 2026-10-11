@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined"
-# ty: ignore[unresolved-attribute]
 """Native channel mixing and color-space interpretation selected by a union menu."""
 
 import bpy
@@ -24,10 +22,10 @@ def remapped(shell: Shell[Primaries]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Native body and result endpoint, or accumulated space and graph faults.
     """
-    remap = Primaries.remap.__name__  # type: ignore[union-attr]
+    remap = Primaries.remap.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     entering = shell.source
-    rows = ((1, Mixer.red.__name__), (2, Mixer.green.__name__), (3, Mixer.blue.__name__))
-    columns = ((1, Weights.red.__name__), (2, Weights.green.__name__), (3, Weights.blue.__name__))
+    rows = ((1, Mixer.red.__name__), (2, Mixer.green.__name__), (3, Mixer.blue.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    columns = ((1, Weights.red.__name__), (2, Weights.green.__name__), (3, Weights.blue.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     mixer = (
         node("matrix", bpy.types.FunctionNodeCombineMatrix, {f"Column {column} Row {row}": shell.socket(remap, Mixer, output, source) for row, output in rows for column, source in columns}, {})
         .map(ended("matrix", "Matrix"))

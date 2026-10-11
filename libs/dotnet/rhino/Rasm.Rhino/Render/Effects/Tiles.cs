@@ -186,14 +186,7 @@ public sealed class PreviewTiles {
         let key = (Source: source, View: view, Frame: frame, Extent: frame.Size.Fitted(extent), Encoding: encoding)
         from pixels in IO.lift(() => rasters.Value.Find(row => row.Key == key)).Bind(found => found.Match(
             Some: static row => IO.pure(Some(row.Pixels)),
-            None: () => Requested(
-                from reduced in IO.lift(() => frame.Downscaled(key.Extent))
-                from image in view.Match(
-                    Some: control => FrameView.Raster(owner, control, reduced, encoding,
-                        bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))))),
-                    None: () => DisposalOps.Acquire(IO.lift(() => Plots.Pixels(reduced.Size, encoding.Displayed(reduced))),
-                        static bitmap => IO.lift(bitmap.Dispose), bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))))))
-                select image)))
+            None: () => Requested(Rastered(key, now))))
         from painted in pixels.Traverse(bitmap => IO.lift(() => {
             _ = atomic(() => rasters.Swap(rows => rows.Map(row => row.Key == key ? row with { Drawn = now } : row)));
             draw(bitmap);
@@ -207,6 +200,15 @@ public sealed class PreviewTiles {
             return gone;
         }), static _ => IO.pure(unit), DisposalOps.Release)
         select painted;
+
+    private IO<Bitmap> Rastered((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.ColorManagement.Transfer Encoding) key, long now) {
+        Action<Bitmap> kept = bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))));
+        return from reduced in IO.lift(() => key.Frame.Downscaled(key.Extent))
+               from image in key.View.Match(
+                   Some: control => FrameView.Raster(owner, control, reduced, key.Encoding, kept),
+                   None: () => DisposalOps.Acquire(IO.lift(() => Plots.Pixels(reduced.Size, key.Encoding.Displayed(reduced))), static bitmap => IO.lift(bitmap.Dispose), kept))
+               select image;
+    }
 
     private IO<Unit> Emptied =>
         atomicIO(() => {

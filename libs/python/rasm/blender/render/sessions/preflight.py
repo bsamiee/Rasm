@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, ClassVar
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -18,7 +18,7 @@ from rasm.blender.data.rna import conditions
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
-from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderRenderingFault, BlenderResult, BlenderUnmetFault
+from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderRenderingFault, BlenderResult, BlenderUnmetFault
 from rasm.blender.files.blends import dependencies, Dependency
 from rasm.blender.render.outputs.paths import OutputPath, Pathed
 from rasm.blender.settings.properties import Choices
@@ -357,7 +357,7 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
     ).map(lambda _: None)
 
 
-def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date, context: bpy.types.Context) -> BlenderResult[tuple[Measure, ...]]:
+def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> BlenderResult[tuple[Measure, ...]]:
     """Audits every scope before measuring its distinct native scene and layer owners."""
     planned = tuple(
         (
@@ -373,20 +373,14 @@ def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date, co
         for scene in (bpy.data.scenes[scope.scene],)
     )
 
-    def checked_paths(preferences: bpy.types.Preferences) -> BlenderResult[None]:
-        return accumulated(pathed.path(scene, preferences, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)) for scope, scene, frames in planned).map(lambda _: None)
-
-    preferences: BlenderResult[bpy.types.Preferences] = Option.of_optional(context.preferences).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="preferences"),))
     layers = tuple(
         dict.fromkeys(
-            layer
-            for scope in scopes
-            for scene in (bpy.data.scenes[scope.scene],)
-            for layer in ((scene.view_layers[scope.layer],) if scope.layer is not None else tuple(layer for layer in scene.view_layers if layer.use))
+            layer for scope, scene, _frames in planned for layer in ((scene.view_layers[scope.layer],) if scope.layer is not None else tuple(layer for layer in scene.view_layers if layer.use))
         )
     )
     return paired(
-        paired(audited(), accumulated(cameras(scene, scope, frames) for scope, scene, frames in planned)), Result[bpy.types.Preferences, BlenderFaults].bind(preferences, checked_paths)
+        paired(audited(), accumulated(cameras(scene, scope, frames) for scope, scene, frames in planned)),
+        accumulated(pathed.path(scene, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)) for scope, scene, frames in planned),
     ).bind(lambda _: accumulated(map(measured, layers)))
 
 

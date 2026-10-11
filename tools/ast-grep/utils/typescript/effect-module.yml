@@ -3,9 +3,6 @@ id: effect-module
 language: tsx
 arguments: [name]
 rule:
-    matches:
-        syntax-import-reference:
-            source:
-                regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?(/[A-Z]\w*)?$'
-                any: [{not: {regex: '/[A-Z]\w*$'}}, {matches: name}]
-            exported: {matches: name}
+    any:
+        - matches: {syntax-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?$'}, exported: {matches: name}}}
+        - matches: {syntax-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?/[A-Z]\w*$', matches: name}, exported: {regex: '^\*$'}}}

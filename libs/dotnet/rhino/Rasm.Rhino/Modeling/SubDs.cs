@@ -47,14 +47,7 @@ public static class SubDs {
     public static IO<(uint UpdatedTags, uint UpdatedCache)> InterpolateSurfacePoints(RhinoDoc doc, Guid id, Seq<(uint Vertex, Point3d Point)> points) =>
         DisposalOps.Within(() => new ObjRef(doc, id), reference => DisposalOps.Within((Action<IDisposable> retain) =>
             from subd in Copies.Acquire(reference.SubD, nameof(ObjRef.SubD), retain)
-            let targets = points.Map(static row => row.Point).ToArray()
-            from solved in DisposalOps.Within(
-                () => (Interpolator: SubDSurfaceInterpolator.CreateFromVertexIdList(subd, points.Map(static row => row.Vertex), out uint count), Count: count),
-                made =>
-                    from interpolator in IO.lift(() => Refused.Unless(made.Count == points.Count, made.Interpolator, nameof(SubD.InterpolateSurfacePoints)))
-                    from result in IO.lift(() => Refused.Unless(interpolator.Solve(targets), nameof(SubDSurfaceInterpolator.Solve)))
-                    select result,
-                static made => IO.lift(made.Interpolator.Dispose))
+            from solved in Solved(subd, points)
             from tags in IO.lift(subd.UpdateAllTagsAndSectorCoefficients)
             from cache in IO.lift(() => subd.UpdateSurfaceMeshCache(lazyUpdate: true))
             from replaced in IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, subd), nameof(ObjectTable.Replace)))
@@ -95,6 +88,15 @@ public static class SubDs {
         from cleared in when(edit is SubDEdit.TransformComponents, IO.lift(subd.ClearEvaluationCache)).As()
         from updated in IO.lift(subd.UpdateAllTagsAndSectorCoefficients)
         select (edit, result, updated);
+
+    private static IO<Unit> Solved(SubD subd, Seq<(uint Vertex, Point3d Point)> points) =>
+        DisposalOps.Within(
+            () => (Interpolator: SubDSurfaceInterpolator.CreateFromVertexIdList(subd, points.Map(static row => row.Vertex), out uint count), Count: count),
+            made =>
+                from interpolator in IO.lift(() => Refused.Unless(made.Count == points.Count, made.Interpolator, nameof(SubD.InterpolateSurfacePoints)))
+                from result in IO.lift(() => Refused.Unless(interpolator.Solve([.. points.Map(static row => row.Point)]), nameof(SubDSurfaceInterpolator.Solve)))
+                select result,
+            static made => IO.lift(made.Interpolator.Dispose));
 
     // --- [READS]
     public static IO<Seq<Option<(Point3d Point, SubDComponentParameter Parameter)>>> ClosestPoints(SubD subd, Seq<Point3d> testPoints, Option<double> maximumDistance) =>

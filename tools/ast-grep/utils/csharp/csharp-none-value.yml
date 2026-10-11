@@ -1,24 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-none-value
 language: csharp
+utils:
+    option-type:
+        matches: {csharp-type-name: {name: {regex: '^Option$'}}}
 rule:
     any:
         - kind: identifier
           regex: '^None$'
         - kind: member_access_expression
-          regex: '^((global::)?(LanguageExt\.)?(Prelude|Option)\s*\.\s*None|(global::)?(LanguageExt\.)?Option\s*<.+>\s*\.\s*(None|Empty))$'
+          matches: {csharp-owner-member: {type: {regex: '^(Prelude|Option)$'}, member: {regex: '^(None|Empty)$'}}}
         - kind: default_expression
           any:
             - regex: '^default$'
-            - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>$'}
+            - has: {field: type, matches: option-type}
         - kind: object_creation_expression
           all:
-            - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>$'}
+            - has: {field: type, matches: option-type}
             - has: {field: arguments, not: {has: {kind: argument}}}
             - not: {has: {field: initializer, pattern: $_}}
         - kind: cast_expression
           all:
-            - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>$'}
+            - has: {field: type, matches: option-type}
             - has: {field: value, matches: csharp-none-value}
         - kind: parenthesized_expression
           has: {matches: csharp-none-value}

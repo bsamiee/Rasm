@@ -174,30 +174,7 @@ public static class NumericRows {
                     held.Value = (None, []);
                     return releases;
                 })).Bind(DisposalOps.Release), retain)
-        let publish = fun((NumericPart<TValue> next, IDisposable lease) => {
-            (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) prior = atomic(() => {
-                (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
-                _ = current.Part.ToFin(Errors.Cancelled).ThrowIfFail();
-                held.Value = (current.Part, current.Releases.Add(lease));
-                return current;
-            });
-            return DisposalOps.OnFailure(
-                IO.lift(() => { panel.Content = next.Cell.Control; }),
-                IO.lift(() => prior.Part.Bind(static part => part).Match(
-                    Some: part => { panel.Content = part.Cell.Control; }, None: () => panel.Content = null))
-                    .Bind(_ => atomicIO(() => {
-                        (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
-                        held.Value = (current.Part.Bind(_ => prior.Part), current.Releases.Filter(owned => !ReferenceEquals(owned, lease)));
-                        return unit;
-                    }))
-                    .Bind(_ => DisposalOps.Release(Seq(lease))))
-                .Bind(_ => atomicIO(() => {
-                    (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
-                    held.Value = (current.Part.Map(_ => Some(next)), current.Releases.Filter(owned => ReferenceEquals(owned, lease)));
-                    return unit;
-                }))
-                .Bind(_ => DisposalOps.Release(prior.Releases));
-        })
+        let publish = fun((NumericPart<TValue> next, IDisposable lease) => Published(held, panel, next, lease))
         from initial in DisposalOps.Replace(make, (typed, lease) => publish(typed.Part, lease))
         select (new NumericPart<TValue>(new TableCell(panel), Square: false,
                     value => held.ValueIO.Bind(static state => IO.lift(state.Part.Bind(static part => part).ToFin(Errors.Cancelled))).Bind(part => part.Receive(value)),
@@ -206,6 +183,32 @@ public static class NumericRows {
                 initial.Fit,
                 (Func<Func<Action<IDisposable>, IO<NumericPart<TValue>>>, IO<Unit>>)(replace =>
                     DisposalOps.Replace(replace, publish).Map(static _ => unit)));
+
+    private static IO<Unit> Published<TValue>(
+        Ref<(Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases)> held, Panel panel, NumericPart<TValue> next, IDisposable lease) where TValue : notnull {
+        (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) prior = atomic(() => {
+            (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
+            _ = current.Part.ToFin(Errors.Cancelled).ThrowIfFail();
+            held.Value = (current.Part, current.Releases.Add(lease));
+            return current;
+        });
+        return DisposalOps.OnFailure(
+            IO.lift(() => { panel.Content = next.Cell.Control; }),
+            IO.lift(() => prior.Part.Bind(static part => part).Match(
+                Some: part => { panel.Content = part.Cell.Control; }, None: () => panel.Content = null))
+                .Bind(_ => atomicIO(() => {
+                    (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
+                    held.Value = (current.Part.Bind(_ => prior.Part), current.Releases.Filter(owned => !ReferenceEquals(owned, lease)));
+                    return unit;
+                }))
+                .Bind(_ => DisposalOps.Release(Seq(lease))))
+            .Bind(_ => atomicIO(() => {
+                (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
+                held.Value = (current.Part.Map(_ => Some(next)), current.Releases.Filter(owned => ReferenceEquals(owned, lease)));
+                return unit;
+            }))
+            .Bind(_ => DisposalOps.Release(prior.Releases));
+    }
 
     private static IO<NumberText<Length>> Measure(RhinoDoc doc, (Length Low, Length High) soft, bool modelUnits) =>
         DistanceDisplay.Read(doc, modelUnits).Map(display => NumberText.Distance(modelUnits ? doc.ModelUnits : doc.PageUnits, display, soft, RowEdit.Varies));

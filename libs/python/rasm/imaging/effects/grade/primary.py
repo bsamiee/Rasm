@@ -12,11 +12,11 @@ from rasm.imaging.color.processors import luma
 from rasm.imaging.faults import ImagingResult
 from rasm.imaging.parameters import Presentation, Stops
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Component = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max), Presentation(soft=Some((-1.0, 1.0)), step=Some(0.01), decimals=Some(3))]
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Wheel(msgspec.Struct, frozen=True, kw_only=True):
@@ -81,6 +81,6 @@ class Saturation(Effect, frozen=True, kw_only=True, tag=15):
         return Ok(Nothing) if self.vibrance != 0.0 else luma(config).map(lambda weights: Some(PyOpenColorIO.MatrixTransform.Sat(self.scale, weights.tolist())))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Component", "Contrast", "Primary", "Saturation", "Wheel"]

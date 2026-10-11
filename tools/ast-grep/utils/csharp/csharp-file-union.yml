@@ -2,6 +2,9 @@
 id: csharp-file-union
 language: csharp
 arguments: [name]
+utils:
+    union-attribute:
+        matches: {csharp-type-name: {name: {regex: '^Union(Attribute)?$'}}}
 rule:
     kind: record_declaration, class_declaration
     all:
@@ -10,4 +13,4 @@ rule:
             kind: attribute_list
             has:
                 kind: attribute
-                has: {field: name, regex: '^(global::)?(Thinktecture\.)?Union(Attribute)?$'}
+                has: {field: name, matches: union-attribute}

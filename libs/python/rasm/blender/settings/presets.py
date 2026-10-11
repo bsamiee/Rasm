@@ -122,7 +122,7 @@ def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
     manager.clipboard = msgspec.json.encode(snapshot, order="deterministic").decode()
 
 
-def pasted(manager: bpy.types.WindowManager, owners: tuple[bpy.types.bpy_struct, ...]) -> BlenderResult[tuple[Applied, ...]]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> BlenderResult[tuple[Applied, ...]]:
     """Transfers clipboard values onto each owner's members, returning native outcomes or faults."""
     try:
         clip = msgspec.json.decode(manager.clipboard, type=Snapshot)

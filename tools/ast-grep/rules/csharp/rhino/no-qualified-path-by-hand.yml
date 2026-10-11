@@ -6,12 +6,12 @@ files: ['**/rhino/**']
 utils:
     io-call:
         kind: invocation_expression
-        regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)(lift|liftAsync|pure|fail)\b'
+        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|pure|fail)$'}}}}
     effect:
         any:
             - matches: io-call
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(when|unless)$'}
+              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|unless)$'}}}}
             - kind: conditional_expression
               any:
                 - has: {field: consequence, matches: io-call}
@@ -22,7 +22,7 @@ utils:
         kind: invocation_expression
         all:
             - pattern: $CHECK($PATH)
-            - has: {field: function, regex: '^((global::)?System\.IO\.)?Path\s*\.\s*(IsPathFullyQualified|IsPathRooted)$'}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Path$'}, member: {regex: '^(IsPathFullyQualified|IsPathRooted)$'}}}}
     affirmed:
         any:
             - matches: check
@@ -63,18 +63,18 @@ utils:
     failure:
         any:
             - kind: invocation_expression
-              has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?(IO\s*\.\s*fail|Fin(\s*<.+>)?\s*\.\s*Fail|Prelude\s*\.\s*FinFail|FinFail)(\s*<.+>)?$'}
+              has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Fin$'}, member: {regex: '^Fail$'}}}}, {matches: {csharp-type-name: {name: {regex: '^FinFail$'}}}}]}
             - kind: parenthesized_expression
               has: {matches: failure}
     requires:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^(\w+\s*\.\s*Unless|((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(unless|guard)(\s*<.+>)?)$'}
+                - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^Unless$'}}, {matches: {csharp-type-name: {name: {regex: '^(unless|guard)$'}}}}]}
                 - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: truthy}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(when|guardnot)(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|guardnot)$'}}}}
                 - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: falsy}}}
             - kind: conditional_expression
               any:

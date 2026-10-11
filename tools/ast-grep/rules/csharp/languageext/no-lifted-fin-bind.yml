@@ -10,11 +10,11 @@ utils:
             - pattern: {context: 'class C { object F() => $IO.lift(() => $VALUE); }', selector: invocation_expression, strictness: cst}
             - pattern: {context: 'class C { object F() => $IO.lift<$_TYPE>(() => $VALUE); }', selector: invocation_expression, strictness: cst}
     lift-group:
-        regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<[^()]+>)?$'
+        matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
     pure-group:
-        regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*pure(\s*<[^()]+>)?$'
+        matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
     fail-group:
-        regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*fail\s*<[^()]+>$'
+        matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}
     returned:
         any:
             - matches: relift
@@ -148,7 +148,7 @@ rule:
                     - nthChild: 1
                     - inside: {kind: query_expression, not: {has: {nthChild: 4}}, has: {kind: select_clause, nthChild: 3, has: {pattern: $X}}}
 constraints:
-    IO: {regex: '^(global::)?(LanguageExt\.)?IO$'}
+    IO: {matches: {csharp-type-name: {name: {regex: '^IO$'}}}}
     FIN: {regex: '(?s)^((global::)?LanguageExt\.)?(Fin\s*<.+>|Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,.+>)$'}
     BIND:
         any:

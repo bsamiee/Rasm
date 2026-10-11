@@ -76,21 +76,7 @@ public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Ext
                 from entry in toSeq(stage.Elements(RimagePart.PlugIn.Key))
                 where entry.Attribute(RimagePart.Name.Key) is not null
                 select (Stage: stage, Entry: entry),
-                (row, _) =>
-                    from id in Optional(row.Entry.Attribute(RimagePart.Id.Key)).Bind(static attribute => parseGuid(attribute.Value))
-                        .ToFin(new MalformedRendering(rendering, RimagePart.Id))
-                    from running in string.Equals(row.Stage.Name.LocalName, RimagePart.ToneMapping.Key, StringComparison.Ordinal)
-                        ? (Optional(row.Stage.Attribute(RimagePart.Selection.Key)).Map(static attribute => attribute.Value)
-                           | Optional(effects.Element($"{row.Stage.Name.LocalName}-{RimagePart.Selection.Key}")).Map(static element => element.Value))
-                            .Traverse(text => parseGuid(text).ToFin(new MalformedRendering(rendering, RimagePart.Selection))).As()
-                            .Map(selected => selected.Filter(static value => value != Guid.Empty).IfNone(static () => BuiltinEffect.Clamp.Id) == id)
-                        : Callbacks.Each(Seq(RimagePart.On, RimagePart.Shown), (part, _) => Optional(row.Entry.Attribute(part.Key))
-                                .Traverse(attribute => parseBool(attribute.Value).ToFin(new MalformedRendering(rendering, part))).As()
-                                .Map(static value => value.IfNone(noneValue: false)))
-                            .Map(static flags => flags.ForAll(static flag => flag))
-                    let fields = Optional(row.Entry.Element(RimagePart.State.Key)).ToSeq().Bind(static state => toSeq(state.Elements()))
-                        .Map(field => (Key: EntryKey.Named(EntryKey.TypeOwner(id), field.Name.LocalName), Text: field.Value))
-                    select (Id: id, Running: running, Fields: fields))
+                (row, _) => Entry(rendering, effects, row))
             select (extent, new ValueSet(toHashMap(entries.Bind(static entry => entry.Fields))), entries.Filter(static entry => entry.Running).Map(static entry => entry.Id)));
 
     public IO<PixelFrame> Frame => Channel(RenderWindow.StandardChannels.RGBA);
@@ -140,6 +126,22 @@ public sealed record RenderSlot(string Rendering, Instant Saved, PixelExtent Ext
             .As()
             .ToFin()
             .Bind(static size => RenderWindows.Extent(size.Width, size.Height));
+
+    private static Fin<(Guid Id, bool Running, Seq<(EntryKey Key, string Text)> Fields)> Entry(string rendering, XElement effects, (XElement Stage, XElement Entry) row) =>
+        from id in Optional(row.Entry.Attribute(RimagePart.Id.Key)).Bind(static attribute => parseGuid(attribute.Value))
+            .ToFin(new MalformedRendering(rendering, RimagePart.Id))
+        from running in string.Equals(row.Stage.Name.LocalName, RimagePart.ToneMapping.Key, StringComparison.Ordinal)
+            ? (Optional(row.Stage.Attribute(RimagePart.Selection.Key)).Map(static attribute => attribute.Value)
+               | Optional(effects.Element($"{row.Stage.Name.LocalName}-{RimagePart.Selection.Key}")).Map(static element => element.Value))
+                .Traverse(text => parseGuid(text).ToFin(new MalformedRendering(rendering, RimagePart.Selection))).As()
+                .Map(selected => selected.Filter(static value => value != Guid.Empty).IfNone(static () => BuiltinEffect.Clamp.Id) == id)
+            : Callbacks.Each(Seq(RimagePart.On, RimagePart.Shown), (part, _) => Optional(row.Entry.Attribute(part.Key))
+                    .Traverse(attribute => parseBool(attribute.Value).ToFin(new MalformedRendering(rendering, part))).As()
+                    .Map(static value => value.IfNone(noneValue: false)))
+                .Map(static flags => flags.ForAll(static flag => flag))
+        let fields = Optional(row.Entry.Element(RimagePart.State.Key)).ToSeq().Bind(static state => toSeq(state.Elements()))
+            .Map(field => (Key: EntryKey.Named(EntryKey.TypeOwner(id), field.Name.LocalName), Text: field.Value))
+        select (Id: id, Running: running, Fields: fields);
 
     private Fin<HashMap<Guid, long>> Offsets(XElement xml) =>
         Optional(xml.Element(RimagePart.Channels.Key))

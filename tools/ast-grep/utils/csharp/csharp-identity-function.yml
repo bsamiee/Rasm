@@ -61,7 +61,7 @@ utils:
 rule:
     any:
         - kind: member_access_expression
-          regex: '^(global::)?(LanguageExt\.)?Prelude\.identity(\s*<.+>)?$'
+          matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^identity$'}}}
         - kind: identifier, generic_name
           regex: '^identity(\s*<.+>)?$'
           not:

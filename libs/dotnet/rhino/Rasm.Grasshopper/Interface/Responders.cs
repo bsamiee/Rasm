@@ -170,13 +170,15 @@ public static class Responders {
         DisposalOps.Acquire(keep =>
             from menus in IO.lift(static () => Ref(Some(HashMap<ContextMenu, IDisposable>())))
             from live in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Option<HashMap<ContextMenu, IDisposable>>>>(menus, static held =>
-                atomicIO(() => {
-                    Option<HashMap<ContextMenu, IDisposable>> taken = held.Value;
-                    held.Value = None;
-                    return taken.ToSeq().Bind(static map => toSeq(map.Values));
-                }).Bind(DisposalOps.Release).Uninterruptible().Run())), static held => IO.lift(held.Dispose), keep)
+                atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible().Run())), static held => IO.lift(held.Dispose), keep)
             from attached in GrasshopperEvents.PopulateContextMenu(control).Inline(args => Populated(args, groups, scope, menus), scope.Sink, keep)
             select unit, (_, release) => retain(release));
+
+    private static Seq<IDisposable> Taken(Ref<Option<HashMap<ContextMenu, IDisposable>>> held) {
+        Option<HashMap<ContextMenu, IDisposable>> taken = held.Value;
+        held.Value = None;
+        return taken.ToSeq().Bind(static map => toSeq(map.Values));
+    }
 
     private static IO<Unit> Populated(PopulateContextMenuEventArgs args, Seq<Seq<CommandRow>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
         IO.lift(() => args.Control is not Canvas canvas

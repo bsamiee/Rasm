@@ -33,15 +33,10 @@ utils:
         any:
             - kind: identifier
               matches: {syntax-import-reference: {source: {regex: '^effect/process/ChildProcessSpawner$'}, exported: {regex: '^ChildProcessSpawner$'}}}
-              not: {matches: {syntax-import-reference: {source: {regex: '^effect/process/ChildProcessSpawner$'}, exported: {regex: '^$'}}}}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^ChildProcessSpawner$'}
-                - has:
-                    field: object
-                    any:
-                        - matches: {syntax-import-reference: {source: {regex: '^effect/process$'}, exported: {regex: '^ChildProcessSpawner$'}}}
-                        - matches: {syntax-import-reference: {source: {regex: '^effect/process/ChildProcessSpawner$'}, exported: {regex: '^$'}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bChildProcessSpawner$'}}}}
     spawn-handle:
         kind: yield_expression
         has:
@@ -53,7 +48,7 @@ utils:
                     - has: {field: property, regex: '^spawn$'}
                     - all:
                         - has: {field: property, regex: '^make$'}
-                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect/process(/ChildProcess)?$'}, exported: {regex: '^ChildProcess$'}}}}
+                        - has: {field: object, matches: {effect-module: {name: {regex: '\bChildProcess$'}}}}
     decision-on-code:
         any:
             - kind: binary_expression, unary_expression

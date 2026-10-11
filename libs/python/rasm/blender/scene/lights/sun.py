@@ -133,7 +133,7 @@ class SolarCaption(Line, frozen=True, kw_only=True):
 class SunLamp(msgspec.Struct, frozen=True, kw_only=True):
     """Row attaching `SunSetup` to scenes with the owned lamp, its keys, the following sky and environment keys, and the paths."""
 
-    retention: Callable[[Identity], BlenderResult[Retention]]
+    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def resited(scene: Handle[bpy.types.Scene], identity: Identity) -> BlenderResult[Option[str]]:
@@ -317,8 +317,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
             ranged(setup.timing, len(frames)),
         )).map(lambda _: None)
 
-    def followed(world: bpy.types.World) -> BlenderResult[tuple[tuple[bpy.types.NodeTree, Follower], ...]]:
-        tree: bpy.types.NodeTree = world.node_tree  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    def followed(tree: bpy.types.NodeTree) -> BlenderResult[tuple[tuple[bpy.types.NodeTree, Follower], ...]]:
         return followers(tree, identity).map(lambda nodes: tuple((tree, node) for node in nodes))
 
     def placed(setup: SunSetup) -> BlenderResult[bpy.types.Object]:
@@ -331,7 +330,8 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
                 dropped(scene, identity)
                 .bind(
                     lambda _: paired(
-                        Option.of_optional(earliest(SunLamp.lamp.held(identity)).get(mark)).map(Ok).default_with(built), Option.of_optional(scene.world).map(followed).default_value(Ok(()))
+                        Option.of_optional(earliest(SunLamp.lamp.held(identity)).get(mark)).map(Ok).default_with(built),
+                        Option.of_optional(scene.world).bind(lambda world: Option.of_optional(world.node_tree)).map(followed).default_value(Ok(())),
                     )
                 )
                 .bind(lambda pair: keyed(setup, position, *pair).bind(lambda _: drawn(setup, scene, identity)).map(lambda _: pair[0]))
@@ -461,8 +461,7 @@ def dropped(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
         `Ok` once cleared, also for a scene with no world; the faults of `followers` and each clear.
     """
 
-    def cleared(world: bpy.types.World) -> BlenderResult[None]:
-        tree: bpy.types.NodeTree = world.node_tree  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    def cleared(tree: bpy.types.NodeTree) -> BlenderResult[None]:
         return (
             followers(tree, identity)
             .bind(
@@ -476,7 +475,7 @@ def dropped(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
             .map(lambda _: None)
         )
 
-    return Option.of_optional(scene.world).map(cleared).default_value(Ok(None))
+    return Option.of_optional(scene.world).bind(lambda world: Option.of_optional(world.node_tree)).map(cleared).default_value(Ok(None))
 
 
 def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int]:
@@ -490,15 +489,21 @@ def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int
         `Ok` of the objects removed; the faults of `followers` and each clear.
     """
 
-    def cleared(world: bpy.types.World) -> BlenderResult[tuple[None, ...]]:
-        tree: bpy.types.NodeTree = world.node_tree  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    def cleared(tree: bpy.types.NodeTree) -> BlenderResult[tuple[None, ...]]:
         return followers(tree, identity).bind(
             lambda following: accumulated(
                 Animation(struct=struct, member=member, index=index, source=Keys(points=())).clear(owner) for follower in following for owner, struct, member, index, _ in _channels(tree, follower)
             )
         )
 
-    return Option.of_optional(scene.world).map(cleared).default_value(Ok(())).bind(lambda _: _gone((SunLamp.lamp, SunLamp.surface, SunLamp.analemmas), scene, identity))
+    return (
+        Option
+        .of_optional(scene.world)
+        .bind(lambda world: Option.of_optional(world.node_tree))
+        .map(cleared)
+        .default_value(Ok(()))
+        .bind(lambda _: _gone((SunLamp.lamp, SunLamp.surface, SunLamp.analemmas), scene, identity))
+    )
 
 
 def _channels(owner: bpy.types.NodeTree, follower: bpy.types.Node | EnvironmentNode) -> tuple[tuple[bpy.types.ID, str, str, int | None, Callable[[SunPosition], npt.NDArray[np.float64]]], ...]:

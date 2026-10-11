@@ -2,7 +2,7 @@
 id: no-asserted-object-keys
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**', '.codex/hooks/**']
+ignores: ['plugins/function-hooks/**']
 rule:
     pattern: $CALL as $TYPE
     has:

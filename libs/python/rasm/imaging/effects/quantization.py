@@ -13,11 +13,11 @@ from rasm.imaging.chain import Effect, Stage
 from rasm.imaging.faults import ImagingBufferFault, ImagingResult
 from rasm.imaging.parameters import Case
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type IntegerDepth = Literal[8, 16]
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class BlueNoise(Case, frozen=True, kw_only=True, tag=1):
@@ -76,7 +76,7 @@ class Dither(Effect, frozen=True, kw_only=True, tag=45):
     method: Annotated[BlueNoise | Diffusion, msgspec.Meta(title="Method", description="Blue-noise dither or whole-frame error diffusion")] = BlueNoise()
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @overload
@@ -95,6 +95,6 @@ def codes(plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np
     return np.clip(scaled, 0, limits.max, out=scaled).astype(dtype)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["BlueNoise", "Diffusion", "Dither", "IntegerDepth", "codes"]

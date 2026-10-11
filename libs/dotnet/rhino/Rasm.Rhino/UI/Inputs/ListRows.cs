@@ -611,12 +611,7 @@ public static class ListRows {
         from pending in IO.lift(static () => Ref(Option<TKey>.None))
         from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), static held => IO.lift(held.Dispose), retain)
         let shown = row.Current(scope).Bind(value => browser.Receive(value.Map<BrowserEdit<TItem, TKey>>(static key => new BrowserEdit<TItem, TKey>.Applied(key))))
-        let settled = envIO.Bind(environment => (
-            from stopped in IO.lift(timer.Stop)
-            from held in pending.ValueIO
-            from chosen in held.Traverse(key => IO.liftVAsync(() => row.Choose(scope, key).RunAsync(environment))
-                .Bind(_ => atomicIO(() => pending.Value = None))).As()
-            select unit).Uninterruptible()).Bind(_ => shown)
+        let settled = Settled(row, scope, timer, pending).Bind(_ => shown)
         let applied = (Func<BrowserEdit<TItem, TKey>, Option<TKey>>)(static value => value.Switch(
             applied: static held => Some(held.Key), reordered: static _ => None, renamed: static _ => None, favourited: static _ => None))
         let stepped = (Func<BrowserEdit<TItem, TKey>, IO<Unit>>)(value => applied(value).Match(
@@ -638,6 +633,20 @@ public static class ListRows {
                 cancel: static (held, _) => IO.lift(held.Timer.Stop).Bind(_ => atomicIO(() => held.Pending.Value = None)).Bind(_ => held.Shown)), site), retain)
         from changed in scope.Listen(_ => shown, retain)
         select shown;
+
+    private static IO<Unit> Settled<TItem, TKey>(BrowserRow<TItem, TKey> row, RowScope scope, UITimer timer, Ref<Option<TKey>> pending)
+        where TItem : notnull
+        where TKey : notnull =>
+        envIO.Bind(environment => (
+            from stopped in IO.lift(timer.Stop)
+            from held in pending.ValueIO
+            from chosen in held.Traverse(key => Chosen(row, scope, pending, key, environment)).As()
+            select unit).Uninterruptible());
+
+    private static IO<Option<TKey>> Chosen<TItem, TKey>(BrowserRow<TItem, TKey> row, RowScope scope, Ref<Option<TKey>> pending, TKey key, EnvIO environment)
+        where TItem : notnull
+        where TKey : notnull =>
+        IO.liftVAsync(() => row.Choose(scope, key).RunAsync(environment)).Bind(_ => atomicIO(() => pending.Value = None));
 
     private static Option<Edit<TOut>> Mapped<TIn, TOut>(Edit<TIn> change, Func<TIn, Option<TOut>> map)
         where TIn : notnull

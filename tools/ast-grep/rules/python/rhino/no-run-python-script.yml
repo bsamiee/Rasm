@@ -2,6 +2,7 @@
 id: no-run-python-script
 language: python
 severity: error
+files: ['**/rhino/**']
 rule:
     kind: string
     pattern: $MACRO

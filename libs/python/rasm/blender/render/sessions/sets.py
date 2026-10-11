@@ -22,16 +22,16 @@ from rasm.blender.data.rna.descriptors import Descriptor, struct_at, Value
 from rasm.blender.data.rna.snapshots import Applied, NativeValue, Snapshot
 from rasm.blender.extension.events.handlers import UpdateHandler
 from rasm.blender.extension.identity import Identity, Key, Name
-from rasm.blender.extension.registration import Acquisitions
+from rasm.blender.extension.registration import Acquisitions, Registrable
 from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
 from rasm.blender.render.effects.stack import Configured, EffectName, EffectStack, Named, projected, viewed
 from rasm.blender.render.previews.scenes import Chain, PreviewEngine
 from rasm.blender.render.previews.tiles import Tiles
 from rasm.blender.render.view_layers import passes
-from rasm.blender.settings.attachments import Attached, Attachment, Stored
+from rasm.blender.settings.attachments import Attached, Attachment, Host, Stored
 from rasm.blender.settings.presets import Preset
 from rasm.blender.settings.texts import TextRecord
-from rasm.blender.ui.layout.browser import Browser, BrowserLayout
+from rasm.blender.ui.layout.browser import Browser
 from rasm.blender.ui.layout.lists import ItemList
 from rasm.blender.ui.layout.rows import Matrix, Member, OperatorButton, Owner, Property, Pulldown, RowContent, RowDraw
 from rasm.blender.ui.layout.sections import Drawn, hosted, Listing, Single
@@ -154,7 +154,7 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def drawn(path: Option[tuple[Key | int, ...]], identity: Identity) -> BlenderResult[RowDraw]:
-            def shown(store: Stored[SetupLocks], layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def shown(store: Stored[SetupLocks], layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(holder.id_data, bpy.types.Scene):
                     scene = holder.id_data
                     identity.reports.reported(
@@ -428,9 +428,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             case _, Option():
                 return Error((BlenderAbsentFault(owner="render setup preview", key="completed render"),))
 
-    def browser(
-        self, preset: Preset[Setup[E]], tiles: Tiles, main: AreaQuery, layout: Callable[[Identity], BlenderResult[BrowserLayout]], stored: Callable[[Identity, BrowserLayout], BlenderResult[None]]
-    ) -> Browser[Setup[E]]:
+    def browser(self, preset: Preset[Setup[E]], tiles: Tiles, main: AreaQuery) -> Browser[Setup[E]]:
         """Composes the complete setup catalog with native actions and transient previews."""
         return Browser(
             listing=Listing(preset=preset, current=self.current, matches=lambda context, recipes: self.observed(context).bind(lambda observed: observed[1](recipes)), applied=self.applied),
@@ -438,8 +436,6 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             candidate=self.candidate,
             observed=self.observed,
             main=main,
-            layout=layout,
-            stored=stored,
         )
 
     def observed(self, context: bpy.types.Context) -> BlenderResult[tuple[Hashable, Callable[[tuple[Setup[E], ...]], BlenderResult[tuple[bool, ...]]]]]:
@@ -458,7 +454,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     def actions(self) -> BlenderResult[tuple[Operator[SetupLock], Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]]:
         """Composes native setting locks from matrix holders and canonical descriptors."""
 
-        def changed(owner: bpy.types.bpy_struct, path: str) -> BlenderResult[Done]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        def changed(owner: Host, path: str) -> BlenderResult[Done]:
             match owner:
                 case bpy.types.Scene():
                     return (
@@ -468,8 +464,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                         .bind(lambda locks: self.locks.write(owner, msgspec.structs.replace(locks, scene=locks.scene ^ {path})))
                         .map(lambda _: Done())
                     )
-                case bpy.types.ViewLayer() as layer:
-                    scene: bpy.types.Scene = layer.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                case bpy.types.ViewLayer(id_data=bpy.types.Scene() as scene) as layer:
                     return (
                         self.locks
                         .read(scene)
@@ -490,14 +485,12 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def action(name: str, identity: Identity, descriptor: Descriptor) -> BlenderResult[RowDraw]:
-            def shown(draws: dict[bool, RowDraw], layout: bpy.types.UILayout, holder: bpy.types.bpy_struct, context: bpy.types.Context) -> None:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+            def shown(draws: dict[bool, RowDraw], layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 layout.context_pointer_set(name, holder)
                 match holder:
                     case bpy.types.Scene():
                         selected = self.locks.read(holder).map(lambda held: held.default_with(SetupLocks).scene)
-                    case bpy.types.ViewLayer():
-                        scene: bpy.types.Scene = holder.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                        layer = holder.name
+                    case bpy.types.ViewLayer(id_data=bpy.types.Scene() as scene, name=layer):
                         selected = self.locks.read(scene).map(lambda held: held.default_with(SetupLocks).layers.get(layer, frozenset()))
                     case _:
                         return
@@ -519,13 +512,11 @@ class Setups[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     stack: EffectStack[E]
     tiles: Tiles
     main: AreaQuery
-    layout: Callable[[Identity], BlenderResult[BrowserLayout]]
-    stored: Callable[[Identity, BrowserLayout], BlenderResult[None]]
 
     def bound(self, members: Members) -> BlenderResult[tuple[Browser[Setup[E]], tuple[Operator[SetupLock], Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]]]:
         """Composes browser actions over the section's acquired native members."""
         return SetupScope.bound(members, self.stack).bind(
-            lambda scope: scope.actions().map(lambda actions: (scope.browser(Preset(key=RenderSet.key, form=Setup[self.stack.form]), self.tiles, self.main, self.layout, self.stored), actions))  # type: ignore[name-defined]  # ty: ignore[invalid-type-form]
+            lambda scope: scope.actions().map(lambda actions: (scope.browser(Preset(key=RenderSet.key, form=Setup[self.stack.form]), self.tiles, self.main), actions))  # type: ignore[name-defined]  # ty: ignore[invalid-type-form]
         )
 
 
@@ -547,12 +538,13 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
     # --- [BINDING]
 
     @property
-    def page_rows(self) -> tuple[TextRecord[Sets], Attachment[SceneMember], Attachment[LayerMember], Operator[Empty]]:
-        """Declares native stores before the lock row and its suppressible preference."""
+    def page_rows(self) -> tuple[Registrable, ...]:
+        """Declares native stores, the setup browser's screen layout among them, before the lock row and its suppressible preference."""
         return (
             self.record,
             self.scenes,
             self.layers,
+            *self.setup.map(lambda _: (Browser.layouts,)).default_value(()),
             Operator[Empty](
                 key="render_set_lock",
                 title="Lock Render Set",
@@ -887,7 +879,7 @@ def written(members: Members, category: Category, context: bpy.types.Context, ta
 
         return source.apply_all(targets, restoration=Some(published)).bind(completed)
 
-    scenes: tuple[bpy.types.Scene, ...] = tuple(dict.fromkeys(target.id_data for target in targets if isinstance(target, bpy.types.ViewLayer)))  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+    scenes = tuple(dict.fromkeys(scene for target in targets if isinstance(target, bpy.types.ViewLayer) for scene in (target.id_data,) if isinstance(scene, bpy.types.Scene)))
     return accumulated(passes.synced(scene, members.identity) for scene in scenes).bind(
         lambda _: paired(members.captured(category, context), accumulated(previous(target) for target in targets)).bind(lambda pair: applied(*pair))
     )
@@ -1006,11 +998,9 @@ def added(members: Members, source: bpy.types.Scene, name: str) -> BlenderResult
 
         return named(scene, name).map(lambda native: (native, Nothing)).or_else_with(collided)
 
-    return RenderSet.ownership.made(
-        members.identity,
-        lambda: catch(source.copy, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(source), error=error),)),  # type: ignore[arg-type, return-value]  # ty: ignore[invalid-argument-type]
-        of=Some(source),
-    ).bind(renamed)
+    return RenderSet.ownership.made(members.identity, lambda: Option.of_optional(source.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(source), key="copy"),)), of=Some(source)).bind(
+        renamed
+    )
 
 
 def converted(members: Members, form: Form, context: bpy.types.Context) -> BlenderResult[tuple[str, ...]]:

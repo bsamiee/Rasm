@@ -1,11 +1,11 @@
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 globalThis.JOB_TYPE = {
     label: 'Rhino Render Queue',
     settings: [{ key: 'copy', required: true, subtype: 'file_path', type: 'string' }],
 };
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 globalThis.compileJob = (job) => {
     const task = author.Task(job.name, 'rhino');

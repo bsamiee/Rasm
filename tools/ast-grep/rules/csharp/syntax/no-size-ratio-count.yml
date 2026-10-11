@@ -7,7 +7,7 @@ utils:
         any:
             - kind: sizeof_expression
             - kind: invocation_expression
-              has: {field: function, regex: '^(global::)?(System\.Runtime\.(CompilerServices|InteropServices)\.)?(Unsafe|Marshal)\.SizeOf\b'}
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Unsafe|Marshal)$'}, member: {regex: '^SizeOf$'}}}}
             - kind: parenthesized_expression
               has: {matches: size}
 rule:

@@ -77,7 +77,7 @@ class LineMembers(msgspec.Struct, frozen=True, kw_only=True):
             `Ok` of the members; `Error` of `absent` or `choice` for each member the build lacks.
         """
 
-        def selection(kind: type[bpy.types.bpy_struct]) -> tuple[Descriptor, ...]:  # type: ignore[type-arg]  # ty: ignore[missing-type-argument]
+        def selection(kind: type[bpy.types.FreestyleSettings | bpy.types.FreestyleLineSet]) -> tuple[Descriptor, ...]:
             struct: bpy.types.Struct = kind.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return tuple(
                 Descriptor(root=kind, owner="", prop=prop)
@@ -86,19 +86,14 @@ class LineMembers(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def stacked(prop: bpy.types.CollectionProperty) -> Option[Stack]:
-            def kinds(struct: bpy.types.Struct) -> Option[tuple[str, ...]]:
-                match struct.functions.get("new"):
-                    case bpy.types.Function(parameters=parameters):
-                        match parameters.get("type"):  # type: ignore[unreachable]
-                            case bpy.types.EnumProperty(enum_items=items):
-                                return Some(tuple(item.identifier for item in items))
-                            case _:
-                                return Nothing
-                    case _:
-                        return Nothing
-
-            definition: Option[bpy.types.Struct] = Option.of_optional(prop.srna).map(lambda api: api.bl_rna)  # type: ignore[arg-type, return-value]  # ty: ignore[invalid-assignment]
-            return definition.bind(kinds).map(lambda found: Stack(collection=Descriptor(root=bpy.types.FreestyleLineStyle, owner="", prop=prop), kinds=found))
+            return (
+                Option
+                .of_optional(prop.srna)
+                .bind(lambda api: Option.of_optional(api.functions.get("new")))
+                .bind(lambda function: Option.of_optional(function.parameters.get("type")))
+                .bind(lambda parameter: Some(tuple(item.identifier for item in parameter.enum_items)) if isinstance(parameter, bpy.types.EnumProperty) else Nothing)  # type: ignore[var-annotated]
+                .map(lambda found: Stack(collection=Descriptor(root=bpy.types.FreestyleLineStyle, owner="", prop=prop), kinds=found))
+            )
 
         stacks = tuple(stack for prop in bpy.types.FreestyleLineStyle.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) for stack in stacked(prop).to_list())
 

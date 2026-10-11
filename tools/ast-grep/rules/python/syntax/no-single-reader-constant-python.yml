@@ -16,7 +16,7 @@ utils:
               not: {has: {pattern: $_, not: {any: [{matches: literal}, {kind: comment}]}}}
             - kind: call
               all:
-                - has: {field: function, regex: '^(frozenset|tuple|(types\.)?MappingProxyType|re\.compile)$'}
+                - has: {field: function, any: [{matches: {python-builtin-name: {name: {regex: '^(frozenset|tuple)$'}}}}, {matches: {python-member-use: {module: {regex: '^types$'}, name: {regex: '^MappingProxyType$'}}}}, {matches: {python-member-use: {module: {regex: '^re$'}, name: {regex: '^compile$'}}}}]}
                 - has: {field: arguments, matches: literal}
     reference:
         kind: identifier

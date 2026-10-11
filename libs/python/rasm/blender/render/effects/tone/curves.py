@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined,union-attr,misc"
-# ty: ignore[unresolved-attribute]
 """Native tone curves, rendering primaries, and photoreceptor compositor graphs."""
 
 from collections.abc import Callable, Generator, Mapping
@@ -294,7 +292,7 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
             ))
 
 
-# --- [OPERATIONS] ------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def nonnegative(color: Operand) -> BlenderResult[tuple[Fragment, End]]:
@@ -314,11 +312,11 @@ def nonnegative(color: Operand) -> BlenderResult[tuple[Fragment, End]]:
 
 def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
     """Applies a live per-channel curve over admitted native rendering primaries."""
-    application, curve = ToneCurve.application.__name__, ToneCurve.curve.__name__
+    application, curve = ToneCurve.application.__name__, ToneCurve.curve.__name__  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
     config, record, source = shell.config, shell.record, shell.source
     if isinstance(record.curve, Logarithmic | ReinhardExtended) and not record.curve.scene_white.enabled:
         return Error((BlenderAbsentFault(owner=record.title, key="current_frame_white"),))
-    keys = (Application.red.__name__, Application.green.__name__, Application.blue.__name__)
+    keys = (Application.red.__name__, Application.green.__name__, Application.blue.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     axes = tuple("XYZ")
     kinds: tuple[type[Curve], ...] = get_args(Curve.__value__)
 
@@ -326,7 +324,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
         value = End(node=INPUTS, socket="value")
 
         def sigmoid() -> tuple[Part, ...]:
-            contrast, skew, white, black = (End(node=INPUTS, socket=field.__name__) for field in (Sigmoid.contrast, Sigmoid.skew, Sigmoid.display_white, Sigmoid.display_black))
+            contrast, skew, white, black = (End(node=INPUTS, socket=field.__name__) for field in (Sigmoid.contrast, Sigmoid.skew, Sigmoid.display_white, Sigmoid.display_black))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             return (
                 math("skew_power", "POWER", 0.2, skew),
                 math("inverse_skew", "DIVIDE", 1.0, End(node="skew_power")),
@@ -366,7 +364,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
 
         def piecewise() -> tuple[Part, ...]:
             toe_strength, toe_length, shoulder_strength, shoulder_length, shoulder_angle, gamma = (
-                End(node=INPUTS, socket=field.__name__)
+                End(node=INPUTS, socket=field.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 for field in (
                     PiecewisePower.toe_strength,
                     PiecewisePower.toe_length,
@@ -448,8 +446,8 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
             )
 
         def logarithmic() -> tuple[Part, ...]:
-            bias, white = (End(node=INPUTS, socket=field.__name__) for field in (Logarithmic.bias, Logarithmic.display_white))
-            scene_white = End(node=INPUTS, socket=item_key(Logarithmic.scene_white.__name__, Gated.value.__name__))  # ty: ignore[invalid-attribute-access]
+            bias, white = (End(node=INPUTS, socket=field.__name__) for field in (Logarithmic.bias, Logarithmic.display_white))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            scene_white = End(node=INPUTS, socket=item_key(Logarithmic.scene_white.__name__, Gated.value.__name__))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
             return (
                 math("white_level", "POWER", 2.0, scene_white),
                 math("exponent", "LOGARITHM", bias, 0.5),
@@ -479,7 +477,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
 
         def reinhard() -> tuple[Part, ...]:
             return (
-                math("white_stops", "MULTIPLY", End(node=INPUTS, socket=item_key(ReinhardExtended.scene_white.__name__, Gated.value.__name__)), 2.0),  # ty: ignore[invalid-attribute-access]
+                math("white_stops", "MULTIPLY", End(node=INPUTS, socket=item_key(ReinhardExtended.scene_white.__name__, Gated.value.__name__)), 2.0),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
                 math("white_square", "POWER", 2.0, End(node="white_stops")),
                 math("denominator", "ADD", value, 1.0),
                 math("compressed", "DIVIDE", value, End(node="denominator")),
@@ -504,7 +502,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
 
     def primary() -> BlenderResult[NodeGroup]:
         point, white = End(node=INPUTS, socket="point"), End(node=INPUTS, socket="white")
-        inset, rotation, purity = (End(node=INPUTS, socket=field.__name__) for field in (RenderingPrimary.inset, RenderingPrimary.rotation, Application.purity))
+        inset, rotation, purity = (End(node=INPUTS, socket=field.__name__) for field in (RenderingPrimary.inset, RenderingPrimary.rotation, Application.purity))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         first, *_ = keys
         edges = tuple(pairwise((*keys, first)))
         inputs = {key: End(node=INPUTS, socket=key) for key in keys}
@@ -545,7 +543,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
                         *(Socket(key=key, name=key.title(), kind=bpy.types.NodeSocketVector) for key in ("point", *keys, "white")),
                         Socket(key="rotation_limit", name="Rotation Limit", kind=bpy.types.NodeSocketFloat),
                         *pair[0][0].inputs,
-                        *(socket for socket in pair[0][1].inputs if socket.key == Application.purity.__name__),
+                        *(socket for socket in pair[0][1].inputs if socket.key == Application.purity.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     ),
                 ),
                 {f"{side}_point": (pair[1], End(node=f"{side}_point", socket="Result_Vector")) for side in ("inset", "outset")},
@@ -681,9 +679,9 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
                         **points,
                         "white": white,
                         "rotation_limit": limit,
-                        RenderingPrimary.inset.__name__: End(node=INPUTS, socket=item_key(application, key, RenderingPrimary.inset.__name__)),
-                        RenderingPrimary.rotation.__name__: End(node=INPUTS, socket=item_key(application, key, RenderingPrimary.rotation.__name__)),
-                        Application.purity.__name__: End(node=INPUTS, socket=item_key(application, Application.purity.__name__)),
+                        RenderingPrimary.inset.__name__: End(node=INPUTS, socket=item_key(application, key, RenderingPrimary.inset.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        RenderingPrimary.rotation.__name__: End(node=INPUTS, socket=item_key(application, key, RenderingPrimary.rotation.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        Application.purity.__name__: End(node=INPUTS, socket=item_key(application, Application.purity.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     },
                     "inset_point",
                 )
@@ -719,8 +717,8 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
                 for key, axis in zip(keys, axes)
             ),
             *(node(item_key("curve", kind), bpy.types.ShaderNodeCombineXYZ, {axis: End(node=item_key("curve", kind, key), socket="curve") for key, axis in zip(keys, axes)}, {}) for kind in kinds),
-            menu("curve", "VECTOR", End(node=INPUTS, socket=curve), MenuItems.of(msgspec.inspect.type_info(Curve)), {kind.title: End(node=item_key("curve", kind), socket="Vector") for kind in kinds}),
-            preserved(End(node="rendering", socket="Direction"), End(node="curve", socket="Output"), End(node=INPUTS, socket=item_key(application, Application.preserve_hue.__name__))),
+            menu("curve", "VECTOR", End(node=INPUTS, socket=curve), MenuItems.of(kinds), {kind.title: End(node=item_key("curve", kind), socket="Vector") for kind in kinds}),
+            preserved(End(node="rendering", socket="Direction"), End(node="curve", socket="Output"), End(node=INPUTS, socket=item_key(application, Application.preserve_hue.__name__))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             node("outset", bpy.types.FunctionNodeTransformDirection, {"Direction": End(node="preserved", socket="Vector"), "Transform": End(node="out_of_rendering", socket="Matrix")}, {}),
         ).map(ended("outset", "Direction"))
 
@@ -780,8 +778,8 @@ def habled(shell: Shell[Hable]) -> BlenderResult[tuple[Fragment, End]]:
     """Applies independent Hable coefficients with live white normalization."""
     if not shell.record.scene_white.enabled:
         return Error((BlenderAbsentFault(owner=shell.record.title, key="current_frame_white"),))
-    a, b, d, f = (shell.socket(field.__name__) for field in (Hable.a, Hable.b, Hable.d, Hable.f))
-    white = shell.socket(Hable.scene_white.__name__, Gated.value.__name__)  # ty: ignore[invalid-attribute-access]
+    a, b, d, f = (shell.socket(field.__name__) for field in (Hable.a, Hable.b, Hable.d, Hable.f))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    white = shell.socket(Hable.scene_white.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
     axes = tuple("XYZ")
     return Fragment.joined(
         nonnegative(shell.source),
@@ -804,79 +802,79 @@ def habled(shell: Shell[Hable]) -> BlenderResult[tuple[Fragment, End]]:
         *(
             part
             for axis in axes
-            for value in (End(node="channels", socket=axis),)
+            for prefix, value in ((axis.lower(), End(node="channels", socket=axis)),)
             for part in (
-                math(f"{axis}_delta", "SUBTRACT", value, End(node="white")),
-                math(f"{axis}_log", "LOGARITHM", value, 2.0),
-                math(f"{axis}_slope_log", "ADD", End(node=f"{axis}_log"), End(node="slope_parts", socket="X")),
-                math(f"{axis}_intercept_larger", "GREATER_THAN", End(node="intercept_parts", socket="X"), End(node=f"{axis}_slope_log")),
+                math(f"{prefix}_delta", "SUBTRACT", value, End(node="white")),
+                math(f"{prefix}_log", "LOGARITHM", value, 2.0),
+                math(f"{prefix}_slope_log", "ADD", End(node=f"{prefix}_log"), End(node="slope_parts", socket="X")),
+                math(f"{prefix}_intercept_larger", "GREATER_THAN", End(node="intercept_parts", socket="X"), End(node=f"{prefix}_slope_log")),
                 *(
-                    masked(f"{axis}_{key}", "FLOAT", End(node=f"{axis}_intercept_larger"), off, on)
+                    masked(f"{prefix}_{key}", "FLOAT", End(node=f"{prefix}_intercept_larger"), off, on)
                     for key, off, on in (
-                        ("larger", End(node=f"{axis}_slope_log"), End(node="intercept_parts", socket="X")),
-                        ("smaller", End(node="intercept_parts", socket="X"), End(node=f"{axis}_slope_log")),
+                        ("larger", End(node=f"{prefix}_slope_log"), End(node="intercept_parts", socket="X")),
+                        ("smaller", End(node="intercept_parts", socket="X"), End(node=f"{prefix}_slope_log")),
                         ("larger_sign", End(node="slope_parts", socket="Y"), End(node="intercept_parts", socket="Y")),
                     )
                 ),
-                math(f"{axis}_log_gap", "SUBTRACT", End(node=f"{axis}_smaller"), End(node=f"{axis}_larger")),
-                math(f"{axis}_ratio", "POWER", 2.0, End(node=f"{axis}_log_gap")),
-                math(f"{axis}_sign_product", "MULTIPLY", End(node="slope_parts", socket="Y"), End(node="intercept_parts", socket="Y")),
-                math(f"{axis}_sum_magnitude", "MULTIPLY_ADD", End(node=f"{axis}_sign_product"), End(node=f"{axis}_ratio"), 1.0),
-                math(f"{axis}_sum_log", "LOGARITHM", End(node=f"{axis}_sum_magnitude"), 2.0),
-                math(f"{axis}_black_sum_log", "ADD", End(node=f"{axis}_larger"), End(node=f"{axis}_sum_log")),
-                math(f"{axis}_intercept_present", "ABSOLUTE", End(node="intercept_parts", socket="Y")),
+                math(f"{prefix}_log_gap", "SUBTRACT", End(node=f"{prefix}_smaller"), End(node=f"{prefix}_larger")),
+                math(f"{prefix}_ratio", "POWER", 2.0, End(node=f"{prefix}_log_gap")),
+                math(f"{prefix}_sign_product", "MULTIPLY", End(node="slope_parts", socket="Y"), End(node="intercept_parts", socket="Y")),
+                math(f"{prefix}_sum_magnitude", "MULTIPLY_ADD", End(node=f"{prefix}_sign_product"), End(node=f"{prefix}_ratio"), 1.0),
+                math(f"{prefix}_sum_log", "LOGARITHM", End(node=f"{prefix}_sum_magnitude"), 2.0),
+                math(f"{prefix}_black_sum_log", "ADD", End(node=f"{prefix}_larger"), End(node=f"{prefix}_sum_log")),
+                math(f"{prefix}_intercept_present", "ABSOLUTE", End(node="intercept_parts", socket="Y")),
                 *(
-                    masked(f"{axis}_{key}", "FLOAT", End(node=f"{axis}_intercept_present"), off, on)
+                    masked(f"{prefix}_{key}", "FLOAT", End(node=f"{prefix}_intercept_present"), off, on)
                     for key, off, on in (
-                        ("black_factor_log", End(node=f"{axis}_slope_log"), End(node=f"{axis}_black_sum_log")),
-                        ("black_sign", End(node="slope_parts", socket="Y"), End(node=f"{axis}_larger_sign")),
-                        ("black_magnitude", 1.0, End(node=f"{axis}_sum_magnitude")),
+                        ("black_factor_log", End(node=f"{prefix}_slope_log"), End(node=f"{prefix}_black_sum_log")),
+                        ("black_sign", End(node="slope_parts", socket="Y"), End(node=f"{prefix}_larger_sign")),
+                        ("black_magnitude", 1.0, End(node=f"{prefix}_sum_magnitude")),
                     )
                 ),
-                math(f"{axis}_white_factor", "MULTIPLY_ADD", End(node=f"{axis}_delta"), End(node="slope"), 1.0),
-                math(f"{axis}_white_magnitude", "ABSOLUTE", End(node=f"{axis}_white_factor")),
-                math(f"{axis}_white_factor_log", "LOGARITHM", End(node=f"{axis}_white_magnitude"), 2.0),
-                math(f"{axis}_white_sign", "SIGN", End(node=f"{axis}_white_factor")),
-                math(f"{axis}_centered", "GREATER_THAN", value, End(node="white_middle")),
+                math(f"{prefix}_white_factor", "MULTIPLY_ADD", End(node=f"{prefix}_delta"), End(node="slope"), 1.0),
+                math(f"{prefix}_white_magnitude", "ABSOLUTE", End(node=f"{prefix}_white_factor")),
+                math(f"{prefix}_white_factor_log", "LOGARITHM", End(node=f"{prefix}_white_magnitude"), 2.0),
+                math(f"{prefix}_white_sign", "SIGN", End(node=f"{prefix}_white_factor")),
+                math(f"{prefix}_centered", "GREATER_THAN", value, End(node="white_middle")),
                 *(
-                    masked(f"{axis}_{key}", "FLOAT", End(node=f"{axis}_centered"), End(node=f"{axis}_black_{suffix}"), End(node=f"{axis}_white_{suffix}"))
+                    masked(f"{prefix}_{key}", "FLOAT", End(node=f"{prefix}_centered"), End(node=f"{prefix}_black_{suffix}"), End(node=f"{prefix}_white_{suffix}"))
                     for key, suffix in (("factor_log", "factor_log"), ("factor_sign", "sign"), ("factor_magnitude", "magnitude"))
                 ),
-                math(f"{axis}_scale", "MAXIMUM", value, d),
-                math(f"{axis}_scaled_value", "DIVIDE", value, End(node=f"{axis}_scale")),
-                math(f"{axis}_scaled_d", "DIVIDE", d, End(node=f"{axis}_scale")),
-                math(f"{axis}_scaled_df", "MULTIPLY", End(node=f"{axis}_scaled_d"), f),
-                math(f"{axis}_linear", "MULTIPLY_ADD", a, value, b),
-                math(f"{axis}_scaled_denominator", "MULTIPLY_ADD", End(node=f"{axis}_scaled_value"), End(node=f"{axis}_linear"), End(node=f"{axis}_scaled_df")),
-                math(f"{axis}_scale_log", "LOGARITHM", End(node=f"{axis}_scale"), 2.0),
-                math(f"{axis}_scaled_denominator_log", "LOGARITHM", End(node=f"{axis}_scaled_denominator"), 2.0),
-                math(f"{axis}_denominator_log", "ADD", End(node=f"{axis}_scale_log"), End(node=f"{axis}_scaled_denominator_log")),
-                math(f"{axis}_relative_log", "SUBTRACT", End(node=f"{axis}_log"), white),
-                math(f"{axis}_numerator_log", "ADD", End(node=f"{axis}_relative_log"), End(node=f"{axis}_factor_log")),
-                math(f"{axis}_denominator_ratio_log", "SUBTRACT", End(node="white_denominator_log"), End(node=f"{axis}_denominator_log")),
-                math(f"{axis}_response_log", "ADD", End(node=f"{axis}_numerator_log"), End(node=f"{axis}_denominator_ratio_log")),
-                math(f"{axis}_low_magnitude", "POWER", 2.0, End(node=f"{axis}_response_log")),
-                math(f"{axis}_low_signed", "MULTIPLY", End(node=f"{axis}_low_magnitude"), End(node=f"{axis}_factor_sign")),
-                math(f"{axis}_positive", "GREATER_THAN", value, 0.0),
-                math(f"{axis}_factor_nonzero", "GREATER_THAN", End(node=f"{axis}_factor_magnitude"), 0.0),
-                math(f"{axis}_low_nonzero", "MULTIPLY", End(node=f"{axis}_positive"), End(node=f"{axis}_factor_nonzero")),
-                masked(f"{axis}_low", "FLOAT", End(node=f"{axis}_low_nonzero"), 0.0, End(node=f"{axis}_low_signed")),
-                math(f"{axis}_inverse", "DIVIDE", 1.0, value),
-                math(f"{axis}_inverse_square", "MULTIPLY", End(node=f"{axis}_inverse"), End(node=f"{axis}_inverse")),
-                math(f"{axis}_relative_delta", "DIVIDE", End(node=f"{axis}_delta"), value),
-                math(f"{axis}_high_black_factor", "MULTIPLY_ADD", End(node="intercept"), End(node=f"{axis}_inverse"), End(node="slope")),
-                math(f"{axis}_high_white_factor", "MULTIPLY_ADD", End(node=f"{axis}_relative_delta"), End(node="slope"), End(node=f"{axis}_inverse")),
-                masked(f"{axis}_high_factor", "FLOAT", End(node=f"{axis}_centered"), End(node=f"{axis}_high_black_factor"), End(node=f"{axis}_high_white_factor")),
-                math(f"{axis}_high_numerator", "MULTIPLY", End(node=f"{axis}_high_factor"), End(node="white_denominator")),
-                math(f"{axis}_high_linear", "MULTIPLY_ADD", b, End(node=f"{axis}_inverse"), a),
-                math(f"{axis}_high_base", "MULTIPLY_ADD", End(node="df"), End(node=f"{axis}_inverse_square"), End(node=f"{axis}_high_linear")),
-                math(f"{axis}_high_denominator", "MULTIPLY", End(node="white"), End(node=f"{axis}_high_base")),
-                math(f"{axis}_high", "DIVIDE", End(node=f"{axis}_high_numerator"), End(node=f"{axis}_high_denominator")),
-                math(f"{axis}_large", "GREATER_THAN", value, 1.0),
-                masked(f"{axis}_response", "FLOAT", End(node=f"{axis}_large"), End(node=f"{axis}_low"), End(node=f"{axis}_high")),
+                math(f"{prefix}_scale", "MAXIMUM", value, d),
+                math(f"{prefix}_scaled_value", "DIVIDE", value, End(node=f"{prefix}_scale")),
+                math(f"{prefix}_scaled_d", "DIVIDE", d, End(node=f"{prefix}_scale")),
+                math(f"{prefix}_scaled_df", "MULTIPLY", End(node=f"{prefix}_scaled_d"), f),
+                math(f"{prefix}_linear", "MULTIPLY_ADD", a, value, b),
+                math(f"{prefix}_scaled_denominator", "MULTIPLY_ADD", End(node=f"{prefix}_scaled_value"), End(node=f"{prefix}_linear"), End(node=f"{prefix}_scaled_df")),
+                math(f"{prefix}_scale_log", "LOGARITHM", End(node=f"{prefix}_scale"), 2.0),
+                math(f"{prefix}_scaled_denominator_log", "LOGARITHM", End(node=f"{prefix}_scaled_denominator"), 2.0),
+                math(f"{prefix}_denominator_log", "ADD", End(node=f"{prefix}_scale_log"), End(node=f"{prefix}_scaled_denominator_log")),
+                math(f"{prefix}_relative_log", "SUBTRACT", End(node=f"{prefix}_log"), white),
+                math(f"{prefix}_numerator_log", "ADD", End(node=f"{prefix}_relative_log"), End(node=f"{prefix}_factor_log")),
+                math(f"{prefix}_denominator_ratio_log", "SUBTRACT", End(node="white_denominator_log"), End(node=f"{prefix}_denominator_log")),
+                math(f"{prefix}_response_log", "ADD", End(node=f"{prefix}_numerator_log"), End(node=f"{prefix}_denominator_ratio_log")),
+                math(f"{prefix}_low_magnitude", "POWER", 2.0, End(node=f"{prefix}_response_log")),
+                math(f"{prefix}_low_signed", "MULTIPLY", End(node=f"{prefix}_low_magnitude"), End(node=f"{prefix}_factor_sign")),
+                math(f"{prefix}_positive", "GREATER_THAN", value, 0.0),
+                math(f"{prefix}_factor_nonzero", "GREATER_THAN", End(node=f"{prefix}_factor_magnitude"), 0.0),
+                math(f"{prefix}_low_nonzero", "MULTIPLY", End(node=f"{prefix}_positive"), End(node=f"{prefix}_factor_nonzero")),
+                masked(f"{prefix}_low", "FLOAT", End(node=f"{prefix}_low_nonzero"), 0.0, End(node=f"{prefix}_low_signed")),
+                math(f"{prefix}_inverse", "DIVIDE", 1.0, value),
+                math(f"{prefix}_inverse_square", "MULTIPLY", End(node=f"{prefix}_inverse"), End(node=f"{prefix}_inverse")),
+                math(f"{prefix}_relative_delta", "DIVIDE", End(node=f"{prefix}_delta"), value),
+                math(f"{prefix}_high_black_factor", "MULTIPLY_ADD", End(node="intercept"), End(node=f"{prefix}_inverse"), End(node="slope")),
+                math(f"{prefix}_high_white_factor", "MULTIPLY_ADD", End(node=f"{prefix}_relative_delta"), End(node="slope"), End(node=f"{prefix}_inverse")),
+                masked(f"{prefix}_high_factor", "FLOAT", End(node=f"{prefix}_centered"), End(node=f"{prefix}_high_black_factor"), End(node=f"{prefix}_high_white_factor")),
+                math(f"{prefix}_high_numerator", "MULTIPLY", End(node=f"{prefix}_high_factor"), End(node="white_denominator")),
+                math(f"{prefix}_high_linear", "MULTIPLY_ADD", b, End(node=f"{prefix}_inverse"), a),
+                math(f"{prefix}_high_base", "MULTIPLY_ADD", End(node="df"), End(node=f"{prefix}_inverse_square"), End(node=f"{prefix}_high_linear")),
+                math(f"{prefix}_high_denominator", "MULTIPLY", End(node="white"), End(node=f"{prefix}_high_base")),
+                math(f"{prefix}_high", "DIVIDE", End(node=f"{prefix}_high_numerator"), End(node=f"{prefix}_high_denominator")),
+                math(f"{prefix}_large", "GREATER_THAN", value, 1.0),
+                masked(f"{prefix}_response", "FLOAT", End(node=f"{prefix}_large"), End(node=f"{prefix}_low"), End(node=f"{prefix}_high")),
             )
         ),
-        node("hable", bpy.types.ShaderNodeCombineXYZ, {axis: End(node=f"{axis}_response") for axis in axes}, {}),
+        node("hable", bpy.types.ShaderNodeCombineXYZ, {axis: End(node=f"{axis.lower()}_response") for axis in axes}, {}),
     ).map(ended("hable", "Vector"))
 
 
@@ -886,7 +884,7 @@ def normalized(_identity: Identity, _scene: bpy.types.Scene, record: Hable) -> B
         Result[Option[tuple[float, float]], BlenderFaults]
         .bind(
             record.normalization().map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-            lambda value: value.to_result_with(lambda: (BlenderAbsentFault(owner=record.title, key=Hable.scene_white.__name__),)),
+            lambda value: value.to_result_with(lambda: (BlenderAbsentFault(owner=record.title, key=Hable.scene_white.__name__),)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
         .map(lambda values: {socket.key: (log2(abs(value)) if value else 0.0, float(np.sign(value)), 0.0) for socket, value in zip(normalization, values)})
     )
@@ -923,7 +921,6 @@ def tony(table: str | Traversable) -> CompositorEffect[Tony]:
 
 def encoded(call: Call[Named]) -> BlenderResult[Done]:
     """Selects the first encoding-only native view and disables its look."""
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
 
     def chosen(scene: bpy.types.Scene, config: PyOpenColorIO.Config, held: Option[DisplayView]) -> BlenderResult[Done]:
         display = held.map(lambda record: record.display).default_value(viewed(scene).display)
@@ -947,10 +944,7 @@ def encoded(call: Call[Named]) -> BlenderResult[Done]:
         )
 
     config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-    reading: BlenderResult[tuple[bpy.types.Scene, PyOpenColorIO.Config, Option[DisplayView]]] = Result[bpy.types.Scene, BlenderFaults].bind(
-        scene, lambda scene: paired(config, formation.current(call.identity, scene)).map(lambda pair: (scene, *pair))
-    )
-    return Result[tuple[bpy.types.Scene, PyOpenColorIO.Config, Option[DisplayView]], BlenderFaults].bind(reading, lambda pair: chosen(*pair))
+    return call.root(bpy.types.Scene).bind(lambda scene: paired(config, formation.current(call.identity, scene)).bind(lambda pair: chosen(scene, *pair)))
 
 
 def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[T]:
@@ -959,7 +953,7 @@ def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, pla
         case Logarithmic() | ReinhardExtended() | Hable() as curve:
             extent: ImagingResult[Extent] = Samples.of(config, plane).bind(lambda samples: samples.extent().to_result_with(lambda: (ImagingWhiteFault(white=Nothing),)))
             return extent.bind(lambda extent: curves.metered(curve, extent.white)).map(
-                lambda resolved: msgspec.structs.replace(record, **({ToneCurve.curve.__name__: resolved} if isinstance(record, ToneCurve) else {Hable.scene_white.__name__: resolved.scene_white}))
+                lambda resolved: msgspec.structs.replace(record, **({ToneCurve.curve.__name__: resolved} if isinstance(record, ToneCurve) else {Hable.scene_white.__name__: resolved.scene_white}))  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
             )
         case _:
             return Ok(record)
@@ -1006,10 +1000,10 @@ def measured[T: (ToneCurve, Hable)](row: CompositorEffect[T], identity: Identity
 
 def metered[T: ToneCurve | Hable](row: CompositorEffect[T], reading: ViewerRead, call: Call[Named]) -> BlenderResult[Done]:
     """Arms entering-frame measurement for a curve with a scene-white parameter."""
-    scene: BlenderResult[bpy.types.Scene] = Option.of_optional(call.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
     return (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(scene, lambda scene: row.named(call.identity, scene, call.record.name))
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: row.named(call.identity, scene, call.record.name))
         .bind(
             lambda entry: row.read(call.identity, entry).bind(
                 lambda held: (
@@ -1056,7 +1050,7 @@ hable_meter_white = Operator(
 )
 normalization = tuple(
     Socket(
-        key=item_key(Hable.normalization.__name__, name),
+        key=item_key(Hable.normalization.__name__, name.lower()),
         name=name,
         kind=bpy.types.NodeSocketVector,
         description="Log magnitude and sign of a Hable coefficient derived from the evaluated record",
@@ -1083,16 +1077,16 @@ photoreceptor = CompositorEffect(
     registrables=(encode_formation,),
     graph=lambda shell: adapted(
         shell.source,
-        shell.socket(Photoreceptor.contrast.__name__, Gated.enabled.__name__),
-        shell.socket(Photoreceptor.contrast.__name__, Gated.value.__name__),  # ty: ignore[invalid-attribute-access]
-        shell.socket(Photoreceptor.intensity.__name__),
-        shell.socket(Photoreceptor.light_adaptation.__name__),
-        shell.socket(Photoreceptor.chromatic_adaptation.__name__),
+        shell.socket(Photoreceptor.contrast.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        shell.socket(Photoreceptor.contrast.__name__, Gated.value.__name__),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+        shell.socket(Photoreceptor.intensity.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        shell.socket(Photoreceptor.light_adaptation.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        shell.socket(Photoreceptor.chromatic_adaptation.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     ),
 )
 
 
-# --- [EXPORTS] ---------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Response",

@@ -16,7 +16,7 @@ import numpy.typing as npt
 from rasm.imaging.parameters import Case, Presentation, Quantity
 from rasm.rendering.faults import RenderingResult, RenderingTimeFault
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type SunStudy = DayStudy | SeasonStudy
 
@@ -28,12 +28,12 @@ class Polar(Enum):
     NIGHT = auto()
 
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 DAY_SECONDS: Final = datetime.timedelta(days=1).total_seconds()
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Site(msgspec.Struct, frozen=True, kw_only=True):
@@ -241,7 +241,7 @@ class SeasonStudy(Case, frozen=True, kw_only=True, tag=2):
     frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> RenderingResult[tuple[datetime.datetime, ...]]:
@@ -259,6 +259,6 @@ def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> RenderingResult[tuple[d
         return Error((RenderingTimeFault(request=(first, step, study.frames), error=error),))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["DayStudy", "Daylight", "LocalTime", "Polar", "SeasonStudy", "Site", "SolarDay", "SunPaths", "SunPosition", "SunStudy", "moments"]

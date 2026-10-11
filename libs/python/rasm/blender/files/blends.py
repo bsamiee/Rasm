@@ -309,64 +309,73 @@ def packed(root: Path, *, compress: Option[bool] = Nothing) -> BlenderResult[Pac
 
 def projected(project: Project) -> BlenderResult[None]:
     """Returns success after reconciling declared project entries, or native edit/save refusals."""
-    current: bpy.types.BlenderProject
+
+    def initialized() -> BlenderResult[bpy.types.BlenderProject]:
+        try:
+            bpy.data.project_init(project.name, str(project.root))
+        except RuntimeError as error:
+            return Error((BlenderEditFault(request="bpy.data", error=error),))
+        return Option.of_optional(bpy.data.project).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.data", key="project"),))
+
+    def reconciled(current: bpy.types.BlenderProject) -> BlenderResult[None]:
+        variables, libraries = dict(current.variables.items()), tuple(current.asset_libraries.items())
+        with ExitStack() as cleanup:
+
+            def placed(name: str, variable: TemplateVariable) -> BlenderResult[None]:
+                kind: Literal["STRING", "INTEGER", "FLOAT"]
+                values: Mapping[str, Value]
+                match variable.value:
+                    case Path() as path:
+                        kind, values = "STRING", {"subtype": "FILEPATH", "value": str(path)}
+                    case str() as text:
+                        kind, values = "STRING", {"subtype": "NONE", "value": text}
+                    case int() as number:
+                        kind, values = "INTEGER", {"value": number}
+                    case float() as number:
+                        kind, values = "FLOAT", {"value": number}
+                match Option.of_optional(variables.get(name)):
+                    case Option(tag="some", some=item) if item.type == kind:
+                        made = Some(item)
+                    case held:
+                        for item in held.to_list():
+                            current.variables.remove(item)
+                        try:
+                            made = Option.of_optional(current.variables.new(name, type=kind))
+                        except RuntimeError as error:
+                            return Error((BlenderEditFault(request=repr(current.variables), error=error),))
+                        for item in made.to_list():
+                            cleanup.callback(current.variables.remove, item)
+                return made.map(lambda item: accumulated(written(item, key, value) for key, value in {**values, "description": variable.description}.items()).map(lambda _: None)).default_with(
+                    lambda: Error((BlenderAbsentFault(owner=repr(current.variables), key=name),))
+                )
+
+            def library(name: str, path: str) -> BlenderResult[None]:
+                match tuple(item for held, item in libraries if held == name):
+                    case ():
+                        try:
+                            made = Option.of_optional(current.asset_libraries.new(name=name, directory=path)).to_result_with(
+                                lambda: (BlenderAbsentFault(owner=repr(current.asset_libraries), key=name),)
+                            )
+                        except RuntimeError as error:
+                            return Error((BlenderEditFault(request=repr(current.asset_libraries), error=error),))
+                        for item in made.to_option().to_list():
+                            cleanup.callback(current.asset_libraries.remove, item)
+                        return made.map(lambda _: None)
+                    case items:
+                        return accumulated(written(item, "path", path) for item in items).map(lambda _: None)
+
+            return (
+                accumulated((written(current, "name", project.name).map(lambda _: None), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items())))
+                .bind(lambda _: called(bpy.ops.project.save_project, {}).map(lambda _: None) if current.is_dirty else Ok(None))
+                .map(lambda _: cleanup.pop_all())
+                .map(lambda _: None)
+            )
+
     match bpy.data.project:
         case bpy.types.BlenderProject(root_path=root) as current if Path(root) == project.root:
-            pass
+            return reconciled(current)
         case _:
-            try:
-                bpy.data.project_init(project.name, str(project.root))
-            except RuntimeError as error:
-                return Error((BlenderEditFault(request="bpy.data", error=error),))
-            current = bpy.data.project  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-
-    variables, libraries = dict(current.variables.items()), tuple(current.asset_libraries.items())
-    with ExitStack() as cleanup:
-
-        def placed(name: str, variable: TemplateVariable) -> BlenderResult[None]:
-            kind: Literal["STRING", "INTEGER", "FLOAT"]
-            values: Mapping[str, Value]
-            match variable.value:
-                case Path() as path:
-                    kind, values = "STRING", {"subtype": "FILEPATH", "value": str(path)}
-                case str() as text:
-                    kind, values = "STRING", {"subtype": "NONE", "value": text}
-                case int() as number:
-                    kind, values = "INTEGER", {"value": number}
-                case float() as number:
-                    kind, values = "FLOAT", {"value": number}
-            match Option.of_optional(variables.get(name)):
-                case Option(tag="some", some=item) if item.type == kind:
-                    made = item
-                case held:
-                    for item in held.to_list():
-                        current.variables.remove(item)
-                    try:
-                        made = current.variables.new(name, type=kind)  # type: ignore[assignment]
-                    except RuntimeError as error:
-                        return Error((BlenderEditFault(request=repr(current.variables), error=error),))
-                    cleanup.callback(current.variables.remove, made)
-            return accumulated(written(made, key, value) for key, value in {**values, "description": variable.description}.items()).map(lambda _: None)  # ty: ignore[invalid-argument-type]
-
-        def library(name: str, path: str) -> BlenderResult[None]:
-            made: bpy.types.ProjectAssetLibrary
-            match tuple(item for held, item in libraries if held == name):
-                case ():
-                    try:
-                        made = current.asset_libraries.new(name=name, directory=path)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                    except RuntimeError as error:
-                        return Error((BlenderEditFault(request=repr(current.asset_libraries), error=error),))
-                    cleanup.callback(current.asset_libraries.remove, made)
-                    return Ok(None)
-                case items:
-                    return accumulated(written(item, "path", path) for item in items).map(lambda _: None)
-
-        return (
-            accumulated((written(current, "name", project.name).map(lambda _: None), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items())))
-            .bind(lambda _: called(bpy.ops.project.save_project, {}).map(lambda _: None) if current.is_dirty else Ok(None))
-            .map(lambda _: cleanup.pop_all())
-            .map(lambda _: None)
-        )
+            return initialized().bind(reconciled)
 
 
 # --- [COMPARISON]

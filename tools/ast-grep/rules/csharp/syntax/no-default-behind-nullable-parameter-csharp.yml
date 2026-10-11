@@ -73,7 +73,7 @@ utils:
                     kind: member_access_expression
                     all:
                         - has: {field: name, regex: '^(IfNone|IfNoneUnsafe)$'}
-                        - has: {field: expression, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?LanguageExt\.)?(Prelude\.)?Optional$'}}, {has: {field: arguments, has: {kind: argument, has: {matches: read}}}}]}
+                        - has: {field: expression, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}}, {has: {field: arguments, has: {kind: argument, has: {matches: read}}}}]}
                 - has: {field: arguments, has: {kind: argument, has: {pattern: $DEFAULT}}}
             - kind: conditional_expression
               all:
@@ -128,7 +128,7 @@ utils:
 rule:
     kind: parameter
     all:
-        - has: {field: type, any: [{kind: nullable_type}, {kind: 'generic_name, qualified_name', regex: '^(global::)?(System\.)?Nullable\s*<'}]}
+        - has: {field: type, any: [{kind: nullable_type}, {kind: 'generic_name, qualified_name', matches: {csharp-type-name: {name: {regex: '^Nullable$'}}}}]}
         - has: {field: name, pattern: $PARAMETER}
         - has: {nthChild: {position: 1, reverse: true}, matches: null-literal}
         - inside:

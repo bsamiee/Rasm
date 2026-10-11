@@ -10,10 +10,10 @@ utils:
             - kind: identifier, generic_name
               pattern: $CALLEE
     flags-type:
-        regex: '^(global::)?(System\.)?(Reflection\.)?BindingFlags$'
+        matches: {csharp-type-name: {name: {regex: '^BindingFlags$'}}}
     non-public-member:
         kind: member_access_expression
-        regex: '^(global::)?(System\.)?(Reflection\.)?BindingFlags\.NonPublic$'
+        matches: {csharp-owner-member: {type: {regex: '^BindingFlags$'}, member: {regex: '^NonPublic$'}}}
     non-public-flag:
         has:
             stopBy: end
@@ -47,7 +47,7 @@ rule:
                 field: function
                 matches: callee
                 all:
-                    - has: {field: expression, regex: '^(global::)?(System\.)?Activator$'}
+                    - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Activator$'}}}}
                     - has: {field: name, regex: '^CreateInstance$'}
             - has:
                 field: arguments
@@ -64,14 +64,14 @@ rule:
         - kind: method_declaration
           all:
             - has: {field: name, pattern: $CALLEE}
-            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^((global::)?System\.Runtime\.CompilerServices\.)?UnsafeAccessorType(Attribute)?$'}}}}
+            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^UnsafeAccessorType(Attribute)?$'}}}}}}}
             - has:
                 kind: attribute_list
                 has:
                     kind: attribute
                     all:
-                        - has: {field: name, regex: '^((global::)?System\.Runtime\.CompilerServices\.)?UnsafeAccessor(Attribute)?$'}
-                        - has: {stopBy: end, kind: attribute_argument, nthChild: 1, regex: '(^|\.)UnsafeAccessorKind\.Constructor$'}
+                        - has: {field: name, matches: {csharp-type-name: {name: {regex: '^UnsafeAccessor(Attribute)?$'}}}}
+                        - has: {stopBy: end, kind: attribute_argument, nthChild: 1, has: {matches: {csharp-owner-member: {type: {regex: '^UnsafeAccessorKind$'}, member: {regex: '^Constructor$'}}}}}
         - kind: invocation_expression
           has:
             field: function
@@ -113,13 +113,13 @@ rule:
                                                 - has: {kind: identifier, pattern: $PARAMETER}
                                                 - has:
                                                     kind: type_parameter_constraint
-                                                    has: {field: type, regex: '^(global::)?((System\.Numerics\.)?I(BinaryInteger|(Binary)?FloatingPointIeee754)|(SixLabors\.ImageSharp\.PixelFormats\.)?IPixel)<'}
+                                                    has: {field: type, matches: {csharp-type-name: {name: {regex: '^(IBinaryInteger|IFloatingPointIeee754|IBinaryFloatingPointIeee754|IPixel)$'}}}}
                 - any:
                     - all:
-                        - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.CompilerServices\.)?Unsafe$'}
+                        - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Unsafe$'}}}}
                         - has: {field: name, regex: '^(As|BitCast|Read|ReadUnaligned)<'}
                     - all:
-                        - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.InteropServices\.)?MemoryMarshal$'}
+                        - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^MemoryMarshal$'}}}}
                         - has: {field: name, regex: '^(Cast|AsRef|Read|TryRead)<'}
 message: '`$CALLEE` bypasses its type''s public constructors and factories'
 note: Use a declared factory or public constructor, each runs the checks its type states. An `UnsafeAccessorType` constructor binds an external type unavailable to the compiler and still invokes that type's constructor

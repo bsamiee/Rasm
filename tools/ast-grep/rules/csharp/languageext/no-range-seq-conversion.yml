@@ -7,7 +7,11 @@ utils:
         kind: invocation_expression
         has:
             field: function
-            regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Range$|^((global::)?LanguageExt\.)?Range\s*\.\s*(fromMinMax|fromCount|zero)(\s*<.+>)?$'
+            any:
+                - kind: identifier, generic_name
+                  regex: '^Range\b'
+                - matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^Range$'}}}
+                - matches: {csharp-owner-member: {type: {regex: '^Range$'}, member: {regex: '^(fromMinMax|fromCount|zero)$'}}}
 rule:
     kind: invocation_expression
     inside:
@@ -18,7 +22,7 @@ rule:
             regex: '^(Fold(Back)?(While|Until)?M?|Fold(Back)?Maybe|FoldMap(Back)?(While|Until)?|Exists|ForAll|Contains|Find(All)?(Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)(\s*<.+>)?$'
     any:
         - all:
-            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?toSeq(\s*<.+>)?$'}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^toSeq$'}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, has: {matches: range, pattern: $RANGE}}}
             - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
         - all:

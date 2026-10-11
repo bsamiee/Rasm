@@ -2,11 +2,12 @@
 id: no-constant-actual-kind
 language: csharp
 severity: error
+files: ['**/rhino/**']
 utils:
     constant-kind:
         any:
             - kind: member_access_expression
-              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(GetResult|Result|RenderReturnCode)$'}
+              has: {field: expression, matches: {csharp-type-name: {name: {regex: '^(GetResult|Result|RenderReturnCode)$'}}}}
             - kind: typeof_expression
             - kind: cast_expression
               has: {field: value, kind: 'integer_literal, prefix_unary_expression'}
@@ -77,9 +78,9 @@ utils:
             - kind: parenthesized_expression
               has: {matches: narrowing}
     first-creation:
-        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?(UnexpectedGetResult|RenderRefused)$', pattern: $RECORD}}}
+        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', matches: {csharp-type-name: {name: {regex: '^(UnexpectedGetResult|RenderRefused)$'}}}, pattern: $RECORD}}}
     second-creation:
-        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', regex: '^((global::)?[\w.]*\.)?WrongType$', pattern: $RECORD}}}
+        matches: {csharp-typed-creation: {type: {kind: 'identifier, qualified_name', matches: {csharp-type-name: {name: {regex: '^WrongType$'}}}, pattern: $RECORD}}}
     positional:
         kind: argument
         not: {has: {field: name, pattern: $_}}

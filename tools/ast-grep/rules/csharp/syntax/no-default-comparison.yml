@@ -48,7 +48,7 @@ utils:
         has: {nthChild: {position: 1, reverse: true}, matches: default-value}
     comparer:
         kind: 'generic_name, qualified_name, member_access_expression'
-        regex: '^((global::)?System\.Collections\.Generic\.)?(EqualityComparer|Comparer)\s*<'
+        matches: {csharp-type-name: {name: {regex: '^(EqualityComparer|Comparer)$'}}}
         has: {stopBy: end, kind: type_argument_list, has: {matches: type-parameter}}
 rule:
     any:
@@ -68,7 +68,11 @@ rule:
                                 - has: {field: name, regex: '^Default$'}
                                 - has: {field: expression, matches: comparer}
                 - all:
-                    - has: {field: function, regex: '^(((global::)?System\.)?(Object|object)\.)?(Equals|ReferenceEquals)$'}
+                    - has:
+                        field: function
+                        any:
+                            - {kind: identifier, regex: '^(Equals|ReferenceEquals)$'}
+                            - matches: {csharp-owner-member: {type: {regex: '^(Object|object)$'}, member: {regex: '^(Equals|ReferenceEquals)$'}}}
                     - has: {field: arguments, has: {kind: argument, has: {matches: generic-operand}}}
                 - has:
                     field: function

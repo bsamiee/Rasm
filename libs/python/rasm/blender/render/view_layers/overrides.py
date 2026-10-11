@@ -225,7 +225,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
 
             return LayerCommands(
                 move=Operator(
-                    key="layer_move",
+                    key="view_layer_move",
                     title="Move View Layer",
                     description="Move the active view layer up or down the list",
                     form=Moving,
@@ -234,17 +234,17 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                     undo="Move View Layer",
                 ),
                 actions=(
-                    Operator(key="layer_solo", title="Solo View Layer", description="Render the active view layer alone among its scene's layers", form=Empty, run=soloed),
-                    Operator(key="layer_rename", title="Rename View Layers", description="Name every view layer from its list position and base name", form=Renaming, run=renaming),
+                    Operator(key="view_layer_solo", title="Solo View Layer", description="Render the active view layer alone among its scene's layers", form=Empty, run=soloed),
+                    Operator(key="view_layer_rename", title="Rename View Layers", description="Name every view layer from its list position and base name", form=Renaming, run=renaming),
                     Operator(
-                        key="layer_tint",
+                        key="view_layer_tint",
                         title="Tint View Layers",
                         description="Write each view layer's tag from a palette in list order",
                         form=Tinting,
                         run=lambda call: Result[bpy.types.Scene, BlenderFaults].bind(call.root(bpy.types.Scene), lambda scene: tinted(scene, call.record.palette, attached)).map(lambda _: Done()),
                     ),
                     Operator(
-                        key="layer_split",
+                        key="view_layer_split",
                         title="View Layers from Collections",
                         description="Add a view layer per top-level collection no layer isolates",
                         form=Splitting,
@@ -254,11 +254,11 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                             .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)))
                         ),
                     ),
-                    Operator(key="layer_clay", title="Clay Override", description="Toggle the clay material override on the active view layer", form=Empty, run=overriding(Clay())),
-                    Operator(key="layer_data", title="Data Layer", description="Toggle the active view layer between a beauty layer and a data layer", form=Empty, run=overriding(Utility())),
-                    Operator(key="layer_copy", title="Copy View Layer", description="Copy the active view layer's settings", form=Empty, undo=False, run=copy),
+                    Operator(key="view_layer_clay", title="Clay Override", description="Toggle the clay material override on the active view layer", form=Empty, run=overriding(Clay())),
+                    Operator(key="view_layer_data", title="Data Layer", description="Toggle the active view layer between a beauty layer and a data layer", form=Empty, run=overriding(Utility())),
+                    Operator(key="view_layer_copy", title="Copy View Layer", description="Copy the active view layer's settings", form=Empty, undo=False, run=copy),
                     Operator(
-                        key="layer_paste",
+                        key="view_layer_paste",
                         title="Paste View Layer",
                         description="Paste copied settings into the active view layer",
                         form=Empty,
@@ -269,7 +269,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                         ),
                     ),
                     Operator(
-                        key="layer_paste_all",
+                        key="view_layer_paste_all",
                         title="Paste to Used Layers",
                         description="Paste copied settings into every used view layer of the scene",
                         form=Empty,
@@ -430,7 +430,7 @@ def split(scene: bpy.types.Scene, flag: Flag, flags: dict[Flag, Descriptor[bpy.t
 
     def made(collection: bpy.types.Collection) -> BlenderResult[str]:
         layer = scene.view_layers.new(collection.name)
-        return applied(CollectionState(layer=layer.name, collection=collection, flag=flag, value=False, extent=Extent.ISOLATE), scene, flags).map(lambda _: layer.name)
+        return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Extent.ISOLATE), scene, flags).map(lambda _: layer.name)
 
     return accumulated(map(made, lone))
 

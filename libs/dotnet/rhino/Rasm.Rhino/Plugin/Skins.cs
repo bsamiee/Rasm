@@ -155,15 +155,17 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
         Callbacks.Run(
             Chosen(
                 from files in IO.lift(static () => toSeq(FileSettings.RecentlyOpenedFiles()).Map(static path => new Captioned<string>(path, new LocalizeStringPair(path, path))).AsIterableNE())
-                from opened in files.TraverseM(static items =>
-                    from path in HostDialogs.ShowListBox(RowText.Localize("Open Recent"), RowText.Localize("Choose a file to open"), items, None)
-                    from existing in IO.lift(() => Exchange.ExistingPath(path))
-                    from document in Documents.WithDocument(new DocumentSource.Opened(existing), static _ => IO.pure(unit))
-                    select document).As()
+                from opened in files.TraverseM(Reopened).As()
                 select unit),
             CallbackSite.Of(this));
 
     private static IO<Unit> Chosen(IO<Unit> choice) => choice | @catch(Errors.Cancelled, IO.pure(unit));
+
+    private static IO<Unit> Reopened(IterableNE<Captioned<string>> items) =>
+        from path in HostDialogs.ShowListBox(RowText.Localize("Open Recent"), RowText.Localize("Choose a file to open"), items, None)
+        from existing in IO.lift(() => Exchange.ExistingPath(path))
+        from document in Documents.WithDocument(new DocumentSource.Opened(existing), static _ => IO.pure(unit))
+        select document;
 
     // --- [SINK]
     public void Report(Error error, Type owner, string member) =>
