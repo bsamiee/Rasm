@@ -2,9 +2,7 @@
 
 from collections.abc import Callable
 from enum import Enum
-import functools
 from itertools import starmap
-from operator import or_
 from typing import Annotated, ClassVar, Self
 
 import bpy
@@ -15,7 +13,8 @@ from msgspec import structs
 from rasm.blender.data.rna.descriptors import Descriptor, IdName
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderAbsentFault, BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, item_key, math, mixed, node, NodeGroup, Operand, summed, vector
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, math, mixed, node, NodeGroup, Operand, summed, vector
+from rasm.blender.nodes.interface import item_key
 from rasm.blender.render.effects.detail.denoise import filing, Filters, Gate, gated, Pair, unit
 from rasm.blender.render.view_layers.passes import Family, Filing, PassFlags, PassRequest, term
 from rasm.blender.scene.lights.groups import LightGroupEdits
@@ -115,16 +114,16 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
         """Builds the complete sum, guided term filters, coverage, and term filing."""
         render = f"{key}_render"
         filters = Filters.of()
-        sum_key = Recombined.recombination.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        value_key = Gated.value.__name__  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+        _, recombination = Recombined.__struct_fields__
+        _, value = Gated.__struct_fields__
 
         def socket(name: str) -> BlenderResult[End]:
             return Option.of_optional(offered.get(name)).map(lambda identifier: End(node=render, socket=identifier)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(offered), key=name),))
 
         def gained(at: Key, source: Operand, path: tuple[Key | int | type[Case], ...]) -> BlenderResult[tuple[Fragment, End]]:
             return (
-                math(f"{at}_power", "POWER", 2.0, outer(item_key(sum_key, *path, value_key)))
-                .bind(lambda power: math(f"{at}_gain", "MULTIPLY", power, outer(item_key(sum_key, *path))))
+                math(f"{at}_power", "POWER", 2.0, outer(item_key(recombination, *path, value)))
+                .bind(lambda power: math(f"{at}_gain", "MULTIPLY", power, outer(item_key(recombination, *path))))
                 .bind(lambda gain: vector(at, "SCALE", source, gain))
             )
 
@@ -151,9 +150,12 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
                 lambda alpha: node(f"{key}_alpha", bpy.types.CompositorNodeSetAlpha, {"Image": beauty, "Alpha": alpha, "Type": "Replace Alpha"}, {}).map(ended(f"{key}_alpha", "Image"))
             )
             filing_result = denoising.map(lambda _: filed(filing(tuple((label, source[1]) for label, source in parts)), f"{key}_denoised")).default_value(Ok(Fragment()))
-            terms = functools.reduce(or_, (body for _, (body, _) in parts), Fragment())
             return paired(output, filing_result).bind(
-                lambda pair: node(render, bpy.types.CompositorNodeRLayers, {}, {"scene": IdName.of(scene), "layer": self.layer}).map(lambda source: (source | terms | pair[0][0] | pair[1], pair[0][1]))
+                lambda pair: (
+                    node(render, bpy.types.CompositorNodeRLayers, {}, {"scene": IdName.of(scene), "layer": self.layer})
+                    .bind(lambda source: Fragment.merged((source, *(body for _, (body, _) in parts), pair[0][0], pair[1])))
+                    .map(lambda joined: (joined, pair[0][1]))
+                )
             )
 
         match self.recombination:
@@ -176,7 +178,7 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
                         lambda values: total(f"{key}_lobes", values)
                     )
                     occlusion = socket(Single.OCCLUSION.socket).bind(lambda source: filtered(f"{key}_occlusion", (Fragment(), source), Nothing, filters.occlusion, Passes))
-                    strength = math(f"{key}_occlusion_strength", "MULTIPLY", outer(item_key(sum_key, Lobes, "occlusion")), outer(item_key(sum_key, Lobes, "occlusion", value_key)))
+                    strength = math(f"{key}_occlusion_strength", "MULTIPLY", outer(item_key(recombination, Lobes, "occlusion")), outer(item_key(recombination, Lobes, "occlusion", value)))
                     extras = accumulated(
                         gained(f"{key}_{name}_scaled", by_name[name], (Lobes, "terms", name)) for name in ("emission", "environment") if name != "environment" or not scene.render.film_transparent
                     )
@@ -196,7 +198,7 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
                     return (
                         socket(f"Combined_{group.name}")
                         .bind(lambda source: filtered(at, (Fragment(), source), Nothing, filters.groups, Groups))
-                        .bind(lambda source: mixed(f"{at}_tinted", "RGBA", 1.0, source, outer(item_key(sum_key, LightGroups, "groups", index, "tint")), "MULTIPLY"))
+                        .bind(lambda source: mixed(f"{at}_tinted", "RGBA", 1.0, source, outer(item_key(recombination, LightGroups, "groups", index, "tint")), "MULTIPLY"))
                         .bind(lambda source: gained(at, source, (LightGroups, "groups", index, "gain")))
                         .map(lambda source: (group.name, source))
                     )

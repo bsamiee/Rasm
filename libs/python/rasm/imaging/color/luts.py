@@ -15,7 +15,7 @@ import PyOpenColorIO
 
 from rasm.imaging.color.processors import applied, processor
 from rasm.imaging.faults import accumulated, ImagingLutFault, ImagingLutShapeFault, ImagingResult, ImagingWriteFault
-from rasm.imaging.files.images import emitted, ImageFile, published, Subimage
+from rasm.imaging.files.images import emitted, ImageFile, published, read_file, Subimage
 from rasm.imaging.parameters import Case, Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -47,7 +47,7 @@ class Uniform(Case, frozen=True, kw_only=True, tag=1):
     """Nodes evenly spaced between native allocation endpoints."""
 
     title = "Uniform"
-    limit: ClassVar[float] = float(np.finfo(np.float32).max)
+    limit: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
     low: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at the first uniform node")] = 0.0
     high: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at the last uniform node")] = 1.0
 
@@ -170,7 +170,7 @@ def image_read(path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenC
 
     options = OpenImageIO.ImageSpec()
     options.attribute("oiio:UnassociatedAlpha", 1)
-    return ImageFile.read(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
+    return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
 
 
 def image_written(layout: LutLayout, table: PyOpenColorIO.Lut3DTransform, path: str) -> ImagingResult[str]:

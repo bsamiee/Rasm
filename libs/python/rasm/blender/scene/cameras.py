@@ -22,8 +22,7 @@ from rasm.blender.data.rna.snapshots import Applied, NativeValue, Snapshot
 from rasm.blender.extension.identity import Identity, Name
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
-from rasm.blender.nodes.graphs import reconciling
-from rasm.blender.settings.attachments import Attachment, Stored
+from rasm.blender.settings.attachments import Attachment, reconciling, Stored
 from rasm.blender.ui.layout.rows import Caption, Member, Popover, Property
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
 from rasm.blender.ui.surfaces.appends import Append

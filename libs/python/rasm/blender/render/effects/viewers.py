@@ -11,7 +11,7 @@ import msgspec
 import numpy as np
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Done, Operator
+from rasm.blender.commands.operators import Call, Done, Operator, Outcome, Unchanged
 from rasm.blender.data.ids.images import intermediates, read, viewer_image
 from rasm.blender.data.ids.ownership import Mark
 from rasm.blender.data.ids.store import Handle
@@ -20,7 +20,10 @@ from rasm.blender.extension.events.handlers import PathHandler, SceneHandler
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import Added, addresses, Connected, End, Graph, INPUTS, Interface, Link, OUTPUTS, Removed
+from rasm.blender.nodes.changes import Added, applied, Connected, owned, Removed
+from rasm.blender.nodes.graphs import End, INPUTS, Link, OUTPUTS
+from rasm.blender.nodes.interface import addresses, slot
+from rasm.blender.nodes.trees import socket_at
 from rasm.blender.render.color.exposure import Consume
 from rasm.blender.render.effects.stack import EffectStack, Named, Placeable, Shell, StackEntry
 from rasm.blender.settings.attachments import Stored
@@ -93,7 +96,10 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         cropped = arm.region.map(lambda region: msgspec.structs.replace(file, pixels=file.pixels[region.window(*file.pixels.shape[:2])])).default_value(file)
         return handle.resolve().bind(
             lambda scene: (
-                Option.of_optional(scene.compositor_effects.get(arm.name)).map(lambda entry: cleared(identity, entry).bind(lambda _: self.consume(identity, entry, cropped))).default_value(Ok(Nothing))
+                Option
+                .of_optional(scene.compositor_effects.get(arm.name))
+                .map(lambda entry: cleared(identity, entry).bind(lambda _: self.consume(identity, scene, entry, cropped)))
+                .default_value(Ok(Nothing))
             )
         )
 
@@ -210,8 +216,13 @@ class EffectViewer:
                 )
             )
 
-        def clear(call: Call[Named]) -> BlenderResult[Done]:
-            return call.root(bpy.types.Scene).bind(lambda scene: self.entry(call.identity, scene, call.record.name)).bind(lambda held: cleared(call.identity, held.entry)).map(lambda _: Done())
+        def clear(call: Call[Named]) -> BlenderResult[Outcome]:
+            return (
+                call
+                .root(bpy.types.Scene)
+                .bind(lambda scene: self.entry(call.identity, scene, call.record.name))
+                .bind(lambda held: cleared(call.identity, held.entry).map(lambda removed: Done() if removed else Unchanged(reason=f"{held.entry.name} shows no viewer")))
+            )
 
         self.viewing = Operator(
             key="effect_view",
@@ -251,36 +262,34 @@ def inspection(row: Callable[[], Placeable], key: Key, title: str, description: 
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End, *, pending: bool = False) -> BlenderResult[None]:
     """Connects a marked viewer to an owned endpoint and activates its entry."""
 
-    def viewed(tree: bpy.types.NodeTree, slot: str) -> BlenderResult[None]:
-        graph = Graph(kind=bpy.types.CompositorNodeTree)
-
+    def viewed(tree: bpy.types.NodeTree, name: str) -> BlenderResult[None]:
         def source(sockets: dict[Key, str]) -> BlenderResult[End]:
-            return Option.of_optional(
-                next(
-                    (
-                        End(node=mark.key, socket=link.from_socket.identifier)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                        for output in tree.nodes
-                        if Mark.read(identity, output) == Some(Mark(key=OUTPUTS))
-                        for link in tree.links
-                        if link.to_node == output and link.to_socket.identifier == sockets.get(target.socket)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                        for mark in Mark.read(identity, link.from_node).to_list()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    ),
-                    None,
+            nodes = owned(tree, identity)
+            keys = {node: key for key, node in nodes.items()}
+            return (
+                Option
+                .of_optional(nodes.get(OUTPUTS))
+                .bind(lambda output: Option.of_optional(sockets.get(target.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
+                .bind(
+                    lambda socket: Option.of_optional(
+                        next((End(node=keys[link.from_node], socket=link.from_socket.identifier) for link in socket.links if link.from_node in keys), None)  # type: ignore[union-attr]  # ty: ignore[not-iterable, unresolved-attribute]
+                    )
                 )
-            ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(tree.links), key=target.socket),))
+                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(tree.links), key=target.socket),))
+            )
 
         def connected(end: End) -> BlenderResult[None]:
             for viewer in marked(identity, tree).to_list():
                 for link in tuple(tree.links):
                     if link.to_node == viewer:
                         tree.links.remove(link)
-            return graph.applied(Connected(link=Link(source=end, target=End(node=Shell.viewer, socket="Image"))), tree, identity, Interface(), slot)
+            return applied(Connected(link=Link(source=end, target=End(node=Shell.viewer, socket="Image"))), tree, identity, name, owned(tree, identity))
 
-        entering = addresses(tree, identity).bind(source) if target.node == OUTPUTS else Ok(target)
+        entering = source(addresses(tree, name)) if target.node == OUTPUTS else Ok(target)
         return (
             entering
             .bind(
-                lambda end: (Ok(None) if marked(identity, tree).is_some() else graph.applied(Added(key=Shell.viewer, kind=bpy.types.CompositorNodeViewer), tree, identity, Interface(), slot)).bind(
+                lambda end: (Ok(None) if marked(identity, tree).is_some() else applied(Added(key=Shell.viewer, kind=bpy.types.CompositorNodeViewer), tree, identity, name, owned(tree, identity))).bind(
                     lambda _: connected(end)
                 )
             )
@@ -299,26 +308,28 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
     )
 
 
-def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[None]:
-    """Removes the owned viewer while preserving unmarked native nodes."""
+def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bool]:
+    """Removes the owned viewer and its stored target while preserving unmarked native nodes, answering whether either existed."""
 
-    def removed(tree: bpy.types.NodeTree, slot: str) -> BlenderResult[None]:
-        return marked(identity, tree).map(lambda viewer: Graph(kind=bpy.types.CompositorNodeTree).applied(Removed(name=viewer.name), tree, identity, Interface(), slot)).default_value(Ok(None))
+    def removed(tree: bpy.types.NodeTree, name: str, stored: bool) -> BlenderResult[bool]:
+        return marked(identity, tree).map(lambda viewer: applied(Removed(name=viewer.name), tree, identity, name, owned(tree, identity)).map(lambda _: True)).default_value(Ok(stored))
 
     return grouped(identity, entry).bind(
-        lambda pair: identity.name(Name.ATTACHMENT, Shell.viewer).bind(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(End)).removed(pair[0])).bind(lambda _: removed(*pair))
+        lambda pair: (
+            identity.name(Name.ATTACHMENT, Shell.viewer).bind(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(End)).removed(pair[0])).bind(lambda stored: removed(*pair, stored))
+        )
     )
 
 
 def grouped(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[tuple[bpy.types.NodeTree, str]]:
     """Returns the native group and its declared interface storage slot."""
     tree: BlenderResult[bpy.types.NodeTree] = Option.of_optional(entry.node_group).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="node_group"),))
-    return Result[bpy.types.NodeTree, BlenderFaults].bind(tree, lambda tree: identity.name(Name.ATTACHMENT, "interface").map(lambda slot: (tree, slot)))
+    return Result[bpy.types.NodeTree, BlenderFaults].bind(tree, lambda tree: slot(identity).map(lambda name: (tree, name)))
 
 
 def marked(identity: Identity, tree: bpy.types.NodeTree) -> Option[bpy.types.Node]:
     """Returns the native viewer carrying this extension's reserved mark."""
-    return Option.of_optional(next((node for node in tree.nodes if Mark.read(identity, node) == Some(Mark(key=Shell.viewer))), None))
+    return Option.of_optional(owned(tree, identity).get(Shell.viewer))
 
 
 def plane() -> BlenderResult[ImageFile[np.float32]]:

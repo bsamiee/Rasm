@@ -17,6 +17,7 @@ from rasm.blender.commands.calls import Operation
 from rasm.blender.commands.modal import Modal
 from rasm.blender.data.rna.conditions import check, Condition
 from rasm.blender.data.rna.descriptors import Descriptor, root_in, Value, written
+from rasm.blender.data.rna.snapshots import Applied
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisition, Band
 from rasm.blender.extension.reports import rendered
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 type Draw = Callable[[bpy.types.UILayout, bpy.types.Context, bpy.types.OperatorProperties], None]
 type Writer = Callable[[bpy.types.OperatorProperties], BlenderResult[None]]
 type Invoke[T: msgspec.Struct, S] = Confirm[T] | Suppressible[T] | Properties | Floating | InvokePopup | Open[T] | Save[T] | Pick | Modal[S]
+type Outcome = Done | Unchanged
 
 
 class Placed(Protocol):
@@ -58,18 +60,23 @@ class Empty(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Done(msgspec.Struct, frozen=True, kw_only=True):
-    """Finished writes, native report entries, and independent failures skipped."""
+    """Body that wrote at least one change, its report entries, and independent failures skipped."""
 
     notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()
     skipped: Option[BlenderFaults] = Nothing
 
 
+class Unchanged(msgspec.Struct, frozen=True, kw_only=True):
+    """Body whose work set held nothing to change, with the reason reported to the user."""
+
+    reason: str
+
+
 class Call[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Body invocation with its native context, report operation, record, and files."""
+    """Body invocation with its native context, record, and files."""
 
     identity: Identity
     context: bpy.types.Context
-    report: Callable[[set["rna_enums.WmReportItems"], str], None]
     record: T
     paths: tuple[Path, ...] = ()
 
@@ -181,7 +188,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
     """Typed record and body registered with its native invocation and undo behavior."""
 
     form: type[T]
-    run: Callable[[Call[T]], BlenderResult[Done]]
+    run: Callable[[Call[T]], BlenderResult[Outcome]]
     invoke: Option[Invoke[T, S]] = Nothing
     seed: Option[Callable[[T, bpy.types.Event], T]] = Nothing
     undo: bool | str = True
@@ -241,7 +248,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
             case False:
                 grouping = Nothing
             case str() as label:
-                flags |= frozenset["rna_enums.OperatorTypeFlagItems"]({"UNDO", "UNDO_GROUPED"})
+                flags |= frozenset["rna_enums.OperatorTypeFlagItems"]({"UNDO_GROUPED"})
                 grouping = Some(label)
 
         def noted(operator: bpy.types.Operator, entries: Iterable[tuple["rna_enums.WmReportItems", str]], outcome: "rna_enums.OperatorReturnItems") -> set["rna_enums.OperatorReturnItems"]:
@@ -249,10 +256,15 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 operator.report({severity}, text)
             return {outcome}
 
-        def finished(operator: bpy.types.Operator, result: BlenderResult[Done]) -> set["rna_enums.OperatorReturnItems"]:
-            return result.map(lambda done: noted(operator, (*done.notes, *(("WARNING", text) for faults in done.skipped.to_list() for _, text in rendered(faults))), "FINISHED")).default_with(
-                lambda faults: noted(operator, rendered(faults), "CANCELLED")
-            )
+        def finished(operator: bpy.types.Operator, result: BlenderResult[Outcome]) -> set["rna_enums.OperatorReturnItems"]:
+            def concluded(outcome: Outcome) -> set["rna_enums.OperatorReturnItems"]:
+                match outcome:
+                    case Done(notes=notes, skipped=skipped):
+                        return noted(operator, (*notes, *(("WARNING", text) for faults in skipped.to_list() for _, text in rendered(faults))), "FINISHED")
+                    case Unchanged(reason=reason):
+                        return noted(operator, (("INFO", reason),), "CANCELLED")
+
+            return result.map(concluded).default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
 
         def prepared(operator: bpy.types.Operator) -> BlenderResult[tuple[T, tuple[Path, ...]]]:
             def projected(record: T) -> tuple[T, tuple[Path, ...]]:
@@ -268,10 +280,10 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
             return binding.read(operator.properties).map(projected)
 
-        def performed(operator: bpy.types.Operator, context: bpy.types.Context, record: T, paths: tuple[Path, ...]) -> BlenderResult[Done]:
-            result = self.run(Call(identity=identity, context=context, report=operator.report, record=record, paths=paths))
+        def performed(operator: bpy.types.Operator, context: bpy.types.Context, record: T, paths: tuple[Path, ...]) -> BlenderResult[Outcome]:
+            result = self.run(Call(identity=identity, context=context, record=record, paths=paths))
             if isinstance(self.invoke.to_optional(), Suppressible) and operator.suppress:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                result = result.bind(lambda done: preferred(identity, context.preferences, lambda holder: written(holder, self.ask, False).map(lambda _: None)).map(lambda _: done))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                result = result.bind(lambda outcome: preferred(identity, context.preferences, lambda holder: written(holder, self.ask, False).map(lambda _: None)).map(lambda _: outcome))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             return result
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
@@ -396,13 +408,13 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 opening = searched
             case Open(extensions=extensions) | Save(extensions=extensions) as browser:
 
-                def formats(operator: bpy.types.Operator) -> tuple[str, ...]:
-                    if (record := (binding.read(operator.properties))).is_error():
+                def formats(properties: bpy.types.OperatorProperties) -> tuple[str, ...]:
+                    if (record := (binding.read(properties))).is_error():
                         raise RuntimeError(" ".join(text for _, text in rendered(record.error)))
                     return extensions(record.ok)
 
-                def filter_glob(operator: bpy.types.Operator) -> str:
-                    return ";".join(f"*{extension}" for extension in formats(operator))
+                def filter_glob(properties: bpy.types.OperatorProperties) -> str:
+                    return ";".join(f"*{extension}" for extension in formats(properties))
 
                 annotations = {**made, "filter_glob": bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"}, get=filter_glob)}
                 if isinstance(browser, Open):
@@ -414,7 +426,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                     opening = lambda operator, context, _manager, _event, _record: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=browser.confirm_text))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
                 else:
                     bases = (ExportHelper, bpy.types.Operator)
-                    members["filename_ext"] = property(lambda operator: formats(operator)[0])
+                    members["filename_ext"] = property(lambda operator: formats(operator.properties)[0])
                     members["check"] = lambda operator, context: any((ExportHelper.check(operator, context), *self.check.map(lambda callback: callback(operator, context)).to_list()))
                     opening = lambda operator, context, _manager, event, _record: Ok(ExportHelper.invoke(operator, context, event))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
                     if browser.destinations.is_some():
@@ -430,7 +442,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
                                 def accepted(active: bpy.types.Operator, held: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
                                     vars(active)["continuation"] = execute
-                                    return finished(active, self.run(Call(identity=identity, context=held, report=active.report, record=record, paths=paths)))
+                                    return finished(active, self.run(Call(identity=identity, context=held, record=record, paths=paths)))
 
                                 vars(operator)["continuation"] = accepted
                                 collisions = catch(lambda: tuple(destination for destination in paths if destination.exists()), exception=OSError)().map_error(
@@ -450,7 +462,8 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
                             return prepared(operator).bind(confirming).default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
 
-                        def initialize(operator: bpy.types.Operator, _native: object) -> None:
+                        def initialize(operator: bpy.types.Operator, *args: object, **kwargs: object) -> None:
+                            super(kind, operator).__init__(*args, **kwargs)
                             vars(operator)["continuation"] = saving
 
                         def resumed(operator: bpy.types.Operator, context: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
@@ -468,23 +481,27 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                     return noted(operator, (*entries, *interactive.ended(operator, context, cancelled=True).map(lambda _: ()).default_with(rendered)), "CANCELLED")
 
                 def stepped(operator: bpy.types.Operator, context: bpy.types.Context, result: BlenderResult["rna_enums.OperatorReturnItems"]) -> set["rna_enums.OperatorReturnItems"]:
-                    def answered(outcome: "rna_enums.OperatorReturnItems") -> set["rna_enums.OperatorReturnItems"]:
+                    def returned(outcome: "rna_enums.OperatorReturnItems") -> set["rna_enums.OperatorReturnItems"]:
                         match outcome:
                             case "FINISHED":
 
-                                def completed(done: Done) -> set["rna_enums.OperatorReturnItems"]:
+                                def completed(ran: Outcome) -> set["rna_enums.OperatorReturnItems"]:
                                     active.discard(operator)
-                                    released = interactive.ended(operator, context, cancelled=False)
-                                    return finished(
-                                        operator,
-                                        Ok(
-                                            released
-                                            .swap()
-                                            .to_option()
-                                            .map(lambda faults: msgspec.structs.replace(done, skipped=Some((*((fault for held in done.skipped.to_list() for fault in held)), *faults))))
-                                            .default_value(done)
-                                        ),
-                                    )
+                                    match ran:
+                                        case Done(skipped=skipped) as done:
+                                            released = interactive.ended(operator, context, cancelled=False)
+                                            return finished(
+                                                operator,
+                                                Ok(
+                                                    released
+                                                    .swap()
+                                                    .to_option()
+                                                    .map(lambda faults: msgspec.structs.replace(done, skipped=Some((*(fault for held in skipped.to_list() for fault in held), *faults))))
+                                                    .default_value(done)
+                                                ),
+                                            )
+                                        case Unchanged():
+                                            return finished(operator, interactive.ended(operator, context, cancelled=True).map(lambda _: ran))
 
                                 return (
                                     prepared(operator)
@@ -497,7 +514,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                             case _:
                                 return {outcome}
 
-                    return result.map(answered).default_with(lambda faults: cancelled(operator, context, rendered(faults)))
+                    return result.map(returned).default_with(lambda faults: cancelled(operator, context, rendered(faults)))
 
                 def began(
                     operator: bpy.types.Operator, context: bpy.types.Context, manager: bpy.types.WindowManager, event: bpy.types.Event, _record: T
@@ -527,11 +544,21 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
             case None:
                 pass
 
+        def seeded(properties: bpy.types.OperatorProperties, record: T, fresh: T) -> T:
+            return msgspec.structs.replace(fresh, **{name: value for name, value in msgspec.structs.asdict(record).items() if properties.is_property_set(name)})
+
         def invoke(operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> set["rna_enums.OperatorReturnItems"]:
             return (
                 binding
                 .read(operator.properties)
-                .bind(lambda record: self.seed.map(lambda seed: seed(record, event)).map(lambda fresh: binding.write(operator.properties, fresh).map(lambda _: fresh)).default_value(Ok(record)))
+                .bind(
+                    lambda record: (
+                        self.seed
+                        .map(lambda seed: seeded(operator.properties, record, seed(record, event)))
+                        .map(lambda fresh: binding.write(operator.properties, fresh).map(lambda _: fresh))
+                        .default_value(Ok(record))
+                    )
+                )
                 .bind(lambda record: managed(context).bind(lambda manager: opening(operator, context, manager, event, record)))
                 .default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
             )
@@ -613,6 +640,25 @@ class Macro(Command, frozen=True, kw_only=True):
         return identity.name(Name.OPERATOR, self.key).map(built)
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def answered(applied: Applied, reason: str, notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()) -> BlenderResult[Outcome]:
+    """Answers written paths as a change beside the write faults, the faults where nothing was written, or the reason nothing changed."""
+    match applied.written, applied.outcome.swap().to_option():
+        case (_, *_), skipped:
+            return Ok(Done(notes=notes, skipped=skipped))
+        case (), Option(tag="some", some=faults):
+            return Error(faults)
+        case _:
+            return Ok(Unchanged(reason=reason))
+
+
+def tallied(edits: tuple[BlenderResult[object], ...], notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()) -> BlenderResult[Done]:
+    """Answers independent item edits as a change holding the refused items' faults, or every fault where no item changed."""
+    return accumulated(edits).map(lambda _: Done(notes=notes)).or_else_with(lambda faults: Error(faults) if all(edit.is_error() for edit in edits) else Ok(Done(notes=notes, skipped=Some(faults))))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
@@ -629,6 +675,7 @@ __all__ = [
     "Macro",
     "Open",
     "Operator",
+    "Outcome",
     "Own",
     "Pick",
     "Placed",
@@ -636,5 +683,8 @@ __all__ = [
     "Save",
     "Stock",
     "Suppressible",
+    "Unchanged",
     "Writer",
+    "answered",
+    "tallied",
 ]

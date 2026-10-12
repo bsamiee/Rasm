@@ -11,7 +11,7 @@ from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResul
 from rasm.blender.nodes.graphs import End, ended, Fragment, node
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, Shell
 from rasm.blender.render.effects.viewers import Unread, ViewerRead
-from rasm.imaging.analysis.metering import Samples
+from rasm.imaging.analysis.metering import samples_of
 from rasm.imaging.color.config import admitted
 from rasm.imaging.color.white import White
 from rasm.imaging.compositing.blending import Entry
@@ -25,35 +25,27 @@ from rasm.imaging.parameters import Rgb
 
 def balanced(shell: Shell[WhiteBalance]) -> BlenderResult[tuple[Fragment, End]]:
     """Builds native white-point balance from record-derived white sockets."""
-    whites = {
-        f"{side} {field.name.replace('_', ' ').title()}": shell.socket(key, field.name)
-        for side, key in (("Input", WhiteBalance.source.__name__), ("Output", WhiteBalance.target.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        for field in msgspec.structs.fields(White)
-    }
+    source, target = WhiteBalance.__struct_fields__
+    whites = {f"{side} {field.replace('_', ' ').title()}": shell.socket(key, field) for side, key in (("Input", source), ("Output", target)) for field in White.__struct_fields__}
     return node("balance", bpy.types.CompositorNodeColorBalance, {"Image": shell.source, "Fac": 1.0, "Type": "White Point", **whites}, {}).map(ended("balance", "Image"))
 
 
-def consumed(identity: Identity, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Sets the source white from the covered mean of the entering region."""
+def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
+    """Sets the source white from the covered mean of the entering region, naming an undo step where the white changed."""
     config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
 
     def solved(config: PyOpenColorIO.Config, held: Entry[WhiteBalance]) -> BlenderResult[Option[str]]:
         found: BlenderResult[Option[White]] = (
-            Samples
-            .of(config, file.pixels)
+            samples_of(config, file.pixels)
             .map(lambda samples: samples.color[samples.covered])
-            .bind(
-                lambda covered: (
-                    White.of(config, Rgb(**dict(zip((field.name for field in msgspec.structs.fields(Rgb)), map(float, covered.mean(axis=0, dtype=np.float64)))))) if covered.size else Ok(Nothing)
-                )
-            )
+            .bind(lambda covered: White.of(config, Rgb(**dict(zip(Rgb.__struct_fields__, map(float, covered.mean(axis=0, dtype=np.float64)))))) if covered.size else Ok(Nothing))
             .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
         )
         selected: BlenderResult[White] = Result[Option[White], BlenderFaults].bind(found, lambda white: white.to_result_with(lambda: (BlenderUnmetFault(requirement=Unread(entry=entry.name)),)))
         return (
             Result[White, BlenderFaults]
-            .bind(selected, lambda white: white_balance.write(identity, entry.id_data, entry, msgspec.structs.replace(held, effect=msgspec.structs.replace(held.effect, source=white))))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            .map(lambda _: Some("Set Neutral"))
+            .bind(selected, lambda white: white_balance.write(identity, scene, entry, msgspec.structs.replace(held, effect=msgspec.structs.replace(held.effect, source=white))))
+            .map(lambda changed: Some("Set Neutral") if changed else Nothing)
         )
 
     reading: BlenderResult[tuple[PyOpenColorIO.Config, Entry[WhiteBalance]]] = paired(config, white_balance.read(identity, entry))

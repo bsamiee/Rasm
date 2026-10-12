@@ -24,7 +24,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm.blender.commands.keymaps import Chord, Keymap
-from rasm.blender.commands.operators import Call, Done, Empty, Operator, Save
+from rasm.blender.commands.operators import Call, Done, Empty, Operator, Outcome, Save, tallied, Unchanged
 from rasm.blender.data.ids.images import loaded, Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
 from rasm.blender.data.ids.store import Handle
@@ -33,8 +33,10 @@ from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.events.handlers import Change, PathHandler, SceneHandler, UpdateHandler
 from rasm.blender.extension.identity import Identity, Name
 from rasm.blender.extension.registration import Acquisitions, Band, Registrable
-from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult, BlenderWriteFault
-from rasm.blender.nodes.graphs import End, fingerprinted, Graph, Link, Node, Route, Routed, routed
+from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult, BlenderWriteFault
+from rasm.blender.nodes.changes import reconciled
+from rasm.blender.nodes.graphs import End, Graph, Link, Node
+from rasm.blender.nodes.trees import active_output, created, fingerprinted, GroupNode, Holder, joined, OutputNode, socket_at, tree_of
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.effects.stack import EffectStack, viewed
 from rasm.blender.render.previews.queue import Job, PreviewQueue, Rank
@@ -56,7 +58,7 @@ from rasm.blender.ui.surfaces.appends import Append
 from rasm.imaging.color.processors import DisplayView, unassociated
 from rasm.imaging.effects.quantization import codes
 from rasm.imaging.faults import accumulated, ImagingReadFault, paired
-from rasm.imaging.files.images import Depth, Format, ImageFile, Storage
+from rasm.imaging.files.images import Depth, Format, ImageFile, read_file, Storage
 from rasm.imaging.hashing import content_hash, ContentHash
 from rasm.imaging.parameters import Choice, Gated
 from rasm.rendering.history import Retention
@@ -112,9 +114,6 @@ class Status(Enum):
 
 
 type Source = MaterialSource | LightSource | WorldSource | GeometrySource | CompositorSource
-type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.types.Light
-GroupNode = bpy.types.ShaderNodeGroup | bpy.types.GeometryNodeGroup | bpy.types.CompositorNodeGroup
-OutputNode = bpy.types.ShaderNodeOutputMaterial | bpy.types.ShaderNodeOutputWorld | bpy.types.ShaderNodeOutputLight | bpy.types.NodeGroupOutput
 
 
 # --- [ROSTERS] --------------------------------------------------------------------------
@@ -246,10 +245,12 @@ class Target(msgspec.Struct, frozen=True, kw_only=True):
     node: str
     socket: str
 
-    @property
-    def route(self) -> Route:
-        """Route of the target's copies."""
-        return Route(key=PreviewScene.routes.key, groups=self.groups, node=self.node, socket=self.socket)
+
+class Routed[H: Holder](msgspec.Struct, frozen=True, kw_only=True):
+    """Copied holder and its carried output, or the retained shader output node's input."""
+
+    holder: H
+    socket: bpy.types.NodeSocket
 
 
 class Render(msgspec.Struct, frozen=True, kw_only=True):
@@ -486,18 +487,17 @@ class NodePreview:
             run=lambda call: cleared(call.identity).map(lambda count: Done(notes=(("INFO", f"Removed {count} stored thumbnails"),))),
         )
 
-        self.mark = Operator(
-            key="mark_node_previews",
-            title="Mark Node Previews",
-            description="Flip whether the selected nodes take a thumbnail under the Marked scope",
-            form=Empty,
-            run=lambda call: (
-                NodePreview.setting
-                .bound(call.identity)
-                .bind(lambda attached: accumulated(flipped(attached, node) for node in call.context.selected_nodes))
-                .map(lambda written_nodes: Done(notes=(("INFO", f"Flipped {len(written_nodes)} nodes"),)))
-            ),
-        )
+        def marking(call: Call[Empty]) -> BlenderResult[Outcome]:
+            if not (nodes := tuple(call.context.selected_nodes)):
+                return Ok(Unchanged(reason="No node is selected"))
+
+            def flipping(attached: Attached[NodeSetting]) -> BlenderResult[Done]:
+                edits = tuple(flipped(attached, node) for node in nodes)
+                return tallied(edits, (("INFO", f"Flipped {sum(edit.is_ok() for edit in edits)} nodes"),))
+
+            return NodePreview.setting.bound(call.identity).bind(flipping)
+
+        self.mark = Operator(key="mark_node_previews", title="Mark Node Previews", description="Flip whether the selected nodes take a thumbnail under the Marked scope", form=Empty, run=marking)
 
         writable = Format.writable()
         suffixes = tuple(f".{extension}" for row in writable for extension in row.extensions)
@@ -572,14 +572,12 @@ class NodePreview:
         environment = lighting.environment
 
         def wired[H: Holder](source: BlenderResult[H], output: type[bpy.types.Node]) -> BlenderResult[Routed[H]]:
-            return paired(source.bind(lambda found: resources.enter_context(routed(identity, found, target.route))), aov).bind(
+            return paired(source.bind(lambda found: resources.enter_context(routed(identity, found, target))), aov).bind(
                 lambda pair: (
                     tree_of(pair[0].holder)
                     .bind(
                         lambda tree: (
-                            written(tree.nodes[pair[0].node], "is_active_output", True).map(lambda _: None)
-                            if isinstance(tree.nodes[pair[0].node], OutputNode)
-                            else outlet(tree, tree.nodes[pair[0].node].outputs[pair[0].socket], output, pair[1])
+                            written(pair[0].socket.node, "is_active_output", True).map(lambda _: None) if isinstance(pair[0].socket.node, OutputNode) else outlet(tree, pair[0].socket, output, pair[1])
                         )
                     )
                     .map(lambda _: pair[0])
@@ -650,11 +648,7 @@ class NodePreview:
             group = carried.holder
             return (
                 active_output(group)
-                .bind(
-                    lambda sink: catch(lambda: group.links.new(group.nodes[carried.node].outputs[carried.socket], sink.inputs[0]), exception=RuntimeError)().map_error(
-                        lambda error: (BlenderEditFault(request=repr(group.links), error=error),)
-                    )
-                )
+                .bind(lambda sink: joined(group, carried.socket, sink.inputs[0]))
                 .map(lambda _: (preview.chain(scene, head, (*mirrored, Mirrored(entry=entry, group=group)), ()), head.map(lambda plane: (plane.shape[1], plane.shape[0])).default_value((size, size))))
             )
 
@@ -669,7 +663,7 @@ class NodePreview:
                     lambda entry: paired(
                         Result[bpy.types.NodeTree, BlenderFaults].bind(
                             Option.of_optional(entry.node_group).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="node_group"),)),
-                            lambda group: resources.enter_context(routed(identity, group, target.route)),
+                            lambda group: resources.enter_context(routed(identity, group, target)),
                         ),
                         head,
                     ).bind(lambda pair: chained(entry, pair[0], pair[1])),
@@ -828,7 +822,7 @@ class NodePreview:
                             Cell(
                                 node=plan.node.name,
                                 key=key,
-                                label=Option.of_optional(plan.node.outputs.get(plan.render.target.socket)).map(lambda socket: socket.name).default_value(plan.node.name),
+                                label=socket_at(plan.node.outputs, plan.render.target.socket).map(lambda socket: socket.name).default_value(plan.node.name),
                                 status=Status.READY if key in ready else Status.FAILED if ((Some(self.jobs), plan.render.target), key) in failed.items() else Status.QUEUED,
                                 value=Option.of_optional(state.values.get(key)),
                             )
@@ -1097,8 +1091,8 @@ def isolated(node: bpy.types.Node, target: Target, settings: NodePreviews) -> Op
                 return Some(RenderKind.EFFECT_SWATCH)
 
     return (
-        Option
-        .of_optional((inputs if isinstance(node, OutputNode) else outputs).get(target.socket))
+        socket_at(inputs if isinstance(node, OutputNode) else outputs, target.socket)
+        .to_option()
         .bind(lambda socket: kind(socket).map(lambda found: (socket, found)))
         .map(
             lambda pair: Render(
@@ -1182,7 +1176,7 @@ def swatched(identity: Identity, target: Target, aov: BlenderResult[Option[str]]
         .bind(lambda tree: tree.bind(lambda inner: Option.of_optional(inner.nodes.get(target.node))).to_result_with(lambda: (BlenderAbsentFault(owner=repr(target.source), key=target.node),)))
     )
     return paired(paired(found, aov), NodePreview.swatch.made(identity, lambda: Ok(bpy.data.materials.new("Swatch")))).bind(
-        lambda parts: tree_of(parts[1]).bind(lambda tree: graph(*parts[0]).reconciled(tree, identity)).map(lambda _: parts[1])
+        lambda parts: tree_of(parts[1]).bind(lambda tree: reconciled(graph(*parts[0]), tree, identity)).map(lambda _: parts[1])
     )
 
 
@@ -1191,14 +1185,17 @@ def clayed(identity: Identity, target: Target, clay: Callable[[], BlenderResult[
 
     def clothed(group: bpy.types.NodeTree, carried: Routed[Holder], material: bpy.types.Material) -> BlenderResult[None]:
         def connected(sink: bpy.types.Node) -> BlenderResult[None]:
-            def placed() -> bpy.types.Node:
-                painted = group.nodes.new(bpy.types.GeometryNodeSetMaterial.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                group.links.new(group.nodes[carried.node].outputs[carried.socket], painted.inputs[0])
-                group.links.new(painted.outputs[0], sink.inputs[0])
-                return painted
-
-            added: BlenderResult[bpy.types.Node] = catch(placed, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(group), error=error),))
-            return Result[bpy.types.Node, BlenderFaults].bind(added, lambda painted: written(painted.inputs["Material"], "default_value", material)).map(lambda _: None)
+            return (
+                created(group, bpy.types.GeometryNodeSetMaterial)
+                .bind(
+                    lambda painted: accumulated((
+                        socket_at(painted.inputs, "Geometry").bind(lambda target: joined(group, carried.socket, target)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        socket_at(painted.outputs, "Geometry").bind(lambda source: joined(group, source, sink.inputs[0])),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        socket_at(painted.inputs, "Material").bind(lambda socket: written(socket, "default_value", material)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    ))
+                )
+                .map(lambda _: None)
+            )
 
         return active_output(group).bind(connected)
 
@@ -1224,7 +1221,7 @@ def clayed(identity: Identity, target: Target, clay: Callable[[], BlenderResult[
 
     match target.source:
         case GeometrySource(item=handle, modifier=name):
-            return paired(paired(handle.resolve(), held(target).bind(lambda group: resources.enter_context(routed(identity, group, target.route)))), clay()).bind(
+            return paired(paired(handle.resolve(), held(target).bind(lambda group: resources.enter_context(routed(identity, group, target)))), clay()).bind(
                 lambda parts: copied(parts[0][0], name, parts[0][1], parts[1])
             )
         case MaterialSource() | LightSource() | WorldSource() | CompositorSource():
@@ -1291,17 +1288,71 @@ def held(target: Target) -> BlenderResult[Holder]:
             )
 
 
-def tree_of(holder: Holder) -> BlenderResult[bpy.types.NodeTree]:
-    """Answers a group itself, else the node tree of a material, world, or light."""
-    found = holder if isinstance(holder, bpy.types.NodeTree) else holder.node_tree
-    return Option.of_optional(found).to_result_with(lambda: (BlenderAbsentFault(owner=repr(holder), key="node_tree"),))
+@contextmanager
+def routed[H: Holder](identity: Identity, holder: H, target: Target) -> Generator[BlenderResult[Routed[H]]]:
+    """Scopes copied preview resources, exposing a target's output or retaining a shader output node whole.
 
+    Args:
+        identity: Extension whose marks the copies hold.
+        holder: Group, material, world, or light whose tree nests the target's node.
+        target: Group node names, node name, and socket identifier the copies route; an output node names its linked input.
 
-def active_output(group: bpy.types.NodeTree) -> BlenderResult[bpy.types.NodeGroupOutput]:
-    """Answers a group's active Group Output node."""
-    return Option.of_optional(next((node for node in group.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
-        lambda: (BlenderAbsentFault(owner=repr(group.nodes), key=bpy.types.NodeGroupOutput.bl_rna.identifier),)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    )
+    Yields:
+        The copied holder and output, or missing-node, socket, link, or native-edit faults. Every copy releases when the context exits.
+    """
+
+    def found(tree: bpy.types.NodeTree, name: str) -> BlenderResult[bpy.types.Node]:
+        return Option.of_optional(tree.nodes.get(name)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(tree.nodes), key=name),))
+
+    def endpoint(node: bpy.types.Node) -> BlenderResult[bpy.types.NodeSocket]:
+        inputs = node.inputs
+        match node:
+            case bpy.types.ShaderNodeOutputMaterial() | bpy.types.ShaderNodeOutputWorld() | bpy.types.ShaderNodeOutputLight():
+                return socket_at(inputs, target.socket)
+            case bpy.types.NodeGroupOutput():
+                return socket_at(inputs, target.socket).bind(
+                    lambda socket: Option.of_optional(next((link.from_socket for link in socket.links), None)).to_result_with(  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                        lambda: (BlenderAbsentFault(owner=repr(socket.links), key=target.socket),)
+                    )
+                )
+            case _:
+                return socket_at(node.outputs, target.socket)
+
+    with ExitStack() as rollback:
+
+        def copied[T: Holder](block: T) -> BlenderResult[T]:
+            def acquired(copy: T) -> T:
+                rollback.callback(bpy.data.batch_remove, ids=(copy,))
+                return copy
+
+            return Ownership(kind=type(block), key=PreviewScene.routes.key, saved=Saved.NEVER, single=False).made(identity, lambda: Ok(block.copy())).map(acquired)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+
+        def exposed(inner: bpy.types.NodeTree, source: bpy.types.NodeSocket) -> BlenderResult[str]:
+            return (
+                active_output(inner)
+                .bind(lambda output: socket_at(output.inputs, "__extend__"))
+                .bind(lambda extend: joined(inner, source, extend, handle_dynamic_sockets=True))
+                .map(lambda link: link.to_socket.identifier)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            )
+
+        def swapped(node: bpy.types.Node) -> BlenderResult[bpy.types.NodeTree]:
+            group: BlenderResult[bpy.types.NodeTree] = (Option.of_optional(node.node_tree) if isinstance(node, GroupNode) else Nothing).to_result_with(
+                lambda: (BlenderAbsentFault(owner=repr(node), key=bpy.types.NodeTree.__name__),)
+            )
+            return Result[bpy.types.NodeTree, BlenderFaults].bind(group, lambda held: copied(held).bind(lambda inner: written(node, "node_tree", inner).map(lambda _: inner)))
+
+        def outward(tree: bpy.types.NodeTree, groups: tuple[str, ...]) -> BlenderResult[bpy.types.NodeSocket]:
+            match groups:
+                case (head, *rest):
+                    return found(tree, head).bind(
+                        lambda node: (
+                            swapped(node).bind(lambda inner: outward(inner, tuple(rest)).bind(lambda source: exposed(inner, source))).bind(lambda identifier: socket_at(node.outputs, identifier))
+                        )
+                    )
+                case _:
+                    return found(tree, target.node).bind(endpoint)
+
+        yield copied(holder).bind(lambda copy: tree_of(copy).bind(lambda tree: outward(tree, target.groups)).map(lambda socket: Routed(holder=copy, socket=socket)))
 
 
 def outputs_of(node: bpy.types.Node) -> tuple[bpy.types.NodeSocket, ...]:
@@ -1340,28 +1391,33 @@ def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
 
 def outlet(tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, output: type[bpy.types.Node], aov: Option[str]) -> BlenderResult[None]:
     """Adds the output node, the Emission or Background node, and the value AOV a routed socket drives a copy's render through."""
+    emitter, emitted = (bpy.types.ShaderNodeBackground, "Background") if output is bpy.types.ShaderNodeOutputWorld else (bpy.types.ShaderNodeEmission, "Emission")
 
-    def connected() -> tuple[bpy.types.Node, tuple[tuple[bpy.types.Node, str], ...]]:
-        sink = tree.nodes.new(output.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        if socket.type == "SHADER":
-            tree.links.new(socket, Option.of_optional(sink.inputs.get(socket.identifier)).default_with(lambda: sink.inputs["Surface"]))
-        else:
-            emitter = tree.nodes.new((bpy.types.ShaderNodeBackground if output is bpy.types.ShaderNodeOutputWorld else bpy.types.ShaderNodeEmission).bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            tree.links.new(socket, emitter.inputs[0])
-            tree.links.new(emitter.outputs[0], sink.inputs["Surface"])
-        named = tuple((tree.nodes.new(bpy.types.ShaderNodeOutputAOV.bl_rna.identifier), name) for name in aov.to_list())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        for node, _ in named:
-            tree.links.new(socket, node.inputs["Value"])
-        return sink, named
+    def surfaced(sink: bpy.types.Node) -> BlenderResult[None]:
+        match socket.type:
+            case "SHADER":
+                return socket_at(sink.inputs, socket.identifier).or_else(socket_at(sink.inputs, "Surface")).bind(lambda target: joined(tree, socket, target)).map(lambda _: None)
+            case _:
+                return (
+                    created(tree, emitter)
+                    .bind(
+                        lambda node: accumulated((
+                            socket_at(node.inputs, "Color").bind(lambda target: joined(tree, socket, target)),  # ty: ignore[invalid-argument-type]
+                            paired(socket_at(node.outputs, emitted), socket_at(sink.inputs, "Surface")).bind(lambda pair: joined(tree, *pair)),  # ty: ignore[invalid-argument-type]
+                        ))
+                    )
+                    .map(lambda _: None)
+                )
 
-    built: BlenderResult[tuple[bpy.types.Node, tuple[tuple[bpy.types.Node, str], ...]]] = catch(connected, exception=RuntimeError)().map_error(
-        lambda error: (BlenderEditFault(request=repr(tree), error=error),)
-    )
-    return (
-        Result[tuple[bpy.types.Node, tuple[tuple[bpy.types.Node, str], ...]], BlenderFaults]
-        .bind(built, lambda pair: accumulated((written(pair[0], "target", "ALL"), written(pair[0], "is_active_output", value=True), *(written(node, "aov_name", name) for node, name in pair[1]))))
-        .map(lambda _: None)
-    )
+    return paired(
+        created(tree, output).bind(lambda sink: accumulated((surfaced(sink), written(sink, "target", "ALL"), written(sink, "is_active_output", value=True)))),
+        accumulated(
+            created(tree, bpy.types.ShaderNodeOutputAOV).bind(
+                lambda node: accumulated((socket_at(node.inputs, "Value").bind(lambda target: joined(tree, socket, target)), written(node, "aov_name", name)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            )
+            for name in aov.to_list()
+        ),
+    ).map(lambda _: None)
 
 
 def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
@@ -1459,7 +1515,7 @@ def restored(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config,
             .map(lambda _: True)
         )
 
-    match ImageFile.read(str(path), config):
+    match read_file(str(path), config):
         case Result(tag="error", error=faults) if all(isinstance(fault, ImagingReadFault) for fault in faults):
             return Ok(False)
         case Result(tag="error", error=faults):

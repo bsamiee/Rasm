@@ -145,12 +145,12 @@ class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     replicates: npt.NDArray[np.float64]
     normalization: Option[tuple[float, float]] = Nothing
 
-    @staticmethod
-    def of(replicates: npt.NDArray[np.float64], precision: Precision) -> "Estimate[npt.NDArray[np.float64]]":
-        """Returns replicate mean and standard error of the mean."""
-        return Estimate(
-            value=np.asarray(np.mean(replicates, axis=0)), standard_error=np.asarray(np.std(replicates, axis=0, ddof=1) / math.sqrt(precision.replicates)), precision=precision, replicates=replicates
-        )
+
+def estimated(replicates: npt.NDArray[np.float64], precision: Precision) -> Estimate[npt.NDArray[np.float64]]:
+    """Returns replicate mean and standard error of the mean."""
+    return Estimate(
+        value=np.asarray(np.mean(replicates, axis=0)), standard_error=np.asarray(np.std(replicates, axis=0, ddof=1) / math.sqrt(precision.replicates)), precision=precision, replicates=replicates
+    )
 
 
 class CellularSample(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -421,7 +421,7 @@ def integrated(
             results = accumulated(
                 field(lower + width * precision.points(len(lower), replicate)).map(lambda values: np.asarray(np.mean(values, axis=0) * volume)) for replicate in range(precision.replicates)
             )
-            return results.map(lambda values: Estimate.of(np.stack(values), precision))
+            return results.map(lambda values: estimated(np.stack(values), precision))
     except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
         return Error((ImagingGeneratorFault(request=request, error=error),))
 
@@ -760,6 +760,7 @@ __all__ = [
     "cellular",
     "cellular_sites",
     "density_range",
+    "estimated",
     "integrated",
     "sample",
     "spectrum",

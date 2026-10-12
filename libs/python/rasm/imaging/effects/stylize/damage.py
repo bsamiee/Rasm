@@ -13,7 +13,23 @@ import numpy.typing as npt
 import OpenImageIO
 
 from rasm.imaging.chain import Effect, Stage
-from rasm.imaging.effects.generators.noise import cellular, cellular_sites, CellularSite, Cut, Estimate, Feature, Fractal, integrated, Interpolation, Octaves, Perlin, Precision, sample, Voronoi
+from rasm.imaging.effects.generators.noise import (
+    cellular,
+    cellular_sites,
+    CellularSite,
+    Cut,
+    Estimate,
+    estimated,
+    Feature,
+    Fractal,
+    integrated,
+    Interpolation,
+    Octaves,
+    Perlin,
+    Precision,
+    sample,
+    Voronoi,
+)
 from rasm.imaging.effects.generators.particles import Population
 from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingRepresentationFault, ImagingResult, paired
 from rasm.imaging.parameters import Finite, Gated, Motion, Presentation, Quantity, Rgb, Seed, Stops
@@ -318,7 +334,7 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
                     if self.gate.enabled
                     else Ok(np.ones((precision.replicates, 1), dtype=np.float64))
                 )
-                return accumulated((spots, scratches, hairs, gate)).map(lambda values: Estimate.of(np.concatenate(values, axis=1), precision))
+                return accumulated((spots, scratches, hairs, gate)).map(lambda values: estimated(np.concatenate(values, axis=1), precision))
         except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
             return Error((ImagingGeneratorFault(request=self, error=error),))
 
@@ -387,7 +403,7 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
                     color = np.array((self.gate.value.color.red, self.gate.value.color.green, self.gate.value.color.blue))
                     result[..., :3] = result[..., :3] * gate + color * result[..., 3:4] * (1.0 - gate)
                     result[..., 4:] = 1.0 - (1.0 - result[..., 4:]) * gate
-                    estimate = Estimate.of(result, precision)
+                    estimate = estimated(result, precision)
                     return paired(located(estimate.value[..., :4].astype(np.float32)), located(estimate.value[..., 4:].astype(np.float32))).map(
                         lambda images: Estimate(value=images, standard_error=estimate.standard_error, precision=precision, replicates=result)
                     )

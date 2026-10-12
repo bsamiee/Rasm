@@ -13,13 +13,14 @@ import numpy as np
 import PyOpenColorIO
 
 from rasm.blender.commands.calls import called
-from rasm.blender.commands.operators import Call, Done, Empty, Operator, Properties
+from rasm.blender.commands.operators import Call, Done, Empty, Operator, Outcome, Properties, Unchanged
 from rasm.blender.data.rna.conditions import Setting
 from rasm.blender.data.rna.descriptors import Descriptor, struct_at
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import compared, End, ended, Fragment, INPUTS, Interface, masked, math, mixed, node, NodeGroup, Operand, Socket
+from rasm.blender.nodes.graphs import compared, End, ended, Fragment, INPUTS, masked, math, mixed, node, NodeGroup, Operand
+from rasm.blender.nodes.interface import Interface, Socket
 from rasm.blender.settings.properties import Choices
 from rasm.imaging.color.authoring import ConfigBuild, Formation
 from rasm.imaging.color.config import admitted, ConfigFile, opened
@@ -106,9 +107,11 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def changed(call: Call[WorkingSpace]) -> BlenderResult[Done]:
-    """Changes native working space and converts compositor effect color inputs."""
+def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
+    """Changes native working space, then converts compositor effect color inputs the native conversion leaves, or answers the space already current."""
     source, record = bpy.data.colorspace.working_space, call.record
+    if source == record.space:
+        return Ok(Unchanged(reason=f"The working space is already {source}"))
     inputs = (
         tuple(
             (item, descriptor, np.asarray(descriptor.read(item), dtype=np.float32).copy())
@@ -127,30 +130,25 @@ def changed(call: Call[WorkingSpace]) -> BlenderResult[Done]:
             if isinstance(color, bpy.types.FloatProperty) and color.identifier == "value" and color.subtype == "COLOR"
             for descriptor in (Descriptor(root=type(item), owner="", prop=color),)
         )
-        if record.convert and source != record.space
+        if record.convert
         else ()
     )
 
     def recolored(cpu: PyOpenColorIO.CPUProcessor) -> BlenderResult[int]:
         for _item, _descriptor, values in inputs:
             cpu.applyRGB(values[:3])
-        return accumulated(descriptor.write(item, tuple(values.tolist())) for item, descriptor, values in inputs).map(len)
+        return accumulated(descriptor.write(item, tuple(values.tolist())) for item, descriptor, values in inputs).map(lambda priors: sum(prior.is_some() for prior in priors))
 
-    converted = (
-        Result[PyOpenColorIO.CPUProcessor, BlenderFaults].bind(
-            admitted(PyOpenColorIO.GetCurrentConfig(), (source, record.space))
-            .bind(lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=record.space)))
-            .map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
-            .map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-            recolored,
-        )
-        if record.convert and source != record.space
-        else Ok(0)
+    cpu: BlenderResult[PyOpenColorIO.CPUProcessor] = (
+        admitted(PyOpenColorIO.GetCurrentConfig(), (source, record.space))
+        .bind(lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=record.space)))
+        .map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
+        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
     )
-    return converted.bind(
-        lambda count: called(bpy.ops.wm.set_working_color_space, {"working_space": record.space, "convert_colors": record.convert}).map(
-            lambda _: Done(notes=(("INFO", f"Working space {record.space}, {count} effect colors converted"),))
-        )
+    return (
+        Result[PyOpenColorIO.CPUProcessor, BlenderFaults]
+        .bind(cpu, lambda held: called(bpy.ops.wm.set_working_color_space, {"working_space": record.space, "convert_colors": record.convert}).bind(lambda _: recolored(held)))
+        .map(lambda count: Done(notes=(("INFO", f"Working space {record.space}, {count} effect colors converted"),)))
     )
 
 

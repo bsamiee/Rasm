@@ -34,6 +34,8 @@ utils:
             - not:
                 any:
                     - matches: assignment
+                    - kind: assignment
+                      not: {has: {field: right, pattern: $_}}
                     - inside: {kind: assignment, stopBy: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}, matches: assignment}
     lexical-scope: &lexical-scope
         kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression

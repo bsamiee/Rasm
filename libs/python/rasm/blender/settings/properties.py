@@ -5,7 +5,7 @@ from enum import Enum
 import math
 from types import GenericAlias, MemberDescriptorType
 import typing
-from typing import overload, Self, TYPE_CHECKING
+from typing import ClassVar, overload, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -18,8 +18,9 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from rasm.blender.data.rna.descriptors import IdName, written
 from rasm.blender.extension.identity import Identity, Key, Name
-from rasm.blender.faults import BlenderEditFault, BlenderReadFault, BlenderResult
+from rasm.blender.faults import BlenderReadFault, BlenderResult
 from rasm.blender.settings.shapes import (
+    bare,
     Color,
     Components,
     Declared,
@@ -119,7 +120,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
             case native.FloatType(ge=low, le=high):
                 return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if (low, high) == (0, 1) else "NONE"))
             case native.TupleType(item_types=items):
-                factor = all(isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for raw in items for item in (raw.type if isinstance(raw, native.Metadata) else raw,))
+                factor = all(isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for item in map(bare, items))
                 return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if factor else "NONE"))
             case _:
                 return cls.quantified(annotation).default_with(cls)
@@ -147,6 +148,8 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [STORAGE]
 
+    largest: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
+
     @staticmethod
     def interval(kind: native.FloatType) -> tuple[float | None, float | None]:
         """Returns the original domain's first and last admissible doubles."""
@@ -173,15 +176,14 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
                 return accumulated(self.bounds(item) for item in items).bind(intersected)
             case native.FloatType():
                 endpoints = zip(self.interval(kind), (math.inf, -math.inf))
-                storage = np.finfo(np.float32)
                 answer: list[float | None] = []
                 for endpoint, inward in endpoints:
                     if endpoint is None:
                         answer.append(None)
                         continue
                     scaled = endpoint * self.scale
-                    limited = max(scaled, float(storage.min)) if inward > 0 else min(scaled, float(storage.max))
-                    if not float(storage.min) <= limited <= float(storage.max):
+                    limited = max(scaled, -self.largest) if inward > 0 else min(scaled, self.largest)
+                    if not -self.largest <= limited <= self.largest:
                         return Error((BlenderReadFault(request=repr(kind), error=ValueError("No finite native float32 storage endpoint")),))
                     candidate = np.float32(limited)
                     widened = float(candidate)
@@ -212,8 +214,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         def converted(interval: tuple[float | None, float | None]) -> BlenderResult[float | tuple[float, ...]]:
             try:
                 low, high = interval
-                storage = np.finfo(np.float32)
-                limits = msgspec.Meta(ge=low if low is not None else float(storage.min), le=high if high is not None else float(storage.max))
+                limits = msgspec.Meta(ge=low if low is not None else -self.largest, le=high if high is not None else self.largest)
                 source = np.asarray(value, dtype=np.float64)
                 match kind:
                     case native.FloatType():
@@ -241,8 +242,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         def converted(interval: tuple[float | None, float | None]) -> BlenderResult[float | tuple[float, ...]]:
             try:
                 low, high = interval
-                storage = np.finfo(np.float32)
-                limits = msgspec.Meta(ge=low if low is not None else float(storage.min), le=high if high is not None else float(storage.max))
+                limits = msgspec.Meta(ge=low if low is not None else -self.largest, le=high if high is not None else self.largest)
                 source = np.asarray(value, dtype=np.float64)
                 match kind:
                     case native.FloatType():
@@ -662,6 +662,8 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                 case Nested(record=record_type):
                     held = getattr(owner, field.name)
                     return stored(held, desired, type(held), record_type, annotation if typing.get_origin(record_type) is Gated and markers(annotation, Presentation) else msgspec.NODEFAULT)
+                case Records() if not owner.is_property_set(field.name) and msgspec.convert(desired, tuple) == (() if default is msgspec.NODEFAULT else default):
+                    return Ok(None)
                 case Records(record=record_type):
                     collection = getattr(owner, field.name)
                     items = msgspec.convert(desired, tuple)
@@ -745,76 +747,6 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
             reset(holder, {key: definition for key, definition in self.struct.__annotations__.items() if key in self.record.__struct_fields__})
             .bind(lambda _: self.read(holder))
             .bind(lambda record: self.write(holder, record))
-        )
-
-    # --- [CUSTOM_PROPERTIES]
-
-    def stamp(self, owner: bpy.types.ID, prefix: str, record: T) -> BlenderResult[None]:
-        """Writes custom values with UI metadata from the registered RNA definitions."""
-
-        def stamped(field: msgspec.structs.FieldInfo, shape: PropertyShape) -> BlenderResult[None]:
-            key = f"{prefix}{field.encode_name}"
-            prop = self.struct.bl_rna.properties[field.name]
-            value = getattr(record, field.name)
-
-            def assigned(data: Mapping[str, object], value: object) -> BlenderResult[None]:
-                try:
-                    owner[key] = value
-                    owner.id_properties_ui(key).update(**data, subtype=prop.subtype, description=prop.description)  # type: ignore[func-returns-value, attr-defined]  # ty: ignore[unresolved-attribute]
-                    return Ok(None)
-                except (AttributeError, KeyError, TypeError, ValueError, OverflowError, ReferenceError) as error:
-                    return Error((BlenderEditFault(request=f"{owner!r}[{key!r}]", error=error),))
-
-            match prop, shape:
-                case bpy.types.FloatProperty(), Number(kind=kind) | Vector(kind=kind) | Color(kind=kind):
-                    data: dict[str, object] = {
-                        "min": prop.hard_min,
-                        "max": prop.hard_max,
-                        "soft_min": prop.soft_min,
-                        "soft_max": prop.soft_max,
-                        "step": prop.step,
-                        "precision": prop.precision,
-                        "default": tuple(prop.default_array) if prop.is_array else prop.default,  # type: ignore[arg-type]
-                    }
-                    return Unit.of(field.type, kind).stored(msgspec.structs.astuple(value) if isinstance(shape, Color) else value, kind).bind(lambda lowered: assigned(data, lowered))
-                case bpy.types.IntProperty(), _:
-                    data = {"min": prop.hard_min, "max": prop.hard_max, "soft_min": prop.soft_min, "soft_max": prop.soft_max, "step": prop.step, "default": prop.default}
-                case bpy.types.StringProperty(), OptionalText():
-                    return assigned({"default": prop.default}, Option.of_optional(value).default_value(""))
-                case bpy.types.EnumProperty(), _:
-                    value = value if isinstance(shape, Literals) else value.value
-                    data = {"items": tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in prop.enum_items), "default": prop.enum_items[prop.default].value}
-                case bpy.types.BoolProperty() | bpy.types.StringProperty(), _:
-                    data = {"default": prop.default}
-                case _:
-                    return Error((BlenderReadFault(request=f"{owner!r}[{key!r}]", error=TypeError(f"No custom property representation for {prop!r}")),))
-            return assigned(data, value)
-
-        outcome = property_fields(self.record).bind(lambda rows: accumulated(stamped(field, shape.shape) for field, shape in rows)).map(lambda _: None)
-        owner.update_tag()
-        return outcome
-
-    def stamped(self, owner: bpy.types.ID, prefix: str) -> BlenderResult[T]:
-        """Constructs the record from present native custom values."""
-
-        def value(field: msgspec.structs.FieldInfo, shape: PropertyShape, key: str) -> BlenderResult[object]:
-            match shape:
-                case Number(kind=kind) | Vector(kind=kind):
-                    return Unit.of(field.type, kind).restored(owner[key], kind)
-                case Color(kind=kind):
-                    return Unit.of(field.type, kind).restored(owner[key], kind).map(lambda values: kind.cls(**{channel.name: item for channel, item in zip(msgspec.structs.fields(kind.cls), values)}))
-                case OptionalText():
-                    return Ok(owner[key] or None)
-                case Integer() | Flag() | Text() | Enumerated() | Literals() | Components() | Nested() | Records() | Entries() | Flags() | Pointer() | Tagged():
-                    return catch(lambda: msgspec.convert(owner[key], field.type), exception=msgspec.ValidationError)().map_error(lambda error: (BlenderReadFault(request=repr(owner), error=error),))
-
-        return property_fields(self.record).bind(
-            lambda rows: accumulated(
-                value(field, shape.shape, key).map(lambda held: (field.name, held))
-                for field, shape in rows
-                for key in (f"{prefix}{field.encode_name}",)
-                if key in owner  # type: ignore[operator]
-            ).bind(lambda values: catch(lambda: self.record(**dict(values)), exception=TypeError)().map_error(lambda error: (BlenderReadFault(request=repr(owner), error=error),)))
         )
 
 

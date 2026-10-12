@@ -42,7 +42,7 @@ class Viewing(Protocol):
         """Returns the owned formation entry's view, absence, or its read faults."""
         ...
 
-    def seeded(self, scene: bpy.types.Scene) -> DisplayView:
+    def seeded(self, scene: bpy.types.Scene) -> BlenderResult[DisplayView]:
         """Returns the native scene's display and view."""
         ...
 
@@ -334,15 +334,17 @@ def displayed(viewing: Viewing, identity: Identity, scene: bpy.types.Scene, plan
 
     def formed(shown: Option[DisplayView]) -> BlenderResult[ImageFile[np.float32]]:
         def native() -> BlenderResult[ImageFile[np.float32]]:
-            view = viewing.seeded(scene)
-            return (
-                Result[bpy.types.ColorManagedViewSettings, BlenderFaults]
-                .bind(
-                    Option.of_optional(scene.view_settings).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),)),
-                    lambda held: view.form(config, plane, source=source, exposure=held.exposure, gamma=held.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+            def framed(view: DisplayView) -> BlenderResult[ImageFile[np.float32]]:
+                return (
+                    Result[bpy.types.ColorManagedViewSettings, BlenderFaults]
+                    .bind(
+                        Option.of_optional(scene.view_settings).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),)),
+                        lambda held: view.form(config, plane, source=source, exposure=held.exposure, gamma=held.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                    )
+                    .bind(lambda pixels: named(view, pixels))
                 )
-                .bind(lambda pixels: named(view, pixels))
-            )
+
+            return viewing.seeded(scene).bind(framed)
 
         return shown.map(
             lambda view: Result[npt.NDArray[np.float32], BlenderFaults].bind(

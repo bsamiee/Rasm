@@ -33,14 +33,14 @@ class Zone[A: float](msgspec.Struct, frozen=True, kw_only=True):
         Presentation(soft=Some((0.01, 16.0)), step=Some(0.1), decimals=Some(2)),
     ]
 
-    @staticmethod
-    def read(values: PyOpenColorIO.GradingRGBMSW, width: float) -> "Zone[float]":
-        """Reads OCIO channel values with the zone's extent in stops."""
-        return Zone(master=values.master, red=values.red, green=values.green, blue=values.blue, start=values.start, width=width)
-
     def values(self, width: float) -> PyOpenColorIO.GradingRGBMSW:
         """Writes OCIO channel values with its width or pivot member."""
         return PyOpenColorIO.GradingRGBMSW(self.red, self.green, self.blue, self.master, self.start, width)
+
+
+def zoned(values: PyOpenColorIO.GradingRGBMSW, width: float) -> Zone[float]:
+    """Reads OCIO channel values with the zone's extent in stops."""
+    return Zone(master=values.master, red=values.red, green=values.green, blue=values.blue, start=values.start, width=width)
 
 
 class Zones(Effect, frozen=True, kw_only=True, tag=11):
@@ -51,11 +51,11 @@ class Zones(Effect, frozen=True, kw_only=True, tag=11):
     pointwise = True
     space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
     neutral: ClassVar[PyOpenColorIO.GradingTone] = PyOpenColorIO.GradingTone(PyOpenColorIO.GRADING_LIN)
-    blacks: Zone[Adjustment] = Zone.read(neutral.blacks, neutral.blacks.width)
-    shadows: Zone[PivotAdjustment] = Zone.read(neutral.shadows, neutral.shadows.start - neutral.shadows.width)
-    midtones: Zone[Adjustment] = Zone.read(neutral.midtones, neutral.midtones.width)
-    highlights: Zone[PivotAdjustment] = Zone.read(neutral.highlights, neutral.highlights.width - neutral.highlights.start)
-    whites: Zone[Adjustment] = Zone.read(neutral.whites, neutral.whites.width)
+    blacks: Zone[Adjustment] = zoned(neutral.blacks, neutral.blacks.width)
+    shadows: Zone[PivotAdjustment] = zoned(neutral.shadows, neutral.shadows.start - neutral.shadows.width)
+    midtones: Zone[Adjustment] = zoned(neutral.midtones, neutral.midtones.width)
+    highlights: Zone[PivotAdjustment] = zoned(neutral.highlights, neutral.highlights.width - neutral.highlights.start)
+    whites: Zone[Adjustment] = zoned(neutral.whites, neutral.whites.width)
     s_contrast: Annotated[
         float, msgspec.Meta(ge=0.01, le=1.99, title="S-Contrast", description="S-curve contrast about mid grey with rolled-off ends, 1 neutral"), Presentation(step=Some(0.01), decimals=Some(3))
     ] = neutral.scontrast
@@ -73,4 +73,4 @@ class Zones(Effect, frozen=True, kw_only=True, tag=11):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Adjustment", "PivotAdjustment", "Zone", "Zones"]
+__all__ = ["Adjustment", "PivotAdjustment", "Zone", "Zones", "zoned"]

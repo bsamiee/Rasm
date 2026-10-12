@@ -15,7 +15,7 @@ import numpy.typing as npt
 import OpenImageIO
 
 from rasm.imaging.chain import Effect, Stage
-from rasm.imaging.effects.generators.noise import Basis, Cut, density_range, Emission, Estimate, Incandescence, Interpolation, Octaves, Perlin, Precision, sample, Spectrum, Tint, uniforms
+from rasm.imaging.effects.generators.noise import Basis, Cut, density_range, Emission, Estimate, estimated, Incandescence, Interpolation, Octaves, Perlin, Precision, sample, Spectrum, Tint, uniforms
 from rasm.imaging.effects.optics.defocus import Aperture
 from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingResult, paired
 from rasm.imaging.parameters import Finite, Gated, GraphForm, Motion, Presentation, Quantity, Seed
@@ -111,7 +111,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
                             profile = rim * rim * (3.0 - 2.0 * rim)
                         mass = float(np.mean(inside * profile)) * math.pi * mark.radius**2 * mark.gain / area
                         estimates[replicate] += mass * np.array((1.0, paint(mark.tone)))
-                return Ok(Estimate.of(estimates, precision))
+                return Ok(estimated(estimates, precision))
         except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
             return Error((ImagingGeneratorFault(request=self, error=error),))
 
@@ -312,7 +312,7 @@ class Particles(Effect, frozen=True, kw_only=True, tag=33):
                     for index, particle in enumerate(particles):
                         if (deposit := deposited(observations[replicate], replicate, index, particle)).tag == "error":
                             return Error(deposit.error)
-                estimate = Estimate.of(observations, precision)
+                estimate = estimated(observations, precision)
                 if not (output := (plane.copy(OpenImageIO.DOUBLE))).set_pixels(output.roi, estimate.value):
                     return Error((ImagingBufferFault(request=output, error=output.geterror()),))
                 return Ok(

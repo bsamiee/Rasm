@@ -10,16 +10,18 @@ import msgspec
 from msgspec import inspect
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Done, InvokePopup, Operator, Own
+from rasm.blender.commands.operators import Call, Done, InvokePopup, Operator, Outcome, Own, Unchanged
 from rasm.blender.data.ids.ownership import Mark
 from rasm.blender.data.rna.conditions import AllOf, check, Condition, Setting
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import addresses, Interface, InterfacePanel, item_key, Socket
+from rasm.blender.nodes.changes import owned
+from rasm.blender.nodes.interface import addresses, Interface, InterfacePanel, item_key, slot, Socket
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.effects.stack import (
+    active,
     composites,
     Configured,
     EffectStack,
@@ -46,7 +48,7 @@ from rasm.blender.settings.properties import Choices
 from rasm.blender.ui.layout.rows import acquired, alerted, joined, Line, Member, operated, OperatorButton, placed, Property, realized, Row, RowContent, RowDraw, split
 from rasm.blender.ui.layout.sections import Each, fields
 from rasm.imaging.chain import Domain, Effect, Stage
-from rasm.imaging.color.authoring import DynamicRange
+from rasm.imaging.color.authoring import dynamic_range_of, DynamicRange
 from rasm.imaging.color.processors import DisplayView
 from rasm.imaging.compositing.blending import Blend, Entry
 from rasm.imaging.faults import accumulated, paired
@@ -209,7 +211,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         for owner in host.to_list():
                             socket(owner, item)
 
-        def owned(
+        def offered_drawn(
             layout: bpy.types.UILayout, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, row: Placeable, record: Entry[Effect], context: bpy.types.Context
         ) -> BlenderResult[None]:
             values = tuple((value, (Shell.blend,) if isinstance(value, Blend) else (), field.name) for field in entry_fields for value in (getattr(record, field.name),))
@@ -220,11 +222,8 @@ class EffectBody(Line, frozen=True, kw_only=True):
                 for depth in range(1, len(path) + 1)
             }
             paths[Shell.blend] = (record_key, next(field for value, _, field in values if isinstance(value, Blend)))
-            hidden = frozenset(
-                item_key(*prefix, *path)
-                for value, prefix, _, path in parameters
-                if any(isinstance(part, type) and not isinstance(reached(value, path[:index]), part) for index, part in enumerate(path))
-            )
+            hidden = frozenset(item_key(*prefix, *path) for value, prefix, _, path in parameters if not active(value, path))
+            nodes = owned(group, identity)
 
             def widget(node: bpy.types.Node, key: Key, title: str, shape: inspect.Type) -> BlenderResult[None]:
                 inner = layout.column()
@@ -251,7 +250,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         button(line, self.colorspace, SpaceField(name=entry.name, field=key, space=space), title)
                         return (locked(line, entry, paths[key], context),)
                     case _:
-                        return tuple(widget(node, key, title, shape) for node in group.nodes if Mark.read(identity, node).filter(lambda mark: mark.key == key).is_some())
+                        return tuple(widget(node, key, title, shape) for node in Option.of_optional(nodes.get(key)).to_list())
 
             def graph_fields() -> BlenderResult[None]:
                 return accumulated(
@@ -303,7 +302,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     )
                 if (
                     isinstance(record.effect, DisplayView)
-                    and any(DynamicRange.of(space) is DynamicRange.HIGH for space in record.effect.colorspace(config).to_list())
+                    and any(dynamic_range_of(space) is DynamicRange.HIGH for space in record.effect.colorspace(config).to_list())
                     and not any(window.support_hdr_color for window in Option.of_optional(context.window).to_list())
                 ):
                     split(layout)[1].label(text="HDR not supported with OpenGL backend" if gpu.platform.backend_type_get() == "OPENGL" else "HDR display not supported", icon="STATUS_INFO_FILLED")
@@ -321,7 +320,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         alerted(
                             layout,
                             offered.read(identity, entry).bind(
-                                lambda record: owned(layout, scene, entry, group, offered, record, context).bind(lambda _: notices(layout, scene, entry, offered, record, context))
+                                lambda record: offered_drawn(layout, scene, entry, group, offered, record, context).bind(lambda _: notices(layout, scene, entry, offered, record, context))
                             ),
                         )
                     if row.is_none():
@@ -329,7 +328,9 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         gates: BlenderResult[dict[Key, Condition]] = pinned.conditions.map(lambda conditions: conditions(identity, entry)).default_value(Ok({})) if pinned is not None else Ok({})
                         alerted(
                             layout,
-                            paired(addresses(group, identity), gates).map(lambda parts: native(layout, entry, group, {parts[0][key]: condition for key, condition in parts[1].items()}, context)),
+                            paired(slot(identity).map(lambda name: addresses(group, name)), gates).map(
+                                lambda parts: native(layout, entry, group, {parts[0][key]: condition for key, condition in parts[1].items()}, context)
+                            ),
                         )
                     buttons = layout.row(align=True)
                     button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.entering.node, socket=EffectViewer.entering.socket), "Input")
@@ -347,15 +348,15 @@ class EffectBody(Line, frozen=True, kw_only=True):
 def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: Row | RowDraw, locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing) -> Each:
     """Constructs the native section and its stable colorspace and viewer declarations."""
 
-    def changed(call: Call[SpaceField]) -> BlenderResult[Done]:
-        def wrote(scene: bpy.types.Scene, held: StackEntry) -> BlenderResult[Done]:
+    def changed(call: Call[SpaceField]) -> BlenderResult[Outcome]:
+        def wrote(scene: bpy.types.Scene, held: StackEntry) -> BlenderResult[Outcome]:
             return (
                 Result[Placeable, BlenderFaults]
                 .bind(
                     held.row.to_result_with(lambda: (BlenderAbsentFault(owner=repr(held.entry), key=call.record.field),)),
                     lambda row: row.read(call.identity, held.entry, graphs={call.record.field: call.record.space}).bind(lambda record: row.write(call.identity, scene, held.entry, record)),
                 )
-                .map(lambda _: Done())
+                .map(lambda changed: Done() if changed else Unchanged(reason=f"{held.entry.name} already reads {call.record.space}"))
             )
 
         return call.root(bpy.types.Scene).bind(lambda scene: viewer.stack.found(call.identity, scene, call.record.name).bind(lambda held: wrote(scene, held)))

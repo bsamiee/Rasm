@@ -20,6 +20,7 @@ from rasm.blender.extension.identity import Identity, Key, Manifest
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult, BlenderWriteFault
 from rasm.blender.files.assets import AssetLibrary, AssetMark, CatalogPath, published
+from rasm.blender.nodes.changes import made
 from rasm.blender.nodes.graphs import Generated, NodeGroup
 from rasm.blender.render.effects.stack import Context, EffectStack, Placeable
 from rasm.blender.settings.properties import Choices
@@ -106,7 +107,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def tiled(plane: Option[npt.NDArray[np.float32]]) -> BlenderResult[tuple[bpy.types.ID, AssetMark]]:
-                return group.made(identity).bind(lambda tree: plane.map(lambda pixels: shown(tree, pixels)).default_value(Ok(None)).map(lambda _: (tree, mark)))
+                return made(group, identity).bind(lambda tree: plane.map(lambda pixels: shown(tree, pixels)).default_value(Ok(None)).map(lambda _: (tree, mark)))
 
             return self.thumbnail.map(lambda thumbnail: thumbnail(identity, record.effect, scene).map(Some)).default_value(Ok(Nothing)).bind(tiled)
 
@@ -132,10 +133,10 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
             return Ok(Nothing) if target in files else entry(record, group).bind(lambda asset: published(identity, folder, stem, (asset,))).bind(stale)
 
-        record = Entry(effect=row.seeded(scene))
-        return paired(self.stack.config(), self.files(identity)).bind(
-            lambda pair: row.grouped(identity, scene, record, pair[0], context=context).bind(lambda group: wrote(row.kind, record, group, *pair))
-        )
+        def built(record: Entry[Effect], config: PyOpenColorIO.Config, files: tuple[Path, ...]) -> BlenderResult[Option[Path]]:
+            return row.grouped(identity, scene, record, config, context=context).bind(lambda group: wrote(row.kind, record, group, config, files))
+
+        return paired(row.seeded(scene), paired(self.stack.config(), self.files(identity))).bind(lambda held: built(Entry(effect=held[0]), *held[1]))
 
     def saving(self, call: Call[Saving]) -> BlenderResult[Done]:
         """Writes the active effect into the chosen user's native asset library."""

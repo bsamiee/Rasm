@@ -20,7 +20,7 @@ import PyOpenColorIO
 
 from rasm.blender.commands.calls import called
 from rasm.blender.commands.modal import Gesture, Modal, Travel
-from rasm.blender.commands.operators import Call, Done, Empty, Operator, Pick
+from rasm.blender.commands.operators import Call, Done, Empty, Operator, Outcome, Pick
 from rasm.blender.data.ids.images import ResultRead
 from rasm.blender.data.rna.conditions import AllOf, check, holds, Setting
 from rasm.blender.data.rna.descriptors import Descriptor, IdName, root_in
@@ -33,7 +33,7 @@ from rasm.blender.render.effects.viewers import EffectViewer, EntryRegion
 from rasm.blender.render.outputs.exports import config_of, displayed, image_type, plane
 from rasm.blender.settings.attachments import Attached, Attachment
 from rasm.blender.settings.properties import Definition
-from rasm.blender.ui.drawing.canvas import Align, Canvas, DECODED, Rect, Shadow
+from rasm.blender.ui.drawing.canvas import Align, Canvas, compiled, DECODED, Rect, Shadow
 from rasm.blender.ui.drawing.charts import ChartFrame, FalseColor, Gamuts, histogram, Outline
 from rasm.blender.ui.drawing.handlers import Drawing, Overlay, Part, Refresh, Signal, Watch
 from rasm.blender.ui.layout.rows import Caption, Flow, joined, Line, Member, placed, Property, Row, RowDraw
@@ -209,9 +209,8 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
             with canvas.clipped(sides.clip):
                 shader.bind()
                 shader.uniform_sampler("image", state.texture)
-                shader.uniform_float("rect", (sides.plate.x, sides.plate.y, sides.plate.width, sides.plate.height))
-                shader.uniform_float("primary", checker.primary)
-                shader.uniform_float("secondary", checker.secondary)
+                plate = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 12, (sides.plate.x, sides.plate.y, sides.plate.width, sides.plate.height, *checker.primary, *checker.secondary)))
+                shader.uniform_block("plate", plate)
                 shader.uniform_float("cell", float(checker.cell))
                 shader.uniform_int("shown", shown.value)
                 quad.draw(shader)
@@ -223,17 +222,17 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
                 canvas.label(caption, (x, y), Wipe.light, text, align, Some(shadow))
 
     @staticmethod
-    @functools.cache
+    @compiled
     def channeled() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
         """Builds the before frame's channel shader and its unit quad."""
-        vertex = "void main() { uv = pos; gl_Position = ModelViewProjectionMatrix * vec4(rect.xy + pos * rect.zw, 0.0, 1.0); }"
+        vertex = "void main() { uv = pos; gl_Position = ModelViewProjectionMatrix * vec4(plate.rect.xy + pos * plate.rect.zw, 0.0, 1.0); }"
         fragment = (
             DECODED
             + """
 void main() {
     vec4 texel = texture(image, uv);
     vec2 cells = floor(gl_FragCoord.xy / cell);
-    vec3 ground = mod(cells.x + cells.y, 2.0) < 1.0 ? primary.rgb : secondary.rgb;
+    vec3 ground = mod(cells.x + cells.y, 2.0) < 1.0 ? plate.primary.rgb : plate.secondary.rgb;
     vec3 shade = shown > 1 ? vec3(texel[shown - 2]) : shown == 1 ? texel.rgb * texel.a + (1.0 - texel.a) * ground : texel.rgb;
     fragColor = vec4(targeted(shade), 1.0);
 }
@@ -242,12 +241,12 @@ void main() {
         interface = gpu.types.GPUStageInterfaceInfo("rasm_channeled")
         interface.smooth("VEC2", "uv")
         info = gpu.types.GPUShaderCreateInfo()
+        info.typedef_source("struct ChannelPlate { vec4 rect; vec4 primary; vec4 secondary; };")
+        info.uniform_buf(0, "ChannelPlate", "plate")
         info.vertex_in(0, "VEC2", "pos")
         info.vertex_out(interface)
         info.sampler(0, "FLOAT_2D", "image")
         info.push_constant("MAT4", "ModelViewProjectionMatrix")
-        for name in ("rect", "primary", "secondary"):
-            info.push_constant("VEC4", name)
         info.push_constant("FLOAT", "cell")
         info.push_constant("INT", "shown")
         info.push_constant("BOOL", "srgbTarget")
@@ -793,11 +792,11 @@ def metered(attached: Attached[Metering], scene: bpy.types.Scene, region: Region
     return attached.read(scene).bind(lambda held: attached.write(scene, msgspec.structs.replace(held, meter=msgspec.structs.replace(held.meter, region=Gated(enabled=True, value=region)))))
 
 
-def picking[P: Picked](key: Key, title: str, description: str, cursor: "rna_enums.WindowCursorItems", form: type[P], taken: Callable[[Call[P], Region], BlenderResult[Done]]) -> Operator[P]:
+def picking[P: Picked](key: Key, title: str, description: str, cursor: "rna_enums.WindowCursorItems", form: type[P], taken: Callable[[Call[P], Region], BlenderResult[Outcome]]) -> Operator[P]:
     """Answers the operator row converting a pending pick into a frame region its edit reads."""
     window = Setting(descriptor=Descriptor(root=bpy.types.Context, owner="region", prop=bpy.types.Region.bl_rna.properties["type"]), accepted=("WINDOW",))
 
-    def ran(call: Call[P]) -> BlenderResult[Done]:
+    def ran(call: Call[P]) -> BlenderResult[Outcome]:
         context, record = call.context, call.record
 
         def regioned(space: bpy.types.SpaceImageEditor, region: bpy.types.Region) -> BlenderResult[Region]:
@@ -880,7 +879,7 @@ def read_pick(viewer: EffectViewer) -> Operator[EntryPick]:
         "Hand the picked square of the frame entering the entry to the entry's own read",
         "EYEDROPPER",
         EntryPick,
-        lambda call, region: viewer.reading.run(Call(identity=call.identity, context=call.context, report=call.report, record=EntryRegion(name=call.record.name, region=region))),
+        lambda call, region: viewer.reading.run(Call(identity=call.identity, context=call.context, record=EntryRegion(name=call.record.name, region=region))),
     )
 
 

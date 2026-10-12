@@ -9,33 +9,9 @@ import bpy
 from expression import Ok, Some
 
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import (
-    Clock,
-    compared,
-    End,
-    ended,
-    Fragment,
-    framed,
-    FrameSpace,
-    gridded,
-    INPUTS,
-    Interface,
-    masked,
-    math,
-    menu,
-    mixed,
-    nested,
-    node,
-    NodeGroup,
-    Operand,
-    origin,
-    PixelGrid,
-    pixels,
-    sampled,
-    Socket,
-    switched,
-    vector,
-)
+from rasm.blender.nodes.coordinates import framed, FrameSpace, gridded, PixelGrid, pixels, sampled
+from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, INPUTS, masked, math, menu, mixed, nested, node, NodeGroup, Operand, origin, switched, vector
+from rasm.blender.nodes.interface import Interface, Socket
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, precise, Shell
 from rasm.blender.render.effects.viewers import inspection
 from rasm.imaging.effects.stylize.patterns import Cells, Direction, Glyphs, Halftone, Metric, Mono, Mosaic, Pattern, Pixelation, PixelSort, Process, RandomColor, Screen, SourceColor, TwoTone
@@ -246,17 +222,32 @@ def block_mean(key: str, frame: FrameSpace, source: Operand, length: Operand) ->
 
 def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[Fragment, End]]:
     """Builds the selected native display structure with its own color and coverage."""
-    kind = type(shell.record)
-    structure = (kind.structure.__name__,)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    clock = Clock(key="clock", speed=shell.socket(kind.motion.__name__, Motion.speed.__name__), hold=shell.socket(kind.motion.__name__, Motion.hold.__name__)).pattern  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    match shell.record:
+        case Pixelation():
+            structure_field, motion, seed = Pixelation.__struct_fields__
+        case Pattern():
+            structure_field, motion, seed = Pattern.__struct_fields__
+    speed, hold = Motion.__struct_fields__
+    structure = (structure_field,)
+    clock = Clock(key="clock", speed=shell.socket(motion, speed), hold=shell.socket(motion, hold)).pattern
 
     def built(frame: FrameSpace, index: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
+        (size_mosaic,) = Mosaic.__struct_fields__
+        size_cells, jitter_cells, metric_cells = Cells.__struct_fields__
+        pitch_halftone, angle, jitter_halftone, inks_halftone = Halftone.__struct_fields__
+        ink_mono, paper_mono = Mono.__struct_fields__
+        cyan, magenta, yellow, key_process = Process.__struct_fields__
+        offset_screen, scale_screen = Screen.__struct_fields__
+        _, rows, jitter_glyphs, paper_glyphs, coloring_glyphs = Glyphs.__struct_fields__
+        (saturation,) = RandomColor.__struct_fields__
+        (ink_two_tone,) = TwoTone.__struct_fields__
+        direction_sort, low_sort, high_sort, length_sort, softness_sort, falloff_sort, scatter_sort, clump, chunk, edge_fade = PixelSort.__struct_fields__
         middle = vector("middle", "SCALE", frame.extent, 0.5)
         centered = middle.bind(lambda middle: vector("centered", "SUBTRACT", frame.point, middle))
         luma = node("luma", bpy.types.CompositorNodeRGBToBW, {"Image": shell.source}, {}).map(ended("luma", "Val"))
 
         def drawn(key: str, noise: Noise, instance: int = 0) -> BlenderResult[tuple[Fragment, End]]:
-            return origin(key, shell.socket(kind.seed.__name__), noise, index, instance)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return origin(key, shell.socket(seed), noise, index, instance)
 
         def weighted(key: str, color: Operand, weight: Operand) -> BlenderResult[tuple[Fragment, End]]:
             return node(key, bpy.types.CompositorNodeSetAlpha, {"Image": color, "Alpha": weight, "Type": "Replace Alpha"}, {}).map(ended(key, "Image"))
@@ -267,9 +258,9 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
             )
 
         if isinstance(shell.record, Pixelation):
-            mosaic = block_mean("mosaic", frame, shell.source, shell.socket(*structure, Mosaic, Mosaic.size.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            mosaic = block_mean("mosaic", frame, shell.source, shell.socket(*structure, Mosaic, size_mosaic))
             offset = drawn("cell_origin", Noise.CELL).bind(lambda origin: vector("cell_offset", "FLOOR", origin))
-            size = shell.socket(*structure, Cells, Cells.size.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            size = shell.socket(*structure, Cells, size_cells)
             lattice = centered.bind(lambda point: vector("cell_scaled", "DIVIDE", point, size)).bind(lambda point: offset.bind(lambda offset: vector("cell_lattice", "ADD", point, offset)))
             sites = accumulated(
                 lattice
@@ -277,7 +268,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                     lambda lattice: node(
                         f"cell_{metric.name.lower()}",
                         bpy.types.ShaderNodeTexVoronoi,
-                        {"Vector": lattice, "Scale": 1.0, "Detail": 0.0, "Randomness": shell.socket(*structure, Cells, Cells.jitter.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        {"Vector": lattice, "Scale": 1.0, "Detail": 0.0, "Randomness": shell.socket(*structure, Cells, jitter_cells)},
                         {"voronoi_dimensions": "2D", "feature": "F1", "distance": metric.name, "normalize": False},
                     )
                 )
@@ -285,7 +276,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 .map(lambda position: (metric.label, position))
                 for metric in Metric
             )
-            site = sites.bind(lambda sites: menu("cell_site", "VECTOR", shell.socket(*structure, Cells, Cells.metric.__name__), shell.items[*structure, Cells, Cells.metric.__name__], dict(sites)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            site = sites.bind(lambda sites: menu("cell_site", "VECTOR", shell.socket(*structure, Cells, metric_cells), shell.items[*structure, Cells, metric_cells], dict(sites)))
             point = (
                 paired(site, offset)
                 .bind(lambda parts: vector("cell_local", "SUBTRACT", *parts))
@@ -295,27 +286,20 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
             choices = paired(mosaic, cells).map(lambda results: {Mosaic.title: results[0], Cells.title: results[1]})
         else:
             ht = (*structure, Halftone)
-            inks = (*ht, Halftone.inks.__name__)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            inks = (*ht, inks_halftone)
             screen = halftone_screen()
 
             def screened(key: str, tone: Operand, instance: int, *, offset: Operand = (0.0, 0.0, 0.0), scale: Operand = 1.0) -> BlenderResult[tuple[Fragment, End]]:
                 lattice = (
                     drawn(f"{key}_origin", Noise.SCREEN, instance).bind(lambda origin: vector(f"{key}_lattice", "FLOOR", origin)).bind(lambda lattice: vector(f"{key}_offset", "ADD", lattice, offset))
                 )
-                pitch = math(f"{key}_pitch", "MULTIPLY", shell.socket(*ht, Halftone.pitch.__name__), scale)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                pitch = math(f"{key}_pitch", "MULTIPLY", shell.socket(*ht, pitch_halftone), scale)
                 return paired(paired(lattice, pitch), centered).bind(
                     lambda parts: screen.bind(
                         lambda group: nested(
                             key,
                             group,
-                            {
-                                "coordinate": parts[1],
-                                "offset": parts[0][0],
-                                "pitch": parts[0][1],
-                                "angle": shell.socket(*ht, Halftone.angle.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                                "jitter": shell.socket(*ht, Halftone.jitter.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                                "tone": tone,
-                            },
+                            {"coordinate": parts[1], "offset": parts[0][0], "pitch": parts[0][1], "angle": shell.socket(*ht, angle), "jitter": shell.socket(*ht, jitter_halftone), "tone": tone},
                             "coverage",
                         )
                     )
@@ -323,7 +307,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
 
             mono = luma.bind(lambda luma: math("mono_tone", "SUBTRACT", 1.0, luma)).bind(lambda tone: screened("mono", tone, 0))
             mono = mono.bind(
-                lambda coverage: mixed("mono_print", "RGBA", coverage, shell.socket(*inks, Mono, Mono.paper.__name__), shell.socket(*inks, Mono, Mono.ink.__name__)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                lambda coverage: mixed("mono_print", "RGBA", coverage, shell.socket(*inks, Mono, paper_mono), shell.socket(*inks, Mono, ink_mono)).bind(
                     lambda color: weighted("mono_weighted", color, coverage)
                 )
             )
@@ -335,18 +319,14 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 lambda ink: node("ink_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ink}, {})
             )
             black = peak.bind(lambda peak: math("black_ink", "SUBTRACT", 1.0, peak))
-            tones = separations.map(
-                lambda axes: ((Process.cyan, ended("ink_axes", "X")(axes)), (Process.magenta, (axes, End(node="ink_axes", socket="Y"))), (Process.yellow, (axes, End(node="ink_axes", socket="Z"))))
-            ).bind(lambda colors: black.map(lambda black: (*colors, (Process.key, black))))
+            tones = separations.map(lambda axes: ((cyan, ended("ink_axes", "X")(axes)), (magenta, (axes, End(node="ink_axes", socket="Y"))), (yellow, (axes, End(node="ink_axes", socket="Z"))))).bind(
+                lambda colors: black.map(lambda black: (*colors, (key_process, black)))
+            )
             process = tones.bind(
                 lambda tones: accumulated(
-                    screened(
-                        f"process_{field.__name__}",  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        tone,
-                        instance,
-                        offset=shell.socket(*inks, Process, field.__name__, Screen.offset.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        scale=shell.socket(*inks, Process, field.__name__, Screen.scale.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    ).bind(lambda coverage: math(f"process_{field.__name__}_clear", "SUBTRACT", 1.0, coverage))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    screened(f"process_{field}", tone, instance, offset=shell.socket(*inks, Process, field, offset_screen), scale=shell.socket(*inks, Process, field, scale_screen)).bind(
+                        lambda coverage: math(f"process_{field}_clear", "SUBTRACT", 1.0, coverage)
+                    )
                     for instance, (field, tone) in enumerate(tones)
                 )
             )
@@ -373,7 +353,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
             height = (
                 node("glyph_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {})
                 .bind(lambda extent: math("glyph_short", "MINIMUM", ended("glyph_extent", "X")(extent), End(node="glyph_extent", socket="Y")))
-                .bind(lambda short: math("glyph_height", "DIVIDE", short, shell.socket(*gl, Glyphs.rows.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda short: math("glyph_height", "DIVIDE", short, shell.socket(*gl, rows)))
             )
             strip = (
                 height
@@ -413,7 +393,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
             )
             jitter = draw.bind(lambda draw: math("glyph_jitter", "SUBTRACT", ended("glyph_draw", "Value")(draw), 0.5))
             tone = center.bind(lambda center: node("glyph_luma", bpy.types.CompositorNodeRGBToBW, {"Image": center}, {})).bind(
-                lambda luma: jitter.bind(lambda jitter: math("glyph_tone", "MULTIPLY_ADD", jitter, shell.socket(*gl, Glyphs.jitter.__name__), ended("glyph_luma", "Val")(luma), clamp=True))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                lambda luma: jitter.bind(lambda jitter: math("glyph_tone", "MULTIPLY_ADD", jitter, shell.socket(*gl, jitter_glyphs), ended("glyph_luma", "Val")(luma), clamp=True))
             )
             rank = (
                 tone
@@ -442,7 +422,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 )
                 .map(ended("glyph_mask", "Image"))
             )
-            coloring = (*gl, Glyphs.coloring.__name__)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            coloring = (*gl, coloring_glyphs)
             random = (
                 draw
                 .bind(lambda draw: node("glyph_hue", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("glyph_draw", "Color")(draw)}, {}))
@@ -450,7 +430,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                     lambda hue: node(
                         "glyph_random",
                         bpy.types.CompositorNodeCombineColor,
-                        {"Red": ended("glyph_hue", "X")(hue), "Green": shell.socket(*coloring, RandomColor, RandomColor.saturation.__name__), "Blue": 1.0, "Alpha": 1.0},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        {"Red": ended("glyph_hue", "X")(hue), "Green": shell.socket(*coloring, RandomColor, saturation), "Blue": 1.0, "Alpha": 1.0},
                         {"mode": "HSV"},
                     )
                 )
@@ -462,48 +442,32 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                     "RGBA",
                     shell.socket(*coloring),
                     shell.items[coloring],
-                    {SourceColor.title: colors[0], TwoTone.title: shell.socket(*coloring, TwoTone, TwoTone.ink.__name__), RandomColor.title: colors[1]},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    {SourceColor.title: colors[0], TwoTone.title: shell.socket(*coloring, TwoTone, ink_two_tone), RandomColor.title: colors[1]},
                 )
             )
             glyph = paired(mask, color).bind(
-                lambda parts: mixed("glyph_print", "RGBA", parts[0], shell.socket(*gl, Glyphs.paper.__name__), parts[1]).bind(lambda color: weighted("glyph_weighted", color, parts[0]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                lambda parts: mixed("glyph_print", "RGBA", parts[0], shell.socket(*gl, paper_glyphs), parts[1]).bind(lambda color: weighted("glyph_weighted", color, parts[0]))
             )
 
             ps = (*structure, PixelSort)
             headings = {Direction.LEFT: (-1.0, 0.0, 0.0), Direction.RIGHT: (1.0, 0.0, 0.0), Direction.UP: (0.0, 1.0, 0.0), Direction.DOWN: (0.0, -1.0, 0.0)}
-            heading = menu(
-                "sort_heading",
-                "VECTOR",
-                shell.socket(*ps, PixelSort.direction.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                shell.items[*ps, PixelSort.direction.__name__],  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                {direction.label: axis for direction, axis in headings.items()},
-            )
+            heading = menu("sort_heading", "VECTOR", shell.socket(*ps, direction_sort), shell.items[*ps, direction_sort], {direction.label: axis for direction, axis in headings.items()})
             axis = heading.bind(lambda heading: vector("sort_axis", "ABSOLUTE", heading))
             cross = axis.bind(lambda axis: vector("sort_cross", "SUBTRACT", (1.0, 1.0, 0.0), axis))
-            softness = axis.bind(lambda axis: vector("sort_softness", "SCALE", axis, shell.socket(*ps, PixelSort.softness.__name__))).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                lambda length: pixels("sort_softness_size", frame, length, "VECTOR")
-            )
+            softness = axis.bind(lambda axis: vector("sort_softness", "SCALE", axis, shell.socket(*ps, softness_sort))).bind(lambda length: pixels("sort_softness_size", frame, length, "VECTOR"))
             soft = (
                 paired(luma, softness)
                 .bind(lambda parts: node("sort_soft", bpy.types.CompositorNodeBlur, {"Image": parts[0], "Size": parts[1], "Type": "Gaussian"}, {}))
                 .map(ended("sort_soft", "Image"))
             )
-            low = soft.bind(lambda tone: math("sort_less_low", "LESS_THAN", tone, shell.socket(*ps, PixelSort.low.__name__))).bind(lambda less: math("sort_ge_low", "SUBTRACT", 1.0, less))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            high = soft.bind(lambda tone: math("sort_greater_high", "GREATER_THAN", tone, shell.socket(*ps, PixelSort.high.__name__))).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                lambda greater: math("sort_le_high", "SUBTRACT", 1.0, greater)
-            )
+            low = soft.bind(lambda tone: math("sort_less_low", "LESS_THAN", tone, shell.socket(*ps, low_sort))).bind(lambda less: math("sort_ge_low", "SUBTRACT", 1.0, less))
+            high = soft.bind(lambda tone: math("sort_greater_high", "GREATER_THAN", tone, shell.socket(*ps, high_sort))).bind(lambda greater: math("sort_le_high", "SUBTRACT", 1.0, greater))
             band = (
                 paired(low, high)
                 .bind(lambda ends: paired(math("sort_inside", "MULTIPLY", *ends), math("sort_outside", "MAXIMUM", *ends)))
-                .bind(
-                    lambda bands: math("sort_wrapped", "GREATER_THAN", shell.socket(*ps, PixelSort.low.__name__), shell.socket(*ps, PixelSort.high.__name__)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        lambda wrapped: mixed("sort_key", "FLOAT", wrapped, *bands)
-                    )
-                )
+                .bind(lambda bands: math("sort_wrapped", "GREATER_THAN", shell.socket(*ps, low_sort), shell.socket(*ps, high_sort)).bind(lambda wrapped: mixed("sort_key", "FLOAT", wrapped, *bands)))
             )
-            falloff = axis.bind(lambda axis: vector("sort_falloff", "SCALE", axis, shell.socket(*ps, PixelSort.falloff.__name__))).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                lambda length: pixels("sort_falloff_size", frame, length, "VECTOR")
-            )
+            falloff = axis.bind(lambda axis: vector("sort_falloff", "SCALE", axis, shell.socket(*ps, falloff_sort))).bind(lambda length: pixels("sort_falloff_size", frame, length, "VECTOR"))
             fall = (
                 paired(band, falloff)
                 .bind(lambda parts: node("sort_fall", bpy.types.CompositorNodeBlur, {"Image": parts[0], "Size": parts[1], "Type": "Gaussian"}, {}))
@@ -513,7 +477,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 drawn("sort_scatter_origin", Noise.SCATTER)
                 .bind(lambda origin: vector("sort_grain_at", "ADD", frame.point, origin))
                 .bind(lambda point: node("sort_grain", bpy.types.ShaderNodeTexWhiteNoise, {"Vector": point}, {"noise_dimensions": "2D"}))
-                .bind(lambda grain: math("sort_scatter", "MULTIPLY", ended("sort_grain", "Value")(grain), shell.socket(*ps, PixelSort.scatter.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda grain: math("sort_scatter", "MULTIPLY", ended("sort_grain", "Value")(grain), shell.socket(*ps, scatter_sort)))
                 .bind(lambda scatter: math("sort_kept", "SUBTRACT", 1.0, scatter))
             )
             across = cross.bind(lambda axis: vector("sort_across", "DOT_PRODUCT", frame.fraction, axis))
@@ -525,12 +489,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 .bind(lambda parts: math("sort_tone_offset", "MULTIPLY_ADD", parts[1], 2.0, -1.0).bind(lambda tone: math("sort_streak_across", "ADD", parts[0], tone)))
                 .bind(lambda across: shift.bind(lambda shift: math("sort_streak_at", "ADD", across, shift)))
                 .bind(
-                    lambda at: node(
-                        "sort_streak",
-                        bpy.types.ShaderNodeTexNoise,
-                        {"W": at, "Roughness": shell.socket(*ps, PixelSort.clump.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        {"noise_dimensions": "1D", "noise_type": "FBM", "normalize": True},
-                    )
+                    lambda at: node("sort_streak", bpy.types.ShaderNodeTexNoise, {"W": at, "Roughness": shell.socket(*ps, clump)}, {"noise_dimensions": "1D", "noise_type": "FBM", "normalize": True})
                 )
                 .map(ended("sort_streak", "Fac"))
             )
@@ -538,7 +497,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 paired(fall, scatter)
                 .bind(lambda parts: math("sort_keyed", "MULTIPLY", *parts))
                 .bind(lambda keyed: streak.bind(lambda streak: math("sort_unchunked", "MULTIPLY", keyed, streak)))
-                .bind(lambda field: block_mean("sort_chunk", frame, field, shell.socket(*ps, PixelSort.chunk.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda field: block_mean("sort_chunk", frame, field, shell.socket(*ps, chunk)))
             )
             along = axis.bind(lambda axis: vector("sort_along", "DOT_PRODUCT", frame.fraction, axis))
             fade = (
@@ -546,10 +505,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 .bind(lambda along: math("sort_from_end", "SUBTRACT", 1.0, along).bind(lambda other: math("sort_end", "MINIMUM", along, other)))
                 .bind(
                     lambda distance: node(
-                        "sort_fade",
-                        bpy.types.ShaderNodeMapRange,
-                        {"Value": distance, "From Min": shell.socket(*ps, PixelSort.edge_fade.__name__), "From Max": 0.0, "To Min": 1.0, "To Max": 0.0},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        {"clamp": True},
+                        "sort_fade", bpy.types.ShaderNodeMapRange, {"Value": distance, "From Min": shell.socket(*ps, edge_fade), "From Max": 0.0, "To Min": 1.0, "To Max": 0.0}, {"clamp": True}
                     )
                 )
                 .map(ended("sort_fade", "Result"))
@@ -557,7 +513,7 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
             weight = paired(field, fade).bind(lambda parts: math("sort_map", "MULTIPLY", *parts))
             displacement = (
                 heading
-                .bind(lambda heading: vector("sort_reach", "SCALE", heading, shell.socket(*ps, PixelSort.length.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda heading: vector("sort_reach", "SCALE", heading, shell.socket(*ps, length_sort)))
                 .bind(lambda reach: weight.bind(lambda weight: vector("sort_travel", "SCALE", reach, weight)))
                 .bind(lambda displacement: pixels("sort_displacement", frame, displacement, "VECTOR"))
             )
@@ -574,8 +530,8 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
 
         result = choices.bind(lambda choices: menu("structure", "RGBA", shell.socket(*structure), shell.items[structure], choices))
         return result.bind(
-            lambda result: node("structure_weight", bpy.types.CompositorNodeSeparateColor, {"Image": (1.0,) * 4 if isinstance(shell.record, Pixelation) else result}, {"mode": "RGB"}).map(
-                lambda weight: (result[0] | weight, result[1])
+            lambda result: node("structure_weight", bpy.types.CompositorNodeSeparateColor, {"Image": (1.0,) * 4 if isinstance(shell.record, Pixelation) else result}, {"mode": "RGB"}).bind(
+                lambda weight: Fragment.merged((result[0], weight)).map(lambda joined: (joined, result[1]))
             )
         )
 

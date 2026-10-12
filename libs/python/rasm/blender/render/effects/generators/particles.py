@@ -4,17 +4,18 @@ from collections.abc import Mapping
 from contextlib import ExitStack
 
 import bpy
-from expression import Error, Ok, Some
+from expression import Ok, Some
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
 from rasm.blender.extension.identity import Identity, Key
-from rasm.blender.faults import BlenderEditFault, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes import graphs
+from rasm.blender.faults import BlenderImagingFault, BlenderResult
+from rasm.blender.nodes.changes import stored
 from rasm.blender.nodes.graphs import Fragment
-from rasm.blender.render.effects.stack import CameraFrame, CompositorEffect, Coverage, precise, Shell, shutter
+from rasm.blender.nodes.trees import created
+from rasm.blender.render.effects.stack import CameraFrame, CompositorEffect, Coverage, precise, Shell, Shutter, shutter
 from rasm.imaging.effects.generators.noise import Estimate, Gradient, Precision, spectrum
 from rasm.imaging.effects.generators.particles import Particles
 from rasm.imaging.faults import accumulated, ImagingResult, paired
@@ -54,33 +55,31 @@ def prepared(
         )
     )
     with ExitStack() as scope:
-        try:
-            native: dict[Ramp, bpy.types.ShaderNodeValToRGB] = {}
-            if ramps:
-                tree: bpy.types.NodeTree = bpy.data.node_groups.new(record.title, "ShaderNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                scope.callback(bpy.data.node_groups.remove, tree)
-                native = {ramp: tree.nodes.new(bpy.types.ShaderNodeValToRGB.__name__) for ramp in ramps}  # type: ignore[misc]  # ty: ignore[invalid-assignment]
-        except (MemoryError, RuntimeError) as error:
-            return Error((BlenderEditFault(request=record.title, error=error),))
 
-        def gradient(ramp: Ramp, tones: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-            return Ok(np.asarray([native[ramp].color_ramp.evaluate(float(tone)) for tone in tones], dtype=np.float64)[:, :3])  # type: ignore[misc, union-attr]  # ty: ignore[unresolved-attribute]
+        def ramped(tree: bpy.types.NodeTree) -> BlenderResult[dict[Ramp, bpy.types.Node]]:
+            scope.callback(bpy.data.node_groups.remove, tree)
+            return accumulated(created(tree, bpy.types.ShaderNodeValToRGB).bind(lambda live: stored(ramp, live, identity).map(lambda _: (ramp, live))) for ramp in ramps).map(dict)
 
-        return paired(accumulated(graphs.stored(ramp, live, identity) for ramp, live in native.items()), shutter.of.some(identity, scene, record)).bind(
-            lambda parts: (
+        def integrated(native: dict[Ramp, bpy.types.Node], timing: Shutter) -> BlenderResult[tuple[Particles, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
+            def gradient(ramp: Ramp, tones: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+                return Ok(np.asarray([native[ramp].color_ramp.evaluate(float(tone)) for tone in tones], dtype=np.float64)[:, :3])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+            return (
                 record
                 .applied(
                     image,
                     frame.window(image.spec())[0],
                     reference_frame=scene.frame_current_final,
-                    shutter=(parts[1].opening * parts[1].length, (parts[1].opening + 1.0) * parts[1].length),
+                    shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
                     precision=precision,
                     spectrum=lambda request, tones: spectrum(request, tones, config=config, gradient=gradient),
                 )
                 .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
                 .map(lambda estimate: (record, {Shell.image: estimate}))
             )
-        )
+
+        native = ramped(bpy.data.node_groups.new(record.title, "ShaderNodeTree")) if ramps else Ok({})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return paired(native, shutter.of.some(identity, scene, record)).bind(lambda parts: integrated(*parts))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

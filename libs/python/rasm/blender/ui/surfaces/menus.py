@@ -10,7 +10,7 @@ import msgspec
 from msgspec import inspect
 
 from rasm.blender.commands.calls import MenuPopup
-from rasm.blender.commands.operators import Done, Stock
+from rasm.blender.commands.operators import answered, Outcome, Stock, Unchanged
 from rasm.blender.data.rna.conditions import Condition, holds
 from rasm.blender.data.rna.descriptors import Descriptor, root_in
 from rasm.blender.data.rna.snapshots import Applied, Scoped, Snapshot
@@ -150,15 +150,18 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
                     .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key=self.scope.owner_type.__name__),)))
                 )
 
-            def finished(outcomes: tuple[Applied, ...]) -> Done:
-                faults = tuple(BlenderAbsentFault(owner=self.scope.owner_type.__name__, key=path) for path in dict.fromkeys(Applied.join(outcomes).skipped))
-                return Done(skipped=Some((faults[0], *faults[1:])) if faults else Nothing)
+            def finished(outcomes: tuple[Applied, ...]) -> BlenderResult[Outcome]:
+                owner = self.scope.owner_type.__name__
+                if not outcomes:
+                    return Ok(Unchanged(reason=f"No {owner} in scope"))
+                absent = (Applied(outcome=Error((BlenderAbsentFault(owner=owner, key=path),))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
+                return answered(Applied.join((*outcomes, *absent)), "The settings already hold the preset")
 
             return Listing(
                 preset=self.preset,
                 current=lambda context: captured(context).map(lambda pair: pair[1]),
                 matches=lambda context, stored: captured(context).bind(lambda held: accumulated(value.projected(held[0], held[1]).map(lambda pair: pair[1] == held[1]) for value in stored)),
-                applied=lambda context, stored: stored.apply_all(self.scope, context).bind(lambda outcomes: accumulated(outcome.outcome for outcome in outcomes).map(lambda _: finished(outcomes))),
+                applied=lambda context, stored: stored.apply_all(self.scope, context).bind(finished),
             )
 
         return accumulated(Descriptor.resolve(self.scope.owner_type, path, bpy.types.Property) for path in self.selection).map(listed)

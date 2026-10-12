@@ -9,7 +9,7 @@ from expression.extra.result import catch
 from mathutils import Matrix
 import msgspec
 
-from rasm.blender.commands.operators import Done, Empty, Operator
+from rasm.blender.commands.operators import Done, Empty, Operator, Outcome, Unchanged
 from rasm.blender.data.ids.ownership import earliest, Mark, Ownership, Saved
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.conditions import Setting
@@ -103,7 +103,11 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             description="Write the light groups a rule names onto a scope's emitters and worlds",
             form=Assignment,
             condition=cycles,
-            run=lambda call: assigned(call.record.membership, call.record.scope, call.context).map(lambda names: Done(notes=(("INFO", f"Light groups {', '.join(sorted(names))}"),))),
+            run=lambda call: assigned(call.record.membership, call.record.scope, call.context).map(
+                lambda change: change.map(lambda names: Done(notes=(("INFO", f"Light groups {', '.join(sorted(names))}"),))).default_value(
+                    Unchanged(reason="Every emitter and world in scope holds its light group")
+                )
+            ),
         ),
         Operator(
             key="light_group_select",
@@ -119,12 +123,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             description="Give each selected light one child per ray kind, each in its own light group",
             form=Split,
             condition=cycles,
-            run=lambda call: (
-                call
-                .root(bpy.types.ViewLayer)
-                .bind(lambda layer: accumulated(split(master, light, call.record, layer, call.identity) for master, light in LightGroupEdits.lights(layer).items()))
-                .map(lambda _: Done())
-            ),
+            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: lobed(layer, call.record, call.identity)),
         ),
         Operator(
             key="light_split_toggle",
@@ -132,7 +131,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             description="Swap view layer visibility between split lights and their children",
             form=Empty,
             condition=cycles,
-            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: toggled(tuple(LightGroupEdits.lights(layer)), layer, call.identity)).map(lambda _: Done()),
+            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: toggled(layer, call.identity)),
         ),
         Operator(
             key="light_unsplit",
@@ -140,12 +139,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             description="Remove the selected lights' split children and render the lights again",
             form=Empty,
             condition=cycles,
-            run=lambda call: (
-                call
-                .root(bpy.types.ViewLayer)
-                .bind(lambda layer: accumulated(unsplit(master, call.identity) for master in LightGroupEdits.lights(layer)))
-                .map(lambda counts: Done(notes=(("INFO", f"Removed {sum(counts)} children"),)))
-            ),
+            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: unsplit(layer, call.identity)),
         ),
     )
 
@@ -176,7 +170,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -> BlenderResult[frozenset[str]]:
+def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -> BlenderResult[Option[frozenset[str]]]:
     """Writes the light groups a rule names onto a scope's emitters and worlds.
 
     Args:
@@ -185,7 +179,7 @@ def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -
         context: Context the scope's `owners` reads.
 
     Returns:
-        `Ok` of the group names written; `absent` for a missing scope name and `edit` per refused write.
+        `Ok` of the group names a changed holder took, `Nothing` where every holder already held its group; `absent` for a missing scope name and `edit` per refused write.
     """
 
     def named(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> str:
@@ -197,18 +191,23 @@ def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -
             case Ungrouped():
                 return ""
 
-    def wrote(rule: Gated[Grouping], holder: bpy.types.Object | bpy.types.World) -> BlenderResult[frozenset[str]]:
-        name = named(rule.value, holder)
-        return written(holder, "lightgroup", name).map(lambda _: frozenset({name} - {""})) if rule.enabled else Ok(frozenset())
+    def wrote(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> BlenderResult[Option[str]]:
+        name = named(grouping, holder)
+        return written(holder, "lightgroup", name).map(lambda prior: prior.map(lambda _: name))
 
     def worlds(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> tuple[bpy.types.World, ...]:
         return tuple(dict.fromkeys(world for owner in reached if isinstance(scene := owner.id_data, bpy.types.Scene) for world in Option.of_optional(scene.world).to_list()))
 
     return scope.owners(context).bind(
         lambda reached: accumulated((
-            *(wrote(membership.lights if isinstance(item.data, bpy.types.Light) else membership.emissive, item) for item in dict.fromkeys(item for owner in reached for item in emitters(owner))),
-            *(wrote(membership.world, world) for world in worlds(reached)),
-        )).map(lambda parts: frozenset[str]().union(*parts))
+            *(
+                wrote(rule.value, item)
+                for item in dict.fromkeys(item for owner in reached for item in emitters(owner))
+                for rule in (membership.lights if isinstance(item.data, bpy.types.Light) else membership.emissive,)
+                if rule.enabled
+            ),
+            *(wrote(membership.world.value, world) for world in worlds(reached) if membership.world.enabled),
+        )).map(lambda changes: Some(tuple(name for change in changes for name in change.to_list())).filter(bool).map(lambda names: frozenset(names) - {""}))
     )
 
 
@@ -236,7 +235,6 @@ def split(master: bpy.types.Object, light: bpy.types.Light, record: Split, view_
         `Ok` of the children in lobe order; `edit` and the reconcile's faults.
     """
     group, holders = master.lightgroup or master.name, tuple(master.users_collection)
-    inverse = tuple(value for row in Matrix.Identity(4) for value in row)  # type: ignore[attr-defined]
     stale = tuple(item for lobe, row in LightGroupEdits.children.items() if lobe not in record.lobes for item, mark in row.held(identity) if mark.of == Some(master))
 
     def retained(item: bpy.types.Object) -> bpy.types.Object:
@@ -250,9 +248,8 @@ def split(master: bpy.types.Object, light: bpy.types.Light, record: Split, view_
             "visible_shadow": master.visible_shadow,
             "hide_render": False,
             "lightgroup": f"{group}_{lobe.label.lower()}",
-            "matrix_parent_inverse": inverse,
         }
-        state = ObjectState(parent=Some(Handle.of(master)), values=Some(Snapshot.of(bpy.types.Object, values)), placement=Some(master.matrix_world.copy().freeze()), hidden=Some(True))
+        state = ObjectState(parent=Some(Handle.of(master)), values=Some(Snapshot.of(bpy.types.Object, values)), placement=Some(Matrix.Identity(4)), hidden=Some(True))
         row = LightGroupEdits.children[lobe]
         mark = Mark(key=row.key, of=Some(master))
         return (
@@ -287,40 +284,94 @@ def split(master: bpy.types.Object, light: bpy.types.Light, record: Split, view_
         )
 
 
-def toggled(masters: tuple[bpy.types.Object, ...], view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[None]:
-    """Swaps layer visibility between split masters and their children.
+def splits(view_layer: bpy.types.ViewLayer, identity: Identity) -> dict[bpy.types.Object, tuple[bpy.types.Object, ...]]:
+    """Answers each selected light holding split children with those children.
 
     Args:
-        masters: Split light objects.
-        view_layer: View layer whose base flags change.
+        view_layer: View layer whose selection names the lights.
         identity: Identity reading the children's marks.
 
     Returns:
-        `Ok` once swapped; the `edit` faults of each refused write.
+        Split lights in selection order with their children.
     """
-    held = tuple(item for master in masters for row in LightGroupEdits.children.values() for item, mark in row.held(identity) if mark.of == Some(master))
-    return accumulated(reconciled(ObjectState(hidden=Some(not item.hide_get(view_layer=view_layer))), item, (view_layer,)) for item in (*masters, *held)).map(lambda _: None)
+    return {
+        master: held
+        for master in LightGroupEdits.lights(view_layer)
+        if (held := tuple(item for row in LightGroupEdits.children.values() for item, mark in row.held(identity) if mark.of == Some(master)))
+    }
 
 
-def unsplit(master: bpy.types.Object, identity: Identity) -> BlenderResult[int]:
-    """Removes a master's split children and shows the master in renders.
+def lobed(view_layer: bpy.types.ViewLayer, record: Split, identity: Identity) -> BlenderResult[Outcome]:
+    """Splits each selected light into its lobe children.
 
     Args:
-        master: Split light object.
+        view_layer: View layer whose selection names the lights.
+        record: Lobes the children take.
+        identity: Identity marking each child.
+
+    Returns:
+        `Ok` of `Done`, `Unchanged` where the layer selects no light; every split's faults.
+    """
+    if not (lights := LightGroupEdits.lights(view_layer)):
+        return Ok(Unchanged(reason="No light selected"))
+    return accumulated(split(master, light, record, view_layer, identity) for master, light in lights.items()).map(lambda _: Done())
+
+
+def toggled(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[Outcome]:
+    """Swaps layer visibility between selected split lights and their children.
+
+    Args:
+        view_layer: View layer whose selection names the lights and whose base flags change.
         identity: Identity reading the children's marks.
 
     Returns:
-        `Ok` of the children removed; `edit` for a refused write.
+        `Ok` of `Done`, `Unchanged` where the layer selects no split light; the `edit` faults of each refused write.
     """
-    held = tuple(item for row in LightGroupEdits.children.values() for item, mark in row.held(identity) if mark.of == Some(master))
+    if not (held := splits(view_layer, identity)):
+        return Ok(Unchanged(reason="No split light selected"))
+    return accumulated(reconciled(ObjectState(hidden=Some(not item.hide_get(view_layer=view_layer))), item, (view_layer,)) for master, children in held.items() for item in (master, *children)).map(
+        lambda _: Done()
+    )
+
+
+def unsplit(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[Outcome]:
+    """Removes the selected split lights' children and shows those lights in renders.
+
+    Args:
+        view_layer: View layer whose selection names the lights.
+        identity: Identity reading the children's marks.
+
+    Returns:
+        `Ok` of `Done` noting the children removed, `Unchanged` where the layer selects no split light; `edit` for a refused write.
+    """
+    if not (held := splits(view_layer, identity)):
+        return Ok(Unchanged(reason="No split light selected"))
     shown = Snapshot.of(bpy.types.Object, {"hide_render": False})
     try:
-        bpy.data.batch_remove(ids=held)
+        bpy.data.batch_remove(ids=tuple(item for children in held.values() for item in children))
     except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-        return Error((BlenderEditFault(request=repr(master), error=error),))
-    return reconciled(ObjectState(values=Some(shown)), master, ()).map(lambda _: len(held))
+        return Error((BlenderEditFault(request=repr(tuple(held)), error=error),))
+    return accumulated(reconciled(ObjectState(values=Some(shown)), master, ()) for master in held).map(lambda _: Done(notes=(("INFO", f"Removed {sum(map(len, held.values()))} children"),)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Assignment", "Grouping", "LightGroupEdits", "Lobe", "Membership", "PerEmitter", "Shared", "Split", "Ungrouped", "assigned", "members", "split", "toggled", "unsplit", "used"]
+__all__ = [
+    "Assignment",
+    "Grouping",
+    "LightGroupEdits",
+    "Lobe",
+    "Membership",
+    "PerEmitter",
+    "Shared",
+    "Split",
+    "Ungrouped",
+    "assigned",
+    "lobed",
+    "members",
+    "split",
+    "splits",
+    "toggled",
+    "unsplit",
+    "used",
+]

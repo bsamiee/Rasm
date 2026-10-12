@@ -17,7 +17,7 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Done, Operator
+from rasm.blender.commands.operators import Call, Done, Operator, Outcome, Unchanged
 from rasm.blender.data.rna.conditions import Job
 from rasm.blender.data.rna.descriptors import Descriptor, Value, written
 from rasm.blender.data.rna.snapshots import Snapshot
@@ -25,28 +25,9 @@ from rasm.blender.extension.events.handlers import PathHandler, UpdateHandler
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisitions, Band
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
-from rasm.blender.nodes.graphs import (
-    End,
-    ended,
-    fingerprinted,
-    Fragment,
-    INPUTS,
-    Interface,
-    item_key,
-    masked,
-    math,
-    menu,
-    MenuItems,
-    mixed,
-    nested,
-    node,
-    NodeGroup,
-    Operand,
-    Part,
-    Socket,
-    switched,
-    vector,
-)
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, masked, math, menu, mixed, nested, node, NodeGroup, Operand, Part, switched, vector
+from rasm.blender.nodes.interface import Interface, item_key, MenuItems, Socket
+from rasm.blender.nodes.trees import fingerprinted
 from rasm.blender.render.color.luts import Enabled, lut_files, Sampling
 from rasm.blender.render.effects.grade.lookup import tabled, tiles
 from rasm.blender.render.effects.stack import CameraFrame, CompositorEffect, Coverage, EffectStack, entries, formation, Named, Shell, viewed
@@ -56,9 +37,10 @@ from rasm.blender.ui.drawing.canvas import Align
 from rasm.blender.ui.drawing.charts import TracePlot, Well
 from rasm.blender.ui.drawing.handlers import Signal
 from rasm.blender.ui.resources.theme import Metrics
-from rasm.imaging.analysis.metering import Extent, Samples
+from rasm.imaging.analysis.metering import Extent, samples_of
 from rasm.imaging.chain import Effect, GREY, Stage
 from rasm.imaging.color.config import admitted
+from rasm.imaging.color.luts import Rational
 from rasm.imaging.color.processors import applied, DisplayView, processor
 from rasm.imaging.compositing.blending import Entry
 from rasm.imaging.effects.generators.noise import Estimate, Precision
@@ -312,19 +294,21 @@ def nonnegative(color: Operand) -> BlenderResult[tuple[Fragment, End]]:
 
 def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
     """Applies a live per-channel curve over admitted native rendering primaries."""
-    application, curve = ToneCurve.application.__name__, ToneCurve.curve.__name__  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
+    curve, _, application = ToneCurve.__struct_fields__
+    preserve_hue, red, green, blue, purity_field = Application.__struct_fields__
     config, record, source = shell.config, shell.record, shell.source
     if isinstance(record.curve, Logarithmic | ReinhardExtended) and not record.curve.scene_white.enabled:
         return Error((BlenderAbsentFault(owner=record.title, key="current_frame_white"),))
-    keys = (Application.red.__name__, Application.green.__name__, Application.blue.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    keys = (red, green, blue)
     axes = tuple("XYZ")
     kinds: tuple[type[Curve], ...] = get_args(Curve.__value__)
 
     def scalar(kind: type[Curve]) -> BlenderResult[NodeGroup]:
         value = End(node=INPUTS, socket="value")
+        _, value_field = Gated.__struct_fields__
 
         def sigmoid() -> tuple[Part, ...]:
-            contrast, skew, white, black = (End(node=INPUTS, socket=field.__name__) for field in (Sigmoid.contrast, Sigmoid.skew, Sigmoid.display_white, Sigmoid.display_black))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            contrast, skew, white, black = (End(node=INPUTS, socket=field) for field in Sigmoid.__struct_fields__)
             return (
                 math("skew_power", "POWER", 0.2, skew),
                 math("inverse_skew", "DIVIDE", 1.0, End(node="skew_power")),
@@ -363,17 +347,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
             )
 
         def piecewise() -> tuple[Part, ...]:
-            toe_strength, toe_length, shoulder_strength, shoulder_length, shoulder_angle, gamma = (
-                End(node=INPUTS, socket=field.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                for field in (
-                    PiecewisePower.toe_strength,
-                    PiecewisePower.toe_length,
-                    PiecewisePower.shoulder_strength,
-                    PiecewisePower.shoulder_length,
-                    PiecewisePower.shoulder_angle,
-                    PiecewisePower.gamma,
-                )
-            )
+            toe_strength, toe_length, shoulder_strength, shoulder_length, shoulder_angle, gamma = (End(node=INPUTS, socket=field) for field in PiecewisePower.__struct_fields__)
             return (
                 math("toe_shape", "POWER", toe_length, 2.2),
                 math("toe_end", "MULTIPLY", End(node="toe_shape"), 0.5),
@@ -446,11 +420,10 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
             )
 
         def logarithmic() -> tuple[Part, ...]:
-            bias, white = (End(node=INPUTS, socket=field.__name__) for field in (Logarithmic.bias, Logarithmic.display_white))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            scene_white = End(node=INPUTS, socket=item_key(Logarithmic.scene_white.__name__, Gated.value.__name__))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+            bias, scene_white, display_white = Logarithmic.__struct_fields__
             return (
-                math("white_level", "POWER", 2.0, scene_white),
-                math("exponent", "LOGARITHM", bias, 0.5),
+                math("white_level", "POWER", 2.0, End(node=INPUTS, socket=item_key(scene_white, value_field))),
+                math("exponent", "LOGARITHM", End(node=INPUTS, socket=bias), 0.5),
                 math("clipped", "MAXIMUM", value, 0.0),
                 *(
                     part
@@ -472,12 +445,13 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
                 math("base_log", "LOGARITHM", End(node="base"), e),
                 math("denominator", "MULTIPLY", End(node="white_log"), End(node="base_log")),
                 math("ratio", "DIVIDE", End(node="numerator"), End(node="denominator")),
-                math("curve", "MULTIPLY", End(node="ratio"), white),
+                math("curve", "MULTIPLY", End(node="ratio"), End(node=INPUTS, socket=display_white)),
             )
 
         def reinhard() -> tuple[Part, ...]:
+            (scene_white,) = ReinhardExtended.__struct_fields__
             return (
-                math("white_stops", "MULTIPLY", End(node=INPUTS, socket=item_key(ReinhardExtended.scene_white.__name__, Gated.value.__name__)), 2.0),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+                math("white_stops", "MULTIPLY", End(node=INPUTS, socket=item_key(scene_white, value_field)), 2.0),
                 math("white_square", "POWER", 2.0, End(node="white_stops")),
                 math("denominator", "ADD", value, 1.0),
                 math("compressed", "DIVIDE", value, End(node="denominator")),
@@ -502,7 +476,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
 
     def primary() -> BlenderResult[NodeGroup]:
         point, white = End(node=INPUTS, socket="point"), End(node=INPUTS, socket="white")
-        inset, rotation, purity = (End(node=INPUTS, socket=field.__name__) for field in (RenderingPrimary.inset, RenderingPrimary.rotation, Application.purity))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        inset, rotation, purity = (End(node=INPUTS, socket=field) for field in (*RenderingPrimary.__struct_fields__, purity_field))
         first, *_ = keys
         edges = tuple(pairwise((*keys, first)))
         inputs = {key: End(node=INPUTS, socket=key) for key in keys}
@@ -543,7 +517,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
                         *(Socket(key=key, name=key.title(), kind=bpy.types.NodeSocketVector) for key in ("point", *keys, "white")),
                         Socket(key="rotation_limit", name="Rotation Limit", kind=bpy.types.NodeSocketFloat),
                         *pair[0][0].inputs,
-                        *(socket for socket in pair[0][1].inputs if socket.key == Application.purity.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        *(socket for socket in pair[0][1].inputs if socket.key == purity_field),
                     ),
                 ),
                 {f"{side}_point": (pair[1], End(node=f"{side}_point", socket="Result_Vector")) for side in ("inset", "outset")},
@@ -679,9 +653,8 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
                         **points,
                         "white": white,
                         "rotation_limit": limit,
-                        RenderingPrimary.inset.__name__: End(node=INPUTS, socket=item_key(application, key, RenderingPrimary.inset.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        RenderingPrimary.rotation.__name__: End(node=INPUTS, socket=item_key(application, key, RenderingPrimary.rotation.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        Application.purity.__name__: End(node=INPUTS, socket=item_key(application, Application.purity.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        **{field: End(node=INPUTS, socket=item_key(application, key, field)) for field in RenderingPrimary.__struct_fields__},
+                        purity_field: End(node=INPUTS, socket=item_key(application, purity_field)),
                     },
                     "inset_point",
                 )
@@ -718,7 +691,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
             ),
             *(node(item_key("curve", kind), bpy.types.ShaderNodeCombineXYZ, {axis: End(node=item_key("curve", kind, key), socket="curve") for key, axis in zip(keys, axes)}, {}) for kind in kinds),
             menu("curve", "VECTOR", End(node=INPUTS, socket=curve), MenuItems.of(kinds), {kind.title: End(node=item_key("curve", kind), socket="Vector") for kind in kinds}),
-            preserved(End(node="rendering", socket="Direction"), End(node="curve", socket="Output"), End(node=INPUTS, socket=item_key(application, Application.preserve_hue.__name__))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            preserved(End(node="rendering", socket="Direction"), End(node="curve", socket="Output"), End(node=INPUTS, socket=item_key(application, preserve_hue))),
             node("outset", bpy.types.FunctionNodeTransformDirection, {"Direction": End(node="preserved", socket="Vector"), "Transform": End(node="out_of_rendering", socket="Matrix")}, {}),
         ).map(ended("outset", "Direction"))
 
@@ -758,15 +731,24 @@ def neutralized(source: Operand) -> BlenderResult[tuple[Fragment, End]]:
     )
 
 
-def adapted(source: Operand, contrast_enabled: Operand, contrast: Operand, intensity: Operand, light_adaptation: Operand, chromatic_adaptation: Operand) -> BlenderResult[tuple[Fragment, End]]:
+def adapted(shell: Shell[Photoreceptor]) -> BlenderResult[tuple[Fragment, End]]:
     """Uses Blender's native photoreceptor with zero reserved for automatic contrast."""
+    intensity, contrast, light_adaptation, chromatic_adaptation = Photoreceptor.__struct_fields__
+    _, value = Gated.__struct_fields__
     return (
-        switched("contrast", "FLOAT", contrast_enabled, 0.0, contrast)
+        switched("contrast", "FLOAT", shell.socket(contrast), 0.0, shell.socket(contrast, value))
         .bind(
             lambda selected: node(
                 "tonemap",
                 bpy.types.CompositorNodeTonemap,
-                {"Image": source, "Type": "R/D Photoreceptor", "Contrast": selected, "Intensity": intensity, "Light Adaptation": light_adaptation, "Chromatic Adaptation": chromatic_adaptation},
+                {
+                    "Image": shell.source,
+                    "Type": "R/D Photoreceptor",
+                    "Contrast": selected,
+                    "Intensity": shell.socket(intensity),
+                    "Light Adaptation": shell.socket(light_adaptation),
+                    "Chromatic Adaptation": shell.socket(chromatic_adaptation),
+                },
                 {},
             )
         )
@@ -778,8 +760,10 @@ def habled(shell: Shell[Hable]) -> BlenderResult[tuple[Fragment, End]]:
     """Applies independent Hable coefficients with live white normalization."""
     if not shell.record.scene_white.enabled:
         return Error((BlenderAbsentFault(owner=shell.record.title, key="current_frame_white"),))
-    a, b, d, f = (shell.socket(field.__name__) for field in (Hable.a, Hable.b, Hable.d, Hable.f))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    white = shell.socket(Hable.scene_white.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    a_field, b_field, _, d_field, _, f_field, scene_white = Hable.__struct_fields__
+    _, value_field = Gated.__struct_fields__
+    a, b, d, f = (shell.socket(field) for field in (a_field, b_field, d_field, f_field))
+    white = shell.socket(scene_white, value_field)
     axes = tuple("XYZ")
     return Fragment.joined(
         nonnegative(shell.source),
@@ -880,11 +864,12 @@ def habled(shell: Shell[Hable]) -> BlenderResult[tuple[Fragment, End]]:
 
 def normalized(_identity: Identity, _scene: bpy.types.Scene, record: Hable) -> BlenderResult[Mapping[Key, Value]]:
     """Derives native Hable coefficients from the evaluated authored record."""
+    _, _, _, _, _, _, scene_white = Hable.__struct_fields__
     return (
         Result[Option[tuple[float, float]], BlenderFaults]
         .bind(
             record.normalization().map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-            lambda value: value.to_result_with(lambda: (BlenderAbsentFault(owner=record.title, key=Hable.scene_white.__name__),)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            lambda value: value.to_result_with(lambda: (BlenderAbsentFault(owner=record.title, key=scene_white),)),
         )
         .map(lambda values: {socket.key: (log2(abs(value)) if value else 0.0, float(np.sign(value)), 0.0) for socket, value in zip(normalization, values)})
     )
@@ -911,27 +896,28 @@ def tony(table: str | Traversable) -> CompositorEffect[Tony]:
                 )
         except OSError as error:
             return Error((BlenderReadFault(request=str(table), error=error),))
-        shaped = vector("tony_positive", "MAXIMUM", shell.source, (0.0,) * 3).bind(
-            lambda positive: vector("tony_denominator", "ADD", positive, (1.0,) * 3).bind(lambda denominator: vector("tony_encoded", "DIVIDE", positive, denominator))
-        )
-        return paired(sampled, shaped).bind(lambda parts: tabled("tony", Tony.title, *parts[0], parts[1], shell.config))
+        return sampled.bind(lambda parts: tabled("tony", Tony.title, msgspec.structs.replace(parts[0], spacing=Rational()), parts[1], shell.source, shell.config))
 
     return CompositorEffect(record=Tony, graph=mapped, straight=True, initial_view=initial_view, registrables=(tiles, encode_formation))
 
 
-def encoded(call: Call[Named]) -> BlenderResult[Done]:
+def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
     """Selects the first encoding-only native view and disables its look."""
 
-    def chosen(scene: bpy.types.Scene, config: PyOpenColorIO.Config, held: Option[DisplayView]) -> BlenderResult[Done]:
+    def chosen(scene: bpy.types.Scene, config: PyOpenColorIO.Config, held: Option[DisplayView]) -> BlenderResult[Outcome]:
         display = held.map(lambda record: record.display).default_value(viewed(scene).display)
 
-        def selected(target: DisplayView) -> BlenderResult[Done]:
+        def selected(target: DisplayView) -> BlenderResult[Outcome]:
             entry = Option.of_optional(next(iter(entries(call.identity, scene, DisplayView)), None))
             return (
                 entry
                 .map(lambda entry: formation.read(call.identity, entry).bind(lambda prior: formation.write(call.identity, scene, entry, Entry(effect=target, blend=prior.blend))))
-                .default_with(lambda: written(scene, "view_settings.view_transform", target.view).bind(lambda _: written(scene, "view_settings.look", "None")).map(lambda _: None))
-                .map(lambda _: Done())
+                .default_with(
+                    lambda: written(scene, "view_settings.view_transform", target.view).bind(
+                        lambda view: written(scene, "view_settings.look", "None").map(lambda look: view.is_some() or look.is_some())
+                    )
+                )
+                .map(lambda changed: Done() if changed else Unchanged(reason=f"The formation already encodes through {target.view}"))
             )
 
         return (
@@ -951,9 +937,11 @@ def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, pla
     """Returns a measured white override from covered associated scene-linear pixels."""
     match record.curve if isinstance(record, ToneCurve) else record:
         case Logarithmic() | ReinhardExtended() | Hable() as curve:
-            extent: ImagingResult[Extent] = Samples.of(config, plane).bind(lambda samples: samples.extent().to_result_with(lambda: (ImagingWhiteFault(white=Nothing),)))
+            curve_field, _, _ = ToneCurve.__struct_fields__
+            _, _, _, _, _, _, scene_white = Hable.__struct_fields__
+            extent: ImagingResult[Extent] = samples_of(config, plane).bind(lambda samples: samples.extent().to_result_with(lambda: (ImagingWhiteFault(white=Nothing),)))
             return extent.bind(lambda extent: curves.metered(curve, extent.white)).map(
-                lambda resolved: msgspec.structs.replace(record, **({ToneCurve.curve.__name__: resolved} if isinstance(record, ToneCurve) else {Hable.scene_white.__name__: resolved.scene_white}))  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
+                lambda resolved: msgspec.structs.replace(record, **({curve_field: resolved} if isinstance(record, ToneCurve) else {scene_white: resolved.scene_white}))
             )
         case _:
             return Ok(record)
@@ -979,8 +967,10 @@ def prepared[T: (ToneCurve, Hable)](
             return Ok((record, {}))
 
 
-def measured[T: (ToneCurve, Hable)](row: CompositorEffect[T], identity: Identity, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Writes an explicit measured white override, preserving the entry's blend."""
+def measured[T: (ToneCurve, Hable)](
+    row: CompositorEffect[T], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]
+) -> BlenderResult[Option[str]]:
+    """Writes an explicit measured white override, preserving the entry's blend, and names an undo step where the white changed."""
     config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
 
     def sampled(config: PyOpenColorIO.Config, held: Entry[T]) -> BlenderResult[Option[str]]:
@@ -988,8 +978,7 @@ def measured[T: (ToneCurve, Hable)](row: CompositorEffect[T], identity: Identity
             case Logarithmic() | ReinhardExtended() | Hable():
                 effective: BlenderResult[T] = whitened(held.effect, config, file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
                 return Result[T, BlenderFaults].bind(
-                    effective,
-                    lambda record: row.write(identity, entry.id_data, entry, msgspec.structs.replace(held, effect=record)).map(lambda _: Some(meter_white.title)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    effective, lambda record: row.write(identity, scene, entry, msgspec.structs.replace(held, effect=record)).map(lambda changed: Some(meter_white.title) if changed else Nothing)
                 )
             case _:
                 return Ok(Nothing)
@@ -998,22 +987,17 @@ def measured[T: (ToneCurve, Hable)](row: CompositorEffect[T], identity: Identity
     return Result[tuple[PyOpenColorIO.Config, Entry[T]], BlenderFaults].bind(reading, lambda pair: sampled(*pair))
 
 
-def metered[T: ToneCurve | Hable](row: CompositorEffect[T], reading: ViewerRead, call: Call[Named]) -> BlenderResult[Done]:
+def metered[T: ToneCurve | Hable](row: CompositorEffect[T], reading: ViewerRead, call: Call[Named]) -> BlenderResult[Outcome]:
     """Arms entering-frame measurement for a curve with a scene-white parameter."""
-    return (
-        call
-        .root(bpy.types.Scene)
-        .bind(lambda scene: row.named(call.identity, scene, call.record.name))
-        .bind(
-            lambda entry: row.read(call.identity, entry).bind(
-                lambda held: (
-                    reading.entering(call.identity, entry).map(lambda _: Done())
-                    if isinstance(held.effect.curve if isinstance(held.effect, ToneCurve) else held.effect, (Logarithmic, ReinhardExtended, Hable))
-                    else Ok(Done(notes=(("INFO", "This curve has no scene-white parameter"),)))
-                )
-            )
+
+    def armed(entry: bpy.types.SceneCompositorEffect, held: Entry[T]) -> BlenderResult[Outcome]:
+        return (
+            reading.entering(call.identity, entry).map(lambda _: Done())
+            if isinstance(held.effect.curve if isinstance(held.effect, ToneCurve) else held.effect, (Logarithmic, ReinhardExtended, Hable))
+            else Ok(Unchanged(reason="This curve has no scene-white parameter"))
         )
-    )
+
+    return call.root(bpy.types.Scene).bind(lambda scene: row.named(call.identity, scene, call.record.name)).bind(lambda entry: row.read(call.identity, entry).bind(lambda held: armed(entry, held)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -1025,7 +1009,7 @@ initial_view: Option[Callable[[PyOpenColorIO.Config, bpy.types.Scene], BlenderRe
     )
 )
 encode_formation = Operator(key="encode_formation", title="Use Display Encoding", description="Selects an encoding-only formation after the tone curve", form=Named, run=encoded)
-reading = ViewerRead(consume=lambda identity, entry, file: measured(tone_curve, identity, entry, file))
+reading = ViewerRead(consume=lambda identity, scene, entry, file: measured(tone_curve, identity, scene, entry, file))
 meter_white = Operator(
     key="meter_white",
     title="Measure Scene White",
@@ -1038,7 +1022,7 @@ meter_white = Operator(
 tone_curve: CompositorEffect[ToneCurve] = CompositorEffect(
     record=ToneCurve, graph=curved, straight=True, initial_view=initial_view, preparation=Some(prepared), registrables=(encode_formation, meter_white, reading)
 )
-hable_reading = ViewerRead(consume=lambda identity, entry, file: measured(hable, identity, entry, file))
+hable_reading = ViewerRead(consume=lambda identity, scene, entry, file: measured(hable, identity, scene, entry, file))
 hable_meter_white = Operator(
     key="meter_hable_white",
     title=meter_white.title,
@@ -1070,20 +1054,7 @@ hable: CompositorEffect[Hable] = CompositorEffect(
     registrables=(encode_formation, hable_meter_white, hable_reading),
 )
 neutral = CompositorEffect(record=Neutral, graph=lambda shell: neutralized(shell.source), straight=True, initial_view=initial_view, registrables=(encode_formation,))
-photoreceptor = CompositorEffect(
-    record=Photoreceptor,
-    coverage=Coverage.RESULT,
-    initial_view=initial_view,
-    registrables=(encode_formation,),
-    graph=lambda shell: adapted(
-        shell.source,
-        shell.socket(Photoreceptor.contrast.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shell.socket(Photoreceptor.contrast.__name__, Gated.value.__name__),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-        shell.socket(Photoreceptor.intensity.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shell.socket(Photoreceptor.light_adaptation.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shell.socket(Photoreceptor.chromatic_adaptation.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    ),
-)
+photoreceptor = CompositorEffect(record=Photoreceptor, coverage=Coverage.RESULT, initial_view=initial_view, registrables=(encode_formation,), graph=adapted)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

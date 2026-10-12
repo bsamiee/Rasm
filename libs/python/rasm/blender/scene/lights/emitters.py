@@ -11,7 +11,6 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
-from numpy.typing import NDArray
 
 from rasm.blender.commands.operators import Done, Operator
 from rasm.blender.data.ids.ownership import earliest, Mark, Ownership, Saved
@@ -21,10 +20,11 @@ from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderResult
-from rasm.blender.nodes.graphs import End, Graph, Link, Node, reconciling
-from rasm.blender.scene.materials import tree_of
-from rasm.blender.scene.objects import ObjectState, reconciled, spawned
-from rasm.blender.settings.attachments import Attachment
+from rasm.blender.nodes import changes
+from rasm.blender.nodes.graphs import End, Graph, Link, Node
+from rasm.blender.nodes.trees import socket_at, tree_of
+from rasm.blender.scene.objects import ObjectState, reconciled, shaped, spawned
+from rasm.blender.settings.attachments import Attachment, reconciling
 from rasm.blender.ui.layout.rows import acquired, Member, OperatorButton
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
 from rasm.blender.ui.surfaces.appends import Append
@@ -159,8 +159,9 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
             case _:
                 found.update(
                     (strength, None)
-                    for name in Option.of_optional(emitted.get(type(node))).to_list()
-                    if isinstance(strength := node.inputs[name], bpy.types.NodeSocketFloat) and (any(link.is_valid and not link.is_muted for link in strength.links) or strength.default_value > 0.0)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                    for identifier in Option.of_optional(emitted.get(type(node))).to_list()
+                    for strength in socket_at(node.inputs, identifier).to_option().to_list()
+                    if isinstance(strength, bpy.types.NodeSocketFloat) and (any(link.is_valid and not link.is_muted for link in strength.links) or strength.default_value > 0.0)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
                 )
                 pending.extend((node, inner, path) for inner in node.inputs)
     return tuple(found)
@@ -285,15 +286,6 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
         lambda co: Descriptor.quantized(co.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
     )
 
-    def shaped(prepared: tuple[Graph, NDArray[np.float32]]) -> BlenderResult[Graph]:
-        wanted, vertices = prepared
-        try:
-            mesh.clear_geometry()
-            mesh.from_pydata(vertices.tolist(), [], [(0, 1, 2, 3)])
-            return Ok(wanted)
-        except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=repr(mesh), error=error),))
-
     with ExitStack() as rollback:
         mark = Mark(key=MeshLights.material.key, of=Some(item))
 
@@ -313,7 +305,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
 
         return (
             paired(emission_graph(record), vertices)
-            .bind(shaped)
+            .bind(lambda prepared: shaped(mesh, prepared[1], np.arange(4).reshape(1, 4)).map(lambda _: prepared[0]))
             .bind(
                 lambda wanted: (
                     Option
@@ -322,7 +314,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
                     .default_with(built)
                     .bind(
                         lambda material: paired(
-                            tree_of(material).bind(lambda tree: wanted.reconciled(tree, identity)),
+                            tree_of(material).bind(lambda tree: changes.reconciled(wanted, tree, identity)),
                             written(material.cycles, "emission_sampling", "FRONT" if record.single_sided else "AUTO"),  # type: ignore[arg-type]
                         ).bind(lambda _: reconciled(ObjectState(material_slots=Some((Snapshot.of(bpy.types.MaterialSlot, {"material": IdName.of(material)}),)), values=Some(visibility)), item, ()))
                     )
@@ -356,7 +348,7 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
                 MeshLights.attachment
                 .bound(identity)
                 .bind(lambda attached: attached.write(item, record))
-                .bind(lambda _: reconciled(ObjectState(placement=Some(scene.cursor.matrix.freeze())), item, ()))
+                .bind(lambda _: reconciled(ObjectState(placement=Some(scene.cursor.matrix)), item, ()))
                 .bind(lambda _: lit(record, item, identity))
                 .map(lambda _: item)
             )

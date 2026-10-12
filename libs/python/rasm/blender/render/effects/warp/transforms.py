@@ -9,12 +9,15 @@ from rasm.blender.data.rna.animation import Animation, Keys, sampled as sampled_
 from rasm.blender.data.rna.conditions import AllOf, Condition
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.faults import BlenderChoiceFault, BlenderResult, BlenderUnmetFault
-from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, framed, FrameSpace, item_key, masked, math, menu, MenuItems, node, Operand, sampled, switched, vector
+from rasm.blender.nodes.coordinates import framed, FrameSpace, sampled
+from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, masked, math, menu, node, Operand, switched, vector
+from rasm.blender.nodes.interface import item_key, MenuItems
 from rasm.blender.render.effects.compositing.blending import product
 from rasm.blender.render.effects.generators.noise import sample
 from rasm.blender.render.effects.stack import CompositorEffect, Context, Coverage, Derived, KeyPath, path, precise, reached, rows, Shell, Shutter, shutter, ShutterPosition
 from rasm.blender.render.effects.viewers import inspection
 from rasm.blender.scene.cameras import camera_type
+from rasm.blender.settings.shapes import bare
 from rasm.imaging.compositing.layers import Affine
 from rasm.imaging.effects.generators.noise import Octaves, Perlin
 from rasm.imaging.effects.warp.transforms import Shake, Tilt, Transform
@@ -54,7 +57,8 @@ def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
         Acceptance, native channel faults, or the requested nonconvex quadrilateral.
     """
     frames = tuple(dict.fromkeys((scene.frame_current_final, *(float(frame) for frame in range(scene.frame_start, scene.frame_end + 1, scene.frame_step)))))
-    at = (Transform.pin.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    pin, _, _, _, _, _, _, _, _, _, motion_blur = Transform.__struct_fields__
+    _, value = Gated.__struct_fields__
     fields = msgspec.structs.fields(Quad)
 
     def samples(key: str, proposed: float, times: tuple[float, ...], index: int = 0) -> BlenderResult[tuple[float, ...]]:
@@ -70,8 +74,8 @@ def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
             ).map(lambda _: None)
 
         return paired(
-            samples(Transform.pin.__name__, float(record.pin.enabled), times),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            accumulated(accumulated(samples(item_key(*at, field.name), component, times, index) for index, component in enumerate(getattr(record.pin.value, field.name))) for field in fields),
+            samples(pin, float(record.pin.enabled), times),
+            accumulated(accumulated(samples(item_key(pin, value, field.name), component, times, index) for index, component in enumerate(getattr(record.pin.value, field.name))) for field in fields),
         ).bind(lambda values: quads(*values))
 
     def endpoints(lengths: tuple[float, ...], enabled: tuple[float, ...]) -> BlenderResult[None]:
@@ -79,18 +83,17 @@ def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
         times = tuple(dict.fromkeys((*frames, *(frame + (opening + side) * length for frame, length, active in zip(frames, lengths, enabled) if active for side in range(2)))))
         return accepted(times)
 
-    return paired(sampled_channel(scene, "render.motion_blur_shutter", frames), samples(Transform.motion_blur.__name__, float(record.motion_blur), frames)).bind(lambda values: endpoints(*values))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    return paired(sampled_channel(scene, "render.motion_blur_shutter", frames), samples(motion_blur, float(record.motion_blur), frames)).bind(lambda values: endpoints(*values))
 
 
 def pose_inputs() -> tuple[tuple[KeyPath, msgspec.structs.FieldInfo, native.Type], ...]:
     """Derives numeric temporal leaves from the complete Transform record."""
 
     def temporal(field: msgspec.structs.FieldInfo, shape: native.Type) -> bool:
-        match shape:
-            case native.Metadata(type=inner):
-                return temporal(field, inner)
+        _, _, _, _, _, _, _, _, _, filterwidth, _ = Transform.__struct_fields__
+        match bare(shape):
             case native.FloatType() | native.IntType():
-                return not markers(field.type, GraphForm) and field.name != Transform.filterwidth.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                return not markers(field.type, GraphForm) and field.name != filterwidth
             case native.TupleType(item_types=items):
                 return all(temporal(field, item) for item in items)
             case _:
@@ -116,9 +119,7 @@ def keyed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     opening = ShutterPosition[scene.render.motion_blur_position].value
 
     def channels(lengths: tuple[float, ...], at: KeyPath, _field: msgspec.structs.FieldInfo, shape: native.Type) -> BlenderResult[tuple[Animation, ...]]:
-        while isinstance(shape, native.Metadata):
-            shape = shape.type
-        indices = tuple(range(len(shape.item_types))) if isinstance(shape, native.TupleType) else (None,)
+        indices = tuple(range(len(kind.item_types))) if isinstance(kind := bare(shape), native.TupleType) else (None,)
 
         def component(side: int, index: int | None) -> BlenderResult[Animation]:
             def samples(source: str, target: str) -> BlenderResult[Animation]:
@@ -169,14 +170,15 @@ def extended(
         def axis(name: str, border: tuple[Fragment, End]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
             coordinate = ended(f"{key}_uv", name)(sides)
             size = ended(f"{key}_dimensions", name)(dimensions)
-            folded = math(f"{key}_{name}_folded", "PINGPONG", coordinate, 1.0).bind(
-                lambda reflected: switched(f"{key}_{name}_coordinate", "FLOAT", End(node=border[1].node, socket=Extension.MIRROR.label), coordinate, reflected)
+            prefix = item_key(key, name.lower())
+            folded = math(f"{prefix}_folded", "PINGPONG", coordinate, 1.0).bind(
+                lambda reflected: switched(f"{prefix}_coordinate", "FLOAT", End(node=border[1].node, socket=Extension.MIRROR.label), coordinate, reflected)
             )
             edge = (
-                math(f"{key}_{name}_opposite", "SUBTRACT", 1.0, coordinate)
-                .bind(lambda opposite: math(f"{key}_{name}_edge", "MINIMUM", coordinate, opposite))
-                .bind(lambda distance: math(f"{key}_{name}_support", "MULTIPLY_ADD", distance, size, 0.5, clamp=True))
-                .bind(lambda support: switched(f"{key}_{name}_coverage", "FLOAT", End(node=border[1].node, socket=Extension.CLIP.label), 1.0, support))
+                math(f"{prefix}_opposite", "SUBTRACT", 1.0, coordinate)
+                .bind(lambda opposite: math(f"{prefix}_edge", "MINIMUM", coordinate, opposite))
+                .bind(lambda distance: math(f"{prefix}_support", "MULTIPLY_ADD", distance, size, 0.5, clamp=True))
+                .bind(lambda support: switched(f"{prefix}_coverage", "FLOAT", End(node=border[1].node, socket=Extension.CLIP.label), 1.0, support))
             )
             return paired(folded, edge)
 
@@ -335,11 +337,12 @@ def placed(key: Key, source: Operand, frame: FrameSpace, matrix: Operand) -> Ble
     location = node(f"{key}_source_info", bpy.types.CompositorNodeImageInfo, {"Image": source}, {}).map(ended(f"{key}_source_info", "Location"))
 
     def rotated(image: Operand, decomposition: Fragment, side: str, direction: float) -> BlenderResult[tuple[Fragment, End]]:
-        components = node(f"{key}_{side}_components", bpy.types.FunctionNodeSeparateMatrix, {"Matrix": ended(f"{key}_svd", side)(decomposition)}, {})
+        prefix = item_key(key, side.lower())
+        components = node(f"{prefix}_components", bpy.types.FunctionNodeSeparateMatrix, {"Matrix": ended(f"{key}_svd", side)(decomposition)}, {})
         angle = components.bind(
-            lambda components: math(f"{key}_{side}_angle", "ARCTAN2", ended(f"{key}_{side}_components", "Column 1 Row 2")(components), End(node=f"{key}_{side}_components", socket="Column 1 Row 1"))
-        ).bind(lambda angle: math(f"{key}_{side}_turn", "MULTIPLY", angle, direction))
-        return angle.bind(lambda angle: node(f"{key}_{side}_rotated", bpy.types.CompositorNodeRotate, {"Image": image, "Angle": angle}, {})).map(ended(f"{key}_{side}_rotated", "Image"))
+            lambda components: math(f"{prefix}_angle", "ARCTAN2", ended(f"{prefix}_components", "Column 1 Row 2")(components), End(node=f"{prefix}_components", socket="Column 1 Row 1"))
+        ).bind(lambda angle: math(f"{prefix}_turn", "MULTIPLY", angle, direction))
+        return angle.bind(lambda angle: node(f"{prefix}_rotated", bpy.types.CompositorNodeRotate, {"Image": image, "Angle": angle}, {})).map(ended(f"{prefix}_rotated", "Image"))
 
     def positioned(
         location: tuple[Fragment, End], decomposition: Fragment, reflection: tuple[Fragment, End], translation: tuple[Fragment, End], invertible: tuple[Fragment, End]
@@ -431,23 +434,20 @@ def tilted(key: Key, uv: Operand, lens: Operand, heading: Operand, elevation: Op
 
 def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
     """Composes sampled camera poses and reconstructs their native shutter approximation."""
-    shake = (Transform.shake.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    affine = (Transform.affine.__name__,)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    tilt = (Transform.tilt.__name__,)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    pin = (Transform.pin.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
     basis = Perlin(dimensions=1, size=1.0, stretch=1.0, distortion=0.0)
     camera = node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).map(ended("camera", "Active Camera"))
     lens = camera.bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": camera}, {})).map(ended("lens", "Projection Matrix"))
 
     def built(frame: FrameSpace, lens: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
+        pin, tilt, affine, travel, turn, zoom, shake, extension, _, _, motion_blur = Transform.__struct_fields__
+        _, value_field = Gated.__struct_fields__
+        heading, elevation = Tilt.__struct_fields__
+
         def value(side: int | None, *at: str) -> End:
             return shell.socket(*at) if side is None else shell.socket(item_key("pose", side, *at))
 
         def pinned(key: str, side: int | None, fraction: Operand, *, forward: bool) -> BlenderResult[tuple[Fragment, End]]:
-            lower_left = value(side, *pin, Quad.bottom_left.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            lower_right = value(side, *pin, Quad.bottom_right.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            upper_left = value(side, *pin, Quad.top_left.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            upper_right = value(side, *pin, Quad.top_right.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            upper_left, upper_right, lower_right, lower_left = (value(side, pin, value_field, corner) for corner in Quad.__struct_fields__)
             horizontal = vector(f"{key}_horizontal", "SUBTRACT", lower_right, upper_right)
             vertical = vector(f"{key}_vertical", "SUBTRACT", upper_left, upper_right)
             diagonal = (
@@ -537,12 +537,12 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
             return (
                 paired(position, coverage)
                 .bind(lambda parts: vector(f"{key}_covered_position", "MULTIPLY_ADD", (0.0, 0.0, 1.0), parts[1], parts[0]))
-                .bind(lambda mapped: switched(key, "VECTOR", shell.socket(Transform.pin.__name__), fraction, mapped))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda mapped: switched(key, "VECTOR", shell.socket(pin), fraction, mapped))
             )
 
         def reaimed(key: str, side: int | None, fraction: Operand, *, forward: bool) -> BlenderResult[tuple[Fragment, End]]:
             active = (
-                paired(math(f"{key}_heading", "ABSOLUTE", value(side, *tilt, Tilt.heading.__name__)), math(f"{key}_elevation", "ABSOLUTE", value(side, *tilt, Tilt.elevation.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                paired(math(f"{key}_heading", "ABSOLUTE", value(side, tilt, heading)), math(f"{key}_elevation", "ABSOLUTE", value(side, tilt, elevation)))
                 .bind(lambda angles: math(f"{key}_amount", "ADD", *angles))
                 .bind(lambda amount: math(f"{key}_active", "GREATER_THAN", amount, 0.0))
             )
@@ -553,7 +553,7 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
                 .bind(lambda device: vector(f"{key}_device_xy", "MULTIPLY", device, (1.0, 1.0, 0.0)))
                 .bind(lambda device: vector(f"{key}_device_position", "ADD", device, (0.0, 0.0, 1.0)))
             )
-            projected = device.bind(lambda device: tilted(f"{key}_tilt", device, lens, value(side, *tilt, Tilt.heading.__name__), value(side, *tilt, Tilt.elevation.__name__), forward=forward))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            projected = device.bind(lambda device: tilted(f"{key}_tilt", device, lens, value(side, tilt, heading), value(side, tilt, elevation), forward=forward))
             position = (
                 paired(projected, margin)
                 .bind(lambda parts: vector(f"{key}_frame_offset", "SUBTRACT", *parts))
@@ -571,12 +571,16 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
             )
 
         def pose(side: int | None) -> BlenderResult[tuple[Fragment, End]]:
+            length, opening_field = Shutter.__struct_fields__
+            position_field, rotation_field, scale_field, motion, octaves, seed = Shake.__struct_fields__
+            speed, hold = Motion.__struct_fields__
+            _, _, _, _, octaves_perlin, _, _, _, _ = Perlin.__struct_fields__
             key = "reference" if side is None else f"pose_{side}"
-            offset = math(f"{key}_zero", "MULTIPLY", shell.socket(Shutter.opening.__name__), 0.0) if side is None else math(f"{key}_offset", "ADD", shell.socket(Shutter.opening.__name__), side)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            clock = Clock(key=f"{key}_clock", speed=value(side, *shake, Shake.motion.__name__, Motion.speed.__name__), hold=value(side, *shake, Shake.motion.__name__, Motion.hold.__name__)).value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            offset = math(f"{key}_zero", "MULTIPLY", shell.socket(opening_field), 0.0) if side is None else math(f"{key}_offset", "ADD", shell.socket(opening_field), side)
+            clock = Clock(key=f"{key}_clock", speed=value(side, shake, value_field, motion, speed), hold=value(side, shake, value_field, motion, hold)).value
             time = paired(offset, clock).bind(
-                lambda parts: math(f"{key}_elapsed", "MULTIPLY", parts[0], shell.socket(Shutter.length.__name__)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    lambda elapsed: math(f"{key}_time", "MULTIPLY_ADD", elapsed, value(side, *shake, Shake.motion.__name__, Motion.speed.__name__), parts[1])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                lambda parts: math(f"{key}_elapsed", "MULTIPLY", parts[0], shell.socket(length)).bind(
+                    lambda elapsed: math(f"{key}_time", "MULTIPLY_ADD", elapsed, value(side, shake, value_field, motion, speed), parts[1])
                 )
             )
             point = time.bind(lambda time: node(f"{key}_time_axis", bpy.types.ShaderNodeCombineXYZ, {"X": time}, {})).map(ended(f"{key}_time_axis", "Vector"))
@@ -587,38 +591,39 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
                         basis,
                         point,
                         0.0,
-                        value(side, *shake, Shake.seed.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        value(side, shake, value_field, seed),
                         stream,
-                        {(Perlin.octaves.__name__, field.name): value(side, *shake, Shake.octaves.__name__, field.name) for field in msgspec.structs.fields(Octaves)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        {(octaves_perlin, field.name): value(side, shake, value_field, octaves, field.name) for field in msgspec.structs.fields(Octaves)},
                     ).bind(lambda noise: math(f"{key}_signed_{stream}", "MULTIPLY_ADD", noise, 2.0, -1.0))
                     for stream in range(4)
                 )
             )
-            base = placement(f"{key}_affine", frame, **{field.name: value(side, *affine, field.name) for field in msgspec.structs.fields(Affine)})
+            base = placement(f"{key}_affine", frame, **{field.name: value(side, affine, field.name) for field in msgspec.structs.fields(Affine)})
 
             def shaken(fields: tuple[tuple[Fragment, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
                 position = (
                     node(f"{key}_shake_axes", bpy.types.ShaderNodeCombineXYZ, {"X": fields[0], "Y": fields[1]}, {})
                     .map(ended(f"{key}_shake_axes", "Vector"))
-                    .bind(lambda axes: vector(f"{key}_shake_position", "MULTIPLY", axes, value(side, *shake, Shake.position.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    .bind(lambda axes: vector(f"{key}_shake_position", "MULTIPLY", axes, value(side, shake, value_field, position_field)))
                     .bind(lambda position: vector(f"{key}_shake_fraction", "DIVIDE", position, frame.extent))
-                    .bind(lambda position: switched(f"{key}_shake_translation", "VECTOR", shell.socket(Transform.shake.__name__), (0.0,) * 3, position))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    .bind(lambda position: switched(f"{key}_shake_translation", "VECTOR", shell.socket(shake), (0.0,) * 3, position))
                 )
-                rotation = math(f"{key}_shake_angle", "MULTIPLY", fields[2], value(side, *shake, Shake.rotation.__name__)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    lambda angle: switched(f"{key}_shake_rotation", "FLOAT", shell.socket(Transform.shake.__name__), 0.0, angle)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                rotation = math(f"{key}_shake_angle", "MULTIPLY", fields[2], value(side, shake, value_field, rotation_field)).bind(
+                    lambda angle: switched(f"{key}_shake_rotation", "FLOAT", shell.socket(shake), 0.0, angle)
                 )
                 scale = (
-                    math(f"{key}_shake_stops", "MULTIPLY", fields[3], value(side, *shake, Shake.scale.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    math(f"{key}_shake_stops", "MULTIPLY", fields[3], value(side, shake, value_field, scale_field))
                     .bind(lambda stops: math(f"{key}_shake_factor", "POWER", 2.0, stops))
-                    .bind(lambda factor: switched(f"{key}_shake_scale", "FLOAT", shell.socket(Transform.shake.__name__), 1.0, factor))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    .bind(lambda factor: switched(f"{key}_shake_scale", "FLOAT", shell.socket(shake), 1.0, factor))
                 )
-                return paired(paired(position, rotation), scale).bind(lambda parts: placement(f"{key}_shake", frame, *parts[0], parts[1], (0.0,) * 3, (0.5, 0.5, 0.0)))
+                return paired(paired(position, rotation), scale).bind(lambda parts: placement(f"{key}_shake_placement", frame, *parts[0], parts[1], (0.0,) * 3, (0.5, 0.5, 0.0)))
 
             def temporal(offset: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-                position = vector(f"{key}_travel", "SCALE", value(side, Transform.travel.__name__), offset)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                rotation = math(f"{key}_turn", "MULTIPLY", value(side, Transform.turn.__name__), offset)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                scale = math(f"{key}_zoom", "MULTIPLY", value(side, Transform.zoom.__name__), offset).bind(lambda stops: math(f"{key}_factor", "POWER", 2.0, stops))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                return paired(paired(position, rotation), scale).bind(lambda parts: placement(f"{key}_temporal", frame, *parts[0], parts[1], (0.0,) * 3, value(side, *affine, Affine.pivot.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                _, _, _, _, pivot = Affine.__struct_fields__
+                position = vector(f"{key}_travel", "SCALE", value(side, travel), offset)
+                rotation = math(f"{key}_turn", "MULTIPLY", value(side, turn), offset)
+                scale = math(f"{key}_zoom", "MULTIPLY", value(side, zoom), offset).bind(lambda stops: math(f"{key}_factor", "POWER", 2.0, stops))
+                return paired(paired(position, rotation), scale).bind(lambda parts: placement(f"{key}_temporal", frame, *parts[0], parts[1], (0.0,) * 3, value(side, affine, pivot)))
 
             placed = (
                 paired(fields.bind(shaken), base)
@@ -665,18 +670,8 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
         coordinates = sampled("output_uv", frame, frame.fraction)
         reference = coordinates.bind(lambda uv: mapped("reference_uv", None, uv))
         opening = coordinates.bind(lambda uv: mapped("opening_uv", 0, uv))
-        uv = paired(reference, opening).bind(lambda parts: switched("uv", "VECTOR", shell.socket(Transform.motion_blur.__name__), *parts))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        image = uv.bind(
-            lambda uv: extended(
-                "sample",
-                shell.source,
-                uv,
-                shell.socket(Transform.extension.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                shell.items[Transform.extension.__name__,],  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                filtername=shell.record.filtername,
-                filterwidth=shell.record.filterwidth,
-            )
-        )
+        uv = paired(reference, opening).bind(lambda parts: switched("uv", "VECTOR", shell.socket(motion_blur), *parts))
+        image = uv.bind(lambda uv: extended("sample", shell.source, uv, shell.socket(extension), shell.items[extension,], filtername=shell.record.filtername, filterwidth=shell.record.filterwidth))
         dimensions = node("image_info", bpy.types.CompositorNodeImageInfo, {"Image": shell.source}, {}).map(ended("image_info", "Dimensions"))
 
         def blurred(image: tuple[Fragment, End], dimensions: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
@@ -725,8 +720,8 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
                     unit = unit.bind(lambda point: vector("coverage_zero", "SCALE", point, 0.0)).bind(lambda zero: vector("coverage_one", "ADD", zero, (1.0,) * 3))
                     coverage = unit.bind(lambda unit: node("coverage", bpy.types.CompositorNodeSetAlpha, {"Image": unit, "Alpha": 1.0, "Type": "Replace Alpha"}, {})).map(ended("coverage", "Image"))
                     held = paired(
-                        node("trail", bpy.types.CompositorNodeDBlur, {"Image": image, "Center": (0.5, 0.5, 0.0), **settings}, {}).map(ended("trail", "Image")),
-                        coverage.bind(lambda coverage: node("trail_coverage", bpy.types.CompositorNodeDBlur, {"Image": coverage, "Center": (0.5, 0.5, 0.0), **settings}, {})).map(
+                        node("trail", bpy.types.CompositorNodeDBlur, {"Image": image, "Center": (0.5, 0.5), **settings}, {}).map(ended("trail", "Image")),
+                        coverage.bind(lambda coverage: node("trail_coverage", bpy.types.CompositorNodeDBlur, {"Image": coverage, "Center": (0.5, 0.5), **settings}, {})).map(
                             ended("trail_coverage", "Image")
                         ),
                     )
@@ -745,7 +740,7 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
 
                 return accumulated((scale, rotation, amount, direction, samples)).bind(filtered)
 
-            return endpoints.bind(fitted).bind(lambda blurred: switched("result", "RGBA", shell.socket(Transform.motion_blur.__name__), image, blurred))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return endpoints.bind(fitted).bind(lambda blurred: switched("result", "RGBA", shell.socket(motion_blur), image, blurred))
 
         affine_identity = (
             pose(None)
@@ -765,23 +760,23 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
                 node(
                     f"identity_pin_{field.name}",
                     bpy.types.FunctionNodeCompare,
-                    {"A": shell.socket(*pin, field.name), "B": (*getattr(defaults, field.name), 0.0), "Epsilon": 0.0},
+                    {"A": shell.socket(pin, value_field, field.name), "B": (*getattr(defaults, field.name), 0.0), "Epsilon": 0.0},
                     {"data_type": "VECTOR", "operation": "EQUAL", "mode": "ELEMENT"},
                 ).map(ended(f"identity_pin_{field.name}", "Result"))
                 for field in msgspec.structs.fields(Quad)
             )
             .bind(lambda matches: product("identity_pin", (1.0, *matches)))
-            .bind(lambda identity: switched("identity_pinned", "FLOAT", shell.socket(Transform.pin.__name__), 1.0, identity))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda identity: switched("identity_pinned", "FLOAT", shell.socket(pin), 1.0, identity))
         )
         tilt_identity = (
-            paired(math("identity_heading", "ABSOLUTE", value(None, *tilt, Tilt.heading.__name__)), math("identity_elevation", "ABSOLUTE", value(None, *tilt, Tilt.elevation.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            paired(math("identity_heading", "ABSOLUTE", value(None, tilt, heading)), math("identity_elevation", "ABSOLUTE", value(None, tilt, elevation)))
             .bind(lambda angles: math("identity_tilt_amount", "ADD", *angles))
             .bind(lambda amount: compared("identity_tilt", "EQUAL", amount, 0.0, epsilon=Some(0.0)))
         )
         identity = (
             accumulated((affine_identity, pin_identity, tilt_identity))
             .bind(lambda matches: product("identity", (1.0, *matches)))
-            .bind(lambda identity: switched("identity_stationary", "FLOAT", shell.socket(Transform.motion_blur.__name__), identity, 0.0))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda identity: switched("identity_stationary", "FLOAT", shell.socket(motion_blur), identity, 0.0))
         )
         return paired(image, dimensions).bind(lambda parts: blurred(*parts)).bind(lambda image: identity.bind(lambda identity: switched("transformed", "RGBA", identity, image, shell.source)))
 

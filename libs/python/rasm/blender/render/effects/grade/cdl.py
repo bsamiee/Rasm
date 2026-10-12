@@ -7,9 +7,10 @@ from expression import Option, Some
 import msgspec
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Done, Open, Operator, Save
+from rasm.blender.commands.operators import Call, Done, Open, Operator, Outcome, Save, Unchanged
 from rasm.blender.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, item_key, node, vector
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, node, vector
+from rasm.blender.nodes.interface import item_key
 from rasm.blender.render.color.luts import Formatted, lut_files, writable
 from rasm.blender.render.effects.stack import CompositorEffect, EffectName, Named, Shell
 from rasm.blender.settings.properties import Choices
@@ -70,9 +71,10 @@ class Exported(Formatted, frozen=True, kw_only=True):
 
 def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns the ASC equation with native CDL luminance coefficients."""
-    channels = (("X", Cdl.red.__name__), ("Y", Cdl.green.__name__), ("Z", Cdl.blue.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    members = tuple(field.name for field in msgspec.structs.fields(Channel))
-    slope, offset, power = (End(node=member, socket="Vector") for member in (Channel.slope.__name__, Channel.offset.__name__, Channel.power.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    red, green, blue, saturation = Cdl.__struct_fields__
+    channels = (("X", red), ("Y", green), ("Z", blue))
+    members = Channel.__struct_fields__
+    slope, offset, power = (End(node=member, socket="Vector") for member in members)
     entering = shell.source
     sloped, positive, negative, powered, graded, chroma = (End(node=key, socket="Vector") for key in ("sloped", "positive", "negative", "powered", "graded", "chroma"))
     luma = End(node="luma")
@@ -85,7 +87,7 @@ def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
         vector(graded.node, "ADD", powered, negative),
         vector(luma.node, "DOT_PRODUCT", graded, tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs())),
         vector(chroma.node, "SUBTRACT", graded, luma),
-        vector("saturated", "MULTIPLY_ADD", chroma, End(node=INPUTS, socket=item_key(Cdl.saturation.__name__)), luma),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        vector("saturated", "MULTIPLY_ADD", chroma, End(node=INPUTS, socket=item_key(saturation)), luma),
     ).map(ended("saturated", "Vector"))
 
 
@@ -104,7 +106,7 @@ def loaded(path: str) -> BlenderResult[tuple[tuple[Option[str], Cdl], ...]]:
     return lut_files.current(path, PyOpenColorIO.GetCurrentConfig()).bind(lambda current: read(current).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
 
 
-def imported(call: Call[Imported]) -> BlenderResult[Done]:
+def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
     """Writes the selected editable correction while retaining blend and masks."""
     path, record = str(call.paths[0]), call.record
 
@@ -117,7 +119,7 @@ def imported(call: Call[Imported]) -> BlenderResult[Done]:
     return (
         paired(loaded(path).bind(chosen), entry)
         .bind(lambda pair: cdl.read(call.identity, pair[1][1]).bind(lambda held: cdl.write(call.identity, *pair[1], msgspec.structs.replace(held, effect=pair[0]))))
-        .map(lambda _: Done())
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{record.name} already holds that correction"))
     )
 
 

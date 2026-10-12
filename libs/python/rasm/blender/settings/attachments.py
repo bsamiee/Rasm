@@ -9,9 +9,12 @@ from typing import ClassVar
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from idprop.types import IDPropertyGroup
 import msgspec
 
+from rasm.blender.data.ids.store import Handle, holder
 from rasm.blender.extension.events.handlers import PathHandler
+from rasm.blender.extension.events.timers import Timer
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Band
 from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
@@ -89,7 +92,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
 
     def write(self, host: "bpy.types.bpy_struct[object]", record: T) -> BlenderResult[None]:
-        """Encodes once and replaces one native group, returning codec or native edit faults."""
+        """Encodes once and replaces one native group holding other content, returning codec or native edit faults."""
         references: dict[str, bpy.types.ID] = {}
 
         def encoded(value: object) -> object:
@@ -105,21 +108,22 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
                     return hook(value)
 
         try:
-            data = msgspec.msgpack.encode(record, enc_hook=encoded, order="deterministic")
-            host[self.name] = {Slot.DATA: data, Slot.REFERENCES: references}
+            stored = {Slot.DATA: msgspec.msgpack.encode(record, enc_hook=encoded, order="deterministic"), Slot.REFERENCES: references}
+            if not (isinstance(held := host.get(self.name), IDPropertyGroup) and held.to_dict() == stored):
+                host[self.name] = stored
         except (msgspec.EncodeError, AttributeError, KeyError, TypeError, ValueError, OverflowError, ReferenceError, NotImplementedError) as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
         return Ok(None)
 
-    def removed(self, host: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
-        """Removes the stored record and its ID references, preserving native refusals."""
+    def removed(self, host: "bpy.types.bpy_struct[object]") -> BlenderResult[bool]:
+        """Removes the stored record and its ID references, answering whether the host held one, preserving native refusals."""
         try:
             del host[self.name]
         except KeyError:
-            return Ok(None)
+            return Ok(False)
         except (AttributeError, TypeError, ReferenceError) as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
-        return Ok(None)
+        return Ok(True)
 
 
 class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
@@ -158,10 +162,10 @@ class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Returns the desired record with each locked field taken from its held value."""
         return msgspec.structs.replace(record, **{key: getattr(held, key) for key in locks})
 
-    def applied(self, host: Host, record: T) -> BlenderResult[None]:
-        """Applies a lock-kept preset, returning read and native write refusals."""
+    def applied(self, host: Host, record: T) -> BlenderResult[bool]:
+        """Applies a lock-kept preset where it differs from the held record, answering whether it wrote, or the read and native write refusals."""
         locks = self.locks(host)
-        return self.read(host).bind(lambda held: self.write(host, self.kept(locks, held, record)))
+        return self.read(host).bind(lambda held: Ok(False) if (kept := self.kept(locks, held, record)) == held else self.write(host, kept).map(lambda _: True))
 
     # --- [HOSTS]
 
@@ -179,7 +183,7 @@ class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 pending.extend(
                     child
                     for prop in block.bl_rna.properties
-                    if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ID)
+                    if isinstance(prop, bpy.types.PointerProperty) and not prop.is_deprecated and isinstance(prop.fixed_type, bpy.types.ID)
                     for child in Option.of_optional(getattr(block, prop.identifier)).to_list()
                     if child.is_embedded_data
                 )
@@ -247,7 +251,12 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                     lambda attached: (
                         *((Band.GROUPS, group) for group in (attached.group.struct, *attached.group.nested)),
                         (Band.ATTACHMENTS, pointed(self.owner, attached.name, attached.group.pointer)),
-                        *self.seed.map(lambda seed: (PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: seed(identity).bind(attached.seeded)),)).default_value(()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        *self.seed.map(
+                            lambda seed: (
+                                PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: seed(identity).bind(attached.seeded)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                                Timer(body=lambda: seed(identity).bind(attached.seeded).map(lambda _: Nothing)),
+                            )
+                        ).default_value(()),
                     )
                 )
             )
@@ -274,6 +283,31 @@ def pointed(owner: "type[bpy.types.bpy_struct[object]]", name: str, definition: 
         delattr(owner, name)
 
 
+def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Identity], BlenderResult[Option[str]]]) -> Callable[[Identity], AbstractContextManager[Changed]]:
+    """Builds the attachment update body deferring one reconcile of the holder its data-block names.
+
+    Args:
+        kind: Holder class the write resolves: a material, world, light, scene, object, or node group.
+        write: Module-level write that resolves the handle, reads the owner's record, derives its graph, and reconciles inside the deferred call.
+
+    Returns:
+        The callback resource builder Attachment enters before compiling its native group.
+    """
+
+    @contextmanager
+    def built(identity: Identity) -> Generator[Changed]:
+        with identity.reports.deferred(write) as deferred:
+
+            def changed(owner: "bpy.types.bpy_struct[object]", _context: bpy.types.Context, _property: bpy.types.Property) -> None:
+                for found in Option.of_optional(owner.id_data).bind(holder).to_list():
+                    if isinstance(found, kind):
+                        deferred(Handle.of(found), identity)
+
+            yield changed
+
+    return built
+
+
 def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: Callable[[bpy.types.AddonPreferences], BlenderResult[T]]) -> BlenderResult[T]:
     """Marks attempted preference writes dirty and returns their actual native outcome."""
 
@@ -293,4 +327,4 @@ def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Attached", "Attachment", "Host", "Slot", "Stored", "pointed", "preferred"]
+__all__ = ["Attached", "Attachment", "Host", "Slot", "Stored", "pointed", "preferred", "reconciling"]

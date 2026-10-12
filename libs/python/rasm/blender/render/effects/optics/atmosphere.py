@@ -4,7 +4,8 @@ import bpy
 from expression import Some
 
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, framed, FrameSpace, masked, math, menu, mixed, nested, node, pixels, switched, vector
+from rasm.blender.nodes.coordinates import framed, FrameSpace, pixels
+from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, masked, math, menu, mixed, nested, node, switched, vector
 from rasm.blender.render.effects.generators.noise import sampled
 from rasm.blender.render.effects.optics.vignette import chief_ray
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, Shell
@@ -27,22 +28,22 @@ def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Scattered light and graph, or independent native construction faults.
     """
-    noise = (Atmosphere.noise.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    inscatter = Atmosphere.inscatter.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    inscatter, noise, attenuation, start, cutoff = Atmosphere.__struct_fields__
+    _, value = Gated.__struct_fields__
     distance = paired(math("meters", "MULTIPLY", shell.layer("Depth"), shell.meters), chief_ray().bind(lambda group: nested("chief_ray", group, {"image": shell.source}, "cosine"))).bind(
         lambda ends: math("distance", "DIVIDE", *ends)
     )
 
     def medium(distance: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         transmission = (
-            math("offset", "SUBTRACT", shell.socket(Atmosphere.start.__name__), distance)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math("offset", "SUBTRACT", shell.socket(start), distance)
             .bind(lambda offset: math("path", "MINIMUM", offset, 0.0))
-            .bind(lambda path: math("exponent", "DIVIDE", path, shell.socket(Atmosphere.attenuation.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda path: math("exponent", "DIVIDE", path, shell.socket(attenuation)))
             .bind(lambda exponent: math("transmittance", "EXPONENT", exponent))
         )
         beyond = (
-            compared("beyond", "GREATER_THAN", distance, shell.socket(Atmosphere.cutoff.__name__, Gated.value.__name__))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-            .bind(lambda beyond: node("cut", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(Atmosphere.cutoff.__name__), "Boolean_001": beyond}, {"operation": "AND"}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            compared("beyond", "GREATER_THAN", distance, shell.socket(cutoff, value))
+            .bind(lambda beyond: node("cut", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(cutoff), "Boolean_001": beyond}, {"operation": "AND"}))
             .map(ended("cut", "Boolean"))
         )
         return (
@@ -53,28 +54,24 @@ def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[tuple[Fragment, End]]:
         )
 
     def lit(frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
+        (color,) = Ambient.__struct_fields__
+        tint, radius = Diffused.__struct_fields__
+        variation_field, basis, motion, seed = Fluctuation.__struct_fields__
+        speed, hold = Motion.__struct_fields__
         spread = (
-            pixels("spread", frame, shell.socket(inscatter, Diffused, Diffused.radius.__name__), "VECTOR")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            pixels("spread", frame, shell.socket(inscatter, Diffused, radius), "VECTOR")
             .bind(lambda spread: node("blurred", bpy.types.CompositorNodeBlur, {"Image": shell.source, "Size": spread, "Type": "Fast Gaussian"}, {}))
             .map(ended("blurred", "Image"))
-            .bind(lambda blurred: vector("diffused", "MULTIPLY", blurred, shell.socket(inscatter, Diffused, Diffused.tint.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            .bind(
-                lambda diffused: menu(
-                    "inscattered",
-                    "RGBA",
-                    shell.socket(inscatter),
-                    shell.items[inscatter,],
-                    {Ambient.title: shell.socket(inscatter, Ambient, Ambient.color.__name__), Diffused.title: diffused},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                )
-            )
+            .bind(lambda blurred: vector("diffused", "MULTIPLY", blurred, shell.socket(inscatter, Diffused, tint)))
+            .bind(lambda diffused: menu("inscattered", "RGBA", shell.socket(inscatter), shell.items[inscatter,], {Ambient.title: shell.socket(inscatter, Ambient, color), Diffused.title: diffused}))
         )
-        clock = Clock(key="clock", speed=shell.socket(*noise, Fluctuation.motion.__name__, Motion.speed.__name__), hold=shell.socket(*noise, Fluctuation.motion.__name__, Motion.hold.__name__)).value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        clock = Clock(key="clock", speed=shell.socket(noise, value, motion, speed), hold=shell.socket(noise, value, motion, hold)).value
         field = (
             clock
-            .bind(lambda time: sampled(shell, (*noise, Fluctuation.basis.__name__), frame.point, time, shell.socket(*noise, Fluctuation.seed.__name__)))  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
+            .bind(lambda time: sampled(shell, (noise, value, basis), frame.point, time, shell.socket(noise, value, seed)))
             .map(lambda fields: fields[0][0])
-            .bind(lambda field: math("variation", "MULTIPLY", field, shell.socket(*noise, Fluctuation.variation.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            .bind(lambda variation: switched("opacity_reduction", "FLOAT", shell.socket(Atmosphere.noise.__name__), 0.0, variation))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda field: math("variation", "MULTIPLY", field, shell.socket(noise, value, variation_field)))
+            .bind(lambda variation: switched("opacity_reduction", "FLOAT", shell.socket(noise), 0.0, variation))
         )
         return paired(spread, field)
 

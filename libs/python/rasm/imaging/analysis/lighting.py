@@ -15,7 +15,7 @@ from scipy.cluster.vq import kmeans, vq
 from scipy.spatial.distance import cdist
 from scipy.stats import binned_statistic
 
-from rasm.imaging.analysis.metering import Samples
+from rasm.imaging.analysis.metering import Samples, samples_of
 from rasm.imaging.chain import GREY
 from rasm.imaging.color.processors import applied, processor, xyz
 from rasm.imaging.color.white import White
@@ -217,7 +217,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return paired(Samples.of(config, pixels), processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR))).bind(read)
+        return paired(samples_of(config, pixels), processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR))).bind(read)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

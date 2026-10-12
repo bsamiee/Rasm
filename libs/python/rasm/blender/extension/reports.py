@@ -8,7 +8,7 @@ from threading import RLock
 from typing import Self, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option
+from expression import identity, Nothing, Ok, Option
 
 from rasm.blender.faults import (
     BlenderAbsentFault,
@@ -165,36 +165,40 @@ class Reports:
             write: Write answering an optional undo-step name; arguments are hashable handles or records.
 
         Yields:
-            A callable coalescing each argument set on the main thread, or running inline in background mode.
+            A callable running each argument set at its call in background mode, where no event loop runs, and coalescing it into one main-thread timer otherwise.
         """
         active = True
+        applied = self.reported(write)
 
         @functools.wraps(write)
-        def called(*args: P.args, **kwargs: P.kwargs) -> None:
+        def immediate(*args: P.args, **kwargs: P.kwargs) -> None:
+            """Runs the write at its call, dropping its step name since background runs hold no undo stack."""
+            if active:
+                _ = applied(*args, **kwargs)
+
+        @functools.wraps(write)
+        def queued(*args: P.args, **kwargs: P.kwargs) -> None:
             """Schedules one pending write for these arguments."""
-            key = (write, called, args, frozenset(kwargs.items()))
+            key = (write, queued, args, frozenset(kwargs.items()))
 
             def ticked() -> float | None:
-                """Runs this queued call while its scope and native timer still own it."""
+                """Runs this queued call while its scope and native timer still own it, waiting out a locked interface."""
                 with self.lock:
-                    if not active or key not in self.pending or self.pending[key] is not ticked:
+                    if not active or self.pending.get(key) is not ticked:
                         return None
                     if Option.of_optional(bpy.context.window_manager).map(lambda manager: manager.is_interface_locked).default_value(False):
                         return 0.0
                     del self.pending[key]
-                    for step in write(*args, **kwargs).map_error(self.hold).default_value(Nothing).to_list():
+                    for step in applied(*args, **kwargs).bind(identity).to_list():
                         bpy.ops.ed.undo_push(message=step)
                     return None
 
             with self.lock:
-                if not active:
-                    return
-                if bpy.app.background:
-                    write(*args, **kwargs).map(lambda _: None).default_with(self.hold)
-                elif key not in self.pending or not bpy.app.timers.is_registered(self.pending[key]):
+                if active and (key not in self.pending or not bpy.app.timers.is_registered(self.pending[key])):
                     self.pending[key] = ticked
                     bpy.app.timers.register(ticked)
 
+        called = immediate if bpy.app.background else queued
         try:
             yield called
         finally:

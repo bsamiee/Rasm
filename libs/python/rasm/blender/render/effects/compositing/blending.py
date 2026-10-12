@@ -9,7 +9,8 @@ from msgspec import structs
 
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import described, End, ended, Fragment, INPUTS, Interface, math, menu, MenuItems, mixed, nested, node, NodeGroup, Operand, Socket
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, math, menu, mixed, nested, node, NodeGroup, Operand
+from rasm.blender.nodes.interface import described, Interface, MenuItems, Socket
 from rasm.imaging.compositing.blending import Blend, BlendMode
 from rasm.imaging.faults import accumulated, paired
 
@@ -35,9 +36,7 @@ def blend_type(mode: BlendMode) -> str:
 def mixback() -> BlenderResult[NodeGroup]:
     """Returns the shared HDR blend group or its native construction faults."""
     base, result = End(node=INPUTS, socket="base"), End(node=INPUTS, socket="result")
-    mode_name = Blend.mode.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    opacity_name = Blend.opacity.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    mode = next(field for field in structs.fields(Blend) if field.name == mode_name)
+    mode, opacity, _ = structs.fields(Blend)
     items = MenuItems.of(BlendMode, described(mode.type))
 
     def blended(straight: tuple[tuple[Fragment, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
@@ -86,7 +85,7 @@ def mixback() -> BlenderResult[NodeGroup]:
                 inputs=(
                     Socket(key="base", name="Base", kind=bpy.types.NodeSocketColor),
                     Socket(key="result", name="Result", kind=bpy.types.NodeSocketColor),
-                    *(structs.replace(socket, key={mode_name: "blend", opacity_name: "coverage"}[socket.key]) for socket in parts[1].inputs),
+                    *(structs.replace(socket, key={mode.name: "blend", opacity.name: "coverage"}[socket.key]) for socket in parts[1].inputs),
                 ),
                 outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),),
             ),

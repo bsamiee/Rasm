@@ -41,18 +41,11 @@ class IconSet(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]]
     tint: Callable[[Path], Option[Color]]
     brand: Option[Path]
-    pending: Callable[[], None]
 
     # --- [READING]
 
-    def refresh(self) -> None:
-        """Schedules changed source colors through the shared deferred write."""
-        if any(applied != self.tint(source) for source, (_, applied) in self.sources.items()):
-            self.pending()
-
     def value(self, source: Path) -> int:
-        """Returns a source's stable preview ID and schedules changed tint."""
-        self.refresh()
+        """Returns a source's stable preview ID."""
         return self.collection[source.as_posix()].icon_id
 
     # --- [WRITING]
@@ -105,7 +98,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                         preview.icon_size = preview.image_size
                         preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
                         sources[source] = (pixels.reshape(-1, 4), Nothing)
-                icons = IconSet(collection=collection, sources=sources, tint=self.tint, brand=self.brand, pending=pending)
+                icons = IconSet(collection=collection, sources=sources, tint=self.tint, brand=self.brand)
                 icons.reinked()
                 Icons.held[identity.package] = icons
                 scope.callback(Icons.held.pop, identity.package)

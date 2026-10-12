@@ -13,7 +13,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm.blender.commands.operators import Done, Empty, InvokePopup, Operator
+from rasm.blender.commands.operators import Done, Empty, InvokePopup, Operator, Outcome, Unchanged
 from rasm.blender.data.ids.ownership import earliest, Mark, Ownership, Saved
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.animation import Animation, Keys
@@ -23,10 +23,9 @@ from rasm.blender.extension.events.subscriptions import Subscription
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions, Band, entered
 from rasm.blender.faults import BlenderChoiceFault, BlenderEditFault, BlenderRenderingFault, BlenderResult, BlenderZoneFault
-from rasm.blender.nodes.graphs import reconciling
-from rasm.blender.scene.objects import ObjectState, reconciled, spawned
+from rasm.blender.scene.objects import ObjectState, reconciled, shaped, spawned
 from rasm.blender.scene.worlds import EnvironmentNode, Follower, followers, WorldEnvironment
-from rasm.blender.settings.attachments import Attached, Attachment
+from rasm.blender.settings.attachments import Attached, Attachment, reconciling
 from rasm.blender.settings.properties import Choices
 from rasm.blender.ui.layout.rows import Line, Member, OperatorButton, Owner, RowDraw
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
@@ -169,7 +168,7 @@ class SunLamp(msgspec.Struct, frozen=True, kw_only=True):
             title="Remove Sun",
             description="Remove the scene's sun lamp, its paths, and every sun key",
             form=Empty,
-            run=lambda call: call.root(bpy.types.Scene).bind(lambda scene: sun_removed(scene, call.identity)).map(lambda count: Done(notes=(("INFO", f"Removed {count} sun objects"),))),
+            run=lambda call: call.root(bpy.types.Scene).bind(lambda scene: sun_removed(scene, call.identity)),
         ),
         Operator(
             key="sun_zone",
@@ -382,22 +381,20 @@ def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> Blende
         else Ok(Nothing),
     )
 
-    def meshed(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32]) -> BlenderResult[None]:
-        try:
-            mesh.clear_geometry()
-            mesh.from_pydata(vertices.tolist(), [], paths.faces.tolist())
-            return Ok(None)
-        except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=repr(mesh), error=error),))
-
     def curved(curve: bpy.types.Curve, loops: tuple[tuple[npt.NDArray[np.float32], bool], ...]) -> BlenderResult[None]:
+        def current(spline: bpy.types.Spline, points: npt.NDArray[np.float32], cyclic: bool) -> bool:
+            live = np.empty(len(spline.points) * 4, np.float32)
+            spline.points.foreach_get("co", live)
+            return spline.type == "POLY" and spline.use_cyclic_u == cyclic and np.array_equal(live.view(np.uint32), points.ravel().view(np.uint32))
+
         try:
-            curve.splines.clear()
-            for points, cyclic in loops:
-                spline = curve.splines.new("POLY")
-                spline.points.add(len(points) - 1)
-                spline.points.foreach_set("co", points.ravel().tolist())
-                spline.use_cyclic_u = cyclic
+            if len(curve.splines) != len(loops) or not all(current(spline, *loop) for spline, loop in zip(curve.splines, loops)):
+                curve.splines.clear()
+                for points, cyclic in loops:
+                    spline = curve.splines.new("POLY")
+                    spline.points.add(len(points) - 1)
+                    spline.points.foreach_set("co", points.ravel())
+                    spline.use_cyclic_u = cyclic
         except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
             return Error((BlenderEditFault(request=repr(curve), error=error),))
         return bevel.apply(curve).outcome
@@ -435,9 +432,9 @@ def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> Blende
 
     def placed(prepared: tuple[Option[npt.NDArray[np.float32]], Option[tuple[tuple[npt.NDArray[np.float32], bool], ...]]]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
         vertices, loops = prepared
-        return _gone(tuple(row for row, value in ((SunLamp.surface, vertices), (SunLamp.analemmas, loops)) if value.is_none()), scene, identity).bind(
+        return _gone(_marked(tuple(row for row, value in ((SunLamp.surface, vertices), (SunLamp.analemmas, loops)) if value.is_none()), scene, identity), scene, identity).bind(
             lambda _: accumulated((
-                *(held(SunLamp.surface, SunLamp.mesh, "Sun Surface", lambda: bpy.data.meshes.new("Sun Surface"), lambda mesh: meshed(mesh, points)) for points in vertices.to_list()),
+                *(held(SunLamp.surface, SunLamp.mesh, "Sun Surface", lambda: bpy.data.meshes.new("Sun Surface"), lambda mesh: shaped(mesh, points, paths.faces)) for points in vertices.to_list()),
                 *(held(SunLamp.analemmas, SunLamp.curve, "Sun Analemmas", lambda: bpy.data.curves.new("Sun Analemmas", "CURVE"), lambda curve: curved(curve, points)) for points in loops.to_list()),
             ))
         )
@@ -478,7 +475,7 @@ def dropped(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
     return Option.of_optional(scene.world).bind(lambda world: Option.of_optional(world.node_tree)).map(cleared).default_value(Ok(None))
 
 
-def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int]:
+def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[Outcome]:
     """Removes a scene's lamp and path objects and clears the followers' channels.
 
     Args:
@@ -486,8 +483,10 @@ def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int
         identity: Identity reading the marks.
 
     Returns:
-        `Ok` of the objects removed; the faults of `followers` and each clear.
+        `Ok` of `Done` noting the objects removed, `Unchanged` where the scene holds no sun object; the faults of `followers` and each clear.
     """
+    if not (blocks := _marked((SunLamp.lamp, SunLamp.surface, SunLamp.analemmas), scene, identity)):
+        return Ok(Unchanged(reason=f"{scene.name} holds no sun"))
 
     def cleared(tree: bpy.types.NodeTree) -> BlenderResult[tuple[None, ...]]:
         return followers(tree, identity).bind(
@@ -502,7 +501,8 @@ def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int
         .bind(lambda world: Option.of_optional(world.node_tree))
         .map(cleared)
         .default_value(Ok(()))
-        .bind(lambda _: _gone((SunLamp.lamp, SunLamp.surface, SunLamp.analemmas), scene, identity))
+        .bind(lambda _: _gone(blocks, scene, identity))
+        .map(lambda count: Done(notes=(("INFO", f"Removed {count} sun objects"),)))
     )
 
 
@@ -523,11 +523,16 @@ def _channels(owner: bpy.types.NodeTree, follower: bpy.types.Node | EnvironmentN
             return ()
 
 
-def _gone(rows: tuple[Ownership[bpy.types.Object], ...], scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int]:
-    """Removes the scene's holders of the rows in one `batch_remove`, answering their count."""
-    blocks = tuple(block for row in rows for block, mark in row.held(identity) if mark.of == Some(scene))
+def _marked(rows: tuple[Ownership[bpy.types.Object], ...], scene: bpy.types.Scene, identity: Identity) -> tuple[bpy.types.Object, ...]:
+    """Answers the scene's holders of the rows."""
+    return tuple(block for row in rows for block, mark in row.held(identity) if mark.of == Some(scene))
+
+
+def _gone(blocks: tuple[bpy.types.Object, ...], scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int]:
+    """Removes a scene's sun objects in one `batch_remove` with the unused sun data, answering their count."""
     try:
-        bpy.data.batch_remove(ids=blocks)
+        if blocks:
+            bpy.data.batch_remove(ids=blocks)
         return Ok(len(blocks) + sum(row.removed(identity) for row in (SunLamp.light, SunLamp.mesh, SunLamp.curve)))
     except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
         return Error((BlenderEditFault(request=repr(scene), error=error),))

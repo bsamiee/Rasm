@@ -5,7 +5,6 @@ from collections.abc import Callable
 import datetime
 import functools
 import itertools
-from operator import or_
 from typing import Annotated, ClassVar, Literal, Self
 
 import bpy
@@ -15,10 +14,10 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm.blender.commands.operators import Call, Done, Empty, InvokePopup, Operator
+from rasm.blender.commands.operators import Call, Done, Empty, InvokePopup, Operator, Outcome, tallied, Unchanged
 from rasm.blender.data.ids.ownership import earliest, Mark, Ownership, Saved
 from rasm.blender.data.rna.conditions import AllOf, AnyOf, Condition, holds, Not, Setting
-from rasm.blender.data.rna.descriptors import Descriptor, IdName, struct_at, Value, written
+from rasm.blender.data.rna.descriptors import Descriptor, IdName, root_in, struct_at, Value, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.events.handlers import PathHandler
 from rasm.blender.extension.events.subscriptions import Subscription
@@ -26,7 +25,10 @@ from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.extension.reports import rendered
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderCollisionFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderUnmetFault
-from rasm.blender.nodes.graphs import Added, Changes, End, ended, FileItem, FileItems, Fragment, FrameNode, INPUTS, Interface, Link, math, mixed, nested, Node, node, NodeGroup, Socket, summed
+from rasm.blender.nodes.changes import Added, Changes, changes, made, owned, reconciled
+from rasm.blender.nodes.graphs import End, ended, FileItem, FileItems, Fragment, FrameNode, INPUTS, Link, math, mixed, nested, Node, node, NodeGroup, summed
+from rasm.blender.nodes.interface import Interface, Socket
+from rasm.blender.nodes.trees import socket_at
 from rasm.blender.render.outputs.finishing import Finish, stamped, Written
 from rasm.blender.render.outputs.formats import extension, Kind, OutputFormat
 from rasm.blender.render.outputs.paths import NodePaths, OutputPath, Pathed, ScenePaths
@@ -375,7 +377,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             plan = {f"{prefix}_{filing.output.name.lower()}_{filing.kind.name.lower()}": filing for filing in filings(found, routing.split)}
             return (
                 accumulated(filed(self.pathed, path, layer.name, filing, key, routing.convention, self.dimensions) for key, filing in plan.items())
-                .map(lambda parts: render | functools.reduce(or_, parts, built))
+                .bind(lambda parts: Fragment.merged((render, built, *parts)))
                 .map(lambda body: (FrameNode(members={self.label: layer.name, self.custom: True, self.tint: shown}, nodes=dict(body.nodes)), body.links, LayerPlan(frame=prefix, filings=plan)))
             )
 
@@ -405,7 +407,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Ok` of the group and each used layer's plan by layer name; `Error` of every layer's faults, accumulated.
         """
-        held = tree.map(lambda found: marked(found, self.identity)).default_value({})
+        held = tree.map(lambda found: owned(found, self.identity)).default_value({})
         used = self.used(scene)
         return accumulated(self.framed(scene, held, path, index, layer) for index, layer in enumerate(used)).bind(
             lambda frames: self.grouped(frames).map(lambda group: (group, {layer.name: plan for layer, (_, _, plan) in zip(used, frames)}))
@@ -428,10 +430,10 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         before = held.map(lambda found: items(found, self.identity)).default_value({})
 
         def applied(tree: bpy.types.NodeTree, group: NodeGroup, plans: dict[str, LayerPlan]) -> BlenderResult[Changes]:
-            return group.graph.reconciled(tree, self.identity, group.interface).bind(lambda rows: formatted(tree, group, plans, rows, before, self.identity).map(lambda _: rows))
+            return reconciled(group, tree, self.identity).bind(lambda rows: formatted(tree, group, plans, rows, before, self.identity).map(lambda _: rows))
 
         def rebuilt(first: NodeGroup, _: dict[str, LayerPlan]) -> BlenderResult[Changes]:
-            return first.made(self.identity, of=Some(scene)).bind(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: applied(tree, *planned)))
+            return made(first, self.identity, of=Some(scene)).bind(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: applied(tree, *planned)))
 
         def requested(layer: bpy.types.ViewLayer) -> BlenderResult[PassRequest]:
             return self.routing.read(layer).map(lambda routing: PassRequest(layer=layer.name, flags=self.flags.opened(routing)))
@@ -480,12 +482,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             return Ok(Nothing)
 
         def pending(tree: bpy.types.NodeTree, group: NodeGroup, _: dict[str, LayerPlan]) -> BlenderResult[Option[str]]:
-            return (
-                group.graph
-                .changes(tree, self.identity, group.interface)
-                .map(lambda rows: sum(map(len, msgspec.structs.astuple(rows))))
-                .map(lambda count: Some(f"{count} changes pending") if count else Nothing)
-            )
+            return changes(group, tree, self.identity).map(lambda rows: sum(map(len, msgspec.structs.astuple(rows)))).map(lambda count: Some(f"{count} changes pending") if count else Nothing)
 
         return self.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(
             lambda path: (
@@ -531,18 +528,15 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
     def operators(self) -> tuple[Operator[Empty], Operator[Empty], Operator[Empty], Operator[PassName]]:
         """Answers the update, spread, shuffle, and file rows."""
 
-        def recoloring(chosen: Callable[[tuple[Rgb, ...]], tuple[Rgb, ...]]) -> Callable[[Call[Empty]], BlenderResult[Done]]:
-            def run(call: Call[Empty]) -> BlenderResult[Done]:
-                return Result[bpy.types.ViewLayer, BlenderFaults].bind(
-                    call.root(bpy.types.ViewLayer),
-                    lambda layer: self.routing.read(layer).bind(
-                        lambda routing: accumulated(recolored(layer, entity, self.id_colors[entity], chosen) for entity in sorted(routing.ids)).map(
-                            lambda _: Done(notes=() if routing.ids else (("INFO", f"{layer.name} draws no ID colors"),))
-                        )
-                    ),
+        def recoloring(chosen: Callable[[tuple[Rgb, ...]], tuple[Rgb, ...]]) -> Callable[[Call[Empty]], BlenderResult[Outcome]]:
+            def painted(layer: bpy.types.ViewLayer, routing: Routing) -> BlenderResult[Outcome]:
+                if not routing.ids:
+                    return Ok(Unchanged(reason=f"{layer.name} draws no ID colors"))
+                return accumulated(recolored(layer, entity, self.id_colors[entity], chosen) for entity in sorted(routing.ids)).map(
+                    lambda counts: Done() if sum(counts) else Unchanged(reason=f"{layer.name} ID colors already hold those colors")
                 )
 
-            return run
+            return lambda call: Result[bpy.types.ViewLayer, BlenderFaults].bind(call.root(bpy.types.ViewLayer), lambda layer: self.routing.read(layer).bind(lambda routing: painted(layer, routing)))
 
         def added(call: Call[PassName]) -> BlenderResult[Done]:
             if (layer := (call.context.view_layer)) is None:
@@ -610,18 +604,30 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
                 routing=routing,
             )
 
-        def captured(context: bpy.types.Context) -> BlenderResult[PassPreset]:
-            if (layer := (context.view_layer)) is None:
-                return Error((BlenderAbsentFault(owner=repr(context), key="view_layer"),))
+        def held(layer: bpy.types.ViewLayer) -> BlenderResult[PassPreset]:
             return paired(Snapshot.capture(layer, selection), self.routing.read(layer)).map(lambda pair: PassPreset(flags=pair[0], routing=pair[1]))
 
-        def matches(context: bpy.types.Context, values: tuple[PassPreset, ...]) -> BlenderResult[tuple[bool, ...]]:
-            return captured(context).map(lambda held: tuple(not transfer(held.flags.tree, value.flags.tree) and held.routing == value.routing for value in values))
+        def same(current: PassPreset, value: PassPreset) -> bool:
+            return not transfer(current.flags.tree, value.flags.tree) and current.routing == value.routing
 
-        def applied(context: bpy.types.Context, value: PassPreset) -> BlenderResult[Done]:
-            if (scene := (context.scene)) is None:
-                return Error((BlenderAbsentFault(owner=repr(context), key="scene"),))
-            return accumulated(paired(value.flags.apply(layer).outcome, self.routing.write(layer, value.routing)) for layer in self.used(scene)).map(lambda _: Done())
+        def captured(context: bpy.types.Context) -> BlenderResult[PassPreset]:
+            return Result[bpy.types.ViewLayer, BlenderFaults].bind(root_in(bpy.types.ViewLayer, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),)), held)
+
+        def matches(context: bpy.types.Context, values: tuple[PassPreset, ...]) -> BlenderResult[tuple[bool, ...]]:
+            return captured(context).map(lambda current: tuple(same(current, value) for value in values))
+
+        def applied(context: bpy.types.Context, value: PassPreset) -> BlenderResult[Outcome]:
+            def wrote(scene: bpy.types.Scene) -> BlenderResult[Outcome]:
+                layers = self.used(scene)
+
+                def chosen(current: tuple[PassPreset, ...]) -> BlenderResult[Outcome]:
+                    if not (differing := tuple(layer for layer, preset in zip(layers, current, strict=True) if not same(preset, value))):
+                        return Ok(Unchanged(reason=f"No used view layer of {scene.name} differs from the preset"))
+                    return tallied(tuple(paired(value.flags.apply(layer).outcome, self.routing.write(layer, value.routing)) for layer in differing))
+
+                return accumulated(map(held, layers)).bind(chosen)
+
+            return Result[bpy.types.Scene, BlenderFaults].bind(root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), wrote)
 
         return Listing(preset=msgspec.structs.replace(PassSet.presets, stock={name: stock(enabled, routing) for name, enabled, routing in recipes}), current=captured, matches=matches, applied=applied)
 
@@ -726,7 +732,7 @@ class PassSet(Line, frozen=True):
 
         def collected(routing: PassRouting, path: OutputPath) -> BlenderResult[tuple[Written, ...]]:
             tree = routing.held(scene)
-            held = tree.map(lambda found: marked(found, identity)).default_value({})
+            held = tree.map(lambda found: owned(found, identity)).default_value({})
 
             def layer_files(plans: dict[str, LayerPlan], layer: bpy.types.ViewLayer) -> BlenderResult[tuple[Written, ...]]:
                 return (
@@ -1148,8 +1154,8 @@ def sources(
                 return Error((BlenderChoiceFault(path=repr(bound.routing.struct(layer)), identifier=gate.value.name, accepted=accepted),)) if gate.enabled else Ok(Nothing)
 
     def joined_sources(built: tuple[tuple[Fragment, Source], ...]) -> BlenderResult[tuple[Fragment, tuple[Source, ...]]]:
-        return accumulated(gated(source) for _, source in built).map(
-            lambda kept: (functools.reduce(or_, (fragment for fragment, _ in built), Fragment()), tuple(source for option in kept for source in option.to_list()))
+        return paired(accumulated(gated(source) for _, source in built), Fragment.merged(fragment for fragment, _ in built)).map(
+            lambda pair: (pair[1], tuple(source for option in pair[0] for source in option.to_list()))
         )
 
     def sourced(built: tuple[Fragment, End], name: str, kind: Literal["FLOAT", "VECTOR", "RGBA"], dimensions: Option[int], output: Output) -> tuple[Fragment, Source]:
@@ -1245,14 +1251,9 @@ def filed(pathed: Pathed, path: OutputPath, layer: str, filing: Filing, key: Key
     )
 
 
-def marked(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, bpy.types.Node]:
-    """Owned nodes of a tree by mark key."""
-    return {mark.key: held for held in tree.nodes for mark in Mark.read(identity, held).to_list()}
-
-
 def items(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, frozenset[str]]:
     """Item names of each owned File Output node by key."""
-    return {key: frozenset(item.name for item in held.file_output_items) for key, held in marked(tree, identity).items() if isinstance(held, bpy.types.CompositorNodeOutputFile)}
+    return {key: frozenset(item.name for item in held.file_output_items) for key, held in owned(tree, identity).items() if isinstance(held, bpy.types.CompositorNodeOutputFile)}
 
 
 def formatted(tree: bpy.types.NodeTree, group: NodeGroup, plans: dict[str, LayerPlan], rows: Changes, before: dict[Key, frozenset[str]], identity: Identity) -> BlenderResult[None]:
@@ -1269,7 +1270,7 @@ def formatted(tree: bpy.types.NodeTree, group: NodeGroup, plans: dict[str, Layer
     Returns:
         `Ok` once applied; `Error` of each refused write.
     """
-    held, placed = marked(tree, identity), group.graph.placed
+    held, placed = owned(tree, identity), group.graph.placed
     filings = {key: filing for plan in plans.values() for key, filing in plan.filings.items()}
     added = frozenset(row.key for row in rows.structure if isinstance(row, Added))
     nodes = accumulated(OutputFormat.of(filing.output, filing.kind).bind(lambda settings: settings.applied(held[key])) for key, filing in filings.items() if key not in before or key in added)
@@ -1300,19 +1301,19 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
         `Ok` once synced; `Error` of `collision` for an AOV reading `is_valid` False, and each refused write.
     """
 
-    def scanned(trees: tuple[bpy.types.NodeTree, ...]) -> dict[str, str]:
+    def scanned(trees: tuple[bpy.types.NodeTree, ...]) -> BlenderResult[dict[str, str]]:
         pending = deque(trees)
         reached: dict[bpy.types.NodeTree, None] = {}
         while pending:
             if (tree := (pending.popleft())) not in reached:
                 reached[tree] = None
                 pending.extend(child for held in tree.nodes if isinstance(held, bpy.types.ShaderNodeGroup) for child in Option.of_optional(held.node_tree).to_list())
-        return {
-            held.aov_name: "COLOR" if held.inputs["Color"].is_linked else "VALUE"  # type: ignore[index]  # ty: ignore[not-subscriptable]
+        return accumulated(
+            socket_at(held.inputs, "Color").map(lambda socket: (held.aov_name, "COLOR" if socket.is_linked else "VALUE"))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             for tree in reached
             for held in tree.nodes
             if isinstance(held, bpy.types.ShaderNodeOutputAOV)
-        }
+        ).map(dict)
 
     def setup(material: bpy.types.Material) -> BlenderResult[dict[str, str]]:
         return (
@@ -1326,7 +1327,7 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
         override = Option.of_optional(layer.material_override)
         materials = override.map(lambda material: (material,)).default_with(lambda: tuple(slot.material for item in scene.objects for slot in item.material_slots if slot.material))
         trees = tuple(tree for tree in (*(material.node_tree for material in materials), *(world.node_tree for world in Option.of_optional(scene.world).to_list())) if tree)
-        return override.filter(lambda material: Mark.read(identity, material).filter(lambda mark: mark.key == Utility.ownership.key).is_some()).map(setup).default_with(lambda: Ok(scanned(trees)))
+        return override.filter(lambda material: Mark.read(identity, material).filter(lambda mark: mark.key == Utility.ownership.key).is_some()).map(setup).default_with(lambda: scanned(trees))
 
     def aovs(layer: bpy.types.ViewLayer, names: dict[str, str]) -> BlenderResult[None]:
         held = {aov.name: aov for aov in layer.aovs}
@@ -1418,7 +1419,7 @@ def colored(prefix: str, scene: bpy.types.Scene, layer: bpy.types.ViewLayer, ent
     )
 
 
-def recolored(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy.types.FloatProperty], chosen: Callable[[tuple[Rgb, ...]], tuple[Rgb, ...]]) -> BlenderResult[None]:
+def recolored(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy.types.FloatProperty], chosen: Callable[[tuple[Rgb, ...]], tuple[Rgb, ...]]) -> BlenderResult[int]:
     """Writes chosen colors onto an entity's names, each block keeping its alpha.
 
     Args:
@@ -1428,12 +1429,12 @@ def recolored(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy
         chosen: Rule answering the new colors from the current ones in name order.
 
     Returns:
-        `Ok` once written; `Error` of each refused write.
+        `Ok` of the count of blocks whose color changed; `Error` of each refused write.
     """
     rows = named(layer, entity, member)
     return accumulated(
         member.write(block, (color.red, color.green, color.blue, getattr(block, member.prop.identifier)[3])) for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))
-    ).map(lambda _: None)
+    ).map(lambda priors: sum(prior.is_some() for prior in priors))
 
 
 def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> BlenderResult[None]:
@@ -1567,7 +1568,6 @@ __all__ = [
     "ids_export",
     "items",
     "lobe",
-    "marked",
     "named",
     "offered",
     "pass_flags",

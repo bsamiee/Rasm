@@ -12,12 +12,13 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Done, Operator
+from rasm.blender.commands.operators import Call, Done, Operator, Outcome, Unchanged
 from rasm.blender.data.ids.images import Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, Generated, INPUTS, Interface, item_key, math, nested, node, NodeGroup, Operand, Socket, vector
+from rasm.blender.nodes.graphs import End, ended, Fragment, Generated, INPUTS, math, nested, node, NodeGroup, Operand, vector
+from rasm.blender.nodes.interface import Interface, item_key, Socket
 from rasm.blender.render.color.luts import lut_files
 from rasm.blender.render.color.spaces import space_item
 from rasm.blender.render.effects.stack import CameraFrame, CompositorEffect, Named, Opened, Shell
@@ -206,7 +207,12 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
                         for axis in "XYZ"
                         for part in (
                             math(f"{key}_{axis.lower()}_offset", "ADD", End(node=f"{key}_channels", socket=axis), 2.0**low),
-                            math(f"{key}_{axis.lower()}_positive", "MAXIMUM", End(node=f"{key}_{axis.lower()}_offset"), float(np.finfo(np.float32).tiny)),
+                            math(
+                                f"{key}_{axis.lower()}_positive",
+                                "MAXIMUM",
+                                End(node=f"{key}_{axis.lower()}_offset"),
+                                float(np.ldexp(np.float32(1), 2 - np.frexp(np.nextafter(np.float32(np.inf), np.float32(0)))[1])),
+                            ),
                             math(f"{key}_{axis.lower()}_log", "LOGARITHM", End(node=f"{key}_{axis.lower()}_positive"), 2.0),
                             math(f"{key}_{axis.lower()}_fit", "MULTIPLY_ADD", End(node=f"{key}_{axis.lower()}_log"), 1.0 / span, -low / span),
                         )
@@ -235,6 +241,7 @@ def looked_up(shell: Shell[Lookup]) -> BlenderResult[tuple[Fragment, End]]:
 
     def built(parts: tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]) -> BlenderResult[tuple[Fragment, End]]:
         head, suffix = parts
+        source_field, _, prefix_field = Lookup.__struct_fields__
         if len(head) and not record.prefix.enabled and Shell.image not in shell.images:
             return Ok((Fragment(), shell.source))
 
@@ -244,10 +251,10 @@ def looked_up(shell: Shell[Lookup]) -> BlenderResult[tuple[Fragment, End]]:
                 .map(lambda pair: applied(pair[0].getDefaultCPUProcessor(), pair[1]))
                 .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
             )
-            return Result[npt.NDArray[np.float32], BlenderFaults].bind(sampled, lambda plane: tabled(item_key(Lookup.prefix.__name__), f"{name} Prefix", lattice, plane, shell.source, shell.config))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return Result[npt.NDArray[np.float32], BlenderFaults].bind(sampled, lambda plane: tabled(item_key(prefix_field), f"{name} Prefix", lattice, plane, shell.source, shell.config))
 
         entering = prefix(record.prefix.value) if len(head) and record.prefix.enabled else Ok((Fragment(), shell.source))
-        return entering.bind(lambda source: suffix.map(lambda table: tabled(item_key(Lookup.source.__name__), name, *table, source, shell.config)).default_value(Ok(source)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return entering.bind(lambda source: suffix.map(lambda table: tabled(item_key(source_field), name, *table, source, shell.config)).default_value(Ok(source)))
 
     return (
         lut_files
@@ -302,7 +309,7 @@ def prepared(
 # --- [RELOAD]
 
 
-def reloaded(call: Call[Named]) -> BlenderResult[Done]:
+def reloaded(call: Call[Named]) -> BlenderResult[Outcome]:
     """Rebuilds a named LUT entry from current file content."""
     return (
         call
@@ -310,7 +317,7 @@ def reloaded(call: Call[Named]) -> BlenderResult[Done]:
         .bind(
             lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: lookup.read(call.identity, entry).bind(lambda held: lookup.write(call.identity, scene, entry, held)))
         )
-        .map(lambda _: Done())
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.record.name} already holds the file's content"))
     )
 
 

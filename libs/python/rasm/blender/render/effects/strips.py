@@ -14,7 +14,9 @@ from rasm.blender.extension.events.subscriptions import Subscription
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
-from rasm.blender.nodes.graphs import End, INPUTS, InterfacePanel, nested, NodeGroup, Operand, Socket, SocketSide
+from rasm.blender.nodes.changes import made, reconciled
+from rasm.blender.nodes.graphs import End, INPUTS, nested, NodeGroup, Operand
+from rasm.blender.nodes.interface import DesiredItem, InterfacePanel, item_key, Socket
 from rasm.blender.render.color.spaces import converted, pointwise
 from rasm.blender.render.effects.stack import Context, EffectStack, ownerships, Placeable, Shell
 from rasm.imaging.compositing.blending import Entry
@@ -76,14 +78,14 @@ class StripEffect:
                                     rollback.callback(strip.modifiers.remove, holder)
                                 case Placing.STRIP:
                                     holder = editor.strips.new_effect(
-                                        name=row.record.title, type="COMPOSITOR", channel=strip.channel + 1, frame_start=strip.frame_final_start, length=strip.frame_final_duration, input1=strip
+                                        name=row.record.title, type="COMPOSITOR", channel=strip.channel + 1, frame_start=strip.left_handle, length=strip.duration, input1=strip
                                     )
                                     rollback.callback(editor.strips.remove, holder)
                             return holder
 
                         return (
                             striped(call.identity, scene, row, config)
-                            .bind(lambda group: group.made(call.identity, of=Some(scene)))
+                            .bind(lambda group: made(group, call.identity, of=Some(scene)))
                             .bind(
                                 lambda group: Result[bpy.types.Strip | bpy.types.StripModifier, BlenderFaults].bind(
                                     catch(held, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(strip), error=error),)),
@@ -106,11 +108,7 @@ class StripEffect:
         def refreshed() -> BlenderResult[None]:
             def scene_groups(scene: bpy.types.Scene, row: Placeable, config: PyOpenColorIO.Config) -> BlenderResult[None]:
                 held = tuple(tree for owner in ownerships(row.record) for tree, mark in msgspec.structs.replace(owner, key=f"{owner.key}_strip").held(identity) if mark.of == Some(scene))
-                return (
-                    striped(identity, scene, row, config).bind(lambda group: accumulated(group.graph.reconciled(tree, identity, group.interface) for tree in held)).map(lambda _: None)
-                    if held
-                    else Ok(None)
-                )
+                return striped(identity, scene, row, config).bind(lambda group: accumulated(reconciled(group, tree, identity) for tree in held)).map(lambda _: None) if held else Ok(None)
 
             return self.stack.config().bind(lambda config: accumulated(scene_groups(scene, row, config) for scene in bpy.data.scenes for row in self.stack.standalone)).map(lambda _: None)
 
@@ -130,7 +128,7 @@ def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: 
     space = scene.sequencer_colorspace_settings.name  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
     def wrapped(group: NodeGroup) -> BlenderResult[NodeGroup]:
-        def fed(item: tuple[Socket, SocketSide] | InterfacePanel) -> Option[End]:
+        def fed(item: DesiredItem) -> Option[End]:
             match item:
                 case (Socket() as socket, "INPUT"):
                     return Some(End(node=INPUTS, socket=socket.key))
@@ -141,9 +139,9 @@ def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: 
 
         forwarded: dict[str, Operand] = {key: value for key, item, _, _ in group.interface.walked() for value in fed(item).to_list()}
         return (
-            pointwise(decode, End(node=INPUTS, socket=Shell.image), lambda source: converted(decode, config, space, PyOpenColorIO.ROLE_SCENE_LINEAR, source))
+            pointwise(item_key(decode, "scope"), End(node=INPUTS, socket=Shell.image), lambda source: converted(decode, config, space, PyOpenColorIO.ROLE_SCENE_LINEAR, source))
             .bind(lambda entering: nested(effect, group, {**forwarded, Shell.image: entering}, Shell.result))
-            .bind(lambda result: pointwise(encode, result, lambda source: converted(encode, config, PyOpenColorIO.ROLE_SCENE_LINEAR, space, source)))
+            .bind(lambda result: pointwise(item_key(encode, "scope"), result, lambda source: converted(encode, config, PyOpenColorIO.ROLE_SCENE_LINEAR, space, source)))
             .bind(lambda result: NodeGroup.built(f"{group.key}_strip", group.name, group.interface, {Shell.result: result}))
             .bind(
                 lambda result: Descriptor.resolve(bpy.types.CompositorNodeTree, "is_strip_modifier", bpy.types.BoolProperty).map(
@@ -152,7 +150,7 @@ def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: 
             )
         )
 
-    return row.grouped(identity, scene, Entry(effect=row.seeded(scene)), config, context=context).bind(wrapped)
+    return row.seeded(scene).bind(lambda effect: row.grouped(identity, scene, Entry(effect=effect), config, context=context)).bind(wrapped)
 
 
 def active(context: bpy.types.Context) -> Option[bpy.types.CompositorStrip]:

@@ -7,7 +7,9 @@ from expression import Some
 
 from rasm.blender.data.rna.conditions import AllOf, Condition
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, framed, INPUTS, Interface, math, menu, mixed, nested, node, NodeGroup, Socket, switched, vector
+from rasm.blender.nodes.coordinates import framed
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, math, menu, mixed, nested, node, NodeGroup, switched, vector
+from rasm.blender.nodes.interface import Interface, Socket
 from rasm.blender.render.effects.compositing import masks
 from rasm.blender.render.effects.stack import CompositorEffect, Shell
 from rasm.blender.render.effects.viewers import inspection
@@ -63,12 +65,13 @@ def vignetted(shell: Shell[Vignette]) -> BlenderResult[tuple[Fragment, End]]:
         The vignetted image and graph, or accumulated native construction faults.
     """
     entering = {"image": shell.source, "aspect": shell.aspect, "scale": shell.scale}
-    falloff = Vignette.falloff.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    (falloff,) = Vignette.__struct_fields__
+    shape, color = Shaped.__struct_fields__
     natural = chief_ray().bind(lambda group: nested("chief_ray", group, {"image": shell.source}, "cosine")).bind(lambda cosine: math("natural", "POWER", cosine, 4.0))
     shaped = masks.shape().bind(
-        lambda group: nested("shape", group, masks.relayed(lambda key: entering[key] if key in entering else shell.socket(falloff, Shaped, Shaped.shape.__name__, key), group.interface), "key")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        lambda group: nested("shape", group, masks.relayed(lambda key: entering[key] if key in entering else shell.socket(falloff, Shaped, shape, key), group.interface), "key")
     )
-    pull = menu("pull", "RGBA", shell.socket(falloff), shell.items[falloff,], {Natural.title: (0.0, 0.0, 0.0, 1.0), Shaped.title: shell.socket(falloff, Shaped, Shaped.color.__name__)})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    pull = menu("pull", "RGBA", shell.socket(falloff), shell.items[falloff,], {Natural.title: (0.0, 0.0, 0.0, 1.0), Shaped.title: shell.socket(falloff, Shaped, color)})
     alpha = node("pull_alpha", bpy.types.CompositorNodeSeparateColor, {"Image": shell.source}, {"mode": "RGB"}).map(ended("pull_alpha", "Alpha"))
     weight = paired(natural, shaped).bind(lambda ends: switched("weight", "FLOAT", End(node="pull", socket=Shaped.title), *ends))
     covered = (

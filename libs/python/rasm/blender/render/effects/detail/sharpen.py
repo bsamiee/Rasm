@@ -7,7 +7,8 @@ from expression import Some
 
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import End, Fragment, gridded, math, nested, node, NodeGroup, Operand, PixelGrid, vector
+from rasm.blender.nodes.coordinates import gridded, PixelGrid
+from rasm.blender.nodes.graphs import End, Fragment, math, nested, node, NodeGroup, Operand, vector
 from rasm.blender.render.color.spaces import COLOR_INPUT
 from rasm.blender.render.effects.compositing.masks import luminance
 from rasm.blender.render.effects.stack import CompositorEffect, Shell
@@ -50,10 +51,11 @@ def sharpened(shell: Shell[Sharpen]) -> BlenderResult[tuple[Fragment, End]]:
         return accumulated(accumulated(starmap(tap, sides.items())).bind(lambda found: joined(f"_{axis}", found)) for axis, sides in axes.items()).bind(lambda found: joined("", found))
 
     def applied(total: Operand, edge: Operand) -> BlenderResult[tuple[Fragment, End]]:
+        (sharpness,) = Sharpen.__struct_fields__
         return paired(
             vector("laplacian", "MULTIPLY_ADD", shell.source, (-taps, -taps, -taps), total),
             paired(
-                math("strength", "MULTIPLY", shell.socket(Sharpen.sharpness.__name__), -Sharpen.weight),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math("strength", "MULTIPLY", shell.socket(sharpness), -Sharpen.weight),
                 math("exposed", "MULTIPLY", shell.socket(exposure.gain.key), edge).bind(lambda exposed: math("mask", "SUBTRACT", 1.0, exposed, clamp=True)),
             ).bind(lambda factors: math("amount", "MULTIPLY", *factors)),
         ).bind(lambda parts: vector("sharpened", "MULTIPLY_ADD", *parts, shell.source))

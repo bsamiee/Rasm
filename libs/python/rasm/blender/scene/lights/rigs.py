@@ -25,14 +25,14 @@ from rasm.blender.extension.events.handlers import UpdateHandler
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions, Band
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderRenderingFault, BlenderResult
-from rasm.blender.nodes.graphs import Graph, reconciling
+from rasm.blender.nodes.graphs import Graph
 from rasm.blender.render.previews.queue import Job, PreviewQueue, Rank
 from rasm.blender.scene.collections import founded
 from rasm.blender.scene.lights.emitters import focused
 from rasm.blender.scene.lights.linking import LightLinks, link_state, linked
 from rasm.blender.scene.objects import descendants, extent, ObjectState, reconciled, spawned, StackEntry, WorldBounds
 from rasm.blender.scene.worlds import Backdrop, Environment, FlatColor, reverted, swapped, world_graph
-from rasm.blender.settings.attachments import Attached, Attachment
+from rasm.blender.settings.attachments import Attached, Attachment, reconciling
 from rasm.blender.settings.properties import Choices
 from rasm.blender.ui.layout.rows import DataBlocks, Member, OperatorButton, PreviewGrid, RowDraw, Selector
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
@@ -45,7 +45,7 @@ from rasm.imaging.hashing import content_hash
 from rasm.imaging.parameters import Case, Gated, Seed
 from rasm.rendering.history import Retention
 from rasm.rendering.lighting.references import DistantLight, gray_ball, ReferenceDistribution, ReferenceImage, Roll, sphere
-from rasm.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Radius, Rig, Spot, Sun
+from rasm.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Radius, Rig, rig_catalog, Spot, Sun
 from rasm.rendering.outputs.framing import Side
 
 if TYPE_CHECKING:
@@ -59,7 +59,7 @@ type RigAxes = CameraAxes | ViewAxes | TargetAxes | WorldAxes
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
-rigs = Choices(lambda identity, owner, context: ((name, name, "") for name in Rig.catalog()))
+rigs = Choices(lambda identity, owner, context: ((name, name, "") for name in rig_catalog()))
 references = Choices(lambda identity, owner, context: ((name, name, family.label) for family, recipes in ReferenceImage.catalog().items() for name in recipes))
 gels = Choices(lambda identity, owner, context: ((name, name, "") for name in ReferenceImage.gels()))
 
@@ -393,7 +393,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             .bind(focused)
             .bind(
                 lambda rig: LightRig.attachment.bound(call.identity).bind(
-                    lambda attached: attached.read(rig).bind(lambda setup: attached.write(rig, msgspec.structs.replace(setup, rig=Rig.catalog()[call.record.name])))
+                    lambda attached: attached.read(rig).bind(lambda setup: attached.write(rig, msgspec.structs.replace(setup, rig=rig_catalog()[call.record.name])))
                 )
             )
             .map(lambda _: Done())
@@ -545,7 +545,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                     *job("reference", (setup.recipe, *display_key), partial(rendered, setup.recipe), Rank.ACTIVE),
                     *job("rig", (setup.rig, *inputs, *display_key), partial(ball, setup.rig), Rank.ACTIVE),
                     *(row for recipes in ReferenceImage.catalog().values() for name, recipe in recipes.items() for row in job(f"reference:{name}", (recipe, *display_key), partial(rendered, recipe))),
-                    *(row for name, rig in Rig.catalog().items() for row in job(f"rig:{name}", (rig, *inputs, *display_key), partial(ball, rig))),
+                    *(row for name, rig in rig_catalog().items() for row in job(f"rig:{name}", (rig, *inputs, *display_key), partial(ball, rig))),
                     *(
                         row
                         for name, color in ReferenceImage.gels().items()
@@ -571,7 +571,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 (family.label, tuple((f"reference:{name}", OperatorButton(target=Own(command=self.reference_pick, values=ReferencePick(name=name)), text=Some(name))) for name in recipes))
                 for family, recipes in ReferenceImage.catalog().items()
             ),
-            ("Rigs", tuple((f"rig:{name}", OperatorButton(target=Own(command=self.rig_pick, values=RigPick(name=name)), text=Some(name))) for name in Rig.catalog())),
+            ("Rigs", tuple((f"rig:{name}", OperatorButton(target=Own(command=self.rig_pick, values=RigPick(name=name)), text=Some(name))) for name in rig_catalog())),
             ("Gels", tuple((f"gel:{name}", OperatorButton(target=Own(command=self.gel_pick, values=GelPick(name=name)), text=Some(name))) for name in ReferenceImage.gels())),
         )
 
@@ -743,7 +743,7 @@ def anchored(holder: bpy.types.Object, rig: bpy.types.Object, anchor: Anchor) ->
         `Ok` after reconciliation, or the native write faults.
     """
     display = Snapshot.of(bpy.types.Object, {"empty_display_type": "SPHERE", "empty_display_size": anchor.radius})
-    follow = Snapshot.of(bpy.types.ChildOfConstraint, {"target": IdName.of(holder), "inverse_matrix": tuple(value for row in holder.matrix_world.inverted() for value in row)})  # type: ignore[union-attr]
+    follow = Snapshot.of(bpy.types.ChildOfConstraint, {"target": IdName.of(holder), "inverse_matrix": tuple(value for column in holder.matrix_world.inverted().transposed() for value in column)})  # type: ignore[union-attr]
 
     return reconciled(ObjectState(values=Some(display), placement=Some(anchor.matrix), constraints=Some({"Follow": StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ()).map(lambda _: None)
 
@@ -777,7 +777,6 @@ def rig_placed(
     placements, powers, background = prepared
     receivers = next(link for link in LightLinks.sets if link.prop.identifier == "receiver_collection")
     aim = Snapshot.of(bpy.types.TrackToConstraint, {"target": IdName.of(rig), "track_axis": "TRACK_NEGATIVE_Z", "up_axis": "UP_Y"})
-    inverse = tuple(value for row in Matrix.Identity(4) for value in row)  # type: ignore[attr-defined]
 
     def retained[T: bpy.types.ID](block: T) -> T:
         rollback.callback(bpy.data.batch_remove, ids=(block,))
@@ -808,11 +807,10 @@ def rig_placed(
         mark = Mark(key=row.key, of=Some(rig))
 
         def stated(item: bpy.types.Object) -> ObjectState:
-            group = Snapshot.of(bpy.types.Object, {"lightgroup": item.name, "matrix_parent_inverse": inverse})
             return ObjectState(
                 parent=Some(Handle.of(rig)),
-                values=Some(group),
-                placement=Some((rig.matrix_world @ Matrix.Translation(placement.location)).freeze()),
+                values=Some(Snapshot.of(bpy.types.Object, {"lightgroup": item.name})),
+                placement=Some(Matrix.Translation(placement.location)),
                 constraints=Some({"Aim": StackEntry(kind="TRACK_TO", values=Some(aim))}),
             )
 
@@ -849,7 +847,8 @@ def rig_placed(
         keys = frozenset(f"light_{index}" for index in range(len(placements.lights)))
         stale = tuple(block for block in bpy.data.objects for mark in Mark.read(identity, block).to_list() if mark.of == Some(rig) and mark.key not in keys)
         try:
-            bpy.data.batch_remove(ids=stale)
+            if stale:
+                bpy.data.batch_remove(ids=stale)
             LightRig.data.removed(identity)
         except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
             return Error((BlenderEditFault(request=repr(rig), error=error),))
@@ -894,7 +893,7 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
         *(held for held, mark in LightRig.collection.held(identity) if holder.is_some() and mark.of == holder),
     )
 
-    def gone(_: int) -> BlenderResult[int]:
+    def gone(_: Option[int]) -> BlenderResult[int]:
         try:
             bpy.data.batch_remove(ids=blocks)
             return Ok(len(blocks) + LightRig.data.removed(identity) + LightRig.reference.removed(identity))

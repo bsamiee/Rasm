@@ -26,10 +26,7 @@ from rasm.imaging.files.images import ImageFile
 def peaked(shell: Shell[PeakMapping]) -> BlenderResult[tuple[Fragment, End]]:
     """Builds the forward-only EETF, retaining black adaptation without compression."""
     source = shell.source
-    source_peak, target_peak, black, knee_offset = (
-        shell.socket(field)
-        for field in (PeakMapping.source_peak.__name__, PeakMapping.target_peak.__name__, PeakMapping.black.__name__, PeakMapping.knee_offset.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    )
+    source_peak, target_peak, black, knee_offset = (shell.socket(field) for field in PeakMapping.__struct_fields__)
     m1, m2, c1, c2, c3 = 2610.0 / 16384.0, 2523.0 / 32.0, 3424.0 / 4096.0, 2413.0 / 128.0, 2392.0 / 128.0
     zero, one = (0.0,) * 3, (1.0,) * 3
     return Fragment.joined(
@@ -104,23 +101,23 @@ def formed_view(context: bpy.types.Context) -> Option[DisplayView]:
     )
 
 
-def measured(identity: Identity, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Writes the observed PQ peak while preserving mapping parameters and blend."""
+def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
+    """Writes the observed PQ peak while preserving mapping parameters and blend, naming an undo step where the peak changed."""
     config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
 
     found: BlenderResult[Option[float]] = Result[PyOpenColorIO.Config, BlenderFaults].bind(
-        config, lambda config: metering.Samples.of(config, file.pixels).map(metering.peak).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        config, lambda config: metering.samples_of(config, file.pixels).map(metering.peak).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
     )
     return (
         paired(found, peak_mapping.read(identity, entry))
         .bind(
             lambda values: accumulated(
-                peak_mapping.write(identity, entry.id_data, entry, msgspec.structs.replace(held, effect=msgspec.structs.replace(held.effect, source_peak=value)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                peak_mapping.write(identity, scene, entry, msgspec.structs.replace(held, effect=msgspec.structs.replace(held.effect, source_peak=value)))
                 for peaks, held in (values,)
                 for value in peaks.to_list()
             )
         )
-        .map(lambda writes: Some(measure_peak.title) if writes else Nothing)
+        .map(lambda writes: Some(measure_peak.title) if any(writes) else Nothing)
     )
 
 

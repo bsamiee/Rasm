@@ -23,9 +23,12 @@ from rasm.blender.data.rna.snapshots import Scenes, Snapshot
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, Graph, INPUTS, Interface, Loaded, node, NodeGroup, Operand, reconciling, Socket, vector
+from rasm.blender.nodes.changes import reconciled
+from rasm.blender.nodes.graphs import End, ended, Fragment, Graph, INPUTS, Loaded, node, NodeGroup, Operand, vector
+from rasm.blender.nodes.interface import Interface, Socket
+from rasm.blender.nodes.trees import tree_of
 from rasm.blender.scene.objects import fanned, ObjectState, Reconciled
-from rasm.blender.settings.attachments import Attachment
+from rasm.blender.settings.attachments import Attachment, reconciling
 from rasm.blender.settings.properties import Definition
 from rasm.imaging.calibration import Calibration
 from rasm.imaging.color.config import admitted
@@ -344,18 +347,13 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Blender
 # --- [HOLDERS]
 
 
-def tree_of(holder: bpy.types.Material | bpy.types.World | bpy.types.Light) -> BlenderResult[bpy.types.ShaderNodeTree]:
-    """Returns a material, world, or light's embedded shader tree, or its absence."""
-    return Option.of_optional(holder.node_tree).to_result_with(lambda: (BlenderAbsentFault(owner=repr(holder), key="node_tree"),))
-
-
 def shaded(held: bpy.types.Material, setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity) -> BlenderResult[bpy.types.Material]:
     """Reconciles an owned material and restores native displacement defaults on case switches."""
     return (
         paired(paired(material_graph(setup, config), tree_of(held)), Descriptor.resolve(bpy.types.Material, "displacement_method", bpy.types.EnumProperty))
         .bind(
-            lambda found: (
-                found[0][0].reconciled(found[0][1], identity).bind(lambda _: found[1].write(held, "BOTH" if isinstance(setup, Textured) and setup.displacement.enabled else found[1].prop.default))
+            lambda found: reconciled(found[0][0], found[0][1], identity).bind(
+                lambda _: found[1].write(held, "BOTH" if isinstance(setup, Textured) and setup.displacement.enabled else found[1].prop.default)
             )
         )
         .map(lambda _: held)
@@ -449,5 +447,4 @@ __all__ = [
     "matrix_inputs",
     "referenced",
     "shaded",
-    "tree_of",
 ]

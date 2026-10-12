@@ -14,7 +14,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm.blender.commands.operators import Acquired, Call, Confirm, Done, Empty, Operator, Own, Suppressible
+from rasm.blender.commands.operators import Acquired, answered, Call, Confirm, Done, Empty, Operator, Outcome, Own, Suppressible, tallied, Unchanged
 from rasm.blender.data.ids.ownership import Mark, Ownership, Saved
 from rasm.blender.data.ids.store import named
 from rasm.blender.data.rna.conditions import Condition, Setting
@@ -386,33 +386,37 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             )
         )
 
-    def applied(self, context: bpy.types.Context, recipe: Setup[E]) -> BlenderResult[Done]:
-        """Applies sparse recipes across unlocked members, sharing scene writes under layers."""
+    def applied(self, context: bpy.types.Context, recipe: Setup[E]) -> BlenderResult[Outcome]:
+        """Applies sparse recipes across unlocked members whose projection differs, sharing scene writes under layers, or answers why no member changes."""
 
-        def written(scene: bpy.types.Scene) -> BlenderResult[None]:
-            def prepared(held: tuple[Setup[E], tuple[SetupLocks, tuple[bpy.types.ViewLayer, ...]]]) -> BlenderResult[None]:
-                current, (locks, layers) = held
-                return self.projected(scene, recipe, current, locks, layers).bind(
-                    lambda pair: (
-                        pair[0]
-                        .scene.apply(scene)
-                        .outcome.bind(
-                            lambda _: paired(
-                                accumulated(snapshot.apply(scene.view_layers[name]).outcome for name, snapshot in pair[0].layers.items()),
-                                self.stack.applied(self.members.identity, scene, pair[0].effects, locked=locks.effects, fields=locks.fields),
-                            ).map(lambda _: None)
-                        )
+        def planned(scene: bpy.types.Scene) -> BlenderResult[Option[tuple[bpy.types.Scene, SetupLocks, Setup[E]]]]:
+            return paired(self.captured(scene), self.held(scene)).bind(
+                lambda held: self.projected(scene, recipe, held[0], *held[1]).map(lambda pair: Some((scene, held[1][0], pair[0])) if pair[1] != held[0] else Nothing)
+            )
+
+        def written(scene: bpy.types.Scene, locks: SetupLocks, sparse: Setup[E]) -> BlenderResult[None]:
+            return (
+                sparse.scene
+                .apply(scene)
+                .outcome.bind(
+                    lambda _: paired(
+                        accumulated(snapshot.apply(scene.view_layers[name]).outcome for name, snapshot in sparse.layers.items()),
+                        self.stack.applied(self.members.identity, scene, sparse.effects, locked=locks.effects, fields=locks.fields),
                     )
                 )
+                .map(lambda _: None)
+            )
 
-            return paired(self.captured(scene), self.held(scene)).bind(prepared)
+        def wrote(plans: tuple[Option[tuple[bpy.types.Scene, SetupLocks, Setup[E]]], ...]) -> BlenderResult[Outcome]:
+            match tuple(plan for held in plans for plan in held.to_list()), plans:
+                case (), ():
+                    return Ok(Unchanged(reason="Every render set member is locked"))
+                case (), _:
+                    return Ok(Unchanged(reason="Unlocked render set members already hold this setup"))
+                case changing, _:
+                    return tallied(tuple(starmap(written, changing)))
 
-        return (
-            MemberScope(members=self.members, owner_type=bpy.types.Scene, unlocked=True)
-            .scenes(context)
-            .bind(self.members.free)
-            .bind(lambda scenes: accumulated(written(scene) for scene in scenes).map(lambda _: Done()))
-        )
+        return MemberScope(members=self.members, owner_type=bpy.types.Scene, unlocked=True).scenes(context).bind(self.members.free).bind(lambda scenes: accumulated(map(planned, scenes))).bind(wrote)
 
     def candidate(self, _identity: Identity, context: bpy.types.Context, recipe: Setup[E], head: Option[npt.NDArray[np.float32]]) -> BlenderResult[Chain]:
         """Projects effect parameters over the current frame without applying scene settings."""
@@ -602,8 +606,8 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda pair: Done(notes=(("INFO", f"Added {pair[0].name}"),), skipped=pair[1]))
             )
 
-        def adopt(call: Call[Empty]) -> BlenderResult[Done]:
-            def joined(source: bpy.types.Scene) -> BlenderResult[Done]:
+        def adopt(call: Call[Empty]) -> BlenderResult[Outcome]:
+            def joined(source: bpy.types.Scene) -> BlenderResult[Outcome]:
                 sources = frozenset(scene for _, mark in self.ownership.held(members.identity) for scene in mark.of.to_list())
 
                 def marked(scene: bpy.types.Scene) -> BlenderResult[bpy.types.Scene]:
@@ -618,23 +622,29 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                         .bind(lambda _: catch(kept, exception=AttributeError)().map_error(lambda error: (BlenderEditFault(request=repr(scene), error=error),)))
                     )
 
-                return accumulated(
-                    marked(scene) for scene in tuple(bpy.data.scenes) if scene != source and scene not in sources and not scene.is_runtime_data and Mark.read(members.identity, scene).is_none()
-                ).map(lambda scenes: Done(notes=tuple(("INFO", f"Adopted {scene.name}") for scene in scenes)))
+                if not (
+                    unmarked := tuple(scene for scene in bpy.data.scenes if scene != source and scene not in sources and not scene.is_runtime_data and Mark.read(members.identity, scene).is_none())
+                ):
+                    return Ok(Unchanged(reason="No unmarked scene to adopt"))
+                edits = tuple(map(marked, unmarked))
+                return tallied(edits, tuple(("INFO", f"Adopted {scene.name}") for edit in edits for scene in edit.to_option().to_list()))
 
             return members.source(call.context).bind(joined)
 
-        def restore(call: Call[Empty]) -> BlenderResult[Done]:
-            def removed(scenes: tuple[bpy.types.Scene, ...]) -> BlenderResult[Done]:
+        def restore(call: Call[Empty]) -> BlenderResult[Outcome]:
+            def removed(scenes: tuple[bpy.types.Scene, ...]) -> BlenderResult[Outcome]:
                 source, *copies = scenes
+                if not copies:
+                    return Ok(Unchanged(reason=f"{source.name} holds no copied render set"))
                 for window in (window for manager in bpy.data.window_managers for window in manager.windows):
                     if window.scene in copies:
                         window.scene = source
-                return accumulated(
-                    catch(lambda: bpy.data.scenes.remove(scene), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(scene), error=error),)).map(lambda _: name)
+                edits = tuple(
+                    catch(lambda: bpy.data.scenes.remove(scene), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=name, error=error),)).map(lambda _: name)
                     for scene in copies
                     for name in (scene.name,)
-                ).map(lambda names: Done(notes=tuple(("INFO", f"Removed {name}") for name in names)))
+                )
+                return tallied(edits, tuple(("INFO", f"Removed {name}") for edit in edits for name in edit.to_option().to_list()))
 
             return members.copies(call.context).bind(removed)
 
@@ -652,7 +662,9 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                 description="Restore every unlocked member's pre-sync native settings",
                 icon=Some("LOOP_BACK"),
                 form=Empty,
-                run=lambda call: unsynced(members, call.context).map(lambda applied: Done(notes=(("INFO", f"Restored {sum(len(each.written) for each in applied)} settings"),))),
+                run=lambda call: unsynced(members, call.context).map(
+                    lambda applied: Done(notes=(("INFO", f"Restored {len(applied)} render set members"),)) if applied else Unchanged(reason="No render set holds synced settings")
+                ),
             ),
             Operator[Converting](
                 key="render_set_convert",
@@ -660,7 +672,11 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                 description="Transfer render sets between copied scenes and view layers",
                 icon=Some("ARROW_LEFTRIGHT"),
                 form=Converting,
-                run=lambda call: converted(members, call.record.form, call.context).map(lambda names: Done(notes=tuple(("INFO", f"Created {name}") for name in names))),
+                run=lambda call: converted(members, call.record.form, call.context).map(
+                    lambda names: names.map(lambda made: Done(notes=tuple(("INFO", f"Created {name}") for name in made))).default_value(
+                        Unchanged(reason=f"Render sets are already {call.record.form.title}")
+                    )
+                ),
                 invoke=Some(Confirm[Converting](message=Some(touched))),
             ),
         )
@@ -885,9 +901,22 @@ def written(members: Members, category: Category, context: bpy.types.Context, ta
     )
 
 
-def synced(members: Members, category: Category, context: bpy.types.Context) -> BlenderResult[tuple[Applied, ...]]:
-    """Copies one source category to every unlocked owner of its native root."""
-    return MemberScope(members=members, owner_type=category.root, unlocked=True).owners(context).bind(lambda targets: written(members, category, context, targets))
+def synced(members: Members, category: Category, context: bpy.types.Context) -> BlenderResult[Outcome]:
+    """Copies one source category to every unlocked owner of its native root once a transfer differs, or answers that every owner already holds the source's values."""
+    reason = f"Unlocked render sets already hold the source's {category.title} settings"
+
+    def wrote(targets: tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]) -> BlenderResult[Outcome]:
+        return transfers(members, category, context, targets).bind(
+            lambda rows: (
+                written(members, category, context, targets).bind(
+                    lambda applied: answered(Applied.join(applied), reason, (("INFO", f"Synced {sum(len(each.written) for each in applied)} {category.title} settings"),))
+                )
+                if any(edits for _, _, edits in rows)
+                else Ok(Unchanged(reason=reason))
+            )
+        )
+
+    return MemberScope(members=members, owner_type=category.root, unlocked=True).owners(context).bind(wrote)
 
 
 def syncing(members: Members, category: Category) -> Operator[Empty]:
@@ -903,7 +932,7 @@ def syncing(members: Members, category: Category) -> Operator[Empty]:
         icon=Some("FILE_REFRESH"),
         condition=Some(Setting(descriptor=members.tag, accepted=(Copies.__name__,))) if category.root is bpy.types.Scene else Nothing,
         form=Empty,
-        run=lambda call: synced(members, category, call.context).map(lambda applied: Done(notes=(("INFO", f"Synced {sum(len(each.written) for each in applied)} {category.title} settings"),))),
+        run=lambda call: synced(members, category, call.context),
         invoke=Some(Confirm[Empty](message=Some(message))),
     )
 
@@ -1003,10 +1032,10 @@ def added(members: Members, source: bpy.types.Scene, name: str) -> BlenderResult
     )
 
 
-def converted(members: Members, form: Form, context: bpy.types.Context) -> BlenderResult[tuple[str, ...]]:
-    """Converts native members, releasing newly created owners if preparation refuses."""
+def converted(members: Members, form: Form, context: bpy.types.Context) -> BlenderResult[Option[tuple[str, ...]]]:
+    """Converts native members, releasing newly created owners if preparation refuses, `Nothing` where the file already holds the form."""
 
-    def switched(manager: bpy.types.WindowManager, current: Sets) -> BlenderResult[tuple[str, ...]]:
+    def switched(manager: bpy.types.WindowManager, current: Sets) -> BlenderResult[Option[tuple[str, ...]]]:
         made: list[tuple[bpy.types.Scene, bpy.types.ViewLayer] | bpy.types.Scene] = []
 
         def removed(owner: tuple[bpy.types.Scene, bpy.types.ViewLayer] | bpy.types.Scene) -> BlenderResult[None]:
@@ -1086,11 +1115,11 @@ def converted(members: Members, form: Form, context: bpy.types.Context) -> Blend
 
         match current.form, form:
             case Copies(), Layers():
-                return members.copies(context).bind(layered)
+                return members.copies(context).bind(layered).map(Some)
             case Layers(), Copies():
-                return members.source(context).bind(copied)
+                return members.source(context).bind(copied).map(Some)
             case _:
-                return Ok(())
+                return Ok(Nothing)
 
     manager: BlenderResult[bpy.types.WindowManager] = Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
     return Result[bpy.types.WindowManager, BlenderFaults].bind(manager, lambda manager: members.sets.read(manager).bind(lambda current: switched(manager, current)))

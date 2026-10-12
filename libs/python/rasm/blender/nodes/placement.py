@@ -9,16 +9,17 @@ from operator import sub
 from typing import Annotated, Self
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Nothing, Option
 from expression.extra.result import catch
 import msgspec
 
 from rasm.blender.data.ids.ownership import Mark
-from rasm.blender.data.ids.store import Handle
+from rasm.blender.data.ids.store import Handle, holder
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisition, Band
 from rasm.blender.faults import BlenderRegisterFault, BlenderResult
+from rasm.blender.nodes.trees import tree_of
 from rasm.blender.ui.screens.areas import Located
 from rasm.blender.ui.screens.regions import RegionView
 from rasm.imaging.faults import accumulated
@@ -102,27 +103,16 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
         def drawn(location: Descriptor[bpy.types.FloatProperty]) -> Generator[BlenderResult[None]]:
             """Retires pending writes before removing the handler that publishes them."""
 
-            def moved(holder: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> BlenderResult[Option[str]]:
+            def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> BlenderResult[Option[str]]:
                 """Resolves current data and writes surviving owned nodes without an undo step."""
                 desired = dict(places)
-
-                def edited(block: bpy.types.ID) -> Option[bpy.types.NodeTree]:
-                    """Returns a group itself or an owner's embedded tree."""
-                    match block:
-                        case bpy.types.NodeTree():
-                            return Some(block)
-                        case bpy.types.Material(node_tree=tree) | bpy.types.World(node_tree=tree) | bpy.types.Light(node_tree=tree):
-                            return Option.of_optional(tree)
-                        case _:
-                            return Nothing
-
                 return (
-                    holder
+                    held
                     .resolve()
+                    .bind(tree_of)
                     .bind(
-                        lambda block: accumulated(
+                        lambda tree: accumulated(
                             location.write(node, desired[node.name])
-                            for tree in edited(block).to_list()
                             for node in tree.nodes
                             if node.name in desired and not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()
                         )
@@ -138,10 +128,10 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                     match context.space_data, context.window, context.area, context.region:
                         case bpy.types.SpaceNodeEditor(
                             edit_tree=bpy.types.NodeTree(is_editable=True) as tree
-                        ) as space, bpy.types.Window() as window, bpy.types.Area() as area, bpy.types.Region() as region if not window.modal_operators:
-                            places = self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region), location)
-                            for holder in (Option.of_optional(space.id) if tree.is_embedded_data else Some(tree)).filter(lambda _: bool(places)).to_list():
-                                later(Handle.of(holder), places)
+                        ), bpy.types.Window() as window, bpy.types.Area() as area, bpy.types.Region() as region if not window.modal_operators:
+                            if places := self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region), location):
+                                for found in holder(tree).to_list():
+                                    later(Handle.of(found), places)
 
                 region, phase = "WINDOW", "POST_VIEW"
                 added = catch(lambda: bpy.types.SpaceNodeEditor.draw_handler_add(drew, (), region, phase), exception=TypeError)().map_error(

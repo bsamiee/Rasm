@@ -15,28 +15,9 @@ from rasm.blender.data.ids.images import Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import (
-    Clock,
-    compared,
-    End,
-    ended,
-    Fragment,
-    framed,
-    FrameSpace,
-    Generated,
-    gridded,
-    item_key,
-    masked,
-    math,
-    menu,
-    MenuItems,
-    mixed,
-    nested,
-    node,
-    Operand,
-    origin,
-    vector,
-)
+from rasm.blender.nodes.coordinates import framed, FrameSpace, gridded
+from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, Generated, masked, math, menu, mixed, nested, node, Operand, origin, vector
+from rasm.blender.nodes.interface import item_key, MenuItems
 from rasm.blender.render.color.spaces import COLOR_INPUT, space_item
 from rasm.blender.render.effects.compositing.masks import luminance
 from rasm.blender.render.effects.generators.noise import gaussian
@@ -71,9 +52,9 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
         The selected medium with its complete graph, or accumulated graph and image faults.
     """
     socket = shell.socket
-    medium = Grain.medium.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    field_path = medium, Film, Film.field.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    chroma = socket(Grain.chroma.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    medium, chroma_field, motion, seed = Grain.__struct_fields__
+    speed, hold = Motion.__struct_fields__
+    chroma = socket(chroma_field)
 
     def developed(key: Key, sample: Operand, chroma: Operand, granularity: Operand) -> BlenderResult[tuple[Fragment, End]]:
         def composed(own: Operand, shared: Operand, correction: Operand) -> BlenderResult[tuple[Fragment, End]]:
@@ -95,7 +76,10 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
         return Scan(path=bpy.path.abspath(scan.path)).tile(shell.config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(Some)
 
     def fielded(point: Operand, offset: Operand, space: str) -> BlenderResult[tuple[Fragment, End]]:
-        granularity = socket(medium, Film, Film.granularity.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        field, granularity_field, _, _, _, _, _, _ = Film.__struct_fields__
+        (size,) = Procedural.__struct_fields__
+        field_path = medium, Film, field
+        granularity = socket(medium, Film, granularity_field)
 
         def sampled(key: Key, content: Generated, width: Operand, diameters: float) -> BlenderResult[tuple[Fragment, End]]:
             image = End(node=key, socket="Image")
@@ -118,8 +102,9 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
             ).map(ended(f"{key}_factor", "Vector"))
 
         def from_scan(scan: Scan, tag: Tag) -> BlenderResult[Option[tuple[Fragment, End]]]:
+            _, span = Scan.__struct_fields__
             content = Generated(ownership=tiles, content=content_hash(Scan, Scan(path=scan.path)), name=f"{Grain.title} {Path(scan.path).name}", plane=partial(scan_plane, scan), tag=tag)
-            return sampled(item_key(Scan), content, socket(*field_path, Scan, Scan.span.__name__), 1.0).map(Some)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return sampled(item_key(Scan), content, socket(*field_path, Scan, span), 1.0).map(Some)
 
         def chosen(parts: tuple[tuple[Fragment, End], Option[tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
             procedural, scan = parts
@@ -129,15 +114,10 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
         tag = Tag(space=Some(space), alpha=Some("CHANNEL_PACKED"))
         procedural = Generated(ownership=tiles, content=Procedural.key(), name=f"{Grain.title} {Procedural.title}", plane=lambda: Ok(Some(Procedural.tile())), tag=tag)
         scan = shell.case(Scan, *field_path).map(partial(from_scan, tag=tag)).default_value(Ok(Nothing))
-        return paired(sampled(item_key(Procedural), procedural, socket(*field_path, Procedural, Procedural.size.__name__), float(Procedural.diameters)), scan).bind(chosen)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return paired(sampled(item_key(Procedural), procedural, socket(*field_path, Procedural, size), float(Procedural.diameters)), scan).bind(chosen)
 
     def filmed(field: Operand, level: Operand) -> BlenderResult[tuple[Fragment, End]]:
-        shadow_edge = socket(medium, Film, Film.shadow_edge.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        midtone_span = socket(medium, Film, Film.midtone_span.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        highlight_span = socket(medium, Film, Film.highlight_span.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shadows = socket(medium, Film, Film.shadows.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        midtones = socket(medium, Film, Film.midtones.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        highlights = socket(medium, Film, Film.highlights.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        _, _, shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span = (socket(medium, Film, name) for name in Film.__struct_fields__)
 
         def band(key: Key, distance: Operand, span: Operand) -> BlenderResult[tuple[Fragment, End]]:
             smooth = (
@@ -175,8 +155,7 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
 
     def sensored(level: Operand, pattern: Operand) -> BlenderResult[tuple[Fragment, End]]:
         source = shell.source
-        shot = socket(medium, Sensor, Sensor.shot.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        read = socket(medium, Sensor, Sensor.read.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        shot, read = (socket(medium, Sensor, name) for name in Sensor.__struct_fields__)
         gain, floor = End(node="gain"), End(node="floor")
         own_weight, shared_weight = End(node="own_weight"), End(node="shared_weight")
         sited = End(node="sited", socket="Vector")
@@ -188,7 +167,7 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
             return Fragment.joined(
                 gridded("photosites", source).bind(lambda grid: vector("pixel", "DIVIDE", grid.base, grid.inverse)),
                 vector("photosite", "FLOOR", End(node="pixel", socket="Vector")),
-                origin("draw_origin", socket(Grain.seed.__name__), Noise.SENSOR, pattern),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                origin("draw_origin", socket(seed), Noise.SENSOR, pattern),
                 vector("sited", "ADD", End(node="photosite", socket="Vector"), End(node="draw_origin", socket="Vector")),
                 *(node(draw.node, bpy.types.ShaderNodeTexWhiteNoise, {"Vector": sited, "W": float(stream)}, {"noise_dimensions": "4D"}) for stream, draw in enumerate(draws)),
                 math("shot_variance", "MULTIPLY", shot, shot),
@@ -220,17 +199,16 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
     def built(parts: tuple[tuple[tuple[Fragment, End], FrameSpace], tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
         (level, space), pattern = parts
         film = (
-            origin("shift", shell.socket(Grain.seed.__name__), Noise.FILM, pattern)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            origin("shift", shell.socket(seed), Noise.FILM, pattern)
             .bind(lambda shift: vector("offset", "MULTIPLY_ADD", shift, (1.0, 1.0, 0.0), (0.0, 0.0, 1.0)))
             .bind(lambda offset: space_item(shell.config, PyOpenColorIO.ROLE_DATA).bind(partial(fielded, space.point, offset)))
             .bind(lambda field: filmed(field, level))
         )
         return paired(film, sensored(level, pattern)).bind(lambda media: menu("medium", "RGBA", shell.socket(medium), shell.items[medium,], dict(zip((Film.title, Sensor.title), media))))
 
-    motion = Grain.motion.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return paired(
         paired(luminance(shell.config).bind(lambda working: nested("luminance", working, {COLOR_INPUT.key: shell.source}, "luminance")), framed("frame", shell.source, shell.aspect, shell.scale)),
-        Clock(key="clock", speed=shell.socket(motion, Motion.speed.__name__), hold=shell.socket(motion, Motion.hold.__name__)).pattern,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        Clock(key="clock", speed=shell.socket(motion, speed), hold=shell.socket(motion, hold)).pattern,
     ).bind(built)
 
 

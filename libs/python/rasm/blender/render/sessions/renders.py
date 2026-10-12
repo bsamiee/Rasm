@@ -146,7 +146,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                                 lambda _: (
                                     recovery.write(scene, (missing, None)).bind(lambda _: Error((BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)))
                                     if missing.owners
-                                    else recovery.removed(scene)
+                                    else recovery.removed(scene).map(lambda _: None)
                                 )
                             )
                         )

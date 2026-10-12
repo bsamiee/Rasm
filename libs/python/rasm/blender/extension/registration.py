@@ -96,8 +96,14 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
         finally:
             bpy.app.handlers.exit_pre.remove(closed)
 
+    def merged() -> None:
+        """Merges user keymap edits after the release unregisters their operators, keeping each edit's operator properties for the next enable."""
+        for manager in Option.of_optional(bpy.context.window_manager).to_list():
+            manager.keyconfigs.update(keep_properties=True)
+
     def acquired(stack: ExitStack, identity: Identity) -> BlenderResult[None]:
         """Builds dependent rows after immediately entering their schema acquisitions."""
+        stack.callback(merged)
         stack.enter_context(identity.reports)
         stacks = {band: stack.enter_context(ExitStack()) for band in Band}
         stack.enter_context(released(stacks[Band.PREFERENCE_ROWS]))

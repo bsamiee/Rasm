@@ -3,22 +3,23 @@
 import functools
 
 import bpy
-import msgspec
 import PyOpenColorIO
 
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, Interface, item_key, masked, math, nested, node, NodeGroup, Operand, Socket, switched, vector
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, masked, math, nested, node, NodeGroup, Operand, switched, vector
+from rasm.blender.nodes.interface import Interface, item_key, Socket
 from rasm.blender.render.color.spaces import COLOR_INPUT, COLOR_RESULT, logarithmic
 from rasm.blender.render.effects.stack import CompositorEffect, Shell
-from rasm.imaging.effects.grade.zones import Adjustment, Zone, Zones
+from rasm.imaging.effects.grade.zones import Zone, Zones
 from rasm.imaging.faults import accumulated, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PIECE = ("input", "start", "end", "level", "start_slope", "end_slope")
 _PIVOT = ("input", "low", "high", "low_slope", "high_slope", "reverse")
-_ZONE = ("input", "adjustment", Zone.start.__name__, Zone.width.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_, _, _, _, start, width = Zone.__struct_fields__
+_ZONE = ("input", "adjustment", start, width)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -677,20 +678,10 @@ def _contrast() -> BlenderResult[NodeGroup]:
 
 def zoned(shell: Shell[Zones]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns the full per-channel tonal-zone chain with master placement and native clamp."""
-    blacks, shadows, midtones, highlights, whites, s_contrast = (
-        Zones.blacks.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        Zones.shadows.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        Zones.midtones.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        Zones.highlights.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        Zones.whites.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        Zones.s_contrast.__name__,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    )
-    master, start, width = Zone.master.__name__, Zone.start.__name__, Zone.width.__name__  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    channels = ((Zone.red.__name__, "Red"), (Zone.green.__name__, "Green"), (Zone.blue.__name__, "Blue"))  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-    paths = (
-        *((zone.name, field.name) for zone in msgspec.structs.fields(Zones) if zone.name != s_contrast for field in msgspec.structs.fields(Zone[Adjustment]) if field.name not in {start, width}),
-        (s_contrast,),
-    )
+    blacks, shadows, midtones, highlights, whites, s_contrast = Zones.__struct_fields__
+    master, red, green, blue, start, width = Zone.__struct_fields__
+    channels = ((red, "Red"), (green, "Green"), (blue, "Blue"))
+    paths = (*((zone, field) for zone in (blacks, shadows, midtones, highlights, whites) for field in (master, red, green, blue)), (s_contrast,))
     whites_reach, whites_width, blacks_reach, blacks_width, graded = (End(node=key) for key in ("whites_reach", "whites_width", "blacks_reach", "blacks_width", "graded"))
     whites_start, whites_end, blacks_start, blacks_end = (End(node=key, socket="value") for key in ("whites_start", "whites_end", "blacks_start", "blacks_end"))
     linear = End(node="linear", socket=COLOR_RESULT.key)

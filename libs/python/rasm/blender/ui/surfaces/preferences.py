@@ -52,7 +52,15 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
             icon=Some("TRASH"),
             internal=True,
             form=operators.Empty,
-            run=lambda _: attached().map(lambda held: operators.Done(notes=(("INFO", f"Cleared the settings stored on {sum(each.purged() for each in held)} data-blocks"),))),
+            run=lambda _: (
+                attached()
+                .map(lambda held: sum(each.purged() for each in held))
+                .map(
+                    lambda count: (
+                        operators.Done(notes=(("INFO", f"Cleared the settings stored on {count} data-blocks"),)) if count else operators.Unchanged(reason="No data-block stores extension settings")
+                    )
+                )
+            ),
             invoke=Some(
                 operators.Confirm[operators.Empty](
                     message=Some(lambda *_: attached().map(lambda held: f"Clear the settings stored on {sum(each.stored(host) for each in held for host in each.hosts())} data-blocks")),

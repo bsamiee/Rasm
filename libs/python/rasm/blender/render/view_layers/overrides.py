@@ -2,20 +2,21 @@
 
 from collections.abc import Callable
 import colorsys
+from contextlib import ExitStack
 import itertools
 from typing import Annotated, ClassVar, Self
 
 import bpy
-from expression import Error, Option, Result, Some
+from expression import Ok, Option, Result, Some
 from expression.extra.result import catch
 import mathutils
 import msgspec
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Done, Empty, Operator, Own
+from rasm.blender.commands.operators import answered, Call, Done, Empty, Operator, Outcome, Own, tallied, Unchanged
 from rasm.blender.data.rna import conditions
 from rasm.blender.data.rna.descriptors import Descriptor, IdName
-from rasm.blender.data.rna.snapshots import Scenes, Snapshot, ViewLayers
+from rasm.blender.data.rna.snapshots import Applied, Scenes, Snapshot, ViewLayers
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderRenderingFault, BlenderResult
@@ -169,35 +170,30 @@ class LayerOverride(Line, frozen=True, kw_only=True):
         ) -> LayerCommands:
             ((use, name), (override, layers)), (attached, states) = parts
 
-            def moved(call: Call[Moving]) -> BlenderResult[Done]:
-                scene, layer = call.context.scene, call.context.view_layer
-                match scene, layer:
-                    case bpy.types.Scene(), bpy.types.ViewLayer():
-                        pass
-                    case _:
-                        first, *rest = tuple(BlenderAbsentFault(owner=repr(call.context), key=key) for key, value in (("scene", scene), ("view_layer", layer)) if value is None)
-                        return Error((first, *rest))
-                index = scene.view_layers.find(layer.name)
-                match call.record.direction:
-                    case Direction.UP:
-                        target = index - 1
-                    case Direction.DOWN:
-                        target = index + 1
-                return (
-                    catch(lambda: scene.view_layers.move(index, target), exception=RuntimeError)()
-                    .map_error(lambda error: (BlenderEditFault(request=repr(scene.view_layers), error=error),))
-                    .map(lambda _: Done())
-                )
+            def moved(call: Call[Moving]) -> BlenderResult[Outcome]:
+                def shifted(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Outcome]:
+                    index = scene.view_layers.find(layer.name)
+                    match call.record.direction:
+                        case Direction.UP:
+                            target = index - 1
+                        case Direction.DOWN:
+                            target = index + 1
+                    if not 0 <= target < len(scene.view_layers):
+                        return Ok(Unchanged(reason=f"{layer.name} already ends the list"))
+                    return (
+                        catch(lambda: scene.view_layers.move(index, target), exception=RuntimeError)()
+                        .map_error(lambda error: (BlenderEditFault(request=repr(scene.view_layers), error=error),))
+                        .map(lambda _: Done())
+                    )
 
-            def soloed(call: Call[Empty]) -> BlenderResult[Done]:
-                scene, active = call.context.scene, call.context.view_layer
-                match scene, active:
-                    case bpy.types.Scene(), bpy.types.ViewLayer():
-                        pass
-                    case _:
-                        first, *rest = tuple(BlenderAbsentFault(owner=repr(call.context), key=key) for key, value in (("scene", scene), ("view_layer", active)) if value is None)
-                        return Error((first, *rest))
-                return accumulated(use.write(layer, layer == active) for layer in scene.view_layers).map(lambda _: Done())
+                return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(lambda pair: shifted(*pair))
+
+            def soloed(call: Call[Empty]) -> BlenderResult[Outcome]:
+                return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(
+                    lambda pair: accumulated(use.write(layer, layer == pair[1]) for layer in pair[0].view_layers).map(
+                        lambda priors: Done() if any(prior.is_some() for prior in priors) else Unchanged(reason=f"{pair[1].name} already renders alone")
+                    )
+                )
 
             def scoped(call: Call[Renaming]) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
                 match call.record.within:
@@ -216,12 +212,20 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                 manager: BlenderResult[bpy.types.WindowManager] = call.root(bpy.types.WindowManager)
                 return paired(Result[bpy.types.ViewLayer, BlenderFaults].bind(layer, Snapshot.capture), manager).map(lambda pair: copied(pair[1], pair[0])).map(lambda _: Done())
 
-            def paste(owners: Callable[[Call[Empty]], BlenderResult[tuple[bpy.types.ViewLayer, ...]]]) -> Callable[[Call[Empty]], BlenderResult[Done]]:
-                return lambda call: paired(owners(call), call.root(bpy.types.WindowManager)).bind(lambda pair: pasted(pair[1], pair[0])).map(lambda _: Done())
+            def paste(owners: Callable[[Call[Empty]], BlenderResult[tuple[bpy.types.ViewLayer, ...]]]) -> Callable[[Call[Empty]], BlenderResult[Outcome]]:
+                return lambda call: (
+                    paired(owners(call), call.root(bpy.types.WindowManager))
+                    .bind(lambda pair: pasted(pair[1], pair[0]))
+                    .bind(lambda outcomes: answered(Applied.join(outcomes), "View layers already match the clipboard"))
+                )
 
-            def renaming(call: Call[Renaming]) -> BlenderResult[Done]:
+            def renaming(call: Call[Renaming]) -> BlenderResult[Outcome]:
                 grammar: BlenderResult[OutputName] = OutputName.of(call.record.template).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
-                return paired(grammar, scoped(call)).bind(lambda pair: accumulated(renamed(scene, pair[0], name) for scene in pair[1])).map(lambda _: Done())
+                return (
+                    paired(grammar, scoped(call))
+                    .bind(lambda pair: accumulated(renamed(scene, pair[0], name) for scene in pair[1]))
+                    .map(lambda counts: Done(notes=(("INFO", f"Renamed {sum(counts)} view layers"),)) if sum(counts) else Unchanged(reason="View layers already hold their composed names"))
+                )
 
             return LayerCommands(
                 move=Operator(
@@ -241,7 +245,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                         title="Tint View Layers",
                         description="Write each view layer's tag from a palette in list order",
                         form=Tinting,
-                        run=lambda call: Result[bpy.types.Scene, BlenderFaults].bind(call.root(bpy.types.Scene), lambda scene: tinted(scene, call.record.palette, attached)).map(lambda _: Done()),
+                        run=lambda call: Result[bpy.types.Scene, BlenderFaults].bind(call.root(bpy.types.Scene), lambda scene: tinted(scene, call.record.palette, attached)),
                     ),
                     Operator(
                         key="view_layer_split",
@@ -251,7 +255,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                         run=lambda call: (
                             Result[bpy.types.Scene, BlenderFaults]
                             .bind(call.root(bpy.types.Scene), lambda scene: split(scene, Flag[call.record.others.name], states))
-                            .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)))
+                            .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)) if added else Unchanged(reason="A view layer isolates every top-level collection"))
                         ),
                     ),
                     Operator(key="view_layer_clay", title="Clay Override", description="Toggle the clay material override on the active view layer", form=Empty, run=overriding(Clay())),
@@ -379,8 +383,8 @@ def encoded(color: Rgb) -> tuple[float, float, float]:
     return (shown.r, shown.g, shown.b)
 
 
-def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[Layer]) -> BlenderResult[None]:
-    """Writes each layer's tag from a palette in list order.
+def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[Layer]) -> BlenderResult[Outcome]:
+    """Writes each layer's tag from a palette in list order where it differs.
 
     Args:
         scene: Scene whose layers take tags.
@@ -388,14 +392,19 @@ def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[Layer]) 
         attached: Bound layer attachment.
 
     Returns:
-        `Ok` once written; `Error` of each layer's `read`, `edit`, or `choice` fault.
+        `Ok` of `Done` beside each refused write, or `Unchanged` where every layer holds its tag; `Error` of each layer's `read` fault, or of every write's fault where none wrote.
     """
-    return accumulated(
-        map(lambda layer, color: attached.read(layer).bind(lambda held: attached.write(layer, msgspec.structs.replace(held, color=color))), scene.view_layers, colors(palette, len(scene.view_layers)))
-    ).map(lambda _: None)
+    layers = tuple(scene.view_layers)
+
+    def wrote(held: tuple[Layer, ...]) -> BlenderResult[Outcome]:
+        if not (differing := tuple((layer, record, color) for layer, record, color in zip(layers, held, colors(palette, len(layers)), strict=True) if record.color != color)):
+            return Ok(Unchanged(reason=f"View layers of {scene.name} already hold the palette's tags"))
+        return tallied(tuple(attached.write(layer, msgspec.structs.replace(record, color=color)) for layer, record, color in differing))
+
+    return accumulated(map(attached.read, layers)).bind(wrote)
 
 
-def renamed(scene: bpy.types.Scene, grammar: OutputName, name: Descriptor[bpy.types.StringProperty]) -> BlenderResult[None]:
+def renamed(scene: bpy.types.Scene, grammar: OutputName, name: Descriptor[bpy.types.StringProperty]) -> BlenderResult[int]:
     """Names each layer from its list position and base name.
 
     Args:
@@ -404,15 +413,15 @@ def renamed(scene: bpy.types.Scene, grammar: OutputName, name: Descriptor[bpy.ty
         name: Descriptor of `ViewLayer.name`.
 
     Returns:
-        `Ok` after the native name assignments; `Error` of `rendering` for a refused composition or `edit` for a refused write. Blender owns unique stored names.
+        `Ok` of the count of layers whose name changed; `Error` of `rendering` for a refused composition or `edit` for a refused write. Blender owns unique stored names.
     """
 
-    def named(index: int, layer: bpy.types.ViewLayer) -> BlenderResult[None]:
+    def named(index: int, layer: bpy.types.ViewLayer) -> BlenderResult[bool]:
         base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.words.get(Word.LAYER))).default_value(layer.name)
         wanted: BlenderResult[str] = grammar.compose(Fields(words={Word.LAYER: base}, counts={Count.ORDER: index + 1})).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
-        return Result[str, BlenderFaults].bind(wanted, lambda value: name.write(layer, value)).map(lambda _: None)
+        return Result[str, BlenderFaults].bind(wanted, lambda value: name.write(layer, value)).map(Option.is_some)
 
-    return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(lambda _: None)
+    return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(sum)
 
 
 def split(scene: bpy.types.Scene, flag: Flag, flags: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> BlenderResult[tuple[str, ...]]:
@@ -424,15 +433,20 @@ def split(scene: bpy.types.Scene, flag: Flag, flags: dict[Flag, Descriptor[bpy.t
         flags: Descriptor of each layer collection flag.
 
     Returns:
-        `Ok` of the added layer names; `Error` of each state write's faults.
+        `Ok` of the added layer names, empty where a layer isolates every top-level collection; `Error` of each state write's faults, every added layer removed.
     """
     lone = tuple(collection for collection in scene.collection.children if not any(isolates(layer, collection, flag, flags) for layer in scene.view_layers))
+    with ExitStack() as rollback:
 
-    def made(collection: bpy.types.Collection) -> BlenderResult[str]:
-        layer = scene.view_layers.new(collection.name)
-        return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Extent.ISOLATE), scene, flags).map(lambda _: layer.name)
+        def made(collection: bpy.types.Collection) -> BlenderResult[str]:
+            layer = scene.view_layers.new(collection.name)
+            rollback.callback(scene.view_layers.remove, layer)
+            return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Extent.ISOLATE), scene, flags).map(lambda _: layer.name)
 
-    return accumulated(map(made, lone))
+        added = accumulated(map(made, lone))
+        for _ in added.to_option().to_list():
+            rollback.pop_all()
+        return added
 
 
 def overridden(

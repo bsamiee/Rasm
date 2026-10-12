@@ -16,7 +16,7 @@ import numpy.typing as npt
 import OpenImageIO
 
 from rasm.blender.commands.calls import called
-from rasm.blender.commands.operators import Call, Confirm, Done, Empty, Operator, Properties
+from rasm.blender.commands.operators import answered, Call, Confirm, Done, Empty, Operator, Outcome, Properties
 from rasm.blender.data.ids.images import Bounded, loaded, ResultRead, Tag
 from rasm.blender.data.rna.descriptors import root_in
 from rasm.blender.data.rna.snapshots import Snapshot
@@ -35,7 +35,7 @@ from rasm.blender.ui.layout.templates import IconView
 from rasm.blender.ui.resources.icons import Glyph
 from rasm.blender.ui.resources.previews import Drawn, Previews
 from rasm.blender.ui.resources.theme import color
-from rasm.imaging.analysis.comparison import Comparison
+from rasm.imaging.analysis.comparison import Comparison, comparison_of
 from rasm.imaging.chain import Domain
 from rasm.imaging.faults import accumulated, ImagingReadFault, paired
 from rasm.imaging.files.multilayer import Multilayer
@@ -137,12 +137,15 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
     def operators(self, identity: Identity) -> HistoryCommands:
         """Builds the history's operator rows over one identity."""
 
-        def restored(call: Call[Empty]) -> BlenderResult[Done]:
+        def restored(call: Call[Empty]) -> BlenderResult[Outcome]:
             return (
                 chosen(identity, call.context)
-                .bind(lambda pair: decoded(files(identity, pair[1].key)[1], Snapshot))
-                .bind(lambda snapshot: call.root(bpy.types.Scene).bind(lambda scene: (applied := snapshot.apply(scene)).outcome.map(lambda _: applied)))
-                .map(lambda applied: Done(notes=(("INFO", f"Restored {len(applied.written)} settings, {len(applied.skipped)} skipped"),)))
+                .bind(lambda pair: paired(decoded(files(identity, pair[1].key)[1], Snapshot), call.root(bpy.types.Scene)))
+                .bind(
+                    lambda pair: answered(
+                        applied := pair[0].apply(pair[1]), "Scene settings already match the stored render", (("INFO", f"Restored {len(applied.written)} settings, {len(applied.skipped)} skipped"),)
+                    )
+                )
             )
 
         def diffed(call: Call[Empty]) -> BlenderResult[Done]:
@@ -467,7 +470,7 @@ def compared(identity: Identity, context: bpy.types.Context) -> BlenderResult[Co
         chosen(identity, context)
         .bind(lambda pair: beneath(pair[0]).map(lambda below: (pair[1], below)))
         .bind(lambda entries: paired(composite(files(identity, entries[0].key)[0]), composite(files(identity, entries[1].key)[0])))
-        .bind(lambda planes: Comparison.of(planes[0], planes[1], Domain.DISPLAY, data_range=1.0).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+        .bind(lambda planes: comparison_of(planes[0], planes[1], Domain.DISPLAY, data_range=1.0).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
     )
 
 

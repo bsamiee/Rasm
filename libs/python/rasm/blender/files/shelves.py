@@ -7,7 +7,7 @@ import bpy
 from expression import Error, Nothing, Option, Some
 import msgspec
 
-from rasm.blender.commands.operators import Call, Done, Empty, Operator
+from rasm.blender.commands.operators import Call, Empty, Operator, Outcome
 from rasm.blender.data.rna.conditions import Condition, holds
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Band
@@ -26,7 +26,7 @@ class Action(msgspec.Struct, frozen=True, kw_only=True):
 
     title: str
     description: str
-    use: Callable[[Call[Empty], bpy.types.AssetRepresentation], BlenderResult[Done]]
+    use: Callable[[Call[Empty], bpy.types.AssetRepresentation], BlenderResult[Outcome]]
 
     def row(self, key: Key) -> Operator[Empty]:
         """Returns an internal operator over the context's selected asset."""

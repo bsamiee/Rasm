@@ -24,8 +24,10 @@ from rasm.blender.data.rna.descriptors import IdName, struct_at, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderWriteFault
-from rasm.blender.nodes.graphs import End, FileItem, FileItems, Fragment, INPUTS, item_key, node
-from rasm.blender.render.effects.stack import capturing, EffectStack, entered, formation, graphed, Shell, StackEntry, stored_graphs, viewed
+from rasm.blender.nodes.changes import made
+from rasm.blender.nodes.graphs import End, FileItem, FileItems, Fragment, INPUTS, node
+from rasm.blender.nodes.interface import item_key
+from rasm.blender.render.effects.stack import capturing, EffectStack, entered, formation, Shell, StackEntry, stored_graphs, viewed
 from rasm.blender.render.outputs.formats import Kind, OutputFormat
 from rasm.blender.render.outputs.paths import Pathed
 from rasm.blender.render.sessions.engines import Engine, Pass, Tile
@@ -206,7 +208,7 @@ class Execution:
     def image(self, key: Key, buffer: OpenImageIO.ImageBuf) -> BlenderResult[tuple[Fragment, End]]:
         """Publishes associated numerical components without another color transform."""
 
-        def made(values: npt.NDArray[np.float32]) -> BlenderResult[tuple[Fragment, End]]:
+        def imaged(values: npt.NDArray[np.float32]) -> BlenderResult[tuple[Fragment, End]]:
             def populated(live: bpy.types.Image) -> BlenderResult[tuple[Fragment, End]]:
                 self.scope.callback(bpy.data.images.remove, live)
                 return (
@@ -224,7 +226,7 @@ class Execution:
         pixels: BlenderResult[npt.NDArray[np.float32]] = Option.of_optional(buffer.get_pixels(OpenImageIO.FLOAT)).to_result_with(
             lambda: (BlenderImagingFault(faults=(ImagingBufferFault(request=buffer, error=buffer.geterror()),)),)
         )
-        return Result[npt.NDArray[np.float32], BlenderFaults].bind(pixels, made)
+        return Result[npt.NDArray[np.float32], BlenderFaults].bind(pixels, imaged)
 
     def stage(self, held: StackEntry, path: Path, spec: OpenImageIO.ImageSpec) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
         """Prepares each native view from evaluated entry controls and real entering pixels."""
@@ -279,12 +281,7 @@ class Execution:
                 .bind(lambda _: interface(held.entry))
                 .bind(lambda found: before.apply(found).outcome)
                 .bind(lambda _: stored_graphs(self.identity, group, (((), effective.effect, row.record.stage.domain), ((Shell.blend,), effective.blend, row.record.stage.domain))))
-                .bind(
-                    lambda _: paired(
-                        entered(self.identity, held.entry, (), effective.effect, frozenset(graphed(row.record, value=Some(effective.effect)))),
-                        entered(self.identity, held.entry, (Shell.blend,), effective.blend),
-                    )
-                )
+                .bind(lambda _: paired(entered(self.identity, held.entry, (), effective.effect), entered(self.identity, held.entry, (Shell.blend,), effective.blend)))
                 .map(lambda _: (group, before, effective))
             )
 
@@ -297,7 +294,7 @@ class Execution:
                         accumulated(selected(key) for key in views[0][1][1])
                         .bind(lambda images: row.grouped(self.identity, self.scene, effective, self.config, entry=Some(held.entry), prepared=True, images=dict(images)))
                         .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
-                        .bind(lambda group: group.made(self.identity, of=Some(self.scene)))
+                        .bind(lambda group: made(group, self.identity, of=Some(self.scene)))
                         .bind(lambda group: assigned(group, before))
                     )
                 )
@@ -395,12 +392,7 @@ class Execution:
                 answer = (
                     interface(entry)
                     .bind(lambda found: inputs.apply(found).outcome)
-                    .bind(
-                        lambda _: paired(
-                            entered(self.identity, entry, (), effective.effect, frozenset(graphed(type(effective.effect), value=Some(effective.effect)))),
-                            entered(self.identity, entry, (Shell.blend,), effective.blend),
-                        )
-                    )
+                    .bind(lambda _: paired(entered(self.identity, entry, (), effective.effect), entered(self.identity, entry, (Shell.blend,), effective.blend)))
                 )
                 for faults in answer.swap().to_option().to_list():
                     self.identity.reports.hold(faults)

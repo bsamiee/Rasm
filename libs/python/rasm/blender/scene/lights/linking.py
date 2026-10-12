@@ -9,7 +9,7 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from rasm.blender.commands.operators import Call, Done, Empty, Operator
+from rasm.blender.commands.operators import Call, Done, Empty, Operator, Outcome, Unchanged
 from rasm.blender.data.ids.ownership import earliest, Mark, Ownership, Saved
 from rasm.blender.data.rna.descriptors import Descriptor, root_in, written
 from rasm.blender.extension.identity import Identity
@@ -55,17 +55,23 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(item for item in layer.objects.selected if item != emitter)
 
     @staticmethod
-    def edited[T: Linking | Empty](link: Descriptor[bpy.types.PointerProperty], call: Call[T]) -> BlenderResult[Done]:
-        """Applies a link or unlink command to the active emitter and selected receivers."""
-        return call.root(bpy.types.ViewLayer).bind(
-            lambda layer: focused(layer).bind(
-                lambda emitter: (
-                    linked(emitter, link, LightLinks.members(layer, emitter), call.record.state, emitter, call.identity).map(lambda held: Done(notes=(("INFO", f"Linked into {held.name}"),)))
-                    if isinstance(call.record, Linking)
-                    else unlinked(emitter, link, LightLinks.members(layer, emitter)).map(lambda _: Done())
-                )
-            )
-        )
+    def edited[T: Linking | Empty](link: Descriptor[bpy.types.PointerProperty], call: Call[T]) -> BlenderResult[Outcome]:
+        """Applies a link or unlink command to the active emitter and selected receivers, `Unchanged` where it would leave the slot as it is."""
+
+        def applied(layer: bpy.types.ViewLayer, emitter: bpy.types.Object) -> BlenderResult[Outcome]:
+            members = LightLinks.members(layer, emitter)
+            held = Option.of_optional(getattr(emitter.light_linking, link.prop.identifier))
+            match call.record:
+                case Linking(state=state) if members or held.is_none():
+                    return linked(emitter, link, members, state, emitter, call.identity).map(lambda made: Done(notes=(("INFO", f"Linked into {made.name}"),)))
+                case _ if not members:
+                    return Ok(Unchanged(reason="No object besides the emitter is selected"))
+                case _:
+                    return held.map(
+                        lambda collection: parted(collection, members).map(lambda changes: Done() if changes else Unchanged(reason=f"No selected object is in {collection.name}"))
+                    ).default_value(Ok(Unchanged(reason=f"{emitter.name} holds no {link.prop.name}")))
+
+        return call.root(bpy.types.ViewLayer).bind(lambda layer: focused(layer).bind(lambda emitter: applied(layer, emitter)))
 
     commands: ClassVar[tuple[tuple[Operator[Linking], Operator[Empty]], ...]] = tuple(
         (
@@ -173,20 +179,6 @@ def linked(
     )
 
 
-def unlinked(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[bpy.types.Object | bpy.types.Collection, ...]) -> BlenderResult[None]:
-    """Parts members from an emitter's link set.
-
-    Args:
-        emitter: Object whose set loses the members.
-        link: Receiver or blocker member of `ObjectLightLinking`.
-        members: Objects and collections leaving.
-
-    Returns:
-        `Ok` once parted, also for an empty slot; `edit` per refused unlink.
-    """
-    return Option.of_optional(getattr(emitter.light_linking, link.prop.identifier)).map(lambda held: parted(held, members).map(lambda _: None)).default_value(Ok(None))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LightLinks", "Linking", "link_set", "link_state", "linked", "states", "unlinked"]
+__all__ = ["LightLinks", "Linking", "link_set", "link_state", "linked", "states"]

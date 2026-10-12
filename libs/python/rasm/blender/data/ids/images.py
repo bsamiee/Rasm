@@ -28,7 +28,7 @@ from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFau
 from rasm.imaging.color.processors import applied, DisplayView, processor, unassociated
 from rasm.imaging.effects.quantization import codes
 from rasm.imaging.faults import accumulated, Faults, ImagingBufferFault, ImagingFaults, ImagingResult, ImagingWriteFault, paired
-from rasm.imaging.files.images import Depth, Format, ImageFile, published, Storage
+from rasm.imaging.files.images import Depth, Format, ImageFile, published, read_file, Storage
 from rasm.imaging.hashing import content_hash, ContentHash
 from rasm.imaging.parameters import Case
 
@@ -210,11 +210,6 @@ def fingerprinted(image: bpy.types.Image) -> BlenderResult[Option[ContentHash]]:
     )
 
 
-def _associated(image: bpy.types.Image) -> bool:
-    """Returns whether the native byte buffer stores straight color with alpha."""
-    return not image.is_float and image.channels == 4 and not image.colorspace_settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-
-
 def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
     """Returns associated float32 pixels top first and their native buffer colorspace."""
     (width, height), channels, settings = np.asarray(image.size), image.channels, image.colorspace_settings
@@ -283,6 +278,11 @@ def generated(
     )
 
 
+def _associated(image: bpy.types.Image) -> bool:
+    """Returns whether the native byte buffer stores straight color with alpha."""
+    return not image.is_float and image.channels == 4 and not image.colorspace_settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+
+
 # --- [PROXIES]
 
 
@@ -343,8 +343,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
             .of_optional(next((row for row in Format.writable() if suffix.lower().removeprefix(".") in row.extensions), None))
             .map(
                 lambda row: (
-                    ImageFile
-                    .read(source, config)
+                    read_file(source, config)
                     .map_error(imaged)
                     .bind(lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: kept(key, source, row, file, *size).map(Some)).default_with(lambda: Ok(Nothing)))
                 )
@@ -418,13 +417,7 @@ def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
             )
         finally:
             restore = capture.apply(settings).outcome
-        outcome = paired(save, restore)
-        match outcome.tag:
-            case "ok":
-                destination, _ = outcome.ok
-                return Ok(destination)
-            case "error":
-                return Error(outcome.error)
+        return paired(save, restore).map(lambda pair: pair[0])
 
     direct = tuple(Descriptor(root=bpy.types.ImageFormatSettings, owner="", prop=prop) for prop in Snapshot.members(settings.bl_rna) if not isinstance(prop, bpy.types.PointerProperty))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     return render_result().bind(lambda image: Snapshot.capture(settings, Some(direct)).bind(lambda capture: exported(image, capture)))

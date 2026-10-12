@@ -12,7 +12,7 @@ from rasm.blender.faults import BlenderImagingFault, BlenderResult
 from rasm.blender.nodes.graphs import End, ended, Fragment, math, mixed, node
 from rasm.blender.render.effects.stack import CompositorEffect, Named, Shell
 from rasm.blender.render.effects.viewers import ViewerRead
-from rasm.imaging.analysis.metering import Samples
+from rasm.imaging.analysis.metering import Samples, samples_of
 from rasm.imaging.color.config import admitted
 from rasm.imaging.compositing.blending import Entry
 from rasm.imaging.effects.tone.levels import Levels
@@ -24,7 +24,8 @@ from rasm.imaging.files.images import ImageFile
 
 def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
     """Subtracts the covered black point and applies the white span in stops."""
-    source, black, white = shell.source, shell.socket(Levels.black.__name__), shell.socket(Levels.white.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    source = shell.source
+    black, white = (shell.socket(field) for field in Levels.__struct_fields__)
     return (
         paired(
             node("coverage", bpy.types.CompositorNodeSeparateColor, {"Image": source}, {})
@@ -37,19 +38,19 @@ def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
     )
 
 
-def measured(identity: Identity, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Writes covered frame extrema as levels, retaining the entry's blend."""
+def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
+    """Writes covered frame extrema as levels, retaining the entry's blend, and names an undo step where the levels changed."""
     found: BlenderResult[Option[Levels]] = (
         admitted(PyOpenColorIO.GetCurrentConfig(), (Levels.space,))
-        .bind(lambda config: Samples.of(config, file.pixels))
+        .bind(lambda config: samples_of(config, file.pixels))
         .map(Samples.extent)
         .map(option.bind(lambda extent: Levels.of(extent.low, extent.white)))
         .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
     )
     return (
         paired(found, levels.read(identity, entry))
-        .bind(lambda values: accumulated(levels.write(identity, entry.id_data, entry, Entry(effect=record, blend=held.blend)) for records, held in (values,) for record in records.to_list()))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        .map(lambda writes: Some(auto_levels.title) if writes else Nothing)
+        .bind(lambda values: accumulated(levels.write(identity, scene, entry, Entry(effect=record, blend=held.blend)) for records, held in (values,) for record in records.to_list()))
+        .map(lambda writes: Some(auto_levels.title) if any(writes) else Nothing)
     )
 
 

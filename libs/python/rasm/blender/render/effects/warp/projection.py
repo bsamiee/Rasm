@@ -2,7 +2,6 @@
 
 from collections.abc import Mapping
 from math import pi
-from typing import get_args
 
 import bpy
 from expression import Ok, Some
@@ -11,14 +10,16 @@ import msgspec
 from rasm.blender.data.rna.conditions import AllOf, Condition
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import compared, End, ended, Fragment, framed, FrameSpace, item_key, math, menu, MenuItems, node, Operand, sampled, selected, vector
+from rasm.blender.nodes.coordinates import framed, FrameSpace, sampled
+from rasm.blender.nodes.graphs import compared, End, ended, Fragment, math, menu, node, Operand, selected, vector
+from rasm.blender.nodes.interface import item_key, MenuItems
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, precise, Shell
 from rasm.blender.render.effects.viewers import inspection
 from rasm.blender.render.effects.warp.transforms import extended
 from rasm.blender.scene.cameras import camera_type
 from rasm.imaging.effects.warp.projection import Kaleidoscope, Modes, PanoramaModes, Panoramic, Polar, PolarConversion, Projection, Sampling, Tiling
 from rasm.imaging.faults import accumulated, paired
-from rasm.imaging.geometry.panoramas import CentralCylindrical, Equirectangular, FisheyeEquidistant, FisheyeEquisolid, MirrorBall, Panini, Panorama, Stereographic
+from rasm.imaging.geometry.panoramas import CentralCylindrical, Equirectangular, Fisheye, FisheyeEquidistant, FisheyeEquisolid, MirrorBall, Panini, Panorama, Stereographic
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -72,6 +73,7 @@ def mapped(
     centered = vector(f"{key}_centered", "MULTIPLY_ADD", frame.extent, (-0.5, -0.5, 0.0), frame.point)
     match mode:
         case Polar():
+            _, conversion = Polar.__struct_fields__
             short = node(f"{key}_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {}).bind(
                 lambda extent: math(f"{key}_short", "MINIMUM", ended(f"{key}_extent", "X")(extent), End(node=f"{key}_extent", socket="Y"))
             )
@@ -114,30 +116,28 @@ def mapped(
             )
             return paired(wrapped, unwrapped).bind(
                 lambda parts: menu(
-                    key,
-                    "VECTOR",
-                    parameters[Polar.conversion.__name__],  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    MenuItems.of(PolarConversion),
-                    {PolarConversion.RECTANGULAR_TO_POLAR.label: parts[0], PolarConversion.POLAR_TO_RECTANGULAR.label: parts[1]},
+                    key, "VECTOR", parameters[conversion], MenuItems.of(PolarConversion), {PolarConversion.RECTANGULAR_TO_POLAR.label: parts[0], PolarConversion.POLAR_TO_RECTANGULAR.label: parts[1]}
                 )
             )
         case Tiling():
+            _, center_field, count = Tiling.__struct_fields__
             return (
-                vector(f"{key}_local", "SUBTRACT", frame.fraction, parameters[Tiling.center.__name__])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                .bind(lambda local: vector(f"{key}_scaled", "SCALE", local, parameters[Tiling.count.__name__]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                .bind(lambda local: vector(f"{key}_fraction", "ADD", local, parameters[Tiling.center.__name__]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                vector(f"{key}_local", "SUBTRACT", frame.fraction, parameters[center_field])
+                .bind(lambda local: vector(f"{key}_scaled", "SCALE", local, parameters[count]))
+                .bind(lambda local: vector(f"{key}_fraction", "ADD", local, parameters[center_field]))
                 .bind(lambda fraction: sampled(key, frame, fraction))
             )
         case Kaleidoscope():
-            center = vector(f"{key}_center", "MULTIPLY", parameters[Kaleidoscope.center.__name__], frame.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            _, center_field, mirrors, angle_field, zoom = Kaleidoscope.__struct_fields__
+            center = vector(f"{key}_center", "MULTIPLY", parameters[center_field], frame.extent)
             local = center.bind(lambda center: vector(f"{key}_local", "SUBTRACT", frame.point, center))
             bearing = (
                 local
                 .bind(lambda local: node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": local}, {}))
                 .bind(lambda axes: math(f"{key}_bearing", "ARCTAN2", ended(f"{key}_axes", "Y")(axes), End(node=f"{key}_axes", socket="X")))
-                .bind(lambda bearing: math(f"{key}_relative", "SUBTRACT", bearing, parameters[Kaleidoscope.angle.__name__]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda bearing: math(f"{key}_relative", "SUBTRACT", bearing, parameters[angle_field]))
             )
-            wedge = math(f"{key}_wedge", "DIVIDE", pi, parameters[Kaleidoscope.mirrors.__name__])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            wedge = math(f"{key}_wedge", "DIVIDE", pi, parameters[mirrors])
             folded = (
                 paired(bearing, wedge)
                 .bind(lambda parts: math(f"{key}_negative_wedge", "MULTIPLY", parts[1], -1.0).bind(lambda negative: math(f"{key}_wrapped", "WRAP", parts[0], parts[1], negative)))
@@ -148,7 +148,7 @@ def mapped(
                 paired(local, folded)
                 .bind(lambda parts: node(f"{key}_rotated", bpy.types.ShaderNodeVectorRotate, dict(zip(("Vector", "Angle"), parts)), {"rotation_type": "Z_AXIS"}))
                 .map(ended(f"{key}_rotated", "Vector"))
-                .bind(lambda folded: vector(f"{key}_zoomed", "DIVIDE", folded, parameters[Kaleidoscope.zoom.__name__]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda folded: vector(f"{key}_zoomed", "DIVIDE", folded, parameters[zoom]))
                 .bind(lambda zoomed: vector(f"{key}_placed", "ADD", zoomed, End(node=f"{key}_center", socket="Vector")))
                 .bind(lambda placed: vector(f"{key}_fraction", "DIVIDE", placed, frame.extent))
                 .bind(lambda fraction: sampled(key, frame, fraction))
@@ -162,8 +162,9 @@ def mapped(
                     ended(f"{key}_latitude_ray", "Vector")
                 )
             else:
-                height = math(f"{key}_height_span", "SUBTRACT", parameters[CentralCylindrical.height_max.__name__], parameters[CentralCylindrical.height_min.__name__]).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    lambda span: sides.bind(lambda sides: math(f"{key}_height", "MULTIPLY_ADD", ended(f"{key}_sides", "Y")(sides), span, parameters[CentralCylindrical.height_min.__name__]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                height_min, height_max = CentralCylindrical.__struct_fields__
+                height = math(f"{key}_height_span", "SUBTRACT", parameters[height_max], parameters[height_min]).bind(
+                    lambda span: sides.bind(lambda sides: math(f"{key}_height", "MULTIPLY_ADD", ended(f"{key}_sides", "Y")(sides), span, parameters[height_min]))
                 )
                 ray = height.bind(lambda height: node(f"{key}_height_ray", bpy.types.ShaderNodeCombineXYZ, {"Y": height, "Z": -1.0}, {})).map(ended(f"{key}_height_ray", "Vector"))
             return (
@@ -173,13 +174,13 @@ def mapped(
                 .bind(lambda ray: projected(ray, 1.0))
             )
         case MirrorBall() | FisheyeEquidistant() | FisheyeEquisolid() | Stereographic():
+            (field_of_view,) = Fisheye.__struct_fields__
+            _, lens_field, sensor = FisheyeEquisolid.__struct_fields__
             match mode:
                 case MirrorBall() | FisheyeEquidistant():
                     planar = vector(f"{key}_disc", "MULTIPLY_ADD", frame.fraction, (2.0, 2.0, 0.0), (-1.0, -1.0, 0.0))
                 case FisheyeEquisolid():
-                    planar = vector(f"{key}_sensor_local", "SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)).bind(
-                        lambda local: vector(f"{key}_sensor", "MULTIPLY", local, parameters[FisheyeEquisolid.sensor.__name__])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    )
+                    planar = vector(f"{key}_sensor_local", "SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)).bind(lambda local: vector(f"{key}_sensor", "MULTIPLY", local, parameters[sensor]))
                 case Stereographic():
                     planar = centered
             radius = planar.bind(lambda planar: vector(f"{key}_radius", "LENGTH", planar))
@@ -188,12 +189,10 @@ def mapped(
                     angle = radius.bind(lambda radius: math(f"{key}_half_angle", "ARCSINE", radius)).bind(lambda half: math(f"{key}_angle", "MULTIPLY", half, 2.0))
                     coverage = radius.bind(lambda radius: compared(f"{key}_inside", "LESS_EQUAL", radius, 1.0))
                 case FisheyeEquidistant():
-                    angle = radius.bind(lambda radius: math(f"{key}_field", "MULTIPLY", radius, parameters[FisheyeEquidistant.field_of_view.__name__])).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        lambda field: math(f"{key}_angle", "MULTIPLY", field, 0.5)
-                    )
+                    angle = radius.bind(lambda radius: math(f"{key}_field", "MULTIPLY", radius, parameters[field_of_view])).bind(lambda field: math(f"{key}_angle", "MULTIPLY", field, 0.5))
                     coverage = radius.bind(lambda radius: compared(f"{key}_inside", "LESS_EQUAL", radius, 1.0))
                 case FisheyeEquisolid():
-                    diameter = math(f"{key}_diameter", "MULTIPLY", parameters[FisheyeEquisolid.lens.__name__], 2.0)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    diameter = math(f"{key}_diameter", "MULTIPLY", parameters[lens_field], 2.0)
                     angle = (
                         paired(radius, diameter)
                         .bind(lambda parts: math(f"{key}_ratio", "DIVIDE", *parts))
@@ -201,14 +200,15 @@ def mapped(
                         .bind(lambda half: math(f"{key}_angle", "MULTIPLY", half, 2.0))
                     )
                     reach = (
-                        math(f"{key}_quarter_field", "MULTIPLY", parameters[FisheyeEquisolid.field_of_view.__name__], 0.25)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        math(f"{key}_quarter_field", "MULTIPLY", parameters[field_of_view], 0.25)
                         .bind(lambda quarter: math(f"{key}_sine", "SINE", quarter))
                         .bind(lambda sine: diameter.bind(lambda diameter: math(f"{key}_reach", "MULTIPLY", sine, diameter)))
                     )
                     coverage = paired(radius, reach).bind(lambda parts: compared(f"{key}_inside", "LESS_EQUAL", *parts))
                 case Stereographic():
+                    (field_of_view_stereographic,) = Stereographic.__struct_fields__
                     scale = (
-                        math(f"{key}_quarter_field", "MULTIPLY", parameters[Stereographic.field_of_view.__name__], 0.25)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        math(f"{key}_quarter_field", "MULTIPLY", parameters[field_of_view_stereographic], 0.25)
                         .bind(lambda quarter: math(f"{key}_tangent", "TANGENT", quarter))
                         .bind(lambda tangent: math(f"{key}_scale", "MULTIPLY", tangent, 2.0))
                     )
@@ -221,10 +221,11 @@ def mapped(
                     return paired(planar, angle).bind(lambda parts: rotated(*parts)).bind(lambda ray: projected(ray, 1.0))
             return paired(paired(planar, angle).bind(lambda parts: rotated(*parts)), coverage).bind(lambda parts: projected(*parts))
         case Panini():
-            total = math(f"{key}_total", "ADD", parameters[Panini.distance.__name__], 1.0)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            field_of_view, distance, compression = Panini.__struct_fields__
+            total = math(f"{key}_total", "ADD", parameters[distance], 1.0)
             perspective = total.bind(lambda total: math(f"{key}_perspective", "DIVIDE", 1.0, total))
-            cylindrical = total.bind(lambda total: math(f"{key}_cylindrical", "DIVIDE", parameters[Panini.distance.__name__], total))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            half = math(f"{key}_half_field", "MULTIPLY", parameters[Panini.field_of_view.__name__], 0.5)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            cylindrical = total.bind(lambda total: math(f"{key}_cylindrical", "DIVIDE", parameters[distance], total))
+            half = math(f"{key}_half_field", "MULTIPLY", parameters[field_of_view], 0.5)
             span = (
                 paired(paired(half.bind(lambda half: math(f"{key}_sine_field", "SINE", half)), half.bind(lambda half: math(f"{key}_cosine_field", "COSINE", half))), paired(perspective, cylindrical))
                 .bind(
@@ -265,8 +266,8 @@ def mapped(
                 .bind(lambda weight: divided.bind(lambda divided: math(f"{key}_sine", "MULTIPLY", weight, divided)))
             )
             vertical = (
-                math(f"{key}_uncompressed", "SUBTRACT", 1.0, parameters[Panini.compression.__name__])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                .bind(lambda weight: cosine.bind(lambda cosine: math(f"{key}_vertical_weight", "MULTIPLY_ADD", weight, cosine, parameters[Panini.compression.__name__])))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math(f"{key}_uncompressed", "SUBTRACT", 1.0, parameters[compression])
+                .bind(lambda weight: cosine.bind(lambda cosine: math(f"{key}_vertical_weight", "MULTIPLY_ADD", weight, cosine, parameters[compression])))
                 .bind(lambda weight: cosine.bind(lambda cosine: math(f"{key}_vertical", "DIVIDE", cosine, weight)))
             )
             height = (
@@ -293,7 +294,6 @@ def projected(shell: Shell[Projection]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Associated warped image or accumulated graph and native case faults.
     """
-    mode_path = (Projection.mode.__name__,)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     camera = node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).map(ended("camera", "Active Camera"))
     lens = camera.bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": camera}, {})).map(ended("lens", "Projection Matrix"))
     attitude = (
@@ -323,13 +323,17 @@ def projected(shell: Shell[Projection]) -> BlenderResult[tuple[Fragment, End]]:
     )
 
     def built(frame: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
-        def arm(kind: type[Modes]) -> BlenderResult[tuple[str, tuple[Fragment, End], tuple[Fragment, End]]]:
-            mode = next(case for case in shell.cases[mode_path] if isinstance(case, kind))
-            if isinstance(mode, Panoramic):
-                panorama_path = (*mode_path, Panoramic, Panoramic.projection.__name__)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        (mode_field,) = Projection.__struct_fields__
 
-                def panorama(kind: type[PanoramaModes]) -> BlenderResult[tuple[str, tuple[Fragment, End]]]:
-                    projection = next(case for case in shell.cases[panorama_path] if isinstance(case, kind))
+        def arm(mode: Modes) -> BlenderResult[tuple[str, tuple[Fragment, End], tuple[Fragment, End]]]:
+            (extension,) = Sampling.__struct_fields__
+            kind = type(mode)
+            if isinstance(mode, Panoramic):
+                _, projection_field = Panoramic.__struct_fields__
+                panorama_path = (mode_field, Panoramic, projection_field)
+
+                def panorama(projection: PanoramaModes) -> BlenderResult[tuple[str, tuple[Fragment, End]]]:
+                    kind = type(projection)
                     return (
                         paired(relative, lens)
                         .bind(
@@ -340,23 +344,25 @@ def projected(shell: Shell[Projection]) -> BlenderResult[tuple[Fragment, End]]:
                         .map(lambda result: (projection.title, result))
                     )
 
-                positions = accumulated(panorama(kind) for kind in get_args(PanoramaModes)).bind(
-                    lambda arms: menu("panorama_uv", "VECTOR", shell.socket(*panorama_path), shell.items[panorama_path], dict(arms))
-                )
+                positions = accumulated(
+                    panorama(projection)
+                    for projection in shell.cases[panorama_path]
+                    if isinstance(projection, Equirectangular | CentralCylindrical | MirrorBall | FisheyeEquidistant | FisheyeEquisolid | Stereographic | Panini)
+                ).bind(lambda arms: menu("panorama_uv", "VECTOR", shell.socket(*panorama_path), shell.items[panorama_path], dict(arms)))
             else:
                 positions = paired(relative, lens).bind(
-                    lambda camera: mapped(item_key(kind), mode, frame, {field.name: shell.socket(*mode_path, kind, field.name) for field in msgspec.structs.fields(kind)}, *camera)
+                    lambda camera: mapped(item_key(kind), mode, frame, {field.name: shell.socket(mode_field, kind, field.name) for field in msgspec.structs.fields(kind)}, *camera)
                 )
-            border_path = (*mode_path, kind, Sampling.extension.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            border_path = (mode_field, kind, extension)
             return positions.bind(lambda uv: extended(item_key(kind, "sample"), shell.source, uv, shell.socket(*border_path), shell.items[border_path]).map(lambda image: (mode.title, uv, image)))
 
         return (
-            accumulated(arm(kind) for kind in get_args(Modes))
+            accumulated(arm(mode) for mode in shell.cases[mode_field,] if isinstance(mode, Kaleidoscope | Tiling | Polar | Panoramic))
             .bind(
                 lambda arms: selected(
                     "uv",
-                    shell.socket(*mode_path),
-                    shell.items[mode_path],
+                    shell.socket(mode_field),
+                    shell.items[mode_field,],
                     {"coordinates": ("VECTOR", {title: uv for title, uv, _ in arms}), "image": ("RGBA", {title: image for title, _, image in arms})},
                 )
             )

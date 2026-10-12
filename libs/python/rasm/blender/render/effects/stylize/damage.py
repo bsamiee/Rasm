@@ -74,15 +74,17 @@ def flickered(shell: Shell[Flicker]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Exposed scene-linear color with its graph, or accumulated native graph faults.
     """
-    clock = Clock(key="clock", speed=shell.socket(Flicker.motion.__name__, Motion.speed.__name__), hold=shell.socket(Flicker.motion.__name__, Motion.hold.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    return paired(clock.value, origin("flicker_origin", shell.socket(Flicker.seed.__name__), 8)).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    motion, seed, amplitude, rate = Flicker.__struct_fields__
+    speed, hold = Motion.__struct_fields__
+    clock = Clock(key="clock", speed=shell.socket(motion, speed), hold=shell.socket(motion, hold))
+    return paired(clock.value, origin("flicker_origin", shell.socket(seed), 8)).bind(
         lambda inputs: Fragment.joined(
             node("flicker_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": inputs[1]}, {}),
-            math("flicker_step", "MULTIPLY", inputs[0], shell.socket(Flicker.rate.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math("flicker_step", "MULTIPLY", inputs[0], shell.socket(rate)),
             math("flicker_at", "ADD", End(node="flicker_step"), End(node="flicker_axes", socket="X")),
             node("flicker_wave", bpy.types.ShaderNodeTexNoise, {"W": End(node="flicker_at"), "Scale": 1.0}, {"noise_dimensions": "1D"}),
             math("flicker_signed", "MULTIPLY_ADD", End(node="flicker_wave", socket="Fac"), 2.0, -1.0),
-            math("flicker_stops", "MULTIPLY", End(node="flicker_signed"), shell.socket(Flicker.amplitude.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math("flicker_stops", "MULTIPLY", End(node="flicker_signed"), shell.socket(amplitude)),
             node("flicker_exposed", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": End(node="flicker_stops")}, {}),
         ).map(ended("flicker_exposed", "Image"))
     )

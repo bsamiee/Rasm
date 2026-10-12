@@ -8,9 +8,9 @@ from expression import Option, Result, Some
 from expression.collections import Block
 import msgspec
 
-from rasm.blender.commands.operators import Call, Done, Empty, Operator
+from rasm.blender.commands.operators import answered, Call, Done, Empty, Operator, Outcome, Unchanged
 from rasm.blender.data.rna.descriptors import Descriptor, IdName
-from rasm.blender.data.rna.snapshots import Snapshot
+from rasm.blender.data.rna.snapshots import Applied, Snapshot
 from rasm.blender.extension.events.handlers import PathHandler
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
@@ -69,8 +69,12 @@ class CollectionStates(Line, frozen=True, kw_only=True):
         def seeded(record: CollectionState, event: bpy.types.Event) -> CollectionState:
             return msgspec.structs.replace(record, extent=Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE)
 
-        def pasting(owners: Callable[[bpy.types.Context], BlenderResult[tuple[bpy.types.LayerCollection, ...]]]) -> Callable[[Call[Empty]], BlenderResult[Done]]:
-            return lambda call: paired(call.root(bpy.types.WindowManager), owners(call.context)).bind(lambda pair: pasted(*pair)).map(lambda _: Done())
+        def pasting(owners: Callable[[bpy.types.Context], BlenderResult[tuple[bpy.types.LayerCollection, ...]]]) -> Callable[[Call[Empty]], BlenderResult[Outcome]]:
+            return lambda call: (
+                paired(call.root(bpy.types.WindowManager), owners(call.context))
+                .bind(lambda pair: pasted(*pair))
+                .bind(lambda outcomes: answered(Applied.join(outcomes), "Collection states already match the clipboard"))
+            )
 
         def copy(call: Call[Empty]) -> BlenderResult[Done]:
             layer: BlenderResult[bpy.types.ViewLayer] = call.root(bpy.types.ViewLayer)
@@ -92,7 +96,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
                 run=lambda call: (
                     Result[bpy.types.Scene, BlenderFaults]
                     .bind(call.root(bpy.types.Scene), lambda scene: applied(call.record, scene, states))
-                    .map(lambda count: Done(notes=(("INFO", f"Wrote {count} collection flags"),)))
+                    .map(lambda count: Done(notes=(("INFO", f"Wrote {count} collection flags"),)) if count else Unchanged(reason="Collection flags already hold that state"))
                 ),
             ),
             Operator(key="collection_copy", title="Copy Collection States", description="Copy the active view layer's collection states", form=Empty, undo=False, run=copy),

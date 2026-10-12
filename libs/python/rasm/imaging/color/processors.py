@@ -118,7 +118,7 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
         self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], *, source: str = PyOpenColorIO.ROLE_SCENE_LINEAR, exposure: Stops = 0.0, gamma: Gamma = 1.0
     ) -> ImagingResult[npt.NDArray[np.float32]]:
         """Returns associated display colors under view exposure and gamma, or typed build faults."""
-        exponent = 1.0 / max(gamma, float(np.finfo(np.float32).eps))
+        exponent = 1.0 / max(gamma, float(np.spacing(np.float32(1))))
         return self.transform(config).bind(
             lambda op: processor(
                 config,

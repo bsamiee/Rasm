@@ -10,7 +10,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 import numpy as np
 
-from rasm.blender.data.rna.descriptors import Descriptor, id_path, Native, struct_at, Value
+from rasm.blender.data.rna.descriptors import Descriptor, effective, id_path, LEADING, Native, sequenced, struct_at, Value
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
 from rasm.imaging.faults import accumulated
 from rasm.imaging.parameters import Case
@@ -41,20 +41,6 @@ class Scoped[O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"]
 
 _FLOAT_STORAGE = np.dtype(np.float64).newbyteorder(">")
 
-# --- [TABLES] ---------------------------------------------------------------------------
-
-_LEADING = tuple(
-    struct.bl_rna.properties[name]
-    for struct, name in (
-        (bpy.types.RenderSettings, "engine"),
-        (bpy.types.ImageFormatSettings, "color_management"),
-        (bpy.types.ColorManagedDisplaySettings, "display_device"),
-        (bpy.types.ColorManagedViewSettings, "view_transform"),
-        (bpy.types.UnitSettings, "system"),
-    )
-)
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -68,7 +54,7 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
     restoration: Option[tuple[Tree[NativeValue], BlenderResult[Tree[NativeValue]]]] = Nothing
 
     @classmethod
-    def join(cls, outcomes: tuple["Applied", ...]) -> Self:
+    def join(cls, outcomes: tuple[Self, ...]) -> Self:
         """Concatenates each path category in operation order."""
         return cls(
             written=tuple(path for outcome in outcomes for path in outcome.written),
@@ -129,7 +115,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 case bpy.types.PointerProperty(fixed_type=bpy.types.ID()) | bpy.types.CollectionProperty(fixed_type=bpy.types.ID()):
                     return ()  # type: ignore[unreachable]
                 case bpy.types.PointerProperty(is_readonly=True):
-                    return tuple((path, child) for child in Option.of_optional(getattr(struct, prop.identifier)).to_list())
+                    return tuple((path, child) for child in Option.of_optional(getattr(struct, prop.identifier)).filter(effective).to_list())
                 case bpy.types.CollectionProperty():
                     items = tuple((index, item) for index, item in enumerate(getattr(struct, prop.identifier)) if item is not None)
                     names = (
@@ -150,7 +136,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
         def captured[W](
             source: Native,
-            read: "Callable[[Descriptor, Native], Option[W]]",
+            read: Callable[[Descriptor, Native], Option[W]],
             chosen: Option[tuple[Descriptor, ...]],
             *,
             live: bool,
@@ -475,16 +461,17 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 case bpy.types.PropertyGroup() if prop.is_runtime:
                     added = lambda _: items.add()
                 case bpy.types.bpy_struct():
-                    return Ok(Applied()) if len(items) == len(keys) else Error((BlenderChoiceFault(path=f"{struct!r}.{prop.identifier}", identifier=str(len(keys)), accepted=(str(len(items)),)),))
+                    present = sum(item is not None for item in items)
+                    return Ok(Applied()) if present == len(keys) else Error((BlenderChoiceFault(path=f"{struct!r}.{prop.identifier}", identifier=str(len(keys)), accepted=(str(present),)),))
 
             def changed() -> Applied:
-                properties = fixed.bl_rna.properties
+                properties, altered = fixed.bl_rna.properties, Applied(written=(path,) if len(items) != len(keys) else ())
                 for at in keys[len(items) :]:
                     values = {name: projected(Descriptor(root=type(fixed), owner="", prop=properties[name]), value) for name, value in tree.owners[at].values.items() if name in properties}
                     added(values)
                 for _ in range(len(items) - len(keys)):
                     items.remove(len(items) - 1 if isinstance(fixed, bpy.types.PropertyGroup) and prop.is_runtime else items[-1])
-                return Applied()
+                return altered
 
             try:
                 return Ok(changed())
@@ -497,16 +484,10 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 members = tuple((name, value, Descriptor.resolve(struct, name, bpy.types.Property).to_option()) for name, value in tree.owners[key].values.items() if (key, name) not in completed)
                 missing = Applied(skipped=tuple(f"{key}.{name}".removeprefix(".") for name, _, descriptor in members if descriptor.is_none()))
                 reports.append(missing)
-                ordered = sorted(
-                    ((holder, descriptor, value) for _, value, found in members for descriptor in found.to_list() for holder in struct_at(struct, descriptor.owner).to_list()),
-                    key=lambda item: (
-                        _LEADING.index(item[1].prop) if item[1].prop in _LEADING else len(_LEADING),
-                        item[1].owner,
-                        tuple(item[0].bl_rna.properties).index(item[1].prop),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                        item[1].index.is_some(),
-                    ),
+                ordered = sequenced(
+                    (descriptor.owner, holder, descriptor, value) for _, value, found in members for descriptor in found.to_list() for holder in struct_at(struct, descriptor.owner).to_list()
                 )
-                values = accumulated(member(holder, key, descriptor, value) for holder, descriptor, value in ordered).map(lambda outcomes: Applied.join((missing, *outcomes)))
+                values = accumulated(member(holder, key, descriptor, value) for _, holder, descriptor, value in ordered).map(lambda outcomes: Applied.join((missing, *outcomes)))
                 result = values.bind(
                     lambda applied: accumulated(
                         resized(struct, key, prop) for prop in definitions if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID)
@@ -517,6 +498,8 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 return result
 
             match struct_at(owner, key):
+                case Option(tag="some", some=bpy.types.bpy_prop_collection()):
+                    return accumulated(located(child) for child in tree.owners[key].children).map(Applied.join)
                 case Option(tag="some", some=struct):
                     return written(struct)
                 case Option():
@@ -526,7 +509,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
         try:
             outcome = (
-                reduce(lambda state, prop: state.bind(lambda applied: lead(prop).map(lambda outcome: Applied.join((applied, outcome)))), _LEADING, Result[Applied, BlenderFaults](ok=Applied()))
+                reduce(lambda state, prop: state.bind(lambda applied: lead(prop).map(lambda outcome: Applied.join((applied, outcome)))), LEADING, Result[Applied, BlenderFaults](ok=Applied()))
                 .bind(lambda applied: accumulated(located(key) for key in tree.roots).map(lambda outcomes: Applied.join((applied, *outcomes))))
                 .map(lambda _: None)
             )
@@ -640,10 +623,10 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
     def restore(before: Tree[NativeValue], after: Tree[NativeValue]) -> Applied:
         """Restores live values still equal to this operation's actual final state."""
 
-        def located(target: NativeOwner) -> "Option[Native]":
+        def located(target: NativeOwner) -> Option[Native]:
             return struct_at(*target) if isinstance(target, tuple) else Some(target)
 
-        def resolved(target: NativeOwner, name: str) -> "tuple[tuple[Native, Descriptor], ...]":
+        def resolved(target: NativeOwner, name: str) -> tuple[tuple[Native, Descriptor], ...]:
             return tuple((struct, descriptor) for struct in located(target).to_list() for descriptor in Descriptor.resolve(struct, name, bpy.types.Property).to_option().to_list())
 
         def absent(key: str, name: str, target: NativeOwner) -> tuple[Applied, ...]:
@@ -671,7 +654,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 else Snapshot._reported(path, Descriptor.resolve(struct, descriptor.path, bpy.types.Property).bind(lambda found: found.write(struct, Snapshot._value(found, value))))
             )
 
-        def refreshed(struct: "bpy.types.CurveMapping | bpy.types.CurveProfile") -> tuple[Applied, ...]:
+        def refreshed(struct: bpy.types.CurveMapping | bpy.types.CurveProfile) -> tuple[Applied, ...]:
             try:
                 struct.update()
             except ReferenceError as error:
@@ -693,16 +676,13 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 for key, held in after.owners.items()
             },
         )
-        ordered = sorted(
-            (
-                (f"{edit.key}.{name}", target, descriptor, value)
-                for edit in revert(current, transfer(before, after))
-                for name, (target, value) in edit.after.items()
-                for _, descriptor in resolved(target, name)
-            ),
-            key=lambda item: (_LEADING.index(item[2].prop) if item[2].prop in _LEADING else len(_LEADING), item[0], item[2].index.is_some()),
+        ordered = sequenced(
+            (edit.key, struct, descriptor, (f"{edit.key}.{name}", value))
+            for edit in revert(current, transfer(before, after))
+            for name, (target, value) in edit.after.items()
+            for struct, descriptor in resolved(target, name)
         )
-        writes = tuple((struct, assigned(path, struct, descriptor, value)) for path, target, descriptor, value in ordered for struct in located(target).to_list())
+        writes = tuple((struct, assigned(path, struct, descriptor, value)) for _, struct, descriptor, (path, value) in ordered)
         updated = {struct.as_pointer(): struct for struct, _ in writes if isinstance(struct, bpy.types.CurveMapping | bpy.types.CurveProfile)}
         return Applied.join((
             *missing,

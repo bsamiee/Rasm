@@ -197,7 +197,7 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(depth for depth in Depth if self.name in depth.writers)
 
     @property
-    def compressions(self) -> tuple[type[Plain] | type[Deflate] | type[Dwa] | type[Quality], ...]:
+    def compressions(self) -> tuple[type[Compressions], ...]:
         """Compression cases the format's writer reads."""
         return tuple(form for form in typing.get_args(Compressions.__value__) if self.name in form.writers)
 
@@ -216,51 +216,6 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
     pixels: npt.NDArray[D]
     colorspace: str
     header: tuple[OpenImageIO.ParamValue, ...] = ()
-
-    @classmethod
-    def read(cls, path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> "ImagingResult[ImageFile[np.float32]]":
-        """Reads every channel of a file's first subimage as float32 with its colorspace.
-
-        Args:
-            path: File to read.
-            config: Config the colorspace resolves in.
-            colorspace: Explicit name, alias, or role, bypassing tags and file rules; `Nothing` infers from the file.
-            options: Native reader configuration; `Nothing` retains provider defaults.
-
-        Returns:
-            The file; the `read` case holding the path and OpenImageIO's text, or `unresolved` holding the config and the explicit or inferred name.
-        """
-
-        def decoded(image: OpenImageIO.ImageInput) -> ImagingResult[ImageFile[np.float32]]:
-            try:
-                spec, requested = image.spec(), colorspace.default_with(lambda: config.getColorSpaceFromFilepath(path)[0])
-                resolved = (
-                    (
-                        Option.of_optional(config.getColorSpace(requested))
-                        if colorspace.is_some()
-                        else (
-                            Option
-                            .of_optional(spec.get_string_attribute("oiio:ColorSpace"))
-                            .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
-                            .or_else_with(lambda: Nothing if config.filepathOnlyMatchesDefaultRule(path) else Option.of_optional(config.getColorSpace(requested)))
-                            .or_else_with(
-                                lambda: Option.of_optional(
-                                    config.getColorSpace("default_float" if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else "default_byte")
-                                )
-                            )
-                            .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
-                        )
-                    )
-                    .map(PyOpenColorIO.ColorSpace.getName)
-                    .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
-                )
-                pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
-                decoded = paired(resolved, pixels).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
-            finally:
-                closed = Ok(None) if image.close() else Error((ImagingReadFault(request=path, error=image.geterror()),))
-            return paired(decoded, closed).map(lambda pair: pair[0])
-
-        return opened(path, options=options).bind(decoded)
 
     def write(self, path: str, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> ImagingResult[str]:
         """Writes the pixels with the header, fields, storage, and color tags of their colorspace.
@@ -313,6 +268,49 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
             )
 
         return profile(config, self.colorspace).bind(lambda icc: emitted(path, lambda output: subimages(output, icc.filter(lambda _: channels >= 3))))
+
+
+def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[ImageFile[np.float32]]:
+    """Reads every channel of a file's first subimage as float32 with its colorspace.
+
+    Args:
+        path: File to read.
+        config: Config the colorspace resolves in.
+        colorspace: Explicit name, alias, or role, bypassing tags and file rules; `Nothing` infers from the file.
+        options: Native reader configuration; `Nothing` retains provider defaults.
+
+    Returns:
+        The file; the `read` case holding the path and OpenImageIO's text, or `unresolved` holding the config and the explicit or inferred name.
+    """
+
+    def decoded(image: OpenImageIO.ImageInput) -> ImagingResult[ImageFile[np.float32]]:
+        try:
+            spec, requested = image.spec(), colorspace.default_with(lambda: config.getColorSpaceFromFilepath(path)[0])
+            resolved = (
+                (
+                    Option.of_optional(config.getColorSpace(requested))
+                    if colorspace.is_some()
+                    else (
+                        Option
+                        .of_optional(spec.get_string_attribute("oiio:ColorSpace"))
+                        .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
+                        .or_else_with(lambda: Nothing if config.filepathOnlyMatchesDefaultRule(path) else Option.of_optional(config.getColorSpace(requested)))
+                        .or_else_with(
+                            lambda: Option.of_optional(config.getColorSpace("default_float" if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else "default_byte"))
+                        )
+                        .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
+                    )
+                )
+                .map(PyOpenColorIO.ColorSpace.getName)
+                .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
+            )
+            pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
+            decoded = paired(resolved, pixels).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
+        finally:
+            closed = Ok(None) if image.close() else Error((ImagingReadFault(request=path, error=image.geterror()),))
+        return paired(decoded, closed).map(lambda pair: pair[0])
+
+    return opened(path, options=options).bind(decoded)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -455,4 +453,23 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Blocks", "Codec", "Compressions", "Deflate", "Depth", "Dwa", "Format", "ImageFile", "Plain", "Quality", "Storage", "Subimage", "Writable", "emitted", "opened", "profile", "published"]
+__all__ = [
+    "Blocks",
+    "Codec",
+    "Compressions",
+    "Deflate",
+    "Depth",
+    "Dwa",
+    "Format",
+    "ImageFile",
+    "Plain",
+    "Quality",
+    "Storage",
+    "Subimage",
+    "Writable",
+    "emitted",
+    "opened",
+    "profile",
+    "published",
+    "read_file",
+]

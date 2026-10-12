@@ -49,7 +49,6 @@ from rasm.blender.render.effects.warp.displacement import displacement
 from rasm.blender.render.effects.warp.projection import projection
 from rasm.blender.render.effects.warp.transforms import transform
 from rasm.blender.render.previews.nodes import NodePreview, StageThumbnail
-from rasm.blender.render.previews.queue import PreviewQueue
 from rasm.blender.render.previews.tiles import Tiles
 from rasm.blender.render.sessions.queue import QueueRun
 from rasm.blender.render.sessions.sets import SetupLocks
@@ -192,7 +191,6 @@ stack = EffectStack(
 viewer = EffectViewer(stack=stack)
 strips = StripEffect(stack=stack)
 tiles = Tiles(stack=stack)
-preview_queue = PreviewQueue()
 nodes = NodePreview(stack=stack, tiles=tiles, settings=previewing, stored=previewed)
 sections = effect_section(viewer=viewer, title="Effects", thumbnail=StageThumbnail(preview=nodes), locks=Some(SetupLocks.effect_actions()))
 
@@ -217,7 +215,6 @@ compositor = Single(
 
 rows = (
     stack,
-    preview_queue,
     tiles,
     nodes,
     strips,
@@ -247,4 +244,4 @@ page_rows = (*stack.page_rows, *nodes.page_rows)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Effects", "page_rows", "panels", "preview_queue", "rows", "stack", "tiles", "viewer"]
+__all__ = ["Effects", "page_rows", "panels", "rows", "stack", "tiles", "viewer"]

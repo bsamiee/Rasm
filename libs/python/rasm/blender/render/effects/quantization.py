@@ -1,7 +1,7 @@
 """Output code grids and canonical blue-noise compositor quantization."""
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
 import bpy
 from expression import Ok, Result, Some
@@ -14,7 +14,8 @@ from rasm.blender.data.ids.images import Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
 from rasm.blender.extension.identity import Identity
 from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, Generated, gridded, math, menu, mixed, node, switched, vector
+from rasm.blender.nodes.coordinates import gridded
+from rasm.blender.nodes.graphs import End, ended, Fragment, Generated, math, menu, mixed, node, switched, vector
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.color.spaces import space_item
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, Derived, entries, formation, precise, Shell
@@ -26,7 +27,7 @@ from rasm.blender.settings.attachments import Attachment
 from rasm.imaging.color.processors import unassociated
 from rasm.imaging.effects.quantization import BlueNoise, Diffusion, Dither, IntegerDepth
 from rasm.imaging.faults import accumulated, paired
-from rasm.imaging.files.images import Depth, ImageFile, Storage
+from rasm.imaging.files.images import Depth, ImageFile, read_file, Storage
 from rasm.imaging.hashing import content_hash
 from rasm.rendering.outputs.naming import Output
 
@@ -40,7 +41,7 @@ class CodeGrid(msgspec.Struct, frozen=True, kw_only=True):
     straight: bool
 
     @classmethod
-    def of(cls, scene: bpy.types.Scene) -> "CodeGrid":
+    def of(cls, scene: bpy.types.Scene) -> Self:
         """Derives the scene output's code spacing and native alpha form."""
         settings = scene.render.image_settings
         return cls(
@@ -69,9 +70,8 @@ def dithered(shell: Shell[Dither]) -> BlenderResult[tuple[Fragment, End]]:
         faults. Tile acquisition retains its imaging failure at reconciliation.
     """
     source = shell.source
-    step = shell.socket(CodeGrid.step.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    straight = shell.socket(CodeGrid.straight.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    method = Dither.method.__name__  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    step, straight = (shell.socket(field) for field in CodeGrid.__struct_fields__)
+    (method,) = Dither.__struct_fields__
     tile = End(node="tile", socket="Image")
     dimensions = End(node="dimensions", socket="Dimensions")
     scaled = End(node="scaled", socket="Vector")
@@ -179,7 +179,7 @@ def copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blender
                 .map(lambda _: None)
             )
 
-        return Result[ImageFile[np.float32], BlenderFaults].bind(ImageFile.read(file.path, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), formed)
+        return Result[ImageFile[np.float32], BlenderFaults].bind(read_file(file.path, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), formed)
 
     return (
         accumulated(dither.read(identity, entry) for entry in entries(identity, scene, Dither) if bool(Enabled.RENDER.descriptor.read(entry))).bind(

@@ -1,6 +1,7 @@
 """Native geometric fields, painted shapes, and shared distance-ramp coverage."""
 
-from functools import partial
+from collections.abc import Mapping
+from functools import cache, partial, reduce
 from math import cos, pi, sin, tau
 
 import bpy
@@ -8,7 +9,9 @@ from expression import Nothing, Ok, Option, Some
 
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, framed, FrameSpace, item_key, masked, math, menu, mixed, node, Operand, selected, summed, switched, vector
+from rasm.blender.nodes.coordinates import framed, FrameSpace
+from rasm.blender.nodes.graphs import Clock, compared, End, ended, Fragment, masked, math, menu, mixed, nested, node, NodeGroup, Operand, selected, summed, switched, vector
+from rasm.blender.nodes.interface import Interface, item_key, Socket
 from rasm.blender.render.effects.generators.noise import emitted, periodic, sample, sampled
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, KeyPath, precise, Shell
 from rasm.blender.render.effects.viewers import inspection
@@ -180,17 +183,19 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
     """Returns the selected primitive's local distance and bounded width."""
     key = item_key(*path)
     inlet = partial(shell.socket, *path)
+    width_box, height, roundness_box = Box.__struct_fields__
     match shape:
         case Box():
-            return boxed(key, point, inlet(Box.width.__name__), inlet(Box.height.__name__), inlet(Box.roundness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return boxed(key, point, inlet(width_box), inlet(height), inlet(roundness_box))
         case Ellipse():
-            exponent = inlet(Ellipse.exponent.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            width_ellipse, height_ellipse, exponent_ellipse = Ellipse.__struct_fields__
+            exponent = inlet(exponent_ellipse)
             half = (
-                node(f"{key}_size", bpy.types.ShaderNodeCombineXYZ, {"X": inlet(Ellipse.width.__name__), "Y": inlet(Ellipse.height.__name__)}, {})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                node(f"{key}_size", bpy.types.ShaderNodeCombineXYZ, {"X": inlet(width_ellipse), "Y": inlet(height_ellipse)}, {})
                 .map(ended(f"{key}_size", "Vector"))
                 .bind(lambda size: vector(f"{key}_half", "SCALE", size, 0.5))
             )
-            narrow = math(f"{key}_width", "MINIMUM", inlet(Ellipse.width.__name__), inlet(Ellipse.height.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            narrow = math(f"{key}_width", "MINIMUM", inlet(width_ellipse), inlet(height_ellipse))
             normalized = half.bind(lambda half: vector(f"{key}_normalized", "DIVIDE", point, half)).bind(lambda normalized: vector(f"{key}_absolute", "ABSOLUTE", normalized))
             powers = normalized.bind(lambda normalized: vector(f"{key}_powers", "POWER", normalized, exponent))
             level = (
@@ -215,14 +220,16 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
             middle = narrow.bind(lambda width: math(f"{key}_middle", "MULTIPLY", width, -0.5))
             return paired(paired(distance, middle).bind(lambda distances: center.bind(lambda center: masked(f"{key}_centered", "FLOAT", center, *distances))), narrow)
         case Cross():
-            length = inlet(Cross.length.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            roundness = inlet(Cross.roundness.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            width = math(f"{key}_width", "MULTIPLY", length, inlet(Cross.thickness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            horizontal = math(f"{key}_horizontal", "MULTIPLY", length, inlet(Cross.aspect.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            length_cross, thickness_cross, aspect, roundness_cross = Cross.__struct_fields__
+            length = inlet(length_cross)
+            roundness = inlet(roundness_cross)
+            width = math(f"{key}_width", "MULTIPLY", length, inlet(thickness_cross))
+            horizontal = math(f"{key}_horizontal", "MULTIPLY", length, inlet(aspect))
             bars = paired(width, horizontal).bind(lambda parts: paired(boxed(f"{key}_across", point, parts[1], parts[0], roundness), boxed(f"{key}_up", point, parts[0], length, roundness)))
             return bars.bind(lambda parts: paired(math(f"{key}_distance", "MINIMUM", parts[0][0], parts[1][0]), math(f"{key}_narrow", "MAXIMUM", parts[0][1], parts[1][1])))
         case Triangle():
-            vertices = tuple(inlet(member) for member in (Triangle.a.__name__, Triangle.b.__name__, Triangle.c.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            a, b, c, roundness_triangle = Triangle.__struct_fields__
+            vertices = tuple(inlet(member) for member in (a, b, c))
             lengths = accumulated(vector(f"{key}_side_{index}", "DISTANCE", vertices[(index + 1) % 3], vertices[(index + 2) % 3]) for index in range(3))
             area = (
                 paired(vector(f"{key}_ab", "SUBTRACT", vertices[1], vertices[0]), vector(f"{key}_ac", "SUBTRACT", vertices[2], vertices[0]))
@@ -234,22 +241,23 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
             weighted = lengths.bind(lambda lengths: accumulated(vector(f"{key}_weighted_{index}", "SCALE", vertex, length) for index, (vertex, length) in enumerate(zip(vertices, lengths))))
             center = paired(weighted.bind(lambda weighted: summed(f"{key}_weighted_sum", weighted, kind="VECTOR")), perimeter).bind(lambda parts: vector(f"{key}_center", "DIVIDE", *parts))
             fraction = area.bind(lambda area: compared(f"{key}_nondegenerate", "GREATER_THAN", area, 0.0)).bind(
-                lambda positive: switched(f"{key}_roundness", "FLOAT", positive, 0.0, inlet(Triangle.roundness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                lambda positive: switched(f"{key}_roundness", "FLOAT", positive, 0.0, inlet(roundness_triangle))
             )
             shrunk = paired(center, fraction).bind(lambda parts: accumulated(mixed(f"{key}_vertex_{index}", "VECTOR", parts[1], vertex, parts[0]) for index, vertex in enumerate(vertices)))
             return paired(paired(area, perimeter).bind(lambda parts: math(f"{key}_incircle", "DIVIDE", *parts)), shrunk).bind(
                 lambda parts: paired(
-                    math(f"{key}_rounding", "MULTIPLY", parts[0], inlet(Triangle.roundness.__name__)).bind(lambda rounding: polygonal(key, point, parts[1], rounding)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    math(f"{key}_rounding", "MULTIPLY", parts[0], inlet(roundness_triangle)).bind(lambda rounding: polygonal(key, point, parts[1], rounding)),
                     math(f"{key}_width", "MULTIPLY", parts[0], 2.0),
                 )
             )
         case Polygon():
+            radius_polygon, _, inset, roundness_polygon = Polygon.__struct_fields__
             sides = shape.sides
-            radius = inlet(Polygon.radius.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            rounding = math(f"{key}_rounding", "MULTIPLY", radius, inlet(Polygon.roundness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            radius = inlet(radius_polygon)
+            rounding = math(f"{key}_rounding", "MULTIPLY", radius, inlet(roundness_polygon))
             outer = paired(Ok(radius), rounding).bind(lambda parts: math(f"{key}_outer", "SUBTRACT", *parts))
             inner = (
-                math(f"{key}_remaining", "SUBTRACT", 1.0, inlet(Polygon.inset.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math(f"{key}_remaining", "SUBTRACT", 1.0, inlet(inset))
                 .bind(lambda remaining: math(f"{key}_inner_fraction", "MULTIPLY", remaining, cos(pi / sides)))
                 .bind(lambda fraction: outer.bind(lambda outer: math(f"{key}_inner", "MULTIPLY", outer, fraction)))
             )
@@ -265,9 +273,10 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
             width = paired(inner, rounding).bind(lambda parts: math(f"{key}_inner_bound", "ADD", *parts)).bind(lambda radius: math(f"{key}_width", "MULTIPLY", radius, 2.0))
             return paired(distance, width)
         case Heart():
+            (height_heart,) = Heart.__struct_fields__
             lobe_radius = 2.0**0.5 / 4.0
             unit_height = 0.75 + lobe_radius
-            scale = math(f"{key}_scale", "DIVIDE", inlet(Heart.height.__name__), unit_height)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            scale = math(f"{key}_scale", "DIVIDE", inlet(height_heart), unit_height)
             located = scale.bind(lambda scale: vector(f"{key}_normalized", "DIVIDE", point, scale)).bind(lambda point: vector(f"{key}_centered", "ADD", point, (0.0, unit_height / 2.0, 0.0)))
             absolute = (
                 located
@@ -301,27 +310,28 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
             chosen = paired(paired(lower, lobe), sumxy.bind(lambda total: compared(f"{key}_upper", "GREATER_THAN", total, 1.0))).bind(
                 lambda parts: masked(f"{key}_boundary", "FLOAT", parts[1], *parts[0])
             )
-            return paired(paired(chosen, scale).bind(lambda parts: math(f"{key}_distance", "MULTIPLY", *parts)), Ok((Fragment(), inlet(Heart.height.__name__))))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return paired(paired(chosen, scale).bind(lambda parts: math(f"{key}_distance", "MULTIPLY", *parts)), Ok((Fragment(), inlet(height_heart))))
         case Segment():
+            length_segment, thickness_segment, start, end = Segment.__struct_fields__
             ends = accumulated(
-                math(f"{key}_{edge}", "MINIMUM" if edge == "start" else "MAXIMUM", inlet(Segment.start.__name__), inlet(Segment.end.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math(f"{key}_{edge}", "MINIMUM" if edge == "start" else "MAXIMUM", inlet(start), inlet(end))
                 .bind(lambda fraction: math(f"{key}_{edge}_centered", "SUBTRACT", fraction, 0.5))
-                .bind(lambda fraction: math(f"{key}_{edge}_offset", "MULTIPLY", fraction, inlet(Segment.length.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda fraction: math(f"{key}_{edge}_offset", "MULTIPLY", fraction, inlet(length_segment)))
                 .bind(lambda offset: node(f"{key}_{edge}_point", bpy.types.ShaderNodeCombineXYZ, {"X": offset}, {}))
                 .map(ended(f"{key}_{edge}_point", "Vector"))
                 for edge in ("start", "end")
             )
-            return paired(ends, math(f"{key}_radius", "MULTIPLY", inlet(Segment.thickness.__name__), 0.5)).bind(lambda parts: stroked(key, point, parts[0][0], parts[0][1], parts[1], parts[1]))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return paired(ends, math(f"{key}_half_thickness", "MULTIPLY", inlet(thickness_segment), 0.5)).bind(lambda parts: stroked(key, point, parts[0][0], parts[0][1], parts[1], parts[1]))
         case Grid():
-            return lattice(key, point, inlet(Grid.width.__name__), inlet(Grid.height.__name__), inlet(Grid.offset.__name__), inlet(Grid.line.__name__)).map(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                lambda parts: (parts[0], (Fragment(), inlet(Grid.line.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            )
+            width_grid, height_grid, line, offset_grid = Grid.__struct_fields__
+            return lattice(key, point, inlet(width_grid), inlet(height_grid), inlet(offset_grid), inlet(line)).map(lambda parts: (parts[0], (Fragment(), inlet(line))))
         case Bar():
-            box = (*path, Bar.box.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            boundary = boxed(f"{key}_box", point, shell.socket(*box, Box.width.__name__), shell.socket(*box, Box.height.__name__), shell.socket(*box, Box.roundness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            half = math(f"{key}_half", "MULTIPLY", shell.socket(*box, Box.width.__name__), 0.5)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            box_bar, completion_bar, growth_bar = Bar.__struct_fields__
+            box = (*path, box_bar)
+            boundary = boxed(f"{key}_box", point, shell.socket(*box, width_box), shell.socket(*box, height), shell.socket(*box, roundness_box))
+            half = math(f"{key}_half", "MULTIPLY", shell.socket(*box, width_box), 0.5)
             x = node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {}).map(ended(f"{key}_axes", "X"))
-            completion = inlet(Bar.completion.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            completion = inlet(completion_bar)
             clips = paired(half, x).bind(
                 lambda parts: accumulated((
                     math(f"{key}_start_share", "MULTIPLY_ADD", completion, 2.0, -1.0)
@@ -335,22 +345,21 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
                     .bind(lambda edge: math(f"{key}_edges_absolute", "ABSOLUTE", parts[1]).bind(lambda absolute: math(f"{key}_edges", "SUBTRACT", edge, absolute))),
                 ))
             )
-            chosen = clips.bind(
-                lambda clips: menu(f"{key}_growth", "FLOAT", inlet(Bar.growth.__name__), shell.items[*path, Bar.growth.__name__], dict(zip((growth.label for growth in Growth), clips)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            )
+            chosen = clips.bind(lambda clips: menu(f"{key}_growth", "FLOAT", inlet(growth_bar), shell.items[*path, growth_bar], dict(zip((growth.label for growth in Growth), clips))))
             filled = (
-                math(f"{key}_filled_length", "MULTIPLY", shell.socket(*box, Box.width.__name__), completion)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math(f"{key}_filled_length", "MULTIPLY", shell.socket(*box, width_box), completion)
                 .bind(
                     lambda length: math(f"{key}_half_length", "MULTIPLY", length, 0.5).bind(
                         lambda half: switched(f"{key}_piece_length", "FLOAT", End(node=f"{key}_growth", socket=Growth.EDGES.label), length, half)
                     )
                 )
-                .bind(lambda length: math(f"{key}_width", "MINIMUM", length, shell.socket(*box, Box.height.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .bind(lambda length: math(f"{key}_width", "MINIMUM", length, shell.socket(*box, height)))
             )
             return paired(paired(boundary, chosen).bind(lambda parts: math(f"{key}_distance", "MAXIMUM", parts[0][0], parts[1])), filled)
         case Ring():
-            boundary = primitive(shell, (*path, Ring.ellipse.__name__), shape.ellipse, point)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            half = boundary.bind(lambda boundary: math(f"{key}_thickness", "MULTIPLY", boundary[1], inlet(Ring.thickness.__name__))).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            ellipse, thickness_ring = Ring.__struct_fields__
+            boundary = primitive(shell, (*path, ellipse), shape.ellipse, point)
+            half = boundary.bind(lambda boundary: math(f"{key}_thickness", "MULTIPLY", boundary[1], inlet(thickness_ring))).bind(
                 lambda thickness: math(f"{key}_half_thickness", "MULTIPLY", thickness, 0.25)
             )
             return paired(boundary, half).bind(
@@ -366,23 +375,17 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
 def figured[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
     """Returns a positioned primitive's field in displayed greater-side units."""
     key = item_key(*path)
-    at = (*path, Figure.primitive.__name__)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    primitive_figure, position, rotation, short_side = Figure.__struct_fields__
+    at = (*path, primitive_figure)
     cases = tuple(shape for shape in shell.cases[at] if isinstance(shape, Box | Ellipse | Triangle | Cross | Heart | Segment | Bar | Grid | Polygon | Ring))
     extent = node(f"{key}_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {}).bind(
         lambda axes: math(f"{key}_short", "MINIMUM", ended(f"{key}_extent", "X")(axes), End(node=f"{key}_extent", socket="Y"))
     )
-    scale = extent.bind(lambda short: switched(f"{key}_scale", "FLOAT", shell.socket(*path, Figure.short_side.__name__), 1.0, short))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    scale = extent.bind(lambda short: switched(f"{key}_scale", "FLOAT", shell.socket(*path, short_side), 1.0, short))
     local = (
-        vector(f"{key}_anchor", "MULTIPLY", shell.socket(*path, Figure.position.__name__), frame.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        vector(f"{key}_anchor", "MULTIPLY", shell.socket(*path, position), frame.extent)
         .bind(lambda anchor: vector(f"{key}_offset", "SUBTRACT", frame.point, anchor))
-        .bind(
-            lambda offset: node(
-                f"{key}_rotation",
-                bpy.types.ShaderNodeVectorRotate,
-                {"Vector": offset, "Angle": shell.socket(*path, Figure.rotation.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                {"rotation_type": "Z_AXIS", "invert": True},
-            )
-        )
+        .bind(lambda offset: node(f"{key}_rotation", bpy.types.ShaderNodeVectorRotate, {"Vector": offset, "Angle": shell.socket(*path, rotation)}, {"rotation_type": "Z_AXIS", "invert": True}))
         .map(ended(f"{key}_rotation", "Vector"))
     )
     point = paired(local, scale).bind(lambda parts: vector(f"{key}_point", "DIVIDE", *parts))
@@ -400,19 +403,18 @@ def combined[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, field
     key = item_key(*path)
     match field:
         case Morph():
+            start, end, progress = Morph.__struct_fields__
             return (
-                paired(figured(shell, (*path, Morph.start.__name__), frame), figured(shell, (*path, Morph.end.__name__), frame))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                paired(figured(shell, (*path, start), frame), figured(shell, (*path, end), frame))
                 .bind(
-                    lambda fields: accumulated(
-                        mixed(f"{key}_{name}", "FLOAT", shell.socket(*path, Morph.progress.__name__), fields[0][index], fields[1][index])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        for index, name in enumerate(("distance", "width"))
-                    )
+                    lambda fields: accumulated(mixed(f"{key}_{name}", "FLOAT", shell.socket(*path, progress), fields[0][index], fields[1][index]) for index, name in enumerate(("distance", "width")))
                 )
                 .map(lambda fields: (fields[0], fields[1]))
             )
         case Boolean():
-            inputs = paired(figured(shell, (*path, Boolean.base.__name__), frame), figured(shell, (*path, Boolean.cutter.__name__), frame))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            smoothness = shell.socket(*path, Boolean.smoothness.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            operation_boolean, base, cutter, smoothness_boolean = Boolean.__struct_fields__
+            inputs = paired(figured(shell, (*path, base), frame), figured(shell, (*path, cutter), frame))
+            smoothness = shell.socket(*path, smoothness_boolean)
 
             def minimum(operation: Operation, a: Operand, b: Operand) -> BlenderResult[tuple[Fragment, End]]:
                 prefix = f"{key}_{operation.name.lower()}"
@@ -441,7 +443,7 @@ def combined[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, field
                 (a, an), (b, bn) = fields
                 distances = accumulated(minimum(operation, a, b) for operation in Operation)
                 widths = accumulated((math(f"{key}_union_width", "MAXIMUM", an, bn), Ok(an), math(f"{key}_intersect_width", "MINIMUM", an, bn)))
-                operation = (*path, Boolean.operation.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                operation = (*path, operation_boolean)
                 labels = tuple(operation.label for operation in Operation)
                 return (
                     paired(distances, widths)
@@ -459,84 +461,170 @@ def combined[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, field
 def windowed[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
     """Returns the centered rounded aperture fitted to the displayed frame."""
     key = item_key(*path)
+    aspect_window, inset_window, roundness = Window.__struct_fields__
+    _, value = Gated.__struct_fields__
     axes = node(f"{key}_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {})
     ratio = axes.bind(lambda axes: math(f"{key}_frame_aspect", "DIVIDE", ended(f"{key}_extent", "X")(axes), End(node=f"{key}_extent", socket="Y")))
-    aspect = ratio.bind(lambda ratio: switched(f"{key}_aspect", "FLOAT", shell.socket(*path, Window.aspect.__name__), ratio, shell.socket(*path, Window.aspect.__name__, Gated.value.__name__)))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    aspect = ratio.bind(lambda ratio: switched(f"{key}_aspect", "FLOAT", shell.socket(*path, aspect_window), ratio, shell.socket(*path, aspect_window, value)))
     width = paired(axes, aspect).bind(
         lambda parts: math(f"{key}_fitted_width", "MULTIPLY", ended(f"{key}_extent", "Y")(parts[0]), parts[1]).bind(
             lambda width: math(f"{key}_width", "MINIMUM", width, ended(f"{key}_extent", "X")(parts[0]))
         )
     )
     height = paired(width, aspect).bind(lambda parts: math(f"{key}_height", "DIVIDE", *parts))
-    inset = paired(width, height).bind(lambda parts: math(f"{key}_short", "MINIMUM", *parts)).bind(lambda short: math(f"{key}_inset", "MULTIPLY", short, shell.socket(*path, Window.inset.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    inset = paired(width, height).bind(lambda parts: math(f"{key}_short", "MINIMUM", *parts)).bind(lambda short: math(f"{key}_inset", "MULTIPLY", short, shell.socket(*path, inset_window)))
     point = vector(f"{key}_center", "SCALE", frame.extent, 0.5).bind(lambda center: vector(f"{key}_point", "SUBTRACT", frame.point, center))
     return paired(paired(width, height), paired(inset, point)).bind(
         lambda parts: paired(math(f"{key}_inner_width", "SUBTRACT", parts[0][0], parts[1][0]), math(f"{key}_inner_height", "SUBTRACT", parts[0][1], parts[1][0])).bind(
-            lambda size: boxed(key, parts[1][1], *size, shell.socket(*path, Window.roundness.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            lambda size: boxed(f"{key}_box", parts[1][1], *size, shell.socket(*path, roundness))
         )
     )
 
 
 def lightning[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, shape: Lightning) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Builds the requested dyadic channel and tapered forks without topology caps."""
+    """Builds the dyadic channel and its tapered forks, a channel subdivided `k` times one group holding its two halves' groups subdivided `k - 1` times."""
     key = item_key(*path)
     inlet = partial(shell.socket, *path)
-    motion = Lightning.motion.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    clock = Clock(key=f"{key}_clock", speed=inlet(motion, Motion.speed.__name__), hold=inlet(motion, Motion.hold.__name__)).value.bind(lambda clock: math(f"{key}_redraw", "MULTIPLY", clock, 2.0))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    radius = math(f"{key}_radius", "MULTIPLY", inlet(Lightning.thickness.__name__), 0.5)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    start = vector(f"{key}_start", "MULTIPLY", inlet(Lightning.start.__name__), frame.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    end = vector(f"{key}_end", "MULTIPLY", inlet(Lightning.end.__name__), frame.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    start_lightning, end_lightning, thickness, _, displacement_lightning, _, reach_lightning, spread, taper, motion, seed_lightning = Lightning.__struct_fields__
+    speed, hold = Motion.__struct_fields__
+    clock = Clock(key=f"{key}_clock", speed=inlet(motion, speed), hold=inlet(motion, hold)).value.bind(lambda clock: math(f"{key}_redraw", "MULTIPLY", clock, 2.0))
+    radius = math(f"{key}_radius", "MULTIPLY", inlet(thickness), 0.5)
+    start = vector(f"{key}_start", "MULTIPLY", inlet(start_lightning), frame.extent)
+    end = vector(f"{key}_end", "MULTIPLY", inlet(end_lightning), frame.extent)
+    seed, displacement = inlet(seed_lightning), inlet(displacement_lightning)
     span = 2**shape.depth
+    endpoints = (("start", bpy.types.NodeSocketVector), ("end", bpy.types.NodeSocketVector))
+    drawn = (("stream", bpy.types.NodeSocketFloat), ("time", bpy.types.NodeSocketFloat), ("seed", bpy.types.NodeSocketFloat), ("displacement", bpy.types.NodeSocketFloat))
+    traced = (("point", bpy.types.NodeSocketVector), *endpoints, *((name, bpy.types.NodeSocketFloat) for name in ("index", "span", "first_radius", "last_radius")))
+    fields = (("distance", bpy.types.NodeSocketFloat), ("width", bpy.types.NodeSocketFloat))
 
-    def draw(prefix: Key, stream: int) -> BlenderResult[tuple[Fragment, End]]:
-        return clock.bind(lambda time: sample(prefix, White(spacing=1.0), (0.0, 0.0, 0.0), time, inlet(Lightning.seed.__name__), stream, {}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    def faced(inputs: tuple[tuple[Key, type[bpy.types.NodeSocket]], ...], outputs: tuple[tuple[Key, type[bpy.types.NodeSocket]], ...]) -> Interface:
+        def sockets(rows: tuple[tuple[Key, type[bpy.types.NodeSocket]], ...]) -> tuple[Socket, ...]:
+            return tuple(Socket(key=name, name=name.replace("_", " ").title(), kind=kind) for name, kind in rows)
 
-    def channel(
-        prefix: Key, first: tuple[Fragment, End], last: tuple[Fragment, End], first_radius: Operand, last_radius: Operand, stream: int
-    ) -> tuple[dict[int, BlenderResult[tuple[Fragment, End]]], BlenderResult[tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], ...]]]:
-        vertices = {0: Ok(first), span: Ok(last)}
+        return Interface(outputs=sockets(outputs), inputs=sockets(inputs))
 
-        def midpoint(index: int, parents: tuple[Operand, Operand]) -> BlenderResult[tuple[Fragment, End]]:
-            at = f"{prefix}_{index}"
-            first, last = parents
-            chord = vector(f"{at}_chord", "SUBTRACT", last, first)
-            normal = chord.bind(lambda chord: node(f"{at}_normal", bpy.types.ShaderNodeVectorRotate, {"Vector": chord, "Angle": pi / 2.0}, {"rotation_type": "Z_AXIS"})).map(
-                ended(f"{at}_normal", "Vector")
-            )
-            displacement = (
-                draw(at, stream + index)
-                .bind(lambda value: math(f"{at}_signed", "MULTIPLY_ADD", value, 2.0, -1.0))
-                .bind(lambda signed: math(f"{at}_displacement", "MULTIPLY", signed, inlet(Lightning.displacement.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            )
-            offset = paired(normal, displacement).bind(lambda parts: vector(f"{at}_offset", "SCALE", *parts))
-            middle = mixed(f"{at}_middle", "VECTOR", 0.5, *parents)
-            return paired(middle, offset).bind(lambda parts: vector(f"{at}_point", "ADD", *parts))
+    def draw(prefix: Key, stream: Operand, time: Operand, seed: Operand) -> BlenderResult[tuple[Fragment, End]]:
+        return sample(prefix, White(spacing=1.0), (0.0, 0.0, 0.0), time, seed, stream, {})
 
-        for level in range(shape.depth):
-            step = span >> level
-            for index in range(step // 2, span, step):
-                vertices[index] = paired(vertices[index - step // 2], vertices[index + step // 2]).bind(lambda parents: midpoint(index, parents))
-        radii = tuple(mixed(f"{prefix}_{index}_radius", "FLOAT", index / span, first_radius, last_radius) for index in range(span + 1))
-        pieces = accumulated(
-            paired(paired(vertices[index], vertices[index + 1]), paired(radii[index], radii[index + 1])).bind(lambda parts: stroked(f"{prefix}_piece_{index}", frame.point, *parts[0], *parts[1]))
-            for index in range(span)
+    def nearer(
+        prefix: Key, held: tuple[tuple[Fragment, End], tuple[Fragment, End]], candidate: tuple[tuple[Fragment, End], tuple[Fragment, End]]
+    ) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
+        return compared(f"{prefix}_nearer", "LESS_THAN", candidate[0], held[0]).bind(
+            lambda gate: paired(masked(f"{prefix}_distance", "FLOAT", gate, held[0], candidate[0]), masked(f"{prefix}_width", "FLOAT", gate, held[1], candidate[1]))
         )
-        return vertices, pieces
 
-    def fork(
-        index: int, vertices: dict[int, BlenderResult[tuple[Fragment, End]]], ends: tuple[tuple[Fragment, End], tuple[Fragment, End]], radius: tuple[Fragment, End]
-    ) -> BlenderResult[tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], ...]]:
+    bisection = (
+        paired(
+            vector("chord", "SUBTRACT", Shell.socket("end"), Shell.socket("start"))
+            .bind(lambda chord: node("normal", bpy.types.ShaderNodeVectorRotate, {"Vector": chord, "Angle": pi / 2.0}, {"rotation_type": "Z_AXIS"}))
+            .map(ended("normal", "Vector")),
+            draw("draw", Shell.socket("stream"), Shell.socket("time"), Shell.socket("seed"))
+            .bind(lambda value: math("signed", "MULTIPLY_ADD", value, 2.0, -1.0))
+            .bind(lambda signed: math("offset_length", "MULTIPLY", signed, Shell.socket("displacement"))),
+        )
+        .bind(lambda parts: vector("offset", "SCALE", *parts))
+        .bind(lambda offset: mixed("middle", "VECTOR", 0.5, Shell.socket("start"), Shell.socket("end")).bind(lambda middle: vector("point", "ADD", middle, offset)))
+        .bind(
+            lambda point: NodeGroup.built(
+                item_key(Shapes, Lightning, "midpoint"), f"{Lightning.title} Midpoint", faced((*endpoints, *drawn), (("point", bpy.types.NodeSocketVector),)), {"point": point}
+            )
+        )
+    )
+
+    @cache
+    def channel(level: int) -> BlenderResult[NodeGroup]:
+        def grouped(built: tuple[tuple[Fragment, End], tuple[Fragment, End]]) -> BlenderResult[NodeGroup]:
+            face = faced((*traced, *(drawn if level else ())), fields)
+            return NodeGroup.built(item_key(Shapes, Lightning, "channel", level), f"{Lightning.title} Channel {level}", face, dict(zip((name for name, _ in fields), built)))
+
+        def halved(groups: tuple[NodeGroup, NodeGroup]) -> BlenderResult[NodeGroup]:
+            child, middle = groups
+            index = math("middle_index", "ADD", Shell.socket("index"), float(2 ** (level - 1)))
+            point = index.bind(lambda at: math("middle_stream", "ADD", Shell.socket("stream"), at)).bind(
+                lambda stream: nested("middle", middle, {**{name: Shell.socket(name) for name, _ in (*endpoints, *drawn)}, "stream": stream}, "point")
+            )
+
+            def half(side: Key, bounds: Mapping[Key, Operand]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
+                return nested(side, child, {socket.key: bounds.get(socket.key, Shell.socket(socket.key)) for socket in child.interface.inputs}, "distance").map(
+                    lambda distance: (distance, (Fragment(), End(node=side, socket="width")))
+                )
+
+            return (
+                paired(index, point)
+                .bind(lambda parts: paired(half("left", {"end": parts[1]}), half("right", {"start": parts[1], "index": parts[0]})))
+                .bind(lambda sides: nearer("halves", *sides))
+                .bind(grouped)
+            )
+
+        if level:
+            return paired(channel(level - 1), bisection).bind(halved)
+        first, last = Shell.socket("first_radius"), Shell.socket("last_radius")
+        shares = paired(
+            math("first_share", "DIVIDE", Shell.socket("index"), Shell.socket("span")),
+            math("next_index", "ADD", Shell.socket("index"), 1.0).bind(lambda following: math("last_share", "DIVIDE", following, Shell.socket("span"))),
+        )
+        return (
+            shares
+            .bind(lambda shares: paired(mixed("start_radius", "FLOAT", shares[0], first, last), mixed("end_radius", "FLOAT", shares[1], first, last)))
+            .bind(lambda radii: stroked("piece", Shell.socket("point"), Shell.socket("start"), Shell.socket("end"), *radii))
+            .bind(grouped)
+        )
+
+    def subdivided(at: Key, bounds: tuple[Operand, Operand], radii: tuple[Operand, Operand], stream: int) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
+        return (
+            paired(channel(shape.depth), clock)
+            .bind(
+                lambda parts: nested(
+                    at,
+                    parts[0],
+                    {
+                        "point": frame.point,
+                        "start": bounds[0],
+                        "end": bounds[1],
+                        "index": 0.0,
+                        "span": float(span),
+                        "first_radius": radii[0],
+                        "last_radius": radii[1],
+                        "stream": float(stream),
+                        "time": parts[1],
+                        "seed": seed,
+                        "displacement": displacement,
+                    },
+                    "distance",
+                )
+            )
+            .map(lambda distance: (distance, (Fragment(), End(node=at, socket="width"))))
+        )
+
+    @cache
+    def vertex(index: int) -> BlenderResult[tuple[Fragment, End]]:
+        low = index & -index
+        return (
+            start
+            if index == 0
+            else end
+            if index == span
+            else paired(paired(vertex(index - low), vertex(index + low)), paired(bisection, clock)).bind(
+                lambda parts: nested(
+                    f"{key}_vertex_{index}", parts[1][0], {"start": parts[0][0], "end": parts[0][1], "stream": float(index), "time": parts[1][1], "seed": seed, "displacement": displacement}, "point"
+                )
+            )
+        )
+
+    def fork(index: int, ends: tuple[tuple[Fragment, End], tuple[Fragment, End]], radius: tuple[Fragment, End]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
         prefix = f"{key}_fork_{index}"
         first, last = ends
         level = (index + 1).bit_length()
         numerator = 2 * (index + 1 - 2 ** (level - 1)) + 1
         cell, remainder = divmod(numerator * span, 2**level)
         stream = span + index * (span + 2)
-        root = paired(vertices[cell], vertices[cell + 1]).bind(lambda points: mixed(f"{prefix}_root", "VECTOR", remainder / 2**level, *points))
+        root = paired(vertex(cell), vertex(cell + 1)).bind(lambda points: mixed(f"{prefix}_root", "VECTOR", remainder / 2**level, *points))
         angle = (
-            draw(f"{prefix}_turn", stream)
+            clock
+            .bind(lambda time: draw(f"{prefix}_turn", stream, time, seed))
             .bind(lambda draw: math(f"{prefix}_turn_share", "ADD", draw, 0.5))
-            .bind(lambda share: math(f"{prefix}_angle", "MULTIPLY", share, inlet(Lightning.spread.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda share: math(f"{prefix}_angle", "MULTIPLY", share, inlet(spread)))
             .bind(lambda angle: math(f"{prefix}_side", "MULTIPLY", angle, -1.0 if index % 2 else 1.0))
         )
         direction = (
@@ -545,42 +633,33 @@ def lightning[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, shap
             .map(ended(f"{prefix}_direction", "Vector"))
         )
         reach = (
-            draw(f"{prefix}_length", stream + 1)
+            clock
+            .bind(lambda time: draw(f"{prefix}_length", stream + 1, time, seed))
             .bind(lambda draw: math(f"{prefix}_length_share", "ADD", draw, 0.5))
-            .bind(lambda share: math(f"{prefix}_reach", "MULTIPLY", share, inlet(Lightning.reach.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda share: math(f"{prefix}_reach", "MULTIPLY", share, inlet(reach_lightning)))
         )
         tip = paired(root, paired(direction, reach).bind(lambda parts: vector(f"{prefix}_offset", "SCALE", *parts))).bind(lambda parts: vector(f"{prefix}_tip", "ADD", *parts))
-        width = math(f"{prefix}_radius", "MULTIPLY", radius, inlet(Lightning.taper.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        return paired(paired(root, tip), width).bind(lambda parts: channel(prefix, *parts[0], parts[1], 0.0, stream + 2)[1])
-
-    def nearest(pieces: tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], ...]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-        first, *following = pieces
-        result = Ok(first)
-        for index, (distance, width) in enumerate(following, 1):
-            nearer = result.bind(lambda previous: compared(f"{key}_nearer_{index}", "LESS_THAN", distance, previous[0]))
-            result = paired(result, nearer).bind(
-                lambda parts: paired(masked(f"{key}_distance_{index}", "FLOAT", parts[1], parts[0][0], distance), masked(f"{key}_width_{index}", "FLOAT", parts[1], parts[0][1], width))
-            )
-        return result
+        width = math(f"{prefix}_radius", "MULTIPLY", radius, inlet(taper))
+        return paired(paired(root, tip), width).bind(lambda parts: subdivided(f"{prefix}_channel", parts[0], (parts[1], 0.0), stream + 2))
 
     def joined(parts: tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], tuple[Fragment, End]]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-        ends, radius = parts
-        vertices, main = channel(f"{key}_main", *ends, radius, radius, 0)
-        pieces = paired(main, accumulated(fork(index, vertices, ends, radius) for index in range(shape.branches))).map(lambda parts: (*parts[0], *(piece for branch in parts[1] for piece in branch)))
-        return pieces.bind(nearest)
+        bounds, radius = parts
+        channels = paired(subdivided(f"{key}_main", bounds, (radius, radius), 0), accumulated(fork(index, bounds, radius) for index in range(shape.branches)))
+        return channels.bind(lambda held: reduce(lambda done, step: done.bind(lambda nearest: nearer(f"{key}_{step[0]}", nearest, step[1])), enumerate(held[1], 1), Ok(held[0])))
 
     return paired(paired(start, end), radius).bind(joined)
 
 
 def fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Operand, *tuple[Operand, ...]] = (0.0,)) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:
     """Returns grown coverages from one field selector and one noisy boundary."""
-    path = (Shapes.field.__name__,)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    field_shapes, _, _, _, softness_shapes, roughness, edge_noise, seed, invert_shapes = Shapes.__struct_fields__
+    path = (field_shapes,)
     cases = tuple(field for field in shell.cases[path] if isinstance(field, Figure | Boolean | Morph | Lightning | Window))
     pixel = math("shape_pixel", "DIVIDE", 1.0, frame.greater)
     displacement = (
-        sampled(shell, (Shapes.edge_noise.__name__,), frame.point, 0.0, shell.socket(Shapes.seed.__name__))  # type: ignore[attr-defined, union-attr]  # ty: ignore[unresolved-attribute]
+        sampled(shell, (edge_noise,), frame.point, 0.0, shell.socket(seed))
         .bind(lambda fields: math("shape_signed_noise", "MULTIPLY_ADD", fields[0][0], 2.0, -1.0))
-        .bind(lambda signed: math("shape_roughness", "MULTIPLY", signed, shell.socket(Shapes.roughness.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        .bind(lambda signed: math("shape_roughness", "MULTIPLY", signed, shell.socket(roughness)))
     )
 
     def geometric(field: Region) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
@@ -595,8 +674,8 @@ def fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Operand, *tu
             case Window():
                 return windowed(shell, at, frame)
 
-    invert = shell.socket(Shapes.invert.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    softness = shell.socket(Shapes.softness.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    invert = shell.socket(invert_shapes)
+    softness = shell.socket(softness_shapes)
 
     def grown(
         prefix: Key, distance: tuple[Fragment, End], width: tuple[Fragment, End], displacement: tuple[Fragment, End], pixel: tuple[Fragment, End]
@@ -631,6 +710,12 @@ def fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Operand, *tu
 def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
     """Returns frame-fixed paint color and its independent alpha coverage."""
     key = item_key(*path)
+    top_left, top_right, bottom_right, bottom_left = Corners.__struct_fields__
+    grid_cells, _, first, second, mortar_cells, seed = Cells.__struct_fields__
+    width, height, line, offset_grid = Grid.__struct_fields__
+    geometry_gradient, extension_gradient, ramp_gradient, _, phase_gradient, motion_gradient = Gradient.__struct_fields__
+    speed, hold = Motion.__struct_fields__
+    (color_solid,) = Solid.__struct_fields__
     pixel = math(f"{key}_pixel", "DIVIDE", 1.0, frame.greater)
     corners = (*path, Corners)
     fractions = node(f"{key}_fraction", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.fraction}, {})
@@ -648,20 +733,13 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
     )
     corner_color = weights.bind(
         lambda weights: paired(
-            mixed(f"{key}_bottom", "RGBA", weights[0], shell.socket(*corners, Corners.bottom_left.__name__), shell.socket(*corners, Corners.bottom_right.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            mixed(f"{key}_top", "RGBA", weights[0], shell.socket(*corners, Corners.top_left.__name__), shell.socket(*corners, Corners.top_right.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            mixed(f"{key}_bottom", "RGBA", weights[0], shell.socket(*corners, bottom_left), shell.socket(*corners, bottom_right)),
+            mixed(f"{key}_top", "RGBA", weights[0], shell.socket(*corners, top_left), shell.socket(*corners, top_right)),
         ).bind(lambda colors: mixed(f"{key}_corners", "RGBA", weights[1], *colors))
     )
     cells = (*path, Cells)
-    grid = (*cells, Cells.grid.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    cell_field = lattice(
-        f"{key}_cells",
-        frame.point,
-        shell.socket(*grid, Grid.width.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shell.socket(*grid, Grid.height.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shell.socket(*grid, Grid.offset.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        shell.socket(*grid, Grid.line.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    )
+    grid = (*cells, grid_cells)
+    cell_field = lattice(f"{key}_cells", frame.point, shell.socket(*grid, width), shell.socket(*grid, height), shell.socket(*grid, offset_grid), shell.socket(*grid, line))
 
     def colored_cells(fields: tuple[tuple[Fragment, End], tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
         distance, cell = fields
@@ -674,76 +752,87 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
                     .bind(lambda total: math(f"{key}_checker", "FLOORED_MODULO", total, 2.0))
                 )
             case CellPattern.RANDOM:
-                weight = sample(f"{key}_cell_random", White(dimensions=3, spacing=1.0), cell, 0.0, shell.socket(*cells, Cells.seed.__name__), 0, {})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        mortar = pixel.bind(lambda pixel: coverage(f"{key}_mortar", distance, Some(shell.socket(*grid, Grid.line.__name__)), 0.0, pixel))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        color = weight.bind(lambda weight: mixed(f"{key}_cell_color", "RGBA", weight, shell.socket(*cells, Cells.first.__name__), shell.socket(*cells, Cells.second.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        return paired(color, mortar).bind(lambda parts: mixed(f"{key}_cells_color", "RGBA", parts[1], parts[0], shell.socket(*cells, Cells.mortar.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                weight = sample(f"{key}_cell_random", White(dimensions=3, spacing=1.0), cell, 0.0, shell.socket(*cells, seed), 0, {})
+        mortar = pixel.bind(lambda pixel: coverage(f"{key}_mortar", distance, Some(shell.socket(*grid, line)), 0.0, pixel))
+        color = weight.bind(lambda weight: mixed(f"{key}_cell_color", "RGBA", weight, shell.socket(*cells, first), shell.socket(*cells, second)))
+        return paired(color, mortar).bind(lambda parts: mixed(f"{key}_cells_color", "RGBA", parts[1], parts[0], shell.socket(*cells, mortar_cells)))
 
     gradient = (*path, Gradient)
-    geometry = (*gradient, Gradient.geometry.__name__)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    geometry = (*gradient, geometry_gradient)
     geometries = tuple(shape for shape in shell.cases[geometry] if isinstance(shape, Linear | Radial | Angular | Diamond | Rectangular))
 
     def parameter(shape: Geometry) -> BlenderResult[tuple[Fragment, End]]:
         kind = type(shape)
         prefix = item_key(*geometry, kind)
         at = (*geometry, kind)
-        point = (
-            vector(f"{prefix}_origin", "MULTIPLY", shell.socket(*at, kind.origin.__name__), frame.extent)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            .bind(lambda origin: vector(f"{prefix}_offset", "SUBTRACT", frame.point, origin))
-            .bind(
-                lambda offset: node(
-                    f"{prefix}_rotation",
-                    bpy.types.ShaderNodeVectorRotate,
-                    {"Vector": offset, "Angle": shell.socket(*at, kind.angle.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    {"rotation_type": "Z_AXIS", "invert": True},
-                )
+
+        def located(origin: Key, angle: Key) -> BlenderResult[tuple[Fragment, End]]:
+            return (
+                vector(f"{prefix}_origin", "MULTIPLY", shell.socket(*at, origin), frame.extent)
+                .bind(lambda anchor: vector(f"{prefix}_offset", "SUBTRACT", frame.point, anchor))
+                .bind(lambda offset: node(f"{prefix}_rotation", bpy.types.ShaderNodeVectorRotate, {"Vector": offset, "Angle": shell.socket(*at, angle)}, {"rotation_type": "Z_AXIS", "invert": True}))
+                .map(ended(f"{prefix}_rotation", "Vector"))
             )
-            .map(ended(f"{prefix}_rotation", "Vector"))
-        )
-        axes = point.bind(lambda point: node(f"{prefix}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {}))
+
+        def split(point: tuple[Fragment, End]) -> BlenderResult[Fragment]:
+            return node(f"{prefix}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {})
+
         match shape:
             case Linear():
-                return axes.bind(
-                    lambda axes: (
-                        math(f"{prefix}_absolute_y", "ABSOLUTE", ended(f"{prefix}_axes", "Y")(axes))
-                        .bind(lambda y: math(f"{prefix}_sweep", "MULTIPLY", y, shell.socket(*at, Linear.sweep.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        .bind(lambda sweep: math(f"{prefix}_along", "SUBTRACT", ended(f"{prefix}_axes", "X")(axes), sweep))
-                    )
-                ).bind(lambda along: math(f"{prefix}_parameter", "DIVIDE", along, shell.socket(*at, Linear.length.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            case Radial():
+                origin, angle, length, sweep_linear = Linear.__struct_fields__
                 return (
-                    node(f"{prefix}_aspect", bpy.types.ShaderNodeCombineXYZ, {"X": shell.socket(*at, Radial.aspect.__name__), "Y": 1.0}, {})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    located(origin, angle)
+                    .bind(split)
+                    .bind(
+                        lambda axes: (
+                            math(f"{prefix}_absolute_y", "ABSOLUTE", ended(f"{prefix}_axes", "Y")(axes))
+                            .bind(lambda y: math(f"{prefix}_sweep", "MULTIPLY", y, shell.socket(*at, sweep_linear)))
+                            .bind(lambda sweep: math(f"{prefix}_along", "SUBTRACT", ended(f"{prefix}_axes", "X")(axes), sweep))
+                        )
+                    )
+                    .bind(lambda along: math(f"{prefix}_parameter", "DIVIDE", along, shell.socket(*at, length)))
+                )
+            case Radial():
+                origin, radius_radial, aspect_radial, angle = Radial.__struct_fields__
+                return (
+                    node(f"{prefix}_aspect", bpy.types.ShaderNodeCombineXYZ, {"X": shell.socket(*at, aspect_radial), "Y": 1.0}, {})
                     .map(ended(f"{prefix}_aspect", "Vector"))
-                    .bind(lambda aspect: point.bind(lambda point: vector(f"{prefix}_elliptical", "DIVIDE", point, aspect)))
+                    .bind(lambda aspect: located(origin, angle).bind(lambda point: vector(f"{prefix}_elliptical", "DIVIDE", point, aspect)))
                     .bind(lambda point: vector(f"{prefix}_radius", "LENGTH", point))
-                    .bind(lambda radius: math(f"{prefix}_parameter", "DIVIDE", radius, shell.socket(*at, Radial.radius.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    .bind(lambda radius: math(f"{prefix}_parameter", "DIVIDE", radius, shell.socket(*at, radius_radial)))
                 )
             case Angular():
-                return axes.bind(lambda axes: math(f"{prefix}_phase", "ARCTAN2", ended(f"{prefix}_axes", "Y")(axes), End(node=f"{prefix}_axes", socket="X"))).bind(
-                    lambda phase: math(f"{prefix}_parameter", "DIVIDE", phase, tau)
+                origin, angle = Angular.__struct_fields__
+                return (
+                    located(origin, angle)
+                    .bind(split)
+                    .bind(lambda axes: math(f"{prefix}_phase", "ARCTAN2", ended(f"{prefix}_axes", "Y")(axes), End(node=f"{prefix}_axes", socket="X")))
+                    .bind(lambda phase: math(f"{prefix}_parameter", "DIVIDE", phase, tau))
                 )
             case Diamond():
+                origin, angle, radius_diamond = Diamond.__struct_fields__
                 return (
-                    point
+                    located(origin, angle)
                     .bind(lambda point: vector(f"{prefix}_absolute", "ABSOLUTE", point))
                     .bind(lambda point: node(f"{prefix}_absolute_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {}))
                     .bind(lambda axes: math(f"{prefix}_sum", "ADD", ended(f"{prefix}_absolute_axes", "X")(axes), End(node=f"{prefix}_absolute_axes", socket="Y")))
-                    .bind(lambda total: math(f"{prefix}_parameter", "DIVIDE", total, shell.socket(*at, Diamond.radius.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    .bind(lambda total: math(f"{prefix}_parameter", "DIVIDE", total, shell.socket(*at, radius_diamond)))
                 )
             case Rectangular():
+                origin, angle, width_rectangular, height_rectangular = Rectangular.__struct_fields__
                 return (
-                    node(f"{prefix}_size", bpy.types.ShaderNodeCombineXYZ, {"X": shell.socket(*at, Rectangular.width.__name__), "Y": shell.socket(*at, Rectangular.height.__name__)}, {})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    node(f"{prefix}_size", bpy.types.ShaderNodeCombineXYZ, {"X": shell.socket(*at, width_rectangular), "Y": shell.socket(*at, height_rectangular)}, {})
                     .map(ended(f"{prefix}_size", "Vector"))
-                    .bind(lambda size: point.bind(lambda point: vector(f"{prefix}_normalized", "DIVIDE", point, size)))
+                    .bind(lambda size: located(origin, angle).bind(lambda point: vector(f"{prefix}_normalized", "DIVIDE", point, size)))
                     .bind(lambda point: vector(f"{prefix}_absolute", "ABSOLUTE", point))
                     .bind(lambda point: node(f"{prefix}_absolute_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {}))
                     .bind(lambda axes: math(f"{prefix}_parameter", "MAXIMUM", ended(f"{prefix}_absolute_axes", "X")(axes), End(node=f"{prefix}_absolute_axes", socket="Y")))
                 )
 
     held = next(case for case in shell.cases[path] if isinstance(case, Gradient))
-    motion = (*gradient, Gradient.motion.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    clock = Clock(key=f"{key}_clock", speed=shell.socket(*motion, Motion.speed.__name__), hold=shell.socket(*motion, Motion.hold.__name__)).value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    extension = (*gradient, Gradient.extension.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    motion = (*gradient, motion_gradient)
+    clock = Clock(key=f"{key}_clock", speed=shell.socket(*motion, speed), hold=shell.socket(*motion, hold)).value
+    extension = (*gradient, extension_gradient)
 
     def extended(coordinate: tuple[Fragment, End]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
         repeated = math(f"{key}_repeat", "FRACT", coordinate)
@@ -769,7 +858,7 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
             .map(ended(f"{key}_inside", "Boolean"))
             .bind(lambda inside: switched(f"{key}_paint_coverage", "FLOAT", End(node=f"{key}_extension", socket=Extension.CLIP.label), 1.0, inside))
         )
-        ramp = item_key(*gradient, Gradient.ramp.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        ramp = item_key(*gradient, ramp_gradient)
         colors = chosen.bind(lambda chosen: node(ramp, bpy.types.ShaderNodeValToRGB, {"Fac": chosen}, {}, Some(held.ramp)))
         return paired(colors, clip).bind(
             lambda parts: math(f"{key}_ramp_coverage", "MULTIPLY", ended(ramp, "Alpha")(parts[0]), parts[1]).map(lambda alpha: ((parts[0], End(node=ramp, socket="Color")), alpha))
@@ -778,7 +867,7 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
     coordinate = accumulated(parameter(shape) for shape in geometries).bind(
         lambda values: menu(f"{key}_geometry", "FLOAT", shell.socket(*geometry), shell.items[geometry], {type(shape).title: value for shape, value in zip(geometries, values)})
     )
-    phase = paired(math(f"{key}_phase", "DIVIDE", shell.socket(*gradient, Gradient.phase.__name__), tau), clock).bind(lambda parts: math(f"{key}_cycle_phase", "SUBTRACT", *parts))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    phase = paired(math(f"{key}_phase", "DIVIDE", shell.socket(*gradient, phase_gradient), tau), clock).bind(lambda parts: math(f"{key}_cycle_phase", "SUBTRACT", *parts))
     cycled = (
         paired(coordinate, phase).bind(lambda parts: math(f"{key}_cycles", "ADD", *parts)).bind(lambda cycles: periodic(f"{key}_profile", held.profile.value, cycles))
         if held.profile.enabled
@@ -791,7 +880,7 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
             shell.socket(*path),
             shell.items[path],
             {
-                "color": ("RGBA", {Solid.title: shell.socket(*path, Solid, Solid.color.__name__), Corners.title: parts[0][0], Cells.title: parts[0][1], Gradient.title: parts[1][0]}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                "color": ("RGBA", {Solid.title: shell.socket(*path, Solid, color_solid), Corners.title: parts[0][0], Cells.title: parts[0][1], Gradient.title: parts[1][0]}),
                 "coverage": ("FLOAT", {Solid.title: 1.0, Corners.title: 1.0, Cells.title: 1.0, Gradient.title: parts[1][1]}),
             },
         )
@@ -827,19 +916,22 @@ def coverage(key: str, distance: Operand, width: Option[Operand], softness: Oper
 
 def shaped(shell: Shell[Shapes]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns associated fill, outline, and independently emitted shape light."""
-    outline = (Shapes.outline.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    outer = math("shape_outer_growth", "ADD", shell.socket(*outline, Outline.offset.__name__), shell.socket(*outline, Outline.width.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    _, fill_shapes, outline_shapes, emission_shapes, _, _, _, _, _ = Shapes.__struct_fields__
+    width, offset, color_outline = Outline.__struct_fields__
+    _, value = Gated.__struct_fields__
+    outline = (outline_shapes, value)
+    outer = math("shape_outer_growth", "ADD", shell.socket(*outline, offset), shell.socket(*outline, width))
 
     def light(parts: tuple[tuple[tuple[Fragment, End], ...], tuple[tuple[Fragment, End], tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
         (fill, inner, outer), (color, paint_coverage) = parts
-        filled = math("shape_painted_coverage", "MULTIPLY", fill, paint_coverage).bind(lambda coverage: switched("shape_fill_coverage", "FLOAT", shell.socket(Shapes.fill.__name__), 0.0, coverage))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        outlined = math("shape_outline_ring", "SUBTRACT", outer, inner).bind(lambda coverage: switched("shape_outline_coverage", "FLOAT", shell.socket(Shapes.outline.__name__), 0.0, coverage))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        filled = math("shape_painted_coverage", "MULTIPLY", fill, paint_coverage).bind(lambda coverage: switched("shape_fill_coverage", "FLOAT", shell.socket(fill_shapes), 0.0, coverage))
+        outlined = math("shape_outline_ring", "SUBTRACT", outer, inner).bind(lambda coverage: switched("shape_outline_coverage", "FLOAT", shell.socket(outline_shapes), 0.0, coverage))
         painted_light = filled.bind(lambda coverage: vector("shape_fill_light", "SCALE", color, coverage))
-        outlined_light = outlined.bind(lambda coverage: vector("shape_outline_light", "SCALE", shell.socket(*outline, Outline.color.__name__), coverage))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        outlined_light = outlined.bind(lambda coverage: vector("shape_outline_light", "SCALE", shell.socket(*outline, color_outline), coverage))
         emission = (
-            emitted(shell, (Shapes.emission.__name__, Gated.value.__name__), (fill,))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+            emitted(shell, (emission_shapes, value), (fill,))
             .bind(lambda emitted: vector("shape_emitted_light", "SCALE", emitted[0], fill))
-            .bind(lambda light: switched("shape_emission", "VECTOR", shell.socket(Shapes.emission.__name__), (0.0, 0.0, 0.0), light))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda light: switched("shape_emission", "VECTOR", shell.socket(emission_shapes), (0.0, 0.0, 0.0), light))
         )
         alpha = paired(filled, outlined).bind(lambda coverages: math("shape_alpha", "ADD", *coverages))
         paint = paired(painted_light, outlined_light).bind(lambda lights: vector("shape_painted_light", "ADD", *lights))
@@ -852,7 +944,7 @@ def shaped(shell: Shell[Shapes]) -> BlenderResult[tuple[Fragment, End]]:
 
     return (
         paired(framed("shape_frame", shell.source, shell.aspect, shell.scale), outer)
-        .bind(lambda parts: paired(fielded(shell, parts[0], (0.0, shell.socket(*outline, Outline.offset.__name__), parts[1])), painted(shell, (Shapes.fill.__name__, Gated.value.__name__), parts[0])))  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+        .bind(lambda parts: paired(fielded(shell, parts[0], (0.0, shell.socket(*outline, offset), parts[1])), painted(shell, (fill_shapes, value), parts[0])))
         .bind(light)
     )
 

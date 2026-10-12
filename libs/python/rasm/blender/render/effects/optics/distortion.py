@@ -10,30 +10,10 @@ from rasm.blender.commands.operators import Call, Done, Operator, Save
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderRenderingFault, BlenderResult
-from rasm.blender.nodes import graphs
-from rasm.blender.nodes.graphs import (
-    compared,
-    End,
-    ended,
-    Fragment,
-    framed,
-    FrameSpace,
-    INPUTS,
-    Interface,
-    masked,
-    math,
-    menu,
-    mixed,
-    nested,
-    node,
-    NodeGroup,
-    Operand,
-    pixels,
-    Socket,
-    summed,
-    switched,
-    vector,
-)
+from rasm.blender.nodes import coordinates
+from rasm.blender.nodes.coordinates import framed, FrameSpace, pixels
+from rasm.blender.nodes.graphs import compared, End, ended, Fragment, INPUTS, masked, math, menu, mixed, nested, node, NodeGroup, Operand, summed, switched, vector
+from rasm.blender.nodes.interface import Interface, Socket
 from rasm.blender.render.effects.optics.defocus import iris
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, Named, Shell
 from rasm.blender.render.outputs.framing import FrameSize
@@ -172,7 +152,7 @@ def sampled(key: Key, source: Operand, frame: FrameSpace, extension: tuple[Fragm
         .bind(lambda channels: node(f"{key}_coverage", bpy.types.ShaderNodeCombineXYZ, {"X": 1.0, "Y": 1.0, "Z": ended(f"{key}_channels", "Z")(channels)}, {}))
         .map(ended(f"{key}_coverage", "Vector"))
     )
-    coordinate = paired(graphs.sampled(f"{key}_data", frame, position), coverage).bind(lambda parts: vector(f"{key}_covered", "MULTIPLY", *parts))
+    coordinate = paired(coordinates.sampled(f"{key}_data", frame, position), coverage).bind(lambda parts: vector(f"{key}_covered", "MULTIPLY", *parts))
     return (
         coordinate
         .bind(
@@ -196,7 +176,8 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         The sampled image and graph, or accumulated native construction faults.
     """
-    coefficient = shell.socket(Distortion.distortion.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    distortion_field, fit, direction, extension = Distortion.__struct_fields__
+    coefficient = shell.socket(distortion_field)
 
     def built(lens: NodeGroup, frame: FrameSpace, extension: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         corner = (
@@ -206,7 +187,7 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
         )
         fitted = (
             compared("positive", "GREATER_THAN", coefficient, 0.0)
-            .bind(lambda positive: node("fitted", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(Distortion.fit.__name__), "Boolean_001": positive}, {"operation": "AND"}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            .bind(lambda positive: node("fitted", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(fit), "Boolean_001": positive}, {"operation": "AND"}))
             .map(ended("fitted", "Boolean"))
         )
         return (
@@ -225,15 +206,14 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
                 lambda placed: menu(
                     "direction",
                     "VECTOR",
-                    shell.socket(Distortion.direction.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    shell.items[Distortion.direction.__name__,],  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    shell.socket(direction),
+                    shell.items[direction,],
                     {Direction.DISTORT.label: placed, Direction.UNDISTORT.label: (placed[0], End(node="radial", socket="lens"))},
                 )
             )
             .bind(lambda position: sampled("map", shell.source, frame, extension, position))
         )
 
-    extension = Distortion.extension.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return paired(
         paired(radial(), framed("frame", shell.source, shell.aspect, shell.scale)),
         menu("extension", "MENU", shell.socket(extension), shell.items[extension,], {member.label: (Extension.EXTEND if member is Extension.MIRROR else member).label for member in Extension}),
@@ -249,11 +229,12 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Associated spectral light and graph, or every independent graph fault.
     """
+    dispersion, _, axial, iris_field, extension = Aberration.__struct_fields__
 
     def gathered(frame: FrameSpace, bokeh: tuple[Fragment, End], split: Fragment, channel: str, ratio: float) -> BlenderResult[tuple[Fragment, End]]:
         key = channel.lower()
         return (
-            math(f"{key}_radius", "MULTIPLY", shell.socket(Aberration.axial.__name__), ratio)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math(f"{key}_radius", "MULTIPLY", shell.socket(axial), ratio)
             .bind(lambda radius: pixels(f"{key}_size", frame, radius))
             .bind(lambda size: node(f"{key}_gather", bpy.types.CompositorNodeBokehBlur, {"Image": ended("split", channel)(split), "Bokeh": bokeh, "Size": size}, {}))
             .map(ended(f"{key}_gather", "Image"))
@@ -272,7 +253,7 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
     def dispersed(lens: NodeGroup, frame: FrameSpace, extension: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         def waved(index: int, coefficient: float, weight: Rgb) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
             sample = (
-                math(f"wave_{index}", "MULTIPLY", shell.socket(Aberration.dispersion.__name__), coefficient)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                math(f"wave_{index}", "MULTIPLY", shell.socket(dispersion), coefficient)
                 .bind(lambda spread: nested(f"radial_{index}", lens, {"point": frame.point, "extent": frame.extent, "share": 1.0, "distortion": spread, "scale": 1.0}, "rectilinear"))
                 .bind(lambda placed: sampled(f"sample_{index}", shell.source, frame, extension, placed))
             )
@@ -289,9 +270,8 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda sums: node("lateral", bpy.types.CompositorNodeSetAlpha, {"Image": sums[0], "Alpha": sums[1], "Type": "Replace Alpha"}, {}))
             .map(ended("lateral", "Image"))
         )
-        return paired(lateral, iris("iris", shell, Aberration.iris.__name__)).bind(lambda parts: defocused(frame, *parts))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return paired(lateral, iris("iris", shell, iris_field)).bind(lambda parts: defocused(frame, *parts))
 
-    extension = Aberration.extension.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     return paired(
         paired(radial(), framed("frame", shell.source, shell.aspect, shell.scale)),
         menu("extension", "MENU", shell.socket(extension), shell.items[extension,], {member.label: (Extension.EXTEND if member is Extension.MIRROR else member).label for member in Extension}),

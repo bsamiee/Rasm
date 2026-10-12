@@ -17,7 +17,7 @@ from rasm.blender.extension.events.subscriptions import Subscription
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisition, Band
 from rasm.blender.faults import BlenderFaults, BlenderRegisterFault, BlenderResult
-from rasm.blender.ui.drawing.canvas import Canvas
+from rasm.blender.ui.drawing.canvas import Canvas, Programs
 from rasm.blender.ui.resources.theme import Metrics
 from rasm.blender.ui.screens.areas import AreaQuery
 from rasm.imaging.faults import accumulated
@@ -149,7 +149,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
             PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()).acquisitions(identity),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             *(followed(refresh) for refresh in self.refreshes),
         )
-        return accumulated(followers).map(lambda rows: (((Band.DRAW_HANDLERS, cleared()), *(pair for row in rows for pair in row)), drew))
+        return accumulated(followers).map(lambda rows: (((Band.RESOURCES, Programs()), (Band.DRAW_HANDLERS, cleared()), *(pair for row in rows for pair in row)), drew))
 
 
 class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):

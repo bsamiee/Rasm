@@ -5,7 +5,9 @@ from expression import Some
 import PyOpenColorIO
 
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, framed, FrameSpace, gridded, item_key, math, menu, mixed, nested, node, NodeGroup, PixelGrid, pixels, switched, vector
+from rasm.blender.nodes.coordinates import framed, FrameSpace, gridded, PixelGrid, pixels
+from rasm.blender.nodes.graphs import End, ended, Fragment, math, menu, mixed, nested, node, NodeGroup, switched, vector
+from rasm.blender.nodes.interface import item_key
 from rasm.blender.render.color.spaces import COLOR_INPUT, COLOR_RESULT, hsy
 from rasm.blender.render.effects.stack import CompositorEffect, Shell
 from rasm.imaging.effects.stylize.palettes import Channels, Palette, Posterize
@@ -25,11 +27,12 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
         Straight color for the stack's alpha scope, or accumulated builder faults.
     """
     source = shell.source
-    prefix = (Palette.posterize.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    channels = (*prefix, Posterize.channels.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    dither = (*prefix, Posterize.dither.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    cell = (*prefix, Posterize.dither_cell.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    gradient = item_key(Palette.gradient.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    posterize, gradient_field = Palette.__struct_fields__
+    levels, channels_field, retain_hue, dither_field, dither_cell = Posterize.__struct_fields__
+    _, value = Gated.__struct_fields__
+    prefix = (posterize, value)
+    channels, dither, cell = ((*prefix, field) for field in (channels_field, dither_field, dither_cell))
+    gradient = item_key(gradient_field, value)
     bits = range(3)
     spans = tuple(2.0**bit for bit in bits)
     periods = tuple(2.0 * span for span in spans)
@@ -38,10 +41,10 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
     def retained(converters: tuple[NodeGroup, NodeGroup], frame: FrameSpace, grid: PixelGrid) -> BlenderResult[tuple[Fragment, End]]:
         forward, inverse = converters
         return Fragment.joined(
-            pixels("cell_width", frame, shell.socket(*cell, Gated.value.__name__), "VECTOR"),  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+            pixels("cell_width", frame, shell.socket(*cell, value), "VECTOR"),
             vector("cell_minimum", "MAXIMUM", (1.0, 1.0, 0.0), End(node="cell_width", socket="Vector")),
             switched("cell", "VECTOR", shell.socket(*cell), (1.0, 1.0, 0.0), End(node="cell_minimum", socket="Vector")),
-            math("amplitude", "MULTIPLY", shell.socket(*dither), shell.socket(*dither, Gated.value.__name__)),  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+            math("amplitude", "MULTIPLY", shell.socket(*dither), shell.socket(*dither, value)),
             vector("cells", "DIVIDE", grid.point, End(node="cell", socket="Output")),
             vector("indices", "FLOOR", End(node="cells", socket="Vector")),
             node("coordinates", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="indices", socket="Vector")}, {}),
@@ -54,7 +57,7 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
             vector("threshold", "DOT_PRODUCT", End(node="rank", socket="Vector"), tuple(4.0 ** (len(bits) - 1 - bit) / (span * count) for bit, span in zip(bits, spans))),
             math("centered", "ADD", End(node="threshold"), 0.5 / count - 0.5),
             math("offset", "MULTIPLY", End(node="centered"), End(node="amplitude")),
-            math("steps", "SUBTRACT", shell.socket(*prefix, Posterize.levels.__name__), 1.0),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math("steps", "SUBTRACT", shell.socket(*prefix, levels), 1.0),
             node("grey", bpy.types.CompositorNodeRGBToBW, {"Image": source}, {}),
             menu("channels", "VECTOR", shell.socket(*channels), shell.items[channels], {Channels.RGB.label: source, Channels.LUMINANCE.label: End(node="grey", socket="Val")}),
             vector("scaled", "MULTIPLY_ADD", End(node="channels", socket="Output"), End(node="steps"), End(node="offset")),
@@ -83,12 +86,12 @@ def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
                 {"mode": "RGB"},
             ),
             nested("kept_rgb", inverse, {COLOR_INPUT.key: End(node="kept_hsy", socket="Image")}, COLOR_RESULT.key),
-            math("retention", "MULTIPLY", shell.socket(*prefix, Posterize.retain_hue.__name__), End(node="channels", socket=Channels.RGB.label)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math("retention", "MULTIPLY", shell.socket(*prefix, retain_hue), End(node="channels", socket=Channels.RGB.label)),
             mixed("hue_retained", "RGBA", End(node="retention"), End(node="quantized", socket="Vector"), End(node="kept_rgb", socket=COLOR_RESULT.key)),
-            switched("posterized", "RGBA", shell.socket(Palette.posterize.__name__), source, End(node="hue_retained", socket="Result_Color")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            switched("posterized", "RGBA", shell.socket(posterize), source, End(node="hue_retained", socket="Result_Color")),
             node("tone", bpy.types.CompositorNodeRGBToBW, {"Image": End(node="posterized", socket="Output")}, {}),
             node(gradient, bpy.types.ShaderNodeValToRGB, {"Fac": End(node="tone", socket="Val")}, {}, Some(shell.record.gradient.value)),
-            switched("mapped", "RGBA", shell.socket(Palette.gradient.__name__), End(node="posterized", socket="Output"), End(node=gradient, socket="Color")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            switched("mapped", "RGBA", shell.socket(gradient_field), End(node="posterized", socket="Output"), End(node=gradient, socket="Color")),
         ).map(ended("mapped", "Output"))
 
     return paired(paired(hsy(PyOpenColorIO.TRANSFORM_DIR_FORWARD), hsy(PyOpenColorIO.TRANSFORM_DIR_INVERSE)), paired(framed("frame", source, shell.aspect, shell.scale), gridded("grid", source))).bind(

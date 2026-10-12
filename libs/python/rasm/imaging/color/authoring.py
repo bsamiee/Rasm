@@ -25,18 +25,6 @@ class DynamicRange(Enum):
     STANDARD = auto()
     HIGH = auto()
 
-    @classmethod
-    def of(cls, space: PyOpenColorIO.ColorSpace) -> "DynamicRange":
-        """Reads Blender's HDR classification from native encoding.
-
-        Args:
-            space: Display color space.
-
-        Returns:
-            HIGH for HDR or extended-range video; STANDARD otherwise.
-        """
-        return cls.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else cls.STANDARD
-
     @staticmethod
     def absolute(space: PyOpenColorIO.ColorSpace) -> bool:
         """Returns whether native interop metadata identifies absolute PQ luminance.
@@ -45,6 +33,18 @@ class DynamicRange(Enum):
             space: Display color space.
         """
         return space.getInteropID().rpartition(":")[2].startswith("pq_")  # type: ignore[attr-defined, no-any-return]  # ty: ignore[unresolved-attribute]
+
+
+def dynamic_range_of(space: PyOpenColorIO.ColorSpace) -> DynamicRange:
+    """Reads Blender's HDR classification from native encoding.
+
+    Args:
+        space: Display color space.
+
+    Returns:
+        HIGH for HDR or extended-range video; STANDARD otherwise.
+    """
+    return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -189,7 +189,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 (display_name, formation.view.getName())
                 for formation in self.formations
                 for display_name, space in spaces.items()
-                if formation.dynamic_range is DynamicRange.STANDARD or DynamicRange.of(space) is DynamicRange.HIGH
+                if formation.dynamic_range is DynamicRange.STANDARD or dynamic_range_of(space) is DynamicRange.HIGH
             ):
                 request.addDisplaySharedView(display_name, name)
             for name in built if request.getActiveDisplays() else ():
@@ -278,4 +278,4 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ConfigBuild", "DynamicRange", "Formation"]
+__all__ = ["ConfigBuild", "DynamicRange", "Formation", "dynamic_range_of"]

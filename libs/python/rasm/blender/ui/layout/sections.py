@@ -21,7 +21,7 @@ from msgspec import inspect
 from rasm.blender.commands import operators
 from rasm.blender.commands.calls import called
 from rasm.blender.data.rna.conditions import Condition, holds
-from rasm.blender.data.rna.snapshots import Applied, Scoped, Snapshot
+from rasm.blender.data.rna.snapshots import Scoped, Snapshot
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Registrable
 from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderResult
@@ -98,7 +98,7 @@ class Verb(Enum):
         return f"{self.name.lower()}_{stem}"
 
     def row[T: msgspec.Struct](
-        self, stem: Key, form: type[T], run: Callable[[operators.Call[T]], BlenderResult[operators.Done]], invoke: Option[operators.Invoke[T, None]] = Nothing
+        self, stem: Key, form: type[T], run: Callable[[operators.Call[T]], BlenderResult[operators.Outcome]], invoke: Option[operators.Invoke[T, None]] = Nothing
     ) -> operators.Operator[T]:
         """Operator row of the verb over a stem, internal, drawn with the verb's icon, and undone as the verb states."""
         return operators.Operator(key=self.key(stem), title=self.title, description=self.description, icon=Some(self.icon), internal=True, form=form, run=run, undo=self.undo, invoke=invoke)
@@ -207,7 +207,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
     preset: Preset[T]
     current: Callable[[bpy.types.Context], BlenderResult[T]]
     matches: Callable[[bpy.types.Context, tuple[T, ...]], BlenderResult[tuple[bool, ...]]]
-    applied: Callable[[bpy.types.Context, T], BlenderResult[operators.Done]]
+    applied: Callable[[bpy.types.Context, T], BlenderResult[operators.Outcome]]
 
     @property
     def key(self) -> Key:
@@ -234,17 +234,21 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             normalized = AddPresetBase.as_filename(name).casefold()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             return Error((BlenderCollisionFault(request=name, error=str(self.preset.folder(identity))),)) if any(key.casefold() == normalized for key in self.preset.listed(identity)) else Ok(name)
 
-        def neighbour(call: operators.Call[operators.Empty], step: int) -> BlenderResult[operators.Done]:
-            values = tuple(read(value) for value in self.preset.listed(identity).values())
+        def neighbour(call: operators.Call[operators.Empty], step: int) -> BlenderResult[operators.Outcome]:
+            if not (values := tuple(read(value) for value in self.preset.listed(identity).values())):
+                return Ok(operators.Unchanged(reason="No presets"))
             return (
                 paired(accumulated(values), self.matches(call.context, tuple(held for value in values for held in value.to_option().to_list())))
                 .map(lambda pair: tuple(zip(pair[0], pair[1])))
                 .bind(
-                    lambda rows: (
-                        Option
-                        .of_optional(next((index for index, (_, matched) in enumerate(rows) if matched), None))
-                        .map(lambda index: self.applied(call.context, rows[(index + step) % len(rows)][0]))
-                        .default_with(lambda: self.applied(call.context, rows[0 if step > 0 else -1][0]) if rows else Ok(operators.Done()))
+                    lambda rows: self.applied(
+                        call.context,
+                        rows[
+                            Option
+                            .of_optional(next((index for index, (_, matched) in enumerate(rows) if matched), None))
+                            .map(lambda index: (index + step) % len(rows))
+                            .default_value(0 if step > 0 else -1)
+                        ][0],
                     )
                 )
             )
@@ -443,6 +447,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Builds the store's rows over its bound attachment."""
         history = ValueHistory(form=attached.group.record, read=attached.read, write=attached.write, storage=attached.struct, key=Slot.HISTORY)
         stem = self.attachment.key
+        vacant = operators.Unchanged(reason="History holds no entry there")
 
         def managed(context: bpy.types.Context) -> BlenderResult[bpy.types.WindowManager]:
             return Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
@@ -453,25 +458,29 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         def retained() -> BlenderResult[Retention]:
             return self.retention.map(lambda read: read(identity)).default_with(lambda: Ok(Retention()))
 
-        def recorded(context: bpy.types.Context, write: Callable[[Host], BlenderResult[operators.Done]]) -> BlenderResult[operators.Done]:
-            return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.replaced(pair[0], lambda: write(pair[0]), now(), pair[1]))
+        def recorded(context: bpy.types.Context, write: Callable[[Host], BlenderResult[Option[operators.Done]]]) -> BlenderResult[operators.Outcome]:
+            return (
+                paired(hosted(attached.name, context), retained())
+                .bind(lambda pair: history.replaced(pair[0], lambda: write(pair[0]), now(), pair[1]))
+                .map(lambda change: change.default_value(operators.Unchanged(reason="No value changed")))
+            )
 
-        def stepped(offset: int) -> Callable[[operators.Call[operators.Empty]], BlenderResult[operators.Done]]:
-            return lambda call: paired(hosted(attached.name, call.context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(lambda _: operators.Done())
+        def stepped(context: bpy.types.Context, offset: int) -> BlenderResult[operators.Outcome]:
+            return (
+                paired(hosted(attached.name, context), retained())
+                .bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1]))
+                .map(lambda change: change.map(lambda _: operators.Done()).default_value(vacant))
+            )
 
-        def scoped(context: bpy.types.Context, host: Host) -> BlenderResult[operators.Done]:
-            def done(outcomes: tuple[Applied, ...]) -> operators.Done:
-                missing = tuple(BlenderAbsentFault(owner=attached.name, key=path) for outcome in outcomes for path in outcome.skipped)
-                return operators.Done(skipped=Some((missing[0], *missing[1:])) if missing else Nothing)
-
+        def scoped(context: bpy.types.Context, host: Host) -> BlenderResult[Option[operators.Done]]:
             return (
                 paired(self.scope.map(lambda scope: scope.owners(context)).default_value(Ok((host,))), managed(context))
                 .bind(lambda pair: pasted(pair[1], tuple(map(attached.struct, pair[0]))))
-                .bind(lambda outcomes: accumulated(outcome.outcome for outcome in outcomes).map(lambda _: done(outcomes)))
+                .map(lambda outcomes: Some(operators.Done()) if any(outcome.written for outcome in outcomes) else Nothing)
             )
 
         plain = {
-            Verb.RESET: Verb.RESET.row(stem, operators.Empty, lambda call: recorded(call.context, lambda host: attached.group.reset(attached.struct(host)).map(lambda _: operators.Done()))),
+            Verb.RESET: Verb.RESET.row(stem, operators.Empty, lambda call: recorded(call.context, lambda host: attached.group.reset(attached.struct(host)).map(lambda _: Some(operators.Done())))),
             Verb.COPY: Verb.COPY.row(
                 stem,
                 operators.Empty,
@@ -482,16 +491,18 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 ),
             ),
             Verb.PASTE: Verb.PASTE.row(stem, operators.Empty, lambda call: recorded(call.context, lambda host: scoped(call.context, host))),
-            Verb.OLDER: Verb.OLDER.row(stem, operators.Empty, stepped(1)),
-            Verb.NEWER: Verb.NEWER.row(stem, operators.Empty, stepped(-1)),
+            Verb.OLDER: Verb.OLDER.row(stem, operators.Empty, lambda call: stepped(call.context, 1)),
+            Verb.NEWER: Verb.NEWER.row(stem, operators.Empty, lambda call: stepped(call.context, -1)),
         }
         picked = {
-            Verb.RESTORE: Verb.RESTORE.row(
+            Verb.RESTORE: Verb.RESTORE.row(stem, Picked, lambda call: stepped(call.context, call.record.offset)),
+            Verb.FORGET: Verb.FORGET.row(
                 stem,
                 Picked,
-                lambda call: paired(hosted(attached.name, call.context), retained()).bind(lambda found: history.stepped(found[0], call.record.offset, now(), found[1])).map(lambda _: operators.Done()),
+                lambda call: (
+                    hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(lambda change: change.map(lambda _: operators.Done()).default_value(vacant))
+                ),
             ),
-            Verb.FORGET: Verb.FORGET.row(stem, Picked, lambda call: hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(lambda _: operators.Done())),
         }
         lock = Verb.LOCK.row(stem, Locked, lambda call: hosted(attached.name, call.context).map(lambda host: attached.toggled(host, call.record.field)).map(lambda _: operators.Done()))
         listing = self.presets.map(
@@ -503,7 +514,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                     .bind(lambda host: attached.read(host).map(lambda held: (held, attached.locks(host))))
                     .map(lambda pair: tuple(attached.kept(pair[1], pair[0], value) == pair[0] for value in values))
                 ),
-                applied=lambda context, value: recorded(context, lambda host: attached.applied(host, value).map(lambda _: operators.Done())),
+                applied=lambda context, value: recorded(context, lambda host: attached.applied(host, value).map(lambda wrote: Some(operators.Done()) if wrote else Nothing)),
             )
         )
         slots = (Popover(panel=self.panel, text=Some(""), icon=Some("PRESET")), OperatorButton(target=plain[Verb.RESET], text=Some("")))

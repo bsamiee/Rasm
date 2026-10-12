@@ -25,7 +25,9 @@ from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderWriteFault
-from rasm.blender.nodes.graphs import End, ended, FileItem, FileItems, Graph, INPUTS, Interface, Link, Node, node, NodeGroup, Socket
+from rasm.blender.nodes.changes import made
+from rasm.blender.nodes.graphs import End, ended, FileItem, FileItems, Graph, INPUTS, Link, Node, node, NodeGroup
+from rasm.blender.nodes.interface import Interface, Socket
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.color.spaces import COLOR_INPUT, COLOR_RESULT
 from rasm.blender.render.effects.stack import camera_frame, Configured, Context, EffectName, EffectStack, entered, formation, Placeable, Shell, viewed
@@ -309,7 +311,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(filled(image, plane), lambda _: node("head", bpy.types.CompositorNodeImage, {}, {"image": IdName.of(image)}).map(ended("head", "Image")))
                 .bind(lambda source: NodeGroup.built(self.head.key, "Preview Input", Interface(outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),)), {"image": source}))
                 .map(lambda group: msgspec.structs.replace(group, saved=Saved.NEVER))
-                .bind(lambda group: group.made(identity))
+                .bind(lambda group: made(group, identity))
             )
 
         return self.image.made(identity, built).bind(graphed)
@@ -623,7 +625,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                         ),
                     )
                 )
-                .bind(lambda group: group.made(identity))
+                .bind(lambda group: made(group, identity))
                 .bind(formatted)
                 .bind(appended)
             )

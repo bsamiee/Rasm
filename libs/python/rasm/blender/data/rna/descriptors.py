@@ -1,7 +1,8 @@
 """RNA property definitions, stored values, and their native write boundary."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from functools import reduce
+from itertools import pairwise
 from operator import getitem, setitem
 import os
 import re
@@ -15,6 +16,7 @@ from numpy.typing import NDArray
 
 from rasm.blender.data.ids.store import blocks
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
+from rasm.imaging.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -22,6 +24,24 @@ type Scalar = bool | int | float | str
 type Value = Scalar | tuple[Scalar, ...] | IdName | None
 type Native = bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]
 P_co = TypeVar("P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+LEADING = tuple(
+    struct.bl_rna.properties[name]
+    for struct, name in (
+        (bpy.types.RenderSettings, "engine"),
+        (bpy.types.ImageFormatSettings, "color_management"),
+        (bpy.types.ColorManagedDisplaySettings, "display_device"),
+        (bpy.types.ColorManagedViewSettings, "view_transform"),
+        (bpy.types.UnitSettings, "system"),
+        (bpy.types.DriverTarget, "id_type"),
+    )
+)
+GATED = tuple(
+    (bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[member], bpy.types.ImageFormatSettings.bl_rna.properties["color_management"], "OVERRIDE")
+    for member in ("linear_colorspace_settings", "view_settings", "display_settings")
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -41,7 +61,7 @@ class IdName(msgspec.Struct, frozen=True, kw_only=True):
 class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     """Property definition resolved from a root type without retaining live data."""
 
-    root: "type[Native]"
+    root: type[Native]
     owner: str
     prop: P_co
     index: Option[int] = Nothing
@@ -117,13 +137,13 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             case _:
                 return Error((BlenderAbsentFault(owner=definition.identifier, key=path),))
 
-    def owner_of(self, context: Native, item: "Option[Native]" = Nothing) -> "Option[Native]":
+    def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
         """Returns an applicable live owner from a root or native context."""
         root = item.filter(lambda value: isinstance(value, self.root)).or_else_with(
             lambda: Some(context) if isinstance(context, self.root) else root_in(self.root, context) if isinstance(context, bpy.types.Context) else Nothing
         )
         return root.bind(lambda value: struct_at(value, self.owner)).filter(
-            lambda owner: owner.bl_rna.properties.get(self.prop.identifier) == self.prop  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            lambda owner: owner.bl_rna.properties.get(self.prop.identifier) == self.prop and effective(owner)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         )
 
     # --- [VALUES]
@@ -322,7 +342,7 @@ def id_path(struct: "bpy.types.bpy_struct[object]") -> Option[str]:
                 return Nothing
 
 
-def struct_at(root: Native, path: str) -> "Option[Native]":
+def struct_at(root: Native, path: str) -> Option[Native]:
     """Returns the struct or collection at a relative path, or Nothing for an absent step, an empty pointer, or a value."""
     found: object
     try:
@@ -340,12 +360,90 @@ def struct_at(root: Native, path: str) -> "Option[Native]":
     return Some(found) if isinstance(found, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else Nothing
 
 
+def effective(struct: Native) -> bool:
+    """Whether the host reads a live struct's values now, a struct under a `GATED` member holding none while its governing member reads another value."""
+    return all(
+        getattr(parent, governor.identifier) == value
+        for parent, child in pairwise((*struct.rna_ancestors(), struct) if isinstance(struct, bpy.types.bpy_struct) else ())
+        for owner, member, governor, value in GATED
+        if isinstance(parent, owner) and getattr(parent, member.identifier) == child
+    )
+
+
 def written(struct: Native, identifier: str, value: "Value | bytes | bpy.types.bpy_struct[object]") -> "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]":
-    """Resolves and writes a live member, returning absence or the native write refusal."""
-    return Descriptor.resolve(struct, identifier, bpy.types.Property).bind(lambda descriptor: descriptor.write(struct, value))
+    """Resolves a live member through its dotted owner path and writes it on that owner, returning absence or the native write refusal."""
+    return Descriptor.resolve(struct, identifier, bpy.types.Property).bind(
+        lambda descriptor: struct_at(struct, descriptor.owner).map(lambda owner: descriptor.write(owner, value)).default_with(lambda: Error((BlenderAbsentFault(owner=repr(struct), key=identifier),)))
+    )
+
+
+def sequenced[W](writes: Iterable[tuple[str, Native, Descriptor, W]]) -> tuple[tuple[str, Native, Descriptor, W], ...]:
+    """Orders member writes the way the host applies them.
+
+    `LEADING` members go first, since writing one resets members it governs; then writes group by owner path, follow the
+    declaration order of the holder's class (an interface socket's `subtype` and `dimensions` before its `default_value`),
+    and an indexed element follows its whole array.
+
+    Args:
+        writes: Owner path, holder struct, member descriptor, and value of each write.
+
+    Returns:
+        The writes in application order.
+    """
+    return tuple(
+        sorted(
+            writes,
+            key=lambda write: (
+                LEADING.index(write[2].prop) if write[2].prop in LEADING else len(LEADING),
+                write[0],
+                tuple(prop.identifier for prop in write[1].bl_rna.properties).index(write[2].prop.identifier),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                write[2].index.is_some(),
+            ),
+        )
+    )
+
+
+def differing(members: Mapping[Descriptor, Value], root: Native) -> dict[Descriptor, Value]:
+    """Members whose owner under a root is absent or reads a value other than the desired one."""
+    return {descriptor: value for descriptor, value in members.items() if not any(descriptor.equal(descriptor.read(owner), value) for owner in struct_at(root, descriptor.owner).to_list())}
+
+
+def holds(struct: Native, identifier: str, value: Value) -> bool:
+    """Whether a live struct's member, resolved on its own RNA through a dotted owner path, holds a value under `Descriptor.equal`."""
+    return Descriptor.resolve(struct, identifier, bpy.types.Property).map(lambda descriptor: not differing({descriptor: value}, struct)).default_value(False)
+
+
+def assigned(members: Mapping[Descriptor, Value], root: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
+    """Writes members under a root in the order `sequenced` states.
+
+    Each write resolves the root again from its data-block, since a write such as `dimensions` refines the root's class and
+    leaves the held reference raising on the former class.
+
+    Args:
+        members: Value per member descriptor.
+        root: Struct the descriptors' owner paths start from.
+
+    Returns:
+        `Ok` once written; `Error` of `absent` for an unresolved owner or of each refused write.
+    """
+    located = tuple((descriptor, value, struct_at(root, descriptor.owner)) for descriptor, value in members.items())
+
+    def write(descriptor: Descriptor, value: Value) -> BlenderResult[None]:
+        current = id_path(root).bind(lambda path: struct_at(block, path)).default_value(root) if isinstance(block := root.id_data, bpy.types.ID) else root
+        return (
+            struct_at(current, descriptor.owner)
+            .map(lambda owner: descriptor.write(owner, value))
+            .default_value(Error((BlenderAbsentFault(owner=repr(root), key=descriptor.path),)))
+            .map(lambda _: None)
+        )
+
+    return accumulated((
+        *(Error((BlenderAbsentFault(owner=repr(root), key=descriptor.path),)) for descriptor, _, holder in located if holder.is_none()),
+        *(write(descriptor, value) for _, _, descriptor, value in sequenced((descriptor.owner, held, descriptor, value) for descriptor, value, holder in located for held in holder.to_list())),
+    )).map(lambda _: None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Descriptor", "IdName", "Native", "Scalar", "Value", "id_path", "root_in", "struct_at", "written"]
+__all__ = ["GATED", "LEADING", "Descriptor", "IdName", "Native", "Scalar", "Value", "assigned", "differing", "effective", "holds", "id_path", "root_in", "sequenced", "struct_at", "written"]

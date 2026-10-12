@@ -11,7 +11,6 @@ import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-from rasm.blender.data.rna.conditions import check, Setting
 from rasm.blender.data.rna.descriptors import Descriptor, struct_at, Value, written
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from rasm.imaging.faults import accumulated, paired
@@ -95,8 +94,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [CHANNELS]
 
-    def apply(self, owner: bpy.types.ID, context: bpy.types.Context) -> BlenderResult[None]:
-        """Reconciles the declared channel, retaining equal native state and unrelated channels."""
+    def apply(self, owner: bpy.types.ID, context: bpy.types.Context) -> BlenderResult[bool]:
+        """Reconciles the declared channel, retaining equal native state and unrelated channels, and answers whether it wrote."""
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
         def matching(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
@@ -149,24 +148,21 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
         def modified(curve: bpy.types.FCurve) -> BlenderResult[None]:
             def added(row: Modifier) -> BlenderResult[None]:
-                accepted = tuple(
-                    item.identifier
-                    for prop in bpy.types.FModifier.bl_rna.properties
-                    if isinstance(prop, bpy.types.EnumProperty) and prop.identifier == "type"
-                    for item in prop.enum_items
-                    if item.value
-                )
                 return (
                     catch(lambda: curve.modifiers.new(row.kind), exception=TypeError)()
                     .to_option()
                     .bind(Option.of_optional)
                     .map(lambda made: accumulated(written(made, name, value) for name, value in row.values.items()).map(lambda _: None))
-                    .default_with(lambda: Error((BlenderChoiceFault(path=repr(curve.modifiers), identifier=row.kind, accepted=accepted),)))
+                    .default_with(
+                        lambda: Descriptor.resolve(bpy.types.FModifier, "type", bpy.types.EnumProperty).bind(
+                            lambda kind: Error((BlenderChoiceFault(path=repr(curve.modifiers), identifier=row.kind, accepted=tuple(item.identifier for item in kind.prop.enum_items if item.value)),))
+                        )
+                    )
                 )
 
             return accumulated(map(added, self.modifiers)).map(lambda _: None)
 
-        def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> BlenderResult[Option[bpy.types.Driver]]:
+        def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
             try:
                 held = (
                     Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).bind(lambda bag: Option.of_optional(bag.fcurves.find(path, index=index)))
@@ -177,8 +173,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                     match matching(curve, source):
                         case Result(tag="ok", ok=matched):
                             if matched:
-                                curve.update_autoflags(owner)
-                                return Ok(Option.of_optional(curve.driver))
+                                return Ok(False)
                         case Result(error=faults):
                             return Error(faults)
                 match source:
@@ -197,7 +192,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                         curve.keyframe_points.foreach_set("co", points.ravel())
                         curve.update_autoflags(owner)
                         curve.update()
-                        return modified(curve).map(lambda _: Nothing)
+                        return modified(curve).map(lambda _: True)
                     case Driven(expression=expression, variables=variables):
                         for curve in held:
                             data.drivers.remove(curve)
@@ -214,7 +209,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                                     target.id_type = owner.id_type
                                     target.id = owner
                                     target.data_path = row.path
-                                return modified(curve).map(lambda _: Some(driver))
+                                return modified(curve).map(lambda _: True)
                             case None:
                                 return Error((BlenderAbsentFault(owner=repr(curve), key="driver"),))
             except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError) as error:
@@ -230,25 +225,12 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 coordinates = Descriptor.resolve(bpy.types.Keyframe, "co", bpy.types.FloatProperty).bind(lambda coordinate: Descriptor.quantized(coordinate.prop, np.asarray(points, dtype=np.float64)))
             case Driven() as driver:
                 coordinates = Ok(driver)
-        return (
-            paired(accumulated((self.channel(owner).map(lambda _: None), *map(read, variables))), coordinates)
-            .bind(
-                lambda admitted: (
-                    Option
-                    .of_optional(owner.animation_data_create())
-                    .map(lambda data: replaced(data, admitted[1]))
-                    .default_with(lambda: Result[Option[bpy.types.Driver], BlenderFaults](error=(BlenderAbsentFault(owner=repr(owner), key=path),)))
-                )
-            )
-            .bind(
-                lambda driver: (
-                    driver
-                    .filter(lambda held: not held.is_simple_expression)
-                    .map(
-                        lambda _: Descriptor.resolve(bpy.types.Preferences, "filepaths.use_scripts_auto_execute", bpy.types.BoolProperty).bind(lambda trust: check(Setting(descriptor=trust), context))
-                    )
-                    .default_with(lambda: Ok(None))
-                )
+        return paired(accumulated((self.channel(owner).map(lambda _: None), *map(read, variables))), coordinates).bind(
+            lambda admitted: (
+                Option
+                .of_optional(owner.animation_data_create())
+                .map(lambda data: replaced(data, admitted[1]))
+                .default_with(lambda: Result[bool, BlenderFaults](error=(BlenderAbsentFault(owner=repr(owner), key=path),)))
             )
         )
 
@@ -278,10 +260,6 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _animation_data(owner: bpy.types.ID) -> Option[bpy.types.AnimData]:
-    return struct_at(owner, "animation_data").bind(lambda data: Some(data) if isinstance(data, bpy.types.AnimData) else Nothing)
-
-
 def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> BlenderResult[tuple[float, ...]]:
     """Samples rendered RNA values, or repeats the proposed or stored unkeyed value."""
 
@@ -291,7 +269,7 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
             values = np.asarray(tuple(curve.evaluate(frame) for frame in frames), dtype=np.float32)
             match prop:
                 case bpy.types.BoolProperty():
-                    return Ok(tuple((values > (np.float32(1) - np.finfo(np.float32).eps)).astype(float).tolist()))
+                    return Ok(tuple((values > (np.float32(1) - np.spacing(np.float32(1)))).astype(float).tolist()))
                 case bpy.types.IntProperty():
                     return Ok(tuple(float(min(max(int(value), prop.hard_min), prop.hard_max)) for value in values))
                 case bpy.types.FloatProperty():
@@ -326,6 +304,10 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
         )
     except (ReferenceError, TypeError, ValueError, OverflowError) as error:
         return Error((BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
+
+
+def _animation_data(owner: bpy.types.ID) -> Option[bpy.types.AnimData]:
+    return struct_at(owner, "animation_data").bind(lambda data: Some(data) if isinstance(data, bpy.types.AnimData) else Nothing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

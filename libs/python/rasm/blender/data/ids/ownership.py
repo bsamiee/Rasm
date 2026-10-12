@@ -145,8 +145,8 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Returns the number of unused USED holders removed, or zero for other lifetimes."""
         match self.saved:
             case Saved.USED:
-                unused = tuple(block for block, _ in self.held(identity) if block.users == 0)
-                bpy.data.batch_remove(ids=unused)
+                if unused := tuple(block for block, _ in self.held(identity) if block.users == 0):
+                    bpy.data.batch_remove(ids=unused)
                 return len(unused)
             case Saved.NEVER | Saved.ALWAYS:
                 return 0
@@ -164,7 +164,8 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             twins = tuple((block, kept) for block, mark in local if block in imported and block != (kept := keepers[mark]))
             for block, kept in twins:
                 block.user_remap(kept)
-            bpy.data.batch_remove(ids=tuple(block for block, _ in twins))
+            if twins:
+                bpy.data.batch_remove(ids=tuple(block for block, _ in twins))
             return Ok(None)
 
         return (

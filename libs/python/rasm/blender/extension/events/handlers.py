@@ -89,7 +89,7 @@ class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
 class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
     """Load or save callback receiving an absent path for the startup file."""
 
-    handlers: Handlers[Callable[[str], None]]
+    handlers: Handlers[Callable[[str, None], None]]
     body: Callable[[Option[Path]], BlenderResult[None]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
@@ -103,8 +103,8 @@ class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
         """
         body = identity.reports.reported(self.body)
 
-        def entry(path: str) -> None:
-            """Lifts the native startup-file path into absence at the boundary."""
+        def entry(path: str, _: None) -> None:
+            """Lifts the native startup-file path into absence at the boundary, Blender passing `None` after it."""
             return body(Option.of_optional(path or None).map(Path)).default_value(None)
 
         return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))

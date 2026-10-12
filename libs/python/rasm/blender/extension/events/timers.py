@@ -15,9 +15,10 @@ from rasm.blender.faults import BlenderResult
 
 
 class Timer(msgspec.Struct, frozen=True, kw_only=True):
-    """Main-loop work answering its next interval, absent to stop."""
+    """Main-loop work first run after its first interval, answering its next interval, absent to stop."""
 
     body: Callable[[], BlenderResult[Option[float]]]
+    first_interval: float = 0.0
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
         """Builds one persistent timer acquisition.
@@ -37,7 +38,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
         @contextmanager
         def registered() -> Generator[None]:
             """Holds the timer until it stops or the registration scope closes."""
-            bpy.app.timers.register(ticked, persistent=True)
+            bpy.app.timers.register(ticked, first_interval=self.first_interval, persistent=True)
             try:
                 yield
             finally:

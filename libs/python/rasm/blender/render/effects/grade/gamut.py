@@ -6,7 +6,8 @@ import bpy
 
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, item_key, masked, math, node
+from rasm.blender.nodes.graphs import End, ended, Fragment, INPUTS, masked, math, node
+from rasm.blender.nodes.interface import item_key
 from rasm.blender.render.effects.stack import CompositorEffect, Shell
 from rasm.imaging.effects.grade.gamut import Channel, GamutCompression
 
@@ -15,14 +16,14 @@ from rasm.imaging.effects.grade.gamut import Channel, GamutCompression
 
 def compressed(shell: Shell[GamutCompression]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns compression with bounded powers and the defined zero-achromatic case."""
-    limit, threshold = Channel.limit.__name__, Channel.threshold.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    exponent = End(node=INPUTS, socket=item_key(GamutCompression.power.__name__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    channels = ((GamutCompression.cyan.__name__, "Red"), (GamutCompression.magenta.__name__, "Green"), (GamutCompression.yellow.__name__, "Blue"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    _, cyan, magenta, yellow, power = GamutCompression.__struct_fields__
+    exponent = End(node=INPUTS, socket=item_key(power))
+    channels = ((cyan, "Red"), (magenta, "Green"), (yellow, "Blue"))
     peak, achromatic, sign, magnitude, nonzero, inverse = (End(node=key) for key in ("peak", "achromatic", "sign", "magnitude", "nonzero", "inverse"))
 
     def channel(key: Key, socket: str) -> BlenderResult[Fragment]:
         source = End(node="channels", socket=socket)
-        bound, floor = (End(node=INPUTS, socket=item_key(key, member)) for member in (limit, threshold))
+        bound, floor = (End(node=INPUTS, socket=item_key(key, member)) for member in Channel.__struct_fields__)
         span, headroom, ratio, raised, remaining, root, scale = (End(node=item_key(key, term)) for term in ("span", "headroom", "ratio", "raised", "remaining", "root", "scale"))
         normalized, distance, over, excess, lower, upper, bounded = (End(node=item_key(key, term)) for term in ("normalized", "distance", "over", "excess", "lower", "upper", "bounded"))
         powered, grown, denominator, shrunk, base, pulled = (End(node=item_key(key, term)) for term in ("powered", "grown", "denominator", "shrunk", "base", "pulled"))

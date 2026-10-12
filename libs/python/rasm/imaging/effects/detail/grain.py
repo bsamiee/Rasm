@@ -15,7 +15,7 @@ from scipy.stats import rankdata
 
 from rasm.imaging.chain import Effect, GREY, Stage
 from rasm.imaging.faults import ImagingResult
-from rasm.imaging.files.images import ImageFile
+from rasm.imaging.files.images import read_file
 from rasm.imaging.hashing import content_hash, ContentHash, rng
 from rasm.imaging.parameters import Case, GraphForm, Motion, Presentation, Quantity, Seed
 
@@ -68,7 +68,7 @@ class Scan(Case, frozen=True, kw_only=True, tag=2):
 
     def tile(self, config: PyOpenColorIO.Config) -> ImagingResult[npt.NDArray[np.float32]]:
         """Reads data samples into four normal-score channels, retaining imaging faults."""
-        return ImageFile.read(self.path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA)).map(
+        return read_file(self.path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA)).map(
             lambda image: ranked(np.dstack(((color := image.pixels[..., (0, 1, 2) if image.pixels.shape[2] >= 3 else (0, 0, 0)]), color.mean(axis=2, dtype=np.float64))))
         )
 

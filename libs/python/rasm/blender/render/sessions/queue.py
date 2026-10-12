@@ -35,6 +35,7 @@ from rasm.blender.extension.registries import CliCommand
 from rasm.blender.extension.reports import rendered
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderRenderingFault, BlenderResult, BlenderWriteFault
 from rasm.blender.files.blends import BlendFile, OpenFile, packed, saved, SaveMode, session_loaded
+from rasm.blender.nodes.changes import made
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.effects.detail.denoise import motioned, Plane, Rendered
 from rasm.blender.render.effects.stack import Edge, EffectStack, Pinned
@@ -370,7 +371,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                     motion=msgspec.structs.replace(inputs.motion, path=str(path.base / inputs.motion.path)),
                 )
                 return (
-                    source.group(denoising.temporal.value).bind(lambda group: group.made(self.identity, of=Some(scene))).bind(lambda _: self.stack.refreshed(self.identity, scene)).map(lambda _: None)
+                    source.group(denoising.temporal.value).bind(lambda group: made(group, self.identity, of=Some(scene))).bind(lambda _: self.stack.refreshed(self.identity, scene)).map(lambda _: None)
                 )
 
             return rerooted.bind(lambda _: paired(self.inputs.read(scene), self.denoise.read(scene)).bind(loaded) if self.inputs.stored(scene) else Ok(None))

@@ -55,16 +55,17 @@ class Classes(msgspec.Struct, frozen=True, kw_only=True):
 
         @contextlib.contextmanager
         def registered(cls: type) -> Generator[BlenderResult[None]]:
-            """Yields the native class registration and releases a successful acquisition."""
+            """Yields the native class registration and releases whatever Blender holds, a property refusal leaving the class registered."""
             register, unregister = bpy.utils.register_classes_factory((cls,))
             try:
                 register()
+                answer = Result[None, BlenderFaults].Ok(None)
             except (ValueError, RuntimeError) as error:
-                yield Result[None, BlenderFaults].Error((BlenderRegisterFault(request=(cls.__name__,), error=error),))
-            else:
-                try:
-                    yield Result[None, BlenderFaults].Ok(None)
-                finally:
+                answer = Result[None, BlenderFaults].Error((BlenderRegisterFault(request=(cls.__name__,), error=error),))
+            try:
+                yield answer
+            finally:
+                if "bl_rna" in vars(cls):
                     unregister()
 
         return self.order.map(lambda order: map(registered, order)).default_with(lambda faults: iter((contextlib.nullcontext(Result[None, BlenderFaults].Error(faults)),)))

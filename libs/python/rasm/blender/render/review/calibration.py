@@ -4,7 +4,7 @@ from collections.abc import Callable
 from functools import partial
 import math
 from pathlib import Path
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -16,7 +16,7 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Call, Confirm, Done, Empty, Operator, Own, Properties, Save
+from rasm.blender.commands.operators import Call, Confirm, Done, Empty, Operator, Outcome, Own, Properties, Save, Unchanged
 from rasm.blender.data.ids.images import generated, read, saved, Tag
 from rasm.blender.data.ids.ownership import Mark, Ownership, Saved
 from rasm.blender.data.ids.store import Handle
@@ -52,6 +52,9 @@ from rasm.imaging.geometry.panoramas import PanoramaView
 from rasm.imaging.geometry.stmaps import StMap
 from rasm.imaging.hashing import content_hash
 from rasm.imaging.parameters import Case, Choice, ColorSpace, Gated, Rgb
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -408,8 +411,13 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        def clearing(call: Call[Empty]) -> BlenderResult[Done]:
-            return located(call.context).bind(lambda found: found[2].write(found[0], msgspec.structs.replace(found[1], samples=()))).map(lambda _: Done())
+        def clearing(call: Call[Empty]) -> BlenderResult[Outcome]:
+            def cleared(image: bpy.types.Image, record: ChartImage, chart: Attached[ChartImage]) -> BlenderResult[Outcome]:
+                if not record.samples:
+                    return Ok(Unchanged(reason=f"The chart of {image.name} holds no samples"))
+                return chart.write(image, msgspec.structs.replace(record, samples=())).map(lambda _: Done())
+
+            return located(call.context).bind(lambda found: cleared(*found))
 
         def centered(call: Call[Empty]) -> BlenderResult[Done]:
             def shifted(found: tuple[bpy.types.Image, ChartImage, Attached[ChartImage]], region: bpy.types.Region) -> BlenderResult[None]:
@@ -489,35 +497,36 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def fitting[T: msgspec.Struct](call: Call[T]) -> BlenderResult[tuple[Calibrating, Calibration, CalibrationFit[Calibration]]]:
-            warning_condition = 1e4
-            result = paired(self.stack.config(), paired(charts.bound(identity), paired(calibrations.bound(identity), call.root(bpy.types.Scene)).bind(lambda pair: pair[0].read(pair[1])))).bind(
+            return paired(self.stack.config(), paired(charts.bound(identity), paired(calibrations.bound(identity), call.root(bpy.types.Scene)).bind(lambda pair: pair[0].read(pair[1])))).bind(
                 lambda pair: calibrated(pair[0], pair[1][0], pair[1][1]).map(lambda fit: (pair[1][1], *fit))
             )
-            for _, _, fit in result.to_option().to_list():
-                if fit.condition_number > warning_condition:
-                    call.report({"WARNING"}, f"Calculated transform is poorly conditioned ({fit.condition_number:.2e}); verify chart alignment.")
-            return result
+
+        def conditioned(fit: CalibrationFit[Calibration]) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
+            ceiling = 1e4
+            return (("WARNING", f"Calculated transform is poorly conditioned ({fit.condition_number:.2e}), chart alignment needs a check"),) if fit.condition_number > ceiling else ()
 
         def grading(call: Call[Empty]) -> BlenderResult[Done]:
-            return (
-                paired(fitting(call), call.root(bpy.types.Scene))
-                .bind(lambda pair: self.stack.assigned(identity, pair[1], Primaries(remap=Mixer.of(pair[0][1].gained))))
-                .map(lambda entry: Done(notes=(("INFO", f"Calibrated {entry.name}"),)))
+            return paired(fitting(call), call.root(bpy.types.Scene)).bind(
+                lambda pair: self.stack.assigned(identity, pair[1], Primaries(remap=Mixer.of(pair[0][1].gained))).map(
+                    lambda entry: Done(notes=(*conditioned(pair[0][2]), ("INFO", f"Calibrated {entry.name}")))
+                )
             )
 
         def splicing(call: Call[Empty]) -> BlenderResult[Done]:
-            def spliced(chosen: Chosen, fit: Calibration) -> BlenderResult[Done]:
+            def spliced(chosen: Chosen, made: tuple[Calibrating, Calibration, CalibrationFit[Calibration]]) -> BlenderResult[Done]:
                 return (
-                    matrix().bind(lambda group: inserted(chosen, group, identity, NodeSpacing(), inputs=matrix_inputs(fit))).map(lambda _: Done(notes=(("INFO", "Inserted the calibration matrix"),)))
+                    matrix()
+                    .bind(lambda group: inserted(chosen, group, identity, NodeSpacing(), inputs=matrix_inputs(made[1])))
+                    .map(lambda _: Done(notes=(*conditioned(made[2]), ("INFO", "Inserted the calibration matrix"))))
                 )
 
-            return fitting(call).bind(lambda made: Chosen.of(call.context).bind(lambda chosen: spliced(chosen, made[1])))
+            return fitting(call).bind(lambda made: Chosen.of(call.context).bind(lambda chosen: spliced(chosen, made)))
 
         def exporting[T: Baking | Writing](call: Call[T]) -> BlenderResult[Done]:
-            return (
-                paired(fitting(call), call.record.output())
-                .bind(lambda pair: exported(pair[1], pair[0][1], call.paths, direction=pair[0][0].direction, clamped=pair[0][0].charting.clamped))
-                .map(lambda paths: Done(notes=tuple(("INFO", f"Wrote {path}") for path in paths)))
+            return paired(fitting(call), call.record.output()).bind(
+                lambda pair: exported(pair[1], pair[0][1], call.paths, direction=pair[0][0].direction, clamped=pair[0][0].charting.clamped).map(
+                    lambda paths: Done(notes=(*conditioned(pair[0][2]), *(("INFO", f"Wrote {path}") for path in paths)))
+                )
             )
 
         shown = Some(ChartCalibration.imaged)

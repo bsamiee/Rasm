@@ -46,20 +46,6 @@ class Samples(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     luminance: npt.NDArray[np.float64]
     covered: npt.NDArray[np.bool]
 
-    @staticmethod
-    def of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> "ImagingResult[Samples]":
-        """Reads associated RGB or RGBA without counting uncovered pixels as black."""
-
-        def sampled(coefficients: npt.NDArray[np.float32]) -> "Samples":
-            straight = unassociated(plane)
-            covered = (plane[..., 3:] > 0.0).all(axis=-1)
-            luminance = np.where(covered, np.matmul(straight[..., :3], coefficients, dtype=np.float64), 0.0)
-            for array in (straight, luminance, covered):
-                array.setflags(write=False)
-            return Samples(color=straight[..., :3], luminance=luminance, covered=covered)
-
-        return luma(config).map(sampled)
-
     @classmethod
     def logarithm(cls, values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Returns base-two luminance with the measured black floor."""
@@ -100,6 +86,20 @@ class Samples(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return Some(self.logarithm(self.luminance[self.finite])).filter(lambda found: found.size > 0).map(lambda found: (float(found.mean(dtype=np.float64)), float(found.max()), float(found.min())))
 
 
+def samples_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Samples]:
+    """Reads associated RGB or RGBA without counting uncovered pixels as black."""
+
+    def sampled(coefficients: npt.NDArray[np.float32]) -> Samples:
+        straight = unassociated(plane)
+        covered = (plane[..., 3:] > 0.0).all(axis=-1)
+        luminance = np.where(covered, np.matmul(straight[..., :3], coefficients, dtype=np.float64), 0.0)
+        for array in (straight, luminance, covered):
+            array.setflags(write=False)
+        return Samples(color=straight[..., :3], luminance=luminance, covered=covered)
+
+    return luma(config).map(sampled)
+
+
 class Meter(msgspec.Struct, frozen=True, kw_only=True):
     """Percentile trims, central weighting, and region of an exposure reading."""
 
@@ -129,7 +129,7 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
             return Some(levels).filter(lambda found: found.size > 0).bind(trimmed)
 
-        return Samples.of(config, plane[box.window(*plane.shape[:2])]).map(metered)
+        return samples_of(config, plane[box.window(*plane.shape[:2])]).map(metered)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -159,4 +159,4 @@ def sample(plane: npt.NDArray[np.float32], position: tuple[int, int], radius: An
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Extent", "Meter", "Region", "Samples", "peak", "sample"]
+__all__ = ["Extent", "Meter", "Region", "Samples", "peak", "sample", "samples_of"]

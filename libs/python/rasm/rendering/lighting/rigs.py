@@ -286,121 +286,115 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             lambda arranged: arranged.map(lambda layout: processor(config, transform).map_error(refused).bind(lambda built: placed(layout, built.getDefaultCPUProcessor()))).default_value(Ok(Nothing))
         )
 
-    @staticmethod
-    def catalog() -> "dict[str, Rig]":
-        """Constructs the six arranged and twenty-five matched source recipes."""
 
-        def arranged(rows: tuple[tuple[Role, tuple[float, float, float], float, float, float], ...]) -> Rig:
-            levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
-            return Rig(
-                irradiance=levels[0],
-                layout=Arranged(
-                    lights=tuple(
-                        Light(
-                            role=role,
-                            azimuth=math.atan2(offset[0], -offset[1]),
-                            elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
-                            size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
-                            stops=math.log2(level / levels[0]),
-                            temperature=Gated(enabled=True, value=temperature),
-                        )
-                        for (role, offset, _, side, temperature), level in zip(rows, levels)
+def rig_catalog() -> dict[str, Rig]:
+    """Constructs the six arranged and twenty-five matched source recipes."""
+
+    def arranged(rows: tuple[tuple[Role, tuple[float, float, float], float, float, float], ...]) -> Rig:
+        levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
+        return Rig(
+            irradiance=levels[0],
+            layout=Arranged(
+                lights=tuple(
+                    Light(
+                        role=role,
+                        azimuth=math.atan2(offset[0], -offset[1]),
+                        elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
+                        size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
+                        stops=math.log2(level / levels[0]),
+                        temperature=Gated(enabled=True, value=temperature),
                     )
-                ),
-            )
+                    for (role, offset, _, side, temperature), level in zip(rows, levels)
+                )
+            ),
+        )
 
-        return {
-            "Three-Point": arranged(((Role.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (Role.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (Role.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
-            "Hard Low Key": arranged(((Role.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0), (Role.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0), (Role.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0))),
-            "Side Key": arranged(((Role.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
-            "Soft High Key": arranged(((Role.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0), (Role.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0), (Role.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0))),
-            "Rim Only": arranged(((Role.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
-            "Glamour": arranged(((Role.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (Role.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
-            "Auto": Rig(),
-            "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=Rgb(red=1.0, green=0.97, blue=0.92))),
-            "Rembrandt": Rig(
-                color_strength=0.9,
-                distance=2.4,
-                layout=Matched(key=Spot(), softness=0.9, rim=Gated(enabled=True, value=math.log2(0.8)), fill=Gated(enabled=True, value=math.log2(0.12)), tint=Rgb(red=1.0, green=0.95, blue=0.85)),
-            ),
-            "Butterfly": Rig(
-                color_strength=0.8,
-                distance=2.3,
-                layout=Matched(softness=1.3, rim=Gated(enabled=True, value=math.log2(0.6)), fill=Gated(enabled=True, value=math.log2(0.45)), tint=Rgb(red=1.0, green=0.97, blue=0.95)),
-            ),
-            "Loop": Rig(
-                distance=2.4, layout=Matched(softness=1.1, rim=Gated(enabled=True, value=math.log2(0.7)), fill=Gated(enabled=True, value=math.log2(0.3)), tint=Rgb(red=1.0, green=0.96, blue=0.9))
-            ),
-            "Split": Rig(
-                color_strength=0.9,
-                distance=2.4,
-                layout=Matched(softness=0.8, rim=Gated(enabled=True, value=math.log2(0.5)), fill=Gated(enabled=True, value=math.log2(0.08)), tint=Rgb(red=1.0, green=0.98, blue=0.95)),
-            ),
-            "Clamshell": Rig(
-                color_strength=0.7,
-                distance=2.2,
-                layout=Matched(softness=2.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.85)), tint=Rgb(red=1.0, green=0.97, blue=0.96)),
-            ),
-            "Beauty": Rig(
-                color_strength=0.75,
-                distance=2.2,
-                layout=Matched(softness=2.4, rim=Gated(enabled=True, value=math.log2(0.5)), fill=Gated(enabled=True, value=math.log2(0.8)), tint=Rgb(red=1.0, green=0.96, blue=0.95)),
-            ),
-            "Cinematic": Rig(
-                color_strength=1.0,
-                distance=2.6,
-                layout=Matched(key=Spot(), softness=0.7, rim=Gated(enabled=True, value=math.log2(1.5)), fill=Gated(enabled=True, value=math.log2(0.15)), tint=Rgb(red=1.05, green=0.95, blue=0.85)),
-            ),
-            "Dramatic": Rig(
-                color_strength=0.9,
-                layout=Matched(key=Spot(), softness=0.45, rim=Gated(enabled=True, value=math.log2(0.8)), fill=Gated(enabled=True, value=math.log2(0.05)), tint=Rgb(red=1.0, green=0.98, blue=0.92)),
-            ),
-            "Film Noir": Rig(
-                color_strength=0.95,
-                layout=Matched(key=Spot(), softness=0.4, rim=Gated(enabled=True, value=math.log2(1.2)), fill=Gated(enabled=True, value=math.log2(0.03)), tint=Rgb(red=0.98, green=0.99, blue=1.0)),
-            ),
-            "Low Key": Rig(
-                color_strength=0.9,
-                layout=Matched(key=Spot(), softness=0.6, rim=Gated(enabled=True, value=math.log2(0.6)), fill=Gated(enabled=True, value=math.log2(0.05)), tint=Rgb(red=1.0, green=0.97, blue=0.92)),
-            ),
-            "High Key": Rig(color_strength=0.55, distance=2.8, layout=Matched(softness=2.6, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.9)))),
-            "Studio": Rig(color_strength=0.6, distance=2.8, layout=Matched(softness=2.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.7)))),
-            "Product": Rig(color_strength=0.6, distance=2.7, layout=Matched(softness=2.0, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.6)))),
-            "Soft Even": Rig(color_strength=0.5, distance=3.0, layout=Matched(softness=3.0, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.95)))),
-            "Rim / Hair": Rig(layout=Matched(rim=Gated(enabled=True, value=math.log2(2.0)), fill=Gated(enabled=True, value=math.log2(0.3)), tint=Rgb(red=1.0, green=0.98, blue=0.95))),
-            "Backlight": Rig(
-                color_strength=0.9,
-                distance=2.7,
-                layout=Matched(softness=1.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.25)), tint=Rgb(red=1.0, green=0.97, blue=0.9)),
-            ),
-            "Outdoor": Rig(distance=3.0, layout=Matched(key=Sun(), rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.4)), tint=Rgb(red=1.0, green=0.97, blue=0.9))),
-            "Sunset": Rig(
-                color_strength=1.0,
-                distance=3.0,
-                layout=Matched(key=Sun(), rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.35)), tint=Rgb(red=1.1, green=0.82, blue=0.55)),
-            ),
-            "Twilight": Rig(
-                color_strength=0.9,
-                distance=2.9,
-                layout=Matched(softness=1.6, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.6)), tint=Rgb(red=0.7, green=0.8, blue=1.05)),
-            ),
-            "Neon": Rig(color_strength=1.0, layout=Matched(rim=Gated(enabled=True, value=math.log2(1.4)), fill=Gated(enabled=True, value=math.log2(0.4)))),
-            "Candlelight": Rig(
-                color_strength=1.0,
-                distance=2.4,
-                layout=Matched(key=Point(), softness=1.4, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.5)), tint=Rgb(red=1.12, green=0.72, blue=0.42)),
-            ),
-            "Moonlight": Rig(
-                color_strength=0.95,
-                distance=3.0,
-                layout=Matched(key=Sun(), softness=1.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.3)), tint=Rgb(red=0.6, green=0.72, blue=1.05)),
-            ),
-            "Underlight": Rig(
-                color_strength=0.9,
-                distance=2.4,
-                layout=Matched(key=Spot(), softness=0.9, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.15)), tint=Rgb(red=1.0, green=0.95, blue=0.9)),
-            ),
-        }
+    return {
+        "Three-Point": arranged(((Role.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (Role.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (Role.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
+        "Hard Low Key": arranged(((Role.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0), (Role.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0), (Role.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0))),
+        "Side Key": arranged(((Role.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
+        "Soft High Key": arranged(((Role.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0), (Role.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0), (Role.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0))),
+        "Rim Only": arranged(((Role.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
+        "Glamour": arranged(((Role.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (Role.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
+        "Auto": Rig(),
+        "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=Rgb(red=1.0, green=0.97, blue=0.92))),
+        "Rembrandt": Rig(
+            color_strength=0.9,
+            distance=2.4,
+            layout=Matched(key=Spot(), softness=0.9, rim=Gated(enabled=True, value=math.log2(0.8)), fill=Gated(enabled=True, value=math.log2(0.12)), tint=Rgb(red=1.0, green=0.95, blue=0.85)),
+        ),
+        "Butterfly": Rig(
+            color_strength=0.8,
+            distance=2.3,
+            layout=Matched(softness=1.3, rim=Gated(enabled=True, value=math.log2(0.6)), fill=Gated(enabled=True, value=math.log2(0.45)), tint=Rgb(red=1.0, green=0.97, blue=0.95)),
+        ),
+        "Loop": Rig(distance=2.4, layout=Matched(softness=1.1, rim=Gated(enabled=True, value=math.log2(0.7)), fill=Gated(enabled=True, value=math.log2(0.3)), tint=Rgb(red=1.0, green=0.96, blue=0.9))),
+        "Split": Rig(
+            color_strength=0.9,
+            distance=2.4,
+            layout=Matched(softness=0.8, rim=Gated(enabled=True, value=math.log2(0.5)), fill=Gated(enabled=True, value=math.log2(0.08)), tint=Rgb(red=1.0, green=0.98, blue=0.95)),
+        ),
+        "Clamshell": Rig(
+            color_strength=0.7,
+            distance=2.2,
+            layout=Matched(softness=2.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.85)), tint=Rgb(red=1.0, green=0.97, blue=0.96)),
+        ),
+        "Beauty": Rig(
+            color_strength=0.75,
+            distance=2.2,
+            layout=Matched(softness=2.4, rim=Gated(enabled=True, value=math.log2(0.5)), fill=Gated(enabled=True, value=math.log2(0.8)), tint=Rgb(red=1.0, green=0.96, blue=0.95)),
+        ),
+        "Cinematic": Rig(
+            color_strength=1.0,
+            distance=2.6,
+            layout=Matched(key=Spot(), softness=0.7, rim=Gated(enabled=True, value=math.log2(1.5)), fill=Gated(enabled=True, value=math.log2(0.15)), tint=Rgb(red=1.05, green=0.95, blue=0.85)),
+        ),
+        "Dramatic": Rig(
+            color_strength=0.9,
+            layout=Matched(key=Spot(), softness=0.45, rim=Gated(enabled=True, value=math.log2(0.8)), fill=Gated(enabled=True, value=math.log2(0.05)), tint=Rgb(red=1.0, green=0.98, blue=0.92)),
+        ),
+        "Film Noir": Rig(
+            color_strength=0.95,
+            layout=Matched(key=Spot(), softness=0.4, rim=Gated(enabled=True, value=math.log2(1.2)), fill=Gated(enabled=True, value=math.log2(0.03)), tint=Rgb(red=0.98, green=0.99, blue=1.0)),
+        ),
+        "Low Key": Rig(
+            color_strength=0.9,
+            layout=Matched(key=Spot(), softness=0.6, rim=Gated(enabled=True, value=math.log2(0.6)), fill=Gated(enabled=True, value=math.log2(0.05)), tint=Rgb(red=1.0, green=0.97, blue=0.92)),
+        ),
+        "High Key": Rig(color_strength=0.55, distance=2.8, layout=Matched(softness=2.6, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.9)))),
+        "Studio": Rig(color_strength=0.6, distance=2.8, layout=Matched(softness=2.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.7)))),
+        "Product": Rig(color_strength=0.6, distance=2.7, layout=Matched(softness=2.0, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.6)))),
+        "Soft Even": Rig(color_strength=0.5, distance=3.0, layout=Matched(softness=3.0, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.95)))),
+        "Rim / Hair": Rig(layout=Matched(rim=Gated(enabled=True, value=math.log2(2.0)), fill=Gated(enabled=True, value=math.log2(0.3)), tint=Rgb(red=1.0, green=0.98, blue=0.95))),
+        "Backlight": Rig(
+            color_strength=0.9,
+            distance=2.7,
+            layout=Matched(softness=1.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.25)), tint=Rgb(red=1.0, green=0.97, blue=0.9)),
+        ),
+        "Outdoor": Rig(distance=3.0, layout=Matched(key=Sun(), rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.4)), tint=Rgb(red=1.0, green=0.97, blue=0.9))),
+        "Sunset": Rig(
+            color_strength=1.0, distance=3.0, layout=Matched(key=Sun(), rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.35)), tint=Rgb(red=1.1, green=0.82, blue=0.55))
+        ),
+        "Twilight": Rig(
+            color_strength=0.9, distance=2.9, layout=Matched(softness=1.6, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.6)), tint=Rgb(red=0.7, green=0.8, blue=1.05))
+        ),
+        "Neon": Rig(color_strength=1.0, layout=Matched(rim=Gated(enabled=True, value=math.log2(1.4)), fill=Gated(enabled=True, value=math.log2(0.4)))),
+        "Candlelight": Rig(
+            color_strength=1.0,
+            distance=2.4,
+            layout=Matched(key=Point(), softness=1.4, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.5)), tint=Rgb(red=1.12, green=0.72, blue=0.42)),
+        ),
+        "Moonlight": Rig(
+            color_strength=0.95,
+            distance=3.0,
+            layout=Matched(key=Sun(), softness=1.2, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.3)), tint=Rgb(red=0.6, green=0.72, blue=1.05)),
+        ),
+        "Underlight": Rig(
+            color_strength=0.9,
+            distance=2.4,
+            layout=Matched(key=Spot(), softness=0.9, rim=Gated(enabled=False, value=0.0), fill=Gated(enabled=True, value=math.log2(0.15)), tint=Rgb(red=1.0, green=0.95, blue=0.9)),
+        ),
+    }
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -415,4 +409,4 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> float:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Radius", "Rig", "Role", "Spot", "Sun"]
+__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Radius", "Rig", "Role", "Spot", "Sun", "rig_catalog"]

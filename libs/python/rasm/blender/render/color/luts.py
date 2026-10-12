@@ -32,7 +32,7 @@ from rasm.imaging.color.config import admitted
 from rasm.imaging.color.luts import Bake, Exact, Lattice, LutFormat, LutOutput, written
 from rasm.imaging.color.processors import applied, processor
 from rasm.imaging.faults import accumulated, paired
-from rasm.imaging.files.images import ImageFile, Storage
+from rasm.imaging.files.images import ImageFile, read_file, Storage
 from rasm.imaging.hashing import content_hash, ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -248,7 +248,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 .bind(lambda nodes: arranged(scene, nodes, folder / "look"))
                 .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "write_still": True}))
-                .bind(lambda _: ImageFile.read(scene.render.frame_path(frame=1), config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+                .bind(lambda _: read_file(scene.render.frame_path(frame=1), config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
             )
 
         def tabled(config: PyOpenColorIO.Config, look: ImageFile[np.float32]) -> BlenderResult[PyOpenColorIO.GroupTransform]:

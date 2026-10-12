@@ -18,7 +18,7 @@ from rasm.blender.faults import BlenderFaults, BlenderImagingFault, BlenderResul
 from rasm.blender.ui.drawing.canvas import Align, Canvas, Rect
 from rasm.blender.ui.resources.textures import uploaded
 from rasm.blender.ui.resources.theme import Color, Metrics
-from rasm.imaging.analysis.scopes import Bands, Chromaticity, Histogram
+from rasm.imaging.analysis.scopes import Bands, Chromaticity, chromaticity_of, Histogram, histogram_of
 from rasm.imaging.chain import GREY
 from rasm.imaging.color import observer
 from rasm.imaging.color.processors import applied, DisplayView, processor
@@ -275,7 +275,7 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 frame
                 .plane(config)
-                .bind(lambda plane: Chromaticity.of(config, plane, frame.view, (round(plot.width), round(plot.height))).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+                .bind(lambda plane: chromaticity_of(config, plane, frame.view, (round(plot.width), round(plot.height))).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
                 .map(lambda reading: GamutPlot.of(metrics, reading, config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(), frame.view.colorspace(config)))
             )
 
@@ -402,7 +402,7 @@ def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: 
             )
 
         return paired(
-            frame.plane(config).bind(lambda plane: Histogram.of(config, plane).map_error(lambda faults: (BlenderImagingFault(faults=faults),))),
+            frame.plane(config).bind(lambda plane: histogram_of(config, plane).map_error(lambda faults: (BlenderImagingFault(faults=faults),))),
             Bands.of(config, frame.view).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
         ).map(plotted)
 

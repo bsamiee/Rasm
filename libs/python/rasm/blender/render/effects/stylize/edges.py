@@ -9,7 +9,9 @@ import msgspec
 from rasm.blender.data.rna.conditions import AllOf, Condition, Setting
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, framed, FrameSpace, item_key, math, menu, node, Operand, Part, pixels, switched, vector
+from rasm.blender.nodes.coordinates import framed, FrameSpace, pixels
+from rasm.blender.nodes.graphs import End, ended, Fragment, math, menu, node, Operand, Part, switched, vector
+from rasm.blender.nodes.interface import item_key
 from rasm.blender.render.effects.stack import CompositorEffect, Coverage, Shell
 from rasm.blender.render.effects.viewers import inspection
 from rasm.blender.render.view_layers.passes import Entity, PassRequest
@@ -67,16 +69,20 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
     """
     record, source, socket = shell.record, shell.source, shell.socket
     entities = read_ids(record)
-    outer = (Edges.outer.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    inner = (Edges.inner.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    paint = (Edges.paint.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-    taper = (Edges.taper.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+    paint_field, outer_field, inner_field, source_field, taper_field, paper = Edges.__struct_fields__
+    _, value = Gated.__struct_fields__
+    outer = (outer_field, value)
+    inner = (inner_field, value)
+    paint = (paint_field, value)
+    taper = (taper_field, value)
 
     def guides(image: Operand, orthographic: Operand) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:
+        depth_field, _, _, _, _ = Outer.__struct_fields__
+        crease, _, contrast_field, _, _ = Inner.__struct_fields__
         key, depth, normals = "guides", shell.layer("Depth"), shell.layer("Normal")
-        depth_gap = socket(*outer, Outer.depth.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-        crease_angle = socket(*inner, Inner.crease.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-        contrast = socket(*inner, Inner.contrast.__name__, Gated.value.__name__)  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+        depth_gap = socket(*outer, depth_field, value)
+        crease_angle = socket(*inner, crease, value)
+        contrast = socket(*inner, contrast_field, value)
         inverse = math(f"{key}_inverse", "DIVIDE", 1.0, depth)
 
         def creases() -> BlenderResult[tuple[Fragment, End]]:
@@ -136,16 +142,21 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
         )
 
     def width(key: str, path: tuple[str, ...], frame: FrameSpace) -> tuple[Part, ...]:
+        size, limit = WorldWidth.__struct_fields__
+        (size_frame,) = FrameWidth.__struct_fields__
         return (
-            math(f"{key}_world", "MULTIPLY", socket(*path, WorldWidth, WorldWidth.size.__name__), End(node="world_scale", socket="Output")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            math(f"{key}_limit", "MINIMUM", End(node=f"{key}_world"), socket(*path, WorldWidth, WorldWidth.limit.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            menu(f"{key}_width", "FLOAT", socket(*path), shell.items[path], {FrameWidth.title: socket(*path, FrameWidth, FrameWidth.size.__name__), WorldWidth.title: End(node=f"{key}_limit")}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            math(f"{key}_world", "MULTIPLY", socket(*path, WorldWidth, size), End(node="world_scale", socket="Output")),
+            math(f"{key}_limit", "MINIMUM", End(node=f"{key}_world"), socket(*path, WorldWidth, limit)),
+            menu(f"{key}_width", "FLOAT", socket(*path), shell.items[path], {FrameWidth.title: socket(*path, FrameWidth, size_frame), WorldWidth.title: End(node=f"{key}_limit")}),
             pixels(f"{key}_pixels", frame, End(node=f"{key}_width", socket="Output")),
             math(f"{key}_tapered", "MULTIPLY", End(node=f"{key}_pixels"), End(node="taper_value", socket="Blue")),
-            switched(f"{key}_reach", "FLOAT", socket(Edges.taper.__name__), End(node=f"{key}_pixels"), End(node=f"{key}_tapered")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            switched(f"{key}_reach", "FLOAT", socket(taper_field), End(node=f"{key}_pixels"), End(node=f"{key}_tapered")),
         )
 
     def drawn(frame: FrameSpace, terms: tuple[tuple[Fragment, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
+        depth_field, objects, ink_outer, width_outer, placement = Outer.__struct_fields__
+        crease_field, materials, contrast_field, ink_inner, width_inner = Inner.__struct_fields__
+        near_field, ramp = Taper.__struct_fields__
         depth, crease, contrast, near = terms
         return Fragment.joined(
             *(
@@ -166,11 +177,11 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
                 )
                 for choice in IdSource
             ),
-            menu("ids", "VECTOR", socket(Edges.source.__name__), shell.items[Edges.source.__name__,], {choice.label: End(node=f"{choice.name.lower()}_ids", socket="Vector") for choice in IdSource}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            menu("ids", "VECTOR", socket(source_field), shell.items[source_field,], {choice.label: End(node=f"{choice.name.lower()}_ids", socket="Vector") for choice in IdSource}),
             node("id", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="ids", socket="Output")}, {}),
             *(
                 part
-                for key, axis, gate in (("objects", "X", socket(*outer, Outer.objects.__name__)), ("materials", "Y", socket(*inner, Inner.materials.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                for key, axis, gate in (("objects", "X", socket(*outer, objects)), ("materials", "Y", socket(*inner, materials)))
                 for part in (
                     node(f"{key}_maximum", bpy.types.CompositorNodeDilateErode, {"Mask": End(node="id", socket=axis), "Size": 1, "Type": "Steps"}, {}),
                     node(f"{key}_minimum", bpy.types.CompositorNodeDilateErode, {"Mask": End(node="id", socket=axis), "Size": -1, "Type": "Steps"}, {}),
@@ -178,9 +189,9 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
                     switched(key, "FLOAT", gate, 0.0, End(node=f"{key}_mark")),
                 )
             ),
-            switched("depth", "FLOAT", socket(*outer, Outer.depth.__name__), 0.0, depth),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            switched("crease", "FLOAT", socket(*inner, Inner.crease.__name__), 0.0, crease),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            switched("contrast", "FLOAT", socket(*inner, Inner.contrast.__name__), 0.0, contrast),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            switched("depth", "FLOAT", socket(*outer, depth_field), 0.0, depth),
+            switched("crease", "FLOAT", socket(*inner, crease_field), 0.0, crease),
+            switched("contrast", "FLOAT", socket(*inner, contrast_field), 0.0, contrast),
             math("outer_core", "MAXIMUM", End(node="depth", socket="Output"), End(node="objects", socket="Output")),
             math("inner_turns", "MAXIMUM", End(node="crease", socket="Output"), End(node="materials", socket="Output")),
             math("inner_terms", "MAXIMUM", End(node="inner_turns"), End(node="contrast", socket="Output")),
@@ -194,11 +205,11 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
             math("focal", "DIVIDE", End(node="render_focal"), shell.scale),
             math("perspective_scale", "MULTIPLY", End(node="focal"), End(node="nearest", socket="Mask")),
             switched("world_scale", "FLOAT", End(node="lens", socket="Is Orthographic"), End(node="perspective_scale"), End(node="focal")),
-            math("taper_position", "MULTIPLY", socket(*taper, Taper.near.__name__), End(node="nearest", socket="Mask"), clamp=True),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            node(item_key(*taper, Taper.ramp.__name__), bpy.types.ShaderNodeValToRGB, {"Fac": End(node="taper_position")}, {}, Some(record.taper.value.ramp)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            node("taper_value", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=item_key(*taper, Taper.ramp.__name__), socket="Color")}, {"mode": "HSV"}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            *width("outer", (*outer, Outer.width.__name__), frame),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            *width("inner", (*inner, Inner.width.__name__), frame),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            math("taper_position", "MULTIPLY", socket(*taper, near_field), End(node="nearest", socket="Mask"), clamp=True),
+            node(item_key(*taper, ramp), bpy.types.ShaderNodeValToRGB, {"Fac": End(node="taper_position")}, {}, Some(record.taper.value.ramp)),
+            node("taper_value", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=item_key(*taper, ramp), socket="Color")}, {"mode": "HSV"}),
+            *width("outer", (*outer, width_outer), frame),
+            *width("inner", (*inner, width_inner), frame),
             *(
                 part
                 for key in ("outer", "inner")
@@ -228,15 +239,15 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
             menu(
                 "placement",
                 "FLOAT",
-                socket(*outer, Outer.placement.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                shell.items[*outer, Outer.placement.__name__],  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                socket(*outer, placement),
+                shell.items[*outer, placement],
                 {Placement.CENTER.label: End(node="outer_center"), Placement.INSIDE.label: End(node="near_sided"), Placement.OUTSIDE.label: End(node="far_sided")},
             ),
             *(
                 part
                 for key, path, ink, coverage, below in (
-                    ("inner", inner, Inner.ink.__name__, End(node="inner_center"), End(node="canvas", socket="Output")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    ("outer", outer, Outer.ink.__name__, End(node="placement", socket="Output"), End(node="inner_drawn", socket="Output")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    ("inner", inner, ink_inner, End(node="inner_center"), End(node="canvas", socket="Output")),
+                    ("outer", outer, ink_outer, End(node="placement", socket="Output"), End(node="inner_drawn", socket="Output")),
                 )
                 for part in (
                     node(f"{key}_smooth", bpy.types.CompositorNodeAntiAliasing, {"Image": coverage}, {}),
@@ -249,12 +260,15 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
         ).map(ended("outer_drawn", "Output"))
 
     def painted(frame: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
+        (size,) = Paint.__struct_fields__
+        _, uniformity, sharpness, eccentricity = Anisotropic.__struct_fields__
+        _, precise = Classic.__struct_fields__
         return Fragment.joined(
             *(
                 part
                 for case in (Anisotropic, Classic)
                 for part in (
-                    pixels(f"{case.__name__.lower()}_size", frame, socket(*paint, case, Paint.size.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    pixels(f"{case.__name__.lower()}_size", frame, socket(*paint, case, size)),
                     node(
                         case.__name__.lower(),
                         bpy.types.CompositorNodeKuwahara,
@@ -263,24 +277,20 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
                             "Type": case.title,
                             "Size": End(node=f"{case.__name__.lower()}_size"),
                             **(
-                                {
-                                    "Uniformity": End(node="uniformity"),
-                                    "Sharpness": socket(*paint, Anisotropic, Anisotropic.sharpness.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                                    "Eccentricity": socket(*paint, Anisotropic, Anisotropic.eccentricity.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                                }
+                                {"Uniformity": End(node="uniformity"), "Sharpness": socket(*paint, Anisotropic, sharpness), "Eccentricity": socket(*paint, Anisotropic, eccentricity)}
                                 if case is Anisotropic
-                                else {"High Precision": socket(*paint, Classic, Classic.precise.__name__)}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                                else {"High Precision": socket(*paint, Classic, precise)}
                             ),
                         },
                         {},
                     ),
                 )
             ),
-            pixels("paint_uniformity", frame, socket(*paint, Anisotropic, Anisotropic.uniformity.__name__)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            pixels("paint_uniformity", frame, socket(*paint, Anisotropic, uniformity)),
             math("uniformity", "ROUND", End(node="paint_uniformity")),
             menu("brush", "RGBA", socket(*paint), shell.items[paint], {case.title: End(node=case.__name__.lower(), socket="Image") for case in (Anisotropic, Classic)}),
-            switched("painted", "RGBA", socket(Edges.paint.__name__), source, End(node="brush", socket="Output")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            switched("canvas", "RGBA", socket(Edges.paper.__name__), End(node="painted", socket="Output"), socket(Edges.paper.__name__, Gated.value.__name__)),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
+            switched("painted", "RGBA", socket(paint_field), source, End(node="brush", socket="Output")),
+            switched("canvas", "RGBA", socket(paper), End(node="painted", socket="Output"), socket(paper, value)),
             node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}),
             node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": End(node="camera", socket="Active Camera")}, {}),
         ).bind(lambda base: guides((base, End(node="painted", socket="Output")), (base, End(node="lens", socket="Is Orthographic"))).bind(lambda terms: drawn(frame, terms)))

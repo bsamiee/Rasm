@@ -20,7 +20,7 @@ from rasm.imaging.color.processors import applied, luma, processor
 from rasm.imaging.effects.generators.noise import Estimate, Precision
 from rasm.imaging.effects.warp.displacement import Displacement, MapReading
 from rasm.imaging.faults import ImagingResult, paired
-from rasm.imaging.files.images import ImageFile
+from rasm.imaging.files.images import ImageFile, read_file
 from rasm.imaging.parameters import Gated
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -70,11 +70,7 @@ def prepared(
     mapping: ImagingResult[Option[npt.NDArray[np.float32]]] = (
         Option
         .of_optional(request.source)
-        .map(
-            lambda path: (
-                ImageFile.read(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA) if request.reading in {MapReading.OFFSETS, MapReading.COORDINATES} else Nothing).bind(converted).map(Some)
-            )
-        )
+        .map(lambda path: read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA) if request.reading in {MapReading.OFFSETS, MapReading.COORDINATES} else Nothing).bind(converted).map(Some))
         .default_value(Ok(Nothing))
         if record.map.enabled
         else Ok(Nothing)

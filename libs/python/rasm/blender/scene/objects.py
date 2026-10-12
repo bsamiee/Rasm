@@ -1,4 +1,4 @@
-"""Desired object state, native stack edits, evaluated bounds, and scoped writes."""
+"""Desired object state, native stack edits, mesh geometry, evaluated bounds, and scoped writes."""
 
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
@@ -12,8 +12,10 @@ from expression.collections import Block
 from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
+import numpy as np
+import numpy.typing as npt
 
-from rasm.blender.commands.operators import Done, Operator
+from rasm.blender.commands.operators import answered, Operator, Outcome
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.conditions import Not, Setting
 from rasm.blender.data.rna.descriptors import Descriptor, written
@@ -317,11 +319,17 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
 
 
 def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
-    """Reconciles structure, then independent value sets, then world placement."""
+    """Reconciles structure, then independent value sets, the placement written as the transform in the parent's frame."""
+    framed = state.placement.map(
+        lambda matrix: Snapshot.of(
+            bpy.types.Object,
+            {"matrix_parent_inverse": tuple(np.eye(4).ravel().tolist()), "location": matrix.to_translation()[:], "rotation_euler": matrix.to_euler()[:], "scale": matrix.to_scale()[:]},
+        )
+    )
 
     def applied(rows: tuple[ObjectChange, ...]) -> BlenderResult[Reconciled]:
         pairs = chain(
-            ((item, values) for values in state.values.to_list()),
+            ((item, values) for values in (*state.values.to_list(), *framed.to_list())),
             (pair for slots in state.material_slots.to_list() for pair in zip(item.material_slots, slots)),
             (
                 (stack[name], values)
@@ -333,20 +341,39 @@ def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.typ
         )
         return accumulated(applied.outcome.map(lambda _: applied) for owner, values in pairs for applied in (values.apply(owner),)).map(lambda counts: Reconciled(changes=rows, applied=counts))
 
-    def placed(done: Reconciled) -> BlenderResult[Reconciled]:
-        for matrix in state.placement.to_list():
-            try:
-                item.matrix_world = matrix
-            except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request=f"{item!r}.matrix_world", error=error),))
-        return Ok(done)
-
     return (
         diverged(state, item, layers)
         .bind(lambda rows: reduce(lambda done, step: done.bind(lambda _: step()), chain.from_iterable(steps(item, row) for row in rows), Ok(None)).map(lambda _: rows))
         .bind(applied)
-        .bind(placed)
     )
+
+
+# --- [GEOMETRY]
+
+
+def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.NDArray[np.int64]) -> BlenderResult[None]:
+    """Writes a mesh's vertices and faces where they differ from its live geometry.
+
+    Args:
+        mesh: Mesh whose geometry is reconciled.
+        vertices: Vertex positions in native float32 storage, one row per vertex.
+        faces: Vertex indices of each face in corner order, one row per face of equal corner count.
+
+    Returns:
+        `Ok` once the live geometry matches; `edit` for a refused rebuild.
+    """
+    live, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.uintc), np.empty(len(mesh.polygons), np.uintc)
+    mesh.vertices.foreach_get("co", live)
+    mesh.loops.foreach_get("vertex_index", corners)
+    mesh.polygons.foreach_get("loop_start", starts)
+    if np.array_equal(live.view(np.uint32), vertices.ravel().view(np.uint32)) and np.array_equal(corners, faces.ravel()) and np.array_equal(starts, np.arange(0, faces.size, faces.shape[1])):
+        return Ok(None)
+    try:
+        mesh.clear_geometry()
+        mesh.from_pydata(vertices, (), faces)
+    except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
+        return Error((BlenderEditFault(request=repr(mesh), error=error),))
+    return Ok(None)
 
 
 # --- [SCOPES]
@@ -376,26 +403,33 @@ def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> Blen
     return targets(scope, context).bind(lambda reached: accumulated(reconciled(state, item, layers) for item, layers in reached))
 
 
-def adjusted(snapshots: tuple[Snapshot, ...], stack: Callable[[bpy.types.Object], Stack], scope: Scope, context: bpy.types.Context) -> BlenderResult[Done]:
-    """Applies snapshots to matching native stack entries while retaining partial undo."""
-    return targets(scope, context).map(
-        lambda reached: Done(
-            skipped=accumulated(
-                snapshot.apply(entry).outcome
-                for item, _ in reached
-                for entry in stack(item)
-                for snapshot in snapshots
-                if entry.bl_rna.identifier == snapshot.struct  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            )
-            .swap()
-            .to_option()
+def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context) -> BlenderResult[Outcome]:
+    """Writes subdivision levels through each Subsurf and Multires modifier's native range function.
+
+    Args:
+        levels: Viewport and render levels.
+        scope: Objects whose modifiers take the levels.
+        context: Context the scope's `targets` reads.
+
+    Returns:
+        `Ok` of `Done` holding the refusals of independent modifiers beside a changed one, `Unchanged` where no modifier in scope takes a new level;
+        the scope's faults, and every modifier's refusals where none changed.
+    """
+    snapshots = {snapshot.struct: snapshot for snapshot in (Snapshot.of(kind, msgspec.structs.asdict(levels)) for kind in (bpy.types.SubsurfModifier, bpy.types.MultiresModifier))}
+
+    return targets(scope, context).bind(
+        lambda reached: answered(
+            Applied.join(
+                tuple(
+                    snapshot.apply(entry)
+                    for item, _ in reached
+                    for entry in item.modifiers
+                    for snapshot in Option.of_optional(snapshots.get(entry.bl_rna.identifier)).to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                )
+            ),
+            "No Subsurf or Multires modifier in scope takes new levels",
         )
     )
-
-
-def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context) -> BlenderResult[Done]:
-    """Writes subdivision levels through each modifier's native range function."""
-    return adjusted(tuple(Snapshot.of(kind, msgspec.structs.asdict(levels)) for kind in (bpy.types.SubsurfModifier, bpy.types.MultiresModifier)), lambda item: item.modifiers, scope, context)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -428,7 +462,6 @@ __all__ = [
     "SubdivisionLevels",
     "Swapped",
     "WorldBounds",
-    "adjusted",
     "descendants",
     "diverged",
     "extent",
@@ -437,6 +470,7 @@ __all__ = [
     "reconciled",
     "restack",
     "restacked",
+    "shaped",
     "spawned",
     "steps",
     "subdivision",

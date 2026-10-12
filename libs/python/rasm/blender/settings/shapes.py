@@ -135,9 +135,7 @@ def bare(kind: native.Type) -> native.Type:
 
 def vector(kind: native.Type) -> bool:
     """Whether a fixed tuple has Blender's shared float-vector shape."""
-    match kind:
-        case native.Metadata(type=inner):
-            return vector(inner)
+    match bare(kind):
         case native.TupleType(item_types=(native.FloatType() as component, *tail)):
             return len(tail) in {1, 2, 3} and all(item == component for item in tail)
         case _:
@@ -227,8 +225,7 @@ def property_fields(record: Record) -> BlenderResult[Fields[PropertyShape]]:
     """Parses a record's native property fields once, omitting graph-owned images, settings, ramps, and knots."""
 
     def omitted(field: msgspec.structs.FieldInfo, kind: native.Type) -> bool:
-        bare = kind.type if isinstance(kind, native.Metadata) else kind
-        form = bare.item_type if isinstance(bare, native.VarTupleType) else bare
+        form = stripped.item_type if isinstance(stripped := bare(kind), native.VarTupleType) else stripped
         return bool({GraphForm.IMAGE, GraphForm.SETTING} & set(markers(field.type, GraphForm))) or (isinstance(form, native.StructType) and (form.cls is Ramp or typing.get_origin(form.cls) is Knot))
 
     fields = msgspec.structs.fields(record)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

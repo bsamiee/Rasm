@@ -6,7 +6,7 @@ from types import GenericAlias
 from typing import Annotated
 
 import bpy
-from expression import Error, Nothing, Ok, Option
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
 from rasm.blender.faults import BlenderEditFault, BlenderReadFault, BlenderResult
@@ -60,11 +60,11 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
 
     # --- [EDITS]
 
-    def replaced[V](self, host: O, write: Callable[[], BlenderResult[V]], moment: datetime.datetime, retention: Retention) -> BlenderResult[V]:
-        """Records an edit's preimage and returns the actual write outcome or its faults."""
+    def replaced[V](self, host: O, write: Callable[[], BlenderResult[Option[V]]], moment: datetime.datetime, retention: Retention) -> BlenderResult[Option[V]]:
+        """Runs an edit and records its preimage when the edit answers a change, returning the edit's answer or its faults."""
 
-        def recorded(pair: tuple[T, History[T]]) -> BlenderResult[None]:
-            """Retains the first preimage of a merged edit and clears the abandoned redo branch."""
+        def recorded(pair: tuple[T, History[T]]) -> BlenderResult[Option[V]]:
+            """Runs the edit, then on a change retains the first preimage of a merged edit and clears the abandoned redo branch."""
             record, history = pair
             merging = (
                 bool(history.past)
@@ -75,9 +75,9 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
                 .default_value(False)
             )
             past = history.past if merging else ((moment, record), *history.past)
-            return self.kept(host, History(past=past[: retention.capacity], moment=moment))
+            return write().bind(lambda change: change.map(lambda _: self.kept(host, History(past=past[: retention.capacity], moment=moment)).map(lambda _: change)).default_value(Ok(change)))
 
-        return paired(self.read(host), self.held(host)).bind(recorded).bind(lambda _: write())
+        return paired(self.read(host), self.held(host)).bind(recorded)
 
     # --- [NAVIGATION]
 
@@ -104,26 +104,27 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
                 else History(past=(current, *history.past)[: retention.capacity], future=history.future)
             )
             answer = self.write(host, target)
-            return paired(answer, self.kept(host, answer.map(lambda _: moved).default_value(failed))).map(lambda _: answer.to_option())
+            return paired(answer, self.kept(host, answer.map(lambda _: moved).default_value(failed))).map(lambda pair: Some(pair[0]))
 
         return paired(self.read(host), self.held(host)).bind(landed)
 
-    def removed(self, host: O, offset: int) -> BlenderResult[None]:
-        """Removes one past or future occurrence by its signed one-based cursor offset."""
+    def removed(self, host: O, offset: int) -> BlenderResult[Option[T]]:
+        """Removes one past or future occurrence by its signed one-based cursor offset, answering the removed value or `Nothing` past either end."""
 
-        def removed(history: History[T]) -> BlenderResult[None]:
+        def dropped(history: History[T]) -> BlenderResult[Option[T]]:
             """Removes the selected occurrence without altering the live value."""
             source = history.past if offset > 0 else history.future
             if not (distance := abs(offset)) or distance > len(source):
-                return Ok(None)
+                return Ok(Nothing)
+            _, value = source[distance - 1]
             return self.kept(
                 host,
                 msgspec.structs.replace(history, past=history.past[: distance - 1] + history.past[distance:], moment=None)
                 if offset > 0
                 else msgspec.structs.replace(history, future=history.future[: distance - 1] + history.future[distance:], moment=None),
-            )
+            ).map(lambda _: Some(value))
 
-        return self.held(host).bind(removed)
+        return self.held(host).bind(dropped)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

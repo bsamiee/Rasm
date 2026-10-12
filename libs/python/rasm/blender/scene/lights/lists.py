@@ -9,9 +9,9 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from rasm.blender.commands.operators import Done, Empty, Operator
-from rasm.blender.data.rna.descriptors import root_in, written
-from rasm.blender.data.rna.snapshots import Scenes, Scope, Snapshot
+from rasm.blender.commands.operators import answered, Done, Empty, Operator, Outcome, Unchanged
+from rasm.blender.data.rna.descriptors import root_in
+from rasm.blender.data.rna.snapshots import Applied, Scenes, Scope, Snapshot
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderResult
@@ -68,26 +68,16 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
             title="Solo Light",
             description="Hide every other emitter of the scene, keeping each one's visibility to restore",
             form=Empty,
-            run=lambda call: (
-                paired(paired(call.root(bpy.types.ViewLayer).bind(focused), call.root(bpy.types.Scene)), LightList.solo.bound(call.identity))
-                .bind(lambda pair: soloed(*pair[0], pair[1]))
-                .map(lambda _: Done())
-            ),
+            run=lambda call: paired(paired(call.root(bpy.types.ViewLayer).bind(focused), call.root(bpy.types.Scene)), LightList.solo.bound(call.identity)).bind(lambda pair: soloed(*pair[0], pair[1])),
         ),
         Operator(
             key="light_unsolo",
             title="Unsolo Lights",
             description="Show every emitter a solo hid as it was",
             form=Empty,
-            run=lambda call: paired(call.root(bpy.types.Scene), LightList.solo.bound(call.identity)).bind(lambda pair: unsoloed(*pair)).map(lambda _: Done()),
+            run=lambda call: paired(call.root(bpy.types.Scene), LightList.solo.bound(call.identity)).bind(lambda pair: unsoloed(*pair)),
         ),
-        Operator(
-            key="light_bulk",
-            title="Multiply Lights",
-            description="Multiply the power and emission of a scope's emitters",
-            form=Bulk,
-            run=lambda call: multiplied(call.record, call.context).map(lambda _: Done()),
-        ),
+        Operator(key="light_bulk", title="Multiply Lights", description="Multiply the power and emission of a scope's emitters", form=Bulk, run=lambda call: multiplied(call.record, call.context)),
         Operator(
             key="emissives_select",
             title="Select Emissive Objects",
@@ -154,7 +144,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> BlenderResult[None]:
+def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> BlenderResult[Outcome]:
     """Hides every other emitter of a scene, storing each one's prior visibility.
 
     Args:
@@ -163,7 +153,7 @@ def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gate
         solo: Bound solo attachment.
 
     Returns:
-        `Ok` once every write landed; `read` for a stored gate the record refuses and the `edit` faults of each refused write.
+        `Ok` of `Done` once every write landed, `Unchanged` where every other emitter is already hidden by a solo; `read` for a stored gate the record refuses and the `edit` faults of each refused write.
     """
 
     def hid(item: bpy.types.Object) -> BlenderResult[None]:
@@ -174,20 +164,18 @@ def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gate
             .map(lambda _: None)
         )
 
+    def edited(rows: tuple[tuple[bpy.types.Object, Gated[Visibility]], ...]) -> BlenderResult[Outcome]:
+        restoring = tuple((item, held.value) for item, held in rows if held.enabled and (item == chosen or item not in reached))
+        hiding = tuple(item for item, held in rows if item in reached and item != chosen and not held.enabled)
+        if not (restoring or hiding):
+            return Ok(Unchanged(reason="Every other emitter is already hidden"))
+        return accumulated((*(_restored(item, prior, solo) for item, prior in restoring), *(hid(item) for item in hiding))).map(lambda _: Done())
+
     reached = frozenset(emitters(scene))
-    return (
-        accumulated(solo.read(item).map(lambda held: (item, held)) for item in scene.objects if item in reached or solo.stored(item))
-        .bind(
-            lambda rows: accumulated((
-                *(_restored(item, held.value, solo) for item, held in rows if held.enabled and (item == chosen or item not in reached)),
-                *(hid(item) for item, held in rows if item in reached and item != chosen and not held.enabled),
-            ))
-        )
-        .map(lambda _: None)
-    )
+    return accumulated(solo.read(item).map(lambda held: (item, held)) for item in scene.objects if item in reached or solo.stored(item)).bind(edited)
 
 
-def unsoloed(scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> BlenderResult[None]:
+def unsoloed(scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> BlenderResult[Outcome]:
     """Writes back the prior visibility of every emitter a solo hid.
 
     Args:
@@ -195,12 +183,18 @@ def unsoloed(scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> Blend
         solo: Bound solo attachment.
 
     Returns:
-        `Ok` once every write landed; `read` for a stored gate the record refuses and the `edit` faults of each refused write.
+        `Ok` of `Done` once every write landed, `Unchanged` where no solo holds an emitter hidden; `read` for a stored gate the record refuses and the `edit` faults of each refused write.
     """
-    return accumulated(solo.read(item).bind(lambda held: _restored(item, held.value, solo) if held.enabled else Ok(None)) for item in scene.objects if solo.stored(item)).map(lambda _: None)
+
+    def edited(rows: tuple[tuple[bpy.types.Object, Gated[Visibility]], ...]) -> BlenderResult[Outcome]:
+        if not (hidden := tuple((item, held.value) for item, held in rows if held.enabled)):
+            return Ok(Unchanged(reason="No solo holds an emitter hidden"))
+        return accumulated(_restored(item, prior, solo) for item, prior in hidden).map(lambda _: Done())
+
+    return accumulated(solo.read(item).map(lambda held: (item, held)) for item in scene.objects if solo.stored(item)).bind(edited)
 
 
-def multiplied(bulk: Bulk, context: bpy.types.Context) -> BlenderResult[None]:
+def multiplied(bulk: Bulk, context: bpy.types.Context) -> BlenderResult[Outcome]:
     """Multiplies the power and emission strength of a scope's emitters.
 
     Args:
@@ -208,23 +202,24 @@ def multiplied(bulk: Bulk, context: bpy.types.Context) -> BlenderResult[None]:
         context: Context the scope's `owners` reads.
 
     Returns:
-        `Ok` once every write landed; `absent` for a missing scope name and `edit` or `choice` per refused write.
+        `Ok` of `Done` holding the refusals of independent writes beside a changed value, `Unchanged` where no light or unlinked emission strength in scope takes a new
+        value; `absent` for a missing scope name and `edit` or `choice` per refused write where none changed.
     """
 
-    def powered(data: bpy.types.Light) -> BlenderResult[None]:
+    def powered(data: bpy.types.Light) -> Applied:
         energy: float = data.path_resolve("energy")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         values = {"energy": energy * bulk.factor, **({"use_temperature": True, "temperature": bulk.temperature.value} if bulk.temperature.enabled else {})}
-        return Snapshot.of(type(data), values).apply(data).outcome
+        return Snapshot.of(type(data), values).apply(data)
 
-    def edited(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> BlenderResult[None]:
+    def edited(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> BlenderResult[Outcome]:
         items = tuple(dict.fromkeys(item for owner in reached for item in emitters(owner)))
         lights = dict.fromkeys(data for item in items if isinstance(data := item.data, bpy.types.Light))
         materials = dict.fromkeys(material for item in items for slot in item.material_slots if (material := slot.material) is not None)
-        sockets = dict.fromkeys(socket for material in materials for socket in strengths(material))
-        return accumulated((
-            *(powered(data) for data in lights),
-            *(written(socket, "default_value", socket.default_value * bulk.factor) for socket in sockets if not any(link.is_valid and not link.is_muted for link in socket.links)),  # type: ignore[union-attr]  # ty: ignore[not-iterable]
-        )).map(lambda _: None)
+        sockets = dict.fromkeys(socket for material in materials for socket in strengths(material) if not any(link.is_valid and not link.is_muted for link in socket.links))  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+        return answered(
+            Applied.join((*(powered(data) for data in lights), *(Snapshot.of(type(socket), {"default_value": socket.default_value * bulk.factor}).apply(socket) for socket in sockets))),
+            "No light or unlinked emission strength in scope takes a new value",
+        )
 
     return bulk.scope.owners(context).bind(edited)
 

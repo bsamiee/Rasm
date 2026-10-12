@@ -9,10 +9,10 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from mathutils import Vector
 import msgspec
 
-from rasm.blender.commands.operators import Call, Done, Empty, Operator
+from rasm.blender.commands.operators import answered, Call, Empty, Operator, Outcome
 from rasm.blender.data.rna.conditions import AllOf, Count, Setting
 from rasm.blender.data.rna.descriptors import Descriptor
-from rasm.blender.data.rna.snapshots import Applied, NativeValue, Snapshot
+from rasm.blender.data.rna.snapshots import NativeValue, Snapshot
 from rasm.blender.extension.events.handlers import PathHandler
 from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions
@@ -153,7 +153,12 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
         def back(kept: Growing | Grown) -> BlenderResult[None]:
             match kept:
                 case Grown():
-                    return paired(Snapshot.decoded(kept.before), Snapshot.decoded(kept.after)).bind(lambda pair: Snapshot.restore(*pair).outcome).bind(lambda _: self.held.removed(scene))
+                    return (
+                        paired(Snapshot.decoded(kept.before), Snapshot.decoded(kept.after))
+                        .bind(lambda pair: Snapshot.restore(*pair).outcome)
+                        .bind(lambda _: self.held.removed(scene))
+                        .map(lambda _: None)
+                    )
                 case Growing():
                     return Error((BlenderAbsentFault(owner=repr(scene), key=f"{self.held.name}.after"),))
 
@@ -161,20 +166,17 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [REGIONS_AND_READINGS]
 
-    def bordered(self, scene: bpy.types.Scene, region: Region) -> BlenderResult[Done]:
+    def bordered(self, scene: bpy.types.Scene, region: Region) -> BlenderResult[Outcome]:
         """Writes a new region with the scene's existing crop preference."""
         extent = msgspec.structs.replace(region, crop=scene.render.use_crop_to_border)
-        return (
-            self
-            .read(scene)
-            .bind(lambda framing: settings(msgspec.structs.replace(framing, extent=extent), scene.render.ppm_base).apply(scene.render).outcome)
-            .map(lambda _: Done(notes=(("INFO", "Render region set"),)))
+        return self.read(scene).bind(
+            lambda framing: answered(
+                settings(msgspec.structs.replace(framing, extent=extent), scene.render.ppm_base).apply(scene.render), "Render region already covers that area", (("INFO", "Render region set"),)
+            )
         )
 
-    def selected(self, call: Call[Empty]) -> BlenderResult[Done]:
+    def selected(self, call: Call[Empty]) -> BlenderResult[Outcome]:
         """Projects selected bounds into the camera frame or returns the missing-view requirement."""
-        if (scene := (call.context.scene)) is None:
-            return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
 
         def projected(camera: bpy.types.Object, scene: bpy.types.Scene) -> Option[Region]:
             points = tuple(
@@ -193,9 +195,11 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 else Nothing
             )
 
-        return Result[Region, BlenderFaults].bind(
-            Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(lambda: (BlenderUnmetFault(requirement=Unseen()),)),
-            lambda region: self.bordered(scene, region),
+        return call.root(bpy.types.Scene).bind(
+            lambda scene: Result[Region, BlenderFaults].bind(
+                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(lambda: (BlenderUnmetFault(requirement=Unseen()),)),
+                lambda region: self.bordered(scene, region),
+            )
         )
 
     def caption(self, context: bpy.types.Context) -> Option[str]:
@@ -309,17 +313,16 @@ def settings(framing: Framing, ppm_base: float) -> Snapshot:
     return Snapshot.of(bpy.types.RenderSettings, {member: getattr(framing, member) for member in FrameSize.members} | {"ppm_factor": framing.density * ppm_base} | extent)
 
 
-def safe(scene: bpy.types.Scene, areas: SafeAreas) -> BlenderResult[Applied]:
-    """Writes native safe-area fields or returns their independent write refusals."""
-    applied = Snapshot.of(bpy.types.DisplaySafeAreas, msgspec.structs.asdict(areas)).apply(scene.safe_areas)
-    return applied.outcome.map(lambda _: applied)
-
-
-def broadcasted(call: Call[Standard]) -> BlenderResult[Done]:
+def broadcasted(call: Call[Standard]) -> BlenderResult[Outcome]:
     """Writes the selected broadcast margins or returns native refusals."""
-    if (scene := (call.context.scene)) is None:
-        return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-    return safe(scene, SafeAreas.broadcast(call.record.standard)).map(lambda _: Done(notes=(("INFO", f"Safe areas for {call.record.standard.label}"),)))
+    label = call.record.standard.label
+    return call.root(bpy.types.Scene).bind(
+        lambda scene: answered(
+            Snapshot.of(bpy.types.DisplaySafeAreas, msgspec.structs.asdict(SafeAreas.broadcast(call.record.standard))).apply(scene.safe_areas),
+            f"Safe areas already hold {label}",
+            (("INFO", f"Safe areas for {label}"),),
+        )
+    )
 
 
 def duration(context: bpy.types.Context) -> Option[str]:
@@ -346,13 +349,12 @@ safe_listing = Listing(
         .bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: Snapshot.capture(scene.safe_areas))
         .map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
     ),
-    applied=lambda context, value: (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: value.apply(scene.safe_areas).outcome)
-        .map(lambda _: Done())
+    applied=lambda context, value: Result[bpy.types.Scene, BlenderFaults].bind(
+        Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
+        lambda scene: answered(value.apply(scene.safe_areas), "Safe areas already hold this preset"),
     ),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FrameSize", "Framed", "Growing", "Grown", "Oversize", "Standard", "Unseen", "broadcasted", "capacity", "duration", "safe", "safe_broadcast", "safe_listing", "safe_presets", "settings"]
+__all__ = ["FrameSize", "Framed", "Growing", "Grown", "Oversize", "Standard", "Unseen", "broadcasted", "capacity", "duration", "safe_broadcast", "safe_listing", "safe_presets", "settings"]

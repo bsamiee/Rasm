@@ -16,7 +16,7 @@ from expression.extra.result import catch
 import msgspec
 
 from rasm.blender.commands.calls import called
-from rasm.blender.commands.operators import Call, Done, Empty, Operator, Suppressible
+from rasm.blender.commands.operators import Call, Done, Empty, Operator, Outcome, Suppressible, tallied, Unchanged
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.conditions import AllOf, existing, Not, Setting
 from rasm.blender.data.rna.descriptors import Descriptor, Value, written
@@ -91,6 +91,11 @@ class Rename(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     before: str
     requested: str
     stored: str
+
+    @classmethod
+    def field(cls, node: bpy.types.Node, prop: bpy.types.StringProperty, before: str, requested: str) -> Self:
+        """Edit of a node string member, its stored spelling cut to the member's byte capacity."""
+        return cls(node=node, owner=node, prop=prop, before=before, requested=requested, stored=requested.encode()[: prop.length_max - 1].decode(errors="ignore") if prop.length_max else requested)
 
 
 class NodePaths(msgspec.Struct, frozen=True, kw_only=True):
@@ -330,12 +335,7 @@ def planned(nodes: Iterable[bpy.types.Node], record: Replace) -> BlenderResult[t
             for prop in Option.of_optional(item.bl_rna.name_property).to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
         before, held = tuple(getattr(node, prop.identifier) for prop in texts), tuple(getattr(item, prop.identifier) for item, prop in items)
-        fields = accumulated(substituted(pattern, text) for text in before).map(
-            lambda asked: tuple(
-                Rename(node=node, owner=node, prop=prop, before=text, requested=request, stored=request.encode()[: prop.length_max - 1].decode(errors="ignore") if prop.length_max else request)
-                for prop, text, request in zip(texts, before, asked)
-            )
-        )
+        fields = accumulated(substituted(pattern, text) for text in before).map(lambda asked: tuple(Rename.field(node, prop, text, request) for prop, text, request in zip(texts, before, asked)))
         named = accumulated(substituted(pattern, name) for name in held).map(
             lambda asked: tuple(
                 Rename(node=node, owner=item, prop=prop, before=text, requested=request, stored=stored) for (item, prop), text, request, stored in zip(items, held, asked, settled(asked, held))
@@ -364,36 +364,38 @@ def previewed(context: bpy.types.Context, record: Replace) -> str:
     )
 
 
-def applied(renames: tuple[Rename, ...]) -> Done:
-    """Frees renamed items before final writes, preserving swaps and every native refusal."""
+def applied(renames: tuple[Rename, ...], unmatched: str) -> BlenderResult[Outcome]:
+    """Writes the renames whose stored spelling differs, freeing renamed items first so swaps hold, and answers the refused writes beside the written ones, every refusal where none wrote, or the reason none differs."""
+    if not (edits := tuple(rename for rename in renames if rename.stored != rename.before)):
+        return Ok(Unchanged(reason=unmatched))
     taken = {
-        *(rename.before for rename in renames),
-        *(rename.requested for rename in renames),
-        *(rename.stored for rename in renames),
-        *(item.name for rename in renames if isinstance(rename.node, bpy.types.CompositorNodeOutputFile) for item in rename.node.file_output_items),
+        *(rename.before for rename in edits),
+        *(rename.requested for rename in edits),
+        *(rename.stored for rename in edits),
+        *(item.name for rename in edits if isinstance(rename.node, bpy.types.CompositorNodeOutputFile) for item in rename.node.file_output_items),
     }
-    placeholders = accumulated(
+    forced = tuple(rename for rename in edits if rename.stored != rename.requested)
+    return accumulated(
         written(rename.owner, rename.prop.identifier, next(f"{index}{'_' * number}" for number in count() if f"{index}{'_' * number}" not in taken))
-        for index, rename in enumerate(renames)
+        for index, rename in enumerate(edits)
         if rename.owner is not rename.node
-    )
-    answer = placeholders.bind(lambda _: accumulated(written(rename.owner, rename.prop.identifier, rename.stored) for rename in renames))
-    forced = tuple(rename for rename in renames if rename.stored != rename.requested)
-    return Done(
-        notes=(
-            ("INFO", f"Replaced {len(renames)} fields across {len({rename.node.name for rename in renames})} nodes"),
-            *(((("WARNING", f"Blender stores {forced[0].requested} as {forced[0].stored}; {len(forced)} names changed spelling"),)) if forced else ()),
-        ),
-        skipped=answer.swap().to_option(),
+    ).bind(
+        lambda _: tallied(
+            tuple(written(rename.owner, rename.prop.identifier, rename.stored) for rename in edits),
+            (
+                ("INFO", f"Replaced {len(edits)} fields across {len({rename.node.name for rename in edits})} nodes"),
+                *((("WARNING", f"Blender stores {forced[0].requested} as {forced[0].stored}; {len(forced)} names changed spelling"),) if forced else ()),
+            ),
+        )
     )
 
 
-def bumped(call: Call[Bump]) -> BlenderResult[Done]:
+def bumped(call: Call[Bump]) -> BlenderResult[Outcome]:
     """Plans every version edit and uses the same swap-safe native rename operation."""
     match call.context.active_node:
         case bpy.types.CompositorNodeOutputFile() as node:
             fields = tuple(
-                Rename(node=node, owner=node, prop=prop, before=before, requested=text, stored=text.encode()[: prop.length_max - 1].decode(errors="ignore") if prop.length_max else text)
+                Rename.field(node, prop, before, text)
                 for prop in node.bl_rna.properties
                 if isinstance(prop, bpy.types.StringProperty) and prop.is_path_supports_templates
                 for before in (getattr(node, prop.identifier),)
@@ -407,7 +409,7 @@ def bumped(call: Call[Bump]) -> BlenderResult[Done]:
                 for (item, prop), before, request, stored in zip(named, held, moved, settled(moved, held))
                 if request != before
             )
-            return Ok(applied((*fields, *items))) if fields or items else Ok(Done(notes=(("INFO", "No version token in the node's paths"),)))
+            return applied((*fields, *items), "No version token in the node's paths")
         case _:
             return Error((BlenderAbsentFault(owner="bpy.context", key="active_node"),))
 
@@ -462,7 +464,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
         condition=Some(AllOf(conditions=edited)),
         icon=Some("FILE_REFRESH"),
         form=Replace,
-        run=lambda call: planned(call.context.selected_nodes, call.record).map(applied),
+        run=lambda call: planned(call.context.selected_nodes, call.record).bind(lambda renames: applied(renames, "No selected path holds the find text")),
         invoke=Some(Suppressible(message=previewed, width=400)),
     )
 

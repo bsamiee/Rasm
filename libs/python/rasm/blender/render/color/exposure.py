@@ -36,7 +36,7 @@ from rasm.imaging.parameters import Gated, Presentation
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Consume = Callable[[Identity, bpy.types.SceneCompositorEffect, ImageFile[np.float32]], BlenderResult[Option[str]]]
+type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile[np.float32]], BlenderResult[Option[str]]]
 
 
 class Gain(Protocol):
@@ -51,8 +51,8 @@ class Gain(Protocol):
         """Returns the earliest owned exposure entry's absolute stops."""
         ...
 
-    def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[None]:
-        """Writes absolute stops into the earliest owned entry."""
+    def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[bool]:
+        """Writes absolute stops into the earliest owned entry, answering whether a native value changed."""
         ...
 
 
@@ -111,18 +111,16 @@ class Exposing(msgspec.Struct, frozen=True, kw_only=True):
     gain: Gain
     title: ClassVar[str] = "Meter Exposure"
 
-    def consumed(self, identity: Identity, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-        """Writes absolute metered stops and names one undo step when samples exist."""
-        match entry.id_data:
-            case bpy.types.Scene() as scene:
-                return paired(self.stack.config(), self.attached.read(scene)).bind(
-                    lambda pair: Result[Option[float], BlenderFaults].bind(
-                        pair[1].meter.stops(pair[0], file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-                        lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + pair[1].bias).map(lambda _: Some(self.title))).default_with(lambda: Ok(Nothing)),
-                    )
-                )
-            case _:
-                return Error((BlenderAbsentFault(owner=repr(entry), key="id_data"),))
+    def consumed(self, identity: Identity, scene: bpy.types.Scene, _entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
+        """Writes absolute metered stops and names one undo step when the stops changed."""
+        return paired(self.stack.config(), self.attached.read(scene)).bind(
+            lambda pair: Result[Option[float], BlenderFaults].bind(
+                pair[1].meter.stops(pair[0], file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_with(
+                    lambda: Ok(Nothing)
+                ),
+            )
+        )
 
     def stepped(self, handle: Handle[bpy.types.Scene], target: float) -> BlenderResult[Option[str]]:
         """Moves enabled following toward a target beyond its dead band without undo."""

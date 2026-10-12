@@ -8,7 +8,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 import PyOpenColorIO
 
-from rasm.blender.commands.operators import Done
+from rasm.blender.commands.operators import answered
 from rasm.blender.data.rna.snapshots import Applied, Snapshot
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderResult
 from rasm.blender.settings.presets import Preset
@@ -251,10 +251,9 @@ format_listing = Listing(
         .bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: Snapshot.capture(scene.render.image_settings))
         .map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
     ),
-    applied=lambda context, value: (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: value.apply(scene.render.image_settings).outcome)
-        .map(lambda _: Done())
+    applied=lambda context, value: Result[bpy.types.Scene, BlenderFaults].bind(
+        Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
+        lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds this preset"),
     ),
 )
 

@@ -12,16 +12,17 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 
-from rasm.blender.commands.operators import Call, Done, Empty, Operator
+from rasm.blender.commands.operators import Call, Done, Empty, Operator, Unchanged
 from rasm.blender.data.ids.ownership import earliest, Mark, Ownership, Saved
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.descriptors import Value, written
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
-from rasm.blender.nodes.graphs import End, ended, Fragment, Graph, Loaded, mixed, node, Operand, reconciling
-from rasm.blender.scene.materials import tree_of
-from rasm.blender.settings.attachments import Attachment
+from rasm.blender.nodes.changes import reconciled
+from rasm.blender.nodes.graphs import End, ended, Fragment, Graph, Loaded, mixed, node, Operand
+from rasm.blender.nodes.trees import tree_of
+from rasm.blender.settings.attachments import Attachment, reconciling
 from rasm.blender.settings.properties import Choices, Definition
 from rasm.blender.ui.layout.rows import Member, OperatorButton, Property
 from rasm.blender.ui.layout.sections import Hosted, Section, Single, Store
@@ -185,7 +186,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         """Reconciles the latest stored record without adding an undo step."""
         return (
             paired(world.resolve().bind(tree_of), WorldEnvironment.attachment.bound(identity))
-            .bind(lambda pair: pair[1].read(pair[0]).bind(world_graph).bind(lambda graph: graph.reconciled(pair[0], identity)))
+            .bind(lambda pair: pair[1].read(pair[0]).bind(world_graph).bind(lambda graph: reconciled(graph, pair[0], identity)))
             .map(lambda _: Nothing)
         )
 
@@ -219,7 +220,12 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         title="Restore World",
         description="Show the world the owned environment replaced",
         form=Empty,
-        run=lambda call: call.root(bpy.types.Scene).bind(lambda scene: reverted(WorldEnvironment.ownership, scene, call.identity)).map(lambda _: Done()),
+        run=lambda call: (
+            call
+            .root(bpy.types.Scene)
+            .bind(lambda scene: reverted(WorldEnvironment.ownership, scene, call.identity))
+            .map(lambda change: change.map(lambda _: Done()).default_value(Unchanged(reason="The scene shows no owned environment")))
+        ),
     )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
@@ -367,7 +373,7 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
                     .bind(
                         lambda world: (
                             tree_of(world)
-                            .bind(lambda tree: attached.write(tree, environment).bind(lambda _: graph.reconciled(tree, identity)))
+                            .bind(lambda tree: attached.write(tree, environment).bind(lambda _: reconciled(graph, tree, identity)))
                             .bind(lambda _: written(scene, "world", world))
                             .map(lambda _: world)
                         )
@@ -378,15 +384,15 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
         )
 
 
-def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int]:
-    """Restores the marked predecessor and removes unused worlds of the caller's row."""
+def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: Identity) -> BlenderResult[Option[int]]:
+    """Restores the marked predecessor and removes unused worlds of the caller's row, answering their count or `Nothing` where the scene shows no world of the row."""
     return (
         Option
         .of_optional(scene.world)
         .bind(lambda world: Mark.read(identity, world))
         .filter(lambda mark: mark.key == row.key)
-        .map(lambda mark: written(scene, "world", mark.of.to_optional()).map(lambda _: row.removed(identity)))
-        .default_with(lambda: Ok(0))
+        .map(lambda mark: written(scene, "world", mark.of.to_optional()).map(lambda _: Some(row.removed(identity))))
+        .default_with(lambda: Ok(Nothing))
     )
 
 

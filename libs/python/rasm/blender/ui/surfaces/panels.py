@@ -180,9 +180,6 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
             shared = {**members(at, mark), "bl_owner_id": identity.package}
 
             def poll(_cls: type[bpy.types.Panel], context: bpy.types.Context) -> bool:
-                if isinstance(at, Sidebar):
-                    for icons in Option.of_optional(Icons.held.get(identity.package)).to_list():
-                        icons.refresh()
                 return site.condition.map(lambda condition: holds(condition, context)).default_value(True)
 
             def classed(drawing: Drawing, placing: dict[str, object], header: tuple[RowDraw, ...] = ()) -> type[bpy.types.Panel]:

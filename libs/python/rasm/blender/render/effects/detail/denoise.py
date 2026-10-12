@@ -3,7 +3,6 @@
 from collections.abc import Callable
 import functools
 from itertools import starmap
-from operator import or_
 from typing import ClassVar, Self
 
 import bpy
@@ -17,31 +16,9 @@ from rasm.blender.data.rna.conditions import Setting
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Key
 from rasm.blender.faults import BlenderResult
-from rasm.blender.nodes.graphs import (
-    compared,
-    described,
-    End,
-    ended,
-    Fragment,
-    gridded,
-    INPUTS,
-    Interface,
-    item_key,
-    Loaded,
-    masked,
-    math,
-    menu,
-    MenuItems,
-    mixed,
-    nested,
-    node,
-    NodeGroup,
-    Operand,
-    PixelGrid,
-    Socket,
-    switched,
-    vector,
-)
+from rasm.blender.nodes.coordinates import gridded, PixelGrid
+from rasm.blender.nodes.graphs import compared, End, ended, Fragment, INPUTS, Loaded, masked, math, menu, mixed, nested, node, NodeGroup, Operand, switched, vector
+from rasm.blender.nodes.interface import described, Interface, item_key, MenuItems, Socket
 from rasm.blender.render.color.spaces import COLOR_INPUT, COLOR_RESULT
 from rasm.blender.render.effects.compositing.masks import luminance
 from rasm.blender.render.effects.stack import CompositorEffect, KeyPath, Shell
@@ -95,14 +72,19 @@ class Filters(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls) -> Self:
         """Derives paths from the record's native slot and term metadata."""
-        target = (SpatialDenoise.target.__name__,)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        fireflies, target_field = SpatialDenoise.__struct_fields__
+        (filter_frame,) = Frame.__struct_fields__
+        terms, occlusion = Passes.__struct_fields__
+        (filter_groups,) = Groups.__struct_fields__
+        _, value = Gated.__struct_fields__
+        target = (target_field,)
         return cls(
             target=target,
-            fireflies=(SpatialDenoise.fireflies.__name__,),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            frame=(*target, Frame, Frame.filter.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            terms=Terms(**{field.name: (*target, Passes, Passes.terms.__name__, field.name, Gated.value.__name__) for field in structs.fields(Terms[Gated[Filter]])}),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-            occlusion=(*target, Passes, Passes.occlusion.__name__, Gated.value.__name__),  # type: ignore[attr-defined, misc]  # ty: ignore[invalid-attribute-access, unresolved-attribute]
-            groups=(*target, Groups, Groups.filter.__name__),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            fireflies=(fireflies,),
+            frame=(*target, Frame, filter_frame),
+            terms=Terms(**{name: (*target, Passes, terms, name, value) for name in Terms.__struct_fields__}),
+            occlusion=(*target, Passes, occlusion, value),
+            groups=(*target, Groups, filter_groups),
         )
 
     @property
@@ -265,8 +247,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
         The unit group with filtered and noisy outputs, or accumulated graph faults.
     """
     image = End(node=INPUTS, socket=COLOR_INPUT.key)
-    fireflies = item_key(SpatialDenoise.fireflies.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    guides = next(field for field in structs.fields(Filter) if field.name == Filter.guides.__name__)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    fireflies, _ = SpatialDenoise.__struct_fields__
     joint = Guides.ALBEDO_NORMAL.label
     ring = tuple((float(dx), float(dy), 0.0) for dy in range(-2, 3) for dx in range(-2, 3) if max(abs(dx), abs(dy)) == 2)
     rank = 4
@@ -318,12 +299,15 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
 
         initial: tuple[frozenset[int], frozenset[int]] = frozenset({selected}), frozenset()
         _, needed = functools.reduce(marked, reversed(tuple(enumerate(pairs))), initial)
-        inputs = functools.reduce(or_, (body for body, _, _ in values), Fragment())
         ends = tuple((value, valid) for _, value, valid in values)
         made: tuple[tuple[int, tuple[End, End], tuple[End, End]], ...] = ()
         wires, made = functools.reduce(connected, enumerate(pairs), (ends, made))
         value, _ = wires[selected]
-        return accumulated(comparator(index, low, high) for index, low, high in made if index in needed).map(lambda parts: (functools.reduce(or_, parts, inputs), value))
+        return (
+            accumulated(comparator(index, low, high) for index, low, high in made if index in needed)
+            .bind(lambda parts: Fragment.merged((*(body for body, _, _ in values), *parts)))
+            .map(lambda joined: (joined, value))
+        )
 
     def sample(grid: PixelGrid, luminance: Operand, index: int, offset: tuple[float, float, float]) -> BlenderResult[tuple[Fragment, End, End]]:
         key = f"ring_{index}"
@@ -345,10 +329,11 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
         ).map(lambda body: (body, End(node=key, socket="Image"), End(node=f"{key}_valid")))
 
     def limited(luminance: Operand, fourth: Operand, enough: Operand) -> BlenderResult[tuple[Fragment, End]]:
+        _, value = Gated.__struct_fields__
         return Fragment.joined(
             math("ratio", "DIVIDE", fourth, luminance),
             paired(
-                math("limit", "MULTIPLY", fourth, End(node=INPUTS, socket=item_key(fireflies, Gated.value.__name__))).bind(lambda limit: math("spike", "GREATER_THAN", luminance, limit)),  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+                math("limit", "MULTIPLY", fourth, End(node=INPUTS, socket=item_key(fireflies, value))).bind(lambda limit: math("spike", "GREATER_THAN", luminance, limit)),
                 compared("lit", "GREATER_EQUAL", luminance, 0.0001),
             )
             .bind(lambda flags: math("positive_spike", "MULTIPLY", *flags))
@@ -366,6 +351,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
         return accumulated(sample(grid, luminance, index, offset) for index, offset in enumerate(ring)).bind(scaled)
 
     def cleaned(scale: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
+        guides, prefilter, quality = structs.fields(Filter)
         routes = {
             "Image": mixed("despeckled", "RGBA", 1.0, image, scale, "MULTIPLY").bind(lambda despeckled: switched("fireflies", "RGBA", End(node=INPUTS, socket=fireflies), image, despeckled)),
             "Albedo": menu(
@@ -383,7 +369,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
                 lambda ends: node(
                     "denoise",
                     bpy.types.CompositorNodeDenoise,
-                    {**dict(zip(routes, ends)), "HDR": True, "Prefilter": End(node=INPUTS, socket=Filter.prefilter.__name__), "Quality": End(node=INPUTS, socket=Filter.quality.__name__)},  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    {**dict(zip(routes, ends)), "HDR": True, "Prefilter": End(node=INPUTS, socket=prefilter.name), "Quality": End(node=INPUTS, socket=quality.name)},
                     {},
                 )
             )
@@ -412,11 +398,9 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
 
 def unit(key: Key, group: NodeGroup, path: KeyPath, socket: Callable[[Key], End], source: Operand, pair: Pair) -> BlenderResult[tuple[Fragment, End]]:
     """Builds one unit from its filter path, guide ends, and firefly controls."""
-    fireflies = SpatialDenoise.fireflies.__name__  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    controls = {
-        **{field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)},
-        **{held: socket(held) for held in (item_key(fireflies), item_key(fireflies, Gated.value.__name__))},  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-    }
+    fireflies, _ = SpatialDenoise.__struct_fields__
+    _, value = Gated.__struct_fields__
+    controls = {**{field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)}, **{held: socket(held) for held in (fireflies, item_key(fireflies, value))}}
     return nested(key, group, {COLOR_INPUT.key: source, "albedo": pair.albedo, "normal": pair.normal, **controls}, COLOR_RESULT.key)
 
 
@@ -442,22 +426,22 @@ def denoised(shell: Shell[SpatialDenoise]) -> BlenderResult[tuple[Fragment, End]
     """
     paths, pair = Filters.of(), Pair.of(shell.layer, Nothing)
 
-    def joined(parts: tuple[tuple[Fragment, End], Fragment]) -> tuple[Fragment, End]:
+    def joined(parts: tuple[tuple[Fragment, End], Fragment]) -> BlenderResult[tuple[Fragment, End]]:
         (body, end), others = parts
-        return body | others, end
+        return Fragment.merged((body, others)).map(lambda held: (held, end))
 
     def targeted(frame: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
         body, result = frame
         target = item_key(*paths.target)
         return menu(target, "RGBA", shell.socket(*paths.target), shell.items[paths.target], {Frame.title: frame, Passes.title: shell.source, Groups.title: shell.source}).bind(
-            lambda selected: Fragment.joined(switched(_FRAME_BASE.node, "RGBA", End(node=target, socket=Frame.title), shell.source, (body, End(node=result.node, socket="noisy")))).map(
+            lambda selected: Fragment.joined(switched(_FRAME_BASE.node, "RGBA", End(node=target, socket=Frame.title), shell.source, (body, End(node=result.node, socket="noisy")))).bind(
                 lambda baseline: joined((selected, baseline))
             )
         )
 
     def built(group: NodeGroup) -> BlenderResult[tuple[Fragment, End]]:
         frame, *rest = (unit(item_key(*path), group, path, shell.socket, shell.source, pair) for path in paths.filters)
-        return paired(frame.bind(targeted), Fragment.joined(*rest)).map(joined)
+        return paired(frame.bind(targeted), Fragment.joined(*rest)).bind(joined)
 
     return luminance(shell.config).bind(denoiser).bind(built)
 

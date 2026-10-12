@@ -14,7 +14,9 @@ from rasm.blender.data.rna.animation import Animation
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity, Key
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
-from rasm.blender.nodes.graphs import compared, End, ended, Fragment, framed, FrameSpace, masked, math, mixed, nested, node, NodeGroup, Operand, Part, pixels, Socket
+from rasm.blender.nodes.coordinates import framed, FrameSpace, pixels
+from rasm.blender.nodes.graphs import compared, End, ended, Fragment, masked, math, mixed, nested, node, NodeGroup, Operand, Part
+from rasm.blender.nodes.interface import Socket
 from rasm.blender.render.effects.compositing.masks import luminance
 from rasm.blender.render.effects.stack import CompositorEffect, entries, keyed_product, Shell
 from rasm.imaging.analysis.metering import Samples
@@ -41,14 +43,15 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
 
     def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, _record: Effect) -> BlenderResult[tuple[Animation, ...]]:
         """Keys the opacity-weighted gain of later exposure entries."""
-        return keyed_product(identity, scene, entry, self.record, Exposure.stops.__name__, self.gain.key, np.exp2)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        (stops,) = Exposure.__struct_fields__
+        return keyed_product(identity, scene, entry, self.record, stops, self.gain.key, np.exp2)
 
     def stops(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[float]:
         """Returns the earliest exposure, or zero when the scene has no gain entry."""
         return self.current(identity, scene).map(lambda held: held.map(lambda record: record.stops).default_value(0.0))
 
-    def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[None]:
-        """Writes absolute stops while retaining the entry's blend and masks."""
+    def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[bool]:
+        """Writes absolute stops while retaining the entry's blend and masks, answering whether a native value changed."""
         entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(next(iter(entries(identity, scene, self.record)), None)).to_result_with(
             lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.record.__name__),)
         )
@@ -62,7 +65,8 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
 
 def exposed(shell: Shell[Exposure]) -> BlenderResult[tuple[Fragment, End]]:
     """Scales the entering RGB by two to the exposure stops, keeping alpha."""
-    return node("gain", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": shell.socket(Exposure.stops.__name__)}, {}).map(ended("gain", "Image"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    (stops,) = Exposure.__struct_fields__
+    return node("gain", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": shell.socket(stops)}, {}).map(ended("gain", "Image"))
 
 
 def localized(source: Operand, working: NodeGroup, frame: FrameSpace, highlights: Operand, shadows: Operand, clarity: Operand) -> BlenderResult[tuple[Fragment, End]]:
@@ -136,7 +140,7 @@ local_exposure = CompositorEffect(
     record=LocalExposure,
     straight=True,
     graph=lambda shell: paired(luminance(shell.config), framed("frame_space", shell.source, shell.aspect, shell.scale)).bind(
-        lambda pair: localized(shell.source, *pair, *(shell.socket(field) for field in (LocalExposure.highlights.__name__, LocalExposure.shadows.__name__, LocalExposure.clarity.__name__)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        lambda pair: localized(shell.source, *pair, *(shell.socket(field) for field in LocalExposure.__struct_fields__))
     ),
 )
 

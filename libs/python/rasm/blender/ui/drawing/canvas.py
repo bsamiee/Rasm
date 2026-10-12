@@ -1,10 +1,10 @@
 """Native drawing policy, region geometry, text, and cached GPU primitives."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from enum import Enum
 import functools
-from typing import Final, Self
+from typing import ClassVar, Final, Self
 
 import blf
 import bpy
@@ -180,11 +180,8 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         """Draws an antialiased rounded frame with premultiplied composition."""
         shader, quad = rounded()
         shader.bind()
-        shader.uniform_float("rect", (rect.x, rect.y, rect.width, rect.height))
-        shader.uniform_float("fill", fill)
-        shader.uniform_float("edge", edge)
-        shader.uniform_float("radius", radius)
-        shader.uniform_float("edgeWidth", self.metrics.line(1.0))
+        box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 16, (rect.x, rect.y, rect.width, rect.height, *fill, *edge, radius, self.metrics.line(1.0), 0.0, 0.0)))
+        shader.uniform_block("box", box)
         blend = gpu.state.blend_get()
         gpu.state.blend_set("ALPHA_PREMULT")
         try:
@@ -204,38 +201,60 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             quad.draw(shader)
 
 
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class Programs(msgspec.Struct, frozen=True):
+    """GPU programs compiled at first draw, released with the registration that draws them."""
+
+    releases: ClassVar[list[Callable[[], None]]] = []
+
+    def __enter__(self) -> None:
+        """Leaves each program to its first draw."""
+
+    def __exit__(self, *_: object) -> None:
+        """Drops every compiled program while Blender's GPU module still holds a context."""
+        for release in Programs.releases:
+            release()
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@functools.cache
+def compiled[T](build: Callable[[], T]) -> Callable[[], T]:
+    """Caches a GPU program builder until `Programs` releases it."""
+    cached = functools.cache(build)
+    Programs.releases.append(cached.cache_clear)
+    return cached
+
+
+@compiled
 def rounded() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
     """Builds the rounded-frame shader and unit quad in the draw context."""
-    vertex = "void main() { local = pos * rect.zw; gl_Position = ModelViewProjectionMatrix * vec4(rect.xy + local, 0.0, 1.0); }"
+    vertex = "void main() { local = pos * box.rect.zw; gl_Position = ModelViewProjectionMatrix * vec4(box.rect.xy + local, 0.0, 1.0); }"
     fragment = (
         DECODED
         + """
 void main() {
-    vec2 half_size = 0.5 * rect.zw;
-    vec2 q = abs(local - half_size) - half_size + radius;
-    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+    vec2 half_size = 0.5 * box.rect.zw;
+    vec2 q = abs(local - half_size) - half_size + box.widths.x;
+    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - box.widths.x;
     float pixel = fwidth(d);
     float inside = clamp(0.5 - d / pixel, 0.0, 1.0);
-    float rim = clamp(0.5 + (d + edgeWidth) / pixel, 0.0, 1.0) * edge.a;
-    float body = fill.a * (1.0 - rim);
-    fragColor = vec4(targeted(edge.rgb) * rim + targeted(fill.rgb) * body, rim + body) * inside;
+    float rim = clamp(0.5 + (d + box.widths.y) / pixel, 0.0, 1.0) * box.edge.a;
+    float body = box.fill.a * (1.0 - rim);
+    fragColor = vec4(targeted(box.edge.rgb) * rim + targeted(box.fill.rgb) * body, rim + body) * inside;
 }
 """
     )
     interface = gpu.types.GPUStageInterfaceInfo("rasm_rounded")
     interface.smooth("VEC2", "local")
     info = gpu.types.GPUShaderCreateInfo()
+    info.typedef_source("struct RoundedBox { vec4 rect; vec4 fill; vec4 edge; vec4 widths; };")
+    info.uniform_buf(0, "RoundedBox", "box")
     info.vertex_in(0, "VEC2", "pos")
     info.vertex_out(interface)
     info.push_constant("MAT4", "ModelViewProjectionMatrix")
-    for name in ("rect", "fill", "edge"):
-        info.push_constant("VEC4", name)
-    for name in ("radius", "edgeWidth"):
-        info.push_constant("FLOAT", name)
     info.push_constant("BOOL", "srgbTarget")
     info.fragment_out(0, "VEC4", "fragColor")
     info.vertex_source(vertex)
@@ -244,7 +263,7 @@ void main() {
     return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})
 
 
-@functools.cache
+@compiled
 def textured() -> gpu.types.GPUBatch:
     """Returns one cached floating-point position/UV quad for image shaders."""
     return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
@@ -253,4 +272,4 @@ def textured() -> gpu.types.GPUBatch:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DECODED", "QUAD", "Align", "Canvas", "Rect", "Shadow", "rounded", "textured"]
+__all__ = ["DECODED", "QUAD", "Align", "Canvas", "Programs", "Rect", "Shadow", "compiled", "rounded", "textured"]

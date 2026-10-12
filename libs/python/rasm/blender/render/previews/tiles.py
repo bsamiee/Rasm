@@ -21,7 +21,7 @@ from rasm.blender.extension.events.handlers import PathHandler, SceneHandler, Up
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions, Band
 from rasm.blender.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
-from rasm.blender.nodes.graphs import fingerprinted
+from rasm.blender.nodes.trees import fingerprinted
 from rasm.blender.render.color.luts import Enabled
 from rasm.blender.render.effects.stack import EffectStack, viewed
 from rasm.blender.render.outputs.exports import plane

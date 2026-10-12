@@ -9,7 +9,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from rasm.blender.commands.operators import Done, Empty, Operator
+from rasm.blender.commands.operators import Empty, Operator, Outcome, tallied, Unchanged
 from rasm.blender.data.ids.ownership import Mark, Ownership, Saved
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.data.rna.snapshots import Applied, Snapshot
@@ -122,8 +122,13 @@ class FreestyleSection(Line, frozen=True):
         """
 
         def built(members: LineMembers) -> tuple[LineMembers, Listing[Freestyle], Operator[Empty]]:
-            def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Done]:
-                return accumulated(applied(value, layer, identity, members) for layer in layers).map(lambda _: Done())
+            def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Outcome]:
+                def wrote(current: tuple[Freestyle, ...]) -> BlenderResult[Outcome]:
+                    if not (differing := tuple(layer for layer, held in zip(layers, current, strict=True) if held != value)):
+                        return Ok(Unchanged(reason="No used view layer differs from these lines"))
+                    return tallied(tuple(applied(value, layer, identity, members) for layer in differing))
+
+                return accumulated(captured(layer, members) for layer in layers).bind(wrote)
 
             def used(scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
                 return tuple(layer for layer in scene.view_layers if bool(members.use.read(layer)))

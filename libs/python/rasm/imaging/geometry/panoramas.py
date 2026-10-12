@@ -305,7 +305,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
     roll: Annotated[Turn, msgspec.Meta(description="Counterclockwise turn of the view about its axis")] = 0.0
 
     @property
-    def rotation(self) -> "Rotation[tuple[()]]":
+    def rotation(self) -> Rotation[tuple[()]]:
         """Native rotation taking view rays to panorama rays."""
         return Rotation.from_euler("YXZ", (-self.heading, self.elevation, self.roll))
 

@@ -1,0 +1,373 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-done-without-change
+language: python
+severity: error
+files:
+    - libs/python/rasm/blender/**/*.py
+    - apps/blender/**/*.py
+utils:
+    operators-module:
+        matches: {python-submodule: {parent: {regex: '^rasm\.blender\.commands$'}, child: {regex: '^operators$'}}}
+    faults-module:
+        matches: {python-submodule: {parent: {regex: '^rasm\.imaging$'}, child: {regex: '^faults$'}}}
+    descriptors-module:
+        matches: {python-submodule: {parent: {regex: '^rasm\.blender\.data\.rna$'}, child: {regex: '^descriptors$'}}}
+    done-class:
+        any:
+            - matches: {python-member-use: {module: {regex: '^rasm\.blender\.commands\.operators$'}, name: {regex: '^Done$'}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^Done$'}
+                - has: {field: object, matches: operators-module}
+    ok-class:
+        matches: {python-member-use: {module: {regex: '^expression(\.core(\.result)?)?$'}, name: {regex: '^Ok$'}}}
+    accumulated-function:
+        any:
+            - matches: {python-member-use: {module: {regex: '^rasm\.imaging\.faults$'}, name: {regex: '^accumulated$'}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^accumulated$'}
+                - has: {field: object, matches: faults-module}
+    reduce-function:
+        matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^reduce$'}}}
+    ok-done:
+        kind: call
+        all:
+            - has: {field: function, matches: ok-class}
+            - has: {field: arguments, kind: argument_list, not: {has: {nthChild: 2}}}
+    branch-block:
+        kind: block
+        any:
+            - inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, pattern: $CAUSE}}
+            - inside: {kind: else_clause, field: body, inside: {kind: if_statement, has: {field: condition, pattern: $CAUSE}}}
+            - inside: {kind: case_clause, field: consequence, inside: {kind: block, inside: {kind: match_statement, has: {field: subject, pattern: $CAUSE}}}}
+    option-root:
+        any:
+            - kind: call
+              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(map|bind|filter|or_else)$'}}, {has: {field: object, matches: option-root}}]}
+            - pattern: $CAUSE
+    defaulted:
+        kind: call
+        has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(default_value|default_with)$'}}, {has: {field: object, matches: option-root}}]}
+    branch-answer:
+        all:
+            - matches: ok-done
+            - any:
+                - inside: {kind: return_statement, inside: {matches: branch-block}}
+                - all:
+                    - not: {nthChild: 2}
+                    - inside: {kind: conditional_expression, has: {nthChild: 2, pattern: $CAUSE}}
+                - inside: {kind: argument_list, inside: {matches: defaulted}}
+                - inside: {kind: lambda, field: body, inside: {kind: argument_list, inside: {matches: defaulted}}}
+            - not:
+                any:
+                    - inside:
+                        kind: lambda
+                        stopBy: {kind: 'function_definition, class_definition'}
+                        has: {field: parameters, regex: '^_\w*$'}
+                        inside: {kind: argument_list, inside: &step {kind: call, has: {field: function, kind: attribute, has: {field: attribute, regex: '^(bind|map)$'}}}}
+                    - inside:
+                        kind: function_definition
+                        stopBy: {kind: function_definition}
+                        has: {field: name, pattern: $BODY}
+                        inside:
+                            kind: 'function_definition, class_definition, module'
+                            stopBy: end
+                            has: {stopBy: end, kind: identifier, pattern: $BODY, inside: {kind: argument_list, inside: *step}}
+    truth-test:
+        any:
+            - kind: 'identifier, attribute, subscript, named_expression'
+            - kind: 'not_operator, boolean_operator, parenthesized_expression'
+              not: {has: {pattern: $_, not: {matches: truth-test}}}
+    tested-answer:
+        any:
+            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, matches: truth-test}}}}
+            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: else_clause, inside: {kind: if_statement, has: {field: condition, matches: truth-test}}}}}
+            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: case_clause, has: {kind: case_pattern, regex: '^_$'}}}}
+            - inside: {kind: conditional_expression, has: {nthChild: 2, matches: truth-test}}
+            - inside: {kind: argument_list, inside: {matches: defaulted}}
+            - inside: {kind: lambda, field: body, inside: {kind: argument_list, inside: {matches: defaulted}}}
+    reason-note:
+        has:
+            field: arguments
+            has:
+                kind: keyword_argument
+                all:
+                    - has: {field: name, regex: '^notes$'}
+                    - has:
+                        field: value
+                        kind: tuple
+                        all:
+                            - has: {kind: tuple, has: {nthChild: 1, kind: string, regex: '^"INFO"$'}}
+                            - not: {has: {nthChild: 2}}
+    truth-position:
+        any:
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - inside: {kind: 'not_operator, boolean_operator, parenthesized_expression', matches: truth-position}
+            - inside: {kind: named_expression, field: name, matches: truth-position}
+            - inside:
+                kind: argument_list
+                inside:
+                    kind: call
+                    has: {field: function, regex: '^len$'}
+                    any: [{matches: truth-position}, {inside: {kind: comparison_operator, matches: truth-position}}]
+            - all: [{inside: {kind: conditional_expression}}, {nthChild: 2}]
+    tested-name:
+        inside:
+            kind: function_definition
+            stopBy: {kind: function_definition}
+            has: {stopBy: {kind: 'function_definition, class_definition'}, kind: identifier, pattern: $SET, matches: truth-position}
+    starred-rest:
+        inside:
+            kind: function_definition
+            stopBy: {kind: function_definition}
+            has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: list_splat_pattern, has: {kind: identifier, pattern: $SET}}
+    filtered-value:
+        any:
+            - kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+              any:
+                - has: {kind: if_clause}
+                - has: {kind: for_in_clause, has: {field: right, matches: empty-source}}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(tuple|list|set|frozenset|sorted|reversed|dict|dict\.fromkeys)$'}
+                - any:
+                    - has: {field: arguments, kind: generator_expression, matches: filtered-value}
+                    - has: {field: arguments, kind: argument_list, has: {nthChild: 1, matches: empty-source}}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(filter|(itertools\.)?(filterfalse|compress|takewhile|dropwhile))$'}
+                - has:
+                    field: function
+                    any:
+                        - matches: {python-builtin-name: {name: {regex: '^filter$'}}}
+                        - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^(filterfalse|compress|takewhile|dropwhile)$'}}}
+            - kind: parenthesized_expression
+              has: {matches: filtered-value}
+    filtered-name:
+        kind: identifier
+        pattern: $SET
+        all:
+            - any:
+                - matches: {python-assigned-name: {value: {matches: filtered-value}}}
+                - matches: starred-rest
+                - matches: destructured-name
+            - not: {matches: tested-name}
+    splitting-def:
+        kind: function_definition
+        has: {field: body, has: {kind: return_statement, has: {kind: expression_list, not: {has: {pattern: $_, not: {matches: filtered-value}}}}}}
+    destructured-name:
+        inside:
+            kind: function_definition
+            stopBy: &scope {kind: 'function_definition, class_definition'}
+            has:
+                stopBy: *scope
+                kind: assignment
+                all:
+                    - has: {field: left, kind: 'pattern_list, tuple_pattern', has: {kind: identifier, pattern: $SET}}
+                    - has: {field: right, kind: call, has: {field: function, kind: identifier, pattern: $SPLITTER}}
+                    - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $SPLITTER}}, {matches: splitting-def}]}}
+    filtering-def:
+        kind: function_definition
+        has: {field: body, has: {kind: return_statement, has: {matches: filtered-value}}}
+    filtered-helper:
+        kind: call
+        any:
+            - all:
+                - has: {field: function, kind: identifier, pattern: $HELPER}
+                - inside: {kind: 'block, module', stopBy: end, has: {stopBy: *scope, kind: function_definition, all: [{has: {field: name, pattern: $HELPER}}, {matches: filtering-def}]}}
+                - not: {inside: {kind: 'block, module', stopBy: end, has: {stopBy: *scope, kind: function_definition, all: [{has: {field: name, pattern: $HELPER}}, {not: {matches: filtering-def}}]}}}
+            - all:
+                - has: {field: function, kind: attribute, has: {field: attribute, pattern: $HELPER}}
+                - inside:
+                    kind: module
+                    stopBy: end
+                    has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $HELPER}}, {inside: {kind: class_definition, stopBy: end}}, {matches: filtering-def}]}
+    open-selection:
+        kind: attribute
+        has: {field: attribute, regex: '^selected(_\w+)?$'}
+        inside:
+            kind: call
+            stopBy: end
+            all:
+                - has: {field: function, regex: '^(\w+\.)?Operator(\[.+\])?$'}
+                - not: {has: {field: arguments, has: {kind: keyword_argument, has: {field: name, regex: '^condition$'}}}}
+    empty-source:
+        any:
+            - kind: call
+              has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: attribute, regex: '^to_(list|seq)$'}
+                    - not: {has: {field: object, kind: identifier, pattern: $ANSWER, inside: {kind: lambda, stopBy: *scope, has: {field: parameters, has: {kind: identifier, pattern: $ANSWER}}}}}
+            - matches: filtered-value
+            - matches: filtered-name
+            - matches: filtered-helper
+            - matches: open-selection
+            - kind: 'tuple, list'
+              all:
+                - has: {kind: list_splat}
+                - not: {has: {pattern: $_, not: {kind: list_splat, has: {matches: empty-source}}}}
+            - kind: call
+              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(items|values|keys)$'}}, {has: {field: object, matches: empty-source}}]}
+    empty-set:
+        pattern: $CAUSE
+        matches: empty-source
+    empty-walk:
+        kind: generator_expression
+        any:
+            - has: {kind: for_in_clause, has: {field: right, matches: empty-set}}
+            - has: {kind: if_clause, has: {pattern: $CAUSE}}
+    traversal:
+        kind: call
+        any:
+            - all:
+                - has: {field: function, matches: accumulated-function}
+                - has: {field: arguments, matches: empty-walk}
+            - all:
+                - has: {field: function, matches: reduce-function}
+                - has: {field: arguments, kind: argument_list, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: empty-set}}
+    walked:
+        any:
+            - matches: traversal
+            - kind: call
+              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(bind|map)$'}}, {has: {field: object, matches: walked}}]}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^bind$'}}
+                - has: {field: arguments, has: {kind: lambda, all: [{has: {field: parameters, not: {regex: '^_\w*$'}}}, {has: {field: body, matches: walked}}]}}
+            - kind: parenthesized_expression
+              has: {matches: walked}
+    snapshot-applied:
+        kind: call
+        has: {field: function, kind: attribute, has: {field: attribute, regex: '^(apply|restore)$'}}
+    outcome-read:
+        kind: attribute
+        pattern: $CAUSE
+        all:
+            - has: {field: attribute, regex: '^outcome$'}
+            - has:
+                field: object
+                any:
+                    - matches: snapshot-applied
+                    - kind: parenthesized_expression
+                      has: {kind: named_expression, has: {field: value, matches: snapshot-applied}}
+    history-class:
+        matches: {python-member-use: {module: {regex: '^rasm\.blender\.settings\.history$'}, name: {regex: 'History$'}}}
+    history-constructed:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: history-class
+                - kind: subscript
+                  has: {field: value, matches: history-class}
+    change-answer:
+        kind: call
+        pattern: $CAUSE
+        any:
+            - has:
+                field: function
+                regex: 'written$'
+                any:
+                    - matches: {python-member-use: {module: {regex: '^rasm\.blender\.data\.rna\.descriptors$'}, name: {regex: '^written$'}}}
+                    - kind: attribute
+                      all:
+                        - has: {field: attribute, regex: '^written$'}
+                        - has: {field: object, matches: descriptors-module}
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^apply_all$'}}
+            - has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: attribute, regex: '^stepped$'}
+                    - has:
+                        field: object
+                        any:
+                            - matches: history-constructed
+                            - kind: identifier
+                              matches: {python-assigned-name: {value: {matches: history-constructed}}}
+    applying-def:
+        kind: function_definition
+        has: {field: return_type, regex: '^(BlenderResult\[)?(tuple\[)?Applied\b'}
+    applier-call:
+        kind: call
+        pattern: $CAUSE
+        all:
+            - has: {field: function, kind: identifier, pattern: $APPLIER}
+            - inside: {kind: 'block, module', stopBy: end, has: {stopBy: *scope, kind: function_definition, all: [{has: {field: name, pattern: $APPLIER}}, {matches: applying-def}]}}
+            - not: {inside: {kind: 'block, module', stopBy: end, has: {stopBy: *scope, kind: function_definition, all: [{has: {field: name, pattern: $APPLIER}}, {not: {matches: applying-def}}]}}}
+    discarded:
+        any:
+            - matches: outcome-read
+            - matches: applier-call
+            - matches: change-answer
+            - kind: call
+              all:
+                - has: {field: function, matches: accumulated-function}
+                - has: {field: arguments, kind: generator_expression, has: {field: body, matches: discarded}}
+                - not: {has: {field: arguments, has: {kind: for_in_clause, has: {field: right, kind: identifier, pattern: $SET, matches: tested-name}}}}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^bind$'}}
+                - has: {field: arguments, has: {kind: lambda, has: {field: body, matches: discarded}}}
+            - kind: parenthesized_expression
+              has: {matches: discarded}
+    written-count:
+        kind: attribute
+        pattern: $CAUSE
+        all:
+            - has: {field: attribute, regex: '^written$'}
+            - not: {inside: {kind: call, field: function}}
+            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^len$'}}}
+rule:
+    kind: call
+    all:
+        - inside: {kind: module, stopBy: end, regex: 'rasm\.blender\.commands'}
+        - has: {field: function, matches: done-class}
+        - any:
+            - all:
+                - inside: {kind: argument_list, inside: {matches: branch-answer}}
+                - any:
+                    - matches: reason-note
+                    - inside: {kind: argument_list, inside: {matches: tested-answer}}
+            - has:
+                field: arguments
+                has:
+                    kind: keyword_argument
+                    all:
+                        - has: {field: name, regex: '^notes$'}
+                        - has:
+                            field: value
+                            any:
+                                - kind: conditional_expression
+                                  all: [{has: {kind: tuple, regex: '^\(\s*\)$'}}, {has: {nthChild: 2, pattern: $CAUSE}}]
+                                - all:
+                                    - has: {stopBy: end, matches: written-count}
+                                    - not:
+                                        inside:
+                                            kind: 'function_definition, module'
+                                            stopBy: {kind: function_definition}
+                                            has: {stopBy: *scope, kind: attribute, pattern: $CAUSE, matches: truth-position}
+            - has: {field: arguments, has: {stopBy: end, matches: outcome-read}}
+            - inside:
+                kind: lambda
+                field: body
+                inside:
+                    kind: argument_list
+                    inside:
+                        kind: call
+                        has:
+                            field: function
+                            kind: attribute
+                            all:
+                                - has: {field: attribute, regex: '^map$'}
+                                - has: {field: object, any: [{matches: walked}, {matches: discarded}]}
+            - inside:
+                kind: argument_list
+                inside:
+                    matches: ok-done
+                    inside: {kind: return_statement, follows: {stopBy: end, kind: for_statement, has: {field: right, matches: empty-set}}}
+message: '`Done` answers `FINISHED` where `$CAUSE` leaves nothing written. `FINISHED` pushes an empty undo step and retargets Adjust Last Operation and Repeat Last from the previous edit'
+note: 'Answer `Unchanged(reason=<reason>)` in place of `Done` when a work set tested before any write is empty or a write answers no change (empty `Applied.written`, `Nothing`). `finished` reports the reason as `INFO` and answers `CANCELLED`'

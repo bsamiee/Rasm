@@ -16,7 +16,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 from rasm.imaging.chain import Effect, GREY, Stage
 from rasm.imaging.color.processors import unassociated
 from rasm.imaging.effects.generators import noise
-from rasm.imaging.effects.generators.noise import Basis, Cut, Estimate, Interpolation, Octaves, Perlin, Precision, Profile, sample, uniforms
+from rasm.imaging.effects.generators.noise import Basis, Cut, Estimate, estimated, Interpolation, Octaves, Perlin, Precision, Profile, sample, uniforms
 from rasm.imaging.effects.generators.particles import Population
 from rasm.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingResult, paired
 from rasm.imaging.geometry.stmaps import Extension, StMap
@@ -463,7 +463,7 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                     return Error((ImagingBufferFault(request=image, error=answer.geterror()),)) if answer.has_error else Ok(answer)
 
                 def published(observations: npt.NDArray[np.float64]) -> ImagingResult[Estimate[tuple[OpenImageIO.ImageBuf, OpenImageIO.ImageBuf, OpenImageIO.ImageBuf]]]:
-                    estimate = Estimate.of(observations, precision)
+                    estimate = estimated(observations, precision)
                     return accumulated(located(plane) for plane in (estimate.value[..., :channels], estimate.value[..., channels : channels + 2], estimate.value[..., channels + 2 :])).map(
                         lambda buffers: Estimate(value=(buffers[0], buffers[1], buffers[2]), standard_error=estimate.standard_error, precision=precision, replicates=estimate.replicates)
                     )
