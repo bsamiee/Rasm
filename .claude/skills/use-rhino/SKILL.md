@@ -5,16 +5,51 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 
 # [USE_RHINO]
 
-This skill provides guidance for properly and effectively working in Rhino and Grasshopper using the `rhino-mcp-platform` server
+Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, with every application left in the background.
 
-## [01]-[SHARED_PROCESS]
+## [01]-[TOOL_INDEX]
 
-All calls leave the application in the background, never brought to the foreground. Only start the application with approved options below, depending on task: 1a. New work: use `spawn_slot` to start a new Rhino process, skips splash and uses default template 1b. Existing work: `open -g <file>` opens the file in Rhino
+| [INDEX] | [TOOL]                                           | [USE_WHEN]                                                       |
+| :-----: | :----------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `mcp__rhino-mcp-platform__list_slots`            | "Which Rhino slots does the router run or adopt?"                |
+|  [02]   | `mcp__rhino-mcp-platform__spawn_slot`            | "Start a new Rhino document for this task"                       |
+|  [03]   | `mcp__rhino-mcp-platform__close_slot`            | "Close a slot this task spawned"                                 |
+|  [04]   | `mcp__rhino-mcp-platform__get_context`           | "What selection, viewport, document, and canvas state is live?"  |
+|  [05]   | `mcp__rhino-mcp-platform__list_objects`          | "Which objects match this name, layer, or geometry type?"        |
+|  [06]   | `mcp__rhino-mcp-platform__get_selection`         | "What is selected?"                                              |
+|  [07]   | `mcp__rhino-mcp-platform__set_selection`         | "Select these ids, names, layer, or geometry type"               |
+|  [08]   | `mcp__rhino-mcp-platform__get_viewport_image`    | "What does the viewport show?" / "Frame this box and capture it" |
+|  [09]   | `mcp__rhino-mcp-platform__set_camera`            | "Place the active viewport camera"                               |
+|  [10]   | `mcp__rhino-mcp-platform__zoom_to_layer`         | "Fit the view to this layer"                                     |
+|  [11]   | `mcp__rhino-mcp-platform__zoom_to_object`        | "Fit the view to these objects"                                  |
+|  [12]   | `mcp__rhino-mcp-platform__set_layer_material`    | "Set this layer's render material and display color"             |
+|  [13]   | `mcp__rhino-mcp-platform__get_commands`          | "Which command name does this need?"                             |
+|  [14]   | `mcp__rhino-mcp-platform__run_command`           | "Run this Rhino command string"                                  |
+|  [15]   | `mcp__rhino-mcp-platform__run_csharp`            | "Read or edit the document where no tool or command covers it"   |
+|  [16]   | `mcp__rhino-mcp-platform__open_doc`              | "Import a file into the current document"                        |
+|  [17]   | `mcp__rhino-mcp-platform__save_doc`              | "Write the document to this .3dm path"                           |
+|  [18]   | `mcp__rhino-mcp-platform__close_doc`             | "Close the document, saving to a path or discarding"             |
+|  [19]   | `mcp__rhino-mcp-platform__ask_user`              | "Ask the user a decision only they can make"                     |
+|  [20]   | `mcp__rhino-mcp-platform__g2_start`              | "Start Grasshopper 2"                                            |
+|  [21]   | `mcp__rhino-mcp-platform__g2_search_components`  | "Which component matches these words?"                           |
+|  [22]   | `mcp__rhino-mcp-platform__g2_describe_component` | "What inputs and outputs does this component take?"              |
+|  [23]   | `mcp__rhino-mcp-platform__g2_apply_graph`        | "Place sliders and components, wire them, and solve in one call" |
+|  [24]   | `mcp__rhino-mcp-platform__g2_place_component`    | "Place one component"                                            |
+|  [25]   | `mcp__rhino-mcp-platform__g2_place_slider`       | "Place one number slider"                                        |
+|  [26]   | `mcp__rhino-mcp-platform__g2_connect`            | "Wire one output to one input"                                   |
+|  [27]   | `mcp__rhino-mcp-platform__g2_connect_many`       | "Wire a batch of outputs to inputs"                              |
+|  [28]   | `mcp__rhino-mcp-platform__g2_delete_component`   | "Delete one component"                                           |
+|  [29]   | `mcp__rhino-mcp-platform__g2_get_canvas_graph`   | "What does the canvas hold, and what data flows on each wire?"   |
+|  [30]   | `mcp__rhino-mcp-platform__g2_solve_canvas`       | "Did the canvas solve, and which components failed?"             |
+|  [31]   | `mcp__rhino-mcp-platform__g2_clear_canvas`       | "Remove every object from the canvas"                            |
+
+## [02]-[SESSION]
+
+Sessions open on:
+1. `spawn_slot` starts a document for new work, skipping the splash and using the default template, or `open -g <file>` opens an existing file in Rhino
 2. `dotnet run "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/Instances.cs"` lists each running Rhino with its documents, slots, and Grasshopper definitions
+3. `get_context` reads the target slot's selection, viewport, document, and canvas state
 
-- One Rhino application holds every open document, each `spawn_slot` adds a document window to it
+- One Rhino application holds every open document, and each `spawn_slot` adds a document window to it
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`
-
-## [02]-[SCRIPTS]
-
-- Code Rhino runs is C# 10 through `run_csharp`, one call per application (one main-thread queue), `#r "<assembly>"` below line 1
+- `run_csharp` runs C# 10, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1
