@@ -1,10 +1,7 @@
 import { Array, Effect, Schema, type SchemaAST, SchemaIssue, SchemaParser, Struct } from 'effect';
+import isEmail from 'validator/lib/isEmail.js';
 import { AssetCollection, Id } from './asset.ts';
 import { Assets, Composition, Placement } from './placement.ts';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const emptyPortfolio = { name: '', introduction: '', email: '', entries: [] } as const satisfies typeof StoredPortfolio.Type;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +17,13 @@ const Entry = Schema.Struct({
     cover: Schema.optionalKey(Placement),
     compositions: Schema.Array(Composition),
 });
-const PortfolioStructure = Schema.Struct({ name: Schema.String, introduction: Schema.String, email: Schema.String, hero: Schema.optionalKey(Placement), entries: Schema.Array(Entry) });
+const PortfolioStructure = Schema.Struct({
+    name: Schema.String,
+    introduction: Schema.String,
+    email: Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'a complete email address or an empty field' })),
+    hero: Schema.optionalKey(Placement),
+    entries: Schema.Array(Entry),
+});
 const uniqueIds = Schema.makeFilter((document: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
     [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
         new Set(ids).size === ids.length ? [] : [{ path, issue: 'Each item needs a unique ID' }],
@@ -57,4 +60,4 @@ const createEntry = (id: string, kind: typeof Entry.Type.kind): typeof Entry.Typ
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Bootstrap, createEntry, Entry, emptyPortfolio, Portfolio, PortfolioData, placements, Session, StoredPortfolio };
+export { Bootstrap, createEntry, Entry, Portfolio, PortfolioData, placements, Session, StoredPortfolio };

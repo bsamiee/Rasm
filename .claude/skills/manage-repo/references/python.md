@@ -74,7 +74,6 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Selected modules enter packaging as wheel-relative arguments, package membership supplies no import inventory
 - First-party imports use `from rasm.<module> import <member>` for relocation into private extension packages
 - Blender supplies extension identity as `bl_ext.<repo>.<id>`, extension-local imports use relative paths within that package
-- Native uv export supplies locked runtime requirements through a staged `pylock.toml`, root `uv.lock` remains committed
 - Selected Blender interpreter's markers and wheel tags govern `pip wheel` compatibility
 - Root uv constraint rows whose markers hold for Blender's interpreter name the bundled ABI providers export omits
 - Installation matches running GUI Blender processes to the executable `BLENDER_PATH` resolves by file identity and to the installing process's `BLENDER_USER_*` profile

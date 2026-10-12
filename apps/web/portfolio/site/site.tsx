@@ -39,8 +39,8 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
             <a className="fixed -top-[100px] left-5 z-[100] bg-background p-[15px] focus:top-2.5" href="#work">
                 Skip to work
             </a>
-            <header className="mx-(--page-gutter) flex min-h-[92px] items-center justify-between gap-7 border-line border-b py-[18px] max-md:min-h-[76px] max-md:gap-5">
-                <a className="wrap-anywhere flex min-w-0 max-w-[45%] items-center gap-5 text-[27px] leading-[1.1] tracking-[-0.04em] max-md:max-w-[65%]" href="#top">
+            <header className="site-header">
+                <a className="site-name" href="#top">
                     {portfolio.name || 'Portfolio'}
                     <Plus className="size-9 shrink-0 stroke-2 text-accent" nonScalingStroke={true} />
                 </a>
@@ -106,11 +106,11 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                     </div>
                 )}
             </StickyBar>
-            <div className="@container mr-(--page-gutter) ml-[calc(var(--page-gutter)+var(--index-width)+var(--index-gap))] max-w-[1800px] max-md:mx-(--page-gutter) xl:mr-[6%]">
+            <div className="site-content">
                 <main>
-                    <section className="@container grid @min-[60rem]:grid-cols-2 grid-cols-1 items-end gap-8 pt-12 max-md:pt-[30px]">
+                    <section className="site-introduction">
                         <div className="min-w-0">
-                            <h1 className="wrap-anywhere mb-8 font-medium @min-[60rem]:text-[clamp(4rem,8cqw,7.5rem)] text-[clamp(4rem,calc(2rem+12cqw),11.5rem)] leading-[0.91] tracking-[-0.055em]">
+                            <h1 className="site-title">
                                 Selected
                                 <br />
                                 <span>
@@ -141,7 +141,7 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         )}
                     </section>
                     {/* biome-ignore lint/correctness/useUniqueElementIds: Public #work fragment links and history entries target this section */}
-                    <section className="pt-[82px] pb-[72px] outline-none max-md:py-[60px]" id="work" ref={work} tabIndex={-1}>
+                    <section className="site-work" id="work" ref={work} tabIndex={-1}>
                         <div className="border-foreground border-t pt-[19px]">
                             <h2 className={populated ? 'font-medium text-sm' : 'text-[clamp(1.875rem,calc(1rem+3cqw),4rem)] leading-[1.05] tracking-[-0.045em]'}>Projects and studies</h2>
                         </div>
@@ -154,7 +154,7 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         )}
                     </section>
                 </main>
-                <footer className="flex items-center justify-between gap-6 border-line border-t pt-6 pb-8 text-sm max-sm:flex-wrap max-sm:gap-x-6 max-sm:gap-y-2">
+                <footer className="site-footer">
                     {Boolean(portfolio.name) && <span className="wrap-anywhere min-w-0 max-sm:w-full">{portfolio.name}</span>}
                     {Boolean(portfolio.email) && (
                         <a className="plain-link" href={`mailto:${portfolio.email}`}>

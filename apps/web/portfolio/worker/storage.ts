@@ -1,11 +1,10 @@
 import { D1Client } from '@effect/sql-d1';
 import { Effect, flow, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';
-import { SqlSchema } from 'effect/sql';
-import { contentEtag } from '../db/digest.ts';
+import { findAll, findOne } from 'effect/sql/SqlSchema';
 import { PendingUpload } from '../model/api.ts';
 import type { Asset } from '../model/asset.ts';
-import { unavailable } from './database.ts';
+import { portfolioReferences, unavailable } from './database.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -13,37 +12,36 @@ import { unavailable } from './database.ts';
 const beginUpload = Effect.fn('beginUpload')(
     function* (asset: typeof Asset.Type, attemptId: string, keys: readonly string[]) {
         const sql = yield* D1Client.D1Client;
-        const body = JSON.stringify(asset);
-        const digest = yield* contentEtag(body);
-        const source = yield* SqlSchema.findOne({
+        const { id, ...metadata } = asset;
+        const attempt = JSON.stringify({ id: attemptId, discard: false, objects: keys.map((key) => ({ key })) });
+        return yield* findOne({
             Request: Schema.Void,
             Result: Schema.Struct({ objectKey: Schema.OptionFromNullOr(Schema.String) }),
-            execute: () =>
-                sql
-                    .batch([
-                        sql`INSERT INTO assets(digest,body) VALUES (${digest},${body})
-                    ON CONFLICT(id) DO UPDATE SET digest = assets.digest
-                    WHERE assets.digest = excluded.digest AND assets.removing = 0 RETURNING object_key`,
-                        sql`INSERT INTO upload_attempts(id,asset_id)
-                    SELECT ${attemptId},id FROM assets WHERE id = ${asset.id} AND object_key IS NULL AND changes() > 0`,
-                        sql`INSERT INTO upload_objects(key,attempt_id)
-                    SELECT j.value,upload_attempts.id FROM upload_attempts,json_each(${JSON.stringify(keys)}) j WHERE upload_attempts.id = ${attemptId}`,
-                    ])
-                    .pipe(Effect.map(([sources]) => sources)),
-        })(undefined);
-        return source.objectKey;
+            execute: () => sql`INSERT INTO assets(id,body) VALUES (${id},json_set(${JSON.stringify(metadata)}, '$.uploads', json_array(json(${attempt}))))
+                ON CONFLICT(id) DO UPDATE SET body = CASE WHEN assets.body ->> '$.objectKey' IS NULL
+                    THEN json_insert(assets.body, '$.uploads[#]', json(${attempt})) ELSE assets.body END
+                WHERE json_remove(assets.body,'$.uploads','$.objectKey','$.removing') = json_remove(excluded.body,'$.uploads')
+                    AND COALESCE(assets.body ->> '$.removing',0) = 0
+                RETURNING body ->> '$.objectKey' AS object_key`,
+        })(undefined).pipe(Effect.map(({ objectKey }) => objectKey));
     },
     Effect.catchTag('NoSuchElementError', () => Effect.fail(new HttpApiError.Conflict())),
-    Effect.catchTag(['SqlError', 'SchemaError', 'PlatformError'], unavailable),
+    Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 const attachUpload = flow(
-    SqlSchema.findOne({
+    findOne({
         Request: Schema.Struct({ key: Schema.String, uploadId: Schema.String }),
-        Result: Schema.Struct({ key: Schema.String }),
+        Result: Schema.Struct({ id: Schema.String }),
         execute: (object) =>
             D1Client.D1Client.use(
-                (sql) => sql`UPDATE upload_objects SET upload_id = ${object.uploadId} WHERE key = ${object.key}
-                AND attempt_id IN (SELECT id FROM upload_attempts WHERE discard = 0) RETURNING key`,
+                (sql) => sql`UPDATE assets SET body = json_set(body, (
+            SELECT u.fullkey || '.objects[' || o.key || '].uploadId'
+            FROM json_each(body,'$.uploads') u, json_each(u.value,'$.objects') o
+            WHERE o.value ->> '$.key' = ${object.key}
+        ), ${object.uploadId}) WHERE EXISTS (
+            SELECT 1 FROM json_each(body,'$.uploads') u, json_each(u.value,'$.objects') o
+            WHERE u.value ->> '$.discard' = 0 AND o.value ->> '$.key' = ${object.key}
+        ) RETURNING id`,
             ),
     }),
     Effect.asVoid,
@@ -51,15 +49,17 @@ const attachUpload = flow(
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 const completeUpload = flow(
-    SqlSchema.findOne({
+    findOne({
         Request: Schema.String,
         Result: Schema.Struct({ id: Schema.String }),
         execute: (attempt) =>
             D1Client.D1Client.use(
-                (sql) => sql`UPDATE assets SET object_key = COALESCE(object_key,${attempt})
-                WHERE removing = 0 AND id IN (
-                    SELECT asset_id FROM upload_attempts WHERE id = ${attempt} AND (discard = 0 OR assets.object_key IS NOT NULL)
-                ) RETURNING id`,
+                (sql) => sql`UPDATE assets
+            SET body = json_set(body,'$.objectKey',COALESCE(body ->> '$.objectKey',${attempt}))
+            WHERE COALESCE(body ->> '$.removing',0) = 0 AND EXISTS (
+                SELECT 1 FROM json_each(body,'$.uploads') u WHERE u.value ->> '$.id' = ${attempt}
+                    AND (u.value ->> '$.discard' = 0 OR body ->> '$.objectKey' IS NOT NULL)
+            ) RETURNING id`,
             ),
     }),
     Effect.asVoid,
@@ -71,10 +71,10 @@ const completeUpload = flow(
 const releaseUploads = Effect.fn('releaseUploads')(
     function* (target: { readonly assetId: string; readonly remove: boolean } | { readonly attemptId: string }) {
         const sql = yield* D1Client.D1Client;
-        const source = 'assetId' in target ? sql`id = ${target.assetId}` : sql`id IN (SELECT asset_id FROM upload_attempts WHERE id = ${target.attemptId})`;
-        const attempts = 'attemptId' in target ? sql`id = ${target.attemptId}` : sql`asset_id = ${target.assetId}`;
+        const source = 'assetId' in target ? sql`assets.id = ${target.assetId}` : sql`EXISTS (SELECT 1 FROM json_each(body,'$.uploads') WHERE value ->> '$.id' = ${target.attemptId})`;
+        const attempts = 'attemptId' in target ? sql`u.value ->> '$.id' = ${target.attemptId}` : sql`TRUE`;
         const remove = 'assetId' in target && target.remove;
-        return yield* SqlSchema.findOne({
+        return yield* findOne({
             Request: Schema.Void,
             Result: Schema.Struct({
                 conflict: Schema.BooleanFromBit,
@@ -83,16 +83,17 @@ const releaseUploads = Effect.fn('releaseUploads')(
             execute: () =>
                 sql
                     .batch([
-                        sql`UPDATE assets SET removing = 1 WHERE ${source} AND ${remove}
-                    AND NOT EXISTS (SELECT 1 FROM portfolio_references JOIN documents USING(digest) WHERE asset_id = assets.id)`,
-                        sql`UPDATE upload_attempts SET discard = 1 WHERE ${attempts}
-                    AND asset_id IN (SELECT id FROM assets WHERE ${remove ? sql`removing = 1` : sql`removing = 1 OR object_key IS NULL OR object_key <> upload_attempts.id`})`,
-                        sql`SELECT EXISTS (
-                        SELECT 1 FROM assets WHERE ${source} AND ${remove}
-                        AND EXISTS (SELECT 1 FROM portfolio_references JOIN documents USING(digest) WHERE asset_id = assets.id)
-                    ) AS conflict`,
-                        sql`SELECT key,upload_id FROM upload_objects
-                        WHERE attempt_id IN (SELECT id FROM upload_attempts WHERE discard = 1 AND ${attempts})`,
+                        sql`UPDATE assets SET body = json_set(body,'$.removing',json('true')) WHERE ${source} AND ${remove}
+                    AND NOT EXISTS (SELECT 1 FROM (${portfolioReferences(sql)}) WHERE asset_id = assets.id)`,
+                        sql`UPDATE assets SET body = json_set(body,'$.uploads',json((
+                    SELECT json_group_array(json(CASE WHEN ${attempts} AND (
+                        body ->> '$.removing' = 1 OR (${!remove} AND (body ->> '$.objectKey' IS NULL OR body ->> '$.objectKey' <> u.value ->> '$.id'))
+                    ) THEN json_set(u.value,'$.discard',json('true')) ELSE u.value END)) FROM json_each(body,'$.uploads') u
+                ))) WHERE ${source}`,
+                        sql`SELECT EXISTS (SELECT 1 FROM assets WHERE ${source} AND ${remove} AND COALESCE(body ->> '$.removing',0) = 0) AS conflict`,
+                        sql`SELECT o.value ->> '$.key' AS key, o.value ->> '$.uploadId' AS upload_id
+                    FROM assets, json_each(body,'$.uploads') u, json_each(u.value,'$.objects') o
+                    WHERE ${source} AND ${attempts} AND u.value ->> '$.discard' = 1`,
                     ])
                     .pipe(Effect.map(([, , statuses, objects]) => statuses.map((status) => ({ ...status, objects })))),
         })(undefined).pipe(
@@ -109,23 +110,30 @@ const finishRelease = Effect.fn('finishRelease')(
     (key: string) =>
         D1Client.D1Client.use((sql) =>
             sql.batch([
-                sql`DELETE FROM upload_objects WHERE key = ${key} AND attempt_id IN (SELECT id FROM upload_attempts WHERE discard = 1)`,
-                sql`DELETE FROM upload_attempts WHERE discard = 1 AND NOT EXISTS (SELECT 1 FROM upload_objects WHERE attempt_id = upload_attempts.id)`,
-                sql`DELETE FROM assets WHERE (object_key IS NULL OR removing = 1) AND NOT EXISTS (SELECT 1 FROM upload_attempts WHERE asset_id = assets.id)`,
+                sql`UPDATE assets SET body = json_set(body,'$.uploads',json((
+            SELECT json_group_array(json(CASE WHEN u.value ->> '$.discard' = 1
+                THEN json_set(u.value,'$.objects',json((SELECT json_group_array(json(value)) FROM json_each(u.value,'$.objects') WHERE value ->> '$.key' <> ${key})))
+                ELSE u.value END)) FROM json_each(body,'$.uploads') u
+        ))) WHERE EXISTS (SELECT 1 FROM json_each(body,'$.uploads') u, json_each(u.value,'$.objects') o WHERE o.value ->> '$.key' = ${key})`,
+                sql`UPDATE assets SET body = json_set(body,'$.uploads',json((
+            SELECT json_group_array(json(value)) FROM json_each(body,'$.uploads')
+            WHERE value ->> '$.discard' = 0 OR json_array_length(value,'$.objects') > 0
+        ))) WHERE EXISTS (SELECT 1 FROM json_each(body,'$.uploads') WHERE value ->> '$.discard' = 1 AND json_array_length(value,'$.objects') = 0)`,
+                sql`DELETE FROM assets WHERE (body ->> '$.objectKey' IS NULL OR body ->> '$.removing' = 1) AND json_array_length(body,'$.uploads') = 0`,
             ]),
         ),
     (effect) => effect.pipe(Effect.asVoid, Effect.catchTag('SqlError', unavailable)),
 );
 const readPendingUploads = flow(
-    SqlSchema.findAll({
+    findAll({
         Request: Schema.Void,
         Result: PendingUpload,
         execute: () =>
             D1Client.D1Client.use(
                 (sql) => sql`SELECT id,body ->> '$.name' AS name,
-                CASE WHEN removing = 1 THEN 'removing' WHEN object_key IS NULL THEN 'incomplete' ELSE 'cleanup' END AS status
-                FROM assets WHERE removing = 1 OR object_key IS NULL
-                    OR EXISTS (SELECT 1 FROM upload_attempts WHERE asset_id = assets.id AND id <> assets.object_key)`,
+            CASE WHEN body ->> '$.removing' = 1 THEN 'removing' WHEN body ->> '$.objectKey' IS NULL THEN 'incomplete' ELSE 'cleanup' END AS status
+            FROM assets WHERE body ->> '$.removing' = 1 OR body ->> '$.objectKey' IS NULL
+                OR EXISTS (SELECT 1 FROM json_each(body,'$.uploads') WHERE value ->> '$.id' <> body ->> '$.objectKey')`,
             ),
     }),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),

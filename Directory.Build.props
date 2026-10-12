@@ -2,14 +2,12 @@
     <PropertyGroup Label="Workspace">
         <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
-        <IncludeProjectNameInArtifactsPaths>true</IncludeProjectNameInArtifactsPaths>
-        <TestsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tests'))</TestsRoot>
         <Authors>Bardia Samiee</Authors>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
-        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
+        <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tests/'))">tests</ProjectRole>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
         <AssemblyName Condition="'$(RhinoPlugIn)' != '' and !$(MSBuildProjectName.StartsWith('$(RhinoPlugIn).'))">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
     </PropertyGroup>

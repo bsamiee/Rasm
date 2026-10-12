@@ -327,7 +327,7 @@ public static class Dispatch {
     public static IO<bool> FarmStartup(Seq<string> farmScripts) =>
         IO.lift(() => {
             bool mac = OperatingSystem.IsMacOS();
-#if RHINO_MACOS_BINDINGS
+#if !WINDOWS
             string[] arguments = mac ? Foundation.NSProcessInfo.ProcessInfo.Arguments : Environment.GetCommandLineArgs();
 #else
             string[] arguments = Environment.GetCommandLineArgs();

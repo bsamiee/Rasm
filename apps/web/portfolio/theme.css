@@ -75,6 +75,49 @@
 
 /* --- [UTILITIES] --------------------------------------------------------------------- */
 
+@utility site-header {
+    @apply mx-(--page-gutter) flex min-h-[92px] items-center justify-between gap-7 border-line border-b py-[18px] max-md:min-h-[76px] max-md:gap-5;
+}
+@utility site-name {
+    @apply wrap-anywhere flex min-w-0 max-w-[45%] items-center gap-5 text-[27px] leading-[1.1] tracking-[-0.04em] max-md:max-w-[65%];
+}
+@utility site-content {
+    @apply @container mr-(--page-gutter) ml-[calc(var(--page-gutter)+var(--index-width)+var(--index-gap))] max-w-[1800px] max-md:mx-(--page-gutter) xl:mr-[6%];
+}
+@utility site-introduction {
+    @apply @container grid @min-[60rem]:grid-cols-2 grid-cols-1 items-end gap-8 pt-12 max-md:pt-[30px];
+}
+@utility site-title {
+    @apply wrap-anywhere mb-8 font-medium @min-[60rem]:text-[clamp(4rem,8cqw,7.5rem)] text-[clamp(4rem,calc(2rem+12cqw),11.5rem)] leading-[0.91] tracking-[-0.055em];
+}
+@utility site-work {
+    @apply pt-[82px] pb-[72px] outline-none max-md:py-[60px];
+}
+@utility site-footer {
+    @apply flex items-center justify-between gap-6 border-line border-t pt-6 pb-8 text-sm max-sm:flex-wrap max-sm:gap-x-6 max-sm:gap-y-2;
+}
+@utility project-index {
+    @apply fixed top-[157px] bottom-[35px] left-(--page-gutter) flex w-(--index-width) flex-col max-md:hidden;
+}
+@utility index-link {
+    @apply col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-line border-t py-[13px] text-sm leading-[1.45] focus-visible:-outline-offset-2;
+}
+@utility chapter {
+    @apply border-line border-b pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12;
+}
+@utility chapter-heading {
+    @apply mb-8 grid grid-cols-1 items-start gap-x-8 gap-y-6 @min-[48rem]:has-[>div>figure]:grid-cols-[minmax(0,1fr)_auto];
+}
+@utility chapter-title {
+    @apply wrap-anywhere col-start-1 row-start-2 min-w-0 text-balance text-[clamp(2.25rem,calc(1.25rem+3.6cqw),4.5rem)] leading-[1.05] tracking-[-0.035em] outline-none;
+}
+@utility editor-tab {
+    @apply min-h-11 cursor-pointer px-3.5 py-2.5 text-sm selected:text-accent-text selected:underline selected:decoration-2 selected:underline-offset-8 max-sm:p-2 max-sm:text-xs;
+}
+@utility editor-panel {
+    @apply flex flex-col gap-5 data-inert:hidden;
+}
+
 @utility actions {
     @apply flex flex-wrap items-center gap-2;
 }
@@ -116,4 +159,79 @@
 }
 @utility text-link {
     @apply flex min-h-11 items-center underline underline-offset-4;
+}
+
+/* --- [COMPOSITIONS] ------------------------------------------------------------------ */
+
+@layer components {
+    .composition {
+        @apply @container flex items-center;
+        &[data-align="left"] {
+            @apply justify-start;
+        }
+        &[data-align="center"] {
+            @apply justify-center;
+        }
+        &[data-align="right"] {
+            @apply justify-end;
+        }
+        &[data-presentation="thumbnail"] {
+            @apply aspect-[4/3];
+        }
+        &[data-presentation="expandable"] {
+            @apply min-h-[32svh] py-3 max-sm:min-h-0;
+        }
+        &[data-presentation="preview"] {
+            @apply border border-line bg-surface p-5 max-sm:p-3;
+            & figure > div {
+                @apply bg-background;
+            }
+        }
+    }
+    .composition-items {
+        --scale: 1;
+        --composition-gap: clamp(20px, 3cqi, 30px);
+        --media-height: calc(64svh * var(--scale));
+        width: min(calc(100% * var(--scale)), var(--stack-width));
+        @apply grid grid-cols-1 items-start gap-(--composition-gap);
+        [data-align="left"] > & {
+            @apply justify-items-start;
+        }
+        [data-align="center"] > & {
+            @apply justify-items-center;
+        }
+        [data-align="right"] > & {
+            @apply justify-items-end;
+        }
+        [data-scale="medium"] > & {
+            --scale: 0.78;
+        }
+        [data-scale="small"] > & {
+            --scale: 0.58;
+        }
+        [data-presentation="preview"] > & {
+            --media-height: calc(280px * var(--scale));
+        }
+        @container (width < 600px) {
+            --media-height: calc(58svh * var(--scale));
+            [data-scale="medium"] > & {
+                --scale: 0.9;
+            }
+            [data-scale="small"] > & {
+                --scale: 0.75;
+            }
+            [data-presentation="preview"] > & {
+                --media-height: calc(210px * var(--scale));
+            }
+        }
+        @container (width >= 600px) {
+            grid-template-columns: var(--pair-columns);
+            width: min(calc(100% * var(--scale)), var(--spread-width));
+        }
+        [data-presentation="thumbnail"] > & {
+            --composition-gap: 0.5rem;
+            --media-height: 75cqw;
+            grid-template-columns: var(--pair-columns);
+        }
+    }
 }

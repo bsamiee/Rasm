@@ -280,7 +280,7 @@ public static class ComponentOps {
 
     // --- [COMPLETED_INPUTS]
     public static IO<Option<A>> Completed<A>(ModularComponent component, Func<ObjectSolutionState, Option<A>> read) =>
-        IO.lift(() => Some(component.State).Filter(static state => state.Phase == Phase.Completed).Bind(read));
+        IO.lift(() => Some(component.State).Filter(static state => state.Phase == Grasshopper2.Doc.Phase.Completed).Bind(read));
 
     public static Option<A> CurrentInput<A>(ModularComponent component, ObjectSolutionState state, int index) =>
         Optional(state.Data.Tree(component.Parameters.Input(index).InstanceId))

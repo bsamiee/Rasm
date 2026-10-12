@@ -18,11 +18,6 @@ import { ReuseFile } from './reuse.tsx';
 import { deleteRequest, draft, draftRequest, reloadRequest, saveRequest } from './services.ts';
 import { type Destination, destination, pendingUploads } from './uploader.ts';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const tab = 'min-h-11 cursor-pointer px-3.5 py-2.5 text-sm selected:text-accent-text selected:underline selected:decoration-2 selected:underline-offset-8 max-sm:p-2 max-sm:text-xs';
-const tabPanel = 'flex flex-col gap-5 data-inert:hidden';
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Uploads = lazy(() => import('./uploads.tsx').then((module) => ({ default: module.Uploads })));
@@ -101,6 +96,10 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
     };
     const locate = (path: readonly PropertyKey[], snapshot: typeof Portfolio.Type): void =>
         Match.value({ head: path[0], index: path[1] }).pipe(
+            Match.when({ head: 'email' }, () => {
+                show('identity');
+                focus(emailId);
+            }),
             Match.when({ head: 'entries', index: Match.number }, ({ index }) => {
                 show('entries');
                 Array.get(snapshot.entries, index).pipe(Option.map(Struct.get('id')), Option.map(openEntry));
@@ -153,17 +152,17 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
             <fieldset className="m-0 border-0 px-9 pt-3 pb-[60px] max-sm:px-5 max-sm:pt-3 max-sm:pb-[max(36px,env(safe-area-inset-bottom))]" disabled={busy}>
                 <Tabs isDisabled={busy} onSelectionChange={setSelectedTab} selectedKey={selectedTab}>
                     <TabList aria-label="Portfolio editing" className="mb-6 flex gap-1.5 border-line border-b max-sm:w-full max-sm:flex-wrap">
-                        <Tab className={tab} id={`${ids}entries`}>
+                        <Tab className="editor-tab" id={`${ids}entries`}>
                             Projects and studies
                         </Tab>
-                        <Tab className={tab} id={`${ids}files`}>
+                        <Tab className="editor-tab" id={`${ids}files`}>
                             Files{pending.length > 0 ? ` (${pending.length})` : ''}
                         </Tab>
-                        <Tab className={tab} id={`${ids}identity`}>
+                        <Tab className="editor-tab" id={`${ids}identity`}>
                             Identity and hero
                         </Tab>
                     </TabList>
-                    <TabPanel className={tabPanel} id={`${ids}entries`}>
+                    <TabPanel className="editor-panel" id={`${ids}entries`}>
                         {(workspace === 'projects' || !current) && (
                             <>
                                 <div className="actions">
@@ -248,7 +247,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                             </div>
                         )}
                     </TabPanel>
-                    <TabPanel className={tabPanel} id={`${ids}files`}>
+                    <TabPanel className="editor-panel" id={`${ids}files`}>
                         <Suspense fallback={<p role="status">Loading files…</p>}>
                             <Uploads assets={data.assets} entries={data.portfolio.entries} onChoose={chooseSource} />
                         </Suspense>
@@ -266,7 +265,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                             sourceId={source}
                         />
                     </TabPanel>
-                    <TabPanel className={tabPanel} id={`${ids}identity`} shouldForceMount={true}>
+                    <TabPanel className="editor-panel" id={`${ids}identity`} shouldForceMount={true}>
                         <form
                             className="flex flex-col gap-5"
                             id={`${ids}form`}

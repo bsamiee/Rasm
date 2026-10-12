@@ -74,8 +74,8 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
         }
     }, [api, selected, entry.compositions]);
     return (
-        <section aria-labelledby={headingId} className="border-line border-b pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12" id={entry.id} ref={chapter}>
-            <div className="mb-8 grid grid-cols-1 items-start gap-x-8 gap-y-6 @min-[48rem]:has-[>div>figure]:grid-cols-[minmax(0,1fr)_auto]">
+        <section aria-labelledby={headingId} className="chapter" id={entry.id} ref={chapter}>
+            <div className="chapter-heading">
                 <div className="eyebrow col-start-1 row-start-1 flex min-w-0 flex-col gap-2 text-muted">
                     <span className="inline-flex items-baseline gap-3">
                         <span className="text-accent-text">[{numeral(index + 1)}]</span>
@@ -83,7 +83,7 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
                     </span>
                     {(entry.year || entry.location) && <span className="wrap-anywhere">{[entry.year, entry.location].filter(Boolean).join(' / ')}</span>}
                 </div>
-                <h3 className="wrap-anywhere col-start-1 row-start-2 min-w-0 text-balance text-[clamp(2.25rem,calc(1.25rem+3.6cqw),4.5rem)] leading-[1.05] tracking-[-0.035em] outline-none" id={headingId} tabIndex={-1}>
+                <h3 className="chapter-title" id={headingId} tabIndex={-1}>
                     {title}
                 </h3>
                 {entry.cover !== undefined && (

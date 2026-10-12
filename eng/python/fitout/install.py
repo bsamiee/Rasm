@@ -18,8 +18,12 @@ from result import Err, Ok, Result
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class _Status(msgspec.Struct, frozen=True):
+    returncode: int
+
+
 class _Completed(msgspec.Struct, frozen=True, tag="ok", tag_field="status"):
-    result: int
+    result: _Status
     stdout: str = ""
     stderr: str = ""
 
@@ -68,21 +72,23 @@ async def install(
         ]
     except OSError as error:
         return Err(error)
-    arguments = ("install-file", "--repo", "user_default", "--enable", str(archive))
+    code = (
+        "import bpy\n"
+        "from bl_pkg.bl_extension_cli import cli_extension_handler\n"
+        "from bl_pkg.bl_extension_ops import rna_prop_repo_enum_valid_only_itemf\n"
+        "repo = rna_prop_repo_enum_valid_only_itemf(None, bpy.context)[0][0]\n"
+        f"result = {{'returncode': cli_extension_handler(['install-file', '--repo', repo, '--enable', {str(archive)!r}])}}\n"
+    )
     if not pids:
         try:
-            process = await anyio.run_process((executable, "--command", "extension", *arguments), stdout=None, stderr=None, check=False)
+            process = await anyio.run_process(
+                (executable, "--background", "--python-exit-code", "1", "--python-expr", f"import sys\n{code}sys.exit(result['returncode'])"), stdout=None, stderr=None, check=False
+            )
         except OSError as error:
             return Err(error)
         return Ok(process.returncode)
 
-    code = (
-        "import os\n"
-        "from bl_pkg.bl_extension_cli import cli_extension_handler\n"
-        f"if os.getpid() not in {pids!r}:\n"
-        "    raise RuntimeError('The connected Blender is not a selected running process')\n"
-        f"result = cli_extension_handler({list(arguments)!r})\n"
-    )
+    code = f"import os\nif os.getpid() not in {pids!r}:\n    raise RuntimeError('The connected Blender is not a selected running process')\n" + code
     try:
         async with Client(endpoint) as client:
             result = await client.call_tool("execute_blender_code", {"code": code})
@@ -97,7 +103,7 @@ async def install(
             return Err(error)
         sys.stdout.write(response.stdout)
         sys.stderr.write(response.stderr)
-        return Err(response) if isinstance(response, RemoteFailure) else Ok(response.result)
+        return Err(response) if isinstance(response, RemoteFailure) else Ok(response.result.returncode)
     return failure
 
 

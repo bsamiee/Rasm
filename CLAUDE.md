@@ -3,29 +3,20 @@
 @README.md
 
 - Work runs to completion, removing or replacing tools and code in place of hedging or deferring
-- Guidance files and existing standards decide every open question in place of user input
-- One call per unit of work covers its full scope once and reads the result whole
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
 - Fix defects at root cause, a wrapper, fallback, guard, or retry that hides the cause is a defect
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
-- `tools/` shares no dependency in either direction with `libs/`, `apps/`, or agent harness code, tools read project files, skills run tools
-- Tool settings and rules that push code against the coding standards are removed at their owner
-- Checks, formats, builds, and tests run as `nx run` targets with each tool's config, direct call, copied config, or path a target skips is a defect
-- Run only checks a change needs, one target per call over touched paths
-- Tests are made at the user's request alone
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
 - Audits, security scans, supply-chain pins, and approval gates are added on user request alone
+- Tests are made at the user's request alone
 - Commits and pushes happen on user request alone
 
 - Non-trivial work starts with a task file under tmp outside the project, holding every task with its facts and nothing else
-- Put status notes in the same message as your next action
-- Proactively delegate work to sub-agents for search, research, ideation, and writing, never tackle large solo when total workload is non-trivial
 - NEVER do prose validation on tmp/planning or other `.md` documents that are not going to be living in the project long-term
 - Durable project `.md` files receive a focused adversarial review of their modified content, with `clean-prose` read whole
-- All code files are adversarially reviewed to rebuild aggressively, initial code is always slop, skills, memory, `CLAUDE/AGENTS.md`, and similar determine quality
 - Reviews are adversarial, reviewers assume code is wrong and commit corrections, reducing code LOC/surface, and rebuilding approach if needed
 
 ## [01]-[LANGUAGE_STANDARDS]

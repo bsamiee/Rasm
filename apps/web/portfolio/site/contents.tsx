@@ -6,9 +6,8 @@ import { fragment, type Navigation } from './navigation.ts';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function ProjectIndex({ portfolio, navigation }: { portfolio: typeof Portfolio.Type; navigation: Navigation }): ReactNode {
-    const link = 'group col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-line border-t py-[13px] text-sm leading-[1.45] focus-visible:-outline-offset-2';
     return (
-        <nav aria-label="Work index" className="fixed top-[157px] bottom-[35px] left-(--page-gutter) flex w-(--index-width) flex-col max-md:hidden">
+        <nav aria-label="Work index" className="project-index">
             <a className="eyebrow min-h-11 self-start pb-[23px] text-muted hover:text-accent-text" href="#work">
                 Index
             </a>
@@ -19,7 +18,7 @@ function ProjectIndex({ portfolio, navigation }: { portfolio: typeof Portfolio.T
                         return (
                             <a
                                 aria-current={current ? 'location' : undefined}
-                                className={link}
+                                className="group index-link"
                                 href={fragment(entry.id)}
                                 key={entry.id}
                                 onClick={(event): void => {
@@ -50,7 +49,7 @@ function ProjectIndex({ portfolio, navigation }: { portfolio: typeof Portfolio.T
                         );
                     })
                 ) : (
-                    <a className={link} href="#work">
+                    <a className="group index-link" href="#work">
                         <span className="col-span-full">Selected work</span>
                     </a>
                 )}

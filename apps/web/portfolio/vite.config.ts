@@ -13,7 +13,7 @@ import hosting from './.openai/hosting.json' with { type: 'json' };
 export default defineConfig(({ command }) => ({
     cacheDir: '../../../.cache/vite/portfolio',
     plugins: [
-        react({ compiler: true }),
+        react({ compiler: true, include: `${normalizePath(import.meta.dirname)}/**/*.{ts,tsx}` }),
         tailwindcss(),
         viteStaticCopy({ targets: ['cmaps', 'standard_fonts', 'wasm'].map((directory) => ({ src: normalizePath(fileURLToPath(new URL(`${directory}/*`, import.meta.resolve('pdfjs-dist/package.json')))), dest: `pdfjs/${directory}`, rename: { stripBase: true } })) }),
         sites(),

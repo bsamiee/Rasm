@@ -1,6 +1,6 @@
 import { RegistryProvider } from '@effect/atom-react';
 import type { D1Client } from '@effect/sql-d1';
-import { Effect, type Layer, Schema } from 'effect';
+import { type Crypto, Effect, type Layer, Schema } from 'effect';
 import { HttpRouter, type HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { HttpApiError } from 'effect/http-api';
 import { renderToReadableStream } from 'react-dom/server';
@@ -11,7 +11,7 @@ import { session } from './session.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const page = (assets: Fetcher, email: string): Layer.Layer<never, never, HttpRouter.HttpRouter | HttpRouter.Request.From<'Requires', D1Client.D1Client> | HttpRouter.Request.From<'Error', HttpApiError.ServiceUnavailable>> =>
+const page = (assets: Fetcher, email: string): Layer.Layer<never, never, HttpRouter.HttpRouter | HttpRouter.Request.From<'Requires', D1Client.D1Client | Crypto.Crypto> | HttpRouter.Request.From<'Error', HttpApiError.ServiceUnavailable>> =>
     HttpRouter.add(
         'GET',
         '/',

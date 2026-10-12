@@ -178,6 +178,7 @@
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@types/three": "catalog:",
+        "@types/validator": "catalog:",
         "@uppy/core": "catalog:",
         "@uppy/dashboard": "catalog:",
         "@uppy/react": "catalog:",
@@ -226,6 +227,7 @@
         "lightningcss": "catalog:",
         "lucide-react": "catalog:",
         "maplibre-gl": "catalog:",
+        "mcp-proxy": "catalog:",
         "meshoptimizer": "catalog:",
         "minimatch": "catalog:",
         "motion": "catalog:",
@@ -283,6 +285,7 @@
         "types-for-adobe": "catalog:",
         "typescript": "catalog:",
         "uplot": "catalog:",
+        "validator": "catalog:",
         "vite": "catalog:",
         "vite-plugin-static-copy": "catalog:",
         "vitest": "catalog:",
@@ -300,7 +303,7 @@
         "targets": {
             "restore": {
                 "options": { "args": ["Workspace.slnx"] },
-                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj", "dotnet", "rhino"],
+                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.csproj", "dotnet"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*", "!{workspaceRoot}/.artifacts/dotnet/obj/*.cs/*"]
             },
             "grammar": {
@@ -367,7 +370,7 @@
                 "options": { "args": ["Workspace.slnx", "--no-restore", "--verify-no-changes"] },
                 "cache": true,
                 "dependsOn": [{ "projects": ["tag:language:dotnet"], "target": "build" }, { "projects": ["tag:language:dotnet"], "target": "lint", "params": "forward" }],
-                "inputs": ["dotnet", "rhino", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"]
+                "inputs": ["dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"]
             },
             "lint": { "dependsOn": ["lint:*"] },
             "format": { "dependsOn": ["format:*", { "projects": ["tag:language:dotnet"], "target": "format" }] },

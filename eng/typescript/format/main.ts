@@ -1,10 +1,11 @@
 // biome-ignore-all lint/correctness/noNodejsModules: Arguments and extensions of the named files come from Node
 
-import { spawnSync } from 'node:child_process';
-import { extname } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { extname, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { readJsonFile, workspaceRoot } from '@nx/devkit';
+import { normalizePath, readJsonFile, workspaceRoot } from '@nx/devkit';
 import { Array, Data, Effect, Option } from 'effect';
 import { ChildProcess } from 'effect/process';
 
@@ -24,12 +25,9 @@ class WriterExited extends Data.TaggedError('WriterExited')<{ readonly target: s
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const argued = process.argv.slice(2);
-const ignored = spawnSync('git', ['check-ignore', '--stdin'], { cwd: workspaceRoot, input: argued.join('\n'), encoding: 'utf8' });
-if (ignored.status !== 0 && ignored.status !== 1) {
-    throw new Error(`git check-ignore exited ${ignored.status}: ${ignored.stderr.trim()}`);
-}
-const paths = Array.difference(argued, ignored.stdout.split('\n'));
+const argued = process.argv.slice(2).map((path) => normalizePath(relative(workspaceRoot, resolve(path))));
+const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: workspaceRoot, encoding: 'utf8' }).split('\0').slice(0, -1);
+const paths = Array.intersection(argued, files).filter((path) => existsSync(resolve(workspaceRoot, path)));
 const { name } = readJsonFile<{ readonly name: string }>(`${workspaceRoot}/package.json`);
 Effect.validate(
     WRITERS,

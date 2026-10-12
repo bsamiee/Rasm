@@ -16,7 +16,7 @@ Covers MCP-driven GUI sessions, background runs, extension installs, logs, and e
 
 ## [01]-[TOOL_INDEX]
 
-Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876. Bridge hides `execute_blender_code`, `get_scene_info`, and `get_guide`, tools the `mcp-for-blender` server text names. Table lists every tool a session calls:
+Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876. Table lists every tool a session calls:
 
 | [INDEX] | [TOOL]                                                    | [USE_WHEN]                                                    |
 | :-----: | :-------------------------------------------------------- | :------------------------------------------------------------ |
@@ -50,6 +50,8 @@ Pictures come from the source that draws current state:
 - Writing `region_3d.view_location` and `view_distance` on a 3D view frames an object with selection and mode kept
 
 ## [02]-[SESSION]
+
+- Inspect UI, logs and crash reports; resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
@@ -106,12 +108,12 @@ Window reads name what Blender shows before a call that depends on it:
 - `mcp__blender__get_screenshot_of_window_as_image` shows popups, prompts, and splash screen over the main window
 - `bpy.context.window_manager.windows` lists each window's areas and `modal_operators`
 
-| [INDEX] | [STATE]                      | [READS_AS]                                        | [RESOLUTION]                                       |
-| :-----: | :--------------------------- | :------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | File browser                 | Window with one `FILE_BROWSER` area, opener modal | `file.cancel()` under its window, area, and region |
-|  [02]   | Running tool                 | `modal_operators` non-empty                       | `wm.read_homefile()`                               |
-|  [03]   | Prompt or popup              | Window image                                      | `wm.read_homefile()`                               |
-|  [04]   | Running job                  | `window_manager.is_interface_locked` true         | Data writes after it reads false                   |
+| [INDEX] | [STATE]         | [READS_AS]                                        | [RESOLUTION]                                       |
+| :-----: | :-------------- | :------------------------------------------------ | :------------------------------------------------- |
+|  [01]   | File browser    | Window with one `FILE_BROWSER` area, opener modal | `file.cancel()` under its window, area, and region |
+|  [02]   | Running tool    | `modal_operators` non-empty                       | Complete or cancel through UI                      |
+|  [03]   | Prompt or popup | Window image                                      | Read dialog and select action                      |
+|  [04]   | Running job     | `window_manager.is_interface_locked` true         | Data writes after it reads false                   |
 
 ## [05]-[BACKGROUND_RUNS]
 
@@ -133,9 +135,9 @@ Background runs follow host rules:
 - Brush strokes and `render.opengl` need a GUI session, and sculpt operators crash a background run in their undo push
 - `wm.read_homefile(use_empty=True)` empties the scene and keeps loaded extensions
 
-Renders of the live file run as background runs on a copy:
-1. `bpy.ops.wm.save_as_mainfile(filepath=<absolute copy>, copy=True)` in the GUI, open file's path and `is_dirty` unchanged
-2. `"$BLENDER_PATH" --background <copy> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true`
+Background renders use named files saved in place; untitled and scratch scenes render in GUI without saving:
+1. `bpy.ops.wm.save_mainfile()` in the GUI saves named work before rendering
+2. `"$BLENDER_PATH" --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true`
 3. `Read` the image that `Saved: '<path>'` log line names
 
 ## [06]-[MEMBERS]

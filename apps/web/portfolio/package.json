@@ -23,17 +23,18 @@
         "react-error-boundary": "catalog:",
         "react-zoom-pan-pinch": "catalog:",
         "tailwindcss": "catalog:",
-        "tailwindcss-react-aria-components": "catalog:"
+        "tailwindcss-react-aria-components": "catalog:",
+        "validator": "catalog:"
     },
     "devDependencies": {
         "@cloudflare/vite-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
-        "@effect/platform-node": "catalog:",
         "@openai/sites-vite-plugin": "catalog:",
         "@tailwindcss/vite": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
+        "@types/validator": "catalog:",
         "@vitejs/plugin-react": "catalog:",
         "oxc-transform-react": "catalog:",
         "vite": "catalog:",
@@ -42,7 +43,14 @@
     },
     "nx": {
         "targets": {
-            "storage:convert": { "command": "node db/convert.ts", "options": { "cwd": "{projectRoot}" }, "parallelism": false }
+            "db:setup": {
+                "command": "wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to ../../../.cache/wrangler/apps/web/portfolio --file schema.sql",
+                "options": {
+                    "cwd": "{projectRoot}"
+                },
+                "dependsOn": ["build"],
+                "parallelism": false
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
@@ -16,7 +16,7 @@ using NuGet.Versioning;
 namespace Rasm.Upgrade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record Row(string Id, string Version, int Line, Match Attribute);
+internal sealed record Row(string Id, NuGetVersion Version, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -27,25 +27,35 @@ internal sealed record MissingResource<T>(string Source) : Expected($"Package so
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Catalog {
     // --- [ROWS]
-    public static Seq<Row> Rows(Lst<string> lines, XDocument document) =>
-        toSeq(document.Descendants("PackageVersion")).Choose(element =>
-            from include in Optional(element.Attribute("Include"))
-            from version in Optional(element.Attribute("Version"))
-            let at = (IXmlLineInfo)version
-            from line in lines.At(at.LineNumber - 1)
-            let attribute = VersionAttribute.Match(line, at.LinePosition - 1)
-            where attribute.Success
-            select new Row(include.Value, version.Value, at.LineNumber - 1, attribute));
+    public static Seq<Row> Rows(string text) {
+        int[] lineStarts = [0, .. LineBreak.Matches(text).Select(static line => line.Index + line.Length)];
+        return toSeq(XDocument.Parse(text, LoadOptions.SetLineInfo).Descendants())
+            .Filter(static element => element.Name.LocalName.Equals("PackageVersion", StringComparison.Ordinal) || element.Name.LocalName.Equals("GlobalPackageReference", StringComparison.Ordinal))
+            .Choose(element =>
+                from include in Optional(element.Attribute("Include") ?? element.Attribute("Update"))
+                from version in Optional(element.Attribute("Version"))
+                from current in NuGetVersion.TryParse(version.Value, out NuGetVersion? parsed) ? Some(parsed) : None
+                let at = (IXmlLineInfo)version
+                let attribute = VersionAttribute.Match(text, lineStarts[at.LineNumber - 1] + at.LinePosition - 1).Groups["value"]
+                select new Row(include.Value, current, attribute));
+    }
+
+    [GeneratedRegex("\\r\\n|[\\r\\n]")]
+    private static partial Regex LineBreak { get; }
+
+    [GeneratedRegex("""\GVersion\s*=\s*(?:"(?<value>[^"]*)"|'(?<value>[^']*)')""")]
+    private static partial Regex VersionAttribute { get; }
 
     // --- [RELEASES]
-    public static IO<Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)>> Feeds(ISettings settings) {
+    public static IO<Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)>> Feeds(PackageSourceMapping mapping, Seq<SourceRepository> sources, string packageId) {
         static FinT<IO, T> Resource<T>(SourceRepository source) where T : class, INuGetResource =>
             (from resource in IO.liftAsync(env => source.GetResourceAsync<T>(env.Token))
              from required in IO.lift(Optional(resource).ToFin(new MissingResource<T>(source.PackageSource.Name)))
              select required).Try();
 
-        return Collect(toSeq(SettingsUtility.GetEnabledSources(settings))
-            .Map(static source => Repository.Factory.GetCoreV3(source))
+        IReadOnlyList<string> configured = mapping.GetConfiguredPackageSources(packageId);
+        return Collect(sources
+            .Filter(source => !mapping.IsEnabled || configured.Contains(source.PackageSource.Name, StringComparer.OrdinalIgnoreCase))
             .Map(static source =>
                 (Resource<PackageMetadataResource>(source), Resource<FindPackageByIdResource>(source))
                     .Apply(static (metadata, downloads) => (Metadata: metadata, Downloads: downloads))
@@ -54,7 +64,8 @@ internal static partial class Catalog {
                     .Bind(IO.lift)));
     }
 
-    public static IO<Option<Move>> Newest(NuGetFramework framework, SourceCacheContext cache, Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)> feeds, Row row, NuGetVersion current) =>
+    public static IO<Option<Move>> Newest(NuGetFramework framework, SourceCacheContext cache, PackageSourceMapping mapping, Seq<SourceRepository> sources, Row row) =>
+        from feeds in Feeds(mapping, sources, row.Id)
         from published in Collect(feeds
             .Map(feed =>
                 IO.liftAsync(env => feed.Metadata.GetMetadataAsync(row.Id, includePrerelease: true, includeUnlisted: false, cache, NullLogger.Instance, env.Token))
@@ -66,15 +77,13 @@ internal static partial class Catalog {
                 .Where(async (release, token) => {
                     using IPackageDownloader downloader = await release.Downloads.GetPackageDownloaderAsync(release.Metadata.Identity, cache, NullLogger.Instance, token).ConfigureAwait(false);
                     Seq<string> files = toSeq(await downloader.CoreReader.GetFilesAsync(token).ConfigureAwait(false));
-                    Stream manifest = await downloader.CoreReader.GetNuspecAsync(token).ConfigureAwait(false);
-                    await using ConfiguredAsyncDisposable disposal = manifest.ConfigureAwait(false);
-                    return Compatible(framework, release.Metadata.Identity.Id, files, new NuspecReader(manifest));
+                    return Compatible(framework, release.Metadata.Identity.Id, files, new NuspecReader(await downloader.CoreReader.GetNuspecAsync(token).ConfigureAwait(false)));
                 })
                 .Select(static release => Some(release.Metadata.Identity.Version))
                 .FirstOrDefaultAsync(env.Token)
                 .ConfigureAwait(false))
         select latest
-            .Filter(version => !VersionComparer.Default.Equals(version, current))
+            .Filter(version => !VersionComparer.Default.Equals(version, row.Version))
             .Map(version => new Move(row, version));
 
     public static IO<Seq<T>> Collect<T>(Seq<IO<T>> effects) =>
@@ -104,7 +113,8 @@ internal static partial class Catalog {
         List<ContentItemGroup> contentFiles = [];
         content.PopulateItemGroups(patterns.ContentFiles, contentFiles);
 
-        return !files.Exists(file => file.StartsWith(reference, StringComparison.OrdinalIgnoreCase) || file.StartsWith(lib, StringComparison.OrdinalIgnoreCase))
+        return !nuspec.GetPackageTypes().Any(static type => type == PackageType.DotnetTool || type == PackageType.DotnetPlatform)
+            && (!files.Exists(file => file.StartsWith(reference, StringComparison.OrdinalIgnoreCase) || file.StartsWith(lib, StringComparison.OrdinalIgnoreCase))
             || assemblies.Any(definitions => Optional(content.FindBestItemGroup(criteria, definitions)).Exists(group => group.Items.Any(included)))
             || content.FindBestItemGroup(criteria, patterns.ResourceAssemblies) is { Items.Count: > 0 }
             || builds
@@ -116,25 +126,20 @@ internal static partial class Catalog {
                 .GroupBy(static group => (string)group.Properties[ManagedCodeConventions.PropertyNames.CodeLanguage], StringComparer.OrdinalIgnoreCase)
                 .Any(language => Optional(NuGetFrameworkUtility.GetNearest(language, framework, static group => (NuGetFramework)group.Properties[ManagedCodeConventions.PropertyNames.TargetFrameworkMoniker])).Exists(static group => group.Items.Count > 0))
             || (!framework.IsPackageBased && Optional(nuspec.GetFrameworkAssemblyGroups().GetNearest(framework)).Exists(static group => group.Items.Any()))
-            || Optional(nuspec.GetFrameworkRefGroups().GetNearest(framework)).Exists(static group => group.FrameworkReferences.Any());
+            || Optional(nuspec.GetFrameworkRefGroups().GetNearest(framework)).Exists(static group => group.FrameworkReferences.Any()));
     }
 
     // --- [REWRITE]
-    public static string Rewrite(Lst<string> lines, Seq<Row> rows, Seq<Move> moves) {
-        Option<int> column = toSeq(rows.Map(static row => row.Attribute.Groups["comment"]).Filter(static comment => comment.Success).CountBy(static comment => comment.Index).OrderBy(static count => (count.Value, count.Key)))
-            .Last
-            .Map(static count => count.Key);
-        return string.Join('\n', moves.Fold(lines, (current, move) => current.SetItem(move.Row.Line, Spliced(lines[move.Row.Line], move.Row.Attribute, move.Version, column))));
+    public static string Rewrite(string text, Seq<Move> moves) {
+        StringBuilder rewritten = new(text.Length);
+        int end = 0;
+        foreach (Move move in moves) {
+            Group attribute = move.Row.Attribute;
+            _ = rewritten.Append(text.AsSpan(end, attribute.Index - end)).Append(move.Version.ToNormalizedString());
+            end = attribute.Index + attribute.Length;
+        }
+        return rewritten.Append(text.AsSpan(end)).ToString();
     }
-
-    private static string Spliced(string line, Match attribute, NuGetVersion version, Option<int> column) =>
-        string.Concat(line.AsSpan(0, attribute.Groups["value"].Index), version.ToNormalizedString(), attribute.Groups["quote"].Value, attribute.Groups["close"].Value) switch {
-            var head when attribute.Groups["comment"].Success => string.Concat(head.PadRight(column.Filter(at => at > head.Length).IfNone(head.Length + 1)), attribute.Groups["comment"].Value),
-            var head => head,
-        };
-
-    [GeneratedRegex("""\GVersion\s*=\s*(?<quote>["'])(?<value>[^"']*)\k<quote>(?<close>[^<]*?)\s*(?<comment><!--.*)?$""", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
-    private static partial Regex VersionAttribute { get; }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -148,19 +153,19 @@ internal static class Program {
         from path in IO.lift(Fin<string> () => args is [var file] ? Path.GetFullPath(file) : new Usage())
         from framework in IO.lift(static () => Optional(AppContext.TargetFrameworkName).Map(NuGetFramework.Parse).ToFin(new UnknownFramework()))
         from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
-        let lines = toList(text.Split('\n'))
-        let rows = Catalog.Rows(lines, XDocument.Parse(text, LoadOptions.SetLineInfo))
+        let rows = Catalog.Rows(text)
         from cache in use(static () => new SourceCacheContext { NoCache = true })
-        from feeds in Catalog.Feeds(Settings.LoadDefaultSettings(Path.GetDirectoryName(path)))
+        let settings = Settings.LoadDefaultSettings(Path.GetDirectoryName(path))
+        let mapping = PackageSourceMapping.GetPackageSourceMapping(settings)
+        let sources = toSeq(SettingsUtility.GetEnabledSources(settings)).Map(static source => Repository.Factory.GetCoreV3(source))
         from moves in Catalog.Collect(rows
-            .Choose(static row => NuGetVersion.TryParse(row.Version, out NuGetVersion? current) ? Some((Row: row, Current: current)) : None)
-            .Map(pending => Catalog.Newest(framework, cache, feeds, pending.Row, pending.Current)))
+            .Map(row => Catalog.Newest(framework, cache, mapping, sources, row)))
             .Map(static moves => moves.Somes())
-        from written in when(!moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Catalog.Rewrite(lines, rows, moves), env.Token).ToUnit())).As()
+        from written in when(!moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Catalog.Rewrite(text, moves), env.Token).ToUnit())).As()
         select moves;
 
     private static int Report(Seq<Move> moves) {
-        _ = moves.Iter(static move => Console.WriteLine($"{move.Row.Id} {move.Row.Version} -> {move.Version.ToNormalizedString()}"));
+        _ = moves.Iter(static move => Console.WriteLine($"{move.Row.Id} {move.Row.Version.OriginalVersion} -> {move.Version.ToNormalizedString()}"));
         return 0;
     }
 

@@ -36,13 +36,13 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `D1Client` from `@effect/sql-d1` stores complete encoded documents and assets as JSON, R2 stores media bytes
 - `SqlSchema` decodes joined JSON documents and asset collections through `PortfolioData` at store boundaries
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
-- Placement references are a SQL view over stored JSON, no reference row is written or kept in sync
-- Portfolio versions are content-addressed by digest, draft and published states each point at one
-- Draft writes send the digest their last read or write returned, a stale digest fails with `PreconditionFailed` and writes nothing
-- Portfolio writes, pointer updates, and garbage collection share one atomic D1 batch
+- Placement references derive from stored JSON through one query
+- Draft and published documents each store one JSON body
+- Draft reads and writes derive an ETag from stored JSON, stale `If-Match` headers fail with `PreconditionFailed`
+- Draft and publication writes share one atomic D1 batch, conditional on unchanged content and available asset references
 - `partial-content` evaluates HTTP preconditions and ranges for draft writes and media reads
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
-- Every stored object has a row naming its upload attempt, interrupted uploads and removals stay listed until the owner discards them
+- Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
 - Media reads serve assets placed in published work to anyone, every other asset to the owner alone
 
 ## [04]-[PAGE]
@@ -53,7 +53,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
 
-[STYLE]: Tailwind owns every style through `theme.css`, with React Aria state variants from `tailwindcss-react-aria-components`
+[STYLE]: `theme.css` owns Tailwind tokens, shared utilities, and layout variants
+- Presentation components name visual roles, typed `data-*` attributes select composition layouts
+- Inline styles hold values derived from media dimensions, theme rules hold visual choices
+- React Aria state variants come from `tailwindcss-react-aria-components`
 - Figures reserve their box before media loads through CSS custom properties computed from uploaded dimensions
 - `react-aria-components` owns composite controls, focus, selection, and overlays sized to its `--visual-viewport-height`
 - Motion owns layout animation, in-view detection, and reduced-motion preference
@@ -101,8 +104,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Hosted configuration supplies `OWNER_EMAIL`, `vite.config.ts` sets it to the `sites()` local sign-in email for `serve` alone
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[CONVERSION]: Run `storage:convert` with Worker stopped to convert local storage layouts
-- `--source original` reads complete JSON tables, `--source split` reads document and asset component tables
-- `--config` selects Wrangler configuration, `--persist` selects local storage directory
-- Conversion preserves content, existing digests, object keys, and upload recovery in one atomic D1 batch
-- Conversion accesses local Wrangler bindings exclusively
+[STORAGE]: `schema.sql` declares document, asset, and owner tables
+- `db:setup` creates local tables through Wrangler, hosted tables retain their existing structure
+- Effect schemas define JSON content, D1 updates each document or asset in place
+- Schema history, numbered SQL, and request-time table creation are absent

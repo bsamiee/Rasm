@@ -28,7 +28,6 @@ const inspectPdf = Effect.fnUntraced(function* (file: Blob): Effect.fn.Return<{ 
                     return { width, height, ...(label === undefined ? {} : { label }) };
                 }),
             ),
-        { concurrency: 'unbounded' },
     );
     return { pages };
 });

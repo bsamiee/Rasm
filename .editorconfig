@@ -134,6 +134,7 @@ dotnet_diagnostic.VSTHRD102.severity = error                                  # 
 dotnet_diagnostic.VSTHRD111.severity = error                                  # Hidden by default: explicit ConfigureAwait on every await
 
 # --- [MEZIANTOU_ANALYZERS] --------------------------------------------------------------
+dotnet_diagnostic.MA0009.severity = none                                      # Regex timeouts are not required
 dotnet_diagnostic.MA0032.severity = error                                     # CancellationToken overloads when available
 dotnet_diagnostic.MA0121.severity = error                                     # Off by default: no parameter reassignment
 dotnet_diagnostic.MA0141.severity = error                                     # Off by default: is null over == null

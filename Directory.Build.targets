@@ -3,7 +3,7 @@
         <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <_TestResultsDirectory>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'coverage', '$(MSBuildProjectName)'))</_TestResultsDirectory>
-        <TestingPlatformCommandLineArguments>--coverlet --coverlet-include "[Rasm.*]*" --coverlet-output-format cobertura --results-directory "$(_TestResultsDirectory)"</TestingPlatformCommandLineArguments>
+        <TestingPlatformCommandLineArguments>--coverlet --coverlet-output-format cobertura --results-directory "$(_TestResultsDirectory)"</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Nested Projects">
@@ -50,7 +50,7 @@
         </GetAssemblyIdentity>
         <PropertyGroup>
             <_RhinoMajorVersion>$([System.Version]::Parse('%(_RhinoAssemblyIdentity.Version)').Major)</_RhinoMajorVersion>
-            <RhinoInstallPath>$(RHINO_PATH)</RhinoInstallPath>
+            <RhinoInstallPath Condition="'$(RhinoInstallPath)' == ''">$(RHINO_PATH)</RhinoInstallPath>
         </PropertyGroup>
         <Exec Command="osascript -l JavaScript -e &quot;ObjC.import('AppKit'); \$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('com.mcneel.rhinoceros.$(_RhinoMajorVersion)').path.js&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low" Condition="'$(RhinoInstallPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">
             <Output TaskParameter="ConsoleOutput" PropertyName="RhinoInstallPath" />
@@ -62,50 +62,30 @@
             <_YakExecutable Condition="$([MSBuild]::IsOSPlatform('OSX'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Resources', 'bin', 'yak'))</_YakExecutable>
             <_YakExecutable Condition="$([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'System', 'yak.exe'))</_YakExecutable>
         </PropertyGroup>
-        <GetAssemblyIdentity AssemblyFiles="$(RhinoResourcesDir)RhinoCommon.dll">
-            <Output TaskParameter="Assemblies" ItemName="_RhinoInstalledIdentity" />
-        </GetAssemblyIdentity>
-        <PropertyGroup>
-            <RhinoVersion>%(_RhinoInstalledIdentity.Version)</RhinoVersion>
-        </PropertyGroup>
     </Target>
 
-    <Target Name="ResolveRhinoHostReferences" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
-        <ItemGroup>
-            <_RhinoMacAssembly Include="System.Drawing.Common" />
-            <_RhinoMacAssembly Include="Eto.macOS;Microsoft.macOS" Condition="Exists('$(MSBuildProjectDirectory)/UI/macOS/')" />
-            <Reference Include="@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll')" Private="false" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="AddRhinoMacPlatform" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
+    <Target Name="ResolveRhinoMacHost" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
         <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='LSMinimumSystemVersion']/following-sibling::*[1]/text()" ProhibitDtd="false">
             <Output TaskParameter="Result" PropertyName="_RhinoMacMinimumVersion" />
         </XmlPeek>
         <ItemGroup>
+            <_RhinoMacAssembly Include="System.Drawing.Common;Eto.macOS;Microsoft.macOS" />
+            <Reference Include="@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll')" Private="false" />
             <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
                 <_Parameter1>macos$(_RhinoMacMinimumVersion)</_Parameter1>
             </AssemblyAttribute>
         </ItemGroup>
     </Target>
 
-    <PropertyGroup Label="Rhino macOS Bindings" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows' and Exists('$(MSBuildProjectDirectory)/UI/macOS/')">
-        <DefineConstants>$(DefineConstants);RHINO_MACOS_BINDINGS</DefineConstants>
-    </PropertyGroup>
-
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <GenerateDependencyFile>false</GenerateDependencyFile>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
-        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'icons'))</PlugInIcons>
-        <PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'icon.svg'))</PlugInIconSource>
+        <PlugInIcons Condition="'$(PlugInIcons)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'icons'))</PlugInIcons>
+        <PlugInIconSource Condition="'$(PlugInIconSource)' == ''">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'icon.svg'))</PlugInIconSource>
         <PlugInPackageIcon Condition="Exists('$(PlugInIconSource)')">icon.png</PlugInPackageIcon>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Rhino Plug-In Assets" Condition="'$(TargetExt)' == '.rhp'">
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
-        <_PlugInAssetInputsCache>$(_PlugInAssetDir)RasterInputs.cache</_PlugInAssetInputsCache>
         <_PlugInIcon Condition="'$(PlugInPackageIcon)' != ''">PlugIn.ico</_PlugInIcon>
     </PropertyGroup>
 
@@ -113,65 +93,28 @@
         <PackageReference Include="System.Reflection.MetadataLoadContext" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
         <None Update="$(AssemblyName).rui" CopyToPublishDirectory="PreserveNewest" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
-        <PlugInGlyph Include="$(PlugInIcons)**/*.svg" Points="$([MSBuild]::ValueOrDefault($([System.IO.Path]::TrimEndingDirectorySeparator('%(RecursiveDir)')), '16'))" />
-        <_PlugInMacGlyph Include="@(PlugInGlyph)" Scale="1" />
-        <_PlugInMacGlyph Include="@(_PlugInMacGlyph)" Scale="2" />
-        <_PlugInMacGlyph Update="@(_PlugInMacGlyph)">
-            <Suffix Condition="'%(Scale)' != '1'">@%(Scale)x</Suffix>
-            <LogicalName>%(Filename)-%(Points)_mac%(Suffix).png</LogicalName>
-            <Pixels>$([MSBuild]::Multiply(24, '%(Scale)'))</Pixels>
-        </_PlugInMacGlyph>
-        <_PlugInMacGlyphFile Include="@(_PlugInMacGlyph->'$(_PlugInAssetDir)%(LogicalName)')" />
+        <EmbeddedResource Include="$(PlugInIcons)**/*.svg" LogicalName="%(Filename)-$([MSBuild]::ValueOrDefault($([System.IO.Path]::TrimEndingDirectorySeparator('%(RecursiveDir)')), '16')).svg" WithCulture="false" />
+        <ProjectReference Include="@(_NestedProject)" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Plug-In Icon" Condition="'$(_PlugInIcon)' != ''">
-        <_PlugInIconFrame Include="16;24;32;48" />
-        <_PlugInIconFile Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" />
+        <EmbeddedResource Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" WithCulture="false" />
         <_PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
-    </ItemGroup>
-
-    <ItemGroup Label="Rhino Plug-In Package Image" Condition="'$(PlugInPackageIcon)' != ''">
-        <_PlugInIconFrame Include="256" />
-        <_PlugInIconFile Include="@(_PlugInIconFrame->'$(_PlugInAssetDir)%(Identity).png')" />
-        <None Include="$(_PlugInAssetDir)256.png" TargetPath="$(PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
-    </ItemGroup>
-
-    <ItemGroup Label="Rhino Plug-In Assets" Condition="'$(TargetExt)' == '.rhp'">
-        <_PlugInAssetInput Include="$(PlugInIcons)**/*" />
-        <EmbeddedResource Include="@(PlugInGlyph)" LogicalName="%(Filename)-%(Points).svg" WithCulture="false" />
-        <EmbeddedResource Include="@(_PlugInMacGlyphFile);@(_PlugInIconFile->HasMetadata('LogicalName'))" WithCulture="false" />
-        <FileWrites Include="@(_PlugInMacGlyphFile);@(_PlugInIconFile)" />
-    </ItemGroup>
-
-    <ItemGroup Label="Rhino Plug-In Parts" Condition="'$(TargetExt)' == '.rhp'">
-        <ProjectReference Include="@(_NestedProject)" />
+        <None Include="$(_PlugInAssetDir)$(PlugInPackageIcon)" TargetPath="$(PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
+        <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInAssetDir)$(PlugInPackageIcon)" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Policy">
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
 
-    <Target Name="CreatePlugInAssetInputsCache" Condition="'$(DesignTimeBuild)' != 'true' and '@(_PlugInIconFrame)@(_PlugInMacGlyph)' != ''">
-        <ItemGroup>
-            <_PlugInAssetTool Include="resvg --version" />
-            <_PlugInAssetTool Include="magick -version" Condition="'$(_PlugInIcon)' != ''" />
-        </ItemGroup>
-        <Exec Command="%(_PlugInAssetTool.Identity)" ConsoleToMSBuild="true" StandardOutputImportance="low">
-            <Output TaskParameter="ConsoleOutput" ItemName="_PlugInAssetToolVersion" />
-        </Exec>
-        <WriteLinesToFile File="$(_PlugInAssetInputsCache)" Lines="@(_PlugInAssetToolVersion)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <ItemGroup>
-            <FileWrites Include="$(_PlugInAssetInputsCache)" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="BuildPlugInMacGlyphs" BeforeTargets="CoreCompile" DependsOnTargets="CreatePlugInAssetInputsCache" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);@(PlugInGlyph);$(_PlugInAssetInputsCache)" Outputs="@(_PlugInMacGlyphFile)">
-        <Exec Command="resvg -w %(_PlugInMacGlyph.Pixels) &quot;%(_PlugInMacGlyph.FullPath)&quot; &quot;%(_PlugInMacGlyph.LogicalName)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
-    </Target>
-
-    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" DependsOnTargets="CreatePlugInAssetInputsCache" Condition="'$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects);$(PlugInIconSource);@(_PlugInAssetInput);$(_PlugInAssetInputsCache)" Outputs="@(_PlugInIconFile)">
-        <Exec Command="resvg -w %(_PlugInIconFrame.Identity) &quot;$(PlugInIconSource)&quot; %(_PlugInIconFrame.Identity).png" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
-        <Exec Command="magick @(_PlugInIconFrame->'%(Identity).png', ' ') -define icon:png-compression-size=256 $(_PlugInIcon)" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" Condition="'$(_PlugInIcon)' != ''" />
+    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(_PlugInIcon)' != ''">
+        <PropertyGroup>
+            <_PlugInIconPixels>256</_PlugInIconPixels>
+        </PropertyGroup>
+        <MakeDir Directories="$(_PlugInAssetDir)" />
+        <Exec Command="resvg -w $(_PlugInIconPixels) -h $(_PlugInIconPixels) &quot;$(PlugInIconSource)&quot; &quot;$(PlugInPackageIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
+        <Exec Command="magick &quot;$(PlugInPackageIcon)&quot; -define icon:auto-resize &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
     </Target>
 
     <Target Name="AddPlugInDescriptions" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
@@ -195,7 +138,6 @@
         <ParameterGroup>
             <PlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
             <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-            <Grasshopper ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
             <GrasshopperPlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
         </ParameterGroup>
         <Task>
@@ -203,11 +145,11 @@
             <Using Namespace="System.Reflection" />
             <Code Type="Fragment" Language="cs"><![CDATA[
                 using MetadataLoadContext context = new(new PathAssemblyResolver(References.Concat(PlugIns).Select(static item => item.ItemSpec)));
-                HashSet<string> grasshopper = new(Grasshopper.Select(static item => item.GetMetadata("Filename")));
+                Type grasshopper = context.LoadFromAssemblyName("Grasshopper2").GetType("Grasshopper2.Framework.Plugin", throwOnError: true);
+                Type rhino = context.LoadFromAssemblyName("RhinoCommon").GetType("Rhino.PlugIns.PlugIn", throwOnError: true);
                 GrasshopperPlugIns = PlugIns.Where(plugIn => {
-                    HashSet<Type> seen = new();
-                    bool Derives(Type type) => seen.Add(type) && (grasshopper.Contains(type.Assembly.GetName().Name) || type.GetInterfaces().Concat(type.GenericTypeArguments).Append(type.BaseType).Any(next => next != null && Derives(next)));
-                    return context.LoadFromAssemblyPath(plugIn.ItemSpec).GetExportedTypes().Any(Derives);
+                    Type[] types = context.LoadFromAssemblyPath(plugIn.ItemSpec).GetExportedTypes();
+                    return types.Any(type => !type.IsAbstract && type.IsSubclassOf(grasshopper) && type.GetConstructor(Type.EmptyTypes) != null) && !types.Any(type => !type.IsAbstract && type.IsSubclassOf(rhino));
                 }).ToArray();
             ]]></Code>
         </Task>
@@ -220,14 +162,12 @@
         </PropertyGroup>
         <ItemGroup>
             <_YakOutput Include="$(PublishDir)manifest.yml;$(PublishDir)*.yak;$(PublishDir)*.grasshopper-only" />
-            <_YakPlugIn Include="$(PublishDir)*.rhp" />
-            <_GrasshopperAssembly Include="@(ReferencePath->WithMetadataValue('NuGetPackageId', 'Grasshopper2'))" />
         </ItemGroup>
         <Delete Files="@(_YakOutput)" />
-        <FindGrasshopperPlugIns PlugIns="@(_YakPlugIn)" References="@(ReferencePath)" Grasshopper="@(_GrasshopperAssembly)" Condition="'@(_GrasshopperAssembly)' != ''">
+        <FindGrasshopperPlugIns PlugIns="@(ResolvedFileToPublish->WithMetadataValue('Extension', '.rhp'))" References="@(ReferencePath)" Condition="'@(ReferencePath->WithMetadataValue('NuGetPackageId', 'Grasshopper2'))' != ''">
             <Output TaskParameter="GrasshopperPlugIns" ItemName="_GrasshopperPlugIn" />
         </FindGrasshopperPlugIns>
-        <Touch Files="@(_GrasshopperPlugIn->'%(FullPath).grasshopper-only')" AlwaysCreate="true" />
+        <Touch Files="@(_GrasshopperPlugIn->'$(PublishDir)%(RelativePath).grasshopper-only')" AlwaysCreate="true" />
         <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
         <WriteLinesToFile File="$(PublishDir)manifest.yml" Lines="icon: $(PlugInPackageIcon)" Condition="'$(PlugInPackageIcon)' != ''" />
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />

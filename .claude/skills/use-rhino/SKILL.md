@@ -12,7 +12,7 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 | [INDEX] | [TOOL]                                           | [USE_WHEN]                                                       |
 | :-----: | :----------------------------------------------- | :--------------------------------------------------------------- |
 |  [01]   | `mcp__rhino-mcp-platform__list_slots`            | "Which Rhino slots does the router run or adopt?"                |
-|  [02]   | `mcp__rhino-mcp-platform__spawn_slot`            | "Start a new Rhino document for this task"                       |
+|  [02]   | `mcp__rhino-mcp-platform__spawn_slot`            | "Start a disposable document owned by the router"                |
 |  [03]   | `mcp__rhino-mcp-platform__close_slot`            | "Close a spawned slot"                                           |
 |  [04]   | `mcp__rhino-mcp-platform__get_context`           | "What selection, viewport, document, and canvas state is live?"  |
 |  [05]   | `mcp__rhino-mcp-platform__list_objects`          | "Which objects match this name, layer, or geometry type?"        |
@@ -45,11 +45,15 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 ## [02]-[SESSION]
 
-Sessions open on:
-1. `spawn_slot` starts a document for new work, skipping the splash and using the default template, or `open -g <file>` opens an existing file in Rhino
-2. `dotnet run "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/Instances.cs"` lists each running Rhino with its documents, slots, and Grasshopper definitions
-3. `get_context` reads the target slot's selection, viewport, document, and canvas state
+- Inspect UI, logs and crash reports; resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
+Sessions open on:
+1. `dotnet run "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/Instances.cs"` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
+2.a. New work: `spawn_slot` starts a document, skipping the splash and using the default template
+2.b. Existing work: `open -g <file>` opens the file in Rhino
+3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
+
+- Always open Rhino without a splash screen, and with the default template, if rhino is open and untitled file with no modifications, use that for new work if doing new work
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it
 - Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`

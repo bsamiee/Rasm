@@ -6,7 +6,6 @@
     "namedInputs": {
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
         "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "DOTNET_CLI_ENABLEAOT" }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" }],
-        "rhino": [{ "env": "RHINO_PATH" }, { "env": "RuntimeIdentifier" }, { "runtime": "dotnet --info" }],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" }],
         "typescript": [{ "json": "{workspaceRoot}/package.json", "fields": ["type", "imports"] }, { "runtime": "node --version" }],
         "pythonFiles": ["{workspaceRoot}/**/*.{py,pyi}"],
@@ -17,7 +16,7 @@
         "build{,:*}": [
             { "cache": true },
             { "filter": { "plugin": "@nx/dotnet" }, "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }] },
-            { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino", "rhinoInstallation"] },
+            { "filter": { "projects": ["tag:host:rhino"] }, "cache": false },
             {
                 "filter": { "projects": ["tag:output:rhp"] },
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
@@ -43,7 +42,7 @@
                     "parallel": false
                 },
                 "configurations": { "ci": { "args": ["CODE_SIGN_STYLE=Manual", "CODE_SIGN_IDENTITY=-", "DEVELOPMENT_TEAM=", "COMPILER_INDEX_STORE_ENABLE=NO"] } },
-                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}"]
+                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build"]
             },
             { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
             { "filter": { "projects": ["tag:bundler:vite"] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": ["...", { "externalDependencies": ["vite"] }], "outputs": ["{projectRoot}/dist"] },
@@ -60,10 +59,10 @@
             { "cache": true },
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "dotnet publish --no-build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/publish-{}.binlog\"",
+                "cache": false,
+                "command": "dotnet publish --no-build --configuration Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/publish-{}.binlog\"",
                 "options": { "cwd": "{projectRoot}" },
                 "dependsOn": ["build:release"],
-                "inputs": ["production", "dotnet", "rhino", "rhinoInstallation", { "dependentTasksOutputFiles": "**/project.assets.json", "transitive": true }, { "dependentTasksOutputFiles": "**/*" }],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/publish/{projectName}/release*", "{workspaceRoot}/.artifacts/dotnet/obj/{projectName}/release*/PublishOutputs.*.txt"]
             },
             { "filter": { "projects": ["tag:host:blender"] }, "inputs": ["...", "production", "python", { "env": "BLENDER_PATH" }, { "runtime": "\"$BLENDER_PATH\" --version" }, "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "pip --version" }, { "runtime": "resvg --version" }] }
@@ -82,7 +81,7 @@
                     "parallel": false
                 },
                 "parallelism": false,
-                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}", "{workspaceRoot}/.artifacts/{projectRoot}/install"]
+                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build", "{workspaceRoot}/.artifacts/{projectRoot}/install"]
             },
             {
                 "filter": { "projects": ["tag:host:rhino"] },

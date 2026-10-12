@@ -5,7 +5,6 @@ import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
 import { Api } from '../model/api.ts';
 import { content } from './content.ts';
-import { database } from './database.ts';
 import { download, media } from './media.ts';
 import { page } from './page.tsx';
 import { owner } from './session.ts';
@@ -25,7 +24,7 @@ const handler = Function.memoize((bindings: Bindings) => {
     const email = bindings.OWNER_EMAIL.toLowerCase();
     return HttpRouter.toWebHandler(
         Layer.mergeAll(page(bindings.ASSETS, email), download(bindings.BUCKET, email), HttpApiBuilder.layer(Api).pipe(Layer.provide([Layer.merge(content, media(bindings.BUCKET)).pipe(Layer.provide(owner(email))), HttpServer.layerServices]))).pipe(
-            Layer.provideMerge(database.pipe(Layer.provideMerge(D1Client.layer({ db: bindings.DB, transformResultNames: String.snakeToCamel })))),
+            Layer.provideMerge(D1Client.layer({ db: bindings.DB, transformResultNames: String.snakeToCamel })),
             Layer.provideMerge(BrowserCrypto.layer),
         ),
     ).handler;
