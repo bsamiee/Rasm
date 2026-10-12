@@ -76,11 +76,11 @@
         },
         "xcode": {
             "command": "xcrun",
-            "args": ["mcpbridge"]
+            "args": [ "mcpbridge" ]
         },
         "lldb": {
             "command": "xcrun",
-            "args": ["lldb-mcp"]
+            "args": [ "lldb-mcp" ]
         },
         "rhino-mcp-platform": {
             "type": "http",

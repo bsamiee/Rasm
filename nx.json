@@ -4,33 +4,33 @@
     "neverConnectToCloud": true,
     "useDaemonProcess": false,
     "namedInputs": {
-        "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
-        "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "DOTNET_CLI_ENABLEAOT" }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" }],
-        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" }],
-        "typescript": [{ "json": "{workspaceRoot}/package.json", "fields": ["type", "imports"] }, { "runtime": "node --version" }],
-        "pythonFiles": ["{workspaceRoot}/**/*.{py,pyi}"],
-        "yamlFiles": ["{workspaceRoot}/**/*.{yml,yaml}"],
-        "javaFiles": ["{workspaceRoot}/**/*.java"]
+        "production": [ "default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}" ],
+        "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [ ] }, { "env": "DOTNET_CLI_ENABLEAOT" }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" } ],
+        "python": [ "{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [ ] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
+        "typescript": [ { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
+        "pythonFiles": [ "{workspaceRoot}/**/*.{py,pyi}" ],
+        "yamlFiles": [ "{workspaceRoot}/**/*.{yml,yaml}" ],
+        "javaFiles": [ "{workspaceRoot}/**/*.java" ]
     },
     "targetDefaults": {
         "build{,:*}": [
             { "cache": true },
-            { "filter": { "plugin": "@nx/dotnet" }, "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }] },
-            { "filter": { "projects": ["tag:host:rhino"] }, "cache": false },
+            { "filter": { "plugin": "@nx/dotnet" }, "dependsOn": [ "...", { "projects": [ "rasm" ], "target": "restore" } ] },
+            { "filter": { "projects": [ "tag:host:rhino" ] }, "cache": false },
             {
-                "filter": { "projects": ["tag:output:rhp"] },
-                "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["...", { "runtime": "resvg --version" }, { "runtime": "magick -version" }],
-                "options": { "args": ["--no-restore"] },
-                "configurations": { "debug": { "args": ["--no-restore", "--configuration", "Debug"] }, "release": { "args": ["--no-restore", "--configuration", "Release"] } }
+                "filter": { "projects": [ "tag:output:rhp" ] },
+                "dependsOn": [ { "projects": [ "rasm" ], "target": "restore" } ],
+                "inputs": [ "...", { "runtime": "resvg --version" }, { "runtime": "magick -version" } ],
+                "options": { "args": [ "--no-restore" ] },
+                "configurations": { "debug": { "args": [ "--no-restore", "--configuration", "Debug" ] }, "release": { "args": [ "--no-restore", "--configuration", "Release" ] } }
             },
             {
-                "filter": { "projects": ["tag:language:dotnet"] },
+                "filter": { "projects": [ "tag:language:dotnet" ] },
                 "command": "doppler run --project rasm --config dev_repo --only-secrets SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog\"",
-                "inputs": ["...", "dotnet", "{workspaceRoot}/.editorconfig", { "runtime": "doppler --version" }]
+                "inputs": [ "...", "dotnet", "{workspaceRoot}/.editorconfig", { "runtime": "doppler --version" } ]
             },
             {
-                "filter": { "projects": ["tag:language:swift"] },
+                "filter": { "projects": [ "tag:language:swift" ] },
                 "executor": "nx:run-commands",
                 "cache": false,
                 "options": {
@@ -41,35 +41,35 @@
                     ],
                     "parallel": false
                 },
-                "configurations": { "ci": { "args": ["CODE_SIGN_STYLE=Manual", "CODE_SIGN_IDENTITY=-", "DEVELOPMENT_TEAM=", "COMPILER_INDEX_STORE_ENABLE=NO"] } },
-                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build"]
+                "configurations": { "ci": { "args": [ "CODE_SIGN_STYLE=Manual", "CODE_SIGN_IDENTITY=-", "DEVELOPMENT_TEAM=", "COMPILER_INDEX_STORE_ENABLE=NO" ] } },
+                "outputs": [ "{workspaceRoot}/.cache/xcode/{projectRoot}/Build" ]
             },
-            { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
-            { "filter": { "projects": ["tag:bundler:vite"] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": ["...", { "externalDependencies": ["vite"] }], "outputs": ["{projectRoot}/dist"] },
+            { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
+            { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", { "externalDependencies": [ "vite" ] } ], "outputs": [ "{projectRoot}/dist" ] },
             {
-                "filter": { "projects": ["tag:host:uxp"] },
+                "filter": { "projects": [ "tag:host:uxp" ] },
                 "command": "vite build --config $NX_WORKSPACE_ROOT/vite.config.ts",
                 "options": { "cwd": "{projectRoot}" },
-                "inputs": ["...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": ["vite", "effect", "@effect/platform-node"] }],
-                "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
+                "inputs": [ "...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect", "@effect/platform-node" ] } ],
+                "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ]
             },
-            { "filter": { "projects": ["tag:host:extendscript"] }, "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'", "inputs": ["...", { "externalDependencies": ["@swc/core", "@swc/cli"] }], "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"] }
+            { "filter": { "projects": [ "tag:host:extendscript" ] }, "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'", "inputs": [ "...", { "externalDependencies": [ "@swc/core", "@swc/cli" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
         ],
         "pack": [
             { "cache": true },
             {
-                "filter": { "projects": ["tag:host:rhino"] },
+                "filter": { "projects": [ "tag:host:rhino" ] },
                 "cache": false,
                 "command": "dotnet publish --no-build --configuration Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/publish-{}.binlog\"",
                 "options": { "cwd": "{projectRoot}" },
-                "dependsOn": ["build:release"],
-                "outputs": ["{workspaceRoot}/.artifacts/dotnet/publish/{projectName}/release*", "{workspaceRoot}/.artifacts/dotnet/obj/{projectName}/release*/PublishOutputs.*.txt"]
+                "dependsOn": [ "build:release" ],
+                "outputs": [ "{workspaceRoot}/.artifacts/dotnet/publish/{projectName}/release*", "{workspaceRoot}/.artifacts/dotnet/obj/{projectName}/release*/PublishOutputs.*.txt" ]
             },
-            { "filter": { "projects": ["tag:host:blender"] }, "inputs": ["...", "production", "python", { "env": "BLENDER_PATH" }, { "runtime": "\"$BLENDER_PATH\" --version" }, "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "pip --version" }, { "runtime": "resvg --version" }] }
+            { "filter": { "projects": [ "tag:host:blender" ] }, "inputs": [ "...", "production", "python", { "env": "BLENDER_PATH" }, { "runtime": "\"$BLENDER_PATH\" --version" }, "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "pip --version" }, { "runtime": "resvg --version" } ] }
         ],
         "install": [
             {
-                "filter": { "projects": ["tag:language:swift"] },
+                "filter": { "projects": [ "tag:language:swift" ] },
                 "executor": "nx:run-commands",
                 "options": {
                     "cwd": "{projectRoot}",
@@ -81,20 +81,20 @@
                     "parallel": false
                 },
                 "parallelism": false,
-                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build", "{workspaceRoot}/.artifacts/{projectRoot}/install"]
+                "outputs": [ "{workspaceRoot}/.cache/xcode/{projectRoot}/Build", "{workspaceRoot}/.artifacts/{projectRoot}/install" ]
             },
             {
-                "filter": { "projects": ["tag:host:rhino"] },
+                "filter": { "projects": [ "tag:host:rhino" ] },
                 "command": "dotnet msbuild -target:InstallYakPackage -property:Configuration=Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/install-{}.binlog\"",
                 "options": { "cwd": "{projectRoot}" },
-                "dependsOn": ["pack"],
+                "dependsOn": [ "pack" ],
                 "parallelism": false
             },
-            { "filter": { "projects": ["tag:host:blender"] }, "dependsOn": ["pack"], "parallelism": false }
+            { "filter": { "projects": [ "tag:host:blender" ] }, "dependsOn": [ "pack" ], "parallelism": false }
         ],
         "upgrade": [
             {
-                "filter": { "projects": ["tag:language:swift"] },
+                "filter": { "projects": [ "tag:language:swift" ] },
                 "executor": "nx:run-commands",
                 "options": {
                     "cwd": "{projectRoot}",
@@ -108,46 +108,46 @@
         ],
         "lint": [
             {
-                "filter": { "projects": ["tag:language:swift"] },
+                "filter": { "projects": [ "tag:language:swift" ] },
                 "executor": "nx:run-commands",
                 "cache": true,
-                "inputs": ["default", "{workspaceRoot}/.swift-format", "{workspaceRoot}/.swiftlint.yml", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" }, { "runtime": "swiftlint version" }],
-                "options": { "commands": ["xcrun swift-format lint --strict --parallel --recursive {projectRoot}", "swiftlint lint --quiet {projectRoot}"], "parallel": false }
+                "inputs": [ "default", "{workspaceRoot}/.swift-format", "{workspaceRoot}/.swiftlint.yml", { "externalDependencies": [ ] }, { "runtime": "xcodebuild -version" }, { "runtime": "swiftlint version" } ],
+                "options": { "commands": [ "xcrun swift-format lint --strict --parallel --recursive {projectRoot}", "swiftlint lint --quiet {projectRoot}" ], "parallel": false }
             }
         ],
-        "serve": [{ "filter": { "projects": ["tag:bundler:vite"] }, "command": "vite", "options": { "cwd": "{projectRoot}" }, "continuous": true }],
+        "serve": [ { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite", "options": { "cwd": "{projectRoot}" }, "continuous": true } ],
         "restore{,:*.cs}": { "command": "dotnet restore -bl:.artifacts/dotnet/binlog/restore-{}.binlog", "cache": true, "parallelism": false },
         "run:*.cs": { "command": "dotnet run" },
         "{format:dotnet,lint:dotnet-format,{format,lint}:*.cs}": { "command": "dotnet format", "parallelism": false },
         "typecheck": [
-            { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
+            { "filter": { "projects": [ "tag:language:dotnet" ] }, "executor": "nx:noop", "dependsOn": [ "build" ] },
             {
-                "filter": { "projects": ["tag:language:typescript"] },
+                "filter": { "projects": [ "tag:language:typescript" ] },
                 "command": "tsc --build --pretty false",
                 "cache": true,
-                "inputs": ["default", "^default", "typescript", { "externalDependencies": ["typescript"] }],
+                "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "typescript" ] } ],
                 "options": { "cwd": "{projectRoot}" },
-                "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
+                "outputs": [ "{workspaceRoot}/.cache/typescript/out/{projectRoot}" ]
             }
         ],
-        "typecheck:ty{,-*}": { "cache": true, "inputs": ["python", "pythonFiles", { "runtime": "ty --version" }] },
-        "typecheck:mypy{,-*}": { "cache": true, "inputs": ["python", "pythonFiles", { "runtime": "mypy --version" }] },
+        "typecheck:ty{,-*}": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "ty --version" } ] },
+        "typecheck:mypy{,-*}": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "mypy --version" } ] },
         "test": [
             { "cache": true },
-            { "filter": { "projects": ["tag:language:dotnet"] }, "inputs": ["...", "dotnet"], "outputs": ["{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}"] },
+            { "filter": { "projects": [ "tag:language:dotnet" ] }, "inputs": [ "...", "dotnet" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}" ] },
             {
-                "filter": { "projects": ["tag:language:python"] },
-                "inputs": ["...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support/**/*.py}"],
-                "outputs": ["{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}"],
+                "filter": { "projects": [ "tag:language:python" ] },
+                "inputs": [ "...", "default", "^default", "python", "{workspaceRoot}/tests/python/{conftest.py,support/**/*.py}" ],
+                "outputs": [ "{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}" ],
                 "options": { "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" } }
             },
             {
-                "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" },
-                "inputs": ["...", "typescript", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": ["effect", "@effect/platform-node", "@effect/vitest", "yaml"] }],
-                "outputs": ["{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"]
+                "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
+                "inputs": [ "...", "typescript", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml" ] } ],
+                "outputs": [ "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}" ]
             }
         ],
-        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }, { "filter": { "projects": ["tag:language:swift"] }, "dependsOn": [{ "target": "build", "params": "forward" }, "lint"] }]
+        "check": [ { "filter": { "projects": [ "tag:language:*" ] }, "executor": "nx:noop", "dependsOn": [ "typecheck", "test" ] }, { "filter": { "projects": [ "tag:language:swift" ] }, "dependsOn": [ { "target": "build", "params": "forward" }, "lint" ] } ]
     },
-    "plugins": [{ "plugin": "@nx/vitest", "include": ["**/vitest.config.ts"], "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" }]
+    "plugins": [ { "plugin": "@nx/vitest", "include": [ "**/vitest.config.ts" ], "exclude": [ "vitest.config.ts" ], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" } ]
 }

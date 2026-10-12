@@ -4,7 +4,7 @@
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
         "incremental": true,
-        "lib": ["esnext"],
+        "lib": [ "esnext" ],
         "module": "preserve",
         "moduleDetection": "force",
         "noEmit": true,
@@ -15,6 +15,6 @@
         "target": "esnext",
         "verbatimModuleSyntax": true
     },
-    "include": ["${configDir}"],
-    "exclude": ["${configDir}/vitest.config.ts"]
+    "include": [ "${configDir}" ],
+    "exclude": [ "${configDir}/vitest.config.ts" ]
 }

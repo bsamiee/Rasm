@@ -3,10 +3,10 @@
     "private": true,
     "type": "module",
     "nx": {
-        "tags": ["host:claude"],
+        "tags": [ "host:claude" ],
         "targets": {
             "typecheck": {
-                "inputs": ["...", { "runtime": "claude --version" }]
+                "inputs": [ "...", { "runtime": "claude --version" } ]
             }
         }
     }

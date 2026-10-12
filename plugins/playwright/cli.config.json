@@ -3,7 +3,7 @@
         "browserName": "chromium",
         "launchOptions": {
             "headless": true,
-            "args": ["--enable-features=CDPScreenshotNewSurface,WebMCP"]
+            "args": [ "--enable-features=CDPScreenshotNewSurface,WebMCP" ]
         },
         "contextOptions": {
             "bypassCSP": true,

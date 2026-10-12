@@ -10,7 +10,7 @@
         "FORCE_COLOR": "0"
     },
     "enableAllProjectMcpServers": true,
-    "disabledMcpjsonServers": ["greptile", "arena"],
+    "disabledMcpjsonServers": [ "greptile", "arena" ],
     "hooks": {
         "SessionStart": [
             {
@@ -19,7 +19,7 @@
                     {
                         "type": "command",
                         "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/root-cause.sh",
-                        "args": []
+                        "args": [ ]
                     }
                 ]
             },
@@ -28,7 +28,7 @@
                     {
                         "type": "command",
                         "command": "uv",
-                        "args": ["run", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
+                        "args": [ "run", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py" ],
                         "timeout": 10
                     }
                 ]
@@ -40,7 +40,7 @@
                     {
                         "type": "command",
                         "command": "uv",
-                        "args": ["run", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py"],
+                        "args": [ "run", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py" ],
                         "timeout": 10
                     }
                 ]
@@ -53,7 +53,7 @@
                     {
                         "type": "command",
                         "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/root-cause.sh",
-                        "args": []
+                        "args": [ ]
                     }
                 ]
             }
@@ -87,5 +87,5 @@
     },
     "effortLevel": "high",
     "showClearContextOnPlanAccept": true,
-    "claudeMdExcludes": ["**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/.venv/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md"]
+    "claudeMdExcludes": [ "**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/.venv/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md" ]
 }

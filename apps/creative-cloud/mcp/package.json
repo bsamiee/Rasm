@@ -9,6 +9,6 @@
         "effect": "catalog:"
     },
     "nx": {
-        "implicitDependencies": ["AdobeScripting"]
+        "implicitDependencies": [ "AdobeScripting" ]
     }
 }

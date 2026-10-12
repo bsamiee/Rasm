@@ -48,7 +48,7 @@
                 "options": {
                     "cwd": "{projectRoot}"
                 },
-                "dependsOn": ["build"],
+                "dependsOn": [ "build" ],
                 "parallelism": false
             }
         }

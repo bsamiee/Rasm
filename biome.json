@@ -3,7 +3,7 @@
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     "files": {
         "ignoreUnknown": true,
-        "includes": ["**", "!!.venv", "!**/*.xcassets", "!**/*.icon"]
+        "includes": [ "**", "!!.venv", "!**/*.xcassets", "!**/*.icon" ]
     },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
@@ -64,7 +64,7 @@
     },
     "overrides": [
         {
-            "includes": ["**"],
+            "includes": [ "**" ],
             "linter": {
                 "rules": {
                     "complexity": {
@@ -89,9 +89,9 @@
                 }
             }
         },
-        { "includes": ["package.json"], "linter": { "rules": { "nursery": { "noRestrictedDependencies": "off" } } } },
-        { "includes": ["apps/web/portfolio/**/*.tsx"], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
-        { "includes": ["plugins/function-hooks/**"], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
-        { "includes": ["plugins/argus/main.ts"], "linter": { "rules": { "style": { "noProcessEnv": "off" } } } }
+        { "includes": [ "package.json" ], "linter": { "rules": { "nursery": { "noRestrictedDependencies": "off" } } } },
+        { "includes": [ "apps/web/portfolio/**/*.tsx" ], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
+        { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
+        { "includes": [ "plugins/argus/main.ts" ], "linter": { "rules": { "style": { "noProcessEnv": "off" } } } }
     ]
 }
