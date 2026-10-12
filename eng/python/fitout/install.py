@@ -1,4 +1,4 @@
-"""Installs extensions through Blender's native handler in the owning process."""
+"""Installs extensions through Blender's native handler in the GUI session holding the same user profile, else a command process."""
 
 import errno
 import os
@@ -62,8 +62,16 @@ async def install(
             return Err(FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), blender))
         case found:
             executable = anyio.Path(found)
+    profile = {name: value for name, value in os.environ.items() if name.startswith("BLENDER_USER_")}
     try:
-        pids = [process.pid for process in await anyio.to_thread.run_sync(tuple, psutil.process_iter(("exe",))) if (path := process.info["exe"]) and await executable.samefile(path)]
+        pids = [
+            process.pid
+            for process in await anyio.to_thread.run_sync(tuple, psutil.process_iter(("exe", "cmdline", "environ")))
+            if (path := process.info["exe"])
+            and not {"-b", "--background", "-c", "--command"} & set(process.info["cmdline"] or ())
+            and {name: value for name, value in (process.info["environ"] or {}).items() if name.startswith("BLENDER_USER_")} == profile
+            and await executable.samefile(path)
+        ]
     except OSError as error:
         return Err(error)
     arguments = ("install-file", "--repo", "user_default", "--enable", str(archive))

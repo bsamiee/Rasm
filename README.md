@@ -142,7 +142,7 @@ flowchart LR
 |  [14]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [15]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
 |  [16]   | MCP tool a skill replaces      | `--hide <glob>` on server's `mise.toml` launchd agent row                                            |
-|  [17]   | Python runtime version         | Root Ruff `per-file-target-version` for files, nested `requires-python` for host trees               |
+|  [17]   | Python runtime version         | Nested `requires-python` at the root of the folder holding host code                                 |
 
 - Tool rows name a release where `latest` resolves a development build
 - Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows

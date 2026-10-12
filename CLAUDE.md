@@ -26,7 +26,7 @@
 - NEVER do prose validation on tmp/planning or other `.md` documents that are not going to be living in the project long-term
 - Durable project `.md` files receive a focused adversarial review of their modified content, with `clean-prose` read whole
 - All code files are adversarially reviewed to rebuild aggressively, initial code is always slop, skills, memory, `CLAUDE/AGENTS.md`, and similar determine quality
-- Reviews are adversarial, reviewers assume code is wrong and commit corrections, a report stands where a task or skill asks for one
+- Reviews are adversarial, reviewers assume code is wrong and commit corrections, reducing code LOC/surface, and rebuilding approach if needed
 
 ## [01]-[LANGUAGE_STANDARDS]
 
@@ -50,6 +50,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender
+- ALWAYS use `blender-coding` skill for Python that runs inside Blender
 
 [CLI_TOOLING]:
 

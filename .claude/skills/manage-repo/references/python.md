@@ -46,7 +46,6 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` takes option flags
 - `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Default checker versions follow repository tooling independently of distribution compatibility
-- Standalone runtime declarations use root Ruff `per-file-target-version` with literal workspace-relative Python paths
 - Nested runtime declarations hold project name, `requires-python = ">=<major>.<minor>"`, and Ruff `extend` naming root file
 - Nested declarations create neither uv members nor Nx projects, distributions, locks, or environments
 - Ruff prefers local `requires-python` over an extended `target-version`; ty and mypy take one runtime per run
@@ -75,10 +74,10 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Selected modules enter packaging as wheel-relative arguments, package membership supplies no import inventory
 - First-party imports use `from rasm.<module> import <member>` for relocation into private extension packages
 - Blender supplies extension identity as `bl_ext.<repo>.<id>`, extension-local imports use relative paths within that package
-- Native uv export supplies locked runtime requirements through artifact `pylock.toml`, root `uv.lock` remains committed
+- Native uv export supplies locked runtime requirements through a staged `pylock.toml`, root `uv.lock` remains committed
 - Selected Blender interpreter's markers and wheel tags govern `pip wheel` compatibility
-- Native host metadata identifies bundled ABI providers to omit, repository environment builds establish no portable wheel contract
-- Installation matches running Blender processes to the executable `BLENDER_PATH` resolves by file identity
+- Root uv constraint rows whose markers hold for Blender's interpreter name the bundled ABI providers export omits
+- Installation matches running GUI Blender processes to the executable `BLENDER_PATH` resolves by file identity and to the installing process's `BLENDER_USER_*` profile
 
 ## [08]-[TYPING]
 

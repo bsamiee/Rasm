@@ -2,7 +2,7 @@ import type { NapiConfig } from '@ast-grep/napi';
 import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ImplicitDependency, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, flow, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
+import { Array, Cause, Effect, FileSystem, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
 import { parse } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
 
@@ -10,8 +10,6 @@ import { parse as parseYaml } from 'yaml';
 
 const _DECLARATION = 'pyproject.toml';
 const _PYTHON_LOWER_BOUND = /^>=\s*(?<version>\d+\.\d+)$/u;
-const _PYTHON_TARGET_VERSION = /^py(?<major>\d)(?<minor>\d+)$/u;
-const _PYTHON_FILE = /^(?!\.{1,2}\/)(?!.*\/\.{1,2}(?:\/|$))[\p{L}\p{N}_.][\p{L}\p{N}_.-]*(?:\/[\p{L}\p{N}_.-]+)+\.pyi?$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,13 +37,6 @@ const _Root = _Toml.pipe(
             tool: Schema.Struct({
                 uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String, moduleName: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root', moduleName: 'module-name' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
-                ruff: Schema.Struct({
-                    perFileTargetVersion: Schema.OptionFromOptionalKey(
-                        Schema.Record(Schema.String, Schema.String.check(Schema.isPattern(_PYTHON_TARGET_VERSION)).pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform(String.replace(_PYTHON_TARGET_VERSION, '$<major>.$<minor>')), encode: SchemaGetter.forbiddenEncoding }))).check(
-                            Schema.makeFilter((input) => Array.every(Record.keys(input), _PYTHON_FILE.test.bind(_PYTHON_FILE)), { expected: 'literal qualified workspace-relative Python file paths' }),
-                        ),
-                    ),
-                }).pipe(Schema.encodeKeys({ perFileTargetVersion: 'per-file-target-version' })),
             }),
         }),
     ),
@@ -59,7 +50,7 @@ const _root = Effect.fnUntraced(function* (workspace: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { tool } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, _DECLARATION)), Schema.decodeEffect(_Root));
     const { moduleRoot, moduleName } = tool.uv.buildBackend;
-    return { moduleRoot, sourceRoot: path.join(moduleRoot, ...moduleName.split('.')), ...tool.pytest, perFileTargetVersion: tool.ruff.perFileTargetVersion };
+    return { moduleRoot, sourceRoot: path.join(moduleRoot, ...moduleName.split('.')), ...tool.pytest };
 });
 const _python = Effect.fnUntraced(function* (dir: string, workspace: string, root: ReturnType<typeof _root>) {
     const [path, { moduleRoot, sourceRoot, pythonFiles, testPaths }] = yield* Effect.all([Path.Path, root]);
@@ -128,7 +119,7 @@ const _sources = Effect.fnUntraced(function* (workspace: string, configuration: 
             Graph.values(
                 Graph.dfs(runtime, {
                     start: Array.map(
-                        Array.filter(Array.fromIterable(graph), ([, file]) => Array.some(roots, (root) => (root.endsWith('/') ? file.startsWith(root) : file === root))),
+                        Array.filter(Array.fromIterable(graph), ([, file]) => Array.some(roots, (root) => file.startsWith(root))),
                         ([index]) => index,
                     ),
                 }),
@@ -185,8 +176,7 @@ const _PROJECTS = {
     'blender_manifest.toml': Effect.fnUntraced(function* ({ dir, base }, { workspace, root, sources }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const [{ id }, python] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(workspace, dir, base)), Schema.decodeEffect(_Manifest)), _python(dir, workspace, root)], { concurrency: 'unbounded' });
-        const outputPath = '.artifacts/blender/{projectName}';
-        const archive = `${outputPath}/extension.zip`;
+        const archive = '.artifacts/blender/{projectName}/extension.zip';
         const modules = Array.filter((yield* sources).closure([`${dir}/`]), String.startsWith(`${python.sourceRoot}/`));
         return {
             root: dir,
@@ -195,8 +185,8 @@ const _PROJECTS = {
             targets: {
                 pack: {
                     command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${Array.map(modules, (file) => `--modules "${path.relative(python.moduleRoot, file)}"`).join(' ')}`,
-                    inputs: Array.map(Array.dedupe(Array.map(modules, path.dirname)), flow(String.replace('', '{workspaceRoot}/'), String.concat('/**/*'))),
-                    outputs: [`{workspaceRoot}/${outputPath}`],
+                    inputs: Array.map(Array.dedupe(Array.map(modules, path.dirname)), (folder) => `{workspaceRoot}/${folder}/**/*`),
+                    outputs: [`{workspaceRoot}/${archive}`],
                 },
                 install: { command: `python -m eng.python.fitout install "${archive}"` },
                 ...python.targets,
@@ -214,7 +204,7 @@ const _PROJECTS = {
     'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {} } }),
 } as const satisfies Record<string, (file: Path.Path.Parsed, context: { workspace: string; root: ReturnType<typeof _root>; sources: ReturnType<typeof _sources> }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
 
-const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string, configuration: ReturnType<typeof _root>, sources: ReturnType<typeof _sources>) {
+const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string, sources: ReturnType<typeof _sources>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const directories = yield* Effect.validate(
         declarations,
@@ -226,10 +216,9 @@ const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly stri
             ),
         { concurrency: 'unbounded' },
     );
-    const [{ perFileTargetVersion }, { closure }] = yield* Effect.all([configuration, sources]);
-    const versions = [...directories, ...Array.map(Array.flatMap(Option.toArray(perFileTargetVersion), Record.toEntries), ([file, version]) => ({ version, root: file }))];
+    const { closure } = yield* sources;
     const runtimeVersions = pipe(
-        versions,
+        directories,
         Array.groupBy(({ version }) => version),
         Record.map((members, version) => Record.fromIterableWith(closure(Array.map(members, ({ root }) => root)), (file) => [file, version])),
         Record.reduce(Record.empty<string, string>(), (runtime, scope) => Record.union(runtime, scope, (a, b) => (a.localeCompare(b, 'en', { numeric: true }) <= 0 ? a : b))),
@@ -300,7 +289,7 @@ const createNodes: CreateNodes = [
         const project = Effect.fnUntraced(
             function* (file: string) {
                 if (file === _DECLARATION) {
-                    return yield* _pythonVersions(declarations, context.workspaceRoot, root, sources);
+                    return yield* _pythonVersions(declarations, context.workspaceRoot, sources);
                 }
                 const parsed = path.parse(file);
                 const [, configure] = yield* Effect.fromOption(Array.findFirst(Record.toEntries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
