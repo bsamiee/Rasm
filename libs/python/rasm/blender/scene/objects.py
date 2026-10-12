@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
 from functools import partial, reduce
-from itertools import chain
+from itertools import chain, starmap
 from typing import Annotated, ClassVar
 
 import bpy
@@ -239,30 +239,29 @@ def restack(row: Restacked) -> tuple[Step, ...]:
 # --- [CHANGES]
 
 
-def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[tuple[ObjectChange, ...]]:
-    """Returns differing concerns, accumulating independent planning refusals."""
+def diverged(
+    state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]
+) -> BlenderResult[tuple[ObjectChange, ...]]:
+    """Returns concerns differing from the state and its resolved data and parent, accumulating independent planning refusals."""
     editing = Setting(descriptor=Descriptor(root=bpy.types.Object, owner="", prop=bpy.types.Object.bl_rna.properties["mode"]), accepted=("EDIT",))
-    unchanged = Ok(())
 
     def swapped(block: bpy.types.ID) -> BlenderResult[tuple[ObjectChange, ...]]:
-        return unchanged if item.data == block else Error((BlenderUnmetFault(requirement=Not(condition=editing)),)) if editing.descriptor.read(item) in editing.accepted else Ok((Swapped(data=block),))
+        return Ok(()) if item.data == block else Error((BlenderUnmetFault(requirement=Not(condition=editing)),)) if editing.descriptor.read(item) in editing.accepted else Ok((Swapped(data=block),))
 
-    def parented(parent: Handle[bpy.types.Object]) -> BlenderResult[tuple[ObjectChange, ...]]:
-        return parent.resolve().bind(
-            lambda block: (
-                Ok(())
-                if item.parent == block
-                else Error((BlenderChoiceFault(path=f"{item!r}.parent", identifier=block.name, accepted=()),))
-                if item in {block, *Block.unfold(lambda above: Some((up, up)) if (up := above.parent) is not None else Nothing, block)}
-                else Ok((Parented(parent=block),))
-            )
+    def parented(block: bpy.types.Object) -> BlenderResult[tuple[ObjectChange, ...]]:
+        return (
+            Ok(())
+            if item.parent == block
+            else Error((BlenderChoiceFault(path=f"{item!r}.parent", identifier=block.name, accepted=()),))
+            if item in {block, *Block.unfold(lambda above: Some((up, up)) if (up := above.parent) is not None else Nothing, block)}
+            else Ok((Parented(parent=block),))
         )
 
-    def resized(data: Option[bpy.types.ID], slots: tuple[Snapshot, ...]) -> BlenderResult[tuple[ObjectChange, ...]]:
+    def resized(slots: tuple[Snapshot, ...]) -> BlenderResult[tuple[ObjectChange, ...]]:
         return (
             Result[bpy.types.ID, BlenderFaults]
             .bind(
-                data.to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="data.materials"),)),
+                data.or_else(Option.of_optional(item.data)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="data.materials"),)),
                 lambda block: Descriptor.resolve(block, "materials", bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)),
             )
             .map(lambda materials: (Resized(materials=materials, before=before, after=after),) if (before := len(materials)) != (after := len(slots)) else ())
@@ -274,15 +273,9 @@ def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types
         return (Layered(view_layer=layer, hidden=hidden, selected=selected),) if hidden.is_some() or selected.is_some() else ()
 
     return accumulated((
-        state.data
-        .map(lambda handle: handle.resolve().map(Some))
-        .default_with(lambda: Ok(Option.of_optional(item.data)))
-        .bind(
-            lambda data: paired(state.data.bind(lambda _: data).map(swapped).default_value(unchanged), state.material_slots.map(lambda slots: resized(data, slots)).default_value(unchanged)).map(
-                lambda pair: (*pair[0], *pair[1])
-            )
-        ),
-        *state.parent.map(parented).to_list(),
+        *data.map(swapped).to_list(),
+        *state.material_slots.map(resized).to_list(),
+        *parent.map(parented).to_list(),
         Ok(tuple(chain.from_iterable(layered(layer) for layer in layers))),
         *(restacked(stack, entries) for stack, wanted in state.stacks(item) for entries in wanted.to_list()),
     )).map(lambda parts: tuple(chain.from_iterable(parts)))
@@ -318,8 +311,8 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
             return restack(change)
 
 
-def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
-    """Reconciles structure, then independent value sets, the placement written as the transform in the parent's frame."""
+def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], BlenderResult[Reconciled]]]:
+    """Resolves the state's data and parent once, returning each object's reconciliation of structure, then independent value sets, the placement written as the transform in the parent's frame."""
     framed = state.placement.map(
         lambda matrix: Snapshot.of(
             bpy.types.Object,
@@ -327,25 +320,36 @@ def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.typ
         )
     )
 
-    def applied(rows: tuple[ObjectChange, ...]) -> BlenderResult[Reconciled]:
-        pairs = chain(
-            ((item, values) for values in (*state.values.to_list(), *framed.to_list())),
-            (pair for slots in state.material_slots.to_list() for pair in zip(item.material_slots, slots)),
-            (
-                (stack[name], values)
-                for stack, wanted in state.stacks(item)
-                for entries in wanted.to_list()
-                for name, entry in entries.items()
-                for values in (entry.values if isinstance(entry, StackEntry) else entry).to_list()
-            ),
-        )
-        return accumulated(applied.outcome.map(lambda _: applied) for owner, values in pairs for applied in (values.apply(owner),)).map(lambda counts: Reconciled(changes=rows, applied=counts))
+    def live[T: bpy.types.ID](handle: Option[Handle[T]]) -> BlenderResult[Option[T]]:
+        return handle.map(lambda held: held.resolve().map(Some)).default_with(lambda: Ok(Nothing))
 
-    return (
-        diverged(state, item, layers)
-        .bind(lambda rows: reduce(lambda done, step: done.bind(lambda _: step()), chain.from_iterable(steps(item, row) for row in rows), Ok(None)).map(lambda _: rows))
-        .bind(applied)
-    )
+    def each(found: tuple[Option[bpy.types.ID], Option[bpy.types.Object]], item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
+        def applied(rows: tuple[ObjectChange, ...]) -> BlenderResult[Reconciled]:
+            pairs = chain(
+                ((item, values) for values in (*state.values.to_list(), *framed.to_list())),
+                (pair for slots in state.material_slots.to_list() for pair in zip(item.material_slots, slots)),
+                (
+                    (stack[name], values)
+                    for stack, wanted in state.stacks(item)
+                    for entries in wanted.to_list()
+                    for name, entry in entries.items()
+                    for values in (entry.values if isinstance(entry, StackEntry) else entry).to_list()
+                ),
+            )
+            return accumulated(applied.outcome.map(lambda _: applied) for owner, values in pairs for applied in (values.apply(owner),)).map(lambda counts: Reconciled(changes=rows, applied=counts))
+
+        return (
+            diverged(state, item, layers, *found)
+            .bind(lambda rows: reduce(lambda done, step: done.bind(lambda _: step()), chain.from_iterable(steps(item, row) for row in rows), Ok(None)).map(lambda _: rows))
+            .bind(applied)
+        )
+
+    return paired(live(state.data), live(state.parent)).map(lambda found: partial(each, found))
+
+
+def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
+    """Reconciles one object with the state."""
+    return reconciling(state).bind(lambda each: each(item, layers))
 
 
 # --- [GEOMETRY]
@@ -362,9 +366,10 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
     Returns:
         `Ok` once the live geometry matches; `edit` for a refused rebuild.
     """
-    live, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.uintc), np.empty(len(mesh.polygons), np.uintc)
-    mesh.vertices.foreach_get("co", live)
-    mesh.loops.foreach_get("vertex_index", corners)
+    live, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
+    for name, member, buffer in (("position", "vector", live), (".corner_vert", "value", corners)):
+        if name in mesh.attributes and isinstance(attribute := mesh.attributes[name], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
+            attribute.data.foreach_get(member, buffer)
     mesh.polygons.foreach_get("loop_start", starts)
     if np.array_equal(live.view(np.uint32), vertices.ravel().view(np.uint32)) and np.array_equal(corners, faces.ravel()) and np.array_equal(starts, np.arange(0, faces.size, faces.shape[1])):
         return Ok(None)
@@ -400,7 +405,7 @@ def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tup
 
 def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[Reconciled, ...]]:
     """Reconciles a scope, accumulating every independent object's refusals."""
-    return targets(scope, context).bind(lambda reached: accumulated(reconciled(state, item, layers) for item, layers in reached))
+    return paired(reconciling(state), targets(scope, context)).bind(lambda pair: accumulated(starmap(*pair)))
 
 
 def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context) -> BlenderResult[Outcome]:

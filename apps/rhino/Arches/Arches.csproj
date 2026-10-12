@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <TargetExt>.rhp</TargetExt>
         <Description>Rhino commands drawing historical arch profiles from picked span, apex, and foil inputs</Description>
     </PropertyGroup>
 

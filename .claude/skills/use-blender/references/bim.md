@@ -45,7 +45,6 @@ tool.Spatial.set_default_container(storey)
 ```
 
 - `bim.new_project` and a fresh-session `bim.load_project` replace the open file with no prompt
-- Project creation and fresh-session loads run in a task GUI, in a background run, or after the user saves
 - Projects hold `My Site`, `My Building`, and `My Storey`, the storey as default container
 - `tool.Spatial.set_default_container(storey)` sets the container new elements join
 - Storey height sits in the placement, and consumers reading `Elevation` take an `edit_attributes` write in file units
@@ -291,4 +290,4 @@ GUI sessions run the same sequences and add window state:
 - `bim.activate_drawing` at its default `should_view_from_camera=True` turns the first 3D view into the drawing camera's view
 - `bim.set_tab(tab="<TAB>")` runs under a Properties area override
 - `draw_*` tools (`bim.draw_polyline_wall`, `bim.draw_polyline_slab`) wait for mouse input
-- Invoked `draw_*` tools end at a file load in a task GUI or by Esc from the user
+- Invoked `draw_*` tools end at a file load or by Esc

@@ -32,7 +32,7 @@ Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on p
 |  [10]   | `mcp__mcp-for-blender__look`                              | "What do these objects look like now?"                        |
 |  [11]   | `mcp__blender__jump_to_tab_by_name`                       | "Show the user this workspace"                                |
 |  [12]   | `mcp__blender__jump_to_tab_by_space_type`                 | "Show the user this editor"                                   |
-|  [13]   | `mcp__blender__jump_to_view3d_object_by_name`             | "Frame this object in a task GUI's viewport"                  |
+|  [13]   | `mcp__blender__jump_to_view3d_object_by_name`             | "Frame this object in the viewport"                           |
 |  [14]   | `mcp__blender__search_manual_docs`                        | "How does this feature or workflow work?"                     |
 |  [15]   | `mcp__blender__execute_blender_code`                      | "Read or edit live state no other tool covers"                |
 |  [16]   | `mcp__mcp-for-blender__get_addon_status`                  | "Which asset and model sources are on?"                       |
@@ -47,23 +47,19 @@ Pictures come from the source that draws current state:
 - State reads come from data or `look`
 - Node trees read as data (`nodes`, `links`, `interface.items_tree`)
 - `jump_to_view3d_object_by_name` sets Object Mode, replaces selection and active object, and leaves camera view
-- User sessions frame an object by writing `region_3d.view_location` and `view_distance` on the user's 3D view
+- Writing `region_3d.view_location` and `view_distance` on a 3D view frames an object with selection and mode kept
 
 ## [02]-[SESSION]
 
 Sessions open in order:
-1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names GUI pid, a pid the task did not start marking a user session
+1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
 2. With no listener, `/usr/bin/open -n -g -a "${BLENDER_PATH%/Contents/MacOS/Blender}" --env PYTHONUNBUFFERED=1 --stdout <log> --stderr <log> --args --no-window-focus --python-use-system-env` starts a task GUI
 3. `rg -m1 -q 'BlenderMCP server started' < <(tail -F -n +1 <log> 2>/dev/null)` with `run_in_background: true` completes once port 9876 listens
 4. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
 5. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
 6. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
 
-GUIs running before a task are user sessions:
-- Session file, windows, and preferences stay as found
-- Other files open through `evaluate.py run`, in a background run or in a script-driven task GUI when work needs an event loop
-- Trial data builds in a collection the task creates and removes
-- User-requested edits end with `bpy.ops.ed.undo_push(message="<edit>")`, an undo step that marks the file unsaved
+- Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file, untitled files with no save
 
 Quitting saves preferences, the last GUI to quit overwriting what others saved, and preferences a task GUI changed take their prior values first. One `mcp__blender__execute_blender_code` call quits a task GUI with no save prompt by reloading the startup file before closing its last window:
 
@@ -113,11 +109,9 @@ Window reads name what Blender shows before a call that depends on it:
 | [INDEX] | [STATE]                      | [READS_AS]                                        | [RESOLUTION]                                       |
 | :-----: | :--------------------------- | :------------------------------------------------ | :------------------------------------------------- |
 |  [01]   | File browser                 | Window with one `FILE_BROWSER` area, opener modal | `file.cancel()` under its window, area, and region |
-|  [02]   | Running tool, task GUI       | `modal_operators` non-empty                       | `wm.read_homefile()`                               |
-|  [03]   | Prompt or popup, task GUI    | Window image                                      | `wm.read_homefile()`                               |
-|  [04]   | Tool, prompt, or popup, user | Window image, `modal_operators`                   | User answers it, calls run beside it               |
-|  [05]   | Running job                  | `window_manager.is_interface_locked` true         | Data writes after it reads false                   |
-|  [06]   | Unsaved user work            | `is_dirty` true                                   | User saves or discards before a file load          |
+|  [02]   | Running tool                 | `modal_operators` non-empty                       | `wm.read_homefile()`                               |
+|  [03]   | Prompt or popup              | Window image                                      | `wm.read_homefile()`                               |
+|  [04]   | Running job                  | `window_manager.is_interface_locked` true         | Data writes after it reads false                   |
 
 ## [05]-[BACKGROUND_RUNS]
 
@@ -178,7 +172,7 @@ Each source writes its log to one place:
 |  [01]   | Background run    | Calling shell                                                                      |
 |  [02]   | `pack`, `install` | Nx task output, native install output forwarded from the GUI                       |
 |  [03]   | Task GUI          | `--stdout` log with prints, add-on requests, and extension registration tracebacks |
-|  [04]   | User session      | `execute_blender_code` answers, Info editor lines in `window_manager.reports`      |
+|  [04]   | GUI, no log file  | `execute_blender_code` answers, Info editor lines in `window_manager.reports`      |
 |  [05]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR`      |
 |  [06]   | Crash, macOS      | `~/Library/Logs/DiagnosticReports/Blender-<time>.ips`                              |
 

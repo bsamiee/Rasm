@@ -14,6 +14,7 @@ import msgspec
 
 from rasm.blender.commands.operators import Acquired, Done, Empty, InvokePopup, Operator, Stock
 from rasm.blender.data.ids.evaluation import evaluated, Instance
+from rasm.blender.data.ids.store import resolved
 from rasm.blender.data.rna import conditions
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity
@@ -83,7 +84,7 @@ class Shader(msgspec.Struct, frozen=True, kw_only=True):
     kind: Annotated[
         str,
         msgspec.Meta(title="Shader", description="Shader node class the listed materials hold"),
-        Choices(lambda *_: ((kind.bl_rna.identifier, kind.bl_rna.name, kind.bl_rna.description) for kind in shader_kinds())),  # ty: ignore[unresolved-attribute]
+        Choices(lambda *_: ((kind.__name__, kind.bl_rna.name, kind.bl_rna.description) for kind in shader_kinds())),  # ty: ignore[unresolved-attribute]
     ]
 
 
@@ -157,7 +158,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             """Resolves the chosen native class and reports each material user."""
             return (
                 Option
-                .of_optional(next((shader for shader in shader_kinds() if shader.bl_rna.identifier == kind), None))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .of_optional(next((shader for shader in shader_kinds() if shader.__name__ == kind), None))
                 .to_result_with(lambda: (BlenderAbsentFault(owner="bpy.types", key=kind),))
                 .map(lambda shader: Done(notes=tuple(("INFO", repr(user)) for user in shader_users(shader))))
             )
@@ -240,14 +241,16 @@ def audited() -> BlenderResult[None]:
         """Preserves the missing native owner and member in a typed finding."""
         return Error((BlenderAbsentFault(owner=repr(owner), key=key),))
 
-    def lost(dependency: Dependency) -> BlenderResult[None]:
-        """Resolves the dependency's original owner before reporting its path."""
-        return dependency.owner.resolve().bind(lambda owner: absent(owner, str(dependency.path)))
+    def lost(missing: tuple[Dependency, ...]) -> BlenderResult[None]:
+        """Resolves the missing dependencies' original owners once before reporting their paths."""
+        return resolved(dependency.owner for dependency in missing).bind(
+            lambda owners: accumulated(absent(owner, str(dependency.path)) for dependency, owner in zip(missing, owners, strict=True)).map(lambda _: None)
+        )
 
     trees = tuple(dict.fromkeys((*(tree for holder in (*bpy.data.materials, *bpy.data.worlds, *bpy.data.lights) for tree in Option.of_optional(holder.node_tree).to_list()), *bpy.data.node_groups)))
     nodes = tuple(node for tree in trees for node in tree.nodes)
     return accumulated((
-        *(lost(dependency) for dependency in dependencies() if not dependency.present),
+        lost(tuple(dependency for dependency in dependencies() if not dependency.present)),
         *(absent(item, index) for item in bpy.data.objects for index, slot in enumerate(item.material_slots) if slot.material is None),
         *(
             absent(node, "node_tree")

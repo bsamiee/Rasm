@@ -31,8 +31,8 @@ public sealed class PlugInSession {
         from opened in atomicIO(() => state.Swap(static _ => Some(new Held(static report => ErrorOps.Report(report.Error, report.Owner, report.Member), []))))
         from post in Subscriptions.Queued(
             Buffer<(Error Error, Type Owner, string Member)>.Unbounded,
-            static report => ErrorOps.Report(report.Error, report.Owner, report.Member).Post(),
-            static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).Post(), retain)
+            static report => ErrorOps.Report(report.Error, report.Owner, report.Member).OnUiThread(),
+            static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).OnUiThread(), retain)
         from published in atomicIO(() => state.Swap(held => held.Map(open => open with { Post = post })))
             .Bind(static held => held.Match(Some: static _ => IO.pure(unit), None: static () => IO.fail<Unit>(Errors.Cancelled)))
         from acquired in rows.TraverseM(row => IO.pure(retain).Bind(row)).As()

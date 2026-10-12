@@ -50,9 +50,7 @@ class Chosen(msgspec.Struct, frozen=True, kw_only=True):
                     case None:
                         return Error((BlenderAbsentFault(owner=repr(space), key="edit_tree"),))
                     case other:
-                        return Error((
-                            BlenderChoiceFault(path="edit_tree", identifier=type(other).__name__, accepted=tuple(kind.bl_rna.identifier for kind in accepted)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        ))
+                        return Error((BlenderChoiceFault(path="edit_tree", identifier=type(other).__name__, accepted=tuple(kind.__name__ for kind in accepted)),))
             case _:
                 return Error((BlenderAbsentFault(owner=repr(context), key="SpaceNodeEditor.WINDOW"),))
 

@@ -139,9 +139,8 @@ public sealed class PreviewTiles {
         DisposalOps.Acquire(owned =>
             from derivations in DisposalOps.Acquire(IO.lift(static () => new Derivations()), static held => IO.lift(held.Dispose), owned)
             from tiles in IO.lift(() => new PreviewTiles(owner, clock, limits, derivations))
-            from environment in envIO
             from images in DisposalOps.Acquire(
-                IO.lift(() => new Disposal<IO<Unit>>(tiles.Emptied, close => close.Run(environment))), static lease => IO.lift(lease.Dispose), owned)
+                IO.lift(() => new Disposal<IO<Unit>>(tiles.Emptied, static close => close.Run())), static lease => IO.lift(lease.Dispose), owned)
             let read = limits.Bind(tiles.Limit)
             from initial in read
             from saved in changes.TraverseM(changed => changed.Choose(static _ => Some((unit, unit)))
@@ -215,7 +214,7 @@ public sealed class PreviewTiles {
             Seq<Raster> images = rasters.Value;
             rasters.Value = [];
             return images.Map(static row => row.Pixels);
-        }).Bind(DisposalOps.Release).Post().Uninterruptible();
+        }).Bind(DisposalOps.Release).OnUiThread().Uninterruptible();
 
     private IO<Option<(PixelFrame Frame, PixelFrame Proxy)>> Asked(TileRequest request, PixelExtent asked, TileRank rank) =>
         from now in IO.lift(clock.GetTimestamp)

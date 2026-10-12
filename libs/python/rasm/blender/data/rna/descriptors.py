@@ -31,6 +31,8 @@ LEADING = tuple(
     struct.bl_rna.properties[name]
     for struct, name in (
         (bpy.types.RenderSettings, "engine"),
+        (bpy.types.ImageFormatSettings, "media_type"),
+        (bpy.types.ImageFormatSettings, "file_format"),
         (bpy.types.ImageFormatSettings, "color_management"),
         (bpy.types.ColorManagedDisplaySettings, "display_device"),
         (bpy.types.ColorManagedViewSettings, "view_transform"),

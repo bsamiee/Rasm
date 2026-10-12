@@ -1,5 +1,6 @@
 """Session handles, native ID collections, and collision-aware renames."""
 
+from collections.abc import Iterable
 from typing import Self
 
 import bpy
@@ -7,6 +8,7 @@ from expression import Error, Ok, Option, Result, Some
 import msgspec
 
 from rasm.blender.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderResult
+from rasm.imaging.faults import accumulated
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -24,9 +26,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def resolve(self) -> BlenderResult[T]:
         """Returns the live original, or an absent fault for an expired session identity."""
-        return Option.of_optional(next((block for block in blocks(bpy.data, self.kind) if block.session_uid == self.uid), None)).to_result_with(
-            lambda: (BlenderAbsentFault(owner=self.kind.__name__, key=self.uid),)
-        )
+        return resolved((self,)).map(lambda found: found[0])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -41,6 +41,17 @@ def member(kind: type[bpy.types.ID]) -> str:
 def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T, ...]:
     """Returns the kind's data-blocks in native collection order from an open or temporary BlendData store."""
     return tuple(block for block in getattr(data, member(kind)) if isinstance(block, kind))
+
+
+def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> BlenderResult[tuple[T, ...]]:
+    """Returns each handle's live original in order from one session identity map of the stores its kinds name, with an absent fault per expired handle."""
+    held = tuple(handles)
+    live = {block.session_uid: block for store in dict.fromkeys(map(member, dict.fromkeys(handle.kind for handle in held))) for block in getattr(bpy.data, store)}
+
+    def found(handle: Handle[T]) -> BlenderResult[T]:
+        return Option.of_optional(live.get(handle.uid)).filter(lambda block: isinstance(block, handle.kind)).to_result_with(lambda: (BlenderAbsentFault(owner=handle.kind.__name__, key=handle.uid),))
+
+    return accumulated(map(found, held))
 
 
 def embedded(block: bpy.types.ID) -> Option[bpy.types.NodeTree]:
@@ -83,4 +94,4 @@ def _tree_member(struct: bpy.types.Struct) -> Option[str]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Handle", "blocks", "embedded", "holder", "member", "named"]
+__all__ = ["Handle", "blocks", "embedded", "holder", "member", "named", "resolved"]

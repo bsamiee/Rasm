@@ -26,6 +26,7 @@ import OpenImageIO
 
 from rasm.blender.commands.calls import called
 from rasm.blender.commands.operators import Acquired, Call, Done, Empty, Operator, Properties
+from rasm.blender.data.ids.store import resolved
 from rasm.blender.data.rna.conditions import AllOf, check, Condition, Setting
 from rasm.blender.data.rna.descriptors import Descriptor, struct_at
 from rasm.blender.extension.events.timers import Timer
@@ -33,7 +34,7 @@ from rasm.blender.extension.identity import Identity, Key, Name
 from rasm.blender.extension.registration import Acquisitions, Registrable
 from rasm.blender.extension.registries import CliCommand
 from rasm.blender.extension.reports import rendered
-from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderRenderingFault, BlenderResult, BlenderWriteFault
+from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderRenderingFault, BlenderResult, BlenderUnmetFault, BlenderWriteFault
 from rasm.blender.files.blends import BlendFile, OpenFile, packed, saved, SaveMode, session_loaded
 from rasm.blender.nodes.changes import made
 from rasm.blender.render.color.luts import Enabled
@@ -182,7 +183,6 @@ class QueueState:
 class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     """Native stores and session resources consumed by queue operations."""
 
-    online: ClassVar[Setting] = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner="system", prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
     identity: Identity
     host: Host
     members: Members
@@ -196,6 +196,14 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     stack: EffectStack
     state: QueueState
     settings: Callable[[Identity], BlenderResult[Queueing]]
+
+    # --- [ACCESS]
+
+    @staticmethod
+    def connected() -> BlenderResult[None]:
+        """Admits network work while `bpy.app.online_access` holds, the value preferences and `--offline-mode` decide together."""
+        preference = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner="system", prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
+        return Ok(None) if bpy.app.online_access else Error((BlenderUnmetFault(requirement=preference),))
 
     # --- [PLANNING]
 
@@ -251,7 +259,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         day = moment.astimezone().date()
 
         def gated(plan: Plan, queueing: Queueing) -> BlenderResult[None]:
-            online = check(Dispatcher.online, context) if isinstance(queueing.target, Flamenco) else Ok(None)
+            online = Dispatcher.connected() if isinstance(queueing.target, Flamenco) else Ok(None)
             return paired(checked(self.pathed, plan.scopes, day), paired(check(self.condition, context), online)).map(lambda _: None)
 
         def paused(manager: bpy.types.WindowManager) -> BlenderResult[None]:
@@ -769,7 +777,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda scene: dispatcher.pathed.path(scene, moment.date()))
                 .bind(lambda path: packed(path.base / "packs" / f"{Path(bpy.data.filepath).stem}_{moment:%Y%m%d-%H%M%S}", compress=Some(True)))
                 .bind(
-                    lambda pack: accumulated(item.owner.resolve() for item in pack.missing).map(
+                    lambda pack: resolved(item.owner for item in pack.missing).map(
                         lambda owners: done(pack.blend, tuple(BlenderAbsentFault(owner=repr(owner), key=str(item.path)) for item, owner in zip(pack.missing, owners)))
                     )
                 )
@@ -791,7 +799,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                 dispatcher
                 .settings(call.identity)
                 .bind(flamenco)
-                .bind(lambda target: check(Dispatcher.online, call.context).bind(lambda _: exchange.opened(target.server, queried).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))))
+                .bind(lambda target: Dispatcher.connected().bind(lambda _: exchange.opened(target.server, queried).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))))
                 .map(held)
             )
 
@@ -1050,7 +1058,7 @@ def scoped(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, pl
 
 def posted(listener: Listener, notice: Notice) -> BlenderResult[None]:
     """Awaits a gated listener post after native online-access admission."""
-    return (check(Dispatcher.online, bpy.context) if listener.topic.enabled else Ok(None)).bind(lambda _: published(listener, notice).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
+    return (Dispatcher.connected() if listener.topic.enabled else Ok(None)).bind(lambda _: published(listener, notice).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
 
 
 def peaked(path: Path) -> BlenderResult[Option[int]]:

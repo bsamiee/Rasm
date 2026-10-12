@@ -82,7 +82,7 @@ public static partial class DocumentMapper {
 
 public static class Documents {
     // --- [LEASE]
-    public static IO<T> WithDocument<T>(DocumentSource source, Func<RhinoDoc, IO<T>> body, bool postNative = false) =>
+    public static IO<T> WithDocument<T>(DocumentSource source, Func<RhinoDoc, IO<T>> body) =>
         DisposalOps.Within<RhinoDoc, T>(retain => source.Switch(
             retain,
             live: static (_, live) => IO.pure(live.Doc),
@@ -104,9 +104,8 @@ public static class Documents {
                 IO.lift(() => Exchange.QualifiedPath(archive.Path)).Bind(path =>
                     DisposalOps.Acquire(
                         IO.lift(() => Missing.Unless(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))),
-                        static opened => IO.lift(opened.Dispose), own))) switch {
-                            var acquire => (postNative ? acquire.Post().Uninterruptible() : acquire).Bind(body),
-                        }, held => postNative ? DisposalOps.Release(held).Post() : DisposalOps.Release(held));
+                        static opened => IO.lift(opened.Dispose), own))).OnUiThread().Uninterruptible().Bind(body),
+            static held => DisposalOps.Release(held).OnUiThread());
 
     // --- [READ]
     public static IO<T> Read<T>(DocumentSource source, Func<RhinoDoc, IO<T>> read, Func<RhinoDoc, Option<HostEvent<Unit>>> changed, Func<Option<HostEvent<Unit>>, IO<Unit>> observe) =>

@@ -7,7 +7,6 @@
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
         "dotnet": ["{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "DOTNET_CLI_ENABLEAOT" }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" }],
         "rhino": [{ "env": "RHINO_PATH" }, { "env": "RuntimeIdentifier" }, { "runtime": "dotnet --info" }],
-        "rhinoInstallation": [{ "runtime": "dotnet msbuild libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj -target:HashRhinoInstallation -getProperty:RhinoInstallPath,RhinoInstallationHash -property:DisablePackageAssetsCache=true -nologo" }, { "dependentTasksOutputFiles": "**/project.assets.json", "transitive": true }],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" }],
         "typescript": [{ "json": "{workspaceRoot}/package.json", "fields": ["type", "imports"] }, { "runtime": "node --version" }],
         "pythonFiles": ["{workspaceRoot}/**/*.{py,pyi}"],
@@ -20,7 +19,7 @@
             { "filter": { "plugin": "@nx/dotnet" }, "dependsOn": ["...", { "projects": ["rasm"], "target": "restore" }] },
             { "filter": { "projects": ["tag:host:rhino"] }, "inputs": ["...", "rhino", "rhinoInstallation"] },
             {
-                "filter": { "projects": ["directory:apps/rhino/**"] },
+                "filter": { "projects": ["tag:output:rhp"] },
                 "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
                 "inputs": ["...", { "runtime": "resvg --version" }, { "runtime": "magick -version" }],
                 "options": { "args": ["--no-restore"] },
@@ -64,15 +63,8 @@
                 "command": "dotnet publish --no-build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/publish-{}.binlog\"",
                 "options": { "cwd": "{projectRoot}" },
                 "dependsOn": ["build:release"],
-                "inputs": [
-                    "production",
-                    "dotnet",
-                    "rhino",
-                    { "runtime": "dotnet msbuild libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj -target:HashYakInstallation -getProperty:RhinoInstallPath,RhinoInstallationHash,_YakExecutable -property:DisablePackageAssetsCache=true -nologo" },
-                    { "dependentTasksOutputFiles": "**/project.assets.json", "transitive": true },
-                    { "dependentTasksOutputFiles": "**/*" }
-                ],
-                "outputs": ["{workspaceRoot}/.artifacts/dotnet/publish/{projectName}_*"]
+                "inputs": ["production", "dotnet", "rhino", "rhinoInstallation", { "dependentTasksOutputFiles": "**/project.assets.json", "transitive": true }, { "dependentTasksOutputFiles": "**/*" }],
+                "outputs": ["{workspaceRoot}/.artifacts/dotnet/publish/{projectName}/release*", "{workspaceRoot}/.artifacts/dotnet/obj/{projectName}/release*/PublishOutputs.*.txt"]
             },
             { "filter": { "projects": ["tag:host:blender"] }, "inputs": ["...", "production", "python", { "env": "BLENDER_PATH" }, { "runtime": "\"$BLENDER_PATH\" --version" }, "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "pip --version" }, { "runtime": "resvg --version" }] }
         ],

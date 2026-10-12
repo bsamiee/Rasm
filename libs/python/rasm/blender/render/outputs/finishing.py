@@ -3,6 +3,7 @@
 from collections import Counter
 from collections.abc import Callable, Mapping
 import functools
+from pathlib import Path
 from typing import Protocol, Self
 
 import bpy
@@ -129,7 +130,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
-    """Returns native still paths per active view, omitting movies and unsupported depths."""
+    """Returns the current frame's written native paths per active view, omitting movies, unsupported depths, and still writes `frame_path` does not name."""
     render, settings = scene.render, scene.render.image_settings
     views = tuple(view.name for view in render.views if view.use) if render.use_multiview and settings.views_format == "INDIVIDUAL" else ("",)
     return (
@@ -138,7 +139,9 @@ def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
         else tuple(
             file
             for view in views
-            for file in Written.of(render.frame_path(frame=scene.frame_current, view=view), settings, Output.PREVIEW, Blender(), scene.view_layers[0].name, Map.empty()).to_list()
+            for path in (render.frame_path(frame=scene.frame_current, view=view),)
+            if Path(path).is_file()
+            for file in Written.of(path, settings, Output.PREVIEW, Blender(), scene.view_layers[0].name, Map.empty()).to_list()
         )
     )
 

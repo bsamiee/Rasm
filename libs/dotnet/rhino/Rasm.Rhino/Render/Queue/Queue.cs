@@ -519,13 +519,13 @@ public static class Queues {
 
     private static IO<Unit> Frames(QueueContext context, RhinoDoc doc, RenderBatch queue, Atom<QueueProgress> held, bool sampled) =>
         DisposalOps.Within<IDisposable, Unit>(retain =>
-        from render in IO.lift(static () => Conversions.Required(Command.LookupCommandId(RenderCommand, searchForEnglishName: true), nameof(Command.LookupCommandId))).Post()
+        from render in IO.lift(static () => Conversions.Required(Command.LookupCommandId(RenderCommand, searchForEnglishName: true), nameof(Command.LookupCommandId))).OnUiThread()
         from heard in IO.lift(static () => Atom(Heard.Empty))
-        from dock in Presence.Acquire(retain).Post()
-        from listened in Listened(context, render, heard).TraverseM(acquire => acquire(retain)).As().Post()
-        from tray in Presence.Tray(context.Tray, context.Sink, retain).Post()
+        from dock in Presence.Acquire(retain).OnUiThread()
+        from listened in Listened(context, render, heard).TraverseM(acquire => acquire(retain)).As().OnUiThread()
+        from tray in Presence.Tray(context.Tray, context.Sink, retain).OnUiThread()
         from ran in Mailed(new RunScope(context, doc, queue, held, dock, heard), sampled)
-        select ran, static owned => DisposalOps.Release(owned).Post());
+        select ran, static owned => DisposalOps.Release(owned).OnUiThread());
 
     private static Seq<Func<Action<IDisposable>, IO<Unit>>> Listened(QueueContext context, Guid render, Atom<Heard> heard) =>
         Seq<Func<Action<IDisposable>, IO<Unit>>>(
@@ -539,14 +539,14 @@ public static class Queues {
     private static IO<Unit> Mailed(RunScope scope, bool sampled) =>
         DisposalOps.Within<IDisposable, Unit>(retain =>
                     from post in Subscriptions.Idle<Unit, RunRequest>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(static _ => unit))(
-                        new CallbackSite(scope.Context.Sink, typeof(Queues), nameof(Frames)), retain).Post()
+                        new CallbackSite(scope.Context.Sink, typeof(Queues), nameof(Frames)), retain).OnUiThread()
                     from order in IO.lift(() => Order(scope.Queue, scope.Held.Value, sampled))
                     from heads in order.Sampled.TraverseM(run => Requested(post, run)).As()
                     from estimate in unless(order.Sampled.IsEmpty,
                         IO.lift(scope.Context.Clock.GetCurrentInstant).Bind(now => scope.Context.Notify(new QueueEvent.Estimate(QueueEstimate.Sampled(scope.Queue, scope.Held.Value, now))))).As()
                     from remaining in order.Remaining.TraverseM(run => Requested(post, run)).As()
                     select unit,
-                static owned => DisposalOps.Release(owned).Post());
+                static owned => DisposalOps.Release(owned).OnUiThread());
 
     private static IO<Unit> Requested(Func<(Unit Key, RunRequest Value), IO<Unit>> post, QueueRun run) =>
         DisposalOps.Within(static () => Conduit.make(Buffer<Fin<Unit>>.Unbounded), reply =>
@@ -710,7 +710,7 @@ public static class Queues {
             from icon in IO.lift(reveal.Icon.ToFin(new Missing(nameof(View.Panel.Icon))))
             let views = (IPlugInViews)plugIn
             let rendering = (IPlugInRendering)plugIn
-            from record in IO.lift(() => Conversions.Validated<OutputPath, string, InvalidOutput>(Path.Combine(plugIn.SettingsDirectory, "render-queue.json")))
+            from record in IO.lift(() => Conversions.Validated<OutputPath, string, InvalidOutput>(Path.Combine(Directory.CreateDirectory(plugIn.SettingsDirectory).FullName, "render-queue.json")))
             from history in IPlugInRendering.Served(rendering.History, nameof(IPlugInRendering.History))
             from context in Acquire(record, settings.Settings(views.Settings), plugIn, sink, doc => IO.pure(history.Bindings(doc)), Some(history),
                 new TrayRow(reveal.Caption, icon, Seq(Seq<MenuEntry>(new MenuEntry.Listed(reveal.Caption, IO.pure(Seq<MenuPick>(

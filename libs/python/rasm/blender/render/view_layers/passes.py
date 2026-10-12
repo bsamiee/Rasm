@@ -598,7 +598,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             owners = tuple(dict.fromkeys(flag.owner for _, flag in self.flags.roster))
             return PassPreset(
                 flags=Snapshot(
-                    struct=bpy.types.ViewLayer.bl_rna.identifier,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    struct=bpy.types.ViewLayer.__name__,
                     tree=Tree(roots=owners, owners={owner: Owner(values={flag.prop.identifier: flag.path in enabled for _, flag in self.flags.roster if flag.owner == owner}) for owner in owners}),
                 ),
                 routing=routing,
@@ -1298,7 +1298,8 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
         identity: Extension whose marks find the owned data material.
 
     Returns:
-        `Ok` once synced; `Error` of `collision` for an AOV reading `is_valid` False, and each refused write.
+        `Ok` once synced, light group holders taking the names the host stores; `Error` of `collision` for an AOV reading `is_valid` False
+        or stored under another name, the AOV removed, and each refused write.
     """
 
     def scanned(trees: tuple[bpy.types.NodeTree, ...]) -> BlenderResult[dict[str, str]]:
@@ -1334,12 +1335,22 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
 
         def synced_aov(name: str, kind: str) -> BlenderResult[None]:
             aov = held.get(name) or layer.aovs.add()
-            return paired(written(aov, "name", name), written(aov, "type", kind)).bind(lambda _: Ok(None) if aov.is_valid else Error((BlenderCollisionFault(request=name, error=repr(aov)),)))
+            answer = paired(written(aov, "name", name), written(aov, "type", kind)).bind(
+                lambda _: Ok(None) if aov.name == name and aov.is_valid else Error((BlenderCollisionFault(request=name, error=aov.name),))
+            )
+            if answer.is_error() and name not in held:
+                layer.aovs.remove(aov)
+            return answer
 
         return accumulated(itertools.starmap(synced_aov, names.items())).map(lambda _: None)
 
     def groups(layer: bpy.types.ViewLayer) -> BlenderResult[None]:
-        return accumulated(written(layer.lightgroups.add(), "name", name) for name in sorted(used(scene) - {group.name for group in layer.lightgroups})).map(lambda _: None)
+        def added(name: str) -> BlenderResult[None]:
+            stored = layer.lightgroups.add(name=name).name
+            holders = (*(item for item in scene.objects if item.lightgroup == name), *Option.of_optional(scene.world).filter(lambda world: world.lightgroup == name).to_list())
+            return accumulated(written(holder, "lightgroup", stored) for holder in holders if stored != name).map(lambda _: None)
+
+        return accumulated(map(added, sorted(used(scene) - {group.name for group in layer.lightgroups}))).map(lambda _: None)
 
     def layered(layer: bpy.types.ViewLayer) -> BlenderResult[None]:
         return wanted(layer).bind(lambda names: paired(aovs(layer, names), groups(layer))).map(lambda _: None)

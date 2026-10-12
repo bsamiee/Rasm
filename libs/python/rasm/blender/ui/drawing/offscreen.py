@@ -31,17 +31,26 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def allocated(self) -> Generator[BlenderResult[gpu.types.GPUOffScreen]]:
-        """Initializes the GPU and owns the native buffer until scope exit."""
+        """Initializes the GPU and owns a native buffer until scope exit, refusing a side past the device texture limit that aborts Blender at its first clear."""
+        held: gpu.types.GPUOffScreen | ValueError | RuntimeError | SystemError
         try:
             gpu.init()
-            buffer = gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
+            limit = gpu.capabilities.max_texture_size_get()
+            held = (
+                gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
+                if max(self.width, self.height) <= limit
+                else ValueError(f"{self.width}x{self.height} passes the {limit} pixel texture limit")
+            )
         except (RuntimeError, SystemError) as error:
-            yield Result[gpu.types.GPUOffScreen, BlenderFaults].Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=error),))
-        else:
-            try:
-                yield Result[gpu.types.GPUOffScreen, BlenderFaults].Ok(buffer)
-            finally:
-                buffer.free()
+            held = error
+        match held:
+            case gpu.types.GPUOffScreen() as buffer:
+                try:
+                    yield Result[gpu.types.GPUOffScreen, BlenderFaults].Ok(buffer)
+                finally:
+                    buffer.free()
+            case refused:
+                yield Result[gpu.types.GPUOffScreen, BlenderFaults].Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=refused),))
 
     def drawn(self, theme: Theme, metrics: Metrics, draw: Callable[[Canvas], None]) -> BlenderResult[npt.NDArray[np.float32]]:
         """Draws on a pixel canvas and returns top-first float32 RGBA pixels."""

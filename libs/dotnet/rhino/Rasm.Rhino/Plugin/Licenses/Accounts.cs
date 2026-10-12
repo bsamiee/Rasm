@@ -39,8 +39,7 @@ public static class AccountOps {
         Protected(
                 (key, token) => RhinoAccountsManager.GetAuthTokensAsync(client.ClientId, client.ClientSecret, key, token),
                 nameof(RhinoAccountsManager.GetAuthTokensAsync))
-            .Map(static pair => pair.ToValueTuple())
-            .Post();
+            .Map(static pair => pair.ToValueTuple());
 
     public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> GetAuthTokens(
         AccountClient client, Seq<string> scope, Option<string> prompt, Option<Duration> maxAge, bool showUI, Option<IProgress<RhinoAccoountsProgressInfo>> progress) =>
@@ -49,8 +48,7 @@ public static class AccountOps {
                 (key, token) => RhinoAccountsManager.GetAuthTokensAsync(
                     client.ClientId, client.ClientSecret, scope, prompt.ValueUnsafe(), seconds.ToNullable(), showUI, progress.ValueUnsafe(), key, token),
                 nameof(RhinoAccountsManager.GetAuthTokensAsync)))
-            .Map(static pair => pair.ToValueTuple())
-            .Post();
+            .Map(static pair => pair.ToValueTuple());
 
     public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> UpdateOpenIDConnectToken((IOpenIDConnectToken OpenId, IOAuth2Token OAuth) tokens) =>
         Protected(

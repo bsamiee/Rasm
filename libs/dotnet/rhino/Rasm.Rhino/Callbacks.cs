@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Rhino;
 
 namespace Rasm.Rhino;
 
@@ -75,6 +76,10 @@ public static class Callbacks {
 
     public static Fin<T> Thrown<TException, T>(Func<T> call, string member) where TException : Exception =>
         Try.lift(call).Run().BindFail(error => error.HasException<TException>() ? new Refused(member) : error);
+
+    // --- [THREADS]
+    public static IO<T> OnUiThread<T>(this IO<T> effect) =>
+        IO.lift(static () => RhinoApp.InvokeRequired).Bind(remote => remote ? effect.Post() : effect);
 
     // --- [LOOKUPS]
     public static Validation<Error, Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, string member, IEqualityComparer<TKey>? comparer = null) where TKey : notnull =>

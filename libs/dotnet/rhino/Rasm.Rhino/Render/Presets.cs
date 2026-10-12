@@ -172,7 +172,7 @@ public sealed class PresetBinding {
                 Label: static (_, preset) => preset.Name,
                 Tile: static (scope, view, preset, box, retain) =>
                     from tiles in IPlugInRendering.Served(((IPlugInRendering)scope.Sink).Tiles, nameof(IPlugInRendering.Tiles))
-                    from request in Requested(scope, preset).Post()
+                    from request in Requested(scope, preset).OnUiThread()
                     from thumbnail in tiles.Thumbnail(view, request, box, retain)
                     select thumbnail,
                 Items: scope => new ValueStore<Seq<Preset>>(

@@ -13,7 +13,7 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 | :-----: | :----------------------------------------------- | :--------------------------------------------------------------- |
 |  [01]   | `mcp__rhino-mcp-platform__list_slots`            | "Which Rhino slots does the router run or adopt?"                |
 |  [02]   | `mcp__rhino-mcp-platform__spawn_slot`            | "Start a new Rhino document for this task"                       |
-|  [03]   | `mcp__rhino-mcp-platform__close_slot`            | "Close a slot this task spawned"                                 |
+|  [03]   | `mcp__rhino-mcp-platform__close_slot`            | "Close a spawned slot"                                           |
 |  [04]   | `mcp__rhino-mcp-platform__get_context`           | "What selection, viewport, document, and canvas state is live?"  |
 |  [05]   | `mcp__rhino-mcp-platform__list_objects`          | "Which objects match this name, layer, or geometry type?"        |
 |  [06]   | `mcp__rhino-mcp-platform__get_selection`         | "What is selected?"                                              |
@@ -51,5 +51,6 @@ Sessions open on:
 3. `get_context` reads the target slot's selection, viewport, document, and canvas state
 
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it
+- Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`
 - `run_csharp` runs C# 10, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1

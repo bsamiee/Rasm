@@ -247,7 +247,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                     lambda plane: ImageFile(pixels=plane, colorspace=space).write(str(folder / "nodes.exr"), Storage(), {}, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
                 )
                 .bind(lambda nodes: arranged(scene, nodes, folder / "look"))
-                .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "write_still": True}))
+                .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "animation": True}))
                 .bind(lambda _: read_file(scene.render.frame_path(frame=1), config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
             )
 

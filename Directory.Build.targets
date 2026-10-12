@@ -34,11 +34,15 @@
         <PackageReference Include="RhinoCommon" ExcludeAssets="runtime" />
         <PackageReference Include="System.Drawing.Common">
             <ExcludeAssets>runtime</ExcludeAssets>
-            <ExcludeAssets Condition="'$(_RhinoTargetPlatform)' == 'macos'">compile;runtime</ExcludeAssets>
+            <ExcludeAssets Condition="'$(TargetPlatformIdentifier)' != 'Windows'">compile;runtime</ExcludeAssets>
         </PackageReference>
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
     </ItemGroup>
+
+    <PropertyGroup Label="Rhino Windows Host" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' == 'Windows'">
+        <DefaultItemExcludes>$(DefaultItemExcludes);**/macOS/**</DefaultItemExcludes>
+    </PropertyGroup>
 
     <Target Name="ResolveRhinoInstallation" DependsOnTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
         <GetAssemblyIdentity AssemblyFiles="@(ResolvedCompileFileDefinitions->WithMetadataValue('NuGetPackageId', 'RhinoCommon')->WithMetadataValue('Filename', 'RhinoCommon'))">
@@ -46,6 +50,7 @@
         </GetAssemblyIdentity>
         <PropertyGroup>
             <_RhinoMajorVersion>$([System.Version]::Parse('%(_RhinoAssemblyIdentity.Version)').Major)</_RhinoMajorVersion>
+            <RhinoInstallPath>$(RHINO_PATH)</RhinoInstallPath>
         </PropertyGroup>
         <Exec Command="osascript -l JavaScript -e &quot;ObjC.import('AppKit'); \$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('com.mcneel.rhinoceros.$(_RhinoMajorVersion)').path.js&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low" Condition="'$(RhinoInstallPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">
             <Output TaskParameter="ConsoleOutput" PropertyName="RhinoInstallPath" />
@@ -57,20 +62,24 @@
             <_YakExecutable Condition="$([MSBuild]::IsOSPlatform('OSX'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Resources', 'bin', 'yak'))</_YakExecutable>
             <_YakExecutable Condition="$([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'System', 'yak.exe'))</_YakExecutable>
         </PropertyGroup>
+        <GetAssemblyIdentity AssemblyFiles="$(RhinoResourcesDir)RhinoCommon.dll">
+            <Output TaskParameter="Assemblies" ItemName="_RhinoInstalledIdentity" />
+        </GetAssemblyIdentity>
+        <PropertyGroup>
+            <RhinoVersion>%(_RhinoInstalledIdentity.Version)</RhinoVersion>
+        </PropertyGroup>
     </Target>
 
-    <Target Name="ResolveRhinoHostReferences" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(_RhinoTargetPlatform)' == 'macos'">
+    <Target Name="ResolveRhinoHostReferences" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
         <ItemGroup>
             <_RhinoMacAssembly Include="System.Drawing.Common" />
             <_RhinoMacAssembly Include="Eto.macOS;Microsoft.macOS" Condition="Exists('$(MSBuildProjectDirectory)/UI/macOS/')" />
-            <_RhinoHostAssembly Include="@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll')" />
-            <Reference Include="@(_RhinoHostAssembly)" Private="false" />
-            <_RhinoMacMetadata Include="$(RhinoInstallPath)/Contents/Info.plist" />
+            <Reference Include="@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll')" Private="false" />
         </ItemGroup>
     </Target>
 
-    <Target Name="AddRhinoMacPlatform" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolveRhinoHostReferences" Condition="'$(RhinoHost)' != '' and '$(_RhinoTargetPlatform)' == 'macos'">
-        <XmlPeek XmlInputPath="@(_RhinoMacMetadata)" Query="/plist/dict/key[.='LSMinimumSystemVersion']/following-sibling::*[1]/text()" ProhibitDtd="false">
+    <Target Name="AddRhinoMacPlatform" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
+        <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='LSMinimumSystemVersion']/following-sibling::*[1]/text()" ProhibitDtd="false">
             <Output TaskParameter="Result" PropertyName="_RhinoMacMinimumVersion" />
         </XmlPeek>
         <ItemGroup>
@@ -80,41 +89,19 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="HashRhinoInstallation" DependsOnTargets="ResolveRhinoHostReferences" Condition="'$(RhinoHost)' != '' and '$(_RhinoTargetPlatform)' == 'macos'">
-        <GetFileHash Files="@(_RhinoHostAssembly);@(_RhinoMacMetadata)">
-            <Output TaskParameter="Items" ItemName="_RhinoInstallationInput" />
-        </GetFileHash>
-        <PropertyGroup>
-            <RhinoInstallationHash>@(_RhinoInstallationInput->'%(FileHash)')</RhinoInstallationHash>
-        </PropertyGroup>
-    </Target>
+    <PropertyGroup Label="Rhino macOS Bindings" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows' and Exists('$(MSBuildProjectDirectory)/UI/macOS/')">
+        <DefineConstants>$(DefineConstants);RHINO_MACOS_BINDINGS</DefineConstants>
+    </PropertyGroup>
 
-    <Target Name="HashYakInstallation" DependsOnTargets="HashRhinoInstallation;ResolveRhinoInstallation" Condition="'$(RhinoHost)' != ''">
-        <PropertyGroup>
-            <_YakAssemblyName>$([System.IO.Path]::GetFileNameWithoutExtension('$(_YakExecutable)'))</_YakAssemblyName>
-            <_YakDependencies>$(RhinoResourcesDir)$(_YakAssemblyName).deps.json</_YakDependencies>
-        </PropertyGroup>
-        <Exec Command="yq -r &quot;.targets[][].runtime | keys | .[]&quot; &quot;$(_YakDependencies)&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low">
-            <Output TaskParameter="ConsoleOutput" ItemName="_YakRuntimeAsset" />
-        </Exec>
-        <ItemGroup>
-            <_YakInstallationInput Include="$(_YakExecutable);$(_YakDependencies);$(RhinoResourcesDir)$(_YakAssemblyName).runtimeconfig.json;@(_YakRuntimeAsset->'$(RhinoResourcesDir)%(Filename)%(Extension)')" />
-        </ItemGroup>
-        <GetFileHash Files="@(_YakInstallationInput->Distinct())">
-            <Output TaskParameter="Items" ItemName="_YakInstallationFile" />
-        </GetFileHash>
-        <PropertyGroup>
-            <RhinoInstallationHash>$(RhinoInstallationHash);@(_YakInstallationFile->'%(FileHash)')</RhinoInstallationHash>
-        </PropertyGroup>
-    </Target>
-
-    <Choose>
-        <When Condition="'$(RhinoHost)' != '' and '$(_RhinoTargetPlatform)' == 'macos' and Exists('$(MSBuildProjectDirectory)/UI/macOS/')">
-            <PropertyGroup Label="Rhino macOS Bindings">
-                <DefineConstants>$(DefineConstants);RHINO_MACOS_BINDINGS</DefineConstants>
-            </PropertyGroup>
-        </When>
-    </Choose>
+    <PropertyGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+        <PlugInIcons>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'icons'))</PlugInIcons>
+        <PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'icon.svg'))</PlugInIconSource>
+        <PlugInPackageIcon Condition="Exists('$(PlugInIconSource)')">icon.png</PlugInPackageIcon>
+    </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In Assets" Condition="'$(TargetExt)' == '.rhp'">
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
@@ -156,6 +143,10 @@
         <FileWrites Include="@(_PlugInMacGlyphFile);@(_PlugInIconFile)" />
     </ItemGroup>
 
+    <ItemGroup Label="Rhino Plug-In Parts" Condition="'$(TargetExt)' == '.rhp'">
+        <ProjectReference Include="@(_NestedProject)" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Policy">
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
@@ -194,56 +185,63 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(TargetExt)' == '.rhp' and '$(DesignTimeBuild)' != 'true'">
+    <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(TargetExt)' == '.rhp' and '$(RhinoPlugIn)' == '' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
-            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(ArtifactsPivots)_$(MSBuildProjectName)" />
+            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" />
         </ItemGroup>
     </Target>
 
-    <UsingTask TaskName="FindRhinoPlugInClass" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll" Condition="'$(TargetExt)' == '.rhp'">
+    <UsingTask TaskName="FindGrasshopperPlugIns" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
         <ParameterGroup>
-            <PlugInAssembly ParameterType="System.String" Required="true" />
+            <PlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
             <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-            <Found ParameterType="System.Boolean" Output="true" />
+            <Grasshopper ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+            <GrasshopperPlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
         </ParameterGroup>
         <Task>
             <Reference Include="$(PkgSystem_Reflection_MetadataLoadContext)/lib/netstandard2.0/System.Reflection.MetadataLoadContext.dll" />
             <Using Namespace="System.Reflection" />
             <Code Type="Fragment" Language="cs"><![CDATA[
-                using MetadataLoadContext context = new(new PathAssemblyResolver(References.Select(static reference => reference.ItemSpec).Append(PlugInAssembly)));
-                Type plugIn = context.LoadFromAssemblyName("RhinoCommon").GetType("Rhino.PlugIns.PlugIn", throwOnError: true);
-                Found = context.LoadFromAssemblyPath(PlugInAssembly).GetExportedTypes().Any(type => !type.IsAbstract && type.IsSubclassOf(plugIn));
+                using MetadataLoadContext context = new(new PathAssemblyResolver(References.Concat(PlugIns).Select(static item => item.ItemSpec)));
+                HashSet<string> grasshopper = new(Grasshopper.Select(static item => item.GetMetadata("Filename")));
+                GrasshopperPlugIns = PlugIns.Where(plugIn => {
+                    HashSet<Type> seen = new();
+                    bool Derives(Type type) => seen.Add(type) && (grasshopper.Contains(type.Assembly.GetName().Name) || type.GetInterfaces().Concat(type.GenericTypeArguments).Append(type.BaseType).Any(next => next != null && Derives(next)));
+                    return context.LoadFromAssemblyPath(plugIn.ItemSpec).GetExportedTypes().Any(Derives);
+                }).ToArray();
             ]]></Code>
         </Task>
     </UsingTask>
 
     <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation;ResolveAssemblyReferences" Condition="'$(TargetExt)' == '.rhp'">
         <PropertyGroup>
-            <_YakPlatform Condition="$(RuntimeIdentifier.StartsWith('osx-'))">mac</_YakPlatform>
-            <_YakPlatform Condition="$(RuntimeIdentifier.StartsWith('win-'))">win</_YakPlatform>
+            <_YakPlatform>mac</_YakPlatform>
+            <_YakPlatform Condition="'$(TargetPlatformIdentifier)' == 'Windows'">win</_YakPlatform>
         </PropertyGroup>
         <ItemGroup>
-            <_StalePublishFile Include="$(PublishDir)**" Exclude="@(ResolvedFileToPublish->'$(PublishDir)%(RelativePath)')" />
+            <_YakOutput Include="$(PublishDir)manifest.yml;$(PublishDir)*.yak;$(PublishDir)*.grasshopper-only" />
+            <_YakPlugIn Include="$(PublishDir)*.rhp" />
+            <_GrasshopperAssembly Include="@(ReferencePath->WithMetadataValue('NuGetPackageId', 'Grasshopper2'))" />
         </ItemGroup>
-        <Delete Files="@(_StalePublishFile)" />
-        <FindRhinoPlugInClass PlugInAssembly="$(PublishDir)$(TargetFileName)" References="@(ReferencePath)">
-            <Output TaskParameter="Found" PropertyName="_RhinoPlugInClass" />
-        </FindRhinoPlugInClass>
-        <Touch Files="$(PublishDir)$(TargetFileName).grasshopper-only" AlwaysCreate="true" Condition="!$(_RhinoPlugInClass)" />
-        <Exec Command="&quot;$(_YakExecutable)&quot; spec" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
+        <Delete Files="@(_YakOutput)" />
+        <FindGrasshopperPlugIns PlugIns="@(_YakPlugIn)" References="@(ReferencePath)" Grasshopper="@(_GrasshopperAssembly)" Condition="'@(_GrasshopperAssembly)' != ''">
+            <Output TaskParameter="GrasshopperPlugIns" ItemName="_GrasshopperPlugIn" />
+        </FindGrasshopperPlugIns>
+        <Touch Files="@(_GrasshopperPlugIn->'%(FullPath).grasshopper-only')" AlwaysCreate="true" />
+        <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
         <WriteLinesToFile File="$(PublishDir)manifest.yml" Lines="icon: $(PlugInPackageIcon)" Condition="'$(PlugInPackageIcon)' != ''" />
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
     </Target>
 
     <Target Name="InstallYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
-        <Exec Command="yq &quot;.name&quot; &quot;$(PublishDir)/manifest.yml&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low">
+        <Exec Command="yq &quot;.name&quot; &quot;$(PublishDir)manifest.yml&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low">
             <Output TaskParameter="ConsoleOutput" PropertyName="_YakPackageName" />
         </Exec>
         <ItemGroup>
-            <_YakPackage Include="$(PublishDir)/*.yak" />
+            <_YakPackage Include="$(PublishDir)*.yak" />
         </ItemGroup>
         <Exec Command="&quot;$(_YakExecutable)&quot; uninstall &quot;$(_YakPackageName)&quot;" StandardOutputImportance="low" />
-        <Exec Command="&quot;$(_YakExecutable)&quot; install &quot;%(_YakPackage.Filename)%(_YakPackage.Extension)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
+        <Exec Command="&quot;$(_YakExecutable)&quot; install &quot;@(_YakPackage->'%(FullPath)')&quot;" StandardOutputImportance="low" />
     </Target>
 
     <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">

@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { matchesGlob } from 'node:path';
 import { NodeHttpServer, NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Context, Effect, flow, Layer, Logger, Match, MutableRef, Option, Predicate, Queue, Result, Runtime, Schema, Stream, Struct } from 'effect';
+import { Array, type Cause, Context, Effect, flow, Layer, Logger, Match, MutableRef, Option, Predicate, Queue, Result, Runtime, Schema, Stream, Struct } from 'effect';
 import { McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { Argument, Command, Flag } from 'effect/cli';
 import { HttpRouter } from 'effect/http';
@@ -14,7 +14,14 @@ import { RpcClient, RpcClientError, type RpcMessage, RpcSerialization } from 'ef
 type Client = RpcClient.FromGroup<typeof McpSchema.ClientRpcs, RpcClientError.RpcClientError>;
 type Registry = McpServer.McpServer['Service'];
 type Failure = McpSchema.McpError | RpcClientError.RpcClientError;
-type Live = MutableRef.MutableRef<ReadonlySet<string>>;
+interface Entry {
+    readonly key: string;
+    readonly add: (annotations: Context.Context<never>) => Effect.Effect<void>;
+}
+interface Listing {
+    readonly changed: string;
+    readonly entries: (client: Client, registry: Registry) => Effect.Effect<Entry[], Failure>;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -34,9 +41,10 @@ class ChildExited extends Schema.TaggedError<ChildExited>()('ChildExited', { [Ru
 const spawn = Effect.fn('spawn')(function* (command: string, args: readonly string[]) {
     const serialization = RpcSerialization.ndJsonRpc();
     const parser = serialization.makeUnsafe();
-    const outbound = yield* Queue.make<RpcMessage.FromClientEncoded | RpcMessage.FromServerEncoded>();
+    const outbound = yield* Queue.make<RpcMessage.FromClientEncoded | RpcMessage.FromServerEncoded, Cause.Done>();
     const notifications = yield* Queue.make<RpcMessage.RequestEncoded>();
     const handle = yield* ChildProcess.make(command, args, { stderr: 'inherit', stdin: Stream.fromQueue(outbound).pipe(Stream.map(parser.encode), Stream.filter(Predicate.isString), Stream.encodeText) });
+    yield* Effect.addFinalizer(() => Queue.end(outbound));
     const protocol = yield* RpcClient.Protocol.make(
         Effect.fn('protocol')(function* (write, clientIds) {
             yield* handle.stdout.pipe(
@@ -95,50 +103,35 @@ const relay: <A>(effect: Effect.Effect<A, Failure>) => Effect.Effect<A, McpSchem
     (error) => Effect.fail(new McpSchema.InvalidParams({ message: error.message })),
     flow(internal, Effect.fail),
 );
-const listed = (live: Live, key: string): Context.Context<never> => Context.make(McpSchema.EnabledWhen, () => MutableRef.get(live).has(key));
-const published = (live: Live, keys: readonly string[], added: Effect.Effect<void>): Effect.Effect<void> =>
-    Effect.andThen(
-        Effect.sync(() => MutableRef.set(live, new Set(keys))),
-        added,
-    );
-const tools = (client: Client, registry: Registry, hidden: Predicate.Predicate<string>, live: Live): Effect.Effect<void, Failure> =>
-    Effect.flatMap(pages(client['tools/list'], Struct.get('tools')), (list) => {
-        const shown = Array.filter(list, (tool) => !hidden(tool.name));
-        return published(
-            live,
-            Array.map(shown, Struct.get('name')),
-            Effect.forEach(shown, (tool) => registry.addTool({ annotations: listed(live, tool.name), handle: (input: Record<string, unknown>) => relay(client['tools/call']({ arguments: input, name: tool.name })), tool }), { discard: true }),
-        );
-    });
-const resources = (client: Client, registry: Registry, _hidden: Predicate.Predicate<string>, live: Live): Effect.Effect<void, Failure> =>
-    Effect.flatMap(Effect.all([pages(client['resources/list'], Struct.get('resources')), pages(client['resources/templates/list'], Struct.get('resourceTemplates'))], { concurrency: 'unbounded' }), ([concrete, templates]) =>
-        published(
-            live,
-            [...Array.map(concrete, Struct.get('uri')), ...Array.map(templates, Struct.get('uriTemplate'))],
-            Effect.all(
-                [
-                    Effect.forEach(concrete, (resource) => registry.addResource({ annotations: listed(live, resource.uri), handle: Effect.mapError(client['resources/read']({ uri: resource.uri }), internal), resource }), { discard: true }),
-                    Effect.forEach(templates, (template) => registry.addResourceTemplate({ annotations: listed(live, template.uriTemplate), completions: {}, handle: (uri) => relay(client['resources/read']({ uri })), routerPath: '*', template }), { discard: true }),
-                ],
-                { concurrency: 'unbounded', discard: true },
+const tools =
+    (hidden: Predicate.Predicate<string>) =>
+    (client: Client, registry: Registry): Effect.Effect<Entry[], Failure> =>
+        Effect.map(
+            pages(client['tools/list'], Struct.get('tools')),
+            flow(
+                Array.filter((tool) => !hidden(tool.name)),
+                Array.map((tool) => ({ key: tool.name, add: (annotations) => registry.addTool({ annotations, handle: (input: Record<string, unknown>) => relay(client['tools/call']({ arguments: input, name: tool.name })), tool }) })),
             ),
-        ),
+        );
+const resources = (client: Client, registry: Registry): Effect.Effect<Entry[], Failure> =>
+    Effect.map(Effect.all([pages(client['resources/list'], Struct.get('resources')), pages(client['resources/templates/list'], Struct.get('resourceTemplates'))], { concurrency: 'unbounded' }), ([concrete, templates]) => [
+        ...Array.map(concrete, (resource): Entry => ({ key: resource.uri, add: (annotations) => registry.addResource({ annotations, handle: Effect.mapError(client['resources/read']({ uri: resource.uri }), internal), resource }) })),
+        ...Array.map(templates, (template): Entry => ({ key: template.uriTemplate, add: (annotations) => registry.addResourceTemplate({ annotations, completions: {}, handle: (uri) => relay(client['resources/read']({ uri })), routerPath: '*', template }) })),
+    ]);
+const prompts = (client: Client, registry: Registry): Effect.Effect<Entry[], Failure> =>
+    Effect.map(
+        pages(client['prompts/list'], Struct.get('prompts')),
+        Array.map((prompt) => ({ key: prompt.name, add: (annotations) => registry.addPrompt({ annotations, completions: {}, handle: (params) => relay(client['prompts/get']({ arguments: params, name: prompt.name })), prompt }) })),
     );
-const prompts = (client: Client, registry: Registry, _hidden: Predicate.Predicate<string>, live: Live): Effect.Effect<void, Failure> =>
-    Effect.flatMap(pages(client['prompts/list'], Struct.get('prompts')), (list) =>
-        published(
-            live,
-            Array.map(list, Struct.get('name')),
-            Effect.forEach(list, (prompt) => registry.addPrompt({ annotations: listed(live, prompt.name), completions: {}, handle: (params) => relay(client['prompts/get']({ arguments: params, name: prompt.name })), prompt }), { discard: true }),
-        ),
-    );
-const LISTINGS = [
-    { capability: 'tools', changed: McpSchema.ToolListChangedNotification._tag, register: tools },
-    { capability: 'resources', changed: McpSchema.ResourceListChangedNotification._tag, register: resources },
-    { capability: 'prompts', changed: McpSchema.PromptListChangedNotification._tag, register: prompts },
-] as const;
-const register = (client: Client, registry: Registry, hidden: Predicate.Predicate<string>, live: Readonly<Record<(typeof LISTINGS)[number]['capability'], Live>>, listings: readonly (typeof LISTINGS)[number][]): Effect.Effect<void, Failure> =>
-    Effect.forEach(listings, (listing) => listing.register(client, registry, hidden, live[listing.capability]), { concurrency: 'unbounded', discard: true });
+const register =
+    (client: Client, registry: Registry) =>
+    ({ entries, live }: Listing & { readonly live: MutableRef.MutableRef<ReadonlySet<string>> }): Effect.Effect<void, Failure> =>
+        Effect.flatMap(entries(client, registry), (shown) =>
+            Effect.andThen(
+                Effect.sync(() => MutableRef.set(live, new Set(Array.map(shown, Struct.get('key'))))),
+                Effect.forEach(shown, ({ add, key }) => add(Context.make(McpSchema.EnabledWhen, () => MutableRef.get(live).has(key))), { discard: true }),
+            ),
+        );
 
 // --- [LIFECYCLE]
 const initialize = (client: Client): Effect.Effect<McpSchema.InitializeResult, Failure> => client.initialize({ capabilities: {}, clientInfo: BRIDGE, protocolVersion: REVISION.protocolVersion }).pipe(Effect.tap(() => client['notifications/initialized'](undefined, { discard: true })));
@@ -154,22 +147,24 @@ const OPTIONS = {
 const bridge = Effect.fn('bridge')(function* ({ args, command, hide, port }: Command.Command.Config.Infer<typeof OPTIONS>) {
     const child = yield* spawn(command, args);
     const hidden = (name: string): boolean => hide.some((glob) => matchesGlob(name, glob));
-    const live = { tools: MutableRef.make<ReadonlySet<string>>(new Set()), resources: MutableRef.make<ReadonlySet<string>>(new Set()), prompts: MutableRef.make<ReadonlySet<string>>(new Set()) };
     const serving = Effect.gen(function* () {
         const info = yield* initialize(child.client);
+        const listings = Array.map(
+            Array.filter(
+                [
+                    { capability: 'tools', changed: McpSchema.ToolListChangedNotification._tag, entries: tools(hidden) },
+                    { capability: 'resources', changed: McpSchema.ResourceListChangedNotification._tag, entries: resources },
+                    { capability: 'prompts', changed: McpSchema.PromptListChangedNotification._tag, entries: prompts },
+                ] as const,
+                ({ capability }) => Predicate.isNotUndefined(info.capabilities[capability]),
+            ),
+            (listing: Listing) => ({ ...listing, live: MutableRef.make<ReadonlySet<string>>(new Set()) }),
+        );
         const services = yield* Layer.build(
             HttpRouter.serve(
-                Layer.effectDiscard(
-                    Effect.flatMap(McpServer.McpServer, (server) =>
-                        register(
-                            child.client,
-                            server,
-                            hidden,
-                            live,
-                            Array.filter(LISTINGS, ({ capability }) => Predicate.isNotUndefined(info.capabilities[capability])),
-                        ),
-                    ),
-                ).pipe(Layer.provideMerge(McpServer.layerHttp({ ...info.serverInfo, instructions: info.instructions, path: '/', protocols: [McpProtocol.v2026_07_28, REVISION, McpProtocol.v2025_06_18] }))),
+                Layer.effectDiscard(Effect.flatMap(McpServer.McpServer, (server) => Effect.forEach(listings, register(child.client, server), { concurrency: 'unbounded', discard: true }))).pipe(
+                    Layer.provideMerge(McpServer.layerHttp({ ...info.serverInfo, instructions: info.instructions, path: '/', protocols: [McpProtocol.v2026_07_28, REVISION, McpProtocol.v2025_06_18] })),
+                ),
                 { disableLogger: true },
             ).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port }))),
         );
@@ -178,12 +173,10 @@ const bridge = Effect.fn('bridge')(function* ({ args, command, hide, port }: Com
             Stream.filterMap(relayed(registry)),
             Stream.runForEach(({ tag, sent }) =>
                 Effect.andThen(
-                    register(
-                        child.client,
-                        registry,
-                        hidden,
-                        live,
-                        Array.filter(LISTINGS, ({ changed }) => changed === tag),
+                    Effect.forEach(
+                        Array.filter(listings, ({ changed }) => changed === tag),
+                        register(child.client, registry),
+                        { discard: true },
                     ),
                     sent,
                 ),

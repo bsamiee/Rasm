@@ -360,16 +360,17 @@ dev = [
     "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
     # --- [SCRIPTS]
     "asttokens",                                          # Source ranges for private Blender extension imports
-    "coloraide",                                          # SVG tool paint parsing and scene-linear color conversion
+    "coloraide",                                          # SVG tool paint parsing and sRGB gamut fitting
     "cyclopts",                                           # CLI parser for tool commands
     "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
-    "fonttools",                                          # SVG path parsing and cubic pens for Blender geometry icons
+    "fonttools",                                          # Cubic pens for Blender geometry icons
     "mcp",                                                # Native Blender Lab execution through its public MCP service
     "msgspec[yaml]",                                      # Structs and JSON, TOML, and YAML codecs for tools, skill scripts, and test support
     "packaging",                                          # Native wheel filename parsing for Blender extension assembly
     "picosvg",                                            # SVG geometry normalization for native Blender glyphs
     "psutil",                                             # Blender executable identity, use-ghidra process lookup, and benchmark readings
     "result",                                             # Typed error composition for native Blender assembly and installation
+    "shapely",                                            # Filled-region geometry for Blender tool icons
     "skia-pathops",                                       # Glyph stroke expansion and filled-region unions
     "tomlkit",                                            # Comment-preserving Blender extension manifest assembly
     "wcwidth",                                            # Display width of text with wide, combining, and emoji characters

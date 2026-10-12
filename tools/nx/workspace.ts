@@ -3,6 +3,7 @@ import { NodeFileSystem, NodePath } from '@effect/platform-node';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ImplicitDependency, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, FileSystem, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie } from 'effect';
+import { XMLParser } from 'fast-xml-parser';
 import { parse } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
 
@@ -42,6 +43,13 @@ const _Root = _Toml.pipe(
     ),
 );
 const _Manifest = _Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
+const _MSBuildProject = Schema.String.pipe(
+    Schema.decodeTo(Schema.Unknown, {
+        decode: SchemaGetter.transformEffect((text: string, options) => Effect.try({ try: () => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text), catch: () => new SchemaIssue.InvalidValue({ expected: 'MSBuild XML' }, text, options) })),
+        encode: SchemaGetter.forbiddenEncoding,
+    }),
+    Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.optionalKey(Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) }))) }) })),
+);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -129,22 +137,26 @@ const _sources = Effect.fnUntraced(function* (workspace: string, configuration: 
 });
 
 const _PROJECTS = {
-    '*.csproj': ({ dir }) => {
+    '*.csproj': Effect.fnUntraced(function* ({ dir, base }, { workspace, projects }) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const file = path.join(dir, base);
+        const { Project } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, file)), Schema.decodeEffect(_MSBuildProject));
         const host = _host(dir);
-        const plugin = dir.startsWith('apps/rhino/');
-        const outputs = (pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}${host.includes('host:rhino') ? '_*' : ''}/${pivot}`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/${pivot}_{projectName}`] : [])];
-        return Effect.succeed({
+        const plugin = Array.some(Project.PropertyGroup ?? [], ({ TargetExt }) => TargetExt === '.rhp');
+        const outputs = (pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${pivot}*`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${pivot}*`] : [])];
+        return {
             root: dir,
-            tags: ['language:dotnet', ...host],
+            tags: ['language:dotnet', ...host, ...(plugin ? ['output:rhp'] : [])],
+            ...(host.includes('host:rhino') ? { namedInputs: { rhinoInstallation: [{ runtime: `dotnet msbuild ${file} -target:ResolveRhinoInstallation -getProperty:RhinoInstallPath,RhinoVersion -property:DisablePackageAssetsCache=true -nologo` }] } } : {}),
             targets: {
                 build: { outputs: outputs('debug') },
                 'build:release': { outputs: outputs('release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
                 typecheck: {},
                 check: {},
-                ...(plugin ? { pack: {}, install: {} } : {}),
+                ...(plugin && !Array.some(projects, (project) => dir.startsWith(`${project}/`)) ? { pack: {}, install: {} } : {}),
             },
-        });
-    },
+        };
+    }),
     '*.cs': Effect.fnUntraced(function* ({ dir, base }, { workspace }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const file = path.join(dir, base);
@@ -178,14 +190,18 @@ const _PROJECTS = {
         const [{ id }, python] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(workspace, dir, base)), Schema.decodeEffect(_Manifest)), _python(dir, workspace, root)], { concurrency: 'unbounded' });
         const archive = '.artifacts/blender/{projectName}/extension.zip';
         const modules = Array.filter((yield* sources).closure([`${dir}/`]), String.startsWith(`${python.sourceRoot}/`));
+        const folders = Array.dedupe(Array.map(modules, path.dirname));
         return {
             root: dir,
             name: id,
             tags: ['language:python', 'host:blender'],
             targets: {
                 pack: {
-                    command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${Array.map(modules, (file) => `--modules "${path.relative(python.moduleRoot, file)}"`).join(' ')}`,
-                    inputs: Array.map(Array.dedupe(Array.map(modules, path.dirname)), (folder) => `{workspaceRoot}/${folder}/**/*`),
+                    command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${Array.map(modules, (file) => `"${path.relative(python.moduleRoot, file)}"`).join(' ')}`,
+                    inputs: Array.map(
+                        Array.filter(folders, (folder) => !Array.some(folders, (other) => folder.startsWith(`${other}/`))),
+                        (folder) => `{workspaceRoot}/${folder}/**/*`,
+                    ),
                     outputs: [`{workspaceRoot}/${archive}`],
                 },
                 install: { command: `python -m eng.python.fitout install "${archive}"` },
@@ -202,9 +218,9 @@ const _PROJECTS = {
     'tsconfig.json': ({ dir }) => Effect.succeed({ root: dir, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
     'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {}, serve: {} } }),
     'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {} } }),
-} as const satisfies Record<string, (file: Path.Path.Parsed, context: { workspace: string; root: ReturnType<typeof _root>; sources: ReturnType<typeof _sources> }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
+} as const satisfies Record<string, (file: Path.Path.Parsed, context: { workspace: string; root: ReturnType<typeof _root>; sources: ReturnType<typeof _sources>; projects: readonly string[] }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
 
-const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string, sources: ReturnType<typeof _sources>) {
+const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const directories = yield* Effect.validate(
         declarations,
@@ -212,43 +228,31 @@ const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly stri
             pipe(
                 fs.readFileString(path.join(workspace, file)),
                 Effect.flatMap(Schema.decodeEffect(_Declaration)),
-                Effect.map(({ project }) => ({ version: project.version, root: `${path.dirname(file)}/` })),
+                Effect.map(({ project }) => ({ version: project.version, root: path.dirname(file) })),
             ),
         { concurrency: 'unbounded' },
     );
-    const { closure } = yield* sources;
-    const runtimeVersions = pipe(
+    const declared = pipe(
         directories,
         Array.groupBy(({ version }) => version),
-        Record.map((members, version) => Record.fromIterableWith(closure(Array.map(members, ({ root }) => root)), (file) => [file, version])),
-        Record.reduce(Record.empty<string, string>(), (runtime, scope) => Record.union(runtime, scope, (a, b) => (a.localeCompare(b, 'en', { numeric: true }) <= 0 ? a : b))),
+        Record.map(Array.map(({ root }) => root)),
     );
-    const scopes = pipe(
-        Record.toEntries(runtimeVersions),
-        Array.groupBy(([, version]) => version),
-        Record.map(Array.map(([file]) => file)),
-    );
-    const runtimeFiles = Record.keys(runtimeVersions);
-    const ruff = `--config 'per-file-target-version = { ${pipe(
-        Record.toEntries(runtimeVersions),
-        Array.map(([file, version]) => `${JSON.stringify(file)} = ${JSON.stringify(`py${version.replace('.', '')}`)}`),
-    ).join(', ')} }'`;
+    const roots = Array.flatten(Record.values(declared));
     const targets: Record<string, TargetConfiguration> = {
         ...pipe(
-            scopes,
+            declared,
             Record.toEntries,
-            Array.flatMap(([version, files]) => {
-                const roots = Array.map(files, (file) => `"${file}"`).join(' ');
+            Array.flatMap(([version, scope]) => {
+                const paths = Array.map(scope, (root) => `"${root}"`).join(' ');
                 return [
-                    [`typecheck:ty-${version}`, { command: `ty check --python-version ${version} ${roots}` }],
-                    [`typecheck:mypy-${version}`, { command: `mypy --python-version ${version} ${roots}` }],
+                    [`typecheck:ty-${version}`, { command: `ty check --python-version ${version} ${paths}` }],
+                    [`typecheck:mypy-${version}`, { command: `mypy --python-version ${version} ${paths}` }],
                 ] as const;
             }),
             Record.fromEntries,
         ),
-        'typecheck:ty': { options: { args: Array.map(runtimeFiles, (file) => `--exclude "${file}"`).join(' ') } },
-        'typecheck:mypy': { options: { args: Array.map(runtimeFiles, (file) => `--exclude '^${RegExp.escape(file)}$'`).join(' ') } },
-        ...Record.fromIterableWith(Array.cartesian(['lint', 'format'], ['check', 'format']), ([target, operation]) => [`${target}:ruff-${operation}`, { options: { args: ruff } }]),
+        'typecheck:ty': { options: { args: Array.map(roots, (root) => `--exclude "${root}"`).join(' ') } },
+        'typecheck:mypy': { options: { args: Array.map(roots, (root) => `--exclude '^${RegExp.escape(`${root}/`)}'`).join(' ') } },
     };
     return { projects: { '.': { root: '.', targets } } };
 });
@@ -286,14 +290,18 @@ const createNodes: CreateNodes = [
         const [root, path] = runtime.runSync(Effect.all([Effect.cached(_root(context.workspaceRoot)), Path.Path]));
         const sources = runtime.runSync(Effect.cached(_sources(context.workspaceRoot, root)));
         const declarations = Array.filter(files, (file) => file !== _DECLARATION && path.basename(file) === _DECLARATION);
+        const projects = Array.map(
+            Array.filter(files, (file) => path.extname(file) === '.csproj'),
+            path.dirname,
+        );
         const project = Effect.fnUntraced(
             function* (file: string) {
                 if (file === _DECLARATION) {
-                    return yield* _pythonVersions(declarations, context.workspaceRoot, sources);
+                    return yield* _pythonVersions(declarations, context.workspaceRoot);
                 }
                 const parsed = path.parse(file);
                 const [, configure] = yield* Effect.fromOption(Array.findFirst(Record.toEntries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
-                const configuration = yield* configure(parsed, { workspace: context.workspaceRoot, root, sources });
+                const configuration = yield* configure(parsed, { workspace: context.workspaceRoot, root, sources, projects });
                 return { projects: { [configuration.root]: configuration } };
             },
             Effect.catchNoSuchElement,

@@ -10,7 +10,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm.blender.commands.operators import Call, Done, Empty, Operator, Save
-from rasm.blender.data.ids.images import Production, production, read, render_result, saved, viewer_image
+from rasm.blender.data.ids.images import Production, production, productions, read, render_result, saved, viewer_image
 from rasm.blender.data.rna.conditions import AllOf, Job, Setting
 from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.extension.identity import Identity, Key
@@ -285,6 +285,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 for layering in self.layering
             ),
+            productions,
         ))
 
 

@@ -278,23 +278,23 @@ public static class Dispatch {
         Action<IDisposable> retain,
         Option<Func<Preflight, IO<Unit>>> report = default) =>
         Documents.WithDocument(source, doc =>
-            from check in Preflight.Check(context, doc, plan, target).Post()
-            from shown in report.Traverse(publish => publish(check).Post()).As()
+            from check in Preflight.Check(context, doc, plan, target).OnUiThread()
+            from shown in report.Traverse(publish => publish(check).OnUiThread()).As()
             from verdict in IO.lift(check.Verdict.ToFin())
             from sent in target.Switch(
                 (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed),
                 local: static (state, _) =>
-                    Queues.Resolve(state.Doc, state.Plan, state.Resumed).Post()
+                    Queues.Resolve(state.Doc, state.Plan, state.Resumed).OnUiThread()
                         .Bind(queue => Queues.Run(state.Context, state.Doc, queue, None, state.Resumed)),
                 handoff: static (state, handoff) => Handed(state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, handoff.Package),
-                jobFile: static (state, file) => Packed(state.Doc, state.Plan, state.Resumed, file.Package, state.Stamp).Post().Map(static _ => unit),
+                jobFile: static (state, file) => Packed(state.Doc, state.Plan, state.Resumed, file.Package, state.Stamp).OnUiThread().Map(static _ => unit),
                 flamenco: static (state, farm) =>
                     from arguments in IO.lift(FarmArguments(farm.WorkerPlatform, state.Context.FarmScript))
-                    from paths in Packed(state.Doc, state.Plan, state.Resumed, farm.Package, state.Stamp).Post()
+                    from paths in Packed(state.Doc, state.Plan, state.Resumed, farm.Package, state.Stamp).OnUiThread()
                     from submitted in Submitted(farm, paths[PackageFile.Copy], arguments)
                     from noticed in state.Context.Notify(new QueueEvent.Submitted(submitted))
                     select unit)
-            select sent, postNative: true) switch {
+            select sent) switch {
                 var send => target.Map(local: true, handoff: false, jobFile: false, flamenco: false)
                     ? DisposalOps.Fork(Reported(context, nameof(Send), send), retain).Map(static _ => unit)
                     : send,
@@ -371,13 +371,13 @@ public static class Dispatch {
     private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, Destination package) =>
         DisposalOps.Within<IDisposable, Unit>(acquired =>
             from lease in QueueProgress.Acquire(context.Record, acquired)
-            from command in context.JobCommand.Post()
-            from saved in SaveAll.Post()
-            from paths in Packed(doc, plan, resumed, package, stamp).Post()
+            from command in context.JobCommand.OnUiThread()
+            from saved in SaveAll.OnUiThread()
+            from paths in Packed(doc, plan, resumed, package, stamp).OnUiThread()
             from moved in resumed.Traverse(record => QueueProgress.Write(
                 context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
             from relayed in Relay(context, paths[PackageFile.Job], command)
-            from quit in Quit.Post()
+            from quit in Quit.OnUiThread()
             select unit, DisposalOps.Release);
 
     private static IO<Unit> SaveAll =>
@@ -423,17 +423,17 @@ public static class Dispatch {
     public static IO<Unit> FarmJob(QueueContext context, RhinoDoc doc, IO<Unit> close) =>
         IO.lift(parent => {
             IO<Unit> work =
-                from path in IO.lift(() => Exchange.QualifiedPath(Path.ChangeExtension(doc.Path, PackageFile.Job.Extension))).Post()
+                from path in IO.lift(() => Exchange.QualifiedPath(Path.ChangeExtension(doc.Path, PackageFile.Job.Extension))).OnUiThread()
                 from job in Read(path)
                 from record in IO.lift(Conversions.Validated<OutputPath, string, InvalidOutput>(Path.ChangeExtension(path, ".progress.json")))
                 let worker = context with { Record = record, Settings = context.Settings.Map(static settings => settings with { ShutDownAfterSuccess = false }) }
                 from prior in QueueProgress.Read(worker.Record)
-                from queue in JobMapper.FromJob(doc, job).Post()
+                from queue in JobMapper.FromJob(doc, job).OnUiThread()
                 from ran in Queues.Run(worker, doc, queue, Some(path), prior.Filter(held => held.Job == Some(path) && !held.Succeeded))
                 select unit;
             _ = Task.Run(async () => {
                 EnvIO environment = EnvIO.New(token: parent.Token, syncContext: parent.SyncContext);
-                Fin<Unit> outcome = await DisposalOps.Within(static () => unit, _ => work, _ => close.Post())
+                Fin<Unit> outcome = await DisposalOps.Within(static () => unit, _ => work, _ => close.OnUiThread())
                     .Try().Run().As().Uninterruptible().RunAsync(environment).ConfigureAwait(false);
                 Fin<Unit> result = (outcome.ToValidation(),
                         Try.lift(environment.DisposeResources).ToFin().ToValidation(),
@@ -463,14 +463,14 @@ public static class Dispatch {
                     .Map(static _ => unit), retain).Map(static _ => unit);
 
     private static IO<Unit> Launched(QueueContext context, string member, IO<Unit> run) =>
-        DisposalOps.Within(static () => unit, _ => Reported(context, member, run), _ => Reported(context, member, Quit.Post()));
+        DisposalOps.Within(static () => unit, _ => Reported(context, member, run), _ => Reported(context, member, Quit.OnUiThread()));
 
     private static IO<Unit> Run(QueueContext context, string path) =>
         from job in Read(path)
         from prior in QueueProgress.Read(context.Record)
         from ran in Documents.WithDocument(new DocumentSource.Opened(job.Copy), doc =>
-            JobMapper.FromJob(doc, job).Post()
-                .Bind(queue => Queues.Run(context, doc, queue, Some(path), prior.Filter(record => record.Job == Some(path) && !record.Succeeded))), postNative: true)
+            JobMapper.FromJob(doc, job).OnUiThread()
+                .Bind(queue => Queues.Run(context, doc, queue, Some(path), prior.Filter(record => record.Job == Some(path) && !record.Succeeded))))
         select unit;
 
     private static IO<QueueJob> Read(string path) =>

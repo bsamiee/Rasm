@@ -1,14 +1,12 @@
 """Installs extensions through Blender's native handler in the GUI session holding the same user profile, else a command process."""
 
-import errno
 import os
-import shutil
 import sys
 from typing import Annotated
 
 import anyio
 from cyclopts import Parameter
-from cyclopts.types import ResolvedPath
+from cyclopts.types import ResolvedExistingFile, ResolvedPath
 import httpx2
 from mcp import Client, MCPError
 from mcp.types import CallToolResult
@@ -44,24 +42,20 @@ type InstallError = OSError | msgspec.ValidationError | ExceptionGroup[OSError |
 
 
 async def install(
-    archive: ResolvedPath, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender"
+    archive: ResolvedPath, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, InstallError]:
     """Install and enable a Blender extension in the user repository.
 
     Args:
         archive: Extension ZIP file to install.
-        blender: Blender executable, supplied by BLENDER_PATH when set.
+        blender: Blender executable, supplied by BLENDER_PATH.
         endpoint: Blender Lab service endpoint, supplied by BLENDER_MCP_URL.
 
     Returns:
-        The native handler's status, or an executable, transport,
+        The native handler's status, or a process, transport,
         response-decoding, or remote execution error. Native output is forwarded.
     """
-    match shutil.which(blender):
-        case None:
-            return Err(FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), blender))
-        case found:
-            executable = anyio.Path(found)
+    executable = anyio.Path(blender)
     profile = {name: value for name, value in os.environ.items() if name.startswith("BLENDER_USER_")}
     try:
         pids = [

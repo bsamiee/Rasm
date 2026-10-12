@@ -245,7 +245,7 @@ public static class Motions {
             Atom(new Course(new Leg(move.From, move.To, Duration.Zero), move.From, Duration.Zero, new Phase.Paused(Duration.Zero)))),
             static state => Fin.Succ(state), static state => state.Halt(), owned)
         from consumer in DisposalOps.Fork(
-            DisposalOps.Within(() => pacing, static state => state.Ticks.Reduce(unit, (_, tick) => Frame(state, tick)), static state => state.Halt().Post())
+            DisposalOps.Within(() => pacing, static state => state.Ticks.Reduce(unit, (_, tick) => Frame(state, tick)), static state => state.Halt().OnUiThread())
                 .IfFail(error => IO.lift(() => sink.Report(error, typeof(Motions), nameof(Drive)))
                     .MapFail(fault => error + fault).Bind(_ => IO.fail<Unit>(error))), owned)
         let handle = new MotionHandle(pacing, consumer)
@@ -259,7 +259,7 @@ public static class Motions {
              Some: sample => Show(pacing, course.Leg, sample),
              None: static () => Reduced.ContinueIO(unit))
          select reduced)
-        .Post();
+        .OnUiThread();
 
     private static IO<Reduced<Unit>> Show(Pacing pacing, Leg leg, Reduced<double> sample) =>
         from pose in IO.lift(Interpolated(leg.From, leg.To, sample.Value))

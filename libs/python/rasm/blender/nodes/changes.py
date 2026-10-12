@@ -336,10 +336,13 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
         of: Data-block the group serves, so a single group of one scene stays that scene's.
 
     Returns:
-        `Ok` of the group's tree; `Error` of the faults its reconcile answers.
+        `Ok` of the group's tree; `Error` of the faults its reconcile answers, a tree the call built removed with them.
     """
-    return group.ownership.made(identity, lambda: Ok(bpy.data.node_groups.new(group.name, group.graph.kind.bl_rna.identifier)), of=of).bind(  # type: ignore[arg-type,attr-defined]  # ty: ignore[invalid-argument-type,unresolved-attribute]
-        lambda tree: reconciled(group, tree, identity).map(lambda _: tree)
+    return group.ownership.made(
+        identity,
+        lambda: Ok(bpy.data.node_groups.new(group.name, group.graph.kind.__name__)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        of=of,
+        filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree),
     )
 
 

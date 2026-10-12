@@ -82,7 +82,7 @@ class Call[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def root[K: "bpy.types.bpy_struct[object]"](self, kind: type[K]) -> BlenderResult[K]:
         """Returns a required native context root or its typed absence."""
-        return root_in(kind, self.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.context), key=kind.bl_rna.identifier),))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return root_in(kind, self.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.context), key=kind.__name__),))
 
 
 class Confirm[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):

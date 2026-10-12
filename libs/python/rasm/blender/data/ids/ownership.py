@@ -82,43 +82,68 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Returns matching data-blocks and their admitted marks in native collection order."""
         return tuple((block, mark) for block in blocks(bpy.data, self.kind) for mark in Mark.read(identity, block).filter(lambda mark: mark.key == self.key).to_list())
 
-    def owned(self, identity: Identity, block: T, mark: Mark) -> BlenderResult[T]:
-        """Sets a new block's mark and lifetime, removing the block on refusal."""
+    def owned(self, identity: Identity, block: T, mark: Mark, filled: Callable[[T], BlenderResult[T]] = Ok) -> BlenderResult[T]:
+        """Sets a new block's mark and lifetime, then fills it, removing the block on any refusal."""
         with ExitStack() as rollback:
             rollback.callback(bpy.data.batch_remove, ids=(block,))
 
             def configured() -> T:
-                """Sets native saved state and transfers ownership after both writes."""
+                """Sets native saved state."""
                 block.is_runtime_data = self.saved is Saved.NEVER
                 block.use_fake_user = self.saved is Saved.ALWAYS
-                rollback.pop_all()
                 return block
 
-            return mark.write(identity, block).bind(lambda _: catch(configured, exception=AttributeError)().map_error(lambda error: (BlenderEditFault(request=repr(block), error=error),)))
+            result = (
+                mark.write(identity, block).bind(lambda _: catch(configured, exception=AttributeError)().map_error(lambda error: (BlenderEditFault(request=repr(block), error=error),))).bind(filled)
+            )
+            for _ in result.to_option().to_list():
+                rollback.pop_all()
+            return result
 
     @overload
     def made(
-        self, identity: Identity, build: Callable[[], BlenderResult[T]], *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, optional: Literal[False] = False
+        self,
+        identity: Identity,
+        build: Callable[[], BlenderResult[T]],
+        *,
+        of: Option[bpy.types.ID] = Nothing,
+        content: Option[ContentHash] = Nothing,
+        optional: Literal[False] = False,
+        filled: Callable[[T], BlenderResult[T]] = Ok,
     ) -> BlenderResult[T]: ...
 
     @overload
     def made(
-        self, identity: Identity, build: Callable[[], BlenderResult[Option[T]]], *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, optional: Literal[True]
+        self,
+        identity: Identity,
+        build: Callable[[], BlenderResult[Option[T]]],
+        *,
+        of: Option[bpy.types.ID] = Nothing,
+        content: Option[ContentHash] = Nothing,
+        optional: Literal[True],
+        filled: Callable[[T], BlenderResult[T]] = Ok,
     ) -> BlenderResult[Option[T]]: ...
 
     def made(
-        self, identity: Identity, build: Callable[[], BlenderResult[T | Option[T]]], *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, optional: bool = False
+        self,
+        identity: Identity,
+        build: Callable[[], BlenderResult[T | Option[T]]],
+        *,
+        of: Option[bpy.types.ID] = Nothing,
+        content: Option[ContentHash] = Nothing,
+        optional: bool = False,
+        filled: Callable[[T], BlenderResult[T]] = Ok,
     ) -> BlenderResult[T | Option[T]]:
-        """Reuses equal content before building, retaining optional absence without an ID."""
+        """Reuses equal content before building, fills the reused or built block, removes a built block its fill refuses, and retains optional absence without an ID."""
         mark = Mark(key=self.key, of=of, content=content)
         return (
             (Option.of_optional(earliest(self.held(identity)).get(mark)) if self.single else Nothing)
-            .map(lambda block: Ok(Some(block) if optional else block))
+            .map(lambda block: filled(block).map(lambda block: Some(block) if optional else block))
             .default_with(
                 lambda: build().bind(
                     lambda block: (
                         (block if isinstance(block, Option) else Some(block))
-                        .map(lambda block: self.owned(identity, block, mark).map(lambda block: Some(block) if optional else block))
+                        .map(lambda block: self.owned(identity, block, mark, filled).map(lambda block: Some(block) if optional else block))
                         .default_with(lambda: Ok(Nothing))
                     )
                 )

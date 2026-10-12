@@ -299,6 +299,33 @@ class Place(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
+class Browsed[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Value a session publishes to its drawings, queue feed, and dwell: view, catalog, hover, main editor, demands, and rendered tiles."""
+
+    view: Browsing
+    catalog: Catalog[T]
+    hover: tuple[Option[str], bool] = (Nothing, False)
+    main: Option[Place] = Nothing
+    demands: Mapping[tuple[str, Rank], Demand[T]] = msgspec.field(default_factory=dict)
+    outcomes: Mapping[Demand[T], BlenderResult[gpu.types.GPUTexture | Before]] = msgspec.field(default_factory=dict)
+
+    def reloaded(self, catalog: Catalog[T]) -> Self:
+        """Replaces the catalog, dropping every demand over its earlier rows."""
+        return replace(self, catalog=catalog, demands={}, outcomes={})
+
+    def demanded(self, sides: Mapping[str, int]) -> Self:
+        """Holds one demand per painted tile at its side beside the dwelled demand, keeping outcomes of held demands."""
+        demands = {(stem, Rank.SHOWN): Demand(stem=stem, value=self.catalog.rows[stem], side=side, rank=Rank.SHOWN) for stem, side in sides.items()} | {
+            place: demand for place, demand in self.demands.items() if place[1] is Rank.ACTIVE or sides.get(place[0]) == demand.side
+        }
+        kept = frozenset(demands.values())
+        return replace(self, demands=demands, outcomes={demand: outcome for demand, outcome in self.outcomes.items() if demand in kept})
+
+    def hovered(self, stem: Option[str], *, shifted: bool) -> Self:
+        """Marks the hovered preset and Shift state, dropping the dwelled demand."""
+        return replace(self, hover=(stem, shifted), demands={place: demand for place, demand in self.demands.items() if place[1] is not Rank.ACTIVE})
+
+
 class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
     """One existing preset listing with caller-owned recipes and the screen's layout."""
 
@@ -332,10 +359,10 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             lambda marks: Catalog(rows=rows, current=Option.of_optional(next((stem for (stem, _), mark in zip(valid, marks) if mark), None)), revision=revision)
         )
 
-    def command(self, identity: Identity) -> operators.Operator[operators.Empty, tuple["Session[T]", Browsing]]:
+    def command(self, identity: Identity) -> operators.Operator[operators.Empty, "Session[T]"]:
         """Builds the native modal operator over this catalog and resource scope."""
 
-        def begin(context: bpy.types.Context, travel: Travel) -> BlenderResult[tuple[Session[T], Browsing]]:
+        def begin(context: bpy.types.Context, travel: Travel) -> BlenderResult[Session[T]]:
             origin = Option.of_optional(context.region)
             located = Result[tuple[bpy.types.Window, bpy.types.Area], BlenderFaults].bind(
                 paired(
@@ -350,10 +377,12 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 sidebar = any(region.type == "UI" for region in origin.to_list())
                 return Error((BlenderAbsentFault(owner=repr(area), key="sidebar origin or a distinct browser editor"),)) if self.main.admits(area) and not sidebar else Ok(view)
 
-            def opened(view: RegionView, attached: Attached[BrowserLayout], layout: BrowserLayout, catalog: Catalog[T]) -> BlenderResult[tuple[Session[T], Browsing]]:
+            def opened(view: RegionView, attached: Attached[BrowserLayout], layout: BrowserLayout, catalog: Catalog[T]) -> BlenderResult[Session[T]]:
                 browsing = Browsing(layout=layout, pointer=origin.map(lambda region: (travel.x + region.x, travel.y + region.y)), shift=travel.precise)
-                session = Session(browser=self, identity=identity, place=Place.of(view, origin), attached=attached, actions=self.listing.commands(identity).verbs, view=browsing, catalog=catalog)
-                return session.acquired(Spot(view=view, origin=origin)).map(lambda _: (session, browsing))
+                session = Session(
+                    browser=self, identity=identity, place=Place.of(view, origin), attached=attached, actions=self.listing.commands(identity).verbs, held=Some(Browsed(view=browsing, catalog=catalog))
+                )
+                return session.acquired(Spot(view=view, origin=origin)).map(lambda _: session)
 
             return paired(located.bind(admitted), Browser.layouts.bound(identity)).bind(
                 lambda pair: paired(pair[1].read(pair[0].located.window.screen), self.observation(identity, context).bind(lambda seen: self.catalogued(identity, seen))).bind(
@@ -376,8 +405,8 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                     begin=begin,
                     preview=lambda _context, _state, _travel: Ok(Nothing),
                     restore=lambda _context, _state: Ok(None),
-                    event=Some(lambda context, state, event: state[0].handled(context, state[1], event).map(lambda stepped: ((state[0], stepped[0]), stepped[1]))),
-                    release=Some(lambda _context, state: state[0].released()),
+                    event=Some(lambda context, session, event: session.handled(context, event).map(lambda reply: (session, reply))),
+                    release=Some(lambda _context, session: session.released()),
                 )
             ),
         )
@@ -395,34 +424,28 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
 
 class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
-    """One browser's acquisition scope: drawings, queue feed, dwell, catalog, demands, and their rendered tiles."""
+    """One browser's acquisition scope, owning the browsed value it publishes, Nothing once released."""
 
     browser: Browser[T]
     identity: Identity
     place: Place
     attached: Attached[BrowserLayout]
     actions: Mapping[Verb, Action]
-    view: Browsing
-    catalog: Catalog[T]
-    scope: Option[ExitStack] = Nothing
+    held: Option[Browsed[T]]
+    scope: ExitStack = msgspec.field(default_factory=ExitStack)
     dwell: ExitStack = msgspec.field(default_factory=ExitStack)
     signal: Signal = msgspec.field(default_factory=Signal)
-    hover: tuple[Option[str], bool] = (Nothing, False)
-    main: Option[Place] = Nothing
-    demands: dict[tuple[str, Rank], Demand[T]] = msgspec.field(default_factory=dict)
-    outcomes: dict[Demand[T], BlenderResult[gpu.types.GPUTexture | Before]] = msgspec.field(default_factory=dict)
 
     # --- [LIFECYCLE]
+
+    def published(self, following: Callable[[Browsed[T]], Browsed[T]]) -> None:
+        """Replaces the live browsed value with its successor, publishing nothing once released."""
+        self.held = self.held.map(following)
 
     def acquired(self, spot: Spot) -> BlenderResult[None]:
         """Acquires both drawings, the queue feed, and the dwell into the session's scope, then binds the pointer."""
         area = spot.view.located.area
-
-        def dropped() -> None:
-            self.demands, self.outcomes, self.main = {}, {}, Nothing
-
         with ExitStack() as scope:
-            scope.callback(dropped)
             scope.enter_context(self.dwell)
             scope.enter_context(PreviewQueue.fed(self.identity, self.jobs))
             space: BlenderResult[bpy.types.Space] = Option.of_optional(area.spaces.active).to_result_with(lambda: (BlenderAbsentFault(owner=repr(area), key="spaces.active"),))
@@ -436,7 +459,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                                 area=self.browser.main,
                                 part=Wipe(identity=self.identity, source=self.before),
                                 refreshes=(self.signal,),
-                                where=Some(lambda context: any(place.within(context) for place in self.main.to_list())),
+                                where=Some(lambda context: any(place.within(context) for state in self.held.to_list() for place in state.main.to_list())),
                             ),
                             space=bpy.types.SpaceImageEditor,
                             scissor_enabled=False,
@@ -455,21 +478,15 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 .bind(lambda _: self.signal.fired())
             )
             if result.is_ok():
-                self.scope = Some(scope.pop_all())
+                self.scope.push(scope.pop_all())
             return result
 
     def released(self) -> BlenderResult[None]:
-        """Refreshes both drawings so they clear, then closes the session's scope."""
+        """Drops the browsed value, refreshes both drawings so they clear, then closes the session's scope."""
+        self.held = Nothing
         fired = self.signal.fired()
-        for scope in self.scope.to_list():
-            scope.close()
-        self.scope = Nothing
+        self.scope.close()
         return fired
-
-    def reloaded(self, spot: Spot, catalog: Catalog[T]) -> BlenderResult[None]:
-        """Replaces the catalog, dropping every demand over its earlier rows, and rebinds the pointer to the repainted cells."""
-        self.catalog, self.demands, self.outcomes = catalog, {}, {}
-        return self.hovered(Nothing, shifted=self.hover[1]).bind(lambda _: self.rehovered(spot)).bind(lambda _: self.signal.fired())
 
     # --- [DRAWING]
 
@@ -479,56 +496,34 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
 
     def before(self, _metrics: Metrics) -> BlenderResult[Option[Before]]:
         """Reads the dwelled preset's rendered frame for the main editor's wipe."""
-        match next((self.outcomes.get(demand) for demand in self.demands.values() if demand.rank is Rank.ACTIVE), None):
+        outcomes = (state.outcomes.get(demand) for state in self.held.to_list() for demand in state.demands.values() if demand.rank is Rank.ACTIVE)
+        match next(outcomes, None):
             case Result(tag="ok", ok=Before() as before):
                 return Ok(Some(before))
             case _:
                 return Ok(Nothing)
 
-    def captioned(self, target: Target, numbered: Mapping[str, int]) -> tuple[str, Option[gpu.types.GPUTexture]]:
-        """Labels a cell, prefixing a preset's read or render failure, and answers its rendered tile."""
-        match target:
-            case str() as stem:
-                demand = Option.of_optional(self.demands.get((stem, Rank.SHOWN)))
-                outcome = demand.bind(lambda held: Option.of_optional(self.outcomes.get(held)))
-                faults = outcome.bind(lambda result: result.swap().to_option()).or_else(demand.bind(lambda held: held.value.swap().to_option()))
-                prefix = faults.map(lambda errors: "Missing: " if any(isinstance(error, BlenderAbsentFault) for error in errors) else "Failed: ").default_value("")
-                number = f"{numbered[stem]}. " if stem in numbered else ""
-                return (
-                    prefix + number + ("✓ " if self.catalog.current == Some(stem) else "") + bpy.path.display_name(stem),
-                    outcome.bind(lambda result: result.to_option()).bind(lambda held: Some(held) if isinstance(held, gpu.types.GPUTexture) else Nothing),
-                )
-            case Verb() as verb:
-                return verb.title, Nothing
-            case BrowserMode() as mode:
-                return mode.label, Nothing
-            case Gated(enabled=enabled):
-                return "Fixed" if enabled else "Fit", Nothing
-            case BrowserControl.SIZE:
-                return f"Size {self.view.layout.size.value:g}", Nothing
-            case BrowserControl.SEARCH:
-                return "Search: " + self.view.search, Nothing
-
     def drawn(self, canvas: Canvas, preferences: bpy.types.Preferences) -> None:
         """Paints the native-themed browser in its exact region."""
         ui, points, inset = preferences.themes[0].user_interface, canvas.metrics.text(preferences.ui_styles[0].widget), canvas.metrics.spacing.template
-        numbered = {stem: index for index, stem in enumerate(self.catalog.rows, 1)} if self.view.layout.mode is BrowserMode.LIST else {}
         shader = gpu.shader.from_builtin("IMAGE_COLOR")
-        for placed in self.place.resolved(bpy.context).map(lambda spot: spot.placed(canvas, self.browser.main)).to_option().to_list():
+        located = ((state, spot.placed(canvas, self.browser.main)) for state in self.held.to_list() for spot in self.place.resolved(bpy.context).to_option().to_list())
+        for state, placed in located:
+            view, catalog = state.view, state.catalog
+            numbered = {stem: index for index, stem in enumerate(catalog.rows, 1)} if view.layout.mode is BrowserMode.LIST else {}
             with placed.clipped(placed.extent):
                 placed.frame(placed.extent, placed.theme.back, placed.theme.back, 0.0)
-                if not self.view.shown(self.catalog.rows):
-                    placed.label(
-                        "No matching presets" if self.catalog.rows else "Add or import a preset", (placed.extent.x + inset, placed.extent.y + placed.extent.height / 2), placed.theme.text, points
-                    )
-                for target, rect in self.view.cells(placed, self.catalog, self.actions):
-                    listed = isinstance(target, str) and self.view.layout.mode is BrowserMode.LIST
-                    chosen = target in self.view.selected if isinstance(target, str) else target is self.view.layout.mode
+                if not view.shown(catalog.rows):
+                    empty = "No matching presets" if catalog.rows else "Add or import a preset"
+                    placed.label(empty, (placed.extent.x + inset, placed.extent.y + placed.extent.height / 2), placed.theme.text, points)
+                for target, rect in view.cells(placed, catalog, self.actions):
+                    listed = isinstance(target, str) and view.layout.mode is BrowserMode.LIST
+                    chosen = target in view.selected if isinstance(target, str) else target is view.layout.mode
                     colors = widget(
                         ui.wcol_list_item if isinstance(target, str) else ui.wcol_tool,
-                        State.SELECT if chosen else State.HOVER if isinstance(target, str) and self.hover[0] == Some(target) else State.NONE,
+                        State.SELECT if chosen else State.HOVER if isinstance(target, str) and state.hover[0] == Some(target) else State.NONE,
                     )
-                    label, picture = self.captioned(target, numbered)
+                    label, picture = captioned(state, target, numbered)
                     image = Rect(
                         x=rect.x + inset if listed else rect.x,
                         y=rect.y + inset if listed else rect.y + placed.metrics.unit,
@@ -545,40 +540,45 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
 
     def jobs(self, _identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
         """Answers the shown and dwelled demand, releasing the session once its region, main editor, or conditions are gone."""
-        live = (
-            self.place
-            .resolved(context)
-            .to_option()
-            .filter(lambda _: all(place.resolved(context).to_option().filter(lambda spot: self.browser.main.admits(spot.view.located.area)).is_some() for place in self.main.to_list()))
+        live = self.held.bind(lambda state: self.place.resolved(context).to_option().map(lambda spot: (state, spot))).filter(
+            lambda pair: all(place.resolved(context).to_option().filter(lambda spot: self.browser.main.admits(spot.view.located.area)).is_some() for place in pair[0].main.to_list())
         )
         match live.to_optional():
             case None:
                 return self.released().map(lambda _: ())
-            case Spot() as spot:
+            case (Browsed() as state, Spot() as spot):
                 with spot.view.override:
                     return (
                         self.browser
                         .observation(self.identity, bpy.context)
                         .bind(
-                            lambda seen: self.rehovered(spot) if seen[0] == self.catalog.revision else self.browser.catalogued(self.identity, seen).bind(lambda catalog: self.reloaded(spot, catalog))
+                            lambda seen: (
+                                self.rehovered(spot)
+                                if seen[0] == state.catalog.revision
+                                else self.browser.catalogued(self.identity, seen).bind(lambda catalog: self.reloaded(spot, catalog, shifted=state.hover[1]))
+                            )
                         )
                         .map(lambda _: self.requests(spot))
                         if holds(self.browser.requirement, bpy.context)
                         else self.released().map(lambda _: ())
                     )
 
+    def reloaded(self, spot: Spot, catalog: Catalog[T], *, shifted: bool) -> BlenderResult[None]:
+        """Publishes the new catalog and rebinds the pointer to the repainted cells."""
+        self.published(lambda state: state.reloaded(catalog))
+        return self.hovered(Nothing, shifted=shifted).bind(lambda _: self.rehovered(spot)).bind(lambda _: self.signal.fired())
+
     def requests(self, spot: Spot) -> tuple[Job, ...]:
-        """Holds one demand per painted tile at its side beside the dwelled demand, answering a job per demand not yet rendered."""
-        sides = {stem: max(1, round(min(rect.width, rect.height))) for stem, rect in self.view.cells(spot.canvas(self.browser.main), self.catalog, self.actions) if isinstance(stem, str)}
-        self.demands = {(stem, Rank.SHOWN): Demand(stem=stem, value=self.catalog.rows[stem], side=side, rank=Rank.SHOWN) for stem, side in sides.items()} | {
-            place: demand for place, demand in self.demands.items() if place[1] is Rank.ACTIVE or sides.get(place[0]) == demand.side
-        }
-        kept = frozenset(self.demands.values())
-        self.outcomes = {demand: outcome for demand, outcome in self.outcomes.items() if demand in kept}
+        """Publishes the painted tiles' demands, answering a job per demand not yet rendered."""
+        canvas = spot.canvas(self.browser.main)
+        self.published(
+            lambda state: state.demanded({stem: max(1, round(min(rect.width, rect.height))) for stem, rect in state.view.cells(canvas, state.catalog, self.actions) if isinstance(stem, str)})
+        )
         return tuple(
             Job(place=place, key=demand, rank=demand.rank, run=partial(self.rendered, demand))
-            for place, demand in self.demands.items()
-            if demand not in self.outcomes or self.outcomes[demand].is_error()
+            for state in self.held.to_list()
+            for place, demand in state.demands.items()
+            if demand not in state.outcomes or state.outcomes[demand].is_error()
         )
 
     def rendered(self, demand: Demand[T]) -> BlenderResult[None]:
@@ -589,12 +589,12 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 plane = demand.value.bind(
                     lambda value: self.browser.tiles.rendered(self.identity, partial(self.browser.candidate, self.identity, bpy.context, value), demand.side, scene=spot.view.located.window.scene)
                 )
-            if self.demands.get((demand.stem, demand.rank)) is not demand:
+            if self.held.filter(lambda state: state.demands.get((demand.stem, demand.rank)) is demand).is_none():
                 return Ok(None)
             outcome: BlenderResult[gpu.types.GPUTexture | Before] = plane.bind(
                 lambda pixels: Ok(Before(plane=pixels, name=bpy.path.display_name(demand.stem))) if demand.rank is Rank.ACTIVE else uploaded(unassociated(pixels))
             )
-            self.outcomes[demand] = outcome
+            self.published(lambda state: replace(state, outcomes={**state.outcomes, demand: outcome}))
             return paired(outcome, self.signal.fired()).map(lambda _: None)
 
         return self.place.resolved(bpy.context).bind(published)
@@ -603,22 +603,29 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
         """Demands the dwelled preset at the main editor image's size, then stops its timer."""
 
         def demanded(view: RegionView) -> BlenderResult[None]:
-            self.main = Some(Place.of(view))
             with view.override:
                 image = editor(bpy.context).bind(
                     lambda space: Option.of_optional(space.image).filter(lambda held: held.has_data).to_result_with(lambda: (BlenderAbsentFault(owner=repr(view.located.area), key="image pixels"),))
                 )
-            return image.map(lambda held: self.demands.update({(stem, Rank.ACTIVE): Demand(stem=stem, value=self.catalog.rows[stem], side=int(np.asarray(held.size).max()), rank=Rank.ACTIVE)}))
+            side = image.map(lambda held: int(np.asarray(held.size).max()))
+            self.published(
+                lambda state: replace(
+                    state,
+                    main=Some(Place.of(view)),
+                    demands=side.map(lambda held: {**state.demands, (stem, Rank.ACTIVE): Demand(stem=stem, value=state.catalog.rows[stem], side=held, rank=Rank.ACTIVE)}).default_value(state.demands),
+                )
+            )
+            return side.map(lambda _: None)
 
         return self.place.resolved(bpy.context).bind(lambda spot: self.browser.main.first((spot.view.located.window,))).bind(RegionView.of).bind(demanded).map(lambda _: Nothing)
 
     def hovered(self, target: Option[Target], *, shifted: bool) -> BlenderResult[None]:
         """Restarts the dwell and drops the dwelled demand when the hovered preset or Shift changes."""
-        if ((stem := target.bind(lambda held: Some(held) if isinstance(held, str) else Nothing)), shifted) == self.hover:
+        stem = target.bind(lambda held: Some(held) if isinstance(held, str) else Nothing)
+        if self.held.filter(lambda state: state.hover != (stem, shifted)).is_none():
             return Ok(None)
         self.dwell.close()
-        self.hover = (stem, shifted)
-        self.demands = {place: demand for place, demand in self.demands.items() if place[1] is not Rank.ACTIVE}
+        self.published(lambda state: state.hovered(stem, shifted=shifted))
         armed = (
             stem
             .filter(lambda _: not shifted)
@@ -634,12 +641,16 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
     def rehovered(self, spot: Spot) -> BlenderResult[None]:
         """Rebinds the stationary pointer to the cells now painted."""
         region = spot.view.region
-        cells = self.view.cells(spot.canvas(self.browser.main), self.catalog, self.actions)
-        return self.hovered(self.view.pointer.bind(lambda pointer: hit(cells, (pointer[0] - region.x, pointer[1] - region.y))), shifted=self.view.shift)
+        canvas = spot.canvas(self.browser.main)
+        return self.held.map(
+            lambda state: self.hovered(
+                state.view.pointer.bind(lambda pointer: hit(state.view.cells(canvas, state.catalog, self.actions), (pointer[0] - region.x, pointer[1] - region.y))), shifted=state.view.shift
+            )
+        ).default_value(Ok(None))
 
     # --- [EVENTS]
 
-    def acted(self, act: Act) -> BlenderResult["rna_enums.OperatorReturnItems"]:
+    def acted(self, act: Act, shifted: bool) -> BlenderResult["rna_enums.OperatorReturnItems"]:
         """Invokes the listing's registered operator over the act's record, its CANCELLED closing the browser without a fault."""
         command = self.actions[act.verb]
 
@@ -653,38 +664,65 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 case Result(error=faults):
                     return Error(faults)
 
-        return self.hovered(Nothing, shifted=self.hover[1]).bind(lambda _: command.invocation(self.identity)).bind(invoked)
+        return self.hovered(Nothing, shifted=shifted).bind(lambda _: command.invocation(self.identity)).bind(invoked)
 
-    def handled(self, context: bpy.types.Context, given: Browsing, event: bpy.types.Event) -> BlenderResult[tuple[Browsing, "rna_enums.OperatorReturnItems"]]:
-        """Steps the browsing value over one event, then carries out its dwell, layout write, redraw, or listing action."""
-        live = self.scope.bind(lambda _: self.place.resolved(context).to_option()).filter(lambda _: event.type != "WINDOW_DEACTIVATE" and holds(self.browser.requirement, context))
+    def handled(self, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
+        """Steps the browsed view over one event, publishes it, then carries out its dwell, layout write, redraw, or listing action."""
+        live = self.held.bind(lambda state: self.place.resolved(context).to_option().map(lambda spot: (state, spot))).filter(
+            lambda _: event.type != "WINDOW_DEACTIVATE" and holds(self.browser.requirement, context)
+        )
         match live.to_optional():
             case None:
-                return Ok((given, "CANCELLED"))
-            case Spot() as spot:
-                view = given.settled(self.catalog)
+                return Ok("CANCELLED")
+            case (Browsed() as state, Spot() as spot):
+                view = state.view.settled(state.catalog)
                 point = (event.mouse_x - spot.view.region.x, event.mouse_y - spot.view.region.y)
-                cells = view.cells(spot.canvas(self.browser.main), self.catalog, self.actions)
+                cells = view.cells(spot.canvas(self.browser.main), state.catalog, self.actions)
                 target = hit(cells, point)
-                following, reply = replace(view, pointer=Some((event.mouse_x, event.mouse_y)), shift=event.shift).stepped(event, point, target, cells, self.catalog)
-                self.view = following
+                following, reply = replace(view, pointer=Some((event.mouse_x, event.mouse_y)), shift=event.shift).stepped(event, point, target, cells, state.catalog)
+                self.published(lambda held: replace(held, view=following))
                 hovered = self.hovered(target, shifted=event.shift)
                 relaid = following.layout != view.layout
                 match reply:
                     case Act() as act:
-                        return hovered.bind(lambda _: self.acted(act)).map(lambda outcome: (following, outcome))
+                        return hovered.bind(lambda _: self.acted(act, event.shift))
                     case "CANCELLED":
-                        return hovered.map(lambda _: (following, "CANCELLED"))
+                        return hovered.map(lambda _: "CANCELLED")
                     case "RUNNING_MODAL":
                         return (
                             hovered
                             .bind(lambda _: self.attached.write(spot.view.located.window.screen, following.layout).bind(lambda _: self.hovered(Nothing, shifted=event.shift)) if relaid else Ok(None))
                             .bind(lambda _: self.rehovered(spot).bind(lambda _: self.signal.fired()) if relaid or event.value == "PRESS" else Ok(None))
-                            .map(lambda _: (following, "RUNNING_MODAL"))
+                            .map(lambda _: "RUNNING_MODAL")
                         )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def captioned[T: msgspec.Struct](state: Browsed[T], target: Target, numbered: Mapping[str, int]) -> tuple[str, Option[gpu.types.GPUTexture]]:
+    """Labels a cell, prefixing a preset's read or render failure, and answers its rendered tile."""
+    match target:
+        case str() as stem:
+            demand = Option.of_optional(state.demands.get((stem, Rank.SHOWN)))
+            outcome = demand.bind(lambda held: Option.of_optional(state.outcomes.get(held)))
+            faults = outcome.bind(lambda result: result.swap().to_option()).or_else(demand.bind(lambda held: held.value.swap().to_option()))
+            prefix = faults.map(lambda errors: "Missing: " if any(isinstance(error, BlenderAbsentFault) for error in errors) else "Failed: ").default_value("")
+            number = f"{numbered[stem]}. " if stem in numbered else ""
+            return (
+                prefix + number + ("✓ " if state.catalog.current == Some(stem) else "") + bpy.path.display_name(stem),
+                outcome.bind(lambda result: result.to_option()).bind(lambda held: Some(held) if isinstance(held, gpu.types.GPUTexture) else Nothing),
+            )
+        case Verb() as verb:
+            return verb.title, Nothing
+        case BrowserMode() as mode:
+            return mode.label, Nothing
+        case Gated(enabled=enabled):
+            return "Fixed" if enabled else "Fit", Nothing
+        case BrowserControl.SIZE:
+            return f"Size {state.view.layout.size.value:g}", Nothing
+        case BrowserControl.SEARCH:
+            return "Search: " + state.view.search, Nothing
 
 
 def hit(cells: Cells, point: tuple[int, int]) -> Option[Target]:

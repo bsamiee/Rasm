@@ -123,8 +123,8 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
     // --- [DELIVERY]
     public IO<Unit> Notify(QueueEvent queued) =>
         IO.lift(() => queued.Notice(clock.ToZonedClock().Zone, options.Glyph, options.Reveal))
-            .Post()
-            .Bind(notice => Callbacks.Each(Seq(Noticed(queued.Fresh, notice).Post(), Presence.Show(notice, sink).Post(), Configured(queued, notice))))
+            .OnUiThread()
+            .Bind(notice => Callbacks.Each(Seq(Noticed(queued.Fresh, notice).OnUiThread(), Presence.Show(notice, sink).OnUiThread(), Configured(queued, notice))))
             .Map(static _ => unit)
             .Catch(static error => !error.Is(Errors.Cancelled), error => IO.lift(() => sink.Report(error, typeof(NoticeSender), nameof(Notify))));
 
@@ -145,7 +145,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
             });
 
     private IO<Unit> Configured(QueueEvent queued, Notice notice) =>
-        options.Settings.Post().Bind(settings => settings.Topic.Match(
+        options.Settings.OnUiThread().Bind(settings => settings.Topic.Match(
             Some: topic => Sent(settings.Server, topic, queued, notice),
             None: static () => IO.pure(unit)));
 

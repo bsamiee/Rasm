@@ -175,7 +175,6 @@ flowchart LR
 - First-party Python imports use `from rasm.<module> import <member>` for private Blender extension relocation
 - Projects under a `rhino` folder compile against `RhinoCommon`
 - `Grasshopper2` package references add Grasshopper 2 global usings
-- Yak packs mark a `.rhp` holding no `Rhino.PlugIns.PlugIn` class as Grasshopper-only
 - Projects compile no file of a project nested in their folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`

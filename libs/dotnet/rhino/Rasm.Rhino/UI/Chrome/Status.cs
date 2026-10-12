@@ -52,10 +52,10 @@ public static class Status {
             from reading in IO.lift(static () => Atom<WorkState>(new WorkState.Indeterminate()))
             from progress in DisposalOps.Acquire(IO.lift(() => new WorkProgress(reading, total)), static held => IO.lift(held.Dispose), retain)
             from forked in DisposalOps.Fork(work(progress), retain)
-            from metered in Metered(doc, label, total, reading, sink, retain).Post()
-            from attached in EventKind.EscapeKeyPressed.Inline(_ => forked.Cancel, sink, retain).Post()
+            from metered in Metered(doc, label, total, reading, sink, retain).OnUiThread()
+            from attached in EventKind.EscapeKeyPressed.Inline(_ => forked.Cancel, sink, retain).OnUiThread()
             from value in forked.Await
-            select value, static held => DisposalOps.Release(held).Post());
+            select value, static held => DisposalOps.Release(held).OnUiThread());
 
     private static IO<Unit> Metered(RhinoDoc doc, string label, int total, Atom<WorkState> reading, IPlugInSink sink, Action<IDisposable> retain) =>
         from window in IO.lift(() => Missing.Unless(RhinoEtoApp.MainWindowForDocument(doc), nameof(RhinoEtoApp.MainWindowForDocument)))

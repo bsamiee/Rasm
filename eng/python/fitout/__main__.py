@@ -28,10 +28,8 @@ def _reported[E](result: Result[int, E]) -> int:
         case Err(RemoteFailure(message=message)):
             sys.stderr.write(f"{message}\n")
             return 1
-        case Err(subprocess.CalledProcessError(returncode=status, stderr=stderr) as error):
+        case Err(subprocess.CalledProcessError(returncode=status) as error):
             sys.stderr.write(f"{error}\n")
-            if stderr:
-                sys.stderr.buffer.write(stderr)
             return status
         case Err(error):
             sys.stderr.write(f"{error}\n")

@@ -1,4 +1,4 @@
-"""Native region visibility, alignment, categories, and editor-space coordinates."""
+"""Native region visibility, alignment, and editor-space coordinates."""
 
 from typing import Self, TYPE_CHECKING
 
@@ -7,11 +7,10 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
 from rasm.blender.commands.calls import called
-from rasm.blender.data.rna.descriptors import Descriptor, written
+from rasm.blender.data.rna.descriptors import Descriptor
 from rasm.blender.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult
 from rasm.blender.ui.resources.theme import Metrics
 from rasm.blender.ui.screens.areas import Located, ScreenSide
-from rasm.imaging.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -100,10 +99,6 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
         quad = any(region.alignment == "QUAD_SPLIT" for region in self.located.area.regions)
         return Ok(None) if quad == shown else called(bpy.ops.screen.region_quadview, {}, override=Some(self.override)).map(lambda _: None)
 
-    def tabbed(self, category: str, search: Option[str] = Nothing) -> BlenderResult[None]:
-        """Selects a drawn native category and optional search, returning every refused edit."""
-        return accumulated(written(self.region, name, value) for name, value in (("active_panel_category", category), *(("search_filter", text) for text in search.to_list()))).map(lambda _: None)
-
     def to_view(self, x: float, y: float) -> tuple[float, float]:
         """Returns editor coordinates from region pixels, removing native node-space scaling."""
         point: tuple[float, float] = self.region.view2d.region_to_view(x, y)  # type: ignore[assignment]
@@ -113,10 +108,10 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
 
     def to_region(self, x: float, y: float) -> Option[tuple[int, int]]:
         """Returns region pixels for an editor point, or Nothing outside the clipped view."""
-        clipped = 12000
+        v2d_is_clipped = 12000
         scale = self.scale
         point: tuple[int, int] = self.region.view2d.view_to_region(x * scale, y * scale, clip=True)  # type: ignore[assignment]
-        return Nothing if clipped in point else Some(point)
+        return Nothing if v2d_is_clipped in point else Some(point)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

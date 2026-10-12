@@ -21,7 +21,7 @@ from rasm.blender.data.ids.ownership import Ownership
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.descriptors import Descriptor, Value, written
 from rasm.blender.data.rna.snapshots import Snapshot
-from rasm.blender.extension.events.handlers import SceneHandler
+from rasm.blender.extension.events.handlers import PathHandler, SceneHandler
 from rasm.blender.extension.identity import Identity, Name
 from rasm.blender.extension.registration import Acquisition, Band, entered
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
@@ -136,8 +136,29 @@ class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
+
+class Productions(msgspec.Struct, frozen=True, eq=False):
+    """Completed image facts keyed by image session identity and displayed render slot index, which undo keeps and a file load replaces."""
+
+    held: dict[tuple[int, int], Option[Production]] = msgspec.field(default_factory=dict)
+
+    @staticmethod
+    def key(image: bpy.types.Image) -> tuple[int, int]:
+        """Returns the image's session identity and displayed render slot index."""
+        return image.session_uid, image.render_slots.active_index  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+
+    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+        """Builds the load handler forgetting the replaced images' facts."""
+
+        def forgotten(_: Option[Path]) -> BlenderResult[None]:
+            self.held.clear()
+            return Ok(None)
+
+        return PathHandler(handlers=bpy.app.handlers.load_post, body=forgotten).acquisitions(identity)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+
+
 intermediates: set[int] = set()
-productions: dict[tuple[int, Option[int]], Option[Production]] = {}
+productions = Productions()
 
 
 @contextmanager
@@ -157,14 +178,14 @@ def intermediate(scene: bpy.types.Scene) -> Generator[None]:
 
 def produced(image: bpy.types.Image, production: Option[Production]) -> None:
     """Records production facts against a native image and its displayed slot."""
-    productions[image.session_uid, Option.of_optional(image.render_slots.active).map(lambda slot: slot.as_pointer())] = production
+    productions.held[Productions.key(image)] = production
 
 
 def production(image: bpy.types.Image) -> BlenderResult[Production]:
     """Returns completed production facts for the displayed native slot."""
     return (
         Option
-        .of_optional(productions.get((image.session_uid, Option.of_optional(image.render_slots.active).map(lambda slot: slot.as_pointer()))))
+        .of_optional(productions.held.get(Productions.key(image)))
         .bind(lambda found: found)
         .to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="completed image formation and encoding"),))
     )
@@ -430,6 +451,7 @@ __all__ = [
     "Downscale",
     "ImageFrames",
     "Production",
+    "Productions",
     "ResultRead",
     "Scaled",
     "Tag",
@@ -441,6 +463,7 @@ __all__ = [
     "loaded",
     "produced",
     "production",
+    "productions",
     "proxied",
     "read",
     "render_result",

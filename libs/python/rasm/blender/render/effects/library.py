@@ -1,7 +1,7 @@
 """Catalogued native compositor assets and publication into user libraries."""
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, ClassVar
 
@@ -16,6 +16,7 @@ import PyOpenColorIO
 from rasm.blender.commands.operators import Call, Done, Operator, Properties
 from rasm.blender.data.rna.descriptors import written
 from rasm.blender.extension.events.handlers import PathHandler
+from rasm.blender.extension.events.timers import Timer
 from rasm.blender.extension.identity import Identity, Key, Manifest
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult, BlenderWriteFault
@@ -162,35 +163,36 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
         return Result[tuple[bpy.types.NodeTree, Path], BlenderFaults].bind(paired(group, folder), saved)
 
-    @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Holds the library, save action, and file-load publication queued one row per main-loop tick."""
+    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+        """Holds the library, save action, and file-load publication one row per timer tick, idle in background runs that draw no asset."""
         rows = {row.kind: row for row in self.stack.standalone}
+        pending: deque[Key] = deque()
 
-        def publish(kind: Key) -> BlenderResult[Option[str]]:
-            scene: BlenderResult[bpy.types.Scene] = Option.of_optional(bpy.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="scene"),))
-            return Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda scene: self.published(identity, scene, rows[kind])).map(lambda _: Nothing)
+        def loaded(_path: Option[Path]) -> BlenderResult[None]:
+            pending.extend(kind for kind in rows if kind not in pending)
+            return self.retired(identity)
 
-        with identity.reports.deferred(publish) as queued:
+        def ticked() -> BlenderResult[Option[float]]:
+            for kind in (pending.popleft(),) if pending else ():
+                scene = Option.of_optional(bpy.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="scene"),))
+                for faults in Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda scene: self.published(identity, scene, rows[kind])).swap().to_option().to_list():
+                    identity.reports.hold(faults)
+            return Ok(Some(0.0 if pending else 1.0))
 
-            def loaded(_path: Option[Path]) -> BlenderResult[None]:
-                for kind in rows:
-                    queued(kind)
-                return self.retired(identity)
-
-            yield Ok((
-                self.library,
-                Operator(
-                    key="effect_save_asset",
-                    title="Save Effect Asset",
-                    description="Saves the active compositor effect into a user asset library",
-                    form=Saving,
-                    run=self.saving,
-                    invoke=Some(Properties()),
-                    undo=False,
-                ),
-                PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            ))
+        return Ok((
+            self.library,
+            Operator(
+                key="effect_save_asset",
+                title="Save Effect Asset",
+                description="Saves the active compositor effect into a user asset library",
+                form=Saving,
+                run=self.saving,
+                invoke=Some(Properties()),
+                undo=False,
+            ),
+            PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            Timer(body=ticked),
+        ))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

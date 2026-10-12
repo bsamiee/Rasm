@@ -498,7 +498,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         select from owned in Owner(after)
                from loaded in DisposalOps.Fork(
                    after.Items.Filter(item => gained.Contains(source.Key(item)))
-                       .Traverse(item => source.Tile(this, item, box, Retain).Bind(arrival => Arrived(source.Key(item), box, after.Revision, arrival).Post()).Catch(Reported).As()).As(), owned)
+                       .Traverse(item => source.Tile(this, item, box, Retain).Bind(arrival => Arrived(source.Key(item), box, after.Revision, arrival).OnUiThread()).Catch(Reported).As()).As(), owned)
                select unit;
 
     private IO<Action<IDisposable>> Owner(BrowserState<TItem, TKey> after) =>
@@ -544,7 +544,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     private IO<Unit> Dwelling(TKey key, Func<TItem, Action<IDisposable>, IO<Unit>> preview) =>
         IO.lift(static () => new object()).Bind(request =>
             DisposalOps.Acquire(owned => DisposalOps.Fork(
-                IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(request, key, preview, owned).Post()).Catch(Reported).As(), owned)
+                IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(request, key, preview, owned).OnUiThread()).Catch(Reported).As(), owned)
                 .Map(static _ => unit), lease => dwell = Some((request, key, lease))));
 
     private IO<Unit> Previewed(object request, TKey key, Func<TItem, Action<IDisposable>, IO<Unit>> preview, Action<IDisposable> retain) =>

@@ -17,18 +17,13 @@ public static class MachinePower {
 
     [SupportedOSPlatform("windows")]
     private static IO<T> HeldAwakeOnWindows<T>(IO<T> run) =>
-        DisposalOps.Within<IDisposable, T>(retain =>
-            DisposalOps.Acquire(
-                IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
-                    var prior => Refused.Unless(prior != ExecutionState.None, prior, nameof(SafeNativeMethods.SetThreadExecutionState)),
-                }),
-                Restored,
-                prior => retain(new Disposal<ExecutionState>(prior, static held => Restored(held).Run())))
-                .Post().Bind(_ => run), DisposalOps.Release);
+        IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
+            var prior => Refused.Unless(prior != ExecutionState.None, prior, nameof(SafeNativeMethods.SetThreadExecutionState)),
+        }).OnUiThread().Bracket(Use: _ => run, Fin: Restored);
 
     [SupportedOSPlatform("windows")]
     private static IO<Unit> Restored(ExecutionState flags) =>
-        IO.lift(() => Refused.Unless(SafeNativeMethods.SetThreadExecutionState(flags) != ExecutionState.None, nameof(SafeNativeMethods.SetThreadExecutionState))).Post();
+        IO.lift(() => Refused.Unless(SafeNativeMethods.SetThreadExecutionState(flags) != ExecutionState.None, nameof(SafeNativeMethods.SetThreadExecutionState))).OnUiThread();
 
     // --- [SHUTDOWN]
     public static IO<Unit> ShutDown =>

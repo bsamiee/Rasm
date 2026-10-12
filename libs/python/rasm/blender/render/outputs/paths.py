@@ -442,10 +442,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     take: ClassVar[Key] = "output_take"
     folder: ClassVar[Key] = "output_folder"
     edited: ClassVar[tuple[Setting, Setting]] = (
-        Setting(
-            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="", prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]),
-            accepted=(bpy.types.CompositorNodeTree.bl_rna.identifier,),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        ),
+        Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="", prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)),
         Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree", prop=bpy.types.NodeTree.bl_rna.properties["is_editable"])),
     )
 
@@ -487,8 +484,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns nested declarations whose bodies bind the registered attachment when called."""
         active = Setting(
-            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]),
-            accepted=(bpy.types.CompositorNodeOutputFile.bl_rna.identifier,),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)
         )
         return Ok((
             *self.page_rows,

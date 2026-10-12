@@ -10,17 +10,14 @@ import PyOpenColorIO
 
 from rasm.blender.commands.operators import Call, Done, Operator
 from rasm.blender.data.rna.descriptors import Descriptor, written
-from rasm.blender.extension.events.subscriptions import Subscription
 from rasm.blender.extension.identity import Identity
 from rasm.blender.extension.registration import Acquisitions
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
-from rasm.blender.nodes.changes import made, reconciled
-from rasm.blender.nodes.graphs import End, INPUTS, nested, NodeGroup, Operand
-from rasm.blender.nodes.interface import DesiredItem, InterfacePanel, item_key, Socket
-from rasm.blender.render.color.spaces import converted, pointwise
-from rasm.blender.render.effects.stack import Context, EffectStack, ownerships, Placeable, Shell
+from rasm.blender.nodes.changes import made
+from rasm.blender.nodes.graphs import NodeGroup
+from rasm.blender.render.effects.stack import Context, EffectStack, ownerships, Placeable
 from rasm.imaging.compositing.blending import Entry
-from rasm.imaging.faults import accumulated, paired
+from rasm.imaging.faults import paired
 from rasm.imaging.parameters import Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -46,7 +43,7 @@ class Striping(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class StripEffect:
-    """Native strip placement and space refresh for the stack's standalone rows."""
+    """Native strip placement for the stack's standalone rows."""
 
     stack: EffectStack
     operators: tuple[Operator[Striping], ...]
@@ -103,54 +100,25 @@ class StripEffect:
         self.operators = tuple(map(offered, stack.standalone))
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains strip ownership, placement commands, and native space-change refresh."""
-
-        def refreshed() -> BlenderResult[None]:
-            def scene_groups(scene: bpy.types.Scene, row: Placeable, config: PyOpenColorIO.Config) -> BlenderResult[None]:
-                held = tuple(tree for owner in ownerships(row.record) for tree, mark in msgspec.structs.replace(owner, key=f"{owner.key}_strip").held(identity) if mark.of == Some(scene))
-                return striped(identity, scene, row, config).bind(lambda group: accumulated(reconciled(group, tree, identity) for tree in held)).map(lambda _: None) if held else Ok(None)
-
-            return self.stack.config().bind(lambda config: accumulated(scene_groups(scene, row, config) for scene in bpy.data.scenes for row in self.stack.standalone)).map(lambda _: None)
-
-        return Ok((
-            *(msgspec.structs.replace(owner, key=f"{owner.key}_strip") for row in self.stack.standalone for owner in ownerships(row.record)),
-            *self.operators,
-            Subscription(owner=bpy.types.ColorManagedSequencerColorspaceSettings, setting=bpy.types.ColorManagedSequencerColorspaceSettings.bl_rna.properties["name"], body=refreshed),
-        ))
+        """Retains strip ownership and placement commands."""
+        return Ok((*(msgspec.structs.replace(owner, key=f"{owner.key}_strip") for row in self.stack.standalone for owner in ownerships(row.record)), *self.operators))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: PyOpenColorIO.Config, *, context: Context = Nothing) -> BlenderResult[NodeGroup]:
-    """Builds the full effect interface between sequencer-space conversions."""
-    decode, effect, encode = "decode", "effect", "encode"
-    space = scene.sequencer_colorspace_settings.name  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-
-    def wrapped(group: NodeGroup) -> BlenderResult[NodeGroup]:
-        def fed(item: DesiredItem) -> Option[End]:
-            match item:
-                case (Socket() as socket, "INPUT"):
-                    return Some(End(node=INPUTS, socket=socket.key))
-                case InterfacePanel(key=key, toggle=toggle):
-                    return toggle.map(lambda _: End(node=INPUTS, socket=key))
-                case _:
-                    return Nothing
-
-        forwarded: dict[str, Operand] = {key: value for key, item, _, _ in group.interface.walked() for value in fed(item).to_list()}
-        return (
-            pointwise(item_key(decode, "scope"), End(node=INPUTS, socket=Shell.image), lambda source: converted(decode, config, space, PyOpenColorIO.ROLE_SCENE_LINEAR, source))
-            .bind(lambda entering: nested(effect, group, {**forwarded, Shell.image: entering}, Shell.result))
-            .bind(lambda result: pointwise(item_key(encode, "scope"), result, lambda source: converted(encode, config, PyOpenColorIO.ROLE_SCENE_LINEAR, space, source)))
-            .bind(lambda result: NodeGroup.built(f"{group.key}_strip", group.name, group.interface, {Shell.result: result}))
-            .bind(
-                lambda result: Descriptor.resolve(bpy.types.CompositorNodeTree, "is_strip_modifier", bpy.types.BoolProperty).map(
-                    lambda trait: msgspec.structs.replace(result, single=group.single, graph=msgspec.structs.replace(result.graph, members=result.graph.members | {trait: True}))
-                )
+    """Builds the effect group as a strip group, sequencer groups taking and returning scene-linear values whatever the sequencer space."""
+    return (
+        row
+        .seeded(scene)
+        .bind(lambda effect: row.grouped(identity, scene, Entry(effect=effect), config, context=context))
+        .bind(
+            lambda group: Descriptor.resolve(bpy.types.CompositorNodeTree, "is_strip_modifier", bpy.types.BoolProperty).map(
+                lambda trait: msgspec.structs.replace(group, key=f"{group.key}_strip", graph=msgspec.structs.replace(group.graph, members=group.graph.members | {trait: True}))
             )
         )
-
-    return row.seeded(scene).bind(lambda effect: row.grouped(identity, scene, Entry(effect=effect), config, context=context)).bind(wrapped)
+    )
 
 
 def active(context: bpy.types.Context) -> Option[bpy.types.CompositorStrip]:

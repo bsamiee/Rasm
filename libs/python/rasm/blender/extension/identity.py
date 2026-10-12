@@ -30,7 +30,7 @@ class Name(Enum):
     SHELF = ("{ID}_AST_{key}", msgspec.Meta(max_length=63))
     FILE_HANDLER = ("{ID}_FH_{key}", msgspec.Meta(max_length=63))
     GIZMO_GROUP = ("{ID}_GGT_{key}", msgspec.Meta(max_length=63))
-    GROUP = ("{ID}_{key}", msgspec.Meta(max_length=63))
+    GROUP = ("GROUP_{digest}", msgspec.Meta(max_length=63))
     ENGINE = ("{ID}_{KEY}", msgspec.Meta(max_length=63))
     ATTACHMENT = ("{id}_{key}", msgspec.Meta(max_length=63))
     OPERATOR = ("{id}.{key}", msgspec.Meta(max_length=60), r"\A[a-z0-9_]+\.[a-z0-9_]+\Z")
@@ -40,7 +40,7 @@ class Name(Enum):
         """Holds the name shape and native constraints.
 
         Args:
-            template: Format over the manifest ID and row key in either case.
+            template: Format over the manifest ID and row key in either case, or a digest of both.
             constraint: Native UTF-8 byte extent applied at the naming boundary.
             pattern: Native name syntax where the host restricts its characters.
         """
@@ -81,9 +81,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(name), or a register fault holding the refused generated name and native validation error.
         """
-        name = form.template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper())
-        if form is Name.GROUP:
-            name = f"{form.name}_{uuid5(NAMESPACE_URL, f'{self.manifest.id}/{form.name}/{key}').hex}"
+        name = form.template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{form.name}/{key}").hex)
         return (
             catch(
                 lambda: msgspec.convert((key, name, name.encode()), tuple[Key, Annotated[str, msgspec.Meta(pattern=form.pattern)], Annotated[bytes, form.constraint]]),

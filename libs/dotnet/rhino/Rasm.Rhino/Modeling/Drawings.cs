@@ -64,7 +64,7 @@ public static partial class Drawings {
             (Bounds: bounds, Retain: temporary),
             rhinoViewport: static (state, live) => DisposalOps.Acquire(
                     IO.lift(() => new ViewportInfo(live)), static camera => IO.lift(camera.Dispose), state.Retain)
-                .Post()
+                .OnUiThread()
                 .Bind(camera => IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(state.Bounds), camera, nameof(ViewportInfo.SetFrustumNearFar)))),
             cameraPose: static (state, pose) => Cameras.ToViewportInfo(pose, state.Bounds, state.Retain))
             .Bind(viewport => IO.lift(() => parameters.SetViewport(viewport)));

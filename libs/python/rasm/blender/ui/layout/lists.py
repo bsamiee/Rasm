@@ -174,7 +174,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                     return holds(where, context, Some(item))
 
         def draw_item(
-            _ui: bpy.types.UIList,
+            ui: bpy.types.UIList,
             context: bpy.types.Context,
             layout: bpy.types.UILayout,
             _data: "bpy.types.bpy_struct[object]",
@@ -195,7 +195,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                     .default_value(icon)
                 )
                 row.prop(item, listed.label, text="", emboss=False, icon_value=glyph)
-                for column in listed.columns:
+                for column in listed.columns if ui.layout_type == "DEFAULT" else ():
                     column(row, item, context)
 
             alerted(layout, self.enabled.map(lambda policy: policy(context, item)).default_value(Ok(True)).map(shown))

@@ -367,7 +367,7 @@
                 "options": { "args": ["Workspace.slnx", "--no-restore", "--verify-no-changes"] },
                 "cache": true,
                 "dependsOn": [{ "projects": ["tag:language:dotnet"], "target": "build" }, { "projects": ["tag:language:dotnet"], "target": "lint", "params": "forward" }],
-                "inputs": ["dotnet", "rhino", "rhinoInstallation", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"]
+                "inputs": ["dotnet", "rhino", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}"]
             },
             "lint": { "dependsOn": ["lint:*"] },
             "format": { "dependsOn": ["format:*", { "projects": ["tag:language:dotnet"], "target": "format" }] },

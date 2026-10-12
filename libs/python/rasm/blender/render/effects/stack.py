@@ -24,7 +24,7 @@ from typing_extensions import TypeForm
 from rasm.blender.commands.calls import called
 from rasm.blender.commands.keymaps import Keymap
 from rasm.blender.commands.operators import Call, Done, Empty, Open, Operator, Outcome, Suppressible, Unchanged
-from rasm.blender.data.ids.images import produced
+from rasm.blender.data.ids.images import produced, productions
 from rasm.blender.data.ids.ownership import Mark, Ownership, Saved
 from rasm.blender.data.ids.store import Handle
 from rasm.blender.data.rna.animation import Animation, Driven, Keys, sampled
@@ -1401,6 +1401,7 @@ class EffectStack[E: Effect = Effect]:
                 loading = PathHandler(handlers=bpy.app.handlers.load_post, body=loaded)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 changing = FrameHandler(handlers=bpy.app.handlers.frame_change_post, body=lambda scene, graph: rendered(scene, Some(graph.scene_eval)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 return (
+                    productions,
                     *self.rows,
                     operators.moving,
                     operators.removing,

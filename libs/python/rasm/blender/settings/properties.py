@@ -55,16 +55,17 @@ type Changed = Callable[[bpy.types.bpy_struct[object], bpy.types.Context, bpy.ty
 type SearchSource = Callable[[bpy.types.bpy_struct[object], bpy.types.Context, str], Iterable[str | tuple[str, str]]]
 type PointerPoll[T: bpy.types.ID = bpy.types.ID] = Callable[[Identity, bpy.types.bpy_struct[object], T], bool]
 type EnumRows = Iterable[tuple[str, str, str] | tuple[str, str, str, str | int, int] | None]
+type EnumItems = tuple[tuple[str, str, str, str | int, int] | None, ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Choices(msgspec.Struct, frozen=True, eq=False):
-    """Dynamic native rows with persistent identifiers and retained callback strings."""
+    """Dynamic native rows with persistent identifiers, each distinct row set retained since Blender reads its strings after the callback returns."""
 
     source: "Callable[[Identity, bpy.types.bpy_struct[object], bpy.types.Context | None], EnumRows]"
     numbers: dict[str, int] = msgspec.field(default_factory=dict)
-    rows: dict[int, list[tuple[str, str, str, str | int, int] | None]] = msgspec.field(default_factory=dict)
+    rows: dict[EnumItems, EnumItems] = msgspec.field(default_factory=dict)
 
     def defined(self, identity: Identity, key: str, default: object) -> bpy.props._PropertyDeferred:
         """Builds native callbacks retaining identifiers across item changes."""
@@ -72,11 +73,9 @@ class Choices(msgspec.Struct, frozen=True, eq=False):
         def number(identifier: str) -> int:
             return self.numbers.setdefault(identifier, len(self.numbers))
 
-        def listed(owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context | None) -> list[tuple[str, str, str, str | int, int] | None]:
-            rows = self.rows[owner.as_pointer()] = [
-                (*row[:3], row[3] if len(row) == 5 else "NONE", number(row[0]) if row[0] else -1) if row is not None else None for row in self.source(identity, owner, context)
-            ]
-            return rows
+        def listed(owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context | None) -> EnumItems:
+            rows = tuple((*row[:3], row[3] if len(row) == 5 else "NONE", number(row[0]) if row[0] else -1) if row is not None else None for row in self.source(identity, owner, context))
+            return self.rows.setdefault(rows, rows)
 
         def selected(owner: "bpy.types.bpy_struct[object]") -> int:
             return number(owner.get(key, default))
@@ -753,4 +752,4 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Changed", "Choices", "Definition", "EnumRows", "PointerPoll", "RecordGroup", "SearchSource", "Unit"]
+__all__ = ["Changed", "Choices", "Definition", "EnumItems", "EnumRows", "PointerPoll", "RecordGroup", "SearchSource", "Unit"]

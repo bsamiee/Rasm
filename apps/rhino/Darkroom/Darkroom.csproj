@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <TargetExt>.rhp</TargetExt>
         <Description>Image formation, output, and render management</Description>
     </PropertyGroup>
 

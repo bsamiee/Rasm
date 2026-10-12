@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -16,12 +15,10 @@ internal interface IOffsetField {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SuppressMessage("Design", "MA0182", Justification = "Referenced by Quantize<NoOffset> method group; Meziantou 3.0.296 omits method-reference type arguments from usage analysis.")]
 internal readonly struct NoOffset : IOffsetField {
     public static float Draw(long column, long line) => 0.5f;
 }
 
-[SuppressMessage("Design", "MA0182", Justification = "Referenced by Quantize<WhiteNoise> method group; Meziantou 3.0.296 omits method-reference type arguments from usage analysis.")]
 internal readonly struct WhiteNoise : IOffsetField {
     public static float Draw(long column, long line) =>
         1103515245u switch {
@@ -29,7 +26,6 @@ internal readonly struct WhiteNoise : IOffsetField {
         };
 }
 
-[SuppressMessage("Design", "MA0182", Justification = "Referenced by Quantize<BlueNoise> method group; Meziantou 3.0.296 omits method-reference type arguments from usage analysis.")]
 internal readonly struct BlueNoise : IOffsetField {
     private static readonly Memo<ReadOnlyMemory2D<float>> Draws = memo(Read);
 
@@ -53,10 +49,10 @@ internal readonly struct BlueNoise : IOffsetField {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError<InvalidQuantization>]
-public sealed partial class Dither : IStateRecord<Dither, DitherParameter, InvalidQuantization>, IPixelStage<Dither> {
-    public static readonly Dither Off = new("off", static levels => new PixelPass.Pointwise(levels.Quantize<NoOffset>));
-    public static readonly Dither WhiteNoise = new("white-noise", static levels => new PixelPass.Pointwise(levels.Quantize<WhiteNoise>));
-    public static readonly Dither BlueNoise = new("blue-noise", static levels => new PixelPass.Pointwise(levels.Quantize<BlueNoise>));
+public partial class Dither : IStateRecord<Dither, DitherParameter, InvalidQuantization>, IPixelStage<Dither> {
+    public static readonly Dither Off = new Pointwise<NoOffset>("off");
+    public static readonly Dither WhiteNoise = new Pointwise<WhiteNoise>("white-noise");
+    public static readonly Dither BlueNoise = new Pointwise<BlueNoise>("blue-noise");
     public static readonly Dither FloydSteinberg = new("floyd-steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
 
     [IgnoreMember]
@@ -93,6 +89,8 @@ public sealed partial class Dither : IStateRecord<Dither, DitherParameter, Inval
         }
         return unit;
     }
+
+    private sealed class Pointwise<TField>(string key) : Dither(key, static levels => new PixelPass.Pointwise(levels.Quantize<TField>)) where TField : IOffsetField;
 }
 
 [SmartEnum<string>]

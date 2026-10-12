@@ -12,7 +12,7 @@ from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
-from rasm.blender.data.ids.store import Handle, named
+from rasm.blender.data.ids.store import Handle, named, resolved
 from rasm.blender.data.rna.descriptors import Descriptor, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
@@ -20,7 +20,7 @@ from rasm.imaging.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type MemberHandle = Handle[bpy.types.Object | bpy.types.Collection]
+type Member = bpy.types.Object | bpy.types.Collection
 type MembershipChange = Joined | Parted | Sorted
 type LayerPath = tuple[bpy.types.LayerCollection, tuple[bpy.types.LayerCollection, ...]]
 
@@ -30,26 +30,26 @@ type LayerPath = tuple[bpy.types.LayerCollection, tuple[bpy.types.LayerCollectio
 class Joined(msgspec.Struct, frozen=True, kw_only=True):
     """Member linked into a collection."""
 
-    member: MemberHandle
+    member: Member
 
 
 class Parted(msgspec.Struct, frozen=True, kw_only=True):
     """Member unlinked from a collection."""
 
-    member: MemberHandle
+    member: Member
 
 
 class Sorted(msgspec.Struct, frozen=True, kw_only=True):
     """Member entry assigned a position in the custom Outliner order."""
 
-    member: MemberHandle
+    member: Member
     index: int
 
 
 class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
     """Desired membership, order, and flags; absent concerns remain unchanged."""
 
-    members: Option[tuple[MemberHandle, ...]] = Nothing
+    members: Option[tuple[Handle[Member], ...]] = Nothing
     kinds: frozenset[type[bpy.types.Object] | type[bpy.types.Collection]] = frozenset((bpy.types.Object, bpy.types.Collection))
     values: Option[Snapshot] = Nothing
 
@@ -58,7 +58,7 @@ class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
 # --- [MEMBERSHIP]
 
 
-def entry(collection: bpy.types.Collection, member: bpy.types.Object | bpy.types.Collection) -> BlenderResult[bpy.types.CollectionObject | bpy.types.CollectionChild]:
+def entry(collection: bpy.types.Collection, member: Member) -> BlenderResult[bpy.types.CollectionObject | bpy.types.CollectionChild]:
     """Returns a member's native entry, or absence when it is outside the collection."""
 
     def found[E, M](entries: Iterable[E], items: Iterable[M]) -> BlenderResult[E]:
@@ -82,14 +82,14 @@ def parents(collection: bpy.types.Collection) -> tuple[bpy.types.Collection, ...
 def membership(tree: CollectionTree, collection: bpy.types.Collection) -> BlenderResult[tuple[MembershipChange, ...]]:
     """Returns ordered membership changes, accumulating every expired member handle."""
 
-    def listed(wanted: tuple[MemberHandle, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
+    def listed(wanted: tuple[Handle[Member], ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
         handles = tuple(dict.fromkeys(wanted))
         held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
-        return accumulated(handle.resolve() for handle in handles).map(
+        return resolved(handles).map(
             lambda items: (
-                *(Parted(member=Handle.of(item)) for item in held if type(item) in tree.kinds and item not in items),
-                *(Joined(member=handle) for handle, item in zip(handles, items) if item not in held),
-                *(Sorted(member=handle, index=index) for index, (handle, item) in enumerate(zip(handles, items)) if held.get(item) != index),
+                *(Parted(member=item) for item in held if type(item) in tree.kinds and item not in items),
+                *(Joined(member=item) for item in items if item not in held),
+                *(Sorted(member=item, index=index) for index, item in enumerate(items) if held.get(item) != index),
             )
         )
 
@@ -97,9 +97,9 @@ def membership(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
 
 
 def applied(collection: bpy.types.Collection, change: MembershipChange) -> BlenderResult[None]:
-    """Applies one change, returning handle absence or a native membership or write refusal."""
+    """Applies one change, returning a native membership or write refusal."""
 
-    def linked(item: bpy.types.Object | bpy.types.Collection, row: Joined | Parted) -> None:
+    def linked(item: Member, row: Joined | Parted) -> None:
         match item:
             case bpy.types.Object():
                 match row:
@@ -116,9 +116,9 @@ def applied(collection: bpy.types.Collection, change: MembershipChange) -> Blend
 
     match change:
         case Joined(member=member) | Parted(member=member):
-            return member.resolve().bind(lambda item: catch(lambda: linked(item, change), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(collection), error=error),)))
+            return catch(lambda: linked(member, change), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(collection), error=error),))
         case Sorted(member=member, index=index):
-            return member.resolve().bind(lambda item: entry(collection, item)).bind(lambda held: written(held, "sort_index", index)).map(lambda _: None)
+            return entry(collection, member).bind(lambda held: written(held, "sort_index", index)).map(lambda _: None)
 
 
 def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> BlenderResult[tuple[MembershipChange, ...]]:
@@ -131,17 +131,17 @@ def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
     )
 
 
-def joined(collection: bpy.types.Collection, members: tuple[bpy.types.Object | bpy.types.Collection, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
+def joined(collection: bpy.types.Collection, members: tuple[Member, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
     """Links absent members once, accumulating native refusals in input order."""
     held = frozenset((*collection.objects, *collection.children))
-    rows = tuple(Joined(member=Handle.of(item)) for item in dict.fromkeys(members) if item not in held)
+    rows = tuple(Joined(member=item) for item in dict.fromkeys(members) if item not in held)
     return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
 
 
-def parted(collection: bpy.types.Collection, members: tuple[bpy.types.Object | bpy.types.Collection, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
+def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
     """Unlinks present members once, accumulating native refusals in input order."""
     held = frozenset((*collection.objects, *collection.children))
-    rows = tuple(Parted(member=Handle.of(item)) for item in dict.fromkeys(members) if item in held)
+    rows = tuple(Parted(member=item) for item in dict.fromkeys(members) if item in held)
     return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
 
 
@@ -316,7 +316,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
             def mirrored(original: bpy.types.Collection) -> BlenderResult[None]:
                 made = collections[original]
                 members = (*original.objects, *original.children)
-                wanted: tuple[bpy.types.Object | bpy.types.Collection, ...] = (*(objects[item] for item in original.objects), *(collections.get(child, child) for child in original.children))
+                wanted: tuple[Member, ...] = (*(objects[item] for item in original.objects), *(collections.get(child, child) for child in original.children))
                 return (
                     accumulated(Snapshot.capture(held) for held in (*original.collection_objects, *original.collection_children))
                     .bind(
@@ -420,7 +420,7 @@ __all__ = [
     "CollectionTree",
     "Joined",
     "LayerPath",
-    "MemberHandle",
+    "Member",
     "MembershipChange",
     "Parted",
     "Sorted",

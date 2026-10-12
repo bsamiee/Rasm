@@ -96,7 +96,7 @@ bpy.ops.import_scene.step(filepath="<file>.step", use_assembly_collections=True)
 - STEP lengths arrive in meters from the file's unit, and IGES lengths take `scale=0.001`
 - Default `up_axis="Y"` keeps a Z-up CAD model upright
 - `tol_preset` (`DRAFT` to `ULTRA_FINE`, `CUSTOM`) writes `tol_linear` and `tol_angular`
-- User sessions restore the previous preset after the call, preferences saving at quit
+- Calls restore the previous preset after the import, preferences saving at quit
 - Assemblies keep their tree as empties, and `use_assembly_collections=True` adds one collection per assembly
 - With objects holding `QUATERNION` rotation, rotation reads come from `matrix_world` or `rotation_quaternion`
 - `step.regenerate_part` re-tessellates selected parts from their `step_source_file` and `step_node_path` at `window_manager.step_regen` settings
@@ -118,7 +118,7 @@ bpy.ops.import_scene.cad2cube_dxf(filepath="<file>.dxf", units_mode="MANUAL", ma
 ```
 
 - `recenter_mode="NONE"` keeps coordinates, the default `BBOX` moving the drawing's box center to the origin
-- `frame_after_import=False` and `color_by_layer=False` leave the user's viewports as found, the defaults reframing and recoloring every 3D view
+- `frame_after_import=False` and `color_by_layer=False` leave viewports as found, the defaults reframing and recoloring every 3D view
 - Layers become collections under `<file stem>`
 - `skip_hidden_layers=True` (default) leaves out layers that are off, frozen, or locked
 - `layer_filter` (`"WALL,!DIM"`) selects layers by name

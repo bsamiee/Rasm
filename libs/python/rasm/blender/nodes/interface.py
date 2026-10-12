@@ -17,7 +17,7 @@ import msgspec.structs
 
 from rasm.blender.data.rna.descriptors import assigned, Descriptor, differing, holds, Value, written
 from rasm.blender.extension.identity import Identity, Key, Name
-from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from rasm.blender.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from rasm.blender.settings import shapes
 from rasm.blender.settings.properties import RecordGroup, Unit
 from rasm.imaging.faults import accumulated
@@ -497,22 +497,29 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
         face.remove(held)
         tree[slot] = {name: identifier for name, identifier in _items(tree, slot).items() if name != key}
 
+    def refused(error: TypeError) -> BlenderFaults:
+        return (BlenderEditFault(request=repr(face), error=error),)
+
     def made(key: Key, entry: DesiredItem) -> BlenderResult[None]:
         def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> BlenderResult[None]:
-            socket = face.new_socket(panel.name, in_out="INPUT", socket_type=bpy.types.NodeSocketBool.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            face.move_to_parent(socket, panel, 0)
-            return accumulated((written(socket, "is_panel_toggle", True), written(socket, "default_value", value))).map(lambda _: None)
+            return (
+                catch(lambda: face.new_socket(panel.name, in_out="INPUT", socket_type=bpy.types.NodeSocketBool.__name__), exception=TypeError)()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                .bind(lambda socket: catch(face.move_to_parent, exception=TypeError)(socket, panel, 0).map(lambda _: socket))
+                .map_error(refused)
+                .bind(lambda socket: accumulated((written(socket, "is_panel_toggle", True), written(socket, "default_value", value))).map(lambda _: None))
+            )
 
         def created() -> BlenderResult[InterfaceItem]:
             match entry:
                 case tuple() as pair:
                     socket, side = pair
-                    return catch(lambda: face.new_socket(socket.name, description=socket.description, in_out=side, socket_type=socket.kind.bl_rna.identifier), exception=TypeError)().map_error(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        lambda error: (BlenderEditFault(request=repr(face), error=error),)
-                    )
+                    return catch(lambda: face.new_socket(socket.name, description=socket.description, in_out=side, socket_type=socket.kind.__name__), exception=TypeError)().map_error(refused)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 case InterfacePanel(name=name, description=description, closed=closed, toggle=toggle):
-                    panel = face.new_panel(name, description=description, default_closed=closed)
-                    return accumulated(toggled(panel, value=value) for value in toggle.to_list()).map(lambda _: panel)
+                    return (
+                        catch(lambda: face.new_panel(name, description=description, default_closed=closed), exception=TypeError)()
+                        .map_error(refused)
+                        .bind(lambda panel: accumulated(toggled(panel, value=value) for value in toggle.to_list()).map(lambda _: panel))
+                    )
 
         def stored(declared: InterfaceItem) -> None:
             tree[slot] = {**_items(tree, slot), key: declared.identifier}
@@ -521,10 +528,15 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
 
     def restated(change: Restated) -> BlenderResult[None]:
         def retyped(held: bpy.types.NodeTreeInterfaceItem) -> BlenderResult[bpy.types.NodeTreeInterfaceItem]:
-            return change.kind.map(lambda kind: written(held, "socket_type", kind.bl_rna.identifier).bind(lambda _: item(change.key, bpy.types.NodeTreeInterfaceItem))).default_value(Ok(held))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return change.kind.map(lambda kind: written(held, "socket_type", kind.__name__).bind(lambda _: item(change.key, bpy.types.NodeTreeInterfaceItem))).default_value(Ok(held))
 
         def moved(held: bpy.types.NodeTreeInterfaceItem, parent: Option[Key], position: int) -> BlenderResult[None]:
-            return parent.map(lambda key: item(key, bpy.types.NodeTreeInterfacePanel).map(Some)).default_value(Ok(Nothing)).map(lambda panel: face.move_to_parent(held, panel.to_optional(), position))
+            return (
+                parent
+                .map(lambda key: item(key, bpy.types.NodeTreeInterfacePanel).map(Some))
+                .default_value(Ok(Nothing))
+                .bind(lambda panel: catch(face.move_to_parent, exception=TypeError)(held, panel.to_optional(), position).map_error(refused))
+            )
 
         def rest(held: bpy.types.NodeTreeInterfaceItem) -> BlenderResult[None]:
             return accumulated((
@@ -556,7 +568,7 @@ def _restated(key: Key, entry: DesiredItem, place: Option[tuple[Option[Key], int
     def parts() -> Restated:
         match entry, held.to_optional():
             case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
-                kind = Nothing if item.socket_type == socket.kind.bl_rna.identifier else Some(socket.kind)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                kind = Nothing if item.socket_type == socket.kind.__name__ else Some(socket.kind)
                 return Restated(
                     key=key,
                     kind=kind,

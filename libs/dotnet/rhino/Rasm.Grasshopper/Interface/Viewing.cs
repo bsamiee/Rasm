@@ -18,12 +18,12 @@ public static class Viewing {
          from frame in IO.lift(() => Missing.Unless(view.ResolveRectangle(canvas.Document, out RectangleF found), found, nameof(NamedView.ResolveRectangle)))
          from _ in IO.lift(() => canvas.Navigate(frame, limits, length))
          select unit)
-        .Post();
+        .OnUiThread();
 
     // --- [PICTURES]
     public static IO<Bitmap> Picture(Canvas canvas, RectangleF region, Size pixels, bool drawBackground, bool drawWires, bool drawMessages, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => Missing.Unless(
             canvas.DrawToBitmap(region, pixels.Width, pixels.Height, drawBackground, drawWires, drawMessages),
             nameof(Canvas.DrawToBitmap))), static bitmap => IO.lift(bitmap.Dispose), retain)
-            .Post();
+            .OnUiThread();
 }

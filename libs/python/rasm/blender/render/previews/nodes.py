@@ -27,7 +27,7 @@ from rasm.blender.commands.keymaps import Chord, Keymap
 from rasm.blender.commands.operators import Call, Done, Empty, Operator, Outcome, Save, tallied, Unchanged
 from rasm.blender.data.ids.images import loaded, Tag
 from rasm.blender.data.ids.ownership import Ownership, Saved
-from rasm.blender.data.ids.store import Handle
+from rasm.blender.data.ids.store import Handle, resolved
 from rasm.blender.data.rna.descriptors import Descriptor, Value, written
 from rasm.blender.data.rna.snapshots import Snapshot
 from rasm.blender.extension.events.handlers import Change, PathHandler, SceneHandler, UpdateHandler
@@ -796,19 +796,23 @@ class NodePreview:
             def viewed_in(editor: Editor, space: bpy.types.SpaceNodeEditor, region: bpy.types.Region, tree: bpy.types.NodeTree) -> BlenderResult[tuple[Planned, ...]]:
                 nested = tuple(node for found in enclosing(space) for node in found.to_list())
 
-                def each(node: bpy.types.Node, render: Render, size: int) -> BlenderResult[Planned]:
-                    source = render.target.source.scene.resolve() if isinstance(render.target.source, CompositorSource) else Ok(scene)
-                    return source.bind(
-                        lambda source: key_for(node, render, size, nested, source, render.target).map(
-                            lambda demand: Planned(editor=editor, region=region, tree=tree, scene=source, node=node, render=render, size=size, demand=demand)
-                        )
+                def each(node: bpy.types.Node, render: Render, size: int, sources: dict[Handle[bpy.types.Scene], bpy.types.Scene]) -> BlenderResult[Planned]:
+                    source = sources[render.target.source.scene] if isinstance(render.target.source, CompositorSource) else scene
+                    return key_for(node, render, size, nested, source, render.target).map(
+                        lambda demand: Planned(editor=editor, region=region, tree=tree, scene=source, node=node, render=render, size=size, demand=demand)
                     )
 
+                def planned(rows: tuple[tuple[bpy.types.Node, Render, int], ...]) -> BlenderResult[tuple[Planned, ...]]:
+                    handles = tuple(dict.fromkeys(render.target.source.scene for _, render, _ in rows if isinstance(render.target.source, CompositorSource)))
+                    return resolved(handles).map(lambda scenes: dict(zip(handles, scenes, strict=True))).bind(lambda sources: accumulated(each(*row, sources) for row in rows))
+
                 return targets(identity, editor, tree, settings).bind(
-                    lambda found: accumulated(
-                        each(node, render, round(node.width * metrics.scale * settings.display.scale / (2 if sum(1 for held, _ in found if held == node) > 1 else 1)))
-                        for node, target in found
-                        for render in isolated(node, target, settings).to_list()
+                    lambda found: planned(
+                        tuple(
+                            (node, render, round(node.width * metrics.scale * settings.display.scale / (2 if sum(1 for held, _ in found if held == node) > 1 else 1)))
+                            for node, target in found
+                            for render in isolated(node, target, settings).to_list()
+                        )
                     )
                 )
 
