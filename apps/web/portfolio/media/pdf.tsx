@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AnnotationMode, PasswordException, type PDFDocumentProxy, PixelsPerInch, RenderingCancelledException } from 'pdfjs-dist';
 import { EventBus, LinkTarget, PDFFindController, PDFLinkService, PDFPageView, PDFSinglePageViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
-import { type ReactElement, useEffect, useReducer, useState } from 'react';
+import { type ReactElement, useEffect, useRef, useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
 import { useErrorBoundary } from 'react-error-boundary';
 import { sheets } from '../model/asset.ts';
@@ -68,12 +68,12 @@ function SheetPreview({ document, page }: { document: PDFDocumentProxy; page: nu
 }
 function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentProxy; placement: Extract<typeof Placement.Type, { kind: 'pdf' }>; layoutId: string }): ReactElement {
     const [container, setContainer] = useState<HTMLDivElement | null>(null);
-    const [viewer, setViewer] = useState<PDFSinglePageViewer | null>(null);
+    const viewer = useRef<PDFSinglePageViewer | null>(null);
+    const [view, setView] = useState<{ page: number; fit: string } | null>(null);
     const [query, setQuery] = useState('');
     const [matches, setMatches] = useState({ current: 0, total: 0 });
     const quarterTurn = 90;
     const [pan, setPan] = useState(false);
-    const [, redraw] = useReducer((value: number): number => value + 1, 0);
     const { showBoundary } = useErrorBoundary();
     useEffect(() => {
         if (!container) {
@@ -96,10 +96,10 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
             nativeViewer.currentPageNumber = placement.page.number;
             nativeViewer.currentScaleValue = 'page-fit';
             resize.observe(container);
-            redraw();
         });
-        eventBus.on('pagechanging', redraw);
-        eventBus.on('scalechanging', redraw);
+        const read = (): void => setView({ page: nativeViewer.currentPageNumber, fit: nativeViewer.currentScaleValue });
+        eventBus.on('pagechanging', read);
+        eventBus.on('scalechanging', read);
         eventBus.on('updatefindmatchescount', ({ matchesCount }: { matchesCount: typeof matches }) => setMatches(matchesCount));
         eventBus.on('updatefindcontrolstate', ({ matchesCount }: { matchesCount: typeof matches }) => setMatches(matchesCount));
         eventBus.on('pagerendered', ({ error }: { error: unknown }) => {
@@ -108,7 +108,7 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
             }
         });
         nativeViewer.setDocument(document);
-        setViewer(nativeViewer);
+        viewer.current = nativeViewer;
         return (): void => {
             resize.disconnect();
             nativeViewer.setDocument(null);
@@ -117,31 +117,35 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
     }, [container, document, placement.asset, placement.page.number, showBoundary]);
     usePinch(
         ({ offset: [scale], origin }): void => {
-            viewer?.updateScale({ scaleFactor: scale / viewer.currentScale, origin });
+            viewer.current?.updateScale({ scaleFactor: scale / viewer.current.currentScale, origin });
         },
-        { target: { current: container }, enabled: viewer !== null, from: () => [viewer?.currentScale ?? 1, 0], pointer: { touch: true }, preventDefault: true, eventOptions: { passive: false } },
+        { target: { current: container }, enabled: view !== null, from: () => [viewer.current?.currentScale ?? 1, 0], pointer: { touch: true }, preventDefault: true, eventOptions: { passive: false } },
     );
-    const currentPage = viewer?.currentPageNumber ?? placement.page.number;
+    const currentPage = view?.page ?? placement.page.number;
     return (
         <>
-            {viewer && (
+            {view && (
                 <ZoomControls
                     fit={
                         <>
                             <ToggleButton
                                 className="button button-ghost"
-                                isSelected={viewer.currentScaleValue === 'page-fit'}
+                                isSelected={view.fit === 'page-fit'}
                                 onPress={(): void => {
-                                    viewer.currentScaleValue = 'page-fit';
+                                    if (viewer.current) {
+                                        viewer.current.currentScaleValue = 'page-fit';
+                                    }
                                 }}
                             >
                                 Fit page
                             </ToggleButton>
                             <ToggleButton
                                 className="button button-ghost"
-                                isSelected={viewer.currentScaleValue === 'page-width'}
+                                isSelected={view.fit === 'page-width'}
                                 onPress={(): void => {
-                                    viewer.currentScaleValue = 'page-width';
+                                    if (viewer.current) {
+                                        viewer.current.currentScaleValue = 'page-width';
+                                    }
                                 }}
                             >
                                 Fit width
@@ -150,8 +154,8 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                     }
                     href={`${mediaUrl(placement.asset)}#page=${currentPage}`}
                     linkLabel="Original"
-                    zoomIn={(): void => viewer.increaseScale()}
-                    zoomOut={(): void => viewer.decreaseScale()}
+                    zoomIn={(): void => viewer.current?.increaseScale()}
+                    zoomOut={(): void => viewer.current?.decreaseScale()}
                 >
                     <div className="flex w-fit min-w-0 max-w-full items-center [&>button]:min-w-11 [&>button]:px-2">
                         <span className="sr-only" role="status">
@@ -163,7 +167,7 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                             className="button button-ghost"
                             isDisabled={currentPage === 1}
                             onPress={(): void => {
-                                viewer.previousPage();
+                                viewer.current?.previousPage();
                             }}
                         >
                             <ChevronLeft className="size-4" />
@@ -172,7 +176,9 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                             aria-label="Sheet"
                             className="min-h-11 min-w-0 max-w-48 bg-transparent px-1 font-mono text-xs tabular-nums"
                             onChange={(event): void => {
-                                viewer.currentPageNumber = event.currentTarget.selectedIndex + 1;
+                                if (viewer.current) {
+                                    viewer.current.currentPageNumber = event.currentTarget.selectedIndex + 1;
+                                }
                             }}
                             value={currentPage}
                         >
@@ -188,7 +194,7 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                             className="button button-ghost"
                             isDisabled={currentPage === document.numPages}
                             onPress={(): void => {
-                                viewer.nextPage();
+                                viewer.current?.nextPage();
                             }}
                         >
                             <ChevronRight className="size-4" />
@@ -203,7 +209,9 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                             <Button
                                 className="button button-ghost"
                                 onPress={(): void => {
-                                    viewer.pagesRotation += quarterTurn;
+                                    if (viewer.current) {
+                                        viewer.current.pagesRotation += quarterTurn;
+                                    }
                                 }}
                             >
                                 <RotateCw className="size-4" />
@@ -216,7 +224,7 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                         className="min-w-0 open:basis-full"
                         onToggle={(event): void => {
                             if (!event.currentTarget.open) {
-                                viewer.eventBus.dispatch('findbarclose', {});
+                                viewer.current?.eventBus.dispatch('findbarclose', {});
                             }
                         }}
                     >
@@ -227,9 +235,9 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                                 className="flex min-w-0 flex-1 basis-40 items-center border border-control-line"
                                 onChange={(text): void => {
                                     setQuery(text);
-                                    viewer.eventBus.dispatch('find', { query: text, type: '', highlightAll: true });
+                                    viewer.current?.eventBus.dispatch('find', { query: text, type: '', highlightAll: true });
                                 }}
-                                onSubmit={(): void => viewer.eventBus.dispatch('find', { query, type: 'again', highlightAll: true })}
+                                onSubmit={(): void => viewer.current?.eventBus.dispatch('find', { query, type: 'again', highlightAll: true })}
                                 value={query}
                             >
                                 <Input className="min-h-11 w-full min-w-0 bg-transparent px-3 text-base" />
@@ -237,10 +245,10 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                                     Clear
                                 </Button>
                             </SearchField>
-                            <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={matches.total === 0} onPress={(): void => viewer.eventBus.dispatch('find', { query, type: 'again', findPrevious: true, highlightAll: true })}>
+                            <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={matches.total === 0} onPress={(): void => viewer.current?.eventBus.dispatch('find', { query, type: 'again', findPrevious: true, highlightAll: true })}>
                                 <ChevronLeft className="size-4" />
                             </Button>
-                            <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={matches.total === 0} onPress={(): void => viewer.eventBus.dispatch('find', { query, type: 'again', highlightAll: true })}>
+                            <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={matches.total === 0} onPress={(): void => viewer.current?.eventBus.dispatch('find', { query, type: 'again', highlightAll: true })}>
                                 <ChevronRight className="size-4" />
                             </Button>
                             <span className="basis-full text-muted text-xs" role="status">
@@ -256,12 +264,12 @@ function SheetViewer({ document, placement, layoutId }: { document: PDFDocumentP
                 layoutId={layoutId}
                 onDoubleClick={(): void => {
                     if (pan) {
-                        viewer?.increaseScale();
+                        viewer.current?.increaseScale();
                     }
                 }}
                 onPan={(_event, info): void => {
                     if (pan) {
-                        viewer?.panBy(info.delta.x, info.delta.y);
+                        viewer.current?.panBy(info.delta.x, info.delta.y);
                     }
                 }}
             >

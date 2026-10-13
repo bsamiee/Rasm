@@ -13,7 +13,6 @@ interface Law<S, A extends Vitest.Arbitraries, E, R> {
     readonly arbitraries: A;
     readonly predicate: (subject: S, args: Values<A>) => Effect.Effect<boolean, E, R>;
 }
-
 interface Counterexample<S, Args> {
     readonly label: string;
     readonly implementation: S;
@@ -64,9 +63,7 @@ const associative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.E
     });
 
 const commutative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> => law({ name: 'combine is commutative', arbitraries: { a: arbitrary, b: arbitrary }, predicate: (combine, { a, b }) => Effect.sync(() => equals(combine(a, b), combine(b, a))) });
-
 const idempotent = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> => law({ name: 'combine is idempotent', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(a, a), a)) });
-
 const identity = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>, empty: A): Registration<Binary<A>> => law({ name: 'empty is the identity', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(empty, a), a) && equals(combine(a, empty), a)) });
 
 const equivalence = <A>(arbitrary: Arbitrary.Arbitrary<A>): Registration<Equivalence.Equivalence<A>> =>

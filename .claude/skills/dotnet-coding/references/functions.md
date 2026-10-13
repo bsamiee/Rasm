@@ -299,4 +299,3 @@ internal sealed class Handler(IRepository<State> states, INotifier notifier) {
 - Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations
 - Database transactions cannot protect an external call from a process failure after the call and before the commit
 - Multi-system flows persist the combined work atomically, process it until every effect completes, and make repeat execution idempotent
-- Confidence comes from tests

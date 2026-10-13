@@ -257,7 +257,6 @@ build_check.BC0202.AllowUninitializedPropertiesInConditions = true
 1. Run `nx run <project>:build --skip-nx-cache -- -t:Rebuild -check`, `nx run-many -t build -p tag:language:dotnet` in place of `nx run <project>:build` for every project
 2. Read each `BC` line on the console, or run `mcp__binlog__binlog_errors` then `mcp__binlog__binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
-4. Run the same command again, the code is gone from the console and the log
 
 ## [05]-[SHARED_OUTPUT_PATHS]
 
@@ -342,4 +341,4 @@ Compare captures under the capture conditions of `references/execution-performan
 2. Run `mcp__binlog__binlog_expensive_projects`, `mcp__binlog__binlog_expensive_targets`, and `mcp__binlog__binlog_expensive_tasks` on the slower one
 3. For a slow project chain, target, or task, follow `references/execution-performance.md`
 4. For slow evaluation or a target running in a no-change build, follow `references/evaluation-and-incrementality.md`
-5. When both contribute, complete both and capture again after each change
+5. When both contribute, follow both references

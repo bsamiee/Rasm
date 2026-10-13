@@ -109,5 +109,5 @@ interface RetryOptions {
 Runs cover declarations in the invocation paths ($ARGUMENTS) and report:
 - Scope, the symbols touched
 - Edits, the exact comment blocks in context
-- Skipped, the symbols left alone and the reason (trivial, unclear, private)
+- Skipped, the symbols left alone and the reason (trivial, private)
 - Open questions, when missing intent makes the docs wrong

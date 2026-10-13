@@ -1,6 +1,6 @@
 # [TYPESCRIPT]
 
-pnpm resolves every version through the workspace catalog, `tsc --build` checks each project, Biome lints and formats every file.
+pnpm resolves every version through the workspace catalog, `tsc` checks each project, Biome lints and formats every file.
 
 ## [01]-[CATALOG]
 
@@ -18,14 +18,10 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- `tsc --build` under `noEmit` and `incremental` writes each project's build info under `outDir` and no declaration, packages import each other's `.ts` source through `exports`
-- `types` defaults to `[]`, a project lists `["node"]` where a file reads `import.meta.dirname` or a `node:` module, a UXP plugin its host typings
-- `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
-- `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module
-- Host typings declare every host global, a `declare` statement or an empty `enum` stub in a plugin file restates a typings declaration
-- `files` or `references` keys suppress TS18003 (no inputs)
-- `include` globs resolve to TypeScript extensions alone, `files` lists an imported JSON file (`package.json` for `version`) or TS6307 reports it
-- `tsconfig.base.json` excludes a project's `vitest.config.ts`, root `tsconfig.json` includes each one
+- `tsc` under `noEmit` checks a project from its directory and writes no file, packages import each other's `.ts` source through `exports`
+- `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
+- `paths` maps a module specifier no `types` entry declares to a declaration file an installed package holds
+- `tsconfig.base.json` excludes each project's `vite.config.ts` and `vitest.config.ts`, root `tsconfig.json` includes each one
 
 ## [03]-[EXECUTION]
 
@@ -34,15 +30,16 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - Targets running a file name `node <file>.ts` with `cwd` at the project
 - Workspace package `exports` entries naming `.ts` files resolve through the pnpm link
 - `@nx/vitest` infers `test` from a `vitest.config.ts` beside a `package.json`
-- Root Vite config reads `package.json` in `cwd`, a Vitest project config re-exports the root factory with its directory
+- Root Vite and Vitest configs export functions of a project directory, a project config passes `import.meta.dirname`
 - Root Vitest config lists `projects` from the workspace globs
 
 ## [04]-[BIOME]
 
 - Severity string on a group enables each of its rules at the string's level, `preset` beside it adds none
 - `project` at `all` turns on the scanner its import rules read, a group severity alone leaves import rules silent
-- `noUnresolvedImports` and `noUndeclaredVariables` are `off`, `tsc --build` reports unresolved specifiers, missing exports, and undeclared names
-- Scanner skips ambient `declare module` declarations, `tsc --build` reads them
+- `noUnresolvedImports` and `noUndeclaredVariables` are `off`, `tsc` reports unresolved specifiers, missing exports, and undeclared names
+- `noNodejsModules` is `off`, `tsc` resolves a `node:` module in projects listing `node` in `types` alone
+- Scanner skips ambient `declare module` declarations, `tsc` reads them
 - `none` on a domain leaves on each domain rule a group severity enables
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes

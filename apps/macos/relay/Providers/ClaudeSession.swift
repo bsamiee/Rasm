@@ -31,9 +31,25 @@ private nonisolated enum ClaudeRateLimitType: String, Decodable, Sendable {
 // --- [MODELS] --------------------------------------------------------------------------
 
 private nonisolated struct ClaudeControlRequest: Encodable, Sendable {
-    struct Request: Encodable, Sendable {
-        let subtype: ClaudeSubtype
-        let model: String?
+    enum Request: Encodable, Sendable {
+        case initialize
+        case listModels
+        case setModel(String)
+
+        enum CodingKeys: CodingKey {
+            case subtype, model
+        }
+
+        func encode(to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+                case .initialize: try container.encode(ClaudeSubtype.initialize, forKey: .subtype)
+                case .listModels: try container.encode(ClaudeSubtype.listModels, forKey: .subtype)
+                case .setModel(let model):
+                    try container.encode(ClaudeSubtype.setModel, forKey: .subtype)
+                    try container.encode(model, forKey: .model)
+            }
+        }
     }
 
     let type: ClaudeMessageType = .controlRequest
@@ -93,7 +109,7 @@ private nonisolated struct ClaudeControlResponse: Decodable, Sendable {
         let models: [ClaudeModelOption]?
     }
 
-    let requestID: String?
+    let requestID: String
     let subtype: Lenient<ClaudeSubtype>
     let response: Response?
 
@@ -112,17 +128,8 @@ private nonisolated struct ClaudeMessage: Decodable, Sendable {
 }
 
 private nonisolated enum ClaudeSessionPhase: Sendable {
-    case initializing(String)
-    case readingModels(String)
-    case settingModel(String)
+    case requesting(ClaudeControlRequest)
     case greeting
-
-    var requestID: String? {
-        switch self {
-            case .initializing(let id), .readingModels(let id), .settingModel(let id): id
-            case .greeting: nil
-        }
-    }
 }
 
 private nonisolated enum ClaudeSessionStep: Sendable {
@@ -190,12 +197,7 @@ nonisolated enum ClaudeSession {
         execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
         sessionID: UUID,
     ) async -> Result<Result<Date?, ClaudeFailure>, ProcessFailure> {
-        var step: Result<ClaudeSessionStep, ClaudeFailure> = await sendControlRequest(
-            ClaudeControlRequest.Request(subtype: .initialize, model: nil),
-            as: ClaudeSessionPhase.initializing,
-            sessionReset: nil,
-            to: execution,
-        )
+        var step: Result<ClaudeSessionStep, ClaudeFailure> = await sendControlRequest(.initialize, sessionReset: nil, to: execution)
         let lines: SubprocessOutputSequence.StringSequence<UTF8> = execution.standardOutput.strings()
         let decoder: JSONDecoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -242,20 +244,15 @@ nonisolated enum ClaudeSession {
             return message.subtype.value == .success && message.isError != true
                 ? .success(.finished(sessionReset: sessionReset)) : .failure(.greetingFailed)
         }
-        guard message.type.value == .controlResponse,
+        guard case .requesting(let sent) = phase, message.type.value == .controlResponse,
             let response: ClaudeControlResponse = message.response,
-            response.requestID == phase.requestID
+            response.requestID == sent.requestID
         else { return .success(.awaiting(phase, sessionReset: sessionReset)) }
         guard response.subtype.value == .success else { return .failure(.protocolFailure) }
-        switch phase {
-            case .initializing:
-                return await sendControlRequest(
-                    ClaudeControlRequest.Request(subtype: .listModels, model: nil),
-                    as: ClaudeSessionPhase.readingModels,
-                    sessionReset: sessionReset,
-                    to: execution,
-                )
-            case .readingModels:
+        switch sent.request {
+            case .initialize:
+                return await sendControlRequest(.listModels, sessionReset: sessionReset, to: execution)
+            case .listModels:
                 return
                     if let model: ClaudeModelOption = response.response?.models?.first(where: { item in
                         item.disabled != true
@@ -263,16 +260,11 @@ nonisolated enum ClaudeSession {
                     }),
                     let resolved: String = model.resolvedModel
                 {
-                    await sendControlRequest(
-                        ClaudeControlRequest.Request(subtype: .setModel, model: resolved),
-                        as: ClaudeSessionPhase.settingModel,
-                        sessionReset: sessionReset,
-                        to: execution,
-                    )
+                    await sendControlRequest(.setModel(resolved), sessionReset: sessionReset, to: execution)
                 } else {
                     .failure(.modelUnavailable)
                 }
-            case .settingModel:
+            case .setModel:
                 let greeting: ClaudeUserMessage = ClaudeUserMessage(
                     sessionID: sessionID,
                     message: ClaudeUserMessage.Message(content: "hi"),
@@ -280,20 +272,17 @@ nonisolated enum ClaudeSession {
                 return await send(greeting, to: execution, closingInput: true).map { _ in
                     .awaiting(.greeting, sessionReset: sessionReset)
                 }
-            case .greeting:
-                return .failure(.protocolFailure)
         }
     }
 
     private static func sendControlRequest(
         _ request: ClaudeControlRequest.Request,
-        as phase: (String) -> ClaudeSessionPhase,
         sessionReset: Date?,
         to execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
     ) async -> Result<ClaudeSessionStep, ClaudeFailure> {
-        let id: String = UUID().uuidString
-        return await send(ClaudeControlRequest(requestID: id, request: request), to: execution, closingInput: false)
-            .map { _ in .awaiting(phase(id), sessionReset: sessionReset) }
+        let sent: ClaudeControlRequest = ClaudeControlRequest(requestID: UUID().uuidString, request: request)
+        return await send(sent, to: execution, closingInput: false)
+            .map { _ in .awaiting(.requesting(sent), sessionReset: sessionReset) }
     }
 
     private static func send(

@@ -13,7 +13,7 @@ type Presentation = 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail'
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PdfSheet = lazy(() => import('./pdf.tsx').then((module) => ({ default: module.PdfSheet })));
-function Media({ placement, active, priority, presentation, preload, layoutId, viewport }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Presentation; preload?: boolean | undefined; layoutId?: string; viewport?: RefObject<HTMLElement | null> }): ReactElement | null {
+function Media({ placement, active, priority, presentation, layoutId, viewport }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Presentation; layoutId?: string; viewport?: RefObject<HTMLElement | null> }): ReactElement | null {
     const video = useRef<HTMLVideoElement>(null);
     const nearby = useInView(viewport ?? video, { margin: '200px' });
     const visible = useInView(viewport ?? video);
@@ -24,13 +24,14 @@ function Media({ placement, active, priority, presentation, preload, layoutId, v
     const label = placementAlt(placement);
     const thumbnail = presentation === 'preview' || presentation === 'thumbnail';
     const expanded = presentation === 'expanded';
+    const eager = priority || presentation === 'expandable';
     const fetchPriority = active ? 'auto' : 'low';
     useEffect(() => {
         if (!(active && visible)) {
             video.current?.pause();
         }
     }, [active, visible]);
-    if (viewport && !priority && !preload && !nearby) {
+    if (viewport && !eager && !nearby) {
         return null;
     }
     return failed ? (
@@ -67,7 +68,7 @@ function Media({ placement, active, priority, presentation, preload, layoutId, v
                             onError={(): void => setFailed(true)}
                             playsInline={true}
                             poster={poster && mediaUrl(poster)}
-                            preload={active || thumbnail || preload ? 'metadata' : 'none'}
+                            preload={active || thumbnail || eager ? 'metadata' : 'none'}
                             ref={video}
                             src={url}
                             width={width}
@@ -82,9 +83,9 @@ function Media({ placement, active, priority, presentation, preload, layoutId, v
                         fetchPriority={priority ? 'high' : fetchPriority}
                         height={height}
                         key={attempt}
-                        loading={expanded || priority || preload ? 'eager' : 'lazy'}
+                        loading={expanded || eager ? 'eager' : 'lazy'}
                         onError={(): void => setFailed(true)}
-                        sizes={priority || preload ? '100vw' : 'auto, 100vw'}
+                        sizes={eager ? '100vw' : 'auto, 100vw'}
                         src={url}
                         srcSet={expanded ? undefined : imageSourceSet(asset)}
                         // biome-ignore lint/nursery/noInlineStyles: Focal point and framing come from the placement

@@ -1,42 +1,35 @@
-import { NodeServices } from '@effect/platform-node';
-import { Array, Effect, FileSystem, Path, Schema, String } from 'effect';
-import { defaultClientConditions, defaultServerConditions, defaultServerMainFields, type UserConfig } from 'vite';
+import { join, relative } from 'node:path';
+import { Array, String } from 'effect';
+import { defaultClientConditions, defaultServerConditions, type Rollup, type UserConfig } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _HOST_MODULE = /^adobe:/u;
+const _ROOT = import.meta.dirname;
+const _UXP_MODULE = /^adobe:/u;
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-const config = Effect.gen(function* () {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const project = path.resolve('.');
-    const entry = Schema.Struct({ main: Schema.String });
-    const [{ main }, { plugin }] = yield* Effect.all(
-        [
-            Effect.flatMap(fs.readFileString(path.join(project, 'package.json')), Schema.decodeEffect(Schema.fromJsonString(entry))),
-            path.toFileUrl(path.join(project, 'uxp.config.ts')).pipe(
-                Effect.flatMap((url) => Effect.promise((): Promise<unknown> => import(url.href))),
-                Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ plugin: entry }))),
-            ),
-        ],
-        { concurrency: 'unbounded' },
-    );
-    return {
-        resolve: { conditions: Array.intersection(defaultClientConditions, defaultServerConditions), mainFields: [...defaultServerMainFields] },
+const project = <A extends object>(directory: string, config: A): A & { readonly cacheDir: string } => ({ ...config, cacheDir: join(_ROOT, '.cache', 'vite', relative(_ROOT, directory)) });
+
+const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: object }): UserConfig =>
+    project(directory, {
         build: {
-            outDir: path.join(import.meta.dirname, '.artifacts', path.relative(import.meta.dirname, project)),
+            ssr: true,
+            outDir: join(_ROOT, '.artifacts', relative(_ROOT, directory)),
             emptyOutDir: true,
-            lib: { entry: main, formats: ['cjs'], fileName: (): string => plugin.main },
-            minify: false,
-            sourcemap: true,
-            reportCompressedSize: false,
-            rolldownOptions: { platform: 'neutral', external: _HOST_MODULE, output: { paths: String.replace(_HOST_MODULE, ''), dynamicImportInCjs: false } },
+            rolldownOptions: { input: { main }, platform: 'neutral', output: { format: 'cjs', entryFileNames: '[name].js', codeSplitting: false, paths: String.replace(_UXP_MODULE, '') } },
         },
-    } satisfies UserConfig;
-}).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
+        environments: { ssr: { resolve: { noExternal: true, builtins: [_UXP_MODULE], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
+        plugins: [
+            {
+                name: 'manifest',
+                generateBundle(this: Rollup.PluginContext): void {
+                    this.emitFile({ type: 'asset', fileName: 'manifest.json', source: JSON.stringify(manifest) });
+                },
+            },
+        ],
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-// biome-ignore lint/style/noDefaultExport: Vite loads its configuration from the module default export.
-export default config;
+export { project, uxp };

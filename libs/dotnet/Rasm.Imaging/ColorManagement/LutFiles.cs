@@ -10,11 +10,6 @@ using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Output;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Tiff;
-using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
 namespace Rasm.Imaging.ColorManagement;
@@ -139,29 +134,6 @@ public sealed partial class LutFormat {
     public string Extension { get; }
 }
 
-[ValueObject<string>]
-[ValidationError<InvalidColor>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LutPath {
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && LutFiles.Readers.ContainsKey(Path.GetExtension(value)) ? null : new InvalidColor();
-}
-
-public sealed record LutFile {
-    private LutFile(LutPath path, LutTable table) => (Path, Table) = (path, table);
-
-    public LutPath Path { get; }
-    public LutTable Table { get; }
-
-    public static IO<LutFile> Read(LutPath path) =>
-        LutFiles.Readers[System.IO.Path.GetExtension(path)](path)
-            .Map(table => new LutFile(path, table))
-            .Catch(
-                static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() || error.HasException<ImageFormatException>(),
-                error => IO.fail<LutFile>(new LutUnreadable(path, error)));
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LutFiles {
     // --- [TOKENS]
@@ -212,42 +184,11 @@ public static class LutFiles {
     private const string Saturation = "Saturation";
 
     // --- [READS]
-    private static readonly DecoderOptions LookupOptions = new() {
-        Configuration = new Configuration(new PngConfigurationModule(), new TiffConfigurationModule()),
-        SkipMetadata = true,
-    };
-
-    internal static FrozenDictionary<string, Func<LutPath, IO<LutTable>>> Readers { get; } =
-        toSeq(LookupOptions.Configuration.ImageFormats).Bind(static format => toSeq(format.FileExtensions)).Map(static extension => $".{extension}") switch {
-            var lookups => lookups.Map(static extension => (Extension: extension, Read: (Func<LutPath, IO<LutTable>>)ReadLookup))
-                .Concat(toSeq(LutFormat.Items)
-                    .Filter(format => !lookups.Exists(extension => string.Equals(extension, format.Extension, StringComparison.OrdinalIgnoreCase)))
-                    .Map(static format => (format.Extension, Read: (Func<LutPath, IO<LutTable>>)(path =>
-                        from token in cancelToken
-                        from text in IO.liftAsync(() => File.ReadAllTextAsync(path, cancellationToken: token))
-                        from table in IO.lift(Parse(text, format))
-                        select table))))
-                .ToFrozenDictionary(static reader => reader.Extension, static reader => reader.Read, StringComparer.OrdinalIgnoreCase),
-        };
-
-    private static IO<LutTable> ReadLookup(LutPath path) =>
+    public static IO<LutTable> Read(string path, LutFormat format) =>
         from token in cancelToken
-        from table in use(IO.liftAsync(() => SixLabors.ImageSharp.Image.LoadAsync<Rgb48>(LookupOptions, path, token))).Bind(static image => IO.lift(Lattice(image))).Bracket()
+        from text in IO.liftAsync(() => File.ReadAllTextAsync(path, cancellationToken: token))
+        from table in IO.lift(Parse(text, format))
         select table;
-
-    private static Fin<LutTable> Lattice(Image<Rgb48> image) =>
-        toSeq(LookupLayout.Items)
-            .Choose(layout => from edge in layout.Edge(image.Width, image.Height) from extent in layout.Image(edge) select (Layout: layout, Edge: edge, Extent: extent))
-            .Head.ToFin(new LookupShapeRefused(image.Width, image.Height))
-            .Bind(found => {
-                using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * found.Edge * found.Edge * found.Edge);
-                image.ProcessPixelRows(rows => {
-                    Span<Vector3> nodes = MemoryMarshal.Cast<float, Vector3>(samples.Span);
-                    for (int pixel = 0; pixel < rows.Width * rows.Height; pixel++)
-                        nodes[found.Layout.Node(pixel % rows.Width, pixel / rows.Width, found.Extent, found.Edge)] = rows.GetRowSpan(pixel / rows.Width)[pixel % rows.Width].ToScaledVector4().AsVector3();
-                });
-                return LatticeTable(found.Edge, (Vector3.Zero, Vector3.One), LutInterpolation.Tetrahedral).Build(samples.Memory);
-            });
 
     // --- [GRAMMARS]
     public static Fin<LutTable> Parse(string text, LutFormat format) =>
@@ -756,12 +697,7 @@ public static class LutFiles {
         from _ in FilePublication.Write(path, text)
         select unit;
 
-    public static IO<Unit> WriteLookup(LutTable table, LookupLayout layout, FileMetadata metadata, OutputPath path) =>
-        from still in IO.lift(Lookup(table, layout))
-        from _ in StillWriter.Write(still, metadata, path)
-        select unit;
-
-    private static Fin<StillFormat> Lookup(LutTable table, LookupLayout layout) =>
+    public static Fin<PixelFrame> Lookup(LutTable table, LookupLayout layout) =>
         (from lattice in Only<LutTable.Cube>(Flat(table)).Map(static cube => cube.Lattice)
          where Coded(lattice)
          from image in layout.Image(lattice.Size)
@@ -771,8 +707,7 @@ public static class LutFiles {
              for (int pixel = 0; pixel < pixels.Length; pixel++)
                  pixels[pixel] = new Vector4(entries[layout.Node(pixel % image.Width, pixel / image.Width, image, lattice.Size)], 1f);
          }))
-            .ToFin(new LutFormatRefused(layout.Format))
-            .Bind(static frame => StillFormat.PngRaster.From(frame, OutputDepth.UInt16, None, alpha: false));
+            .ToFin(new LutFormatRefused(layout.Format));
 
     private static Option<string> RenderCube(Seq<LutTable> steps) =>
         steps switch {

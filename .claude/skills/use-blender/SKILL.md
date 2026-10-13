@@ -12,7 +12,7 @@ Covers MCP-driven GUI sessions, background runs, extension installs, logs, and e
 - [02]-[DRAFTING](references/drafting.md): Sketches, profiles, sheet cameras, linework, dimensions, and drawing output
 - [03]-[BIM](references/bim.md): IFC projects, elements, properties, queries, drawings, and exchange through Bonsai
 - [04]-[PARAMETRIC](references/parametric.md): Sverchok trees, formula nodes, tree code, VI-Suite analyses, topology optimization, and pin solves
-- [05]-[INTERCHANGE](references/interchange.md): Rhino, STEP, DXF, 3ds Max, mesh, and SVG imports, Rhino exports, attribute tables, and round trips
+- [05]-[INTERCHANGE](references/interchange.md): Rhino, STEP, DXF, 3ds Max, mesh, and SVG imports, Rhino exports, and attribute tables
 
 ## [01]-[TOOL_INDEX]
 
@@ -75,7 +75,7 @@ result = {"closed": closed}
 ```
 
 Script-driven task GUIs run a runner script:
-- `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` starts one
+- `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` starts one through `open` and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - Runners end with the quit call
 
@@ -99,7 +99,7 @@ Configured startup files open with:
 - File paths are absolute, relative paths resolving under the working directory
 - Operators run in default exec form
 - Operators returning `RUNNING_MODAL` (invoked tools, timer-driven jobs) run on after the call, and later calls read progress from their data
-- With extension operators answering FINISHED whatever their body did and keeping data made before a raise, calls confirm through the data they target
+- Extension operators answer FINISHED whatever their body did, and keep data made before a raise
 
 ## [04]-[MODAL_STATE]
 
@@ -137,8 +137,7 @@ Background runs follow host rules:
 
 Background renders use named files saved in place; untitled and scratch scenes render in GUI without saving:
 1. `bpy.ops.wm.save_mainfile()` in the GUI saves named work before rendering
-2. `"$BLENDER_PATH" --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true`
-3. `Read` the image that `Saved: '<path>'` log line names
+2. `"$BLENDER_PATH" --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true` logs `Saved: '<path>'`
 
 ## [06]-[MEMBERS]
 
@@ -157,6 +156,7 @@ Use `manage-repo` for extension projects and their `pack` and `install` targets.
 
 Repository `user_default` holds every installed extension:
 - `nx run <id>:install` installs and enables an extension inside a running GUI session, else through `--command extension install-file`
+- Running GUI sessions are those of the executable `BLENDER_PATH` resolves, by file identity, under the installing process's `BLENDER_USER_*` profile
 - `"$BLENDER_PATH" --command extension remove user_default.<id>` uninstalls with no GUI running
 - `install-file` exits 0 on install and on a platform or version refusal, and 1 on a failed `--enable`
 - `install-file` output's `STATUS Installed "<id>"` or `ERROR <id>: <reason>` line states the result
@@ -189,7 +189,6 @@ Log reads follow host rules:
 
 Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, each command launching Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before launch:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
-- `run` arguments holding `--background` start a background run
 - `python .claude/skills/use-blender/scripts/evaluate.py checks <file.py>` runs each `@check` the file declares
 - `checks --isolate` runs one process per check, and `checks --falsify` runs each check again with its `flip` input
 - `run` and `checks` install every package `nx run <id>:pack` bundles, with all of `rasm`, into tree folder `scripts/modules` before launch

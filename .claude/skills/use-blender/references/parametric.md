@@ -38,6 +38,8 @@ result = {"object": viewer.base_data_name, "errors": {node.name: node["US_error"
 
 - Trees made through the data API hold zero users and leave the saved file unless `use_fake_user` holds
 - `index.yaml` at the package root lists every node `bl_idname` by category, and `docs/nodes/<category>/<module>.rst` documents each node
+- `node.outputs["<name>"].sv_get()` returns the cached output nested as objects, then elements, then components
+- Failed nodes hold their message in `US_error` and traceback in `US_error_stack`
 - With generator and range nodes computing linked outputs alone, an output read links it into a viewer or `SvStethoscopeNodeMK2` first
 - Unlinked inputs take values through the node property each socket's `prop_name` names
 - Property names differ from socket names (`SvGenNumberRange` input `Step` reads `stop_float`)
@@ -47,8 +49,6 @@ result = {"object": viewer.base_data_name, "errors": {node.name: node["US_error"
 - `scene.frame_set(<frame>)` evaluates animated nodes synchronously while `tree.sv_animate` holds
 - JSON round trips run through `JSONExporter.get_tree_structure(tree)` and `JSONImporter(<dict>).import_into_tree(tree, print_log=False)`
 - JSON imports queue the tree
-
-Confirmation read: `node.outputs["<name>"].sv_get()` holds the cached output (objects, then elements, then components), a failed node holds its message in `US_error` and traceback in `US_error_stack`, and viewer objects read their dimensions after `view_layer.update()`.
 
 ## [03]-[FORMULA_NODES]
 
@@ -65,11 +65,11 @@ result = {"built": built, "set": api.set_parameters("<Object>", {"amplitude": 1.
 1. `ai.build_system_prompt(for_tools=True)` from `formula_to_nodes.ai` returns the language reference
 2. `compiler.check(source, mode)` returns `(ok, error, notes)` with no Blender write
 3. `api.build_group(script, name=, object_name=)` builds the group and adds its modifier when the script writes attributes
-4. `mode="FORMULA"` on `api.build_group` builds a field group with one float input per free variable
-5. `api.set_parameters(object_name, {name: value})` writes modifier inputs by interface name and tags the object
-6. `api.build_group(script, update_group="<Group>")` rebuilds a group the extension made and keeps its modifiers and values
-
-Confirmation read: `api.inspect` returns evaluated attribute values and node warnings, a failed compile answering `ok` False with the line and building nothing.
+4. `api.build_group` answers a failed compile with `ok` False and the line, building nothing
+5. `mode="FORMULA"` on `api.build_group` builds a field group with one float input per free variable
+6. `api.set_parameters(object_name, {name: value})` writes modifier inputs by interface name and tags the object
+7. `api.build_group(script, update_group="<Group>")` rebuilds a group the extension made and keeps its modifiers and values
+8. `api.inspect(object_name, attributes=, limit=)` returns evaluated attribute values and node warnings
 
 Shader, compositor, and texture math comes from Node Quick Maths composers, its operator gathering input through its dialog alone:
 
@@ -130,8 +130,6 @@ def tree_code(tree: bpy.types.NodeTree) -> str:
 - Nested groups emit after their own tree's code and assign `node.node_tree = bpy.data.node_groups[<name>]`
 - Node To Python exports drop node settings, which the walk keeps
 
-Confirmation read: the code runs in a file holding no tree of the same name, and one object per tree on a Geometry Nodes modifier reads the original's evaluated vertices.
-
 ## [05]-[NODE_LAYOUT]
 
 Node Arrange sizes the layout from node dimensions a node editor fills when it draws the tree:
@@ -140,8 +138,6 @@ Node Arrange sizes the layout from node dimensions a node editor fills when it d
 3. Run `bpy.ops.node.na_arrange_selected()` in the next call under `temp_override(window=, area=<that editor>, region=<its WINDOW region>)`
 
 `scene.na_settings` holds the options (`margin`, `direction`, `socket_alignment`, `add_reroutes`, `iterations`), and `node.na_batch_arrange` arranges every tree of the file.
-
-Confirmation read: `node.dimensions` reads non-zero before the arrange, and node locations spread along x after it.
 
 ## [06]-[VI_SUITE]
 
@@ -179,6 +175,7 @@ Task nodes take settings and links:
 - `No_En_Con` takes `sdoy`, `edoy`, `timesteps`, and the zone metric flags (`restt`, `restwh`, `restwc`, `resh`), each off by default
 - `No_En_Con` `Context out` links into `No_En_Sim` after `encon`
 - Heating and cooling rows read zero until a zone network node holds an HVAC node
+- Energy runs write EnergyPlus's error report to text `<resname><frame>out.err`, closing with its completion line and severe-error count
 
 Analysis order follows host effects:
 - With shadow runs clearing every ID property of each calculation object's `vi_params`, `vi_type` included, energy zone marks follow a shadow study
@@ -187,16 +184,15 @@ Analysis order follows host effects:
 - Ending a sun path display removes other extensions' `frame_change_post` handlers, Sverchok's included
 - Sun path displays follow frame-driven Sverchok work
 
-Confirmation read: each analysis's result attribute or rows, and for energy the text `<resname><frame>out.err` closing with EnergyPlus's completion line and severe-error count.
-
 ## [07]-[TOPOLOGY_OPTIMIZATION]
 
 Problem setup holds for background runs and GUI sessions:
 1. Tag meshes through `obj.topopt.role`: one `DOMAIN`, at least one `SUPPORT` and one `LOAD`, any `PROPERTY` regions
 2. Set `load_direction` and `load_total_force_kN` on each load
 3. Set `domain_target_density`, `domain_youngs_modulus`, and `domain_poissons_ratio` on the domain
-4. Set `scene.topopt.voxel_size` in meters, `max_iterations`, `penalty`, `filter_radius_voxels`, and `density_threshold`
-5. `bpy.ops.topopt.voxelize_preview()` applies tagged mesh rotation and scale, builds `TopOpt_Preview`, and writes `scene.topopt.grid_domain_voxels`
+4. Set `scene.topopt.voxel_size` in meters, 20 or more voxels spanning the shortest grid axis
+5. Set `max_iterations`, `penalty`, `filter_radius_voxels`, and `density_threshold` on `scene.topopt`
+6. `bpy.ops.topopt.voxelize_preview()` applies tagged mesh rotation and scale, builds `TopOpt_Preview`, and writes `scene.topopt.grid_domain_voxels`
 
 GUI solves run `bpy.ops.topopt.solve_3d()`, a modal stepping on a window timer, and later calls read `scene.topopt.is_solving` and `solve_status`, then run `bpy.ops.topopt.generate_mesh()` once solving reads False. With the modal never stepping in a background run, background solves run the solver generator in a Bash call with `run_in_background: true`:
 
@@ -219,8 +215,6 @@ bpy.ops.wm.save_mainfile()
 - With density caches in module memory, `generate_mesh` runs in the solving process
 - `gather_problem` raises `problem.ProblemError` naming a missing or duplicate role
 
-Confirmation read: `TopOpt_Mesh` vertex count and dimensions, the last iteration's `converged`, `compliance`, and `vol_frac`, and `problem.summarize(data)` warning under 20 voxels on the shortest grid axis.
-
 ## [08]-[PIN_SOLVE]
 
 PinSolver solves a camera or object pose from 2D-3D pin pairs, background runs included:
@@ -229,8 +223,6 @@ PinSolver solves a camera or object pose from 2D-3D pin pairs, background runs i
 3. Write `pos_2d` in the normalized frame coordinates `bpy_extras.object_utils.world_to_camera_view` returns
 4. Set calibration flags (`calib_focal_length`, `calib_optical_center`, `calib_k1` to `calib_k3`) with 6 or more pins
 5. Run `bpy.ops.view3d.pinsolver_solve()`, then `view_layer.update()`
-
-Confirmation read: `camera.matrix_world`, `camera.data.lens` under calibration, an empty `pinsolver_data.last_error`, and reprojection error from `world_to_camera_view` of each `pos_3d` against its `pos_2d`.
 
 Other PinSolver work:
 - Single-pin solves, pin picking, tweaking, and the ICP preview run in a GUI camera view

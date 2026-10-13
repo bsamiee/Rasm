@@ -9,7 +9,6 @@ using Emgu.CV.Structure;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using SixLabors.ImageSharp.PixelFormats;
 using TorchSharp;
 using UnitsNet;
 using UnitsNet.Units;
@@ -252,7 +251,7 @@ public sealed record GeometryOutline(
                             (color, weight) = (covers[(x * colors.Length) + k] * (1f - weight)) switch { var c => (color + (c * colors[k]), weight + c) };
                         layer.Span[x] = new Vector4(color, weight);
                     }
-                    state.Mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated, PixelAlphaRepresentation.Associated);
+                    state.Mode.Composite(row, layer.Span, weights.Span, AlphaRepresentation.Unassociated, AlphaRepresentation.Associated);
                 }).Run(frame, progress));
         });
 
@@ -579,7 +578,7 @@ public sealed record EdgeDetect(
                 layer.Span[x] = new Vector4(Vector3.Lerp(under, line, coverage), 1f);
                 cover.Span[x] = float.Max(coverage, floor);
             }
-            state.Mode.Composite(row, layer.Span, cover.Span, PixelAlphaRepresentation.Unassociated);
+            state.Mode.Composite(row, layer.Span, cover.Span, AlphaRepresentation.Unassociated);
         }).Run(frame, progress);
     }
 }

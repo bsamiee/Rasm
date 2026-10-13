@@ -14,7 +14,7 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 |  [04]   | One position where the shape is produced before its consumption | Match where the shape is produced, no position guard                   |
 |  [05]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name                |
 |  [06]   | `note` naming the instance's fix                                | Correction as the shape to produce                                     |
-|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract admits, counted over that file      |
+|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract admits                              |
 |  [08]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                          |
 |  [09]   | Default `stopBy` where the related node sits levels away        | `stopBy` at the owner kinds, fixed depth through `has` with `field`    |
 |  [10]   | `constraints` on a `$$$` capture or under `not`                 | Structural guard in the rule, `$ITEM` inside the list                  |
@@ -29,9 +29,8 @@ Rules widen to siblings that take the same correction for the same reason:
 1. State the correction as a category in one line, shape before, shape after, and reason, with no instance name
 2. Enumerate package siblings with the same contract
 3. Apply the correction to each sibling and compare its action and reason, keeping equivalent replacement spellings together
-4. Widen the registered rule and read its `ruleId` count from the `rule-building` scans under the root configuration that loads its utilities
+4. Widen the registered rule to every sibling the correction holds for, a form the correction breaks stays outside the rule
 5. Read the package source and the grammar for unresolved mechanisms
-6. Keep the widened rule when the count rose by the siblings alone, a match the correction breaks returns to the sameness judgment
 
 Before the rule widens, import ownership resolves member identity, namespace or default access, aliases, and local shadowing. Escaped module strings stay excluded until their decoded value is known.
 
@@ -41,8 +40,8 @@ Combine rules with the same correction and reason. Split rules when scope, sever
 1. Name the survivor `no-<pattern>` for the pattern the `message` states, an existing id stating it stays
 2. Move the shape distinct callers share into a global util, a fixed one-caller shape stays local
 3. Delete the superseded rule files and each old id in suppression comments and filters
-4. Compare the survivor's after-scan rows with the originals' before-scan rows by file and range, intended coverage stays
 
+- Survivors report every site the originals' correction covers
 - Replacement spellings share one rule when they implement the same correction and reason, the selecting condition stays in that rule
 
 ## [04]-[MECHANISMS]
@@ -66,7 +65,7 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 
 Mechanisms changing no result go.
 
-| [INDEX] | [FAILURE]                                            | [CHECK]                                                                          |
+| [INDEX] | [FAILURE]                                            | [REMEDY]                                                                         |
 | :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------------- |
 |  [01]   | Caller repeats its util's established shape          | Keep caller-specific guards and omit kind guards the util infers                 |
 |  [02]   | Zero-argument global util one rule references        | Local at its one caller, deleted when no caller remains                          |

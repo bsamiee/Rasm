@@ -3,23 +3,8 @@ using System.Runtime.Versioning;
 
 namespace Rasm.Rhino;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-[Flags]
-internal enum ExecutionState : uint {
-    None = 0,
-    SystemRequired = 1u << 0,
-    DisplayRequired = 1u << 1,
-    Continuous = 1u << 31,
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class SafeNativeMethods {
-    // --- [POWER]
-    [LibraryImport("kernel32")]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    [SupportedOSPlatform("windows")]
-    internal static partial ExecutionState SetThreadExecutionState(ExecutionState flags);
-
     // --- [POINTER]
     [LibraryImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]

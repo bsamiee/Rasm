@@ -52,7 +52,7 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
 </Project>
 ```
 
-`dotnet msbuild tests/Library.Tests/Library.Tests.csproj -getProperty:_OuterDirectoryBuildProps,Stage,Role,IsTestProject` prints the root file path, `library`, `tests`, and `true`.
+`Library.Tests` evaluates `_OuterDirectoryBuildProps` to the root file path, `Stage` to `library`, `Role` to `tests`, and `IsTestProject` to `true`.
 
 ## [04]-[ROOT_DIRECTORY_BUILD_TARGETS]
 

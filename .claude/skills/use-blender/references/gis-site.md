@@ -98,8 +98,6 @@ sun.year, sun.month, sun.day, sun.time = moment.year, moment.month, moment.day, 
 - `sun.use_refraction` false reads the geometric elevation other solar tools report
 - Scene CRS stays metric (UTM, a metric State Plane), BlenderGIS placing CRS units as Blender meters
 
-Confirmation read: site read reports zero drift, Blosm and Sun Position at the origin, and `north_offset` equal to `grid_north`.
-
 ## [04]-[FRAMES]
 
 Data in a frame other than scene CRS meets scene through one object matrix, the Jacobian from source-local to scene-local meters at source origin with origin's scene position as translation, accurate to a centimeter within 1 km:
@@ -154,8 +152,6 @@ result = {"status": sorted(status), "terrain": dem.name, "site_elevation": locat
 - `importgis.dem_query` writes a fixed `srtm.tif` each call, a second query overwriting the first terrain's image
 - Sites outside the United States take OpenTopography `demServer` entries with `opentopography_api_key` set
 
-Confirmation read: evaluated DEM spans site box, and a ray at the origin hits z 0.
-
 ## [06]-[IMAGERY]
 
 Orthoimages come in scene CRS over the DEM box and drape through its UV map. United States sites take USGS NAIP Plus, and other sites Esri World Imagery as PNG with a world file:
@@ -178,8 +174,6 @@ status = bpy.ops.importgis.georaster(filepath="<dir>/<image>", importMode="MESH"
 - Drapes clear the mesh's materials first, `georaster` appending a slot that faces on slot 0 never show
 - `importMode="PLANE"` imports the image as a textured plane at z 0
 - Images stay external by absolute path, and `bpy.ops.file.pack_all()` before a save holds them in the `.blend`
-
-Confirmation read: one material slot `rastMat` holding the image, and active UV map `rastUVmap`.
 
 ## [07]-[OSM]
 
@@ -206,8 +200,6 @@ result = {"status": sorted(status), "collections": {c.name: len(c.objects) for c
 - Building height reads `height`, else `building:levels` times `levelHeight`, else `defaultHeight`, with flat roofs
 - OSM data stays inside terrain extent, features off the terrain sitting at its object z
 - Overpass answers 406 to curl's default and browser user agents, and the file route keeps one download for every import
-
-Confirmation read: per-tag counts, and building base vertices on the terrain reading z near 0.
 
 ## [08]-[BLOSM]
 
@@ -261,8 +253,6 @@ for obj in (terrain, *envelopes):
 - Roads and water come from BlenderGIS, Blosm projecting them onto its envelope
 - `osmSource="server"` downloads the same Overpass `map` file into `<dataDir>/osm`
 
-Confirmation read: footprints match BlenderGIS's import of the site file in centroid and extent, each building's lowest base corner on terrain.
-
 ## [09]-[SURVEY_TIN]
 
 LandXML TINs import with minimum easting and northing subtracted and stored per surface in double precision, and the object matrix places them:
@@ -292,8 +282,6 @@ for tin in [obj for obj in bpy.context.selected_objects if "landxml_source" in o
 - `point_order` stays `NEZ`, and `ENZ` answers a TIN mirrored about the diagonal
 - Locked transforms block interactive moves alone, and `matrix_world` writes apply
 - GUI imports draw an `Import completed` popup over the window with no `modal_operators` entry
-
-Confirmation read: surface vertices sampled across the site read terrain heights to survey accuracy.
 
 ## [10]-[POINT_CLOUDS]
 
@@ -333,8 +321,6 @@ for index, scan in enumerate(sorted((obj for obj in bpy.data.objects if obj not 
 - With `scale_factor` leaving `las_origin_offset` in file units, feet clouds scale offset by the unit
 - LAS clouds in another CRS take `framed` with the offset as source origin
 
-Confirmation read: sampled points read the terrain heights, and overlapping scans coincide.
-
 ## [11]-[SHAPEFILE]
 
 `importgis.shapefile` reads a shapefile in the CRS `shpCRS` names and reprojects it to scene CRS:
@@ -351,8 +337,6 @@ bpy.ops.importgis.shapefile(filepath="<file>.shp", shpCRS="EPSG:<epsg>", elevSou
 |  [04]   | `NONE`        | Zero                            | None                             |
 
 `separateObjects` links one object per feature into a collection named after the file.
-
-Confirmation read: object count equals layer feature count, and sampled vertices read terrain heights.
 
 ## [12]-[SUN]
 
@@ -379,5 +363,3 @@ sun.sun_object, sun.sky_texture = light, sky.name
 - `world.sunpos_create_analemmas_object` and `world.sunpos_create_surface_object` build sun path diagram at the origin, oriented by `north_offset`
 - Writes to another scene's `sun_pos_properties` place its sun inside `bpy.context.temp_override(scene=<scene>)` alone
 - `sun_object` takes the scene's `SUN` light, a script assignment accepting any object type
-
-Confirmation read: after `view_layer.update()`, lamp +Z bearing `atan2(x, y)` equals sun azimuth plus grid north, its elevation equals `sun_elevation`, and sky node `sun_direction` matches the lamp.

@@ -51,13 +51,13 @@ public abstract partial class OutputDepth {
 
     public int Bits { get; }
 
-    internal int SampleBytes { get; }
+    public int SampleBytes { get; }
 
     public abstract Option<Quantizer> Levels { get; }
 
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
 
-    internal void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
+    public void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
         int lanes = alpha ? 4 : 3;
         using SpanOwner<float> samples = SpanOwner<float>.Allocate((lanes * row.Length) + 4 - lanes);
         for (int x = 0; x < row.Length; x++)
@@ -65,7 +65,7 @@ public abstract partial class OutputDepth {
         Store(samples.Span[..(lanes * row.Length)], destination);
     }
 
-    internal void ToBigEndian(Span<byte> words) {
+    public void ToBigEndian(Span<byte> words) {
         for (int at = 0; at < words.Length; at += SampleBytes)
             words.Slice(at, SampleBytes).Reverse();
     }

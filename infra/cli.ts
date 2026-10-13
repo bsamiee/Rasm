@@ -1,4 +1,3 @@
-// biome-ignore lint/correctness/noNodejsModules: Pulumi Automation supplies synchronous output callbacks for the native Node process streams.
 import { stderr, stdout } from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { ActionsRepositoryPermissions, ActionsSecret, type ActionsSecretArgs, DependabotSecret, type DependabotSecretArgs, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';

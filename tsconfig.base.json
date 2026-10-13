@@ -3,18 +3,14 @@
         "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
-        "incremental": true,
         "lib": [ "esnext" ],
         "module": "preserve",
-        "moduleDetection": "force",
         "noEmit": true,
         "noImplicitOverride": true,
         "noImplicitReturns": true,
         "noUncheckedIndexedAccess": true,
         "skipLibCheck": true,
-        "target": "esnext",
         "verbatimModuleSyntax": true
     },
-    "include": [ "${configDir}" ],
-    "exclude": [ "${configDir}/vitest.config.ts" ]
+    "exclude": [ "${configDir}/vite.config.ts", "${configDir}/vitest.config.ts" ]
 }

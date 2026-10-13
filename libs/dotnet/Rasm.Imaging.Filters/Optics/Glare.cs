@@ -11,6 +11,7 @@ using Emgu.CV.Util;
 using MathNet.Numerics;
 using PeterO.Numbers;
 using Rasm.Imaging.ColorManagement;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;

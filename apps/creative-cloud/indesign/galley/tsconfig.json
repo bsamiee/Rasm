@@ -1,0 +1,10 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "allowJs": true,
+        "maxNodeModuleJsDepth": 1,
+        "lib": [ "esnext", "dom" ],
+        "types": [ "node", "vite/client", "@adobe-uxp-types/uxp/with-protocol" ],
+        "paths": { "adobe:indesign": [ "./node_modules/indesign-uxp-types/flat/module.d.ts" ] }
+    }
+}

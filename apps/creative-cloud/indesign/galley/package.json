@@ -1,0 +1,34 @@
+{
+    "name": "@rasm/galley",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./extension": "./extension.ts"
+    },
+    "main": "panel.ts",
+    "dependencies": {
+        "@exodus/bytes": "catalog:",
+        "@rasm/ai": "workspace:*",
+        "acorn": "catalog:",
+        "acorn-walk": "catalog:",
+        "effect": "catalog:",
+        "image-size": "catalog:",
+        "magic-string": "catalog:",
+        "regjsparser": "catalog:",
+        "unicode-property-value-aliases": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "indesign-uxp-types": "catalog:",
+        "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build": {
+                "inputs": [ "...", { "env": "ATELIER_URL" } ]
+            }
+        }
+    }
+}

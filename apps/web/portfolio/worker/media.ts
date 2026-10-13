@@ -55,7 +55,7 @@ const advance = Effect.fnUntraced(function* (bucket: R2Bucket, current: Upload, 
             Effect.gen(function* () {
                 const asset = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => new HttpApiError.BadRequest()));
                 const crypto = yield* Crypto.Crypto;
-                const attemptId = yield* crypto.randomUUIDv4;
+                const attemptId = yield* crypto.randomUUIDv4();
                 const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [
                     ...('renditions' in asset ? (asset.renditions ?? []).map((rendition) => ({ ...rendition, key: `${attemptId}/${rendition.width}`, field: 'renditions' as const, name: String(rendition.width) })) : []),
                     { key: attemptId, field: 'file', mime: asset.mime, size: asset.size },

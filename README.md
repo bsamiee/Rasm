@@ -42,7 +42,7 @@ Rasm/
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Test and coverage options every project config imports
-├── vite.config.ts            # Bundling options every UXP build target runs from its project directory
+├── vite.config.ts            # Bundling options every project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
@@ -107,8 +107,8 @@ flowchart LR
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build
 - `--skip-nx-cache` runs a build in place of an Nx cache replay
-- `nx run <project>:install` installs built products, packing Rhino and Blender projects first
-- `nx run <project>:pack` writes Rhino Yak packages under `.artifacts/dotnet/publish/` or Blender `extension.zip` under `.artifacts/blender/`
+- `nx run <project>:install` builds or packs a project, then installs its product into its host
+- `nx run <project>:pack` writes a project's product as the package its host installs
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, and tool binaries to newest builds
 - `nx run rasm:clean` removes declared outputs and tool residue, prunes unused installations and caches, and recovers stale macOS processes
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
@@ -118,6 +118,7 @@ flowchart LR
 - `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
 - `nx run rasm:format:files -- <paths>` runs each portable writer over the named paths it formats
 - Project `vite.config.ts` infers `build` and continuous `serve` for the Vite development server, both run from that project
+- Project `uxp.config.ts` configures inferred Vite `build` and infers `install` into each host the manifest names
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its skill states why not
@@ -150,39 +151,31 @@ flowchart LR
 
 ## [05]-[QUALITY]
 
+- Failing checks are fixed in the code or the rule, severity stays as configured
 - .NET: `dotnet build` and `dotnet format --verify-no-changes` at zero findings
 - .NET `format` applies whitespace, style, and analyzer fixes
 - Python: `ruff`, `ty`, and `mypy` at zero findings
-- TypeScript: `biome check` at zero findings, `tsc --build` under strict options
+- TypeScript: `biome check` at zero findings, `tsc` under strict options
 - Swift: warnings as errors, strict memory safety, every supported upcoming feature, `swift-format lint --strict` and `swiftlint lint` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Checker decisions: PMD `AvoidAccessibilityAlteration` skips `use-ghidra` `Headers.run`, Ghidra's `PreProcessor` takes a `DefineTable` through package-private field `defs` alone
 - Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
 - Writers: `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format`
-- Checks run through Nx targets alone, each target with every command, dependency, and path the target declares
-- .NET build, restore, publish, and install commands write `.artifacts/dotnet/binlog/<purpose>-{}.binlog` for `binlog` MCP
-- Failing checks are fixed in the code or the rule, severity stays as configured
 
 ## [06]-[STRUCTURE]
 
 - `eng/<language>/` owns engineering workflows over repository projects and artifacts
 - `tools/` provides capabilities for development tools and applications
 - Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
-- Libraries group by language under `libs/<language>/`, with host-bound packages under a `<host>/` folder
 - Build and task graph take .NET hosts from the `<host>/` path folder, Blender hosts from `blender_manifest.toml`
-- `libs/` packages point down an acyclic graph, each .NET and TypeScript package consumable alone through declared dependencies
 - Python packages build into one `rasm` wheel
 - First-party Python imports use `from rasm.<module> import <member>` for private Blender extension relocation
-- Projects under a `rhino` folder compile against `RhinoCommon`
 - `Grasshopper2` package references add Grasshopper 2 global usings
-- Projects compile no file of a project nested in their folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`
 - Project files are `.csproj`, `.cs` files opening with `#!`, `package.json` with `tsconfig.json`, `py.typed`, `blender_manifest.toml`, and `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Projects hold no `src/` directory and no folder with one file, folders group by domain per language
-- Changes replace structure in place, one commit holds change and removal, new structure keeps its predecessor's name
 - Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder
 - Schema libraries apply the delta from owning types to the live database, with no migration file or history table
-- Displays, documents, and defaults show imperial units, domain values hold SI quantities converted at the boundary

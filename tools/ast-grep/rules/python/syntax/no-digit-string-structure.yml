@@ -3,40 +3,44 @@ id: no-digit-string-structure
 language: python
 severity: error
 utils:
-    rendered:
+    renderer:
+        regex: '(^|\.)(str|repr|format)$'
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^(str|repr|format)$'}}}
+            - kind: attribute
+              all: [{has: {field: object, kind: string}}, {has: {field: attribute, regex: '^format$'}}]
+    mapper:
+        regex: '(^|\.)map$'
+        matches: {python-builtin-name: {name: {regex: '^map$'}}}
+    digit-reader:
+        regex: '(^|\.)(int|ord)$'
+        matches: {python-builtin-name: {name: {regex: '^(int|ord)$'}}}
+    rendered-value:
         any:
             - kind: call
-              has: {field: function, kind: identifier, regex: '^(str|repr|format)$'}
-            - kind: call
-              has: {field: function, kind: attribute, all: [{has: {field: object, kind: string}}, {has: {field: attribute, regex: '^format$'}}]}
+              has: {field: function, matches: renderer}
             - kind: binary_operator
               all:
                 - has: {field: left, kind: string}
                 - has: {field: operator, regex: '^%$'}
             - kind: string
               has: {kind: interpolation}
-    renderer:
-        any:
-            - kind: identifier
-              regex: '^(str|repr|format)$'
-            - kind: attribute
-              all: [{has: {field: object, kind: string}}, {has: {field: attribute, regex: '^format$'}}]
     joined-source:
         any:
             - kind: generator_expression
-              has: {field: body, matches: rendered}
+              has: {field: body, matches: rendered-value}
             - kind: argument_list
-              has: {kind: 'list_comprehension, set_comprehension, generator_expression', has: {field: body, matches: rendered}}
+              has: {kind: 'list_comprehension, set_comprehension, generator_expression', has: {field: body, matches: rendered-value}}
             - kind: argument_list
               has:
                 kind: 'list, tuple'
-                has: {matches: rendered}
-                not: {has: {pattern: $_, not: {matches: rendered}}}
+                has: {matches: rendered-value}
+                not: {has: {pattern: $_, not: {matches: rendered-value}}}
             - kind: argument_list
               has:
                 kind: call
                 all:
-                    - has: {field: function, regex: '^map$'}
+                    - has: {field: function, matches: mapper}
                     - has: {field: arguments, has: {nthChild: 1, matches: renderer}}
               not: {has: {nthChild: 2}}
     joined:
@@ -48,60 +52,93 @@ utils:
         kind: binary_operator
         all:
             - has: {field: operator, regex: '^\+$'}
-            - has: {field: left, any: [{matches: rendered}, {matches: concatenated}]}
-            - has: {field: right, matches: rendered}
-    rendering:
+            - has: {field: left, any: [{matches: rendered-value}, {matches: concatenated}]}
+            - has: {field: right, matches: rendered-value}
+    combined-values:
         any:
             - matches: joined
             - matches: concatenated
             - kind: string
               has: {kind: interpolation, nthChild: {position: 2, ofRule: {kind: interpolation}}}
-    rendered-string:
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, all: [{has: {field: object, kind: string}}, {has: {field: attribute, regex: '^format$'}}]}
+                - has: {field: arguments, has: {nthChild: 2}}
+            - kind: binary_operator
+              all:
+                - has: {field: left, kind: string}
+                - has: {field: operator, regex: '^%$'}
+                - has: {field: right, kind: tuple, has: {nthChild: 2}}
+    combined-binding:
         any:
             - kind: assignment
               all:
                 - has: {field: left, kind: identifier, pattern: $S}
-                - has: {field: right, matches: rendering}
+                - has: {field: right, matches: combined-values}
             - kind: named_expression
               all:
                 - has: {field: name, pattern: $S}
-                - has: {field: value, matches: rendering}
+                - has: {field: value, matches: combined-values}
             - kind: augmented_assignment
               all:
                 - has: {field: left, kind: identifier, pattern: $S}
                 - has: {field: operator, regex: '^\+=$'}
-                - has: {field: right, matches: rendered}
-    probe:
+                - has: {field: right, matches: rendered-value}
+    digits:
         any:
             - kind: string
               regex: '^["'']\d+["'']$'
             - kind: call
-              has: {field: function, kind: identifier, regex: '^(str|repr|format)$'}
-    read-string:
+              has: {field: function, matches: renderer}
+    combined-read:
         any:
             - kind: identifier
               pattern: $S
             - kind: subscript
               has: {field: value, kind: identifier, pattern: $S}
+    character-loop:
+        any:
+            - kind: for_statement
+              all:
+                - has: {field: left, kind: identifier, pattern: $C}
+                - has: {field: right, kind: identifier, pattern: $S}
+            - kind: 'list_comprehension, set_comprehension, generator_expression'
+              has:
+                kind: for_in_clause
+                all:
+                    - has: {field: left, kind: identifier, pattern: $C}
+                    - has: {field: right, kind: identifier, pattern: $S}
 rule:
     pattern: $READ
     any:
         - kind: call
           all:
-            - has: {field: function, kind: identifier, regex: '^(int|ord)$'}
-            - has: {field: arguments, has: {nthChild: 1, kind: subscript, matches: read-string}, not: {has: {nthChild: 2}}}
+            - has: {field: function, matches: digit-reader}
+            - has: {field: arguments, has: {nthChild: 1, kind: subscript, matches: combined-read}, not: {has: {nthChild: 2}}}
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: read-string}}, {has: {field: attribute, regex: '^(count|find|rfind|index|rindex|startswith|endswith)$'}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: probe}}
+            - has: {field: function, matches: digit-reader}
+            - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $C}, not: {has: {nthChild: 2}}}
+            - inside: {stopBy: end, matches: character-loop}
+        - kind: call
+          all:
+            - has: {field: function, matches: mapper}
+            - has: {field: arguments, has: {nthChild: 1, matches: digit-reader}}
+            - has: {field: arguments, has: {nthChild: 2, kind: identifier, pattern: $S}}
+        - kind: call
+          has: {field: function, kind: attribute, all: [{has: {field: object, matches: combined-read}}, {has: {field: attribute, regex: '^(split|rsplit|splitlines|partition|rpartition)$'}}]}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: combined-read}}, {has: {field: attribute, regex: '^(count|find|rfind|index|rindex|startswith|endswith)$'}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: digits}}
         - kind: comparison_operator
           all:
             - has: {field: operators, regex: '^(not\s+)?in$|^[!=]=$'}
-            - has: {matches: probe}
-            - has: {matches: read-string}
+            - has: {matches: digits}
+            - has: {matches: combined-read}
     inside:
         kind: 'function_definition, module'
         stopBy: end
-        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: rendered-string}
+        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: combined-binding}
 message: '`$READ` reads digits back from the numbers `$S` renders into one string'
-note: 'Use a `list[int]` holding the values for each index, count, or membership test, a rendered string loses the values it spells'
+note: 'Index, count, split, and test membership over a `list[int]` holding the values, a rendered string loses the values it spells'

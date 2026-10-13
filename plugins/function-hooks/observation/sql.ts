@@ -37,7 +37,6 @@ const _TABLES: readonly (readonly [name: string, body: string, rows?: readonly o
         'transition_state',
         '(state text primary key, live integer not null default 0 check (live in (0, 1))) strict',
         [
-            { state: 'proposed', live: 1 },
             { state: 'confirmed', live: 1 },
             { state: 'wrong', live: 0 },
             { state: 'checker_owned', live: 1 },

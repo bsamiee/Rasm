@@ -23,7 +23,7 @@ languageInjections:
       rule:
         kind: string_fragment
         pattern: $CONTENT
-        regex: '(?i)^\s*(alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values|with)\b\s*\S'
+        regex: '(?i)^\s*(?:(?:alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values)\b\s*\S|with\s+(?:recursive\b|\w+(?:\s*\([^)]*\))?\s+as\s*\())'
         not: {regex: '^\s*[A-Z][a-z]'}
         inside: {kind: 'string, template_string', not: {has: {kind: 'escape_sequence, template_substitution'}}}
       injected: sql

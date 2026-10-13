@@ -1,5 +1,3 @@
-// biome-ignore-all lint/correctness/noNodejsModules: Arguments and extensions of the named files come from Node
-
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { extname, relative, resolve } from 'node:path';

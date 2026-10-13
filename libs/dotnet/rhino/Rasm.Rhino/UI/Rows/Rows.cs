@@ -333,7 +333,7 @@ public abstract partial record ControlRow {
         new Field(source, toSeq(fields).Bind(field => source.Keys(field.Parameter)), shape, realize, caption, help, rules);
 
     public sealed record Field : ControlRow {
-        internal Field(RowSource source, Seq<EntryKey> keys, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, string caption, string help, RowRules rules)
+        public Field(RowSource source, Seq<EntryKey> keys, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, string caption, string help, RowRules rules)
             : base(caption, Some(help), keys, rules, Wording.English) =>
             (Source, Shape, Realize) = (source, shape, realize);
 

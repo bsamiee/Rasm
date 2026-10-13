@@ -6,7 +6,6 @@ using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using SixLabors.ImageSharp.PixelFormats;
 using TorchSharp;
 using UnitsNet;
 using UnitsNet.Units;
@@ -85,7 +84,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : ISta
                 for (int i = 0; i < row.Length; i++)
                     (weights.Span[i], layer.Span[i]) = (layer.Span[i].W, new Vector4(layer.Span[i].AsVector3() * gain, 1f));
                 if (mode == BlendingMode.Mix)
-                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated);
+                    mode.Composite(row, layer.Span, weights.Span, AlphaRepresentation.Unassociated);
                 else {
                     mode.Mixed(row, layer.Span, weights.Span);
                     layer.Span.CopyTo(row);

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>Rhino render engines, post effects, scenes, sessions, saves, render history, presets, sets, and queues as IO effects over RhinoCommon</Description>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Mapperly">
+        <MapperlyAbstractionsScope>runtime</MapperlyAbstractionsScope>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="LanguageExt.Streaming" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <PackageReference Include="UUIDNext" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="PeterO.Numbers" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../Rasm.Imaging/Rasm.Imaging.csproj" />
+        <ProjectReference Include="../../Rasm.Imaging.Files/Rasm.Imaging.Files.csproj" />
+        <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Render Queue">
+        <EmbeddedResource Include="Queue/rasm_rhino_render.js" LogicalName="Rasm.Rhino.Render.Queue.rasm_rhino_render.js" />
+    </ItemGroup>
+</Project>

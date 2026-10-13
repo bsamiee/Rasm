@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enumeration-table
+language: tsx
+severity: error
+utils:
+    member:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^[A-Z][A-Z0-9_]*$'}
+            - has: {field: object, pattern: $ENUMERATION}
+    member-pair:
+        kind: pair
+        has: {field: value, matches: member}
+    member-entry:
+        kind: array
+        all:
+            - has: {kind: 'string, template_string', nthChild: 1}
+            - has: {nthChild: 2, matches: member}
+            - not: {has: {nthChild: 3}}
+    host-member:
+        has: {field: object, matches: uxp-enumeration-reference}
+rule:
+    pattern: $TABLE
+    any:
+        - kind: object
+          all:
+            - has: {kind: pair, nthChild: {position: 2, ofRule: {kind: pair}}}
+            - has: {matches: member-pair, has: {field: value, matches: host-member}}
+            - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: member-pair}]}}}
+        - kind: array
+          all:
+            - has: {kind: array, nthChild: {position: 2, ofRule: {kind: array}}}
+            - has: {matches: member-entry, has: {nthChild: 2, matches: host-member}}
+            - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: member-entry}]}}}
+message: '`$TABLE` restates members of `$ENUMERATION` under keys of its own'
+note: 'Read the member by name as `Schema.decodeUnknownOption(Schema.instanceOf(indesign.Enumerator))(Reflect.get($ENUMERATION, <name>))`, and accept the names of members whose `String` equals their key; each enumeration holds every member under upper snake, camel, and lowercase keys'

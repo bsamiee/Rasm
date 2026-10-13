@@ -2,6 +2,7 @@ using Rasm.Rhino.Render.Effects;
 
 using System.Runtime.InteropServices;
 using Rasm.Imaging.ColorManagement;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Grade.Balance;
 using Rasm.Imaging.Grade.Curves;

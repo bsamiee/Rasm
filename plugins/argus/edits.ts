@@ -1,4 +1,3 @@
-// biome-ignore lint/correctness/noNodejsModules: LSP file URIs require Node's native path escaping and platform path conversion.
 import { pathToFileURL } from 'node:url';
 import { Effect, type FileSystem, Match, Option, Schema, Stream } from 'effect';
 import { FileChangeType, type FileEvent } from 'vscode-languageserver-protocol/node';

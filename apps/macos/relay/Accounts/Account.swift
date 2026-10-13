@@ -84,8 +84,7 @@ nonisolated protocol ProviderClient: Actor {
     func currentSelection(known: [Account]) async -> Result<AccountIdentity?, ProviderError>
     func holdsCredential(for account: Account) async -> Result<Bool, ProviderError>
     func select(_ account: Account, outgoing: Account?) async -> Result<AccountIdentity, ProviderError>
-    func connect(id: UUID, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError>
-    func reconnect(account: Account, isSelected: Bool, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError>
+    func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError>
     func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError>
     func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError>
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError>
@@ -143,18 +142,15 @@ nonisolated struct Account: Identifiable, Sendable {
     var sessionPolicy: SessionPolicy
 }
 
+nonisolated enum SignInTarget: Sendable {
+    case newAccount(UUID)
+    case account(Account, isSelected: Bool)
+}
+
 nonisolated enum AuthenticationRefusal: Sendable {
     case differentAccount(email: String)
     case alreadyConnected(email: String)
     case failure(ProviderError)
-
-    var description: String {
-        switch self {
-            case .differentAccount(let email): "Signed in to a different account than \(email)"
-            case .alreadyConnected(let email): "\(email) is already connected"
-            case .failure(let error): error.failure.localizedDescription
-        }
-    }
 }
 
 nonisolated enum AuthenticationPhase: Sendable {
@@ -162,15 +158,6 @@ nonisolated enum AuthenticationPhase: Sendable {
     case completing
     case refused(AuthenticationRefusal)
     case cancelling
-
-    var description: String {
-        switch self {
-            case .pending: "Waiting for browser sign-in"
-            case .completing: "Completing sign-in"
-            case .refused(let refusal): refusal.description
-            case .cancelling: "Canceling sign-in"
-        }
-    }
 }
 
 nonisolated struct AuthenticationPresentation: Identifiable, Sendable {

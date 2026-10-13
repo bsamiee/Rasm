@@ -7,12 +7,17 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using Rasm.Imaging.ColorManagement;
 using Rasm.Imaging.Pixels;
-using SixLabors.ImageSharp.PixelFormats;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Grade;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+public enum AlphaRepresentation {
+    None,
+    Associated,
+    Unassociated,
+}
+
 internal interface IBlendKernel {
     public static abstract Vector256<double> Apply(Vector256<double> a, Vector256<double> b);
 }
@@ -201,34 +206,34 @@ public abstract partial class BlendingMode {
 
     public uint BlendModeKey { get; }
 
-    public abstract void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated);
+    public abstract void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, AlphaRepresentation representation, AlphaRepresentation sourceRepresentation = AlphaRepresentation.Unassociated);
 
     public abstract void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights);
 
     private sealed class Mode<TKernel> : BlendingMode where TKernel : IBlendKernel {
         public Mode(string key, ReadOnlySpan<byte> code) : base(key, BinaryPrimitives.ReadUInt32BigEndian(code)) { }
 
-        public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
+        public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, AlphaRepresentation representation, AlphaRepresentation sourceRepresentation = AlphaRepresentation.Unassociated) {
             for (int x = 0; x < backdrop.Length; x++) {
-                if (weights[x] == 0f || (sourceRepresentation == PixelAlphaRepresentation.Unassociated && layer[x].W == 0f) || (sourceRepresentation == PixelAlphaRepresentation.Associated && layer[x] == Vector4.Zero))
+                if (weights[x] == 0f || (sourceRepresentation == AlphaRepresentation.Unassociated && layer[x].W == 0f) || (sourceRepresentation == AlphaRepresentation.Associated && layer[x] == Vector4.Zero))
                     continue;
-                double sourceAlpha = sourceRepresentation == PixelAlphaRepresentation.None ? 1d : layer[x].W;
+                double sourceAlpha = sourceRepresentation == AlphaRepresentation.None ? 1d : layer[x].W;
                 double covered = weights[x] * sourceAlpha;
                 Vector4 under = backdrop[x];
                 Vector256<double> source = Vector256.Create(layer[x].X, layer[x].Y, layer[x].Z, 0d);
-                double alpha = representation == PixelAlphaRepresentation.None ? 1d : under.W;
+                double alpha = representation == AlphaRepresentation.None ? 1d : under.W;
                 Vector256<double> color = Vector256.Create(under.X, under.Y, under.Z, 0d);
-                Vector256<double> associated = representation == PixelAlphaRepresentation.Associated || alpha == 1d ? color
+                Vector256<double> associated = representation == AlphaRepresentation.Associated || alpha == 1d ? color
                     : alpha == 0d ? Vector256<double>.Zero : alpha * color;
-                color = representation == PixelAlphaRepresentation.Associated && alpha is not (0d or 1d) ? color / alpha : color;
-                Vector256<double> straight = sourceRepresentation == PixelAlphaRepresentation.Associated && sourceAlpha != 0d ? source / sourceAlpha : source;
+                color = representation == AlphaRepresentation.Associated && alpha is not (0d or 1d) ? color / alpha : color;
+                Vector256<double> straight = sourceRepresentation == AlphaRepresentation.Associated && sourceAlpha != 0d ? source / sourceAlpha : source;
                 Vector256<double> blended = alpha == 0d || this == Mix ? straight
                     : alpha == 1d ? TKernel.Apply(color, straight)
                     : Vector256.Lerp(straight, TKernel.Apply(color, straight), Vector256.Create(alpha));
                 double outputAlpha = covered == 1d || alpha == 1d ? 1d : alpha == 0d ? covered : covered + ((1d - covered) * alpha);
                 Vector256<double> output = sourceAlpha == 0d ? associated + (weights[x] * source)
                     : covered == 1d ? blended : (covered * blended) + ((1d - covered) * associated);
-                output = representation == PixelAlphaRepresentation.Unassociated && outputAlpha is not (0d or 1d) ? output / outputAlpha : output;
+                output = representation == AlphaRepresentation.Unassociated && outputAlpha is not (0d or 1d) ? output / outputAlpha : output;
                 backdrop[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], (float)outputAlpha);
             }
         }
@@ -305,16 +310,16 @@ file readonly record struct Blending(BlendingMode Mode, float Amount, Seq<Mask> 
     }
 }
 
-file readonly struct LayerAction(Memory2D<Vector4> rows, Memory2D<Vector4> layer, Blending blending, PixelFrame frame, PixelAlphaRepresentation representation) : IAction {
+file readonly struct LayerAction(Memory2D<Vector4> rows, Memory2D<Vector4> layer, Blending blending, PixelFrame frame, AlphaRepresentation representation) : IAction {
     public void Invoke(int i) {
         Span<Vector4> row = rows.Span.GetRowSpan(i);
         using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
-        if (representation == PixelAlphaRepresentation.Unassociated || blending.Masks.IsEmpty)
+        if (representation == AlphaRepresentation.Unassociated || blending.Masks.IsEmpty)
             blending.Weigh(row, frame.Origin.X, frame.Line(i), weights.Span);
         else {
             using SpanOwner<Vector4> input = SpanOwner<Vector4>.Allocate(row.Length);
             for (int x = 0; x < row.Length; x++)
-                input.Span[x] = representation == PixelAlphaRepresentation.None ? new Vector4(row[x].AsVector3(), 1f)
+                input.Span[x] = representation == AlphaRepresentation.None ? new Vector4(row[x].AsVector3(), 1f)
                     : row[x].W is 0f or 1f ? row[x] : new Vector4(row[x].AsVector3() / row[x].W, row[x].W);
             blending.Weigh(input.Span, frame.Origin.X, frame.Line(i), weights.Span);
         }
@@ -351,7 +356,7 @@ public static class Blend {
                     });
                 }));
 
-    public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, Mix opacity, Seq<Mask> masks, PixelAlphaRepresentation representation) =>
+    public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, Mix opacity, Seq<Mask> masks, AlphaRepresentation representation) =>
         opacity == Mix.MinValue ? @base.Copy() : new(@base.Origin, @base.Size, @base.Extent, block => {
             @base.Block.CopyTo(block);
             ParallelHelper.For(0, @base.Size.Height, new LayerAction(

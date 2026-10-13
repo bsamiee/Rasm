@@ -111,9 +111,7 @@ Files read, scans, and the `-check` build decide over a page.
 9. Classify each finding under the decision rules
 10. Fix in severity order, one catalog entry per edit pass per file, `STYLE` findings in files the run already edits
 11. Apply each edit as one exact-string replacement
-12. Scan `<files>` and build `<projects>` with `-check` again, each hit and `BC` line a finding for steps 9 to 11
-13. Bound fix cycles at 3
-14. Delete every `-pp` output and every capture but the last by its printed path
+12. Delete every `-pp` output and every capture but the last by its printed path
 
 </procedure>
 

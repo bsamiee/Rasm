@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-properties-record-write
+language: tsx
+severity: error
+utils:
+    properties-key:
+        any:
+            - kind: property_identifier
+              regex: '^properties$'
+            - kind: string, template_string
+              regex: '^.properties.$'
+rule:
+    pattern: $WRITE
+    any:
+        - kind: assignment_expression
+          has:
+            field: left
+            any:
+                - {kind: member_expression, has: {field: property, matches: properties-key}}
+                - {kind: subscript_expression, has: {field: index, matches: properties-key}}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: '^(Reflect\.(set|defineProperty)|Object\.defineProperty)$'}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: properties-key}}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: '^Object\.assign$'}
+            - has:
+                field: arguments
+                has:
+                    kind: object
+                    not: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+                    has:
+                        any:
+                            - {kind: pair, has: {field: key, matches: properties-key}}
+                            - {kind: shorthand_property_identifier, regex: '^properties$'}
+    inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+message: '`$WRITE` writes a record through `properties`, which drops each key InDesign refuses with no throw'
+note: 'Write each key as its own `Reflect.set(<owner>, <key>, <value>)` under `Effect.validate`, where a refused key throws with its expected type and range, and restore each held key by name in the release of an `Effect.acquireRelease`'

@@ -56,10 +56,11 @@ public static class DarkroomSettings {
                         new StateParameter<Uri>.Opaque<Uri>(Lens.identity<Uri>()), read, static value => value.AbsoluteUri, read),
                         SettingType.String, Applied.Live, [], Hidden: false),
                 },
-            Scripts: new(ValueKey.Raw("FlamencoScripts", "Scripts folder", "Manager scripts folder used by the install action", ""),
-                SettingType.String, Applied.Live, [], Hidden: false),
-            ScriptsEnabled: new(ValueKey.Raw("FlamencoScriptsEnabled", "Enable scripts folder", "Enables the retained scripts folder and compiler install action", @default: false),
-                SettingType.Bool, Applied.Live, [], Hidden: false),
+            Scripts: fun(static (string text) => Fin.Succ(Conversions.Present(text))) switch {
+                var read => new(new ValueKey<Option<string>, string>("FlamencoScripts", "Scripts folder", "Manager scripts folder the install action writes to; empty for none", None,
+                    new StateParameter<Option<string>>.Opaque<Option<string>>(Lens.identity<Option<string>>()), read, Conversions.Unset, read),
+                    SettingType.String, Applied.Live, [], Hidden: false),
+            },
             WorkerPlatform: fun(static (string text) => Conversions.Present(text).Match(
                 Some: static held => Fin.Succ(OSPlatform.Create(held)), None: static () => Fin.Fail<OSPlatform>(new InvalidRhinoValue()))) switch {
                     var read => new(new ValueKey<OSPlatform, string>("FlamencoWorkerPlatform", "Worker platform", "Operating system of selected Rhino workers; use a matching worker tag for mixed platforms", Default: OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.OSX,

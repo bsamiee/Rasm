@@ -9,7 +9,6 @@ interface MetricChange {
     readonly before: Option.Option<number>;
     readonly value: number;
 }
-
 interface Observation<A, E> {
     readonly exit: Exit.Exit<A, E>;
     readonly metricChanges: readonly MetricChange[];

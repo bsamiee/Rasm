@@ -80,16 +80,14 @@ Rename coined names through the tool that updates every reference:
 7. Rename each coined file, identifier, or function through the renames table, one rename per edit
 8. Replace coined terms and delete filler by the word map
 9. Apply one old string found across files through `sd -F '<old>' '<new>' $(rg -l -F '<old>')`
-10. Check each value, command, and flag against its sources row
-11. Run `python .claude/skills/clean-prose/scripts/prose.py fix <scope>`, rewrite each finding it prints, then run `check` over `<scope>`
-12. Bound fix cycles at 3 per file
+10. Correct each value, command, and flag from its sources row
+11. Run `python .claude/skills/clean-prose/scripts/prose.py fix <scope>`, rewrite each finding it prints
 
 </procedure>
 
 <done_when>
 
 - Every file in scope reads under every `clean-prose` rule, every fact the files held survives in one location
-- `prose.py check` over `<scope>` prints `Found 0 findings, 0 fixable`
 - Every rewritten sentence passes every rule its original passed
 - Every coined term is renamed with every reference
 - No partial edit, deferred value, or workaround remains

@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-presence-type-guard
+language: tsx
+severity: error
+utils:
+    member:
+        kind: member_expression, subscript_expression
+    presence:
+        any:
+            - kind: call_expression
+              has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has|.+\.hasOwnProperty(\.call)?)$'}
+            - kind: binary_expression
+              has: {field: operator, regex: '^in$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^(Predicate\.)?is[A-Z][A-Za-z]*$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: member}}
+            - kind: binary_expression
+              any:
+                - pattern: typeof $_ === $_
+                - pattern: typeof $_ !== $_
+              has: {field: left, has: {matches: member}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^instanceof$'}
+                - has: {field: left, matches: member}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(!==|!=)$'}
+                - has: {field: left, matches: member}
+                - has: {field: right, regex: '^(undefined|null)$'}
+    object-test:
+        any:
+            - kind: call_expression
+              has: {field: function, regex: '^(Predicate\.)?(isObject|isRecord|isNotNullish|isNotNull|isNotUndefined)$'}
+            - kind: binary_expression
+              any:
+                - pattern: typeof $_ === 'object'
+                - pattern: $_ !== null
+                - pattern: $_ != null
+                - pattern: $_ !== undefined
+    conjunct:
+        any:
+            - matches: presence
+            - matches: object-test
+            - kind: parenthesized_expression
+              has: {matches: conjunct}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^&&$'}
+                - has: {field: left, matches: conjunct}
+                - has: {field: right, matches: conjunct}
+    test:
+        all:
+            - matches: conjunct
+            - any:
+                - matches: presence
+                - has: {stopBy: end, matches: presence}
+    tested-body:
+        has:
+            field: body
+            any:
+                - matches: test
+                - kind: statement_block
+                  all:
+                    - has: {kind: return_statement, has: {matches: test}}
+                    - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: return_statement}]}}}
+    asserted:
+        has: {kind: type_predicate, has: {field: type, pattern: $TYPE, not: {kind: object_type}}}
+rule:
+    kind: arrow_function, function_expression, function_declaration, method_definition
+    all:
+        - any:
+            - has: {field: return_type, matches: asserted}
+            - inside:
+                kind: variable_declarator
+                field: value
+                has:
+                    field: type
+                    has:
+                        kind: generic_type
+                        all:
+                            - has: {field: name, regex: '^(Predicate\.)?Refinement$'}
+                            - has: {field: type_arguments, has: {nthChild: 2, pattern: $TYPE, not: {kind: object_type}}}
+        - matches: tested-body
+message: 'Type guard asserts `$TYPE` from the presence or type of a member'
+note: 'Decode the members the code reads with a `Schema` where the value enters, or narrow a typed union on its literal discriminant (`constructorName` for InDesign objects); a member''s presence or type proves no class'

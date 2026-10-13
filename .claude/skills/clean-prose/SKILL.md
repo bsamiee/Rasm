@@ -1,6 +1,7 @@
 ---
 name: clean-prose
 description: "Use when writing or rewriting markdown, comments, messages, identifiers, or file names, or reviewing for coined terms, filler, or restatement."
+disable-model-invocation: true
 ---
 
 # [CLEAN_PROSE]
@@ -39,7 +40,7 @@ Words that fail take the current term for what they name, real field terms (SIMD
 |  [12]   | `custody`, `custodian`, `posture`, `guardrail`, `beacon`, `lamp`  | `storage`, `holder`, `configuration`, `check`, `signal`, `light` |
 |  [13]   | `verb` (for a CLI action), `twin`, `sibling variant`              | `subcommand`, `overload`, `suffix variant`                       |
 |  [14]   | `rides`, `carries`, `travels`, `lives`, `furnished` (for a value) | `holds`, `stores`, `sets`, `supplies`, `belongs to`, `goes in`   |
-|  [15]   | `probe`, `probing`, `pool` (concurrent jobs), `fan-out degree`    | `run`, `read`, `scan`, `spy`, `degree of parallelism`            |
+|  [15]   | `pool` (concurrent jobs), `fan-out degree`                        | `degree of parallelism`                                          |
 |  [16]   | `phantom`, `ghost`, `census`, `sweep` (check)                     | `missing`, `undefined`, `coverage check`, `assertion`            |
 |  [17]   | `materialize`, `pristine`, `in-flight` (change)                   | `write`, `empty`, `uncommitted`                                  |
 |  [18]   | `interior`, `flips`, `mirrors` (as matches)                       | `inside`, `disabled`, `matches`                                  |
@@ -206,14 +207,13 @@ Comments state intent or constraint code cannot show, in one line and statement 
 
 Rewrite of an existing file:
 1. Read the whole file and every file it points to
-2. Check each fact against disk
-3. List every fact once, mark each fact that context, an owning file, or a table restates
-4. Choose a file and section for each fact
-5. When the list holds no finding, report compliance and stop
-6. Rename coined identifiers and files with every reference
-7. Replace coined terms and delete filler by the word map, a word outside the map joins the row of its category
-8. Rewrite each remaining sentence to state one fact in its section
-9. Run `prose.py fix` over the files in scope, rewrite each finding it prints, then run `check` until it prints zero findings
-10. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
+2. List every fact once, mark each fact that context, an owning file, or a table restates
+3. Choose a file and section for each fact
+4. When the list holds no finding, report compliance and stop
+5. Rename coined identifiers and files with every reference
+6. Replace coined terms and delete filler by the word map, a word outside the map joins the row of its category
+7. Rewrite each remaining sentence to state one fact in its section
+8. Run `prose.py fix` over the files in scope and rewrite each finding it prints
+9. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
-New text follows the same rules from its first draft. Reviews report one row per finding: line, rule, offending text, rewrite. Every run reads `references/word-map.md` and `references/rewrites.md` whole before its first edit.
+New text follows the same rules from its first draft. Every run reads `references/word-map.md` and `references/rewrites.md` whole before its first edit.

@@ -4,9 +4,6 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Plugin.Hosting;
 using Rasm.Rhino.Plugin.Licenses;
-using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.Render.Scenes;
-using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.UI.Chrome;
 using Rasm.Rhino.UI.Views;
 using Rhino.Commands;
@@ -56,7 +53,7 @@ public sealed class PlugInSession {
          select unit).Uninterruptible();
 }
 
-internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
+public sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
     // --- [STATE]
     private readonly Atom<ViewCatalog> views = Atom(ViewCatalog.Empty);
 
@@ -100,10 +97,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             Seq(
                     Presence.NotificationActivated,
                     ViewRegistration.RegisterPanels,
-                    ViewRegistration.AddCustomUISections,
-                    EffectRegistry.Register(definition.Effects),
-                    static (_, sink, retain) => Framing.Extent.Attach(sink, retain),
-                    static (_, sink, retain) => TargetRows.Shown.Attach(sink, retain))
+                    ViewRegistration.AddCustomUISections)
                 .Concat(definition.Acquisitions)
                 .Map(row => fun((Action<IDisposable> retain) => IO.pure(plugIn).Bind(owner => row(owner, owner, retain)))))
             .Bind(_ => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type)))), Session.Close())

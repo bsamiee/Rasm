@@ -16,7 +16,7 @@ max_concurrent_threads_per_session = 80
 
 # --- [MCP_SERVERS] ----------------------------------------------------------------------
 
-[mcp_servers.adobe]
+[mcp_servers.atelier]
 default_tools_approval_mode = "approve"
 url = "http://127.0.0.1:7409/"
 

@@ -20,18 +20,18 @@ interface Match {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const targets = (operation: Operation, project: string, paths: readonly string[]): Invocation => (operation === 'format' ? ['nx', 'run', `${project}:format:files`, '--output-style=static', '--', ...paths] : ['nx', 'run', `${project}:lint:ast-grep`, '--output-style=static', '--', '--json=compact', ...paths]);
+const target = (operation: Operation, project: string): string => `${project}:${operation === 'format' ? 'format:files' : 'lint:ast-grep'}`;
+const targets = (operation: Operation, project: string, paths: readonly string[]): Invocation => ['nx', 'run', target(operation, project), '--output-style=static', '--', ...(operation === 'format' ? [] : ['--json=compact']), ...paths];
+const written = (named: string, { code }: Ran): readonly string[] => (code === 0 ? [] : [`nx run ${named} exited ${code}`]);
 
-const written = ({ code, stdout, stderr }: Ran): readonly string[] => (code === 0 ? [] : [`format exited ${code}, ${`${stdout}${stderr}`.trim()}`]);
-
-const scanned = ({ code, stdout, stderr }: Ran): Result<readonly string[]> => {
+const scanned = (named: string, { code, stdout, stderr }: Ran): Result<readonly string[]> => {
     const report = stdout.split('\n').findLast((line) => line.startsWith('['));
     return report === undefined
-        ? fault({ kind: 'exited', subject: 'ast-grep', code, stderr: `${stdout}${stderr}`.trim() })
+        ? fault({ kind: 'exited', subject: `nx run ${named}`, code, stderr: stderr.trim() })
         : map(decoded<readonly Match[]>('ast-grep', ok(report)), (matches) => matches.map(({ file, range: { start }, ruleId, severity, message }) => `${file}:${start.line + 1}:${start.column + 1} ${severity} ${ruleId}: ${message}`));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Operation, Ran };
-export { scanned, targets, written };
+export { scanned, target, targets, written };

@@ -1,5 +1,3 @@
-// biome-ignore-all lint/correctness/noNodejsModules lint/nursery/noRestrictedDependencies: Recovery requires native process APIs and Rimraf's cancellable filtered deletion.
-
 import { homedir, userInfo } from 'node:os';
 import { sep } from 'node:path';
 import process from 'node:process';
@@ -8,6 +6,7 @@ import { cacheDir, createProjectGraphAsync, getOutputsForTargetAndConfiguration,
 import { Array, Config, Console, Data, Effect, FileSystem, flow, HashMap, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Stream, String, Struct, Tuple } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { escape, Minimatch } from 'minimatch';
+// biome-ignore lint/nursery/noRestrictedDependencies: Rimraf alone filters each entry of a cancellable glob deletion.
 import { rimraf } from 'rimraf';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

@@ -41,7 +41,7 @@ DuckDB scripts run `duckdb -json -cmd "set variable transcript = '<transcript>'"
 
 [SCRIPTS]:
 - [01]-[LIFECYCLE](scripts/lifecycle.sql): `:worktree`, closes, moves, and reconfirms every live finding, one returned row per transition with its `state`
-- [02]-[BATCH](scripts/batch.sql): `:worktree`, `:sites`, `:actor_id`, proposes an agent's sites, returns the ids new to `finding`, then every site's id
+- [02]-[BATCH](scripts/batch.sql): `:worktree`, `:sites`, `:actor_id`, confirms an agent's sites, returns the ids new to `finding`, then every site's id
 - [03]-[AST_GREP](scripts/ast-grep.sql): `:worktree`, `:out`, confirms `ast-grep scan --json=compact` hits, returns as `batch.sql`
 - [04]-[RUFF](scripts/ruff.sql): `:worktree`, `:out`, confirms `ruff check --output-format json` diagnostics, returns as `batch.sql`
 - [05]-[BIOME](scripts/biome.sql): `:worktree`, `:out`, confirms `biome lint --reporter=json` diagnostics, returns as `batch.sql`
@@ -179,15 +179,14 @@ Hashes are lowercase hex from `sha3` of the `sqlite3` shell alone. Columns, ids,
 
 | [INDEX] | [STATE]          | [MEANING]                                              | [ACTOR]          | [EVIDENCE]                 |
 | :-----: | :--------------- | :----------------------------------------------------- | :--------------- | :------------------------- |
-|  [01]   | `proposed`       | Judgment agent claims the site violates the standard   | `agent`          | Correction in one line     |
-|  [02]   | `confirmed`      | Present at the hash, fix keeps behavior                | `agent`, `check` | Decision, `verdict`        |
-|  [03]   | `wrong`          | Fix changes behavior, or false positive                | `agent`          | Reason, final at its hash  |
-|  [04]   | `checker_owned`  | Checker rule states the category, a checker row covers | `agent`          | `<tool>:<rule id>`         |
-|  [05]   | `checker_silent` | Checker rule states the category and missed the site   | `agent`          | `<tool>:<rule id>`         |
-|  [06]   | `fixed`          | Text absent, an edit removed it or a write lacks it    | `check`          | `tool_use_id`              |
-|  [07]   | `vanished`       | Text absent with no edit removing it, or `path` gone   | `check`          | `null`                     |
-|  [08]   | `moved`          | Text moved by an edit or `git mv` since its transition | `check`          | `null`, `path` the new one |
-|  [09]   | `waived`         | User accepts the site as is                            | `user`           | Reason                     |
+|  [01]   | `confirmed`      | Present at the hash, fix keeps behavior                | `agent`, `check` | Decision, `verdict`        |
+|  [02]   | `wrong`          | Fix changes behavior, or false positive                | `agent`          | Reason, final at its hash  |
+|  [03]   | `checker_owned`  | Checker rule states the category, a checker row covers | `agent`          | `<tool>:<rule id>`         |
+|  [04]   | `checker_silent` | Checker rule states the category and missed the site   | `agent`          | `<tool>:<rule id>`         |
+|  [05]   | `fixed`          | Text absent, an edit removed it or a write lacks it    | `check`          | `tool_use_id`              |
+|  [06]   | `vanished`       | Text absent with no edit removing it, or `path` gone   | `check`          | `null`                     |
+|  [07]   | `moved`          | Text moved by an edit or `git mv` since its transition | `check`          | `null`, `path` the new one |
+|  [08]   | `waived`         | User accepts the site as is                            | `user`           | Reason                     |
 
 Row conditions and `lifecycle.sql` transitions:
 - Rows are stale when `subject_hash` of their latest `confirmed` differs from `<head>` at read time
@@ -228,8 +227,8 @@ sqlite3 -json -cmd ".param set :finding_id '<finding_id>'" <db> "select state, e
 # Which checker categories overlap one span
 sqlite3 -json -cmd ".param set :path '<path>'" -cmd ".param set :start_line <n>" -cmd ".param set :end_line <n>" <db> "select checker, category from finding where checker is not null and path = :path and start_line <= :end_line and end_line >= :start_line"
 
-# Rows on the scope paths, every proposed row, and every confirmed row at a stale hash, :paths a JSON array relative to the worktree
-sqlite3 -json -cmd ".param set :paths '[\"<a>\", \"<b>\"]'" <db> "select finding_id, checker, category, path, text, occurrence, state, subject_hash = <head> as same_hash from finding_state where path in (select value from json_each(:paths)) or state = 'proposed' or (state = 'confirmed' and subject_hash <> <head>)"
+# Rows on the scope paths and every confirmed row at a stale hash, :paths a JSON array relative to the worktree
+sqlite3 -json -cmd ".param set :paths '[\"<a>\", \"<b>\"]'" <db> "select finding_id, checker, category, path, text, occurrence, state, subject_hash = <head> as same_hash from finding_state where path in (select value from json_each(:paths)) or (state = 'confirmed' and subject_hash <> <head>)"
 
 # What each edit call changed, :ids the tool_use_ids
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select tool_use_id, payload from observation where event = 'PostToolUse' and tool_use_id in (select value from json_each(:ids))" | jq '[.[] | .payload |= fromjson]'
@@ -296,6 +295,6 @@ Quiet `Stop` events have no editor of an unjudged range and no `editAgent` in `r
 
 Model that receives a findings entry:
 1. Read ids through the `confirmed_findings` reader
-2. Validate each against the current task and act on in-scope sites
+2. Act on each site the current task covers
 3. Write one transition per id through `transition.sql`, `fixed` with its edit's `tool_use_id`, `wrong` with its reason, `waived` by actor `user` on the user's word
 4. Continue the task

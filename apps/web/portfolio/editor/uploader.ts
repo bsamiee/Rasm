@@ -100,8 +100,8 @@ const prepare = Effect.fnUntraced(function* (uploader: Uppy<UploadMeta, Body>, i
     const crypto = yield* Crypto.Crypto;
     const inspected = Effect.gen(function* () {
         const { inspectFile } = yield* Effect.tryPromise(() => import('../media/inspect.ts'));
-        const { asset, renditions } = yield* inspectFile(data, yield* crypto.randomUUIDv4, file.name, file.type);
-        const compositions = yield* file.meta.destination.kind === 'entry' && asset.mime !== 'application/pdf' ? Effect.forEach(placementsFor(asset, true), (placement) => Effect.map(crypto.randomUUIDv4, (key) => createComposition(key, placement))) : Effect.succeed([]);
+        const { asset, renditions } = yield* inspectFile(data, yield* crypto.randomUUIDv4(), file.name, file.type);
+        const compositions = yield* file.meta.destination.kind === 'entry' && asset.mime !== 'application/pdf' ? Effect.forEach(placementsFor(asset, true), (placement) => Effect.map(crypto.randomUUIDv4(), (key) => createComposition(key, placement))) : Effect.succeed([]);
         return { prepared: { asset, compositions } satisfies Prepared, renditions };
     });
     uploader.emit('preprocess-progress', file, { mode: 'indeterminate', message: 'Reading file' });

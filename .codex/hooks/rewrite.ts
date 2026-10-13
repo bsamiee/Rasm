@@ -1,5 +1,3 @@
-// biome-ignore-all lint/correctness/noNodejsModules: Codex runs this hook as a Node process that reads stdin, spawns ast-grep, and checks named paths
-
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { devNull } from 'node:os';

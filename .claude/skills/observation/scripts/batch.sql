@@ -1,6 +1,6 @@
--- Proposes an agent's sites in one batch, :worktree the tree the paths are relative to, :sites a JSON array keyed by site columns, :actor_id the writing agent, run from :worktree
+-- Confirms an agent's sites in one batch, :worktree the tree the paths are relative to, :sites a JSON array keyed by site columns, :actor_id the writing agent, run from :worktree
 .read .claude/skills/observation/scripts/site.sql
-.param set :state 'proposed'
+.param set :state 'confirmed'
 .param set :actor 'agent'
 insert into site(category, path, text, occurrence, start_line, start_column, end_line, end_column, subject_hash, message, replacement)
 select

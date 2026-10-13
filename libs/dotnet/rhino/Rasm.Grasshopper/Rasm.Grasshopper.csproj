@@ -31,5 +31,6 @@
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+        <ProjectReference Include="../Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
     </ItemGroup>
 </Project>

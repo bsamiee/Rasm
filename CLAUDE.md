@@ -14,9 +14,12 @@
 - Tests are made at the user's request alone
 - Commits and pushes happen on user request alone
 
-- Non-trivial work starts with a task file under tmp outside the project, holding every task with its facts and nothing else
-- NEVER do prose validation on tmp/planning or other `.md` documents that are not going to be living in the project long-term
-- Durable project `.md` files receive a focused adversarial review of their modified content, with `clean-prose` read whole
+- Non-trivial work keeps one task file under tmp outside the project, holding open tasks and found facts alone
+- Each result updates the task file as it arrives: its task deleted, tasks it changes rewritten, facts it found added
+- Run applications and hosts live as work needs them, a step that can end the session logs its intent to disk before and its result after
+- Close untitled, unsaved documents without saving when work needs their application, when they hold no work to keep
+- Start work and briefs from facts the task file and `docs/research` record, a fact stands until compiler or running code contradicts it
+- Split non-trivial work into units sub-agents build, read what the split needs, brief each to act, delegate the read of a named missing fact
 - Reviews are adversarial, reviewers assume code is wrong and commit corrections, reducing code LOC/surface, and rebuilding approach if needed
 
 ## [01]-[LANGUAGE_STANDARDS]
@@ -24,9 +27,14 @@
 Navigate code through its language's skill and MCP server, else the `use-ast-grep` skill and `ast-grep` MCP, then project CLI tooling
 
 [TOOL_ROUTING]:
+- ALWAYS use `watch-apps` skill before launching or scripting a desktop app
+- ALWAYS use `playwright:playwright-cli` skill for a browser, a page, a Playwright test, or a trace
+- ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
 - ALWAYS use `github` MCP for a known repository's issues, pull requests, and runs
+- ALWAYS use `blender-coding` skill for Python that runs inside Blender
+- ALWAYS use `uxp-coding` skill for code that runs in an Adobe UXP host
 - ALWAYS use `dotnet-roslyn-codelens` skill for any file in a .NET solution
 - ALWAYS use `dotnet-coding` skill for any C# code
 - ALWAYS use `dotnet-msbuild-evaluation` skill for an MSBuild declaration
@@ -34,14 +42,11 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `dotnet-msbuild-execution` skill for a `<Target>`
 - ALWAYS use `dotnet-msbuild-diagnostics` skill for diagnosing a .NET build
 - ALWAYS use `dotnet-msbuild-packaging` skill for NuGet and .slnx
-- ALWAYS use `manage-repo` skill for Nx targets, tooling, infrastructure, and CI
-- ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
-- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
-- ALWAYS use `playwright:playwright-cli` skill for a browser, a page, a Playwright test, or a trace
+- ALWAYS use `nuget` MCP for a NuGet package's newest version
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
+- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
 - ALWAYS use `use-blender` skill for Blender
-- ALWAYS use `blender-coding` skill for Python that runs inside Blender
 
 [CLI_TOOLING]:
 
@@ -107,11 +112,17 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS type configuration values with their owner's range
 - ALWAYS reach members through typed handles instead of member-name strings
 
+[PRODUCTS]: Products are the artifacts their host installs or serves to a person holding no checkout
+- ALWAYS give a product the identity its host reads from an installed one (identifier, version, signature)
+- ALWAYS register a product's services and permissions through the mechanism its host gives installed products
+- ALWAYS supply what a product reads and runs from its package and host, a path, variable, or row from a checkout or development tool is a defect
+
 ## [03]-[DEPENDENCY_POLICY]
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
 - ALWAYS group project file items and dependency rows by responsibility and order each group consistently
 - ALWAYS add a dependency's missing record to the project file or catalog that owns it, the present record stays
+- ALWAYS fill a dependency gap by package, configuration, newer release, or boundary decode, restating its types, behavior, or entry is a defect
 - ALWAYS use the newest release, prereleases included
 - ALWAYS pin versions in lock files and version catalogs alone
 - Packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown

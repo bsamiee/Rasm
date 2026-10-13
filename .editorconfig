@@ -137,9 +137,9 @@ dotnet_diagnostic.VSTHRD111.severity = error                                  # 
 dotnet_diagnostic.MA0009.severity = none                                      # Regex timeouts are not required
 dotnet_diagnostic.MA0032.severity = error                                     # CancellationToken overloads when available
 dotnet_diagnostic.MA0121.severity = error                                     # Off by default: no parameter reassignment
-dotnet_diagnostic.MA0141.severity = error                                     # Off by default: is null over == null
-dotnet_diagnostic.MA0142.severity = error                                     # Off by default: is not null over != null
-dotnet_diagnostic.MA0170.severity = error                                     # Off by default: type check that can never succeed
+dotnet_diagnostic.MA0141.severity = error                                     # Off by default: is not null over != null
+dotnet_diagnostic.MA0142.severity = error                                     # Off by default: is null over == null
+dotnet_diagnostic.MA0170.severity = error                                     # Off by default: no type an attribute argument cannot hold
 dotnet_diagnostic.MA0171.severity = error                                     # Off by default: is null over Nullable<T>.HasValue
 dotnet_diagnostic.MA0172.severity = error                                     # Off by default: identical operands in a binary expression
 dotnet_diagnostic.MA0186.severity = error                                     # Off by default: [NotNullWhen(true)] on the Equals parameter
@@ -148,13 +148,10 @@ dotnet_diagnostic.MA0107.severity = error                                     # 
 dotnet_diagnostic.MA0161.severity = error                                     # Off by default: explicit UseShellExecute, the implicit value varies by host
 dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start with ProcessStartInfo, the string overloads cannot set it
 dotnet_diagnostic.MA0180.severity = error                                     # Off by default: ILogger<T> type argument matches the containing type
-dotnet_diagnostic.MA0212.severity = error                                     # Off by default: MemoryMarshal.GetReference over indexing at zero
 dotnet_diagnostic.MA0080.severity = error                                     # WithCancellation on async enumeration
 dotnet_diagnostic.MA0167.severity = error                                     # TimeProvider overloads when available
 dotnet_diagnostic.MA0168.severity = error                                     # readonly struct for in parameters
 dotnet_diagnostic.MA0191.severity = error                                     # No null-forgiving operator
-MA0032.allowOverloadsWithOptionalParameters = false                           # CancellationToken overloads required even with optional parameters
-dotnet_code_quality_unused_parameters = all                                   # Unused-parameter analysis on all visibilities
 dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true   # Constructor argument passes disposal to the constructed object
 
 # --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------

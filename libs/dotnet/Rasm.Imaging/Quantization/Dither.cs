@@ -1,11 +1,9 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
+using BitMiracle.LibTiff.Classic;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Pixels;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Quantization;
 
@@ -35,13 +33,21 @@ internal readonly struct BlueNoise : IOffsetField {
         };
 
     private static ReadOnlyMemory2D<float> Read() {
-        using Stream stream = typeof(BlueNoise).Assembly.GetManifestResourceStream(typeof(BlueNoise), "BlueNoise.png")!;
-        using Image<Rgba64> image = PngDecoder.Instance.Decode<Rgba64>(new DecoderOptions { SkipMetadata = true }, stream);
-        Rgba64[] ranks = new Rgba64[image.Width * image.Height];
-        image.CopyPixelDataTo(ranks);
+        const string Resource = "BlueNoise.tif";
+        using Stream stream = typeof(BlueNoise).Assembly.GetManifestResourceStream(typeof(BlueNoise), Resource)!;
+        using Tiff tiff = Tiff.ClientOpen(Resource, "r", stream, new TiffStream());
+        (int width, int height, int lanes) = (tiff.GetField(TiffTag.IMAGEWIDTH)[0].ToInt(), tiff.GetField(TiffTag.IMAGELENGTH)[0].ToInt(), tiff.GetField(TiffTag.SAMPLESPERPIXEL)[0].ToInt());
         const float codes = ushort.MaxValue + 1f;
-        float half = 0.5f * codes / ranks.Length;
-        return new(System.Array.ConvertAll(ranks, rank => (rank.R + half) / codes), image.Height, image.Width);
+        float half = 0.5f * codes / (width * height);
+        float[] draws = new float[width * height];
+        byte[] line = new byte[tiff.ScanlineSize()];
+        for (int row = 0; row < height; row++) {
+            _ = tiff.ReadScanline(line, row);
+            ReadOnlySpan<ushort> ranks = MemoryMarshal.Cast<byte, ushort>(line);
+            for (int column = 0; column < width; column++)
+                draws[(row * width) + column] = (ranks[column * lanes] + half) / codes;
+        }
+        return new(draws, height, width);
     }
 }
 

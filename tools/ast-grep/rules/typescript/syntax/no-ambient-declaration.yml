@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ambient-declaration
+language: tsx
+severity: error
+utils:
+    merged-member:
+        any:
+            - kind: comment, interface_declaration, import_statement
+            - {kind: export_statement, has: {field: declaration, kind: interface_declaration}}
+    declared-member:
+        kind: statement_block
+        has: {pattern: $_, not: {matches: merged-member}}
+    module-file:
+        kind: program
+        has: {kind: 'import_statement, export_statement'}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: ambient_declaration
+          any:
+            - has: {kind: 'lexical_declaration, variable_declaration, function_signature, class_declaration, abstract_class_declaration, enum_declaration, internal_module'}
+            - has: {kind: statement_block, matches: declared-member}
+            - has:
+                kind: module
+                has: {field: name, kind: string}
+                any:
+                    - not: {has: {field: body, pattern: $_}}
+                    - has: {field: body, matches: declared-member}
+                    - not: {inside: {kind: program, stopBy: end, matches: module-file}}
+        - kind: function_signature
+          all:
+            - has: {field: name, pattern: $NAME}
+            - not: {inside: {kind: ambient_declaration, stopBy: end}}
+            - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, kind: function_declaration, has: {field: name, pattern: $NAME}}}}
+        - kind: lexical_declaration
+          regex: '^const\s'
+          all:
+            - has: {kind: variable_declarator, not: {has: {field: value, pattern: $_}}}
+            - not: {inside: {kind: ambient_declaration, stopBy: end}}
+message: '`$DECLARATION` declares ambient types or values the compiler takes on trust'
+note: 'Take a dependency''s types from its package or a `paths` row to a declaration file it holds, extend an interface the package declares for consumers by merging `interface <Name> { … }` into it, and decode a build, host, or dependency value with `Schema` where it is read (`import.meta.env` under the bundler''s types for a build value)'

@@ -75,7 +75,7 @@ public sealed partial class SunMoment : System.Numerics.IMinMaxValue<SunMoment>,
 
     public string ToValue() => LocalDateTimePattern.ExtendedIso.Format(_value);
 
-    internal Fin<Unit> Write(Sun sun, TimeProvider clock) =>
+    public Fin<Unit> Write(Sun sun, TimeProvider clock) =>
         _value.ToDateTimeUnspecified() switch {
             var wall when clock.LocalTimeZone.IsInvalidTime(wall) => new SkippedLocalTime(_value),
             var wall => fun<DateTime, DateTimeKind>(sun.SetDateTime)(wall, DateTimeKind.Local),
@@ -383,8 +383,8 @@ public abstract partial record SunWindow {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class SunSiteMapper {
-    internal static void Update(SunSite site, Sun sun) {
+public static partial class SunSiteMapper {
+    public static void Update(SunSite site, Sun sun) {
         Map(site, sun);
         _ = site.Saving.IfSome(saving => sun.DaylightSavingMinutes = saving);
     }
@@ -397,7 +397,7 @@ internal static partial class SunSiteMapper {
     }
 
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
-    internal static partial SunAngles ToAngles(Sun sun);
+    public static partial SunAngles ToAngles(Sun sun);
 
     [MapProperty(nameof(@SunSite.Place.Latitude), nameof(AnimationProperties.Latitude))]
     [MapProperty(nameof(@SunSite.Place.Longitude), nameof(AnimationProperties.Longitude))]

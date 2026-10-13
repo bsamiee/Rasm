@@ -17,40 +17,10 @@ Importers run in exec form with operator defaults, and importer preferences seed
 |  [07]   | Blender scene for Rhino            | `.3dm` written through the bundled `rhino3dm` wheel                    | Background        |
 |  [08]   | Attribute table out                | `export.attrio_csv` on the point domain, Python `csv` on other domains | Background or GUI |
 |  [09]   | Attribute table in                 | Geometry Nodes Import CSV node                                         | Background or GUI |
-|  [10]   | Exchange confirmed                 | Snapshot, export, reimport, compare                                    | Background        |
 
 Bundled wheels (`rhino3dm`, `ezdxf`, `cascadio`) import in any Blender Python run on the configured user folder.
 
-## [02]-[IMPORT_READ]
-
-Every import confirms through one read of added objects, their collections, and world extents from evaluated geometry, curve `bound_box` values spanning -1 to 1 on axes their points never reach:
-
-```python
-import bpy
-
-before = set(bpy.data.objects)
-status = bpy.ops.<importer>(filepath="<file>", <arguments>)
-added = [obj for obj in bpy.data.objects if obj not in before]
-depsgraph = bpy.context.evaluated_depsgraph_get()
-
-
-def extent(obj: bpy.types.Object) -> list[list[float]] | None:
-    evaluated = obj.evaluated_get(depsgraph)
-    mesh = evaluated.to_mesh() if obj.type in {"MESH", "CURVE", "FONT", "SURFACE"} else None
-    points = [obj.matrix_world @ vertex.co for vertex in mesh.vertices] if mesh else []
-    evaluated.to_mesh_clear()
-    return [[round(min(p[i] for p in points), 4) for i in range(3)], [round(max(p[i] for p in points) - min(p[i] for p in points), 4) for i in range(3)]] if points else None
-
-
-instances = [(i.parent.name, i.object.name, [round(v, 4) for v in i.matrix_world.translation]) for i in depsgraph.object_instances if i.is_instance and i.parent.original in added]
-result = {"status": sorted(status), "objects": {obj.name: (obj.type, [c.name for c in obj.users_collection], extent(obj)) for obj in added}, "instances": instances}
-```
-
-- Extents off by 1000, 25.4, 12, or 3.2808 against a dimension the source states mark a unit error, and swapped extents an axis error
-- `MESH` objects with no vertices mark geometry the source stored without a mesh
-- Set differences of `bpy.data.objects` name added objects whatever the selection holds later
-
-## [03]-[RHINO_IN]
+## [02]-[RHINO_IN]
 
 `import_3dm` meshes Breps and extrusions from render meshes the `.3dm` stores, and Rhino writes render meshes only for objects a shaded viewport drew. Before the save, the Rhino side creates render meshes and replaces closed polycurves with NURBS curves (`use-rhino` `run_csharp`, then `save_doc`):
 
@@ -74,6 +44,7 @@ bpy.ops.import_3dm.some_data(filepath="<file>.3dm", import_layers_as_empties=Fal
 - Lengths scale from the model unit to meters, divided by `scene.unit_settings.scale_length`
 - Collection `<file stem>` holds `Layers` (each Rhino layer a nested collection), `NamedViews`, and a hidden `Instance Definitions`
 - Blocks become collection instances named `<block>_Instance` with the Rhino name in custom property `rhname`
+- Blocks Rhino imported across units hold the unit scale on the instance empty
 - Objects hold `rhid`, `rhname`, `rhmatid`, and one custom property per Rhino user string
 - Render materials become Principled materials named after the Rhino material
 - SubD objects import their cage with a `SUBSURF` modifier, and text and dimensions import as leader curves with a `FONT` child
@@ -81,9 +52,7 @@ bpy.ops.import_3dm.some_data(filepath="<file>.3dm", import_layers_as_empties=Fal
 - With reimports matching data by `rhid` and adding block instances and text again, a refresh removes the `<stem>` collection tree first
 - Each `.3dm` imports into its own scene, a second file's layers nesting inside the first file's `Layers` collection
 
-Confirmation read: the import read's extents against Rhino bounding boxes in meters, layer collection object counts against `list_objects` per layer, and no `MESH` with zero vertices.
-
-## [04]-[STEP_IN]
+## [03]-[STEP_IN]
 
 STEP Importer converts the file through `cascadio` and imports the result into the active collection, tessellation reading the extension's preferences:
 
@@ -102,9 +71,7 @@ bpy.ops.import_scene.step(filepath="<file>.step", use_assembly_collections=True)
 - `step.regenerate_part` re-tessellates selected parts from their `step_source_file` and `step_node_path` at `window_manager.step_regen` settings
 - `merge_objects=True` joins every mesh into one, keeping each part's material in its slots
 
-Confirmation read: the import read's extents against the part dimensions.
-
-## [05]-[DXF_IN]
+## [04]-[DXF_IN]
 
 With CAD2Cube scaling by `$INSUNITS` in `units_mode="AUTO"` and reading unitless files as millimeters and US survey feet (21) as yards, the header reads through `ezdxf` first and scale passes as meters per unit:
 
@@ -142,9 +109,7 @@ doc.saveas("<local>.dxf")
 bpy.context.scene["dxf_origin"] = (origin.x, origin.y)
 ```
 
-Confirmation read: the import read's extents against a dimension the drawing states, and collection names against `[layer.dxf.name for layer in doc.layers]`.
-
-## [06]-[MAX_IN]
+## [05]-[MAX_IN]
 
 Import Autodesk MAX reads no unit from the file and multiplies system units by `scale_objects` in meters per unit (0.001 millimeters, 0.01 centimeters, 0.0254 inches, 0.3048 feet):
 
@@ -154,9 +119,7 @@ bpy.ops.import_scene.max(filepath="<file>.max", scale_objects=0.0254, use_collec
 
 `object_filter` (`MATERIAL`, `UV`, `PRIMITIVE`, `EMPTY`, `ARMATURE`) selects what imports.
 
-Confirmation read: the import read's extents against a dimension the source states.
-
-## [07]-[MESH_FORMATS_IN]
+## [06]-[MESH_FORMATS_IN]
 
 Each stock importer takes the source unit in its own argument:
 
@@ -174,9 +137,7 @@ Rhino exports differ by format:
 - GLB loses layers and block names
 - `.3dm` keeps layers, curves, and blocks
 
-Confirmation read: the import read's extents against the source's stated size.
-
-## [08]-[SVG_IN]
+## [07]-[SVG_IN]
 
 With `import_curve.svg` sizing a document as millimeters times its root unit, millimeter documents import at size and others take a factor on added objects:
 
@@ -194,9 +155,7 @@ for obj in set(bpy.data.objects) - before:
 - `wm.grease_pencil_import_svg(scale=1.0, recenter_bounds=False)` imports every unit at size into one Grease Pencil object in the XZ plane
 - `wm.grease_pencil_import_svg` default `scale` of 10 enlarges the drawing
 
-Confirmation read: the import read's extents against the drawing's stated dimension.
-
-## [09]-[RHINO_OUT]
+## [08]-[RHINO_OUT]
 
 `.3dm` written through `rhino3dm` keeps collections as layers, names, curves, blocks, materials, and custom properties. Every object takes `ObjectAttributes` with the `LayerIndex` of a layer the file holds, `import_3dm` raising `KeyError` on one without:
 
@@ -233,6 +192,7 @@ model.Write("<file>.3dm", 8)
 - Collection instance empties become `Objects.AddInstanceObject(rhino3dm.InstanceReference(definition.Id, transform), attributes)`
 - `transform` holds the empty's `matrix_world`
 - Rhino reads a meters file at size in any document unit
+- `import_3dm` reads a `rhino3dm` file's materials empty until a Rhino save, and gives each mesh object one empty material slot
 
 Mesh-only exchanges take GLB once each mesh holds a material and mesh data holds its object's name, Rhino naming objects after mesh data:
 
@@ -248,9 +208,7 @@ bpy.ops.export_scene.gltf(filepath="<file>.glb", export_format="GLB", export_hie
 
 FBX for Rhino takes `axis_forward="Y"` and `axis_up="Z"`, and OBJ takes `global_scale` in document units per meter with `forward_axis="Y"` and `up_axis="Z"`. With Rhino's USD import aborting Rhino on a Blender `.usdc`, Rhino exchanges take `.3dm` or GLB.
 
-Confirmation read: `use-rhino` `open_doc` of the file, then `run_csharp` listing each object's layer path, name, bounding box, render material, and user strings against the Blender scene.
-
-## [10]-[ATTRIBUTES]
+## [09]-[ATTRIBUTES]
 
 Attrio CSV writes the active object's evaluated point attributes per frame, settings on `scene.attrio_csv_settings`:
 
@@ -294,22 +252,3 @@ holder.modifiers.new("<CSV>", "NODES").node_group = group
 ```
 
 Whole-number columns load as `INT`, a `FLOAT` Named Attribute converting them. Values for an existing mesh write through Python `csv` and `attributes.new(name, type, domain).data.foreach_set`.
-
-Confirmation read: the header row and row count against the evaluated vertex count out, and the evaluated `holder.evaluated_get(depsgraph).evaluated_geometry().pointcloud` point count and attribute names against the file in.
-
-## [11]-[ROUND_TRIP]
-
-Round trips compare the scene before export with the file read back:
-1. Snapshot each object: type, import-read extent, collections, materials, custom properties, and each instance's location and source
-2. Export through the Rhino-out sequence
-3. Open and save the file in Rhino through `use-rhino` when the exchange includes Rhino editing
-4. Import into an empty scene (`wm.read_homefile(use_empty=True)`) with `import_3dm.some_data(import_layers_as_empties=False)`
-5. Compare snapshots by name
-
-Exchange-owned differences:
-- Instances return as `<block>_Instance` with the source name in `rhname`
-- Materials return empty from a `rhino3dm` file and whole after a Rhino save
-- Mesh objects gain one empty material slot
-- Blocks Rhino imported across units hold the unit scale on the instance empty
-
-Confirmation read: the comparison lists no difference outside exchange-owned differences, extents matching to four decimals.

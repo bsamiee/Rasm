@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: uxp-host-file
+language: tsx
+arguments: [module]
+rule:
+    kind: program
+    has:
+        kind: import_statement
+        has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: module}}

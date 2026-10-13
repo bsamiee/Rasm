@@ -215,7 +215,7 @@ internal static partial class LightMapper {
 
 public static class Lights {
     // --- [EMISSION]
-    internal static IO<Transfer> Gamma(RhinoDoc doc) =>
+    public static IO<Transfer> Gamma(RhinoDoc doc) =>
         (from settings in use(() => doc.RenderSettings)
          from flow in use(() => settings.LinearWorkflow)
          from transfer in IO.lift(() => flow.PreProcessColors
@@ -272,7 +272,7 @@ public static class Lights {
          from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
          select lights.Map(light => State(light, transfer).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
 
-    internal static Fin<LightState> State(Light light, Transfer transfer) =>
+    public static Fin<LightState> State(Light light, Transfer transfer) =>
         (Shape(light), Emission(light, transfer),
          Conversions.Validated<LightPower, double, InvalidRhinoValue>(light.PowerWatts).ToValidation(),
          Conversions.Validated<ShadowIntensity, double, InvalidRhinoValue>(light.ShadowIntensity).ToValidation())
@@ -334,7 +334,7 @@ public static class Lights {
                                                       from joined in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
                                                       select rows.Map(static row => row.Id).Strict()).Bracket());
 
-    internal static IO<Unit> Written(Light staged, LightSpec spec, Transfer transfer) =>
+    public static IO<Unit> Written(Light staged, LightSpec spec, Transfer transfer) =>
         from emitted in IO.lift(() => spec.Color.Switch<Transfer, (Color Diffuse, double Gain, Option<string> Kelvin)>(
             transfer,
             rgb: static (_, rgb) => (rgb.Diffuse, 1d, None),

@@ -5,6 +5,7 @@
     "devDependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
+        "@adobe/premierepro": "catalog:",
         "@ast-grep/lang-python": "catalog:",
         "@ast-grep/napi": "catalog:",
         "@aws-sdk/client-s3": "catalog:",
@@ -66,6 +67,7 @@
         "@gltf-transform/functions": "catalog:",
         "@google/model-viewer": "catalog:",
         "@grafana/grafana-foundation-sdk": "catalog:",
+        "@leeoniya/ufuzzy": "catalog:",
         "@loaders.gl/3d-tiles": "catalog:",
         "@loaders.gl/core": "catalog:",
         "@loaders.gl/las": "catalog:",
@@ -175,6 +177,7 @@
         "@types/node": "catalog:",
         "@types/nodemailer": "catalog:",
         "@types/papaparse": "catalog:",
+        "@types/photoshop": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@types/three": "catalog:",
@@ -218,6 +221,8 @@
         "hash-wasm": "catalog:",
         "hucre": "catalog:",
         "idb-keyval": "catalog:",
+        "image-size": "catalog:",
+        "indesign-uxp-types": "catalog:",
         "isomorphic-dompurify": "catalog:",
         "jose": "catalog:",
         "jsesc": "catalog:",
@@ -226,6 +231,7 @@
         "ktx-parse": "catalog:",
         "lightningcss": "catalog:",
         "lucide-react": "catalog:",
+        "magic-string": "catalog:",
         "maplibre-gl": "catalog:",
         "mcp-proxy": "catalog:",
         "meshoptimizer": "catalog:",
@@ -267,6 +273,7 @@
         "react-resizable-panels": "catalog:",
         "react-stately": "catalog:",
         "react-zoom-pan-pinch": "catalog:",
+        "regjsparser": "catalog:",
         "rfc6902": "catalog:",
         "rimraf": "catalog:",
         "scheduler": "catalog:",
@@ -284,6 +291,7 @@
         "typegpu": "catalog:",
         "types-for-adobe": "catalog:",
         "typescript": "catalog:",
+        "unicode-property-value-aliases": "catalog:",
         "uplot": "catalog:",
         "validator": "catalog:",
         "vite": "catalog:",
@@ -340,7 +348,7 @@
                     "{workspaceRoot}/**/*.{xml,csproj,props,targets,slnx}",
                     "{workspaceRoot}/**/NuGet.config",
                     "{workspaceRoot}/**/*.sql",
-                    { "externalDependencies": [ ] },
+                    { "externalDependencies": [] },
                     { "dependentTasksOutputFiles": "**/*.so" },
                     { "runtime": "ast-grep --version" }
                 ]
@@ -348,22 +356,22 @@
             "lint:biome": {
                 "command": "biome check --error-on-warnings",
                 "cache": true,
-                "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ ] }, { "runtime": "biome --version" } ]
+                "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [] }, { "runtime": "biome --version" } ]
             },
-            "lint:ruff-check": { "command": "ruff check", "cache": true, "inputs": [ "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml", { "externalDependencies": [ ] }, { "runtime": "ruff --version" } ] },
-            "lint:ruff-format": { "command": "ruff format --check", "cache": true, "inputs": [ "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml", { "externalDependencies": [ ] }, { "runtime": "ruff --version" } ] },
-            "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint", "cache": true, "inputs": [ "yamlFiles", "{workspaceRoot}/.yamllint.yaml", { "externalDependencies": [ ] }, { "runtime": "yamllint --version" } ] },
-            "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint", "cache": true, "inputs": [ "yamlFiles", "{workspaceRoot}/.yamlfmt", { "externalDependencies": [ ] }, { "runtime": "yamlfmt -version" } ] },
+            "lint:ruff-check": { "command": "ruff check", "cache": true, "inputs": [ "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml", { "externalDependencies": [] }, { "runtime": "ruff --version" } ] },
+            "lint:ruff-format": { "command": "ruff format --check", "cache": true, "inputs": [ "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml", { "externalDependencies": [] }, { "runtime": "ruff --version" } ] },
+            "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint", "cache": true, "inputs": [ "yamlFiles", "{workspaceRoot}/.yamllint.yaml", { "externalDependencies": [] }, { "runtime": "yamllint --version" } ] },
+            "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint", "cache": true, "inputs": [ "yamlFiles", "{workspaceRoot}/.yamlfmt", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
             "lint:actionlint": {
                 "command": "actionlint",
                 "cache": true,
-                "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "externalDependencies": [ ] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ]
+                "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ]
             },
-            "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "cache": true, "inputs": [ "javaFiles", { "externalDependencies": [ ] }, { "runtime": "google-java-format --version" } ] },
+            "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "cache": true, "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
             "lint:pmd": {
                 "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --cache .cache/pmd/java --no-progress",
                 "cache": true,
-                "inputs": [ "javaFiles", "{workspaceRoot}/pmd.xml", { "externalDependencies": [ ] }, { "runtime": "pmd --version" } ],
+                "inputs": [ "javaFiles", "{workspaceRoot}/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
             },
             "lint:dotnet-format": {
@@ -384,10 +392,9 @@
             "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "dependsOn": [ { "target": "format:swiftlint", "params": "forward" } ], "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } } },
             "format:dotnet": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "restore" ] },
             "typecheck:tsc": {
-                "command": "tsc --build --pretty false",
+                "command": "tsc --pretty false",
                 "cache": true,
-                "inputs": [ "typescript", "{projectRoot}/{tsconfig.json,**/*.ts}", { "externalDependencies": [ "typescript" ] } ],
-                "outputs": [ "{workspaceRoot}/.cache/typescript/out/root" ]
+                "inputs": [ "typescript", "{projectRoot}/{tsconfig.json,**/*.ts}", { "externalDependencies": [ "typescript" ] } ]
             },
             "typecheck:ty": { "command": "ty check" },
             "typecheck:mypy": { "command": "mypy" },

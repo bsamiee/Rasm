@@ -1,12 +1,12 @@
 ---
 name: agent-builder
-description: "Use when writing, rebuilding, or reviewing an agent definition, covering skill and agent divide, sections, integration, checks, and description."
+description: "Use when writing, rebuilding, or reviewing an agent definition, covering skill and agent divide, sections, integration, and description."
 argument-hint: "[agent-file]"
 ---
 
 # [AGENT_BUILDER]
 
-Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in a definition states what its agent acts on during a run.
+Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in a definition states what its agent acts on during a run. Paths, `skills` entries, targets, and MCP tools a definition names exist. Rebuilt definitions keep every command and row of the earlier revision, or the report names the drop.
 
 [REFERENCES]:
 - [01]-[TOOL_FORMS](references/tool-forms.md): Forms and facts per CLI tool, MCP tool, and Nx target
@@ -75,13 +75,11 @@ Markdown parses text against an opening tag as one HTML block, and a blank line 
 [PROCEDURES]:
 - Steps write paths from repository root and name a tool in call form with a deciding argument
 - Each edit is one exact-string replacement
-- Checkers of the role's files sit in one step that runs them over scope and fixes each finding
 - Tables one step uses sit under it, tables more than one step names sit in their own element between `decision` and `procedure`
-- Procedure bounds its fix cycles with a count
 - Disposable files sit under a private directory the role table owns, procedure ends by deleting it
 
 [DONE_WHEN]:
-- Done conditions hold no partial edit, deferred value, workaround, or run residue
+- Done conditions state properties of finished files and hold no checker output, partial edit, deferred value, workaround, or run residue
 
 ## [03]-[INTEGRATION]
 
@@ -97,8 +95,6 @@ Steps name tools in the form the harness runs:
 - Commands take the documented form with flags `--help` prints
 - Steps hold no prefix or flag for a default a configuration file or the target owns
 - Files the run edits or judges line by line read whole, with no outline beside the read
-- Checks a target runs are one step naming the target
-- Fix loops name a per-file command of each kind in scope
 
 ## [04]-[EXCLUSIONS]
 
@@ -109,19 +105,10 @@ Sentences that state what another file owns, or bind the run past its prompt, go
 - Sources rows that restate root instructions tool routing
 - Scope enumerations (`one of <a>, <b>, <c>`), a pattern or the prompt supplies scope
 - Output contracts, a run reports what changed and choices for the user
-- Steps that write a test, spec, fixture, harness, or script checking the run's own work
+- Steps that check the run's own output through a checker, re-read, test, spec, fixture, harness, or script
 - Soft bounds, replaced by condition, command, or criterion
 - Narration of a past run, replaced by the criterion it showed
 
-## [05]-[CHECKS]
+## [05]-[DESCRIPTION]
 
-Checks on a finished file:
-- `ast-grep scan --custom-languages allow --no-ignore hidden <agent>` prints nothing
-- `claude plugin validate <agents dir>` for a project agent, `claude plugin validate <plugin>` for a plugin agent, prints `Validation passed`
-- Every path and `skills` entry the file names exists on disk
-- Every target and MCP tool the file names exists, `nx show project <project> --json | jq '.targets|keys'` and `ToolSearch(query: "select:<tool>")`
-- Rebuilt files keep every command and row of the earlier revision, `git diff <commit> -- <agent>`, or the report names the drop
-
-## [06]-[DESCRIPTION]
-
-Write descriptions last, after a full read of the finished file, its preloaded skills, and root instructions tool routing. Skills and agents share one form, `Use when <situation>, covering <topics>`, at most 25 words. Descriptions name a tool, language, or file kind a delegating prompt holds, the situation states what the routing line lacks, covering names section subjects.
+Skills and agents share one form, `Use when <situation>, covering <topics>`, at most 25 words. Descriptions name a tool, language, or file kind a delegating prompt holds, the situation states what the root instructions routing line lacks, covering names the finished file's section subjects.

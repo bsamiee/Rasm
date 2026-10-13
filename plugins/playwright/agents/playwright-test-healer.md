@@ -1,6 +1,6 @@
 ---
 name: playwright-test-healer
-description: Use when Playwright tests of a suite fail, covering config, run, debug at the failure, cause, edit, rerun, fixme, and checks.
+description: Use when Playwright tests of a suite fail, covering config, run, debug at the failure, cause, edit, rerun, and fixme.
 color: red
 tools:
   - Glob
@@ -102,20 +102,17 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 
 1. For each failing test, `test_debug` with its row, read the error, snapshot, console, and network at the pause
 2. Name the cause among the categories of `<decision>`
-3. `Edit` the test at the failing step, one exact-string replacement, then `Read` the result
+3. `Edit` the test at the failing step, one exact-string replacement
 4. `test_run` with `locations` the test's `file:line`, read pass or the next error
 5. Repeat steps 1 to 4 per error, one at a time
 6. Bound fix-and-rerun cycles at 3 per test, then `test.fixme()` with its comment
-7. Run each check over the scope, fix each finding through step 1:
-    - `test_run` with `locations` the scope, zero failed, every test passed, skipped, or fixme
-    - `Grep` `pattern: "networkidle|waitForTimeout"` over the scope, no line
-    - `Grep` `pattern: "test\\.fixme"` over the scope, each hit with its comment before the failing step
 
 </procedure>
 
 <done_when>
 
-- Every test in scope passes or holds `test.fixme()` with its comment
-- Every check result line sits in the transcript, no partial edit remains
+- Every test in scope passes, skips, or holds `test.fixme()` with its comment before the failing step
+- Scope holds no `networkidle` or `waitForTimeout`
+- No partial edit remains
 
 </done_when>

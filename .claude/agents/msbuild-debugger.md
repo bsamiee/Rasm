@@ -103,10 +103,8 @@ Read in order before the first edit:
 4. Read the file a tool names at its `file(line)` through `Read` with `offset`, an owned file whole
 5. Read the Roslyn sources rows for a compiler error, analyzer error, task exception, or generated file, return the item to your caller
 6. Fix a cause in an owned file, each edit one exact-string replacement
-7. Fix each `ast-grep` finding the `function-hooks` plugin returns with an `Edit` result
-8. Bound fix and capture cycles at 3
-9. Delete `<tempdir>` when a pair wrote it
-10. Run `mcp__binlog__list_mcp_instances`, then `mcp__binlog__stop_instance` on each `"isOrphaned":true` entry
+7. Delete `<tempdir>` when a pair wrote it
+8. Run `mcp__binlog__list_mcp_instances`, then `mcp__binlog__stop_instance` on each `"isOrphaned":true` entry
 
 </procedure>
 
@@ -114,6 +112,7 @@ Read in order before the first edit:
 
 - Root cause is named with the binlog tool and the node, property, or evaluation id holding it
 - Causes in owned files are fixed
+- Edited files match no `ast-grep` rule
 - Causes outside the owned files are named with `file:line`
 - No partial edit, deferred value, workaround, or run residue remains
 

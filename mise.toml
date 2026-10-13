@@ -12,6 +12,7 @@ python.uv_venv_auto = "create|source"
 [vars]
 rhino_mcp_port = "7406"
 blender_mcp_port = "7407"
+atelier_port = "7409"
 
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
@@ -35,6 +36,8 @@ PLAYWRIGHT_MCP_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright"
 RHINO_MCP_URL = "http://127.0.0.1:{{ vars.rhino_mcp_port }}/"
 BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
 BLENDER_MCP_URL = "http://127.0.0.1:{{ vars.blender_mcp_port }}/"
+ATELIER_URL = "http://127.0.0.1:{{ vars.atelier_port }}/"
+ATELIER_PATH = "/Applications/Atelier.app/Contents/MacOS/Atelier"
 PULUMI_HOME = "{{config_root}}/.cache/pulumi"
 GHIDRA_INSTALL_DIR = "/opt/homebrew/opt/ghidra/libexec"
 GHIDRA_PROJECT_DIR = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
@@ -87,7 +90,7 @@ ast-grep = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/br
 rhino-mcp-platform = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.rhino_mcp_port }}", "--hide", "run_python", "--hide", "g1_*", "--", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"], environment = { RHINO_MCP_DEFAULT_VERSION = "9" }, working_directory = "{{config_root}}", keep_alive = true }
 blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.blender_mcp_port }}", "--hide", "*_for_cli", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"], environment = { BLENDER_MCP_PORT = "9877" }, working_directory = "{{config_root}}", keep_alive = true }
 mcp-for-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408", "--", "mcp-for-blender"], environment = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, working_directory = "{{config_root}}", keep_alive = true }
-adobe = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts", "--port", "7409"], working_directory = "{{config_root}}", keep_alive = true }
+atelier = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/atelier/main.ts"], working_directory = "{{config_root}}", keep_alive = true }
 argus = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true }
 playwright = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "mcp", "--host", "127.0.0.1", "--port", "7411", "--user-data-dir", "{{config_root}}/.cache/playwright/profile", "--shared-browser-context", "--caps=config,network,pdf,storage,testing,vision,devtools"], working_directory = "{{config_root}}", keep_alive = true }
 playwright-test = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "run-test-mcp-server", "--headless", "--host", "127.0.0.1", "--port", "7412"], working_directory = "{{config_root}}", keep_alive = true }

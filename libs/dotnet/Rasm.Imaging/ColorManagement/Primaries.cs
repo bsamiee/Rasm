@@ -6,7 +6,6 @@ using CommunityToolkit.HighPerformance.Buffers;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Pixels;
-using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using TinyEXR;
 using Wacton.Unicolour;
 
@@ -18,44 +17,38 @@ namespace Rasm.Imaging.ColorManagement;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Gamut {
-    public static readonly Gamut StandardRgb = new("standard-rgb", Configuration.Default, Some(CicpColorPrimaries.ItuRBt709_6), Some("lin_rec709_scene"));
-    public static readonly Gamut DisplayP3 = new("display-p3", new Configuration(rgbConfig: RgbConfiguration.DisplayP3), Some(CicpColorPrimaries.SmpteEg432_1), Some("lin_p3d65_scene"));
-    public static readonly Gamut Rec2020 = new("rec2020", new Configuration(rgbConfig: RgbConfiguration.Rec2020), Some(CicpColorPrimaries.ItuRBt2020_2), Some("lin_rec2020_scene"));
-    public static readonly Gamut Acescg = new("acescg", new Configuration(rgbConfig: RgbConfiguration.Acescg), None, Some("lin_ap1_scene"));
-    public static readonly Gamut Aces20651 = new("aces20651", new Configuration(rgbConfig: RgbConfiguration.Aces20651), None, Some("lin_ap0_scene"));
-    public static readonly Gamut ProPhoto = new("pro-photo", new Configuration(rgbConfig: RgbConfiguration.ProPhoto), None, None);
-    public static readonly Gamut EGamut = new("e-gamut", Linear(new(0.8, 0.3177), new(0.18, 0.9), new(0.065, -0.0805)), None, Some("blender:lin_egamut_scene"));
-    public static readonly Gamut ArriWideGamut3 = new("arri-wide-gamut-3", Linear(new(0.684, 0.313), new(0.221, 0.848), new(0.0861, -0.102)), None, None);
-    public static readonly Gamut ArriWideGamut4 = new("arri-wide-gamut-4", Linear(new(0.7347, 0.2653), new(0.1424, 0.8576), new(0.0991, -0.0308)), None, None);
-    public static readonly Gamut SGamut3 = new("s-gamut3", Linear(new(0.73, 0.28), new(0.14, 0.855), new(0.1, -0.05)), None, None);
-    public static readonly Gamut SGamut3Cine = new("s-gamut3-cine", Linear(new(0.766, 0.275), new(0.225, 0.8), new(0.089, -0.087)), None, None);
+    public static readonly Gamut StandardRgb = new("standard-rgb", Configuration.Default, Some("lin_rec709_scene"));
+    public static readonly Gamut DisplayP3 = new("display-p3", new Configuration(rgbConfig: RgbConfiguration.DisplayP3), Some("lin_p3d65_scene"));
+    public static readonly Gamut Rec2020 = new("rec2020", new Configuration(rgbConfig: RgbConfiguration.Rec2020), Some("lin_rec2020_scene"));
+    public static readonly Gamut Acescg = new("acescg", new Configuration(rgbConfig: RgbConfiguration.Acescg), Some("lin_ap1_scene"));
+    public static readonly Gamut Aces20651 = new("aces20651", new Configuration(rgbConfig: RgbConfiguration.Aces20651), Some("lin_ap0_scene"));
+    public static readonly Gamut ProPhoto = new("pro-photo", new Configuration(rgbConfig: RgbConfiguration.ProPhoto), None);
+    public static readonly Gamut EGamut = new("e-gamut", Linear(new(0.8, 0.3177), new(0.18, 0.9), new(0.065, -0.0805)), Some("blender:lin_egamut_scene"));
+    public static readonly Gamut ArriWideGamut3 = new("arri-wide-gamut-3", Linear(new(0.684, 0.313), new(0.221, 0.848), new(0.0861, -0.102)), None);
+    public static readonly Gamut ArriWideGamut4 = new("arri-wide-gamut-4", Linear(new(0.7347, 0.2653), new(0.1424, 0.8576), new(0.0991, -0.0308)), None);
+    public static readonly Gamut SGamut3 = new("s-gamut3", Linear(new(0.73, 0.28), new(0.14, 0.855), new(0.1, -0.05)), None);
+    public static readonly Gamut SGamut3Cine = new("s-gamut3-cine", Linear(new(0.766, 0.275), new(0.225, 0.8), new(0.089, -0.087)), None);
     public static readonly Gamut VeniceSGamut3 = new(
         "venice-s-gamut3",
         Linear(new(0.740464264304292, 0.27936437475066), new(0.089241145423286, 0.893809528608105), new(0.110488236673827, -0.052579333080476)),
-        None,
         None);
     public static readonly Gamut VeniceSGamut3Cine = new(
         "venice-s-gamut3-cine",
         Linear(new(0.775901871567345, 0.274502392854799), new(0.188682902773355, 0.828684937020288), new(0.101337382499301, -0.089187517306263)),
-        None,
         None);
-    public static readonly Gamut CinemaGamut = new("cinema-gamut", Linear(new(0.74, 0.27), new(0.17, 1.14), new(0.08, -0.1)), None, None);
-    public static readonly Gamut RedWideGamutRgb = new("red-wide-gamut-rgb", Linear(new(0.780308, 0.304253), new(0.121595, 1.493994), new(0.095612, -0.084589)), None, None);
-    public static readonly Gamut VGamut = new("v-gamut", Linear(new(0.73, 0.28), new(0.165, 0.84), new(0.1, -0.03)), None, None);
-    public static readonly Gamut DGamut = new("d-gamut", Linear(new(0.71, 0.31), new(0.21, 0.88), new(0.09, -0.08)), None, None);
+    public static readonly Gamut CinemaGamut = new("cinema-gamut", Linear(new(0.74, 0.27), new(0.17, 1.14), new(0.08, -0.1)), None);
+    public static readonly Gamut RedWideGamutRgb = new("red-wide-gamut-rgb", Linear(new(0.780308, 0.304253), new(0.121595, 1.493994), new(0.095612, -0.084589)), None);
+    public static readonly Gamut VGamut = new("v-gamut", Linear(new(0.73, 0.28), new(0.165, 0.84), new(0.1, -0.03)), None);
+    public static readonly Gamut DGamut = new("d-gamut", Linear(new(0.71, 0.31), new(0.21, 0.88), new(0.09, -0.08)), None);
     public static readonly Gamut ProtuneNative = new(
         "protune-native",
         Linear(new(0.698480461493841, 0.193026445370121), new(0.329555378387345, 1.024596624134644), new(0.108442631407675, -0.034678569754016)),
-        None,
         None);
-    public static readonly Gamut BlackmagicWideGamut = new("blackmagic-wide-gamut", Linear(new(0.7177215, 0.3171181), new(0.228041, 0.861569), new(0.1005841, -0.0820452)), None, None);
-    public static readonly Gamut DaVinciWideGamut = new("davinci-wide-gamut", Linear(new(0.8, 0.313), new(0.1682, 0.9877), new(0.079, -0.1155)), None, None);
-    public static readonly Gamut AppleWideGamut = new("apple-wide-gamut", Linear(new(0.725, 0.301), new(0.221, 0.814), new(0.068, -0.076)), None, None);
-
-    public static readonly Memo<HashMap<CicpColorPrimaries, Gamut>> ByCicp = memo(static () => toHashMap(toSeq(Items).Choose(static gamut => gamut.Cicp.Map(code => (code, gamut)))));
+    public static readonly Gamut BlackmagicWideGamut = new("blackmagic-wide-gamut", Linear(new(0.7177215, 0.3171181), new(0.228041, 0.861569), new(0.1005841, -0.0820452)), None);
+    public static readonly Gamut DaVinciWideGamut = new("davinci-wide-gamut", Linear(new(0.8, 0.313), new(0.1682, 0.9877), new(0.079, -0.1155)), None);
+    public static readonly Gamut AppleWideGamut = new("apple-wide-gamut", Linear(new(0.725, 0.301), new(0.221, 0.814), new(0.068, -0.076)), None);
 
     public Configuration Configuration { get; }
-    public Option<CicpColorPrimaries> Cicp { get; }
     public Option<string> InteropId { get; }
 
     public Chromaticities Chromaticities => new(
@@ -93,7 +86,7 @@ public sealed partial class Gamut {
     public static Matrix<double> Between(Configuration from, Configuration to) =>
         Columns(basis => new Unicolour(from, ColourSpace.RgbLinear, basis).ConvertToConfiguration(to).RgbLinear.Tuple);
 
-    internal static Matrix<double> Columns(Func<(double, double, double), (double, double, double)> column) =>
+    public static Matrix<double> Columns(Func<(double, double, double), (double, double, double)> column) =>
         (column((1d, 0d, 0d)), column((0d, 1d, 0d)), column((0d, 0d, 1d))) switch {
             var ((r1, g1, b1), (r2, g2, b2), (r3, g3, b3)) =>
                 Matrix<double>.Build.DenseOfColumnMajor(3, 3, [r1, g1, b1, r2, g2, b2, r3, g3, b3]),

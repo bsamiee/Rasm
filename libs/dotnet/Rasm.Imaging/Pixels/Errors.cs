@@ -1,5 +1,4 @@
 using PeterO.Numbers;
-using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using TinyEXR;
 
 namespace Rasm.Imaging.Pixels;
@@ -9,10 +8,8 @@ internal enum Codes {
     InvalidPixelValue = 1,
     CodecRefused = 2,
     LayerAbsent = 3,
-    PngRefused = 4,
-    CicpUnsupported = 5,
-    UnequalFrames = 6,
-    KernelSizeUnsupported = 7,
+    UnequalFrames = 4,
+    KernelSizeUnsupported = 5,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -32,13 +29,6 @@ public sealed record CodecRefused : Expected {
 }
 
 public sealed record LayerAbsent(string Layer) : Expected("EXR file holds no such layer", (int)Codes.LayerAbsent);
-
-public sealed record PngRefused : Expected {
-    public PngRefused(Error cause) : base("PNG decoder refused the file", (int)Codes.PngRefused, cause) { }
-}
-
-public sealed record CicpUnsupported(CicpColorPrimaries Primaries, CicpTransferCharacteristics Transfer, CicpMatrixCoefficients Matrix, bool FullRange)
-    : Expected("PNG cICP chunk states an encoding Rasm holds no gamut and transfer for", (int)Codes.CicpUnsupported);
 
 public sealed record UnequalFrames(PixelExtent Reference, PixelExtent Test) : Expected("frames of unequal size", (int)Codes.UnequalFrames);
 

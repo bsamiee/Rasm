@@ -224,31 +224,50 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [SIGN_IN]
-    func connect(
-        id: UUID,
-        codes: AsyncStream<String>,
-    ) async -> Result<AccountIdentity, ProviderError> {
-        let store: ClaudeCredentialStore = privateStore(id)
-        return await authenticate(store: store, email: nil, codes: codes)
-            .bind { _ in await store.read() }
-            .flatMap { content in
-                content.credential.map { credential in .success(credential.identity) }
-                    ?? .failure(.signInRequired)
+    func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError> {
+        let (store, expected): (ClaudeCredentialStore, AccountIdentity?) =
+            switch target {
+                case .newAccount(let id): (privateStore(id), nil)
+                case .account(let account, let isSelected): (store(for: account, isSelected: isSelected), account.identity)
             }
-            .mapError(ProviderError.init(failure:))
-    }
-
-    func reconnect(
-        account: Account,
-        isSelected: Bool,
-        codes: AsyncStream<String>,
-    ) async -> Result<AccountIdentity, ProviderError> {
-        let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
-        return await authenticate(store: store, email: account.identity.email, codes: codes)
+        return await createDirectories(store: store)
+            .bind { _ in await executable() }
+            .bind { binary -> Result<Void, ClaudeFailure> in
+                await ProcessRun.stream(
+                    ProcessRun.configuration(
+                        executable: binary,
+                        arguments: ["auth", "login", "--claudeai"] + (expected.map { identity in ["--email", identity.email] } ?? []),
+                        environment: processEnvironment(store: store),
+                        workingDirectory: paths.workingDirectory,
+                    ),
+                    deadline: .seconds(300),
+                ) { execution in
+                    await withTaskGroup { group in
+                        group.addTask(name: "Login code") {
+                            for await code: String in codes {
+                                return await Result {
+                                    _ = try await execution.standardInputWriter.write(code + "\n", using: UTF8.self)
+                                    try await execution.standardInputWriter.finish()
+                                }
+                                .mapError(ProcessRun.failure)
+                            }
+                            return .success(())
+                        }
+                        _ = await Result { for try await _ in execution.standardOutput.strings() {} }
+                        group.cancelAll()
+                        let delivered: Result<Void, ProcessFailure> = await group.next() ?? .success(())
+                        return Task.isCancelled ? .failure(.cancelled) : delivered
+                    }
+                }
+                .mapError(ClaudeFailure.init(process:))
+                .flatMap { _, status in
+                    status.isSuccess ? .success(()) : .failure(.authenticationFailed(status))
+                }
+            }
             .bind { _ in await store.read() }
             .bind { content -> Result<AccountIdentity, ClaudeFailure> in
                 switch content {
-                    case .credential(let credential) where credential.identity.isSameAccount(as: account.identity):
+                    case .credential(let credential) where expected.map(credential.identity.isSameAccount(as:)) ?? true:
                         .success(credential.identity)
                     case .credential: .failure(.accountChanged.releasing(await logOut(store: store)))
                     case .unidentified, .signedOut: .failure(.signInRequired)
@@ -277,47 +296,6 @@ actor ClaudeClient: ProviderClient {
                     .mapError(ClaudeFailure.filesystem)
             }
             .mapError(ProviderError.init(failure:))
-    }
-
-    private func authenticate(
-        store: ClaudeCredentialStore,
-        email: String?,
-        codes: AsyncStream<String>,
-    ) async -> Result<Void, ClaudeFailure> {
-        await createDirectories(store: store)
-            .bind { _ in await executable() }
-            .bind { binary -> Result<Void, ClaudeFailure> in
-                await ProcessRun.stream(
-                    ProcessRun.configuration(
-                        executable: binary,
-                        arguments: ["auth", "login", "--claudeai"] + (email.map { email in ["--email", email] } ?? []),
-                        environment: processEnvironment(store: store),
-                        workingDirectory: paths.workingDirectory,
-                    ),
-                    deadline: .seconds(300),
-                ) { execution in
-                    await withTaskGroup { group in
-                        group.addTask(name: "Login code") {
-                            for await code: String in codes {
-                                return await Result {
-                                    _ = try await execution.standardInputWriter.write(code + "\n", using: UTF8.self)
-                                    try await execution.standardInputWriter.finish()
-                                }
-                                .mapError(ProcessRun.failure)
-                            }
-                            return .success(())
-                        }
-                        _ = await Result { for try await _ in execution.standardOutput.strings() {} }
-                        group.cancelAll()
-                        let delivered: Result<Void, ProcessFailure> = await group.next() ?? .success(())
-                        return Task.isCancelled ? .failure(.cancelled) : delivered
-                    }
-                }
-                .mapError(ClaudeFailure.init(process:))
-                .flatMap { _, status in
-                    status.isSuccess ? .success(()) : .failure(.authenticationFailed(status))
-                }
-            }
     }
 
     private func logOut(store: ClaudeCredentialStore) async -> Result<Void, ClaudeFailure> {

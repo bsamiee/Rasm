@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Image and LUT files over float RGBA frames: still, layered, and multilayer encoders, PNG and lookup-image decoders, metadata, and color tags through ImageSharp, LibTiff, and TinyEXR</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mathematics">
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <ItemGroup Label="Imaging">
+        <PackageReference Include="BitMiracle.LibTiff.NET" />
+        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="TinyEXR.NET" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+</Project>

@@ -4,12 +4,12 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 using PeterO.Numbers;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Filters.Stylize;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using SixLabors.ImageSharp.PixelFormats;
 using TorchSharp;
 using UnitsNet.Units;
 
@@ -526,7 +526,7 @@ public sealed record Refraction(
                            }, Sampling, (Wrap, Wrap)).Apply(refracted, progress)
                            select applied;
                 })
-                select Blend.Composite(frame, refracted, BlendingMode.Mix, Mix.Full, [], PixelAlphaRepresentation.Unassociated)).Map(composite => {
+                select Blend.Composite(frame, refracted, BlendingMode.Mix, Mix.Full, [], AlphaRepresentation.Unassociated)).Map(composite => {
                     composite.View.Span.CopyTo(frame.View.Span);
                     return unit;
                 });

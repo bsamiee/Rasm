@@ -195,7 +195,7 @@ public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal sealed class ValueSetConverter : JsonConverter<ValueSet> {
+public sealed class ValueSetConverter : JsonConverter<ValueSet> {
     public override ValueSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
         new(toHashMap(
             from owner in toSeq(JsonSerializer.Deserialize(ref reader, ValueSetContext.Default.JsonObject))
@@ -221,4 +221,4 @@ internal sealed class ValueSetConverter : JsonConverter<ValueSet> {
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true, Converters = [typeof(ValueSetConverter)])]
 [JsonSerializable(typeof(ValueSet))]
 [JsonSerializable(typeof(JsonObject))]
-internal sealed partial class ValueSetContext : JsonSerializerContext;
+public sealed partial class ValueSetContext : JsonSerializerContext;

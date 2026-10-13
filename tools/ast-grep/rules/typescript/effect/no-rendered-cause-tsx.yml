@@ -25,11 +25,39 @@ utils:
                         field: function
                         kind: member_expression
                         has: {field: property, regex: '^(mapError|catch|catchCause|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|catchDefect|tapError|tapCause|tapErrorTag)$'}
-    cause-parameter:
-        matches: failure-callback
+    named-parameter:
         any:
             - has: {field: parameter, kind: identifier, pattern: $CAUSE}
             - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $CAUSE}}}
+    cause-parameter:
+        all:
+            - matches: failure-callback
+            - matches: named-parameter
+    relayed-failure:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: identifier, pattern: $RELAY}
+            - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ARG}}
+            - inside:
+                stopBy: end
+                matches: failure-callback
+                any:
+                    - has: {field: parameter, kind: identifier, pattern: $ARG}
+                    - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ARG}}}
+    rendering-function:
+        all:
+            - matches: named-parameter
+            - has: {field: body, any: [{matches: rendering}, {has: {stopBy: end, matches: rendering}}]}
+    relay-declaration:
+        any:
+            - {kind: function_declaration, has: {field: name, pattern: $RELAY}, matches: rendering-function}
+            - kind: lexical_declaration
+              has:
+                kind: variable_declarator
+                all:
+                    - has: {field: name, pattern: $RELAY}
+                    - has: {field: value, kind: 'arrow_function, function_expression', matches: rendering-function}
+            - {kind: export_statement, has: {matches: relay-declaration}}
     rendering:
         any:
             - kind: call_expression
@@ -46,43 +74,53 @@ utils:
                           all:
                             - has: {field: property, regex: '^toStringUnknown$'}
                             - has: {field: object, matches: {effect-module: {name: {regex: '\bInspectable$'}}}}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^(format|formatJson)$'}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bFormatter$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $CAUSE}}
             - kind: member_expression
               all:
                 - has: {field: object, kind: identifier, pattern: $CAUSE}
-                - has: {field: property, regex: '^(message|stack)$'}
+                - has: {field: property, regex: '^(message|stack|toString)$'}
+              not:
+                all:
+                    - has: {field: property, regex: '^stack$'}
+                    - inside: {stopBy: end, kind: statement_block, has: {stopBy: end, kind: assignment_expression, has: {field: left, pattern: Error.prepareStackTrace}}}
             - kind: template_substitution
               has: {kind: identifier, pattern: $CAUSE}
-    error-class:
-        kind: class_declaration, class
-        has:
-            kind: class_heritage
-            has:
-                kind: extends_clause
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\+$'}
+                - has: {kind: identifier, pattern: $CAUSE}
+                - has: {kind: 'string, template_string'}
+    protocol-error-fields:
+        kind: object
+        inside: {kind: arguments, inside: {kind: new_expression, has: {field: 'constructor', matches: syntax-package-reference}}}
+    text-content-fields:
+        kind: object
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
                 has:
-                    field: value
-                    stopBy: end
+                    field: function
                     kind: member_expression
                     all:
-                        - has: {field: property, regex: '^(Error|TaggedError)$'}
-                        - has: {field: object, matches: {effect-module: {name: {regex: '\b(Data|Schema)$'}}}}
-    protocol-message:
-        kind: member_expression
-        has: {field: property, regex: '^message$'}
-        inside:
-            kind: pair
-            field: value
-            has: {field: key, regex: '^message$'}
-            inside:
-                kind: object
-                inside:
-                    kind: arguments
-                    inside:
-                        any:
-                            - kind: new_expression
-                              has: {field: 'constructor', matches: syntax-package-reference}
-                            - kind: call_expression
-                              has: {field: function, matches: syntax-package-reference}
+                        - has: {field: property, regex: '^make$'}
+                        - has:
+                            field: object
+                            any:
+                                - kind: member_expression
+                                  all:
+                                    - has: {field: property, regex: '^TextContent$'}
+                                    - has: {field: object, matches: {effect-module: {name: {regex: '\bMcpSchema$'}}}}
+                                - matches: {syntax-import-reference: {source: {regex: '^effect/ai/McpSchema$'}, exported: {regex: '^TextContent$'}}}
+    protocol-field:
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^message$'}, inside: {matches: protocol-error-fields}}
+            - {kind: shorthand_property_identifier, regex: '^message$', inside: {matches: protocol-error-fields}}
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^text$'}, inside: {matches: text-content-fields}}
     cause-module:
         matches: {effect-module: {name: {regex: '\bCause$'}}}
     built-cause:
@@ -100,13 +138,27 @@ rule:
         - matches: rendering
           pattern: $TEXT
           inside: {stopBy: end, matches: cause-parameter}
-          not: {matches: protocol-message}
+          not: {matches: protocol-field}
+        - matches: relayed-failure
+          pattern: $TEXT
+          inside: {stopBy: end, kind: 'statement_block, program', has: {matches: relay-declaration}}
+        - kind: shorthand_property_identifier_pattern
+          regex: '^(message|stack)$'
+          pattern: $TEXT
+          inside:
+            kind: object_pattern
+            inside:
+                kind: required_parameter
+                inside:
+                    kind: formal_parameters
+                    inside:
+                        matches: failure-callback
+                        has:
+                            field: body
+                            any:
+                                - {kind: identifier, pattern: $TEXT}
+                                - has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $TEXT, not: {matches: protocol-field}}
         - matches: built-cause
           pattern: $TEXT
-        - kind: method_definition
-          all:
-            - has: {regex: '^get$'}
-            - has: {field: name, regex: '^message$', pattern: $TEXT}
-            - inside: {kind: class_body, inside: {matches: error-class}}
 message: '`$TEXT` renders a typed failure to text'
-note: 'Keep failures typed to the boundary, where `<error>.message` fills a protocol error''s `message` field and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'
+note: 'Keep the failure typed to the boundary as a `cause` field (`new <Error>({ reason: { _tag: ''<Case>'', cause } })`), where `<error>.message` fills a protocol error''s `message` field or a `McpSchema.TextContent` `text`, and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'

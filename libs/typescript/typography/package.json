@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/typography",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./*": "./*.ts"
+    },
+    "dependencies": {
+        "effect": "catalog:",
+        "fontkit": "catalog:"
+    },
+    "devDependencies": {
+        "@types/fontkit": "catalog:"
+    }
+}

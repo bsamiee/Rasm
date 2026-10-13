@@ -21,8 +21,8 @@ function CompositionGrid({ composition, renderMedia, active, presentation }: { c
                 // biome-ignore lint/nursery/noInlineStyles: Composition dimensions and column proportions come from uploaded dimensions
                 style={style}
             >
-                <MediaFigure active={active} placement={first} preload={presentation === 'expandable'} presentation={presentation} priority={false} renderMedia={renderMedia} />
-                {second && <MediaFigure active={active} placement={second} preload={presentation === 'expandable'} presentation={presentation} priority={false} renderMedia={renderMedia} />}
+                <MediaFigure active={active} placement={first} presentation={presentation} priority={false} renderMedia={renderMedia} />
+                {second && <MediaFigure active={active} placement={second} presentation={presentation} priority={false} renderMedia={renderMedia} />}
             </div>
         </div>
     );

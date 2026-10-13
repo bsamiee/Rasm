@@ -1,4 +1,3 @@
-// biome-ignore-all lint/correctness/noNodejsModules: Node owns glob matching and the environment inherited by the upstream MCP process.
 import { matchesGlob } from 'node:path';
 import { env } from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';

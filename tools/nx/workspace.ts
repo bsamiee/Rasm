@@ -45,15 +45,49 @@ const _Root = _Toml.pipe(
 const _Manifest = _Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
 const _MSBuildProject = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
-        decode: SchemaGetter.transformEffect((text: string, options) => Effect.try({ try: () => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text), catch: () => new SchemaIssue.InvalidValue({ expected: 'MSBuild XML' }, text, options) })),
+        decode: SchemaGetter.transformEffect((text: string, options) =>
+            Effect.try({ try: () => new XMLParser({ ignoreAttributes: false, isArray: (name) => Array.contains(['PropertyGroup', 'ItemGroup', 'PackageReference', 'ProjectReference'], name) }).parse(text), catch: () => new SchemaIssue.InvalidValue({ expected: 'MSBuild XML' }, text, options) }),
+        ),
         encode: SchemaGetter.forbiddenEncoding,
     }),
-    Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.optionalKey(Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) }))) }) })),
+    Schema.decodeTo(
+        Schema.Struct({
+            Project: Schema.Struct({
+                PropertyGroup: Schema.optionalKey(Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) }))),
+                ItemGroup: Schema.optionalKey(
+                    Schema.Array(
+                        Schema.Struct({
+                            PackageReference: Schema.optionalKey(Schema.Array(Schema.Struct({ Include: Schema.String, PrivateAssets: Schema.optionalKey(Schema.String) }).pipe(Schema.encodeKeys({ Include: '@_Include', PrivateAssets: '@_PrivateAssets' })))),
+                            ProjectReference: Schema.optionalKey(Schema.Array(Schema.Struct({ Include: Schema.String }).pipe(Schema.encodeKeys({ Include: '@_Include' })))),
+                        }),
+                    ),
+                ),
+            }),
+        }),
+    ),
 );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _host = (dir: string): readonly string[] => Array.map(Array.intersection(dir.split('/'), ['rhino', 'blender']), (host) => `host:${host}`);
+const _packages = Effect.fnUntraced(function* (project: (typeof _MSBuildProject.Type)['Project'], dir: string, consumer: boolean): Effect.fn.Return<readonly string[], unknown, FileSystem.FileSystem | Path.Path> {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const items = project.ItemGroup ?? [];
+    const referenced = yield* Effect.forEach(
+        Array.flatMap(items, ({ ProjectReference }) => ProjectReference ?? []),
+        ({ Include }) => Effect.flatMap(Effect.flatMap(fs.readFileString(path.join(dir, Include)), Schema.decodeEffect(_MSBuildProject)), ({ Project }) => _packages(Project, path.dirname(path.join(dir, Include)), true)),
+        { concurrency: 'unbounded' },
+    );
+    return Array.dedupe([
+        ...Array.flatMap(items, ({ PackageReference }) =>
+            Array.map(
+                Array.filter(PackageReference ?? [], ({ PrivateAssets }) => !consumer || PrivateAssets !== 'all'),
+                ({ Include }) => Include,
+            ),
+        ),
+        ...Array.flatten(referenced),
+    ]);
+});
 const _root = Effect.fnUntraced(function* (workspace: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { tool } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, _DECLARATION)), Schema.decodeEffect(_Root));
@@ -136,12 +170,13 @@ const _PROJECTS = {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const file = path.join(dir, base);
         const { Project } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, file)), Schema.decodeEffect(_MSBuildProject));
+        const packages = yield* _packages(Project, path.join(workspace, dir), false);
         const host = _host(dir);
         const plugin = Array.some(Project.PropertyGroup ?? [], ({ TargetExt }) => TargetExt === '.rhp');
         const outputs = (pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${pivot}*`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${pivot}*`] : [])];
         return {
             root: dir,
-            tags: ['language:dotnet', ...host, ...(plugin ? ['output:rhp'] : [])],
+            tags: ['language:dotnet', ...host, ...(plugin ? ['output:rhp'] : []), ...Array.map(packages, (id) => `package:${id}`)],
             targets: {
                 build: { outputs: outputs('debug') },
                 'build:release': { outputs: outputs('release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
@@ -154,12 +189,12 @@ const _PROJECTS = {
     '*.cs': Effect.fnUntraced(function* ({ dir, base }, { workspace }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const file = path.join(dir, base);
-        yield* Effect.filterOrFail(fs.readFileString(path.join(workspace, file)), String.startsWith('#!'));
+        const text = yield* Effect.filterOrFail(fs.readFileString(path.join(workspace, file)), String.startsWith('#!'));
         const inputs = ['default', '{workspaceRoot}/.editorconfig'];
         return {
             root: dir,
             name: dir,
-            tags: ['language:dotnet', ..._host(dir)],
+            tags: ['language:dotnet', ..._host(dir), ...Array.map(Array.fromIterable(text.matchAll(/^#:package (?<id>[^@\s]+)/gmu)), ({ groups }) => `package:${groups?.id}`)],
             targets: {
                 ...Record.fromIterableWith(['build', 'format', 'lint'], (target) => [target, { executor: 'nx:noop', dependsOn: [{ target: `${target}:*.cs`, params: 'forward' }] }]),
                 [`restore:${base}`]: { inputs: ['default', 'dotnet'], outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`], options: { args: [file] } },
@@ -214,7 +249,7 @@ const _PROJECTS = {
     }),
     'tsconfig.json': ({ dir }) => Effect.succeed({ root: dir, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
     'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {}, serve: {} } }),
-    'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {} } }),
+    'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {}, install: {} } }),
 } as const satisfies Record<string, (file: Path.Path.Parsed, context: { workspace: string; root: ReturnType<typeof _root>; sources: ReturnType<typeof _sources> }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
 
 const _pythonVersions = Effect.fnUntraced(function* (declarations: readonly string[], workspace: string) {

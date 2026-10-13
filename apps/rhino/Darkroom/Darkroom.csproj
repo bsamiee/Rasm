@@ -18,7 +18,9 @@
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging/Rasm.Imaging.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging.Files/Rasm.Imaging.Files.csproj" />
         <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
     </ItemGroup>
 </Project>

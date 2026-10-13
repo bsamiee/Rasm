@@ -53,12 +53,7 @@ Reuse a bundled extractor selecting the construct. Choose the item boundary befo
 - `isPublic` takes `not: {has: {kind: <visibility-kind>, regex: '<private-marker>'}}` where the default is public
 - Quoted keys stay quoted where unquoting changes their spelling
 - Headers keep generics, constraints, attributes, and heritage clauses
+- Extractors yield each intended item and member once in source order, in every view a consumer reads
+- Extractors replacing a bundled default keep every construct the default yielded
 
 Constructs with no identifier (table row, a keyed block inside a document read whole) take no extractor. TOML has no built-in language, a `customLanguages` grammar adds one.
-
-## [04]-[CHECKS]
-
-- Compare exact item and member identities, order, and cardinality before signatures, flags, and ranges, a partial comparison accepts extra entries
-- Cardinality is a structural count, `ast-grep scan --custom-languages allow --inline-rules "$(cat <extractor>)" <path> --json=compact | jq length`
-- Check each requested view, empty member signatures in `digest` mark no failed transformation
-- Check a replaced default for lost constructs and duplicate entries

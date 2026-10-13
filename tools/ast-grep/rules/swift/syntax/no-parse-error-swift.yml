@@ -56,6 +56,15 @@ utils:
     empty-tuple:
         regex: '^$'
         inside: {stopBy: end, kind: tuple_expression, regex: '^\(\s*\)$'}
+    linked-modifiers:
+        kind: modifiers
+        has: {kind: attribute, regex: '^@_silgen_name\('}
+    linked-declaration:
+        kind: ERROR
+        regex: '^(?:[^={}/]|//[^\n]*)*$'
+        any:
+            - has: {matches: linked-modifiers}
+            - inside: {kind: function_declaration, stopBy: {not: {kind: function_type}}, has: {matches: linked-modifiers}}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
@@ -65,6 +74,7 @@ utils:
             - matches: awaited-condition-recovery
             - matches: isolated-parameter
             - matches: empty-tuple
+            - matches: linked-declaration
 rule:
     any:
         - kind: ERROR
@@ -75,4 +85,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-swift grammar gaps are bare regex literals opening `/^` or holding `\/`, `unsafe` expressions, `where` on a non-final pattern of a multi-pattern `case`, an `if` condition `await <expression> {` read as a trailing closure, `isolated` parameters (`(isolated T) -> Void`), and the empty tuple `()` as a value
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-swift grammar gaps are bare regex literals opening `/^` or holding `\/`, `unsafe` expressions, `where` on a non-final pattern of a multi-pattern `case`, an `if` condition `await <expression> {` read as a trailing closure, `isolated` parameters (`(isolated T) -> Void`), the empty tuple `()` as a value, and bodiless `@_silgen_name` function declarations with header tokens of the declaration after them

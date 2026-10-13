@@ -53,7 +53,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Workspace inference derives versioned ty and mypy targets, default exclusions, and Ruff file versions from runtime closure
 - Inferred `options.args` holds checker policy when explicit project commands replace inferred commands
 - Formatter paths use native trailing arguments, preserving inferred policy arguments
-- Rhino, Grasshopper, and .NET modules type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
+- Modules a host supplies at run time with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
 - PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries
 - `mypy` overrides name a PEP 723 script by its unqualified module
 - Match arms implement domain cases, checker suggestions supply no missing-case behavior
@@ -68,22 +68,18 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [07]-[HOST_PACKAGING]
 
-- Use `eng/python/fitout/` for Blender extension assembly and installation
+- Use `eng/python/fitout/` for host extension assembly and installation
 - Root backend builds concerns into one namespace wheel, excluding runtime declarations
 - Extension assembly selects source from derived runtime imports, with companion stubs and data beneath selected package directories
 - Selected modules enter packaging as wheel-relative arguments, package membership supplies no import inventory
-- First-party imports use `from rasm.<module> import <member>` for relocation into private extension packages
-- Blender supplies extension identity as `bl_ext.<repo>.<id>`, extension-local imports use relative paths within that package
-- Selected Blender interpreter's markers and wheel tags govern `pip wheel` compatibility
-- Root uv constraint rows whose markers hold for Blender's interpreter name the bundled ABI providers export omits
-- Installation matches running GUI Blender processes to the executable `BLENDER_PATH` resolves by file identity and to the installing process's `BLENDER_USER_*` profile
+- Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
+- Root uv constraint rows whose markers hold for a host's interpreter name the ABI providers the host bundles, export omits them
 
 ## [08]-[TYPING]
 
 - Correct logic, derivation, and native API use before investigating published typing providers
 - Retain native runtime types when provider declarations are incomplete
-- Unavoidable external defects permit diagnostic-specific ignores after native evidence and provider alternatives establish the limitation
-- Diagnostic-specific ignores use affected lines or file-top directives for repeated occurrences
+- Diagnostics a typing provider's wrong or missing declaration causes take a rule-specific ignore on their line, or one file-top directive for repeats
 - Root configuration holds no local exceptions
 - Checker policies conflicting with program semantics are corrected at their owner
 - Successful resolution, build, or import changes no dependency's published interpreter support

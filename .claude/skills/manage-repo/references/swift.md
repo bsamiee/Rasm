@@ -15,9 +15,8 @@ Xcode projects build every Swift product, one root build configuration and the r
 - `files` holds navigator references, each target's `product` names a product reference under `Products`
 - `kind: "folder"` at `path: "."` discovers sources through `target-membership`, files join existing build phases by type
 - Sources stay at `.`, domain folders group related files
-- Apps exclude non-source files through `membership-exceptions`, their `resources` phase bundles other discovered resources
-- Tools take no `resources` phase or resource exclusions
-- Apps retain `resources` in `build-phases` for asset compilation
+- Apps with assets exclude non-source files through `membership-exceptions`, their `resources` phase compiles assets and bundles other discovered resources
+- Tools and apps without assets take no `resources` phase or resource exclusions
 - Each project holds one shared scheme in `xcshareddata/xcschemes`, Xcode writes a new project's schemes under ignored `xcuserdata/` alone
 - Shared schemes hold a `BuildAction` and a `LaunchAction` naming the target, Xcode autocreates a duplicate of a scheme with no `LaunchAction`
 - `LaunchAction` sets `customLLDBInitFile` to root `.lldbinit` by a `$(SRCROOT)`-relative path
@@ -40,9 +39,11 @@ Xcode projects build every Swift product, one root build configuration and the r
 - `ARCHS = arm64` excludes x86_64, deprecated at the macOS 27 deployment target
 - `-destination platform=macOS` takes no arch under `ARCHS`, a missing destination matches Any Mac and warns
 - Automatic signing with the root team resolves an unset `CODE_SIGN_IDENTITY` to Apple Development
-- Apple Development's designated requirement keeps TCC grants (a tool's Apple Events) across rebuilds, an ad hoc signature prompts again
-- Apps add hardened runtime and `MainActor` default isolation, tools `CREATE_INFOPLIST_SECTION_IN_BINARY` for their Info.plist keys
-- Tools take no hardened runtime, Apple Events need an entitlement under it
+- Apple Development's designated requirement keeps TCC grants (Apple Events) across rebuilds, an ad hoc signature prompts again
+- TCC and `tccutil` address a bundle identifier LaunchServices registered, an executable outside a bundle gets one Automation row per path and no reset
+- Products needing a TCC grant are `application` bundles installed at the default `INSTALL_PATH` (`/Applications`), `LSBackgroundOnly` when they show no interface
+- Interface apps add hardened runtime and `MainActor` default isolation, tools `CREATE_INFOPLIST_SECTION_IN_BINARY` for their Info.plist keys
+- Apple Events senders take no hardened runtime, Apple Events need an entitlement under it
 
 ## [03]-[COMPILER]
 
@@ -110,10 +111,8 @@ SwiftLint rules join when no other checker covers their form:
 
 CI's macOS job uses its runner image's newest installed Xcode:
 - Shared setup on macOS runs `setup-xcode` first to select the newest installed version, betas included
-- `build` configuration `ci` holds unsigned build settings
-- `ci.yml` and `codeql.yml` pass `--configuration ci`
-- Settings in `ci` and after `--` reach `build`'s xcodebuild alone, `lint` and `xcode-build-server config` take no forwarded arguments
-- `COMPILER_INDEX_STORE_ENABLE=NO` joins configuration `ci`, nothing in CI reads the index
+- Settings CI alone needs (unsigned build, `COMPILER_INDEX_STORE_ENABLE=NO`) join `build` configuration `ci`, workflows select it with `--configuration ci`
+- Settings in `ci` and after `--` reach `build`'s xcodebuild alone
 - `xcbeautify` reads a pipe alone and stays out
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
 
@@ -133,16 +132,14 @@ SwiftPM joins with the first Swift library:
 - Apps reference a library through `kind: "local"` and its project-relative `path` in `packages`
 - `upgrade` runs `swift package update`, `Package.resolved` appears at the package root with the first remote dependency
 - SwiftLint and swift-format plugins stay out, each adds a remote dependency and a second tool version beside the root one
-- `workspace.ts` gains a `Package.swift` kind tagged `language:swift` alone, xcodebuild `build` and `install` bodies move to `tag:host:macos`
 
 ## [09]-[NEW_PROJECT]
 
 New Swift projects join as `<Name>.xcodeproj` with its shared scheme, root files serve every other item of a language join:
-- `workspace.ts` discovers `project.xcproj`, `nx.json` bodies apply by tag, CI runs `host:macos` projects in the macOS job
 - `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file
 - Template Clang and Metal rows and the `DEBUG` condition have no reader in a Swift product
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
-- `nx run rasm:format` precedes the first `check`, root writers own Swift formatting
+- `nx run rasm:format` formats a new project's files, root writers own Swift formatting
 
 ## [10]-[LANGUAGE_SERVER]
 

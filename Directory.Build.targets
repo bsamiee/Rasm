@@ -49,9 +49,7 @@
             <Output TaskParameter="Assemblies" ItemName="_RhinoAssemblyIdentity" />
         </GetAssemblyIdentity>
         <PropertyGroup>
-            <_RhinoMajorVersion>$([System.Version]::Parse('%(_RhinoAssemblyIdentity.Version)').Major)</_RhinoMajorVersion>
-            <RhinoInstallPath Condition="'$(RhinoInstallPath)' == ''">$(RHINO_PATH)</RhinoInstallPath>
-        </PropertyGroup>
+            <_RhinoMajorVersion>$([System.Version]::Parse('%(_RhinoAssemblyIdentity.Version)').Major)</_RhinoMajorVersion></PropertyGroup>
         <Exec Command="osascript -l JavaScript -e &quot;ObjC.import('AppKit'); \$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('com.mcneel.rhinoceros.$(_RhinoMajorVersion)').path.js&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low" Condition="'$(RhinoInstallPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">
             <Output TaskParameter="ConsoleOutput" PropertyName="RhinoInstallPath" />
         </Exec>

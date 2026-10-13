@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-script-source-template
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^doScript$'}}
+        - has:
+            field: arguments
+            has:
+                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                pattern: $SOURCE
+                any:
+                    - matches: syntax-built-text
+                    - kind: identifier
+                      inside:
+                        kind: statement_block, program
+                        stopBy: end
+                        has:
+                            kind: lexical_declaration
+                            has:
+                                kind: variable_declarator
+                                all:
+                                    - has: {field: name, pattern: $SOURCE}
+                                    - has: {field: value, matches: syntax-built-text}
+        - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+message: '`$SOURCE` builds the script source of `doScript` from values'
+note: 'Keep the source text constant and pass each value through the `withArguments` array, which the script reads as `arguments` (`arguments[0]` in JavaScript, `item 1 of arguments` in AppleScript)'

@@ -7,6 +7,7 @@ using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;

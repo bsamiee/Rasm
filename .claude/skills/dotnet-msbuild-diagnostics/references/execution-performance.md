@@ -47,8 +47,6 @@ Critical path is the duration-weighted chain of project dependencies setting min
 - Replace a project reference with a package when the dependency is a prebuilt artifact
 - Reduce the graph with a solution filter
 
-After each graph change, capture the same build again and run `mcp__binlog__binlog_build_graph` for the new critical path.
-
 ## [05]-[STATIC_GRAPH]
 
 `-graph` builds the project graph from declared references before execution and schedules referenced projects before their consumers. `-isolate` enforces the graph and is the one mode that reports `MSB4252`, a clean `-graph` build without it leaves missing edges unreported.

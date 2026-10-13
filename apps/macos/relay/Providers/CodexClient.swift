@@ -135,38 +135,13 @@ actor CodexClient: ProviderClient {
     }
 
     // --- [SIGN_IN]
-    func connect(id: UUID, codes _: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError> {
-        let home: URL = paths.codexHome(id)
-        return await signIn(home: home).bind { _ in identity(at: home) }.mapError(ProviderError.init(failure:))
-    }
-
-    func reconnect(account: Account, isSelected: Bool, codes _: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError> {
-        let home: URL = home(for: account, isSelected: isSelected)
-        return await signIn(home: home).bind { _ in identity(at: home) }
-            .bind { identity in
-                if identity.isSameAccount(as: account.identity) { .success(identity) } else { await logOut(home: home).flatMap { _ in .failure(.identityChanged) } }
+    func signIn(_ target: SignInTarget, codes _: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError> {
+        let (home, expected): (URL, AccountIdentity?) =
+            switch target {
+                case .newAccount(let id): (paths.codexHome(id), nil)
+                case .account(let account, let isSelected): (home(for: account, isSelected: isSelected), account.identity)
             }
-            .mapError(ProviderError.init(failure:))
-    }
-
-    func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
-        await logOut(home: home(for: account, isSelected: isSelected)).mapError(ProviderError.init(failure:))
-    }
-
-    func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
-        await signOut(account, isSelected: isSelected)
-            .flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }
-            .bind { _ in await deletePrivateStore(id: account.id) }
-    }
-
-    func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError> {
-        let home: URL = paths.codexHome(id)
-        await stopServer(home)
-        return remove(home).mapError(ProviderError.init(failure:))
-    }
-
-    private func signIn(home: URL) async -> Result<Void, CodexFailure> {
-        await connection(for: home).bind { connection in
+        return await connection(for: home).bind { connection in
             await ProcessRun.withDeadline(.seconds(300)) {
                 await connection.request(
                     CodexProtocol.LoginStarted.self,
@@ -193,6 +168,27 @@ actor CodexClient: ProviderClient {
                 }
             }
         }
+        .bind { _ in identity(at: home) }
+        .bind { identity in
+            if expected.map(identity.isSameAccount(as:)) ?? true { .success(identity) } else { await logOut(home: home).flatMap { _ in .failure(.identityChanged) } }
+        }
+        .mapError(ProviderError.init(failure:))
+    }
+
+    func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
+        await logOut(home: home(for: account, isSelected: isSelected)).mapError(ProviderError.init(failure:))
+    }
+
+    func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
+        await signOut(account, isSelected: isSelected)
+            .flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }
+            .bind { _ in await deletePrivateStore(id: account.id) }
+    }
+
+    func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError> {
+        let home: URL = paths.codexHome(id)
+        await stopServer(home)
+        return remove(home).mapError(ProviderError.init(failure:))
     }
 
     private func logOut(home: URL) async -> Result<Void, CodexFailure> {

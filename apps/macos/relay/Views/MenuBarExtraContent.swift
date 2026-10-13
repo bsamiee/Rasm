@@ -33,10 +33,12 @@ struct AccountMenuItems: View {
     let remove: () -> Void
 
     var body: some View {
-        Button("Move Up") { store.moveAccount(model.account.id, by: -1) }
-            .disabled(store.accounts.first?.account.id == model.account.id)
-        Button("Move Down") { store.moveAccount(model.account.id, by: 1) }
-            .disabled(store.accounts.last?.account.id == model.account.id)
+        if let index: Int = store.accounts.firstIndex(where: { other in other.account.id == model.account.id }) {
+            Button("Move Up") { store.moveAccounts(from: [index], to: index - 1) }
+                .disabled(index == store.accounts.startIndex)
+            Button("Move Down") { store.moveAccounts(from: [index], to: index + 2) }
+                .disabled(index == store.accounts.endIndex - 1)
+        }
         Divider()
         Button(AccountRemovalAlert.title, role: .destructive, action: remove)
             .disabled(model.isBusy)
@@ -88,7 +90,7 @@ struct MenuBarExtraContent: View {
 
     private func accounts(at now: Date) -> some View {
         VStack(spacing: 24) {
-            if store.isLoading {
+            if store.storageState == .loading {
                 ProgressView().controlSize(.small)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -188,12 +190,7 @@ private struct AccountCard: View {
         if hasSession {
             UsageGauge(
                 title: "Session",
-                reading: UsagePresentation.sessionReading(
-                    session,
-                    availability: model.availability(at: now),
-                    isCurrent: isCurrent,
-                    at: now,
-                ),
+                reading: UsagePresentation.sessionReading(model.usage, at: now),
                 fraction: showsStart ? 0 : session?.used.fraction ?? 0,
                 isCurrent: isCurrent,
                 detail: UsagePresentation.resetTooltip(session?.resetsAt),

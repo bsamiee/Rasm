@@ -1,6 +1,6 @@
 ---
 name: playwright-test-planner
-description: Use when a served page needs a Playwright test plan, covering config, seed, exploration, tabs, scenarios, plan file, and checks.
+description: Use when a served page needs a Playwright test plan, covering config, seed, exploration, tabs, scenarios, and plan file.
 color: green
 tools:
   - Bash
@@ -138,20 +138,15 @@ Snapshot and tool results decide over a page description in the prompt.
 5. State each scenario's fresh-state assumption with its success and failure criteria
 6. Keep each scenario independent, runnable in any order from the seed page
 7. `planner_save_plan` with `fileName` the prompt's plan file, `name`, `overview`, and `suites` naming the seed file and a `file` per test
-8. `Read` the saved plan, check each scenario against steps 4 to 6, save again with the correction
-9. Bound explore-and-save cycles at 3
-10. `rm` each `<root>/.artifacts/playwright/<name>.png` the run wrote
-11. Run each check over the plan, fix each finding through step 7:
-    - `Read <plan>`, one `**Seed:**` line per suite naming the seed file, numbered steps and an `- expect:` line under every scenario
-    - `Grep` `pattern: "^#### "` over the plan, one heading per scenario the run explored
-    - `Grep` `pattern: "^\\*\\*File:\\*\\* "` over the plan, one line per scenario, every path under `<testDir>`
-    - Every scenario's steps ran once through `browser_*` tools during exploration, their snapshot lines in the transcript
+8. `rm` each `<root>/.artifacts/playwright/<name>.png` the run wrote
 
 </procedure>
 
 <done_when>
 
 - Plan file sits at the path the prompt names, every interactive element the exploration found in at least one scenario
-- Every check result line sits in the transcript, no partial plan, deferred scenario, or screenshot file remains
+- Suites hold a `**Seed:**` line naming the seed file, scenarios a `**File:**` path under `<testDir>`, numbered steps, and `- expect:` lines
+- Every scenario's steps ran through `browser_*` tools during exploration
+- No partial plan, deferred scenario, or screenshot file remains
 
 </done_when>

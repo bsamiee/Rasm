@@ -29,13 +29,9 @@ nonisolated enum UsagePresentation {
         reset.map { reset in reset.formatted(detailStyle) } ?? "No reset"
     }
 
-    static func sessionReading(
-        _ window: QuotaWindow?,
-        availability: Availability?,
-        isCurrent: Bool,
-        at now: Date,
-    ) -> String? {
-        let used: String? = window.flatMap { window in percentage(window.used) }
+    static func sessionReading(_ usage: UsageState, at now: Date) -> String? {
+        let availability: Availability? = usage.usage?.availability(at: now)
+        let used: String? = usage.usage?.session.flatMap { window in percentage(window.used) }
         let state: String? =
             switch availability {
                 case .running(let until): reset(until, at: now)
@@ -43,7 +39,7 @@ nonisolated enum UsagePresentation {
                 case .ready, .none: "Awaiting update"
                 case .noSessionWindow: nil
             }
-        guard !isCurrent || availability != .ready else { return nil }
+        guard !usage.isCurrent || availability != .ready else { return nil }
         let parts: [String] = [used, state].compactMap(\.self)
         return parts.isEmpty ? nil : parts.joined(separator: separator)
     }
@@ -66,8 +62,15 @@ nonisolated enum UsagePresentation {
             .joined(separator: separator)
     }
 
-    static func refusal(_ refusal: AuthenticationRefusal, at now: Date) -> String {
-        if case .failure(let error) = refusal { issue(error, at: now) } else { refusal.description }
+    static func authentication(_ phase: AuthenticationPhase, at now: Date) -> String {
+        switch phase {
+            case .pending: "Waiting for browser sign-in"
+            case .completing: "Completing sign-in"
+            case .refused(.differentAccount(let email)): "Signed in to a different account than \(email)"
+            case .refused(.alreadyConnected(let email)): "\(email) is already connected"
+            case .refused(.failure(let error)): issue(error, at: now)
+            case .cancelling: "Canceling sign-in"
+        }
     }
 
     static func signInLine(expiring expiry: Date?, at now: Date) -> String? {

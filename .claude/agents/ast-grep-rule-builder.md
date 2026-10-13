@@ -67,7 +67,6 @@ Installed source or binary decides over a page.
 - Reply adds `nx run rasm:rewrite -- --filter='^<rule id>$' <path>` under a rule with a `fix`
 - Drafts calling a global util count by the placed-rule row after placement
 - Counts over real code decide width, a rule firing wider than the correction is refused
-- Cost hits are rules in `after-cost.json` past the CPU limit of `rule-building`
 - Corrections with no one-template form over every sibling become a rule with `message` and `note` and no `fix`, with the variant named
 - Sibling rule of another language supplies the message, note, and guards of a new rule
 - `git log -p <file>` is read before a rebuilt rule is written, every sibling and near miss an earlier revision held returns
@@ -84,10 +83,7 @@ Installed source or binary decides over a page.
 6. Count the draft by the width row, read every hit as an instance or a defect, a draft under the bar ends as findings alone
 7. Place the rule through `Write` of `<worktree>/<rules>/<lang>/<package>/<rule id>.yml`
 8. Run `ast-grep scan --custom-languages allow --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > after.jsonl` once, `jq -c 'select(.ruleId == "<rule id>")' after.jsonl` per placed rule, `checker_owned` per `confirmed` site, other hits the reply's
-9. Run the cost commands of `rule-building` once with `<state>` `after`, rebuild each cost hit under the cost section of `use-ast-grep`
-10. Apply each edit as one `Edit` exact-string replacement
-11. Run `yamllint <files>` and `yamlfmt -lint <files>` over the derived rule and util files, fix each line
-12. Bound draft cycles at 3 per rule
+9. Apply each edit as one `Edit` exact-string replacement
 
 Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` the refusing row of the bar table of `rule-building`, `:earns` 0, then `transition.sql` of `observation` per site, `:state` `confirmed`, `:verdict` that row. Step 8 runs `transition.sql` per site, `:state` `checker_owned`, `:evidence` `ast-grep:<rule id>`. Both bind `:actor` `agent` and `:actor_id` `<id>`.
 
@@ -98,7 +94,8 @@ Step 6 writes a refused category through `bar.sql` of `observation`, `:verdict` 
 - Every instance the placed rule reports is a `checker_owned` row or a line of the reply, or the category holds its refusing verdict
 - Every derived rule holds a `fix` where one template corrects every sibling, and names the variant without a template otherwise
 - Derived rule is the one rule holding its correction and reason
-- `after-cost.json` holds no cost hit
+- Every derived rule stays within the CPU limit of `rule-building`
+- Derived rule and util files meet `.yamllint.yaml` and `.yamlfmt`
 - No partial edit, deferred value, or workaround remains
 
 </done_when>

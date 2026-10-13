@@ -1,6 +1,6 @@
 ---
 name: playwright-test-generator
-description: Use when one scenario of a Playwright test plan needs its test file, covering config, plan, live steps, log, file, and checks.
+description: Use when one scenario of a Playwright test plan needs its test file, covering config, plan, live steps, log, and file.
 color: blue
 tools:
   - Glob
@@ -27,7 +27,6 @@ tools:
   - mcp__plugin_playwright_playwright-test__generator_read_log
   - mcp__plugin_playwright_playwright-test__generator_setup_page
   - mcp__plugin_playwright_playwright-test__generator_write_test
-  - mcp__plugin_playwright_playwright-test__test_run
 ---
 
 # [PLAYWRIGHT_TEST_GENERATOR]
@@ -141,13 +140,6 @@ Generator log decides the locator and assertion form over a form recalled from m
 2. Run the `browser_verify_*` tool of each verification's kind with the expected text, element, list, or value, `intent` its verification text
 3. `generator_read_log` once after the last verification
 4. `generator_write_test` with `fileName` the prompt's test file and `code` built from the log in the form the `ts` fence shows
-5. `Read` the written file, compare each step comment with the body, write again with the correction
-6. Bound execute-and-write cycles at 3
-7. Run each check over the file, fix each finding through step 4:
-    - `Read <test file>`, one `test.describe` titled the suite name, one `test` titled the scenario name, `// spec:` and `// seed:` header lines
-    - `Grep` `pattern: "^\\s*// "` over the file, one comment per step of the body after the `// spec:` and `// seed:` lines
-    - `Grep` `pattern: "waitForLoadState|waitForNavigation|waitForTimeout|page\\.evaluate"` over the file, no line
-    - `test_run` with `locations` the test file, `1 passed`
 
 Step 4 form for plan item `### 1. Adding New Todos`, scenario `#### 1.1. Add Valid Todo`, and a seed requesting `todoPage` from `./fixtures`:
 
@@ -169,6 +161,8 @@ test.describe('Adding New Todos', () => {
 <done_when>
 
 - Test file sits at the path the prompt names and passes, every step and verification of the body ran live and sits in it
-- Every check result line sits in the transcript, no partial file, deferred step, or placeholder remains
+- File holds one `test.describe` titled the suite name, one `test` titled the scenario name, and one comment per body step
+- File opens with its `// spec:` and `// seed:` lines and holds no `waitForLoadState`, `waitForNavigation`, `waitForTimeout`, or `page.evaluate`
+- No partial file, deferred step, or placeholder remains
 
 </done_when>

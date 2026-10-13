@@ -9,11 +9,13 @@
     <Folder Name="/libs/dotnet/">
         <Project Path="libs/dotnet/Rasm.Drafting/Rasm.Drafting.csproj" />
         <Project Path="libs/dotnet/Rasm.Imaging/Rasm.Imaging.csproj" />
+        <Project Path="libs/dotnet/Rasm.Imaging.Files/Rasm.Imaging.Files.csproj" />
         <Project Path="libs/dotnet/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
     </Folder>
     <Folder Name="/libs/dotnet/rhino/">
         <Project Path="libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
         <Project Path="libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />

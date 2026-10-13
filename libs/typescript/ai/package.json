@@ -1,0 +1,12 @@
+{
+    "name": "@rasm/ai",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./*": "./*.ts"
+    },
+    "dependencies": {
+        "@leeoniya/ufuzzy": "catalog:",
+        "effect": "catalog:"
+    }
+}

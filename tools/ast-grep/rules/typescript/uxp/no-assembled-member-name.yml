@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-assembled-member-name
+language: tsx
+severity: error
+utils:
+    key-position:
+        any:
+            - inside: {kind: subscript_expression, field: index}
+            - inside: {kind: binary_expression, field: left, has: {field: operator, regex: '^in$'}}
+            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
+              inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has: {field: function, regex: '^(Reflect\.(get|set|has|deleteProperty|defineProperty|getOwnPropertyDescriptor)|Object\.(hasOwn|defineProperty|getOwnPropertyDescriptor))$'}
+    key-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, kind: identifier, pattern: $KEY}
+            - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $KEY, matches: key-position}}
+    record-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, kind: identifier, pattern: $RECORD}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: member_expression, subscript_expression
+                    has: {field: object, kind: identifier, pattern: $RECORD}
+                    matches: key-position
+rule:
+    kind: template_string, binary_expression, call_expression, parenthesized_expression
+    matches: syntax-built-text
+    pattern: $NAME
+    all:
+        - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
+        - any:
+            - matches: key-position
+            - inside: {kind: variable_declarator, field: value, matches: key-declaration}
+            - inside:
+                kind: pair
+                field: value
+                inside:
+                    kind: object
+                    any:
+                        - inside: {kind: variable_declarator, field: value, matches: record-declaration}
+                        - inside: {matches: syntax-expression-wrapper, inside: {kind: variable_declarator, field: value, matches: record-declaration}}
+message: '`$NAME` assembles a member name from text'
+note: 'Select the member per case of the tagged value, `Match.value(<value>).pipe(Match.when(<case>, () => <owner>.<member>), Match.exhaustive)`, where the compiler checks each member read or assignment'

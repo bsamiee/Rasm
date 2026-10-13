@@ -7,7 +7,7 @@
     },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
-    "json": { "formatter": { "expand": "auto" } },
+    "json": { "formatter": { "expand": "auto", "delimiterSpacing": true } },
     "css": { "parser": { "tailwindDirectives": true } },
     "assist": { "actions": { "source": { "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
@@ -73,8 +73,8 @@
                         "noForEach": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
-                    "correctness": { "noSolidDestructuredProps": "off", "noUndeclaredVariables": "off", "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
-                    "performance": { "noImgElement": "off", "useSolidForComponent": "off" },
+                    "correctness": { "noNodejsModules": "off", "noSolidDestructuredProps": "off", "noUndeclaredVariables": "off", "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
+                    "performance": { "noImgElement": "off", "noJsxPropsBind": "off", "useSolidForComponent": "off" },
                     "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",
@@ -90,7 +90,7 @@
             }
         },
         { "includes": [ "package.json" ], "linter": { "rules": { "nursery": { "noRestrictedDependencies": "off" } } } },
-        { "includes": [ "apps/web/portfolio/**/*.tsx" ], "linter": { "rules": { "performance": { "noJsxPropsBind": "off" } } } },
+        { "includes": [ "**/*.config.ts" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
         { "includes": [ "plugins/argus/main.ts" ], "linter": { "rules": { "style": { "noProcessEnv": "off" } } } }
     ]

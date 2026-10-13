@@ -16,7 +16,7 @@ google-java-format owns formatting, PMD owns lint, jdtls owns editor diagnostics
 
 ## [03]-[LANGUAGE_SERVER]
 
-jdtls type-checks Ghidra scripts against Ghidra jars on each edit, a check no `rasm:lint` command runs:
-- `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before Ghidra jars attach
+jdtls type-checks scripts a tool loads against that tool's jars on each edit, a check no `rasm:lint` command runs:
+- `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before the jars attach
 - Nix `jdtls` runs on its own JDK, the default `java.configuration.runtimes` row at `${JAVA_HOME}` sets the project JRE and compliance
 - Workspace data stays at the Nix launcher default under `~/Library/Caches/jdtls`, a `-data` folder inside the repository root breaks the project link

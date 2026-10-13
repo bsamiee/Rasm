@@ -14,7 +14,7 @@ import { MediaFailure, MediaLoading } from './status.tsx';
 
 const AnimatedDialog = motion.create(Dialog);
 const ZoomViewer = lazy(() => import('./viewer.tsx').then((module) => ({ default: module.ZoomViewer })));
-function MediaFigure({ placement, active, priority, presentation, preload, renderMedia }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Exclude<ComponentProps<typeof Media>['presentation'], 'expanded'>; preload?: boolean; renderMedia: boolean }): ReactElement {
+function MediaFigure({ placement, active, priority, presentation, renderMedia }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Exclude<ComponentProps<typeof Media>['presentation'], 'expanded'>; renderMedia: boolean }): ReactElement {
     const layoutId = useId();
     const [isOpen, setOpen] = useAtom(dialogOpen(layoutId));
     const figure = useRef<HTMLElement>(null);
@@ -30,7 +30,7 @@ function MediaFigure({ placement, active, priority, presentation, preload, rende
         // biome-ignore lint/nursery/noInlineStyles: Aspect ratio comes from the uploaded dimensions
         <figure aria-hidden={presentation === 'thumbnail'} className="w-[min(100%,calc(var(--media-height)*var(--media-ratio)))] min-w-0" ref={figure} style={style}>
             <motion.div {...(expandable && { layoutId })} className="relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden bg-surface">
-                {renderMedia && <Media active={active} key={placement.asset.id} placement={placement} preload={preload} presentation={presentation} priority={priority} viewport={figure} />}
+                {renderMedia && <Media active={active} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} viewport={figure} />}
             </motion.div>
             {presentation !== 'thumbnail' && (placement.caption || placement.kind === 'pdf' || expandable) && (
                 <figcaption className="wrap-anywhere grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 pt-2 text-muted text-sm leading-[1.55]">

@@ -246,9 +246,9 @@ private struct SignInSheet: View {
                 .font(.title3.weight(.medium))
             if let pending: AuthenticationPresentation = store.authentication {
                 switch pending.phase {
-                    case .refused(let refusal):
+                    case .refused:
                         TimelineView(.everyMinute) { context in
-                            Text(UsagePresentation.refusal(refusal, at: context.date))
+                            Text(UsagePresentation.authentication(pending.phase, at: context.date))
                                 .font(.callout)
                         }
                         Button("Done") { store.dismissAuthentication() }
@@ -259,8 +259,10 @@ private struct SignInSheet: View {
                         let cancelling: Bool = if case .cancelling = pending.phase { true } else { false }
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
-                            Text(pending.phase.description)
-                                .font(.callout)
+                            TimelineView(.everyMinute) { context in
+                                Text(UsagePresentation.authentication(pending.phase, at: context.date))
+                            }
+                            .font(.callout)
                             Spacer()
                             Text(.durationOffset(to: pending.startedAt), format: .time(pattern: .minuteSecond))
                                 .font(.caption)

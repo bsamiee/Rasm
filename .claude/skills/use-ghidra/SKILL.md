@@ -46,7 +46,6 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
 - Logs: Log4j size rollover is unreliable with concurrent runs appending to one file
 - Logs: ghidra-cli writes a daily debug log under `~/Library/Application Support/ghidra-cli/`, a folder no setting moves
-- Use `Skill(manage-repo)` for research folders
 - Use `Skill(search-code)` for a Ghidra API signature
 
 Numbered steps consume the step before. Bulleted cases are alternatives, one per command line in order.
@@ -209,12 +208,4 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 ## [06]-[EXTEND]
 
-Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
-1. Bundle compiled against the install's jars with every warning on
-2. `google-java-format`, `pmd check`, and `ast-grep scan` of `<project>:lint` over the scripts directory, `LSP` diagnostics
-3. Run on a saved program
-
-```bash
-javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" ${CLAUDE_SKILL_DIR}/scripts/*.java
-<run> -readOnly -postScript <Script>.java <out> <seed>...
-```
+Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts compile against the install's jars with no `-Xlint:all` warning and hold zero `<project>:lint` findings.

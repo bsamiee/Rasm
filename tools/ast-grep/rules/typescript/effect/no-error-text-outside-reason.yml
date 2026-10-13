@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-text-outside-reason
+language: tsx
+severity: error
+utils:
+    error-constructor:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(Error|TaggedError)$'}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\b(Data|Schema)$'}}}}
+    error-heritage:
+        kind: extends_clause
+        has:
+            field: value
+            any:
+                - matches: error-constructor
+                - kind: call_expression
+                  has:
+                    field: function
+                    any:
+                        - matches: error-constructor
+                        - {kind: call_expression, has: {field: function, matches: error-constructor}}
+    error-class:
+        kind: class_declaration, class
+        has: {kind: class_heritage, has: {matches: error-heritage}}
+    reason-match:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, kind: identifier, pattern: $UNION}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: this.reason}}, {has: {nthChild: 2, kind: object}}, {not: {has: {nthChild: 3}}}]}
+    reason-getter:
+        has:
+            field: body
+            all:
+                - has: {kind: return_statement, has: {matches: reason-match}}
+                - not: {has: {pattern: $_, not: {kind: 'return_statement, comment'}}}
+    message-getter:
+        kind: method_definition
+        all:
+            - has: {regex: '^get$'}
+            - has: {field: name, regex: '^message$'}
+            - inside: {kind: class_body, inside: {matches: error-class}}
+    arm-match:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, kind: identifier, pattern: $UNION}}]}
+            - has: {field: arguments, has: {nthChild: 2, kind: object}}
+            - inside: {stopBy: end, matches: message-getter}
+    arm:
+        kind: pair
+        all:
+            - has: {field: key, pattern: $ARM}
+            - inside: {kind: object, inside: {kind: arguments, inside: {matches: arm-match}}}
+    union-arm:
+        kind: pair
+        all:
+            - has: {field: key, pattern: $ARM}
+            - has: {field: value, has: {stopBy: end, kind: pair, all: [{has: {field: key, pattern: $FIELD}}, {has: {field: value, matches: defect-schema}}]}}
+    defect-schema:
+        kind: call_expression
+        has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^Defect$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}]}
+    union-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, pattern: $UNION}
+            - has:
+                field: value
+                kind: call_expression
+                all:
+                    - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^TaggedUnion$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}]}
+                    - has: {field: arguments, has: {nthChild: 1, kind: object, has: {matches: union-arm}}}
+    formatted:
+        nthChild: 1
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^format$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bFormatter$'}}}}}]}
+rule:
+    pattern: $TEXT
+    any:
+        - matches: message-getter
+          not: {matches: reason-getter}
+        - kind: public_field_definition
+          all:
+            - has: {field: name, regex: '^message$'}
+            - inside: {kind: class_body, inside: {matches: error-class}}
+        - kind: pair
+          all:
+            - has: {field: key, regex: '^message$'}
+            - inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, inside: {kind: extends_clause, field: value, matches: error-heritage}}}}
+        - kind: property_signature
+          all:
+            - has: {field: name, regex: '^message$'}
+            - inside: {kind: object_type, inside: {kind: type_arguments, inside: {kind: extends_clause, field: type_arguments, matches: error-heritage}}}
+        - kind: identifier, member_expression
+          all:
+            - not: {matches: formatted}
+            - any:
+                - kind: identifier
+                  pattern: $FIELD
+                  inside: {stopBy: end, matches: arm, has: {field: value, has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $FIELD}}}
+                - kind: member_expression
+                  all:
+                    - has: {field: property, pattern: $FIELD}
+                    - has: {field: object, kind: identifier, pattern: $PARAM}
+                    - inside:
+                        stopBy: end
+                        matches: arm
+                        has:
+                            field: value
+                            any:
+                                - has: {field: parameter, kind: identifier, pattern: $PARAM}
+                                - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $PARAM}}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    any:
+                        - {kind: lexical_declaration, has: {matches: union-declaration}}
+                        - {kind: export_statement, has: {kind: lexical_declaration, has: {matches: union-declaration}}}
+message: '`$TEXT` renders error text outside one `reason` match, or a defect outside `Formatter.format`'
+note: 'Declare `message` as a getter returning `<Union>.match(this.reason, { … })` with no `message` field, and render a `Schema.Defect()` cause in an arm as `Formatter.format(<cause>)` and a typed cause as its `.message`'

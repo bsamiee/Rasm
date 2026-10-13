@@ -15,13 +15,11 @@ internal enum Codes {
     LutDomainRefused = 7,
     LutNotInvertible = 8,
     StepNotInvertible = 9,
-    LutUnreadable = 10,
-    LutLineMalformed = 11,
-    LutStepRefused = 12,
-    LutSizeAbsent = 13,
-    LutCountMismatched = 14,
-    LookupShapeRefused = 15,
-    LutFormatRefused = 16,
+    LutLineMalformed = 10,
+    LutStepRefused = 11,
+    LutSizeAbsent = 12,
+    LutCountMismatched = 13,
+    LutFormatRefused = 14,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -45,12 +43,6 @@ public sealed record LutNotInvertible(int Channel) : Expected("LUT channel has n
 
 public sealed record StepNotInvertible(LutTable Step) : Expected("LUT step has no exact inverse", (int)Codes.StepNotInvertible);
 
-public sealed record LutUnreadable : Expected {
-    public LutUnreadable(LutPath path, Error cause) : base("LUT file unreadable", (int)Codes.LutUnreadable, cause) => Path = path;
-
-    public LutPath Path { get; }
-}
-
 public sealed record LutLineMalformed(LutFormat Format, int Line) : Expected("LUT file line misstated", (int)Codes.LutLineMalformed);
 
 public sealed record LutStepRefused(LutFormat Format, int Line, string Element) : Expected("LUT process node outside the step set", (int)Codes.LutStepRefused);
@@ -58,7 +50,5 @@ public sealed record LutStepRefused(LutFormat Format, int Line, string Element) 
 public sealed record LutSizeAbsent(LutFormat Format) : Expected("LUT file states no size", (int)Codes.LutSizeAbsent);
 
 public sealed record LutCountMismatched(LutFormat Format, long Stated, long Read) : Expected("LUT file entry count differs from its size", (int)Codes.LutCountMismatched);
-
-public sealed record LookupShapeRefused(int Width, int Height) : Expected("lookup image size holds no lattice layout", (int)Codes.LookupShapeRefused);
 
 public sealed record LutFormatRefused(LutFormat Format) : Expected("LUT format holds no such table", (int)Codes.LutFormatRefused);

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Image formation over float RGBA frames: pixel passes, color management, tone, grading, quantization, and still output</Description>
+        <Description>Image formation over float RGBA frames: pixel passes, color management, tone, grading, quantization, and file publication</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
@@ -29,11 +29,10 @@
 
     <ItemGroup Label="Imaging">
         <PackageReference Include="BitMiracle.LibTiff.NET" />
-        <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="ColorManagement/Tables/**;Quantization/BlueNoise.png" WithCulture="false" />
+        <EmbeddedResource Include="ColorManagement/Tables/**;Quantization/BlueNoise.tif" WithCulture="false" />
     </ItemGroup>
 </Project>

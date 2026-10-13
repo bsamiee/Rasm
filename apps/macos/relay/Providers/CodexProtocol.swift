@@ -30,7 +30,7 @@ nonisolated enum CodexProtocol {
         let method: Method
     }
 
-    struct ErrorObject: Codable, Sendable {
+    struct ErrorObject: Codable, Error, Sendable {
         let code: Int
         let message: String
     }
@@ -50,7 +50,7 @@ nonisolated enum CodexProtocol {
 
     enum ServerMessage: Decodable, Sendable {
         case request(id: JSONValue)
-        case response(id: String, error: ErrorObject?, holdsResult: Bool)
+        case response(id: String, outcome: Result<Void, ErrorObject>?)
         case notification(method: Method)
         case ignored
 
@@ -72,8 +72,8 @@ nonisolated enum CodexProtocol {
                 } else if let responseID {
                     try .response(
                         id: responseID,
-                        error: container.contains(.error) ? container.decode(ErrorObject.self, forKey: .error) : nil,
-                        holdsResult: container.contains(.result),
+                        outcome: container.decodeIfPresent(ErrorObject.self, forKey: .error).map(Result.failure)
+                            ?? (container.contains(.result) ? .success(()) : nil),
                     )
                 } else if let method, container.contains(.params) {
                     .notification(method: method)

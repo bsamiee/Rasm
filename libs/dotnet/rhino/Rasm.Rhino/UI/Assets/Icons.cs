@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
@@ -9,8 +8,6 @@ using Rhino.PlugIns;
 using Rhino.Resources;
 using Rhino.Runtime;
 using Rhino.UI;
-using SixLabors.ImageSharp.Formats.Ico;
-using SixLabors.ImageSharp.PixelFormats;
 using SkiaSharp;
 using Svg.Model;
 using Svg.Model.Services;
@@ -188,10 +185,15 @@ public static class Icons {
 
     private static readonly Func<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Icon>> DrawingIcons = memoUnsafe<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Icon>>(static context =>
         new(context.Assembly, (resource, pixels) => SvgSource(context.Assembly, resource).Bind(source => RenderSvg(source, pixels, Some(context.Ink), static bitmap => {
-            using SixLabors.ImageSharp.Image<Bgra32> image = SixLabors.ImageSharp.Image.LoadPixelData<Bgra32>(
-                MemoryMarshal.AsBytes(bitmap.Pixels.AsSpan()), bitmap.Width, bitmap.Height);
+            using SKData png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
             using MemoryStream encoded = new();
-            image.Save(encoded, new IcoEncoder());
+            static byte Side(int pixels) => pixels <= byte.MaxValue ? (byte)pixels : byte.MinValue;
+            using (BinaryWriter directory = new(encoded, System.Text.Encoding.UTF8, leaveOpen: true)) {
+                directory.Write([0, 0, 1, 0, 1, 0, Side(bitmap.Width), Side(bitmap.Height), 0, 0, 1, 0, (byte)bitmap.Info.BitsPerPixel, 0]);
+                directory.Write(int.CreateChecked(png.Size));
+                directory.Write(int.CreateChecked(encoded.Position) + sizeof(int));
+            }
+            png.SaveTo(encoded);
             encoded.Position = 0;
             return new Icon(encoded);
         })), static icon => icon.Size));

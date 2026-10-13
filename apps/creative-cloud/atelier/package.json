@@ -1,0 +1,22 @@
+{
+    "name": "@rasm/atelier",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./*": "./*.ts"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@rasm/ai": "workspace:*",
+        "@rasm/galley": "workspace:*",
+        "@rasm/typography": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": [ "Atelier" ]
+    }
+}

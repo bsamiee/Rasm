@@ -1,6 +1,6 @@
 ---
 name: manage-repo
-description: "Use when adding or changing a project file, target, tool, workflow, infra row, or plugin, covering owners, growth, targets, and checks."
+description: "Use when changing how the repository is structured, built, or checked, assigns each repository concern its owner and growth rule. "
 ---
 
 # [MANAGE_REPO]
@@ -16,19 +16,20 @@ Entries state the principles by which the repository is maintained and improved.
 - [06]-[SWIFT](references/swift.md): Project files, build settings, compiler policy, packages, checkers, CI, SwiftPM, new projects, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, language server
 - [08]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
-- [09]-[RESEARCH](references/research.md): Research tree and use, facts files, decompiled sources, plans and archives, study cleanup
-- [10]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex parity, converting components, validation
+- [09]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex parity, converting components
 
 ## [01]-[PLACEMENT]
 
-- Use `README.md` for each concern's owner
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
 - Consumers of a row are files importing its package (`package.json` included), commands running its binary, or tools reading it
 - Catalog rows, their overrides, and tool-plugin rows stay without an importer, the catalog holds packages for future projects
-- Build chains and project kinds of a declared host (UXP, ExtendScript) stay while no project uses them
+- Build chains and project kinds of a declared host stay while no project uses them
 - Rows naming a package, binary, or server point at one a project file or tool row installs
 - Root files hold policy every project shares, a row one project consumes sits in the project file
+- Project kinds (host, platform, product) join a root file as a row a tag or condition selects, or a kind file passing kind values to its general form
+- Root files compute per-project values (cache, output path) from the project directory their tool supplies or a project file passes
+- `tools/`, `infra/`, `plugins/`, and `eng/` code reads project names, paths, and values from arguments and project declarations, and names no project
 - Project files are written by hand as the file set their language's init command produces
 - Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
 - Rows restating a tool's documented default go, the default comes from a schema, release notes, or installed source
@@ -36,6 +37,7 @@ Entries state the principles by which the repository is maintained and improved.
 - Tightening checker rows (ban, required form, lowered threshold) state policy and stay with no violating file
 - Skills name the tools they drive, their scripts, and output paths under `.artifacts/`, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
+- Tools gain a capability through their own configuration and extension points, another tool joins for one they lack
 - Scripts and `eng/` projects do work no tool command, package feature, or target does, and hold that work alone
 - Root targets unify check, format, build, test, install, and release of the repository's own code, a wrapper over one mise tool is no target
 - Each subcommand of a tool runs over one file set in one target alone, the unit Nx lists, orders through `dependsOn`, and hashes by its own inputs

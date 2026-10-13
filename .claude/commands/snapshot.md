@@ -5,7 +5,7 @@ disable-model-invocation: true
 
 # [SNAPSHOT]
 
-Push the whole tree, mid-run artifacts included, as one recoverable commit without judgment, gating, formatting, or review.
+Push the whole tree, mid-run artifacts included, as one recoverable commit.
 
 1. `git status --porcelain=v2`, empty output ends the run with nothing to snapshot
 2. `git add -A`

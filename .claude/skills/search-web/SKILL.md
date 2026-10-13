@@ -40,7 +40,7 @@ ToolSearch {"query": "select:mcp__exa__web_search_advanced_exa,mcp__exa__web_fet
 
 Queries name the question, source type, and constraints that distinguish relevant pages. Tavily `content` and Exa `highlights` provide query-directed passages. Keep passages with URLs during selection.
 
-Use domain paths for documentation sections and publication filters for dated sources. Confirm publication dates in source text before treating search metadata as release dates.
+Use domain paths for documentation sections and publication filters for dated sources. Release dates come from source text, search metadata holds a page's publication date.
 
 ```bash
 # Passages for a focused question
@@ -183,7 +183,7 @@ tvly research run '<scope>' --model mini --output-schema '<schema.json>' --no-wa
 tvly research status '<request_id>' --json
 ```
 
-Exa `input.data` supplies rows for enrichment. Set `maxItems` to the requested row count. `output.structured` holds results with citations in `output.grounding`. Inspect citation coverage before accepting a row. `previousRunId` starts a new run from completed research. `runId` retrieves an existing run.
+Exa `input.data` supplies rows for enrichment. Set `maxItems` to the requested row count. `output.structured` holds results with citations in `output.grounding`. `previousRunId` starts a new run from completed research. `runId` retrieves an existing run.
 
 ```text
 # Enrichment of known rows with source URLs
@@ -218,4 +218,4 @@ mcp__exa__agent_run {
 mcp__exa__agent_run {"runId": "<id>"}
 ```
 
-Research output proposes claims. Confirm versions at registries, releases at tags, issue state through repository APIs, and other facts in source text. Reports state conclusions with supporting URLs and unresolved questions with sources examined.
+Research output proposes claims. Versions come from registries, releases from tags, issue state from repository APIs, and other facts from source text. Reports state conclusions with supporting URLs and unresolved questions with sources examined.

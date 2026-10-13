@@ -51,6 +51,7 @@ solved = solver.solve_system(context, sketch=sketch)
 result = {"solved": solved, "dof": sketch.dof, "state": sketch.solver_state, "body": body_of.body_of(sketch.target_object).name}
 ```
 
+- Finished sketches solve to `dof` 0 with `solver_state` `OKAY`
 - Sketch coordinates are local 2D meters on the workplane (`wp_xy`, `wp_xz`, `wp_yz`)
 - Lines sharing a `PointRef` join
 - Constraints take `curve_id` strings
@@ -63,8 +64,6 @@ result = {"solved": solved, "dof": sketch.dof, "state": sketch.solver_state, "bo
 - Extrusion writes the modifier's `Size` input through `operators.modifiers.set_modifier_input`, then `body.update_tag()`
 - Sketches become sweep profiles with convert modifier's `Fill` input off, then `bpy.data.meshes.new_from_object` of the evaluated body
 - `object.convert(target="CURVE")` converts the new mesh's object to the profile curve
-
-Confirmation read: `sketch.dof` 0 with `solver_state` `OKAY` after `solve_system`, and evaluated body's bounds and face areas reading the constrained sizes.
 
 ## [03]-[PROFILES]
 
@@ -94,8 +93,6 @@ sweep = geometry.create_sweep_path("<Sweep>", [[Vector(co) for co in <path>]], p
 - `cpc.convert_sweep_to_mesh()` converts active sweep in place under the same override, `selected_objects` and `selected_editable_objects` naming it
 - `fill_caps`, `smooth_by_angle`, and `smooth_angle` writes act on `context.object` and run with the sweep as context object
 
-Confirmation read: evaluated sweep's vertex bounds span the path with profile on its side.
-
 ## [04]-[SCALE_FROM_MEASUREMENT]
 
 Measure and Scale's confirm step scales a selection from a measured world distance:
@@ -117,8 +114,6 @@ bpy.ops.object.scale_confirm_dialog(measured_distance=(b - a).length, selected_o
 - Exact lengths multiply `Matrix.Translation(pivot) @ Matrix.Scale(<target_m> / measured, 4) @ Matrix.Translation(-pivot)` into each `matrix_world`
 - `object.transform_apply(scale=True)` follows the exact-length writes
 
-Confirmation read: world distance between measured vertices reads the target, and `obj.scale` reads (1, 1, 1).
-
 ## [05]-[CAD_CLEANUP]
 
 Imported meshes with separate vertices per face draw every face seam in Line Art. CAD-Helper merges by distance, clears split normals, recalculates normals, and smooths by angle per mesh, from `scene.cad_cleanup_*` settings:
@@ -137,8 +132,6 @@ with bpy.context.temp_override(window=None, selected_objects=meshes, active_obje
 - Merging is off by default, and `cad_cleanup_merge_distance` sets the weld distance
 - Hierarchy flattening runs in exec form on the selection through `object.flatten_hierarchy` and `object.flatten_and_join_hierarchy`
 - Hierarchy deletes run in exec form on the selection through `object.delete_child_empties_without_children` and `object.delete_and_reparent_children`
-
-Confirmation read: `len(obj.data.vertices)` drops to the welded count.
 
 ## [06]-[SHEET_CAMERAS]
 
@@ -177,8 +170,6 @@ bpy.context.view_layer.update()
 
 With Line Art dropping silhouettes of curved faces seen exactly edge-on, axis-aligned views turn 1e-4 rad about the view axis.
 
-Confirmation read: `scene.render.resolution_x` and `resolution_y` read the paper after `view_layer.update()`.
-
 ## [07]-[AXONOMETRIC]
 
 Pohlke adds isometric, dimetric, trimetric, and oblique cameras aimed at the 3D cursor through `bpy.pohlke`, under a `VIEW_3D` override:
@@ -207,8 +198,6 @@ bpy.context.view_layer.update()
 - Cameras sit 25 m from the cursor, larger models moving the camera back along `camera.matrix_world.col[2].xyz` with `clip_end` covering them
 - Calls without the override raise after adding a camera that stays in the scene
 
-Confirmation read: `scene.camera` names the new camera and `scene.render.pixel_aspect_x` reads `camera["pixel_ratio"]`.
-
 ## [08]-[LINEWORK]
 
 Line Art draws a collection as one camera sees it into a Grease Pencil object, re-evaluated on each depsgraph update:
@@ -233,8 +222,6 @@ art.use_clip_plane_boundaries = True
 - Each pen weight and source takes its own Line Art object
 - With every visible object occluding whatever the source, boolean cutters take `obj.lineart.usage = "EXCLUDE"`
 - `object.lineart_bake_strokes` under an `object` override freezes strokes, and a sheet that follows the model again takes a new Line Art object
-
-Confirmation read: `lines.evaluated_get(depsgraph).data.layers[0].current_frame().drawing.strokes` holds strokes with points on model edges.
 
 ## [09]-[DIMENSIONS]
 
@@ -281,8 +268,6 @@ bpy.ops.dimensions.generate_output()
 - With `dimension_color` pink in the startup file, sheets set it before `generate_output`
 - `WORLD` sizing states sizes in model meters (paper size times N), and `CAMERA` sizing in output pixels
 - `units.format_length(context, meters, precision)` returns the label a length takes
-
-Confirmation read: `props.measurement_state` reads `LIVE`, and `generate_output` reports the annotation count.
 
 ## [10]-[SHEET_OUTPUT]
 
@@ -333,8 +318,6 @@ Batch Render Cameras queues the same renders as one GUI job:
 - `render.batch_render_cameras("INVOKE_DEFAULT")` under a window override renders each enabled camera
 - Later calls read `scene.batch_render_running` and `scene.batch_render_status`
 
-Confirmation read: `pdfinfo <sheet>.pdf` reads the paper in points, and a known model length in the SVG reads its paper length at 300 px per inch.
-
 ## [11]-[MEASUREIT_ARCH]
 
 MeasureIt_ARCH loads in a GUI alone and serves sheets with labels as font text or DXF output. Dimensions write through its generators, each dimension with its wrapper row:
@@ -362,5 +345,3 @@ generator.measureit_arch_num += 1
 - Sheets set camera `ortho_scale`, paper, and the view's `width` and `height` directly
 - Vertex indices past the mesh's count delete the dimension at the next draw
 - Image output draws labels from text a viewport draw or earlier render filled
-
-Confirmation read: `dimension.textFields[0].text` holds the label, and the output files exist under `output_path`.

@@ -2,6 +2,7 @@
     <PropertyGroup Label="Workspace">
         <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <IncludeProjectNameInArtifactsPaths>true</IncludeProjectNameInArtifactsPaths>
         <Authors>Bardia Samiee</Authors>
     </PropertyGroup>
 

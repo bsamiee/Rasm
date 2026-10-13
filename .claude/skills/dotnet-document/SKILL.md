@@ -8,9 +8,6 @@ disable-model-invocation: true
 
 Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` writes every doc comment to the XML file, member documentation is optional (`.editorconfig` sets `CS1591` and `RCS1181` to `none`).
 
-[REFERENCES]:
-- [01]-[REVIEW](references/review.md): Review of existing doc comments against their source, with severity classes and the closing report
-
 ## [01]-[PRINCIPLES]
 
 - Doc comments sit on members a caller uses without opening the source
@@ -265,3 +262,13 @@ Return type decides the description, a LanguageExt return names the success valu
 ## [05]-[THREADING]
 
 Thread constraints sit in `<remarks>` and name the thread, lock, or monitor: the thread a member must run on and whether an awaited continuation resumes on it, any `lock()` or `Monitor.TryEnter` requirement the caller satisfies.
+
+## [06]-[ACCURACY]
+
+Doc text and examples state what the source declares:
+- Types, members, and overloads that doc text names exist in the source
+- Constraint claims (`must be`, `exactly N`) sit on a member whose body rejects other input, a padding, truncating, or clamping body takes none
+- Data-format claims (bit layout, channel order, byte order) match the native header, with bit widths summing to the stated size
+- Comparisons with another type ("Unlike X, which is immutable") match that type's source
+- `<example>` code compiles against the source, tests a nullable return before use, and disposes no object a parent owns
+- Doc text holds no placeholder (TODO, FIXME, TBD, bracketed template), credential, internal URL, or personal data

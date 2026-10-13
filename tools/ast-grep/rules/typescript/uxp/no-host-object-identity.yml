@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-host-object-identity
+language: tsx
+severity: error
+utils:
+    enumerator:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^[A-Z][A-Z0-9_]*$'}
+            - has: {field: object, matches: uxp-enumeration-reference}
+    rendered:
+        kind: call_expression
+        any:
+            - has: {field: function, regex: '^String$'}
+            - all:
+                - has: {field: function, kind: member_expression, has: {field: property, regex: '^toString$'}}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
+    member-name:
+        kind: string
+        regex: '^.[A-Z][A-Z0-9_]*.$'
+    indesign-file:
+        inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+rule:
+    any:
+        - kind: binary_expression
+          pattern: $COMPARISON
+          all:
+            - has: {field: operator, regex: '^(===|!==|==|!=)$'}
+            - any:
+                - has: {field: left, matches: enumerator}
+                - has: {field: right, matches: enumerator}
+                - all:
+                    - has: {field: left, matches: rendered}
+                    - has: {field: right, any: [{matches: rendered}, {matches: member-name}]}
+                    - matches: indesign-file
+                - all:
+                    - has: {field: left, matches: member-name}
+                    - has: {field: right, matches: rendered}
+                    - matches: indesign-file
+        - kind: switch_case
+          has: {field: value, matches: enumerator, pattern: $COMPARISON}
+        - kind: call_expression
+          pattern: $COMPARISON
+          all:
+            - has: {field: function, regex: '(^(Array\.contains|Object\.is|Equal\.equals|Match\.(when|not|is))|\.(includes|indexOf|lastIndexOf|has))$'}
+            - has: {field: arguments, has: {matches: enumerator}}
+message: '`$COMPARISON` compares InDesign objects by identity or by rendered text'
+note: 'Compare through `equals` (`<enumerator>.equals(<value>)`), and search or dedupe a list through it; each read returns a new object, and enumerators of different enumerations share names'

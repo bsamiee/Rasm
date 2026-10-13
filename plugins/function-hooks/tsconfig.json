@@ -1,7 +1,6 @@
 {
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
-        "outDir": "../../.cache/typescript/out/plugins/function-hooks",
         "typeRoots": [ ".claude-plugin/types" ],
         "types": [ "claude-code", "claude-code-tools" ],
         "jsx": "react",

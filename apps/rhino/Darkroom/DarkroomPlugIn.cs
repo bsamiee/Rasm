@@ -20,7 +20,7 @@ using Rhino.PlugIns;
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public sealed class DarkroomPlugIn() : DefinedPlugIn(Definition) {
+public sealed class DarkroomPlugIn() : DefinedRenderingPlugIn(Definition, EffectChain.Kinds) {
     private const string FarmCommandName = "DarkroomRenderFarm";
     private const string FarmScript = $"_-{FarmCommandName}";
 
@@ -42,7 +42,6 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(Definition) {
             static sink => new LutExportCommand(sink, new Guid(0x09625191, 0xac85, 0x44eb, 0xa7, 0x67, 0x23, 0x07, 0x6c, 0x4c, 0x64, 0xcf), "DarkroomExportLut"),
         ],
         Views = [DarkroomPanel.Row, DarkroomPage.Row],
-        Effects = EffectChain.Kinds,
         Acquisitions = [
             RenderHistory.Register(RenderSetsSection.Row, static history => [
                 SlotComparison.Register(history),

@@ -53,7 +53,7 @@ Installed source or binary decides over a page.
 - `ast-grep scan --custom-languages allow <path>` prints `ERROR: <path>: No such file or directory` at exit 0 for a missing path
 - `ast-grep scan --custom-languages allow --filter '^(<ids>)$'` exits 3 with `Rule not found` when no rule file declares an id of the group
 - `ast-grep scan --custom-languages allow --inline-rules` exits 1 on an `error` match, 0 with `[]` on a miss, 8 with `Cannot parse rule`
-- Cost hits are rules in a `<state>-cost.json` past the CPU limit of `rule-building`
+- Cost hits are rules in `before-cost.json` past the CPU limit of `rule-building`
 - Hits of a rebuilt rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's
 - Rules with a fix that stays absent name the variant that blocks the template
 - `git log -p <rule>` is read before a rebuilt rule is written, each sibling or guard an earlier revision held returns
@@ -67,11 +67,8 @@ Installed source or binary decides over a page.
 2. Widen each hit, collapse, and attach fixes under the pattern, collapse, and fix sequences of `rule-hardening`, rebuild each cost hit under the cost section of `use-ast-grep`
 3. Rename each collapsed id in every suppression comment through the sources table
 4. Run `ast-grep scan --custom-languages allow --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > after.jsonl` once, `comm -3` over the before and after keys of `rule-building`, each gained hit a `missed_sites` row or a line of the reply
-5. Run the cost commands of `rule-building` once with `<state>` `after`, each cost hit back to step 2
-6. Write `checker_owned` with `transition.sql` of `observation` per `missed_sites` row a rebuilt rule hits, `:actor` `agent`, `:actor_id` `<agent_id>`, `:evidence` `ast-grep:<id>`
-7. Apply each edit as one exact-string replacement
-8. Run `yamllint <files>` and `yamlfmt -lint <files>` over rebuilt rule and util files, fix each line
-9. Bound fix cycles at 3 per rule
+5. Write `checker_owned` with `transition.sql` of `observation` per `missed_sites` row a rebuilt rule hits, `:actor` `agent`, `:actor_id` `<agent_id>`, `:evidence` `ast-grep:<id>`
+6. Apply each edit as one exact-string replacement
 
 </procedure>
 
@@ -79,7 +76,8 @@ Installed source or binary decides over a page.
 
 - Every rule in scope reports its category
 - Every collapse is applied
-- `after-cost.json` holds no cost hit
+- Every rule in scope stays within the CPU limit of `rule-building`
+- Rebuilt rule and util files meet `.yamllint.yaml` and `.yamlfmt`
 - Every rule you widened or collapsed holds a `fix` that re-parses behind its guards, or names the variant that blocks the template
 - No partial edit, deferred value, or workaround remains
 

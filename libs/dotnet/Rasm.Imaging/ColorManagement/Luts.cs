@@ -393,37 +393,6 @@ public sealed partial class LogLutParameter : IStateParameter<LutSpace.Log> {
     public StateParameter<LutSpace.Log> Kind { get; }
 }
 
-public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
-    : IStateRecord<LutLook, LutLookParameter, InvalidColor>, IPixelStage<LutLook> {
-    public static LutLook Default { get; } = new(None, LutSpace.Encoded.Default);
-
-    public static Option<PixelPass> Pass(LutLook state, PassContext context) =>
-        state.Lut.Map(file => (new ColorEncoding(context.Working, context.Signal, Nits.ReferenceWhite), state.Space.Bracket) switch {
-            var (input, (space, into, back)) when input.Transfer == TransferCurve.Linear && space.Transfer == TransferCurve.Linear =>
-                (PixelPass)new PixelPass.Color(new LutTable.Sequence([.. LutTables.Between(input.Gamut, space.Gamut), .. into, file.Table, .. back, .. LutTables.Between(space.Gamut, input.Gamut)])),
-            var (input, (space, into, back)) => (input.To(space) + Seq(new LutTable.Sequence([.. into, file.Table, .. back]).Apply) + space.To(input)) switch {
-                var steps => new PixelPass.Color(row => {
-                    foreach (Action<Span<Vector4>> step in steps) step(row);
-                }),
-            },
-        });
-}
-
-[SmartEnum<string>]
-[ValidationError<InvalidColor>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LutLookParameter : IStateParameter<LutLook> {
-    public static readonly LutLookParameter Lut = new("lut", new StateParameter<LutLook>.Loaded<LutFile, LutPath, string, InvalidColor>(
-        Lens<LutLook, Option<LutFile>>.New(static look => look.Lut, static lut => look => look with { Lut = lut }),
-        LutFile.Read,
-        static file => file.Path));
-    public static readonly LutLookParameter Space = new("space", new StateParameter<LutLook>.Variant<LutSpace>(
-        Lens<LutLook, LutSpace>.New(static look => look.Space, static space => look => look with { Space = space })));
-
-    public StateParameter<LutLook> Kind { get; }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LutTables {
     extension(Lut3D) {
@@ -439,6 +408,6 @@ public static class LutTables {
              new LutDomainRefused(domainMinimum, domainMaximum)).ToFin().ToValidation())
             .Apply(static (_, _, _) => unit).As().ToFin();
 
-    internal static Seq<LutTable> Between(Gamut source, Gamut target) =>
+    public static Seq<LutTable> Between(Gamut source, Gamut target) =>
         source == target ? [] : [new LutTable.Affine(source.MatrixTo(target), (0d, 0d, 0d))];
 }

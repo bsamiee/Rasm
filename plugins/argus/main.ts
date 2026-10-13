@@ -1,4 +1,3 @@
-// biome-ignore-all lint/correctness/noNodejsModules: The Node LSP transport and HTTP server require native streams, server factories, process state, and file URL conversion.
 import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import { basename, extname, relative, resolve } from 'node:path';

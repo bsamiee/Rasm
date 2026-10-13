@@ -146,16 +146,16 @@ actor CodexConnection {
     }
 
     private static func reply(
-        error: CodexProtocol.ErrorObject?,
-        result: Data?,
+        _ line: Data,
+        outcome: Result<Void, CodexProtocol.ErrorObject>?,
         method: CodexProtocol.Method,
         serverVersion: String?,
     ) -> Result<Data, CodexFailure> {
-        switch (error, result) {
-            case (.some(let error), _):
+        switch outcome {
+            case .some(.success): .success(line)
+            case .some(.failure(let error)):
                 .failure(.requestRejected(method: method, code: error.code, message: error.message, serverVersion: serverVersion))
-            case (.none, .some(let result)): .success(result)
-            case (.none, .none): .failure(.invalidResponse(field: "request result"))
+            case .none: .failure(.invalidResponse(field: "request result"))
         }
     }
 
@@ -290,9 +290,8 @@ actor CodexConnection {
                     )
                 )
                 if case .failure(let error) = refusal { finish(error) }
-            case .response(let id, let error, let holdsResult):
+            case .response(let id, let outcome):
                 let serverVersion: String? = serverVersion
-                let result: Data? = holdsResult ? line : nil
                 let awaited:
                     (
                         reply: Result<Data, CodexFailure>,
@@ -301,13 +300,13 @@ actor CodexConnection {
                         switch state.replies[id] {
                             case .unclaimed(let method):
                                 state.replies[id] = .arrived(
-                                    Self.reply(error: error, result: result, method: method, serverVersion: serverVersion)
+                                    Self.reply(line, outcome: outcome, method: method, serverVersion: serverVersion)
                                 )
                                 return nil
                             case .awaited(let method, let continuation):
                                 state.replies.removeValue(forKey: id)
                                 return (
-                                    Self.reply(error: error, result: result, method: method, serverVersion: serverVersion),
+                                    Self.reply(line, outcome: outcome, method: method, serverVersion: serverVersion),
                                     continuation,
                                 )
                             case .arrived, .none: return nil

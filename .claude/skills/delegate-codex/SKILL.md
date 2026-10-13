@@ -62,8 +62,3 @@ Place `codex exec` options before `resume` or `review`.
 |  [04]   | Review a commit            | `review --commit "<SHA>"`            |
 |  [05]   | Custom review instructions | `review '<PROMPT>'`                  |
 |  [06]   | Final message to a file    | `-o "<FILE>"`                        |
-
-## [03]-[RESULT]
-
-- Stdout's final message is read against the task as any agent's report, and a correction resumes the session with the finding rows
-- Non-zero exits leave their cause in stderr, and the task goes to an `Agent` call with the same brief as `prompt`

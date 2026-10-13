@@ -2,7 +2,7 @@ import type { ClassicHookInputs, EngineInterface, Frozen, Next, PluginOptions, P
 import { atom, memberOf, read, update } from 'claude-code';
 import { bind, decoded, type Fault, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from '../composition.ts';
 import { planned, pointer, tasked } from '../context/plan.ts';
-import { type Operation, type Ran, scanned, targets, written } from '../edits/targets.ts';
+import { type Operation, type Ran, scanned, target, targets, written } from '../edits/targets.ts';
 import { type Boundary, delivered, outcome, request, type Spawn } from '../observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Payload, row, TURN, USAGE } from '../observation/row.ts';
 import { BOUNDARY, bound, INSERT, JUDGE, OPEN, OPENER, REPORT, sqlite } from '../observation/sql.ts';
@@ -188,8 +188,9 @@ const _processed = async ($: EngineInterface, loop: string, operation: Operation
     if (paths.length === 0) {
         return [];
     }
+    const named = target(operation, project);
     const ran = await _streamed($, targets(operation, project, paths), root);
-    const reported = operation === 'format' ? map(ran, written) : bind(ran, scanned);
+    const reported = operation === 'format' ? map(ran, (value) => written(named, value)) : bind(ran, (value) => scanned(named, value));
     if (reported.kind === 'fault') {
         await _faulted($, `${operation} not run`, reported.faults);
         return [];

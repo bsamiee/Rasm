@@ -29,15 +29,12 @@ internal abstract partial record ArchStage {
     public sealed record Choosing : ArchStage;
     public sealed record Starting(ArchForm Form, bool BothSides) : ArchStage;
     public sealed record Ending(ArchForm Form, Point3d Start, Vector3d Normal, bool BothSides, bool Flip, bool Pointed) : ArchStage;
-    public sealed record Rising(ArchForm.Raised Form, (Line Baseline, Plane Frame, Tolerances Tolerances) Span, bool ByRise, Option<Point3d> Apex, Atom<Option<Point3d>> Cursor) : ArchStage;
+    public sealed record Rising(ArchForm.Raised Form, (Line Baseline, Plane Frame, Tolerances Tolerances) Span, Option<Point3d> Apex) : ArchStage;
     public sealed record Counting(ArchForm.Counted Form, (Line Baseline, Plane Frame, Tolerances Tolerances) Span, bool Pointed, int Count) : ArchStage;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ArchPrompts {
-    // --- [COUNTS]
-    private const int MinimumCount = 1;
-
     // --- [PROMPTS]
     internal static IO<StageStep<ArchStage, Seq<Guid>>> Pick(RhinoDoc doc, CallbackSite site, string prompt, IterableNE<ArchForm> forms, FeedbackAppearance appearance, Tolerances tolerances, ArchStage stage, Accepts<StageStep<ArchStage, Seq<Guid>>> accept) =>
         Getters.Point(doc, stage.Switch((Doc: doc, Site: site, Prompt: prompt, Forms: forms, Appearance: appearance, Tolerances: tolerances, Accept: new Accepts<IO<StageStep<ArchStage, Seq<Guid>>>> { Undo = accept.Undo.Map(static next => IO.pure(next)) }),
@@ -63,7 +60,7 @@ internal static class ArchPrompts {
                         counted: static (candidate, form) => Some(fun((Action<IDisposable> retain) => form.Build(candidate.Span, candidate.Pointed, form.InitialCount, retain)))))),
                     Fail: _ => ArchFeedback.DrawEnds(args.Display, at.Appearance, Baseline(end, args.CurrentPoint))))),
             },
-            rising: static (at, rise) => new PointRequest<IO<StageStep<ArchStage, Seq<Guid>>>>(rise.ByRise ? "Rise" : "Apex point", at.Site) {
+            rising: static (at, rise) => new PointRequest<IO<StageStep<ArchStage, Seq<Guid>>>>("Apex point or rise", at.Site) {
                 Default = rise.Apex,
                 Accept = at.Accept with {
                     Number = new NumberEntry<IO<StageStep<ArchStage, Seq<Guid>>>>.Plain(Zero: true, number => IO.pure(IO.pure(Risen(rise, number).Match<StageStep<ArchStage, Seq<Guid>>>(
@@ -75,24 +72,17 @@ internal static class ArchPrompts {
                     getter.SetBasePoint(midpoint, showDistanceInStatusBar: true);
                     return Refused.Unless(getter.Constrain(new Line(midpoint, rise.Span.Frame.YAxis)), nameof(GetPoint.Constrain));
                 }),
-                Options = rise.ByRise ? Seq<OptionSpec<IO<StageStep<ArchStage, Seq<Guid>>>>>() : Seq(OptionSpec.Plain("Rise", None, hidden: false,
-                    _ => IO.pure(rise.Cursor.ValueIO.Map<StageStep<ArchStage, Seq<Guid>>>(point => new StageStep<ArchStage, Seq<Guid>>.Advance(rise with { ByRise = true, Apex = rise.Apex || point }))))),
-                Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args =>
-                    from candidate in IO.lift(() => rise.Apex || Some(Raised(rise, args.CurrentPoint)))
-                    from remembered in rise.Cursor.SwapIO(previous => candidate || previous)
-                    from drawn in ArchFeedback.Draw(args.Display, at.Appearance, rise.Span.Baseline, rise.Span.Frame,
-                        Candidate(candidate.Map(apex => fun((Action<IDisposable> retain) => rise.Form.Build(rise.Span, apex, retain)))))
-                    select drawn)),
+                Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, at.Appearance, rise.Span.Baseline, rise.Span.Frame,
+                    Candidate(Some(fun((Action<IDisposable> retain) => rise.Form.Build(rise.Span, rise.Apex.IfNone(() => Raised(rise, args.CurrentPoint)), retain))))))),
             },
             counting: static (at, count) => new PointRequest<IO<StageStep<ArchStage, Seq<Guid>>>>("Foil count", at.Site) {
                 Accept = at.Accept with {
-                    Nothing = (Option<string>.None, IO.pure(Finish(at.Doc, retain => count.Form.Build(count.Span, count.Pointed, count.Count, retain), at.Tolerances))),
-                    Number = new NumberEntry<IO<StageStep<ArchStage, Seq<Guid>>>>.Plain(Zero: true, number => IO.pure(IO.pure(Count(number).Match<StageStep<ArchStage, Seq<Guid>>>(
+                    Nothing = (Some(count.Count.ToString(RowText.Culture)), IO.pure(Finish(at.Doc, retain => count.Form.Build(count.Span, count.Pointed, count.Count, retain), at.Tolerances))),
+                    Number = new NumberEntry<IO<StageStep<ArchStage, Seq<Guid>>>>.Plain(Zero: false, number => IO.pure(IO.pure(Count(number).Match<StageStep<ArchStage, Seq<Guid>>>(
                         Succ: value => new StageStep<ArchStage, Seq<Guid>>.Advance(count with { Count = value }),
                         Fail: static error => new StageStep<ArchStage, Seq<Guid>>.Retry(error))))),
                 },
                 Configure = getter => IO.lift(() => getter.SetBasePoint(count.Span.Baseline.From, showDistanceInStatusBar: true)),
-                Options = Seq(OptionSpec.Of("FoilCount", static (getter, name, sink, initial, retain) => OptionType.Integer(Some(MinimumCount), None, getter, name, sink, initial, retain), count.Count, value => IO.pure(IO.pure<StageStep<ArchStage, Seq<Guid>>>(new StageStep<ArchStage, Seq<Guid>>.Advance(count with { Count = value }))))),
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, at.Appearance, count.Span.Baseline, count.Span.Frame, Candidate(Some(fun((Action<IDisposable> retain) => count.Form.Build(count.Span, count.Pointed, count.Count, retain))))))),
             }), pick => IO.pure(stage.Switch((Doc: doc, pick.Pick, Forms: forms, Tolerances: tolerances),
             choosing: static (at, _) => Anchor(at.Pick, at.Forms.Head, bothSides: false),
@@ -100,13 +90,11 @@ internal static class ArchPrompts {
             ending: static (at, end) => Span(end, at.Pick.Point, at.Tolerances).Match(
                 Succ: span => end.Form.Switch((at.Doc, Span: span, end.Pointed, at.Tolerances),
                     spanned: static (candidate, form) => Finish(candidate.Doc, retain => form.Build(candidate.Span, retain), candidate.Tolerances),
-                    raised: static (candidate, form) => IO.lift<StageStep<ArchStage, Seq<Guid>>>(() => new StageStep<ArchStage, Seq<Guid>>.Advance(new ArchStage.Rising(form, candidate.Span, ByRise: false, None, Atom(Option<Point3d>.None)))),
+                    raised: static (candidate, form) => IO.pure<StageStep<ArchStage, Seq<Guid>>>(new StageStep<ArchStage, Seq<Guid>>.Advance(new ArchStage.Rising(form, candidate.Span, None))),
                     foiled: static (candidate, form) => Finish(candidate.Doc, retain => form.Build(candidate.Span, candidate.Pointed, retain), candidate.Tolerances),
                     counted: static (candidate, form) => IO.pure<StageStep<ArchStage, Seq<Guid>>>(new StageStep<ArchStage, Seq<Guid>>.Advance(new ArchStage.Counting(form, candidate.Span, candidate.Pointed, form.InitialCount)))),
                 Fail: static error => IO.pure<StageStep<ArchStage, Seq<Guid>>>(new StageStep<ArchStage, Seq<Guid>>.Retry(error))),
-            rising: static (at, rise) => rise.Apex.Match(
-                Some: apex => Finish(at.Doc, retain => rise.Form.Build(rise.Span, apex, retain), at.Tolerances),
-                None: () => Finish(at.Doc, retain => rise.Form.Build(rise.Span, Raised(rise, at.Pick.Point), retain), at.Tolerances)),
+            rising: static (at, rise) => Finish(at.Doc, retain => rise.Form.Build(rise.Span, rise.Apex.IfNone(() => Raised(rise, at.Pick.Point)), retain), at.Tolerances),
             counting: static (at, count) => Finish(at.Doc, retain => count.Form.Build(count.Span, count.Pointed, count.Count, retain), at.Tolerances))))
             .Bind(static next => next);
 
@@ -143,7 +131,7 @@ internal static class ArchPrompts {
     }
 
     private static Fin<int> Count(double value) =>
-        double.IsInteger(value) && value is >= MinimumCount and <= int.MaxValue
+        double.IsInteger(value) && value is >= 1 and <= int.MaxValue
             ? (int)value
             : new InvalidRhinoValue();
 

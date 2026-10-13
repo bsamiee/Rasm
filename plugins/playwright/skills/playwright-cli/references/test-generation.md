@@ -183,12 +183,6 @@ test.describe('Signing in and out', () => {
 });
 ```
 
-Generated tests run once, a failure goes to healing:
-
-```bash
-playwright test -c <project> <scenario>.spec.ts
-```
-
 ## [04]-[HEAL]
 
 Healing fixes failing tests one error at a time, with a rerun after each fix:

@@ -51,8 +51,6 @@ tool.Spatial.set_default_container(storey)
 - API-authored files for later Bonsai edits hold the Model Body `MODEL_VIEW`, Model Profile `ELEVATION_VIEW`, and Plan Axis `GRAPH_VIEW` contexts
 - `unit.assign_unit` with no arguments sets millimeters, and `{"is_metric": False, "raw": "FEET"}` as `length`, `area`, and `volume` sets feet
 
-Confirmation read: `ifcopenshell.util.element.get_aggregate(storey)` names the building, and `calculate_unit_scale(f)` reads 0.3048 for feet.
-
 ## [03]-[OPEN]
 
 `bim.load_project(filepath=)` loads an IFC into the scene:
@@ -100,7 +98,7 @@ bpy.ops.bim.edit_object_placement(obj=wall.name)
 - `bim.edit_object_placement(obj=)` writes an object transform to the IFC at once
 - Names go on through `ifcopenshell.api.attribute.edit_attributes`, then `tool.Root.set_object_name(obj, element)`
 - `bim.change_layer_length(length=)` and `bim.change_extrusion_depth(depth=)` resize the selected walls
-- Wall pairs, the second active, take `bim.join_walls_intersection()` for an L corner
+- Wall pairs, the second active, take `bim.join_walls_intersection()` for an L corner, the join held in `ConnectedTo` and `ConnectedFrom`
 - Closed loops of joined walls take `bim.draw_slab_from_wall()` with `model.relating_type_id` set to the slab type id string
 - `bim.draw_slab_from_wall()` runs under an override holding `window`, `area`, `region`, and `space_data` of a `VIEW_3D` area
 - With `bim.assign_type` of a layered type replacing a custom body with the type's extrusion, custom slab outlines go through the profile editor
@@ -120,8 +118,6 @@ for a, b in zip(ring, ring[1:] + ring[:1]):
 bmesh.update_edit_mesh(<slab object>.data)
 bpy.ops.bim.edit_extrusion_profile()
 ```
-
-Confirmation read: `get_material(element).is_a()` reads `IfcMaterialLayerSetUsage`, `ifcopenshell.util.representation.get_representation(element, "Model", "Body", "MODEL_VIEW")` holds one `IfcExtrudedAreaSolid` at the new depth, `tool.Ifc.is_moved(obj)` reads False, and joins sit in `ConnectedTo` and `ConnectedFrom`.
 
 ## [05]-[OPENINGS_AND_FILLS]
 
@@ -152,16 +148,12 @@ bpy.ops.bim.add_occurrence(relating_type_id=door_type.id())
 - Fills placed with one wall selected cut an `IfcOpeningElement` through it, and fills placed otherwise stand free with no opening
 - Free openings come from a wall (active) and a cutter mesh selected together and `bim.add_opening()`
 
-Confirmation read: `[r.RelatingOpeningElement for r in fill.FillsVoids]` names the opening, `[r.RelatingBuildingElement for r in opening.VoidsElements]` the wall, and the wall's vertex count rises.
-
 ## [06]-[SPACES]
 
 Spaces come from walls or the cursor:
 - `bim.generate_spaces_from_walls()` over the bounding walls, one active, makes a space from their inner faces at the active wall's height
 - `bim.generate_space()` makes a space from the walls around the 3D cursor
 - Spaces aggregate under the default container and sit in the `IfcSpace` collection, `Name` and `LongName` written through `edit_attributes`
-
-Confirmation read: the space object's dimensions span the room inside the walls, and `ifcopenshell.util.element.get_decomposition(storey)` lists it.
 
 ## [07]-[CLASSES_AND_TYPES]
 
@@ -196,8 +188,6 @@ ifcopenshell.api.classification.add_reference(f, products=[<element>], identific
 - `bim.edit_attributes`, `bim.add_classification`, `bim.assign_material`, and `bim.export_ifccsv` read panel properties in place of arguments
 - Scripts write attributes, classifications, materials, and CSV exports through the API and bundled libraries
 
-Confirmation read: `ifcopenshell.util.element.get_psets(element)` (type sets merged, occurrence values winning) and `ifcopenshell.util.classification.get_references(element)` on the saved file.
-
 ## [09]-[QUERIES]
 
 Reads use `ifcopenshell.util` on the open file:
@@ -205,6 +195,7 @@ Reads use `ifcopenshell.util` on the open file:
 - Queries filter by `type=`, `material=`, `classification=`, and `location="<storey>"`
 - `ifcopenshell.util.selector.get_element_value(element, "<path>")` reads one value (`Pset_WallCommon.FireRating`, `type.Name`, `container.Name`)
 - `ifcopenshell.util.element` reads `get_container`, `get_aggregate`, `get_decomposition`, `get_material`, and `get_filled_void`
+- `ifcopenshell.util.element.get_psets(element)` merges type sets under occurrence values
 - `bim.select_query_elements(query=)` adds matches to the selection
 - `obj.BIMObjectProperties.ifc_definition_id` holds an object's element step id
 
@@ -214,8 +205,6 @@ Reads use `ifcopenshell.util` on the open file:
 - `filepath=` saves as that path and makes it the open file's path, `.ifczip` and `.ifcjson` exporting beside the `.ifc` path
 - Paired `.blend` files take `bpy.ops.wm.save_mainfile()` after the IFC save, Python writes leaving `is_dirty` False
 - Placements in a session go on the object, an object moved after an API placement edit winning on save
-
-Confirmation read: `ifcopenshell.open(<path>)` and the `ifcopenshell.util` reads on the written file.
 
 ## [11]-[DRAWINGS]
 
@@ -247,6 +236,7 @@ bpy.ops.bim.create_drawing()
 - `diagram_scale` items follow the scene's unit system (`1/4"=1'-0"|1/48`, `1:100|1/100`)
 - `bim.create_drawing()` writes `drawings/<name>.svg` beside the IFC, pages measuring `width / N` by `height / N`
 - Plan SVGs omit doors with an `IfcGeometricCurveSet` Plan Body, Bonsai parametric and library doors both
+- SVG elements name their IFC element in `ifc:name`, and `class` values holding `cut` mark cut linework
 
 Sheets follow saved drawings:
 
@@ -264,8 +254,6 @@ bpy.ops.bim.create_sheets()
 ```
 
 `bim.create_sheets` writes `sheets/<id> - <name>.svg` and a PDF through the `svg2pdf_command` preference running Inkscape. Sheet operators poll False until the IFC is saved.
-
-Confirmation read: the SVG's `ifc:name` attributes list the drawn elements, and `class` values holding `cut` mark cut linework.
 
 ## [12]-[EXCHANGE]
 
