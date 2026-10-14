@@ -5,14 +5,14 @@ from typing import Annotated
 
 import msgspec
 
-from rasm.blender.extension.identity import Identity
-from rasm.blender.faults import BlenderResult
-from rasm.blender.render.previews.nodes import NodePreviews
-from rasm.blender.render.review.history import Reviewing
-from rasm.blender.render.sessions.queue import Queueing
-from rasm.blender.ui.layout.sections import Single
-from rasm.blender.ui.layout.status import Status
-from rasm.blender.ui.surfaces.preferences import stored, value
+from blender.bpy.extension.identity import Identity
+from blender.bpy.faults import BlenderResult
+from blender.bpy.render.previews.nodes import NodePreviews
+from blender.bpy.render.review.history import Reviewing
+from blender.bpy.render.sessions.queue import Queueing
+from blender.bpy.ui.layout.sections import Single
+from blender.bpy.ui.layout.status import Status
+from blender.bpy.ui.surfaces.preferences import stored, value
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

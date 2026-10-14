@@ -10,6 +10,7 @@ import { parse as parseYaml } from 'yaml';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _DECLARATION = 'pyproject.toml';
+const _HOST_FOLDER = /^apps\/(?<host>[^/]+)\//u;
 const _PYTHON_LOWER_BOUND = /^>=\s*(?<version>\d+\.\d+)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -36,7 +37,7 @@ const _Root = _Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
             tool: Schema.Struct({
-                uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String, moduleName: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root', moduleName: 'module-name' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
+                uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
             }),
         }),
@@ -69,7 +70,7 @@ const _MSBuildProject = Schema.String.pipe(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _host = (dir: string): readonly string[] => Array.map(Array.intersection(dir.split('/'), ['rhino', 'blender']), (host) => `host:${host}`);
+const _host = (hosts: readonly string[], root: string): readonly string[] => Array.map(Array.intersection(root.split('/'), hosts), (host) => `host:${host}`);
 const _packages = Effect.fnUntraced(function* (project: (typeof _MSBuildProject.Type)['Project'], dir: string, consumer: boolean): Effect.fn.Return<readonly string[], unknown, FileSystem.FileSystem | Path.Path> {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const items = project.ItemGroup ?? [];
@@ -91,11 +92,10 @@ const _packages = Effect.fnUntraced(function* (project: (typeof _MSBuildProject.
 const _root = Effect.fnUntraced(function* (workspace: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { tool } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, _DECLARATION)), Schema.decodeEffect(_Root));
-    const { moduleRoot, moduleName } = tool.uv.buildBackend;
-    return { moduleRoot, sourceRoot: path.join(moduleRoot, ...moduleName.split('.')), ...tool.pytest };
+    return { moduleRoot: tool.uv.buildBackend.moduleRoot, ...tool.pytest };
 });
 const _python = Effect.fnUntraced(function* (dir: string, workspace: string, root: ReturnType<typeof _root>) {
-    const [path, { moduleRoot, sourceRoot, pythonFiles, testPaths }] = yield* Effect.all([Path.Path, root]);
+    const [path, { moduleRoot, pythonFiles, testPaths }] = yield* Effect.all([Path.Path, root]);
     const mirrors = Array.map(testPaths, (testPath) => path.join(testPath, dir.startsWith(`${moduleRoot}/`) ? path.join(path.dirname(moduleRoot), path.relative(moduleRoot, dir)) : dir));
     const tests = yield* Effect.tryPromise(() =>
         globWithWorkspaceContext(
@@ -106,7 +106,6 @@ const _python = Effect.fnUntraced(function* (dir: string, workspace: string, roo
     const suites = Array.filter(mirrors, (mirror) => Array.some(tests, String.startsWith(`${mirror}/`)));
     return {
         moduleRoot,
-        sourceRoot,
         targets: Array.isReadonlyArrayNonEmpty(suites) ? { check: {}, test: { command: `pytest ${Array.map(suites, (suite) => `"${suite}"`).join(' ')} --cov`, inputs: Array.map(suites, (suite) => `{workspaceRoot}/${suite}/**/*`) } } : {},
     };
 });
@@ -171,12 +170,11 @@ const _PROJECTS = {
         const file = path.join(dir, base);
         const { Project } = yield* Effect.flatMap(fs.readFileString(path.join(workspace, file)), Schema.decodeEffect(_MSBuildProject));
         const packages = yield* _packages(Project, path.join(workspace, dir), false);
-        const host = _host(dir);
         const plugin = Array.some(Project.PropertyGroup ?? [], ({ TargetExt }) => TargetExt === '.rhp');
         const outputs = (pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${pivot}*`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${pivot}*`] : [])];
         return {
             root: dir,
-            tags: ['language:dotnet', ...host, ...(plugin ? ['output:rhp'] : []), ...Array.map(packages, (id) => `package:${id}`)],
+            tags: ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...Array.map(packages, (id) => `package:${id}`)],
             targets: {
                 build: { outputs: outputs('debug') },
                 'build:release': { outputs: outputs('release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
@@ -194,7 +192,7 @@ const _PROJECTS = {
         return {
             root: dir,
             name: dir,
-            tags: ['language:dotnet', ..._host(dir), ...Array.map(Array.fromIterable(text.matchAll(/^#:package (?<id>[^@\s]+)/gmu)), ({ groups }) => `package:${groups?.id}`)],
+            tags: ['language:dotnet', ...Array.map(Array.fromIterable(text.matchAll(/^#:package (?<id>[^@\s]+)/gmu)), ({ groups }) => `package:${groups?.id}`)],
             targets: {
                 ...Record.fromIterableWith(['build', 'format', 'lint'], (target) => [target, { executor: 'nx:noop', dependsOn: [{ target: `${target}:*.cs`, params: 'forward' }] }]),
                 [`restore:${base}`]: { inputs: ['default', 'dotnet'], outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`], options: { args: [file] } },
@@ -221,12 +219,12 @@ const _PROJECTS = {
         const runtime = Graph.mutate(yield* sources, (mutable) => {
             Graph.filterEdges(mutable, identity);
         });
-        const modules = pipe(Graph.dfs(runtime, { start: Graph.findNodes(runtime, String.startsWith(`${dir}/`)) }), Graph.values, Array.fromIterable, Array.filter(String.startsWith(`${python.sourceRoot}/`)));
+        const modules = pipe(Graph.dfs(runtime, { start: Graph.findNodes(runtime, String.startsWith(`${dir}/`)) }), Graph.values, Array.fromIterable, Array.filter(String.startsWith(`${python.moduleRoot}/`)));
         const folders = Array.dedupe(Array.map(modules, path.dirname));
         return {
             root: dir,
             name: id,
-            tags: ['language:python', 'host:blender'],
+            tags: ['language:python'],
             targets: {
                 pack: {
                     command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${Array.map(modules, (file) => `"${path.relative(python.moduleRoot, file)}"`).join(' ')}`,
@@ -322,6 +320,7 @@ const createNodes: CreateNodes = [
         const [root, path] = runtime.runSync(Effect.all([Effect.cached(_root(context.workspaceRoot)), Path.Path]));
         const sources = runtime.runSync(Effect.cached(_sources(context.workspaceRoot, root)));
         const declarations = Array.filter(files, (file) => file !== _DECLARATION && path.basename(file) === _DECLARATION);
+        const hosts = Array.flatMap(files, (file) => Option.toArray(Option.fromNullishOr(_HOST_FOLDER.exec(file)?.groups?.host)));
         const project = Effect.fnUntraced(
             function* (file: string) {
                 if (file === _DECLARATION) {
@@ -330,7 +329,7 @@ const createNodes: CreateNodes = [
                 const parsed = path.parse(file);
                 const [, configure] = yield* Effect.fromOption(Array.findFirst(Record.toEntries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
                 const configuration = yield* configure(parsed, { workspace: context.workspaceRoot, root, sources });
-                return { projects: { [configuration.root]: configuration } };
+                return { projects: { [configuration.root]: { ...configuration, tags: Array.union(configuration.tags, _host(hosts, configuration.root)) } } };
             },
             Effect.catchNoSuchElement,
             Effect.map(Option.getOrElse(() => ({}))),

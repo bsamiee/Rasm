@@ -4,13 +4,13 @@ from pathlib import Path
 
 from expression import Some
 
-from rasm.blender.extension.registration import scope
-from rasm.blender.nodes.placement import Arranger
-from rasm.blender.render.previews.queue import PreviewQueue
-from rasm.blender.ui.layout.rows import OperatorButton
-from rasm.blender.ui.resources.icons import Icons, ink
-from rasm.blender.ui.surfaces.panels import Panels, Sidebar
-from rasm.blender.ui.surfaces.preferences import PreferencesPage, show
+from blender.bpy.extension.registration import scope
+from blender.bpy.nodes.placement import Arranger
+from blender.bpy.render.previews.queue import PreviewQueue
+from blender.bpy.ui.layout.rows import OperatorButton
+from blender.bpy.ui.resources.icons import Icons, ink
+from blender.bpy.ui.surfaces.panels import Panels, Sidebar
+from blender.bpy.ui.surfaces.preferences import PreferencesPage, show
 
 from . import color, effects, preferences, rendering, review
 

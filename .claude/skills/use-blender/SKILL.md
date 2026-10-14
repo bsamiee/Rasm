@@ -191,7 +191,7 @@ Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BL
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `python .claude/skills/use-blender/scripts/evaluate.py checks <file.py>` runs each `@check` the file declares
 - `checks --isolate` runs one process per check, and `checks --falsify` runs each check again with its `flip` input
-- `run` and `checks` install every package `nx run <id>:pack` bundles, with all of `rasm`, into tree folder `scripts/modules` before launch
+- `run` and `checks` install every package `nx run <id>:pack` bundles, with the first-party wheel whole, into tree folder `scripts/modules` before launch
 - Blender lists `scripts/modules` first on `sys.path` and keeps its packages through factory resets
 - `python .claude/skills/use-blender/scripts/evaluate.py extension <zip>` validates and installs an archive
 - `extension` then cycles disable and enable twice and unregisters the extension

@@ -8,7 +8,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Use newest syntax, APIs, and typing supported by each execution runtime
 - Root `[project] requires-python` sets distribution compatibility independently of source and tooling runtimes
 - Host compatibility covers code actually executed or imported by a host, including shared libraries
-- Namespace membership and wheel assembly impose no host runtime on code outside a host's execution
+- Wheel membership imposes no host runtime on code outside a host's execution
 - Different runtimes take scoped declarations when actual consumers require them
 
 ## [02]-[GROUPS]
@@ -61,6 +61,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [06]-[PROJECTS]
 
+- Top-level directories under root backend `module-root` are import roots named for a domain or a host, a host directory holds every package that host imports beside its runtime declaration
 - Concern project names derive from `py.typed` directories relative to root backend `module-root`
 - `blender_manifest.toml` defines an extension project by manifest `id`
 - Python projects acquire `check` and `test` when root pytest file patterns discover tests in the project's mirror under pytest `testpaths`
@@ -69,7 +70,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 ## [07]-[HOST_PACKAGING]
 
 - Use `eng/python/fitout/` for host extension assembly and installation
-- Root backend builds concerns into one namespace wheel, excluding runtime declarations
+- Root backend `module-name` lists each import root holding code, built into one wheel excluding runtime declarations
 - Extension assembly selects source from derived runtime imports, with companion stubs and data beneath selected package directories
 - Selected modules enter packaging as wheel-relative arguments, package membership supplies no import inventory
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles

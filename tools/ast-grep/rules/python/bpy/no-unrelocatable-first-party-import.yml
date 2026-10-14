@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unrelocatable-first-party-import
+language: python
+severity: error
+files:
+    - libs/python/**
+    - apps/blender/**
+rule:
+    pattern: $MODULE
+    matches: python-imported-module
+    regex: '^blender(\.|$)'
+    not: {inside: {kind: import_from_statement, field: module_name}}
+message: '`$MODULE` names a first-party root in a form the extension pack leaves absolute, and the root resolves to nothing inside an installed extension'
+note: 'Use `from <import root>.<module> import <member>`, the one import form the pack rewrites to a relative import when it relocates first-party packages into the extension'

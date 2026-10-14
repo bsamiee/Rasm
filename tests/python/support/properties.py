@@ -119,13 +119,10 @@ def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: 
     stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
 
 
-def register_package_tree(config: pytest.Config, source_root: Path, suite_root: Path) -> tuple[str, ...]:
-    """Register each Python package beneath ``source_root`` under its import name with the same-named ``suite_root`` folder as test directory, returning the registered names."""
-    authored = tuple(child for child in sorted(source_root.iterdir()) if child.is_dir() and any(child.rglob("*.py"))) if source_root.is_dir() else ()
-    names = tuple(child.name if child.parent in config.getini("pythonpath") or not child.is_relative_to(config.rootpath) else ".".join(child.relative_to(config.rootpath).parts) for child in authored)
-    for name, child in zip(names, authored, strict=True):
-        register_package(config.stash, name, suite=suite_root / child.name)
-    return names
+def register_package_tree(stash: pytest.Stash, module_root: Path, suite_root: Path) -> None:
+    """Register each directory beneath the import root ``module_root`` that holds Python source under its import name, the directory name, with the same-named ``suite_root`` folder as test directory."""
+    for package in (child for child in sorted(module_root.iterdir()) if child.is_dir() and any(child.rglob("*.py"))):
+        register_package(stash, package.name, suite=suite_root / package.name)
 
 
 def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:

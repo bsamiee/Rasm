@@ -4,7 +4,7 @@ Covers evaluated reads, BMesh, mesh attributes, buffer paths and costs, and anim
 
 ## [01]-[EVALUATED_READS]
 
-Evaluated reads go through `rasm.blender.data.ids.evaluation` and follow host evaluation rules:
+Evaluated reads go through `blender.bpy.data.ids.evaluation` and follow host evaluation rules:
 - `evaluated(view_layer)` updates the layer and returns its depsgraph, or an edit fault while evaluation runs
 - `hit(obj, depsgraph, Ray(...) | Near(...))` runs an object-space ray cast or nearest-surface query and returns `BlenderResult[Option[Hit]]`, `Hit.face` indexing the evaluated mesh
 - `Scene.ray_cast(depsgraph, origin, direction)` works in world space
@@ -141,7 +141,7 @@ def purged(objects: tuple[bpy.types.Object, ...]) -> None:
 
 ## [05]-[ANIMATION]
 
-`rasm.blender.data.rna.animation` owns channels:
+`blender.bpy.data.rna.animation` owns channels:
 - `Animation(struct, member, index, source, modifiers).apply(owner, context)` reconciles one channel, keeps equal native state and unrelated channels, and answers whether it wrote
 - `Keys(points=...)` writes keyframes, `Driven(expression=..., variables=...)` a scripted driver over the animated ID's own properties
 - `Animation.clear(owner)` removes the declared channel

@@ -16,7 +16,7 @@ Covers `bpy` code decisions under workspace standards `[TOTALITY]`, `[FLOW]`, `[
 
 ## [01]-[OWNERS]
 
-Code calls an operation's `rasm.blender` owner in place of the `bpy` member it wraps.
+Code calls an operation's `blender.bpy` owner in place of the `bpy` member it wraps.
 
 ### [01.1]-[DATA_AND_COMMANDS]
 
@@ -24,7 +24,7 @@ Data, command, and callback needs:
 
 | [INDEX] | [NEED]                                        | [OWNER]                                                                               |
 | :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | Fallible host result, independent results     | `faults.BlenderResult[T]`, `rasm.imaging.faults` `accumulated` and `paired`           |
+|  [01]   | Fallible host result, independent results     | `faults.BlenderResult[T]`, `blender.imaging.faults` `accumulated` and `paired`        |
 |  [02]   | Operator call                                 | `commands.calls.called`                                                               |
 |  [03]   | Operator class over a typed record            | `commands.operators.Operator`, its body `Call[T] -> BlenderResult[Done \| Unchanged]` |
 |  [04]   | Modal gesture, timer step, status             | `commands.modal.Modal`                                                                |
@@ -254,7 +254,7 @@ Evaluation follows host rules:
 
 `RecordGroup` binds settings records to RNA properties for `Operator.form`, `Attachment`, and preference pages:
 - `str | None` fields bind as text holding `""` for absence, and `ID | None` fields as pointers
-- Other optional settings are `Gated[T]` fields from `rasm.imaging.parameters`, an enabled flag beside its value
+- Other optional settings are `Gated[T]` fields from `blender.imaging.parameters`, an enabled flag beside its value
 - Alternatives are `Case` subclasses with integer tags
 - Menu choices are `Choice` members with the persistent integers files store
 

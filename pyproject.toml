@@ -8,7 +8,7 @@ dependencies = [
     "atomicwrites",                                       # Atomic preset moves that preserve occupied destinations
     "cbor2",                                              # Canonical binary content hashing with unbounded integer support
     "colour-science",                                     # Authoritative CIE observer datasets
-    "expression",                                         # Results, options, fault unions, and collections of every rasm package
+    "expression",                                         # Results, options, fault unions, and collections of every library package
     "httpx2",                                             # HTTP for batch render targets and notices
     "imagecodecs",                                        # JPEG encoding and decoding for compression emulation
     "matplotlib",                                         # Native colour-science plotting import
@@ -411,7 +411,7 @@ constraint-dependencies = ["numpy==2.3.4; python_full_version < '3.15'", "openco
 override-dependencies = ["truststore @ git+https://github.com/sethmlarson/truststore.git@8d19b4d3dea6d28003886a5b254f0ce8ce66eeb3"] # httpx2 verifies through truststore, whose released 0.10.4 races concurrent handshakes on one SSL context in wrap_bio, fixed upstream after the release
 extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }, openimageio = { CMAKE_ARGS = "-DLINKSTATIC=OFF" } } # manifold3d needs builtin TBB, OCIO omits command-line apps, OIIO uses native shared codec dependencies with their complete link closure
 extra-build-dependencies = { pyroscope-io = ["cmake"] }   # pyroscope-io build.rs runs cmake, undeclared in the sdist
-build-backend = { module-name = "rasm", module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
+build-backend = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
 
 [tool.uv.sources]
 openimageio = { git = "https://github.com/AcademySoftwareFoundation/OpenImageIO", tag = "v3.1.18.1", marker = "python_full_version >= '3.15'" }

@@ -5,14 +5,14 @@ from pathlib import Path
 from bl_ui.space_image import IMAGE_HT_header, IMAGE_PT_image_properties, IMAGE_PT_render_slots, IMAGE_PT_view_histogram
 from bl_ui.space_node import NODE_PT_active_node_generic
 
-from rasm.blender.commands.keymaps import Button, Chord
-from rasm.blender.render.review.calibration import ChartCalibration
-from rasm.blender.render.review.frames import FrameCharts, meter_pick, meter_region, read_pick
-from rasm.blender.render.review.history import HistoryStore
-from rasm.blender.render.sessions.renders import RenderSlots
-from rasm.blender.ui.surfaces.appends import Append
-from rasm.blender.ui.surfaces.panels import Joined, Mirror, Panel, Sidebar
-from rasm.blender.ui.surfaces.tools import Appended, ImageEditor, Tool, Tools
+from blender.bpy.commands.keymaps import Button, Chord
+from blender.bpy.render.review.calibration import ChartCalibration
+from blender.bpy.render.review.frames import FrameCharts, meter_pick, meter_region, read_pick
+from blender.bpy.render.review.history import HistoryStore
+from blender.bpy.render.sessions.renders import RenderSlots
+from blender.bpy.ui.surfaces.appends import Append
+from blender.bpy.ui.surfaces.panels import Joined, Mirror, Panel, Sidebar
+from blender.bpy.ui.surfaces.tools import Appended, ImageEditor, Tool, Tools
 
 from .effects import stack, viewer
 from .preferences import category, reviewing

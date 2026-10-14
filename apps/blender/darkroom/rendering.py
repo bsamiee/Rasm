@@ -14,33 +14,33 @@ from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetS
 from cycles.ui import CYCLES_RENDER_PT_passes  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
 from expression import Some
 
-from rasm.blender.commands.operators import Acquired, Own
-from rasm.blender.render.effects.compositing.layers import COMPOSITED, LayerStacks, Source
-from rasm.blender.render.effects.quantization import diffuse
-from rasm.blender.render.effects.sections import COMPOSITING
-from rasm.blender.render.effects.stack import formation
-from rasm.blender.render.effects.tone.exposure import exposure
-from rasm.blender.render.outputs.exports import Export, Layering
-from rasm.blender.render.outputs.finishing import Finishing, rewrite
-from rasm.blender.render.outputs.formats import format_listing, output_rows
-from rasm.blender.render.outputs.framing import FrameSize, safe_broadcast, safe_listing, Standard
-from rasm.blender.render.outputs.paths import Outputs, ScenePaths
-from rasm.blender.render.sessions.preflight import Preflight
-from rasm.blender.render.sessions.queue import Denoising, QueueRun
-from rasm.blender.render.sessions.sets import Category, RenderSet, Setups
-from rasm.blender.render.view_layers.collections import CollectionStates
-from rasm.blender.render.view_layers.freestyle import FreestyleSection
-from rasm.blender.render.view_layers.overrides import LayerOverride
-from rasm.blender.render.view_layers.passes import ids_export, PassSet
-from rasm.blender.settings.presets import Preset
-from rasm.blender.ui.layout.rows import Member, OperatorButton, Pulldown
-from rasm.blender.ui.layout.sections import Hosted, Single, Store
-from rasm.blender.ui.screens.areas import AreaQuery
-from rasm.blender.ui.surfaces.appends import Append
-from rasm.blender.ui.surfaces.menus import PresetMenu
-from rasm.blender.ui.surfaces.panels import Child, Mirror, Panel, PopoverPanel, Sidebar, Tab
-from rasm.imaging.compositing.layers import LayerStack
-from rasm.rendering.outputs.framing import Broadcast
+from blender.bpy.commands.operators import Acquired, Own
+from blender.bpy.render.effects.compositing.layers import COMPOSITED, LayerStacks, Source
+from blender.bpy.render.effects.quantization import diffuse
+from blender.bpy.render.effects.sections import COMPOSITING
+from blender.bpy.render.effects.stack import formation
+from blender.bpy.render.effects.tone.exposure import exposure
+from blender.bpy.render.outputs.exports import Export, Layering
+from blender.bpy.render.outputs.finishing import Finishing, rewrite
+from blender.bpy.render.outputs.formats import format_listing, output_rows
+from blender.bpy.render.outputs.framing import FrameSize, safe_broadcast, safe_listing, Standard
+from blender.bpy.render.outputs.paths import Outputs, ScenePaths
+from blender.bpy.render.sessions.preflight import Preflight
+from blender.bpy.render.sessions.queue import Denoising, QueueRun
+from blender.bpy.render.sessions.sets import Category, RenderSet, Setups
+from blender.bpy.render.view_layers.collections import CollectionStates
+from blender.bpy.render.view_layers.freestyle import FreestyleSection
+from blender.bpy.render.view_layers.overrides import LayerOverride
+from blender.bpy.render.view_layers.passes import ids_export, PassSet
+from blender.bpy.settings.presets import Preset
+from blender.bpy.ui.layout.rows import Member, OperatorButton, Pulldown
+from blender.bpy.ui.layout.sections import Hosted, Single, Store
+from blender.bpy.ui.screens.areas import AreaQuery
+from blender.bpy.ui.surfaces.appends import Append
+from blender.bpy.ui.surfaces.menus import PresetMenu
+from blender.bpy.ui.surfaces.panels import Child, Mirror, Panel, PopoverPanel, Sidebar, Tab
+from blender.imaging.compositing.layers import LayerStack
+from blender.rendering.outputs.framing import Broadcast
 
 from .effects import Effects, stack, tiles
 from .preferences import category, queueing

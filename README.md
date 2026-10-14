@@ -167,9 +167,9 @@ flowchart LR
 - `eng/<language>/` owns engineering workflows over repository projects and artifacts
 - `tools/` provides capabilities for development tools and applications
 - Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
-- Build and task graph take .NET hosts from the `<host>/` path folder, Blender hosts from `blender_manifest.toml`
+- Task graph takes the host list from the `apps/<host>/` folders and tags a project by the host name in its path, .NET build takes Rhino hosts from the `rhino/` path folder
 - Python packages build into one `rasm` wheel
-- First-party Python imports use `from rasm.<module> import <member>` for private Blender extension relocation
+- First-party Python imports use `from <import root>.<module> import <member>` for private Blender extension relocation
 - `Grasshopper2` package references add Grasshopper 2 global usings
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`

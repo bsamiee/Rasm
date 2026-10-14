@@ -133,7 +133,7 @@ def opened(folder: Path, blender: str, arguments: tuple[str, ...]) -> Result[sub
 
 
 def provisioned(folder: Path, blender: str) -> Result[Path, Failure]:
-    """Tree whose user `scripts/modules` folder, first on Blender's `sys.path` and untouched by its extension wheel sync, holds the runtime closure `fitout pack` bundles with the first-party package whole."""
+    """Tree whose user `scripts/modules` folder, first on Blender's `sys.path` and untouched by its extension wheel sync, holds the runtime closure `fitout pack` bundles with the first-party wheel whole."""
     return (
         launched(folder, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, str(folder / FOLDERS["BLENDER_USER_SCRIPTS"] / "modules")))
         .bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)())

@@ -3,8 +3,8 @@ id: no-background-gate
 language: python
 severity: error
 files:
-    - libs/python/rasm/blender/**/*.py
-    - apps/blender/**/*.py
+    - libs/python/blender/bpy/**
+    - apps/blender/**
 utils:
     app-module:
         matches: {python-submodule: {parent: {regex: '^bpy$'}, child: {regex: '^app$'}}}

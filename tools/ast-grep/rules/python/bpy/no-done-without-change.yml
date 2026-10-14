@@ -3,18 +3,18 @@ id: no-done-without-change
 language: python
 severity: error
 files:
-    - libs/python/rasm/blender/**/*.py
-    - apps/blender/**/*.py
+    - libs/python/blender/bpy/**
+    - apps/blender/**
 utils:
     operators-module:
-        matches: {python-submodule: {parent: {regex: '^rasm\.blender\.commands$'}, child: {regex: '^operators$'}}}
+        matches: {python-submodule: {parent: {regex: '^blender\.bpy\.commands$'}, child: {regex: '^operators$'}}}
     faults-module:
-        matches: {python-submodule: {parent: {regex: '^rasm\.imaging$'}, child: {regex: '^faults$'}}}
+        matches: {python-submodule: {parent: {regex: '^blender\.imaging$'}, child: {regex: '^faults$'}}}
     descriptors-module:
-        matches: {python-submodule: {parent: {regex: '^rasm\.blender\.data\.rna$'}, child: {regex: '^descriptors$'}}}
+        matches: {python-submodule: {parent: {regex: '^blender\.bpy\.data\.rna$'}, child: {regex: '^descriptors$'}}}
     done-class:
         any:
-            - matches: {python-member-use: {module: {regex: '^rasm\.blender\.commands\.operators$'}, name: {regex: '^Done$'}}}
+            - matches: {python-member-use: {module: {regex: '^blender\.bpy\.commands\.operators$'}, name: {regex: '^Done$'}}}
             - kind: attribute
               all:
                 - has: {field: attribute, regex: '^Done$'}
@@ -23,7 +23,7 @@ utils:
         matches: {python-member-use: {module: {regex: '^expression(\.core(\.result)?)?$'}, name: {regex: '^Ok$'}}}
     accumulated-function:
         any:
-            - matches: {python-member-use: {module: {regex: '^rasm\.imaging\.faults$'}, name: {regex: '^accumulated$'}}}
+            - matches: {python-member-use: {module: {regex: '^blender\.imaging\.faults$'}, name: {regex: '^accumulated$'}}}
             - kind: attribute
               all:
                 - has: {field: attribute, regex: '^accumulated$'}
@@ -254,7 +254,7 @@ utils:
                     - kind: parenthesized_expression
                       has: {kind: named_expression, has: {field: value, matches: snapshot-applied}}
     history-class:
-        matches: {python-member-use: {module: {regex: '^rasm\.blender\.settings\.history$'}, name: {regex: 'History$'}}}
+        matches: {python-member-use: {module: {regex: '^blender\.bpy\.settings\.history$'}, name: {regex: 'History$'}}}
     history-constructed:
         kind: call
         has:
@@ -271,7 +271,7 @@ utils:
                 field: function
                 regex: 'written$'
                 any:
-                    - matches: {python-member-use: {module: {regex: '^rasm\.blender\.data\.rna\.descriptors$'}, name: {regex: '^written$'}}}
+                    - matches: {python-member-use: {module: {regex: '^blender\.bpy\.data\.rna\.descriptors$'}, name: {regex: '^written$'}}}
                     - kind: attribute
                       all:
                         - has: {field: attribute, regex: '^written$'}
@@ -324,7 +324,7 @@ utils:
 rule:
     kind: call
     all:
-        - inside: {kind: module, stopBy: end, regex: 'rasm\.blender\.commands'}
+        - inside: {kind: module, stopBy: end, regex: 'blender\.bpy\.commands'}
         - has: {field: function, matches: done-class}
         - any:
             - all:

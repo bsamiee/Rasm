@@ -84,4 +84,4 @@ rule:
             - kind: comparison_operator
               all: [{has: {field: operators, regex: '^(not\s+)?in$'}}, {has: {nthChild: 2, matches: relayed}}]
 message: 'Replace environment read `$READ` with a typed settings field passed from the boundary'
-note: 'Validate the passed mapping once with a frozen settings model, `msgspec.convert` in `rasm` and extension modules and pydantic `model_validate` or `BaseSettings` elsewhere, the read holds no field name, type, or default a template could emit'
+note: 'Validate the passed mapping once with a frozen settings model, `msgspec.convert` in library and extension modules and pydantic `model_validate` or `BaseSettings` elsewhere, the read holds no field name, type, or default a template could emit'

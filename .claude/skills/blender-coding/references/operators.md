@@ -1,6 +1,6 @@
 # [OPERATORS]
 
-Covers operator classes declared through `rasm.blender.commands.operators.Operator`.
+Covers operator classes declared through `blender.bpy.commands.operators.Operator`.
 
 ## [01]-[DECLARATION]
 

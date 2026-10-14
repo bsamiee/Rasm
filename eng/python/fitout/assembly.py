@@ -121,7 +121,7 @@ async def pack(source: ResolvedPath, archive: ResolvedPath, /, *modules: Path, b
         packages = {module.parent for module in selected}
         code_suffixes = {".py", ".pyi"}
         with ZipFile(first_party) as wheel:
-            entries = tuple((member, Path(member.filename)) for member in wheel.infolist())
+            entries = tuple((member, Path(member.filename)) for member in wheel.infolist() if not member.is_dir())
             code_packages = {path.parent for _, path in entries if path.suffix in code_suffixes}
             members = tuple(
                 member
@@ -174,7 +174,7 @@ async def pack(source: ResolvedPath, archive: ResolvedPath, /, *modules: Path, b
 
 @as_async_result(OSError, subprocess.CalledProcessError, msgspec.DecodeError, ValueError)
 async def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> int:
-    """Install the runtime closure `pack` bundles, with the first-party package whole, into a folder Blender's interpreter imports from.
+    """Install the runtime closure `pack` bundles, with the first-party wheel whole, into a folder Blender's interpreter imports from.
 
     Args:
         target: Folder receiving the installed packages.
