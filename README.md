@@ -167,6 +167,7 @@ flowchart LR
 - `eng/<language>/` owns engineering workflows over repository projects and artifacts
 - `tools/` provides capabilities for development tools and applications
 - Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
+- Product assets sit in the folder their build reads: `Assets/` for .NET, `Resources/` for Xcode, `icons/` for Blender, `public/` for Vite
 - Libraries group under `libs/<language>/<group>/` by domain or by host
 - Host groups hold every project built against the host's API
 - Task graph takes the host list from the `apps/<host>/` folders and tags a project by the host name in its path, .NET build takes Rhino hosts from the `rhino/` path folder

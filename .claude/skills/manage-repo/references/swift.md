@@ -21,6 +21,7 @@ Xcode projects build every Swift product, one root build configuration and the r
 - Shared schemes hold a `BuildAction` and a `LaunchAction` naming the target, Xcode autocreates a duplicate of a scheme with no `LaunchAction`
 - `LaunchAction` sets `customLLDBInitFile` to root `.lldbinit` by a `$(SRCROOT)`-relative path
 - App icons are an `AppIcon.icon` document `actool` renders into the bundle at build, no rendered image is checked in
+- `Assets.xcassets` and `AppIcon.icon` sit under `Resources/`, `actool` resolves both by name through the folder reference
 - `IDETemplateMacros.plist` stays out, an empty `FILEHEADER` leaves each Swift template's `//` line and no repository-wide location exists
 
 ## [02]-[ROOT_CONFIGURATION]

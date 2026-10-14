@@ -75,7 +75,7 @@
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <GenerateDependencyFile>false</GenerateDependencyFile>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
-        <_PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'icon.svg'))</_PlugInIconSource>
+        <_PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'Assets', 'icon.svg'))</_PlugInIconSource>
         <_PlugInPackageIcon Condition="Exists('$(_PlugInIconSource)')">icon.png</_PlugInPackageIcon>
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
         <_PlugInIcon Condition="'$(_PlugInPackageIcon)' != ''">PlugIn.ico</_PlugInIcon>

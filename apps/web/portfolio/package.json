@@ -44,7 +44,7 @@
     "nx": {
         "targets": {
             "db:setup": {
-                "command": "wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to ../../../.cache/wrangler/apps/web/portfolio --file schema.sql",
+                "command": "wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to ../../../.cache/wrangler/apps/web/portfolio --file worker/schema.sql",
                 "options": {
                     "cwd": "{projectRoot}"
                 },

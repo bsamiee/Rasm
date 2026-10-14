@@ -53,7 +53,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
 
-[STYLE]: `theme.css` owns Tailwind tokens, shared utilities, and layout variants
+[STYLE]: `site/theme.css` owns Tailwind tokens, shared utilities, and layout variants
 - Presentation components name visual roles, typed `data-*` attributes select composition layouts
 - Inline styles hold values derived from media dimensions, theme rules hold visual choices
 - React Aria state variants come from `tailwindcss-react-aria-components`
@@ -104,7 +104,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Hosted configuration supplies `OWNER_EMAIL`, `vite.config.ts` sets it to the `sites()` local sign-in email for `serve` alone
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[STORAGE]: `schema.sql` declares document, asset, and owner tables
+[STORAGE]: `worker/schema.sql` declares document, asset, and owner tables
 - `db:setup` creates local tables through Wrangler, hosted tables retain their existing structure
 - Effect schemas define JSON content, D1 updates each document or asset in place
 - Schema history, numbered SQL, and request-time table creation are absent

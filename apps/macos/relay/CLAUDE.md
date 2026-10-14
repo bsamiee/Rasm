@@ -10,6 +10,7 @@ Views call `AccountStore`, the store calls one client actor per provider, and cl
 apps/macos/relay/
 ├── Accounts/            # Store, account model, domain types, usage availability, accounts.json codec, error accumulation
 ├── Providers/           # Claude and Codex clients and protocols, Keychain, Claude Code locks, process runner
+├── Resources/           # Asset catalog of provider and menu bar symbols, Icon Composer app icon
 ├── Views/               # Menu bar panel, Settings window, gauges, text formats
 ├── Activation.swift     # Bring the app to front
 ├── FileLocations.swift  # Resolved paths, once after the login shell
