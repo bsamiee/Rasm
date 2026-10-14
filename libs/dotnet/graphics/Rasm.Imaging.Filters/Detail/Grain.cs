@@ -67,7 +67,7 @@ public sealed record FilmGrain(
         return Try.lift(() => {
             Fin<(Action<Span<Vector4>, long, long> Draw, Func<Mat, Fin<Unit>> Shape)> draws = state.Scan.Match(
                 Some: scan => context.Derivations.Derived((scan, state.ScanSpan, context.Extent), Scores).Map(tile => (Tiled(tile, field), (Func<Mat, Fin<Unit>>)(static _ => unit))),
-                None: () => ((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }, Normalized));
+                None: () => Kernels.GaussianKernel(sigma).Map(kernel => ((Action<Span<Vector4>, long, long>)((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }), (Func<Mat, Fin<Unit>>)(header => Normalized(header, kernel)))));
             return from noise in draws
                    let plane = new PixelFrame(frame.Origin, frame.Size, frame.Extent, static _ => { })
                    from drawn in new PixelPass.Pointwise(noise.Draw).Run(plane, new Progress<int>())
@@ -90,22 +90,21 @@ public sealed record FilmGrain(
             Some: cause => cause is OverflowException or OutOfMemoryException ? new GrainFrameRefused(frame.Size, cause) : error,
             None: () => error));
 
-        Fin<Unit> Normalized(Mat header) =>
-            Kernels.GaussianKernel(sigma).Bind(kernel => {
-                const double unitVariance = 1d;
-                torch.Tensor squared = kernel.square();
-                using Mat filtered = new();
-                using Mat deviation = new(header.Rows, header.Cols, DepthType.Cv64F, header.NumberOfChannels);
-                deviation.SetTo(new MCvScalar(unitVariance, unitVariance, unitVariance, unitVariance));
-                return header.Separable(filtered, kernel, kernel, DepthType.Cv64F, PaddingModes.Constant)
-                    .Bind(_ => deviation.Separable(deviation, squared, squared, DepthType.Cv64F, PaddingModes.Constant))
-                    .Map(_ => {
-                        CvInvoke.Sqrt(deviation, deviation);
-                        CvInvoke.Divide(filtered, deviation, filtered);
-                        filtered.ConvertTo(header, DepthType.Cv32F);
-                        return unit;
-                    });
-            });
+        static Fin<Unit> Normalized(Mat header, torch.Tensor kernel) {
+            const double unitVariance = 1d;
+            torch.Tensor squared = kernel.square();
+            using Mat filtered = new();
+            using Mat deviation = new(header.Rows, header.Cols, DepthType.Cv64F, header.NumberOfChannels);
+            deviation.SetTo(new MCvScalar(unitVariance, unitVariance, unitVariance, unitVariance));
+            return header.Separable(filtered, kernel, kernel, DepthType.Cv64F, PaddingModes.Constant)
+                .Bind(_ => deviation.Separable(deviation, squared, squared, DepthType.Cv64F, PaddingModes.Constant))
+                .Map(_ => {
+                    CvInvoke.Sqrt(deviation, deviation);
+                    CvInvoke.Divide(filtered, deviation, filtered);
+                    filtered.ConvertTo(header, DepthType.Cv32F);
+                    return unit;
+                });
+        }
 
         static Action<Span<Vector4>, long, long> Tiled(Memory2D<Vector4> tile, uint field) {
             Vector2 random = NoiseFunctions.White(Vector4.Zero, field).AsVector2();

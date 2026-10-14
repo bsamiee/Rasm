@@ -35,7 +35,7 @@ public sealed class FramePicker(Option<RowSource<ScopeState>> scope) {
     public IO<SampleSquare> Sample(RowScope rows) =>
         scope.Match(Some: source => rows.Read(source).Map(static state => state.Sample), None: static () => IO.pure(ScopeState.Default.Sample));
 
-    public IO<Unit> Start(RhinoDoc document, PickKind kind, Func<(double X, double Y), IO<Unit>> picked, Action<IDisposable> retain) =>
+    public IO<Unit> Start(RhinoDoc document, Func<(double X, double Y), IO<Unit>> picked, Action<IDisposable> retain) =>
         from lease in DisposalOps.Acquire(
             IO.lift(() => new Disposal<Func<(double X, double Y), IO<Unit>>>(picked, released =>
                 _ = views.Swap(held => (held.After, held.After.TrySetItem(document.RuntimeSerialNumber,
@@ -44,7 +44,7 @@ public sealed class FramePicker(Option<RowSource<ScopeState>> scope) {
         from started in DisposalOps.OnFailure(
             from swapped in PreviewRows.Swapped(views, held => held.TrySetItem(document.RuntimeSerialNumber, shown => shown with { Pending = Some(picked) }))
             from shown in IO.lift(swapped.After.Find(document.RuntimeSerialNumber).ToFin(new Missing(nameof(Start))))
-            from pickedView in shown.View.Pick(kind)
+            from pickedView in shown.View.Pick
             select pickedView,
             IO.lift(lease.Dispose))
         select started;
@@ -410,7 +410,7 @@ public static partial class PreviewRows {
             h => command.Executed += h, h => command.Executed -= h,
             Callbacks.Handler<EventArgs>(
                 _ => IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
-                    .Bind(document => picker.Start(document, PickKind.Value, pixel =>
+                    .Bind(document => picker.Start(document, pixel =>
                         from square in picker.Sample(scope)
                         from frame in stage.Read
                         from done in frame.Bind(held => square.Mean(held, pixel)).Match(Some: picked, None: static () => IO.pure(unit))

@@ -1,26 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 namespace Rasm.Rhino.Render.Queue;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-[Flags]
-internal enum ExecutionState : uint {
-    None = 0,
-    SystemRequired = 1u << 0,
-    DisplayRequired = 1u << 1,
-    Continuous = 1u << 31,
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-internal static partial class SafeNativeMethods {
-    [LibraryImport("kernel32")]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    [SupportedOSPlatform("windows")]
-    internal static partial ExecutionState SetThreadExecutionState(ExecutionState flags);
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MachinePower {

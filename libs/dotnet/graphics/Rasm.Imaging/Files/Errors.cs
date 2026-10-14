@@ -7,7 +7,8 @@ namespace Rasm.Imaging.Files;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
-    DepthRefused = 1,
+    InvalidFileValue = 1,
+    DepthRefused,
     PassTaken,
     TiffRefused,
     DngExtentRefused,
@@ -18,7 +19,8 @@ internal enum Codes {
     LayerCountRefused,
     PngRefused,
     CicpUnsupported,
-    InvalidFileValue,
+    LutUnreadable,
+    LookupShapeRefused,
     WriteRefused,
     DestinationTaken,
 }
@@ -33,6 +35,10 @@ public abstract partial record TiffCall {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+public sealed record InvalidFileValue() : Expected("file value rejected", (int)Codes.InvalidFileValue), IValidationError<InvalidFileValue> {
+    public static InvalidFileValue Create(string message) => new();
+}
+
 public sealed record DepthRefused(OutputDepth Depth, Seq<OutputDepth> Held) : Expected("file format holds no sample of this depth", (int)Codes.DepthRefused);
 
 public sealed record PassTaken(PassName Name) : Expected("pass name repeats in one pass set", (int)Codes.PassTaken);
@@ -58,9 +64,13 @@ public sealed record PngRefused : Expected {
 public sealed record CicpUnsupported(CicpColorPrimaries Primaries, CicpTransferCharacteristics Transfer, CicpMatrixCoefficients Matrix, bool FullRange)
     : Expected("PNG cICP chunk states an encoding Rasm holds no gamut and transfer for", (int)Codes.CicpUnsupported);
 
-public sealed record InvalidFileValue() : Expected("file value rejected", (int)Codes.InvalidFileValue), IValidationError<InvalidFileValue> {
-    public static InvalidFileValue Create(string message) => new();
+public sealed record LutUnreadable : Expected {
+    public LutUnreadable(LutPath path, Error cause) : base("LUT file unreadable", (int)Codes.LutUnreadable, cause) => Path = path;
+
+    public LutPath Path { get; }
 }
+
+public sealed record LookupShapeRefused(int Width, int Height) : Expected("lookup image size holds no lattice layout", (int)Codes.LookupShapeRefused);
 
 public sealed record WriteRefused : Expected {
     public WriteRefused(OutputPath path, Error cause) : base("file write refused", (int)Codes.WriteRefused, cause) => Path = path;

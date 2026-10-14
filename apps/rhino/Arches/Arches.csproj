@@ -4,7 +4,7 @@
         <Description>Historical arch profiles from picked span, apex, and foil inputs</Description>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

@@ -9,7 +9,6 @@ import { cacheDir, createProjectGraphAsync, getOutputsForTargetAndConfiguration,
 import { Array, Config, Console, Data, Effect, FileSystem, flow, HashMap, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Stream, String, Struct, Tuple } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { parse as parseYaml } from 'yaml';
-import { sqlite } from '../../../plugins/function-hooks/observation/sql.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -34,6 +33,7 @@ const Listed = Schema.Struct({ pid: Schema.NumberFromString, ppid: Schema.Number
 const OpenProcess = Schema.Struct({ pid: Schema.NumberFromString, files: Schema.String });
 const OpenFile = Schema.Struct({ descriptor: Schema.String, path: Schema.String });
 const Located = Schema.Struct({ path: Schema.String });
+const Configs = Schema.fromJsonString(Schema.Array(Located));
 const Grammars = Schema.Struct({ customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String })) });
 const Workspace = Schema.Struct({ storeDir: Schema.String, cacheDir: Schema.String, enableGlobalVirtualStore: Schema.optionalKey(Schema.Boolean) });
 const Invocation = Schema.Struct({ cwd: Schema.optionalKey(Schema.String), command: Schema.optionalKey(Schema.String), commands: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Schema.Struct({ command: Schema.String })]))) });
@@ -56,6 +56,7 @@ interface Plan {
 class Exited extends Data.TaggedError('Exited')<{ readonly command: ChildProcess.StandardCommand; readonly code: number }> {}
 class Unsignaled extends Data.TaggedError('Unsignaled')<{ readonly pid: number; readonly cause: unknown }> {}
 class Unparsed extends Data.TaggedError('Unparsed')<{ readonly source: string; readonly cause: unknown }> {}
+class Undeclared extends Data.TaggedError('Undeclared')<{ readonly config: string }> {}
 class UnsupportedEndpoint extends Data.TaggedError('UnsupportedEndpoint')<{ readonly uri: URL }> {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -214,7 +215,7 @@ const plan = Effect.fn('plan')(function* (root: string) {
     const path = yield* Path.Path;
     const read = (file: string): Effect.Effect<unknown, Unparsed | PlatformError.PlatformError> => fs.readFileString(path.join(root, file)).pipe(Effect.flatMap((text) => Effect.try({ try: () => parseYaml(text), catch: (cause) => new Unparsed({ source: file, cause }) })));
     const program = path.join(root, 'infra', 'cli.ts');
-    const [graph, { customLanguages }, workspace, store, packages, uv, pulumi, plugins, providers] = yield* Effect.all(
+    const [graph, { customLanguages }, workspace, store, packages, uv, pulumi, ghidra, plugins, providers] = yield* Effect.all(
         [
             Effect.tryPromise(() => createProjectGraphAsync({ exitOnError: false })),
             read('sgconfig.yml').pipe(Effect.flatMap(Schema.decodeUnknownEffect(Grammars))),
@@ -223,16 +224,35 @@ const plan = Effect.fn('plan')(function* (root: string) {
             execute(ChildProcess.make('dotnet', ['nuget', 'locals', 'global-packages', '--list'], { cwd: root }), SUCCESS_CODES).pipe(Effect.flatMap((text) => Schema.decodeUnknownEffect(Located)(GLOBAL_PACKAGES.exec(text)?.groups))),
             Config.String('UV_CACHE_DIR'),
             Config.String('PULUMI_HOME'),
+            Config.String('GHIDRA_PROJECT_DIR'),
             execute(ChildProcess.make('pulumi', ['plugin', 'ls', '--json']), SUCCESS_CODES).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Plugins))),
             fs.readFileString(program).pipe(
-                Effect.flatMap((text) => Effect.try({ try: () => parseSource(Lang.TypeScript, text).root().findAll({ rule: { kind: 'string_fragment', inside: { kind: 'string', inside: { kind: 'import_statement' } } } }), catch: (cause) => new Unparsed({ source: program, cause }) })),
+                Effect.flatMap((text) =>
+                    Effect.try({
+                        try: () =>
+                            parseSource(Lang.TypeScript, text)
+                                .root()
+                                .findAll({ rule: { kind: 'string_fragment', inside: { kind: 'string', inside: { kind: 'import_statement' } } } }),
+                        catch: (cause) => new Unparsed({ source: program, cause }),
+                    }),
+                ),
                 Effect.flatMap((sources) =>
                     Effect.forEach(
                         sources.filter((source) => !isBuiltin(source.text())),
                         (source) => Effect.try({ try: () => Option.fromNullishOr(findPackageJSON(source.text(), pathToFileURL(program))), catch: (cause) => new Unparsed({ source: source.text(), cause }) }),
                     ),
                 ),
-                Effect.flatMap((manifests) => Effect.forEach(Array.dedupe(Array.getSomes(manifests)), (manifest) => Effect.map(fs.readFileString(manifest), flow(Schema.decodeUnknownOption(Provider), Option.map(({ pulumi: { name } }) => name))))),
+                Effect.flatMap((manifests) =>
+                    Effect.forEach(Array.dedupe(Array.getSomes(manifests)), (manifest) =>
+                        Effect.map(
+                            fs.readFileString(manifest),
+                            flow(
+                                Schema.decodeUnknownOption(Provider),
+                                Option.map(({ pulumi: { name } }) => name),
+                            ),
+                        ),
+                    ),
+                ),
                 Effect.map(Array.getSomes),
             ),
         ],
@@ -242,7 +262,9 @@ const plan = Effect.fn('plan')(function* (root: string) {
     const derived = nodes.flatMap((node) =>
         Object.values(node.data.targets ?? {}).flatMap(({ options }) =>
             Option.toArray(Schema.decodeUnknownOption(Invocation)(options)).flatMap(({ cwd, command, commands }) =>
-                [...Option.toArray(Option.fromNullishOr(command)), ...(commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))].flatMap((text) => Array.getSomes([...text.matchAll(XCODEBUILD_PATH)].map((match) => Option.fromNullishOr(match.groups?.path))).map((entry) => path.resolve(root, cwd ?? '.', entry.replace('$NX_WORKSPACE_ROOT', root)))),
+                [...Option.toArray(Option.fromNullishOr(command)), ...(commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))].flatMap((text) =>
+                    Array.getSomes([...text.matchAll(XCODEBUILD_PATH)].map((match) => Option.fromNullishOr(match.groups?.path))).map((entry) => path.resolve(root, cwd ?? '.', entry.replace('$NX_WORKSPACE_ROOT', root))),
+                ),
             ),
         ),
     );
@@ -256,6 +278,7 @@ const plan = Effect.fn('plan')(function* (root: string) {
     return {
         candidates: Array.dedupe([
             ...roots,
+            ghidra,
             ...outputs
                 .filter(Predicate.not(String.startsWith('!')))
                 .map((output) => path.resolve(root, output))
@@ -263,17 +286,9 @@ const plan = Effect.fn('plan')(function* (root: string) {
             ...wrangler,
         ]),
         kept: Array.dedupe(
-            [
-                ...Record.values(customLanguages).map(Struct.get('libraryPath')),
-                workspace.storeDir,
-                workspace.cacheDir,
-                packages.path,
-                uv,
-                cacheDir,
-                ...derived,
-                path.dirname(Array.lastNonEmpty(sqlite(root))),
-                ...plugins.filter(({ name }) => providers.includes(name)).map(({ kind, name, version }) => path.join(pulumi, 'plugins', `${kind}-${name}-v${version}`)),
-            ].map((entry) => path.resolve(root, entry)),
+            [...Record.values(customLanguages).map(Struct.get('libraryPath')), workspace.storeDir, workspace.cacheDir, packages.path, uv, cacheDir, ...derived, ...plugins.filter(({ name }) => providers.includes(name)).map(({ kind, name, version }) => path.join(pulumi, 'plugins', `${kind}-${name}-v${version}`))].map(
+                (entry) => path.resolve(root, entry),
+            ),
         ),
         dropped: workspace.enableGlobalVirtualStore === true ? [] : [path.join(store, 'links')],
     } satisfies Plan;
@@ -303,15 +318,24 @@ const discard = Effect.fn('discard')(function* (targets: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
     yield* Effect.validate(targets, (target) => Console.log(`remove ${target}`).pipe(Effect.andThen(fs.remove(target, { recursive: true, force: true }))), { concurrency: 'unbounded', discard: true });
 });
-const prune = Effect.validate(
-    [
-        [ChildProcess.make('mise', ['prune', '--yes'], { stdout: 'inherit' }), ChildProcess.make('mise', ['install'], { stdout: 'inherit' }), ChildProcess.make('mise', ['cache', 'prune'], { stdout: 'inherit' })],
-        [ChildProcess.make('uv', ['cache', 'prune'], { stdout: 'inherit' })],
-        [ChildProcess.make('pnpm', ['store', 'prune'], { stdout: 'inherit' }), ChildProcess.make('pnpm', ['cache', 'prune'], { stdout: 'inherit' })],
-    ],
-    (commands) => Effect.forEach(commands, (command) => execute(command, SUCCESS_CODES), { discard: true }),
-    { concurrency: 'unbounded', discard: true },
-);
+const prune = Effect.fn('prune')(function* (config: string) {
+    yield* execute(ChildProcess.make('mise', ['config', 'ls', '--json']), SUCCESS_CODES).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(Configs)),
+        Effect.filterOrFail(
+            (loaded) => loaded.some(({ path }) => path === config),
+            () => new Undeclared({ config }),
+        ),
+    );
+    yield* Effect.validate(
+        [
+            [ChildProcess.make('mise', ['prune', '--yes'], { stdout: 'inherit' }), ChildProcess.make('mise', ['install'], { stdout: 'inherit' }), ChildProcess.make('mise', ['cache', 'prune'], { stdout: 'inherit' })],
+            [ChildProcess.make('uv', ['cache', 'prune'], { stdout: 'inherit' })],
+            [ChildProcess.make('pnpm', ['store', 'prune'], { stdout: 'inherit' }), ChildProcess.make('pnpm', ['cache', 'prune'], { stdout: 'inherit' })],
+        ],
+        (commands) => Effect.forEach(commands, (command) => execute(command, SUCCESS_CODES), { discard: true }),
+        { concurrency: 'unbounded', discard: true },
+    );
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -319,8 +343,9 @@ const cleanup = Effect.fn('cleanup')(function* () {
     const path = yield* Path.Path;
     const root = path.resolve(workspaceRoot);
     const workspace = yield* Effect.result(plan(root));
-    const work = <E, R>(removal: Effect.Effect<void, E, R>): Effect.Effect<void, Array.NonEmptyArray<E | Effect.Error<typeof prune>>, R | Effect.Services<typeof prune>> =>
-        Effect.validate([prune, removal], identity<Effect.Effect<void, E | Effect.Error<typeof prune>, R | Effect.Services<typeof prune>>>, { concurrency: 'unbounded', discard: true });
+    const pruning = prune(path.join(root, 'mise.toml'));
+    const work = <E, R>(removal: Effect.Effect<void, E, R>): Effect.Effect<void, Array.NonEmptyArray<E | Effect.Error<typeof pruning>>, R | Effect.Services<typeof pruning>> =>
+        Effect.validate([pruning, removal], identity<Effect.Effect<void, E | Effect.Error<typeof pruning>, R | Effect.Services<typeof pruning>>>, { concurrency: 'unbounded', discard: true });
     if (process.platform !== 'darwin') {
         return yield* work(
             Effect.fromResult(workspace).pipe(

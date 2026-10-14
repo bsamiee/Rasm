@@ -74,8 +74,8 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
-    public static IO<ImageOutputState> Read(RenderSettingsScope window) =>
-        IO.lift(() => window.Settings switch {
+    public static IO<ImageOutputState> Read(RenderSettingsScope scope) =>
+        IO.lift(() => scope.Settings switch {
             var settings => (Conversions.Validated<PixelDimension, int, InvalidRhinoValue>(settings.ImageSize.Width).ToValidation(),
                              Conversions.Validated<PixelDimension, int, InvalidRhinoValue>(settings.ImageSize.Height).ToValidation(),
                              Conversions.Validated<PixelDensity, double, InvalidFileValue>(settings.ImageDpi).ToValidation())
@@ -84,8 +84,8 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
                 .ToFin(),
         });
 
-    public static IO<ImageOutputState> Write(RenderSettingsScope window, ImageOutputState state) =>
-        IO.lift(() => { RenderSettingsMapper.Update(state, window.Settings); return state; });
+    public static IO<ImageOutputState> Write(RenderSettingsScope scope, ImageOutputState state) =>
+        IO.lift(() => { RenderSettingsMapper.Update(state, scope.Settings); return state; });
 
     public static ParameterText Text(ImageOutputParameter parameter) =>
         parameter.Map(
@@ -127,15 +127,15 @@ public sealed record RenderSourceState(RenderSettings.RenderingSources RenderSou
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
-    public static IO<RenderSourceState> Read(RenderSettingsScope window) =>
-        IO.lift(() => RenderSettingsMapper.ToState(window.Settings));
+    public static IO<RenderSourceState> Read(RenderSettingsScope scope) =>
+        IO.lift(() => RenderSettingsMapper.ToState(scope.Settings));
 
-    public static IO<RenderSourceState> Write(RenderSettingsScope window, RenderSourceState state) =>
+    public static IO<RenderSourceState> Write(RenderSettingsScope scope, RenderSourceState state) =>
         IO.pure(state with {
             SpecificViewport = state.SpecificViewport.Bind(Conversions.Present),
             NamedView = state.NamedView.Bind(Conversions.Present),
             Snapshot = state.Snapshot.Bind(Conversions.Present),
-        }).Bind(accepted => IO.lift(() => { RenderSettingsMapper.Update(accepted, window.Settings); return accepted; }));
+        }).Bind(accepted => IO.lift(() => { RenderSettingsMapper.Update(accepted, scope.Settings); return accepted; }));
 
     public static ParameterText Text(RenderSourceParameter parameter) =>
         parameter.Map(
@@ -193,8 +193,8 @@ public sealed record FrameState(
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
-    public static IO<FrameState> Read(RenderSettingsScope window) =>
-        IO.lift(() => window.Settings switch {
+    public static IO<FrameState> Read(RenderSettingsScope scope) =>
+        IO.lift(() => scope.Settings switch {
             var settings => ShadowmapQuality.ByLevel.Value.Find(settings.ShadowmapLevel).ToFin(new InvalidAnswer(nameof(RenderSettings.ShadowmapLevel)))
                 .Map(shadowmap => new FrameState(
                     Conversions.Rgb(settings.AmbientLight), settings.AntialiasLevel, shadowmap, settings.TransparentBackground,
@@ -202,8 +202,8 @@ public sealed record FrameState(
                     settings.RenderAnnotations, settings.UseHiddenLights, settings.DepthCue, settings.FlatShade)),
         });
 
-    public static IO<FrameState> Write(RenderSettingsScope window, FrameState state) =>
-        IO.lift(() => { RenderSettingsMapper.Update(state, window.Settings); return state; });
+    public static IO<FrameState> Write(RenderSettingsScope scope, FrameState state) =>
+        IO.lift(() => { RenderSettingsMapper.Update(state, scope.Settings); return state; });
 
     public static ParameterText Text(FrameParameter parameter) =>
         parameter.Map(
@@ -275,13 +275,13 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
-    public static IO<LinearWorkflowState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.LinearWorkflow, static workflow => IO.lift(() =>
+    public static IO<LinearWorkflowState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, static workflow => IO.lift(() =>
             Conversions.Validated<Gamma, float, InvalidRhinoValue>(workflow.PostProcessGamma)
                 .Map(gamma => new LinearWorkflowState(workflow.PreProcessColors, gamma, workflow.PostProcessGammaOn))));
 
-    public static IO<LinearWorkflowState> Write(RenderSettingsScope window, LinearWorkflowState state) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
+    public static IO<LinearWorkflowState> Write(RenderSettingsScope scope, LinearWorkflowState state) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
 
     public static ParameterText Text(LinearWorkflowParameter parameter) =>
         parameter.Map(
@@ -315,11 +315,11 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
-    public static IO<DitheringState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
+    public static IO<DitheringState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
 
-    public static IO<DitheringState> Write(RenderSettingsScope window, DitheringState state) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
+    public static IO<DitheringState> Write(RenderSettingsScope scope, DitheringState state) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
 
     public static ParameterText Text(DitheringParameter parameter) =>
         parameter.Map(
@@ -352,11 +352,11 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.RenderChannelsChanged;
 
-    public static IO<RenderChannelsState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
+    public static IO<RenderChannelsState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
 
-    public static IO<RenderChannelsState> Write(RenderSettingsScope window, RenderChannelsState state) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.RenderChannels, channels => IO.lift(() => { RenderSettingsMapper.Update(state, channels); return state; }));
+    public static IO<RenderChannelsState> Write(RenderSettingsScope scope, RenderChannelsState state) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.RenderChannels, channels => IO.lift(() => { RenderSettingsMapper.Update(state, channels); return state; }));
 
     public static ParameterText Text(RenderChannelsParameter parameter) =>
         parameter.Map(

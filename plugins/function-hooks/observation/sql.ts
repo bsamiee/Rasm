@@ -6,7 +6,7 @@ type Column = (typeof _OBSERVATION)[number][0];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _FOLDER = '.cache/observation';
+const _FOLDER = '.claude/observation';
 const _DATABASE = `${_FOLDER}/observation.db`;
 const _DELTA = `${_FOLDER}/delta.sql`;
 const _TIMEOUT = '.timeout 10000';

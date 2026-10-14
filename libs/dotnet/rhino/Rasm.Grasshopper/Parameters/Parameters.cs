@@ -38,14 +38,6 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
             from coded in Coded(parameter, face, sink)
             select coded);
 
-    public static ParameterRow Opaque<TData>(
-        ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Access access, Requirement requirement, Seq<(string Caption, TData Value)> presets = default)
-        where TData : notnull =>
-        Of(face, nomen => Construct<TData>(nomen, access, requirement), presets).Presented(glyph, master, accent) with {
-            DataTypes = [Parameters.DataTypes.Field<TData>(static (plugin, id, name) =>
-                Parameters.DataTypes.Of<TData>(id, name, plugin.Icon, identity, static value => value.ToString()!)(plugin))],
-        };
-
     public static ParameterRow Of<TData>(
         StateParameter<TData> kind, ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Access access, Requirement requirement, Option<TData> initial)
         where TData : notnull =>
@@ -97,8 +89,7 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
     }
 }
 
-public sealed record ParameterField<TRecord>(
-    ParameterRow Input, ParameterRow Output, Func<IDataAccess, int, Fin<Func<TRecord, TRecord>>> Recall, Func<TRecord, Fin<object>> Capture)
+public sealed record ParameterField<TRecord>(ParameterRow Input, Func<IDataAccess, int, Fin<Func<TRecord, TRecord>>> Recall)
     where TRecord : notnull;
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -117,17 +108,6 @@ public sealed class DataParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
     };
 
     protected override IIcon IconInternal => TypeAssistant.Icon;
-}
-
-public sealed class ValueParameterVisitor(string owner, IGlyph glyph, int master, SpecialColour accent, Option<(string Category, Option<Color> Tint, bool Shown)> modularity) : IValueKeyVisitor<ParameterField<ValueSet>> {
-    public ParameterField<ValueSet> Visit<TValue, TRaw>(ValueKey<TValue, TRaw> key) where TValue : notnull where TRaw : notnull {
-        EntryKey entry = new(owner, Seq(key.Name));
-        ParameterField<TValue> field = ParameterField.Of(key.Kind, new ParameterFace(ParameterText.Of(key.Caption, key.Help), key.Name, modularity), glyph, master, accent, None, Requirement.MayBeMissing);
-        return new(field.Input, field.Output,
-            (access, index) => Fin.Succ(Callbacks.Found(access.GetItem(index, out TValue held), held).Match<Func<ValueSet, ValueSet>>(
-                Some: value => values => new ValueSet(values.Entries.AddOrUpdate(entry, key.Text(value))), None: static () => identity)),
-            values => values.Entries.Find(entry).Match(Some: text => entry.Read(text, key.Read).Map<object>(static value => value), None: () => Fin.Succ<object>(key.Default)));
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -152,24 +132,9 @@ public static class ParameterField {
             _ = initial.Iter(record => parameter.Set(lens.Get(record)));
             return parameter;
         }, presets),
-            ParameterRow.Of(face, construct, presets),
             (access, index) => Callbacks.Found(access.GetItem(index, out TData held), held)
                 .Traverse(value => admit.Match(Some: accept => accept(value), None: () => Fin.Succ(value))).As()
-                .Map(found => found.Match<Func<TRecord, TRecord>>(Some: value => record => lens.Set(value, record), None: static () => identity)),
-            record => Fin.Succ<object>(lens.Get(record)));
-
-    public static ParameterField<TRecord> Of<TRecord>(
-        StateParameter<TRecord> kind, ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Option<TRecord> initial, Requirement requirement)
-        where TRecord : notnull =>
-        kind.Accept(new Crossing<TRecord>(face, glyph, master, accent, initial, requirement, Access.Item));
-
-    public static Seq<ParameterField<TRecord>> Join<TRecord, TParameter>(
-        Seq<(TParameter Parameter, ParameterText Text)> texts, Func<TParameter, (string Code, Option<(string Category, Option<Color> Tint, bool Shown)> Modularity)> placement, IGlyph glyph, int master, SpecialColour accent)
-        where TRecord : notnull
-        where TParameter : IStateParameter<TRecord> =>
-        texts.Map(pair => placement(pair.Parameter) switch {
-            var placed => Of(pair.Parameter.Kind, new ParameterFace(pair.Text, placed.Code, placed.Modularity), glyph, master, accent, None, Requirement.MayBeMissing),
-        }).Strict();
+                .Map(found => found.Match<Func<TRecord, TRecord>>(Some: value => record => lens.Set(value, record), None: static () => identity)));
 
     // --- [SOLVE]
     public static IO<Func<TRecord, TRecord>> Read<TRecord>(Seq<ParameterField<TRecord>> fields, int first, IDataAccess access)
@@ -178,11 +143,6 @@ public static class ParameterField {
             IO.lift(() => field.Recall(access, first + position))).PartitionFallible().As()
         from _ in unless(parts.Fails.IsEmpty, IO.fail<Unit>(Error.Many(parts.Fails))).As()
         select fun((TRecord seed) => parts.Succs.Fold(seed, static (record, set) => set(record)));
-
-    public static IO<Unit> Write<TRecord>(Seq<ParameterField<TRecord>> fields, int first, TRecord record, IDataAccess access)
-        where TRecord : notnull =>
-        Callbacks.Each(fields.Map((field, position) => IO.lift(() => field.Capture(record).Map(value => (Index: first + position, Value: value)))))
-            .Bind(placed => IO.lift(() => placed.Iter(value => access.SetItem(value.Index, value.Value))));
 
     internal sealed class Crossing<TRecord>(
         ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Option<TRecord> initial, Requirement requirement, Access access)
@@ -268,10 +228,7 @@ public static class ParameterField {
             where TData : notnull {
             (Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register) registration = DataTypes.Field<TData>(create);
             ParameterField<TRecord> field = Of(initial, lens, face, nomen => ParameterRow.Construct<TData>(nomen, access, requirement), presets, admit);
-            return field with {
-                Input = field.Input.Presented(glyph, master, accent) with { DataTypes = [registration] },
-                Output = field.Output.Presented(glyph, master, accent) with { DataTypes = [registration] },
-            };
+            return field with { Input = field.Input.Presented(glyph, master, accent) with { DataTypes = [registration] } };
         }
     }
 }

@@ -25,20 +25,20 @@ public sealed record GroundPlaneState(
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.GroundPlaneChanged;
 
-    public static IO<GroundPlaneState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.GroundPlane, plane => IO.lift(() => Capture(plane, window.Units)));
+    public static IO<GroundPlaneState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.GroundPlane, plane => IO.lift(() => Capture(plane, scope.Units)));
 
-    public static IO<GroundPlaneState> Write(RenderSettingsScope window, GroundPlaneState state) =>
+    public static IO<GroundPlaneState> Write(RenderSettingsScope scope, GroundPlaneState state) =>
         from values in IO.lift((
-            state.Altitude.Traverse(height => Model(height, window.Units, double.MinValue)).As(),
-            Model(state.TextureOffsetX, window.Units, double.MinValue), Model(state.TextureOffsetY, window.Units, double.MinValue),
-            Model(state.TextureSizeX, window.Units, 0d), Model(state.TextureSizeY, window.Units, 0d))
+            state.Altitude.Traverse(height => Model(height, scope.Units, double.MinValue)).As(),
+            Model(state.TextureOffsetX, scope.Units, double.MinValue), Model(state.TextureOffsetY, scope.Units, double.MinValue),
+            Model(state.TextureSizeX, scope.Units, 0d), Model(state.TextureSizeY, scope.Units, 0d))
             .Apply(static (altitude, x, y, width, height) => (Altitude: altitude, Offset: new Vector2d(x, y), Size: new Vector2d(width, height))).As().ToFin())
         let accepted = state with { MaterialInstanceId = Material(Conversions.Unset(state.MaterialInstanceId)) }
-        from written in RenderSettingsSources.SubOwner(window, static settings => settings.GroundPlane, plane => IO.lift(() => {
+        from written in RenderSettingsSources.SubOwner(scope, static settings => settings.GroundPlane, plane => IO.lift(() => {
             GroundMapper.Update(accepted, plane, values.Offset, values.Size);
             _ = values.Altitude.IfSome(height => plane.Altitude = height);
-            return Capture(plane, window.Units);
+            return Capture(plane, scope.Units);
         }))
         select written;
 

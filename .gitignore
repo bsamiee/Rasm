@@ -54,6 +54,7 @@ Thumbs.db
 # --- [AI_TOOLING] -----------------------------------------------------------------------
 
 .claude/agent-memory-local/
+.claude/observation/
 .claude/settings.local.json
 .claude/worktrees/
 docs/research

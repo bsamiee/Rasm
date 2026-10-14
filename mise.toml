@@ -75,7 +75,6 @@ imagemagick = "latest"
 "pypi:ast-grep/ast-grep-mcp" = "latest"
 "pypi:tavily-cli" = "latest"
 "pypi:mcp-for-blender" = "latest"
-"pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "latest"
 "github:sharkdp/hyperfine" = "latest"
 "github:akiselev/ghidra-cli" = "latest"
 "github:pmd/pmd" = { version = "7.28.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
@@ -88,7 +87,7 @@ nuget = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridg
 binlog = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7403", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"], working_directory = "{{config_root}}", keep_alive = true }
 ast-grep = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7404", "--", "ast-grep-server", "--config", "sgconfig.yml"], environment = { AST_GREP_PATH = "ast-grep --custom-languages allow" }, working_directory = "{{config_root}}", keep_alive = true }
 rhino-mcp-platform = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.rhino_mcp_port }}", "--hide", "run_python", "--hide", "g1_*", "--", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"], environment = { RHINO_MCP_DEFAULT_VERSION = "9" }, working_directory = "{{config_root}}", keep_alive = true }
-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.blender_mcp_port }}", "--hide", "*_for_cli", "--", "blender-mcp"], environment = { BLENDER_MCP_PORT = "9877" }, working_directory = "{{config_root}}", keep_alive = true }
+blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "{{ vars.blender_mcp_port }}", "--hide", "*_for_cli", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"], environment = { BLENDER_MCP_PORT = "9877" }, working_directory = "{{config_root}}", keep_alive = true }
 mcp-for-blender = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "tools/bridge/bridge.ts", "--port", "7408", "--", "mcp-for-blender"], environment = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, working_directory = "{{config_root}}", keep_alive = true }
 atelier = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/atelier/main.ts"], working_directory = "{{config_root}}", keep_alive = true }
 argus = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true }

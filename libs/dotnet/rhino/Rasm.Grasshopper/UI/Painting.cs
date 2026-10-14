@@ -173,7 +173,7 @@ public static class CanvasPainting {
     internal static IO<Unit> Plotted(FlexControl control, ControlGraphics graphics, bool content, Font font, Func<PlotCanvas, IO<Unit>> marks) =>
         DisposalOps.Within(graphics.ProjectionState,
             _ => PlotCanvas.Of(content ? graphics.Content : graphics.Control,
-                (graphics.AssociatedControl is Control host ? host.ParentWindow.LogicalPixelSize : graphics.ScreenScale) * (content ? graphics.Zoom : 1f),
+                Density(graphics.AssociatedControl).IfNone(graphics.ScreenScale) * (content ? graphics.Zoom : 1f),
                 font, enabled: true, focused: control.HasFocus).Bind(marks),
             static projection => IO.lift(projection.Dispose));
 
@@ -183,7 +183,10 @@ public static class CanvasPainting {
             return context.Graphics;
         }, graphics => PlotCanvas.Of(graphics, Scale(context), font, enabled: true, focused).Bind(marks), static graphics => IO.lift(graphics.RestoreTransform));
 
-    internal static float Scale(Context context) => context.Zoom * (context.Control is Control host ? host.ParentWindow.LogicalPixelSize : 1f);
+    internal static float Scale(Context context) => context.Zoom * Density(context.Control).IfNone(1f);
+
+    internal static Option<float> Density(object? control) =>
+        Optional(control as Control).Bind(static host => Optional(host.ParentWindow)).Map(static window => window.LogicalPixelSize);
 
     // --- [SPARKLES]
     public static IO<Unit> Spark(FlexControl control, ISparkle sparkle) =>

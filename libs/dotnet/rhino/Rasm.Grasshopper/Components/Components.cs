@@ -13,11 +13,9 @@ using Rasm.Grasshopper.Doc;
 using Rasm.Grasshopper.Parameters;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
-using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
@@ -96,8 +94,6 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
     private readonly AtomSeq<Action<IDataAccess, EnvIO, Fin<Unit>>> matches = AtomSeq<Action<IDataAccess, EnvIO, Fin<Unit>>>();
     private readonly Ref<Option<(Action<IDisposable> Retain, IDisposable Lease)>> attachment =
         Ref(Option<(Action<IDisposable> Retain, IDisposable Lease)>.None);
-    private readonly Ref<Option<Option<(Action<IDisposable> Retain, IDisposable Lease)>>> observations =
-        Ref(Option<Option<(Action<IDisposable> Retain, IDisposable Lease)>>.None);
 
     // --- [CONSTRUCTION]
     protected DefinedComponent() : base(ComponentOps.Localized(TSelf.Row.Face, typeof(TSelf).Assembly)) => DocumentChanged += AttachmentChanged;
@@ -146,12 +142,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         Callbacks.Run(Callbacks.Each(Seq(
             Detached,
             when(Document is not null, DisposalOps.Acquire(
-                retain =>
-                    from attached in TSelf.Row.Attached((TSelf)this, retain)
-                    from closing in DisposalOps.Acquire(
-                        IO.lift(() => new Disposal<Unit>(unit, _ => Unobserved.Run())), static lease => IO.lift(lease.Dispose), retain)
-                    from opened in atomicIO(() => observations.Value = Some(Option<(Action<IDisposable> Retain, IDisposable Lease)>.None))
-                    select retain,
+                retain => TSelf.Row.Attached((TSelf)this, retain).Map(_ => retain),
                 (retain, lease) => atomic(() => attachment.Value = Some((retain, lease)))).Map(static _ => unit)).As())), DefinedGrasshopperPlugin.Site(this));
 
     private IO<Unit> Detached => atomicIO(() => {
@@ -163,34 +154,6 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
     public IO<A> Retained<A>(Func<Action<IDisposable>, IO<A>> acquire) =>
         atomicIO(() => attachment.Value.Map(static scope => scope.Retain).ToFin(Errors.Cancelled))
             .Bind(static held => IO.lift(held)).Bind(acquire);
-
-    private IO<Unit> Unobserved => atomicIO(() => {
-        Option<Option<(Action<IDisposable> Retain, IDisposable Lease)>> held = observations.Value;
-        observations.Value = None;
-        return held.Bind(identity);
-    }).Bind(static held => held.Traverse(static scope => IO.lift(scope.Lease.Dispose)).As()).Map(static _ => unit).Uninterruptible();
-
-    protected override void PreProcess(Solution solution) {
-        base.PreProcess(solution);
-        Callbacks.Run(DisposalOps.Replace(
-            static retain => IO.pure(retain), (retain, lease) => {
-                Option<(Action<IDisposable> Retain, IDisposable Lease)> before = atomic(() => observations.Value.Match(
-                    Some: held => { observations.Value = Some(Some((retain, lease))); return held; },
-                    None: static () => throw Errors.Cancelled.ToException()));
-                return before.Traverse(static held => IO.lift(held.Lease.Dispose)).As().Map(static _ => unit);
-            }), DefinedGrasshopperPlugin.Site(this));
-    }
-
-    public IO<A> Solving<A>(Func<Action<IDisposable>, IO<A>> acquire) =>
-        atomicIO(() => observations.Value.Bind(identity).Map(static held => held.Retain).ToFin(Errors.Cancelled))
-            .Bind(static held => IO.lift(held)).Bind(acquire);
-
-    public IO<Unit> Observe(Option<HostEvent<Unit>> source) => source.Match(
-        Some: signal => Solving(retain => signal.Inline(_ => IO.lift(() => {
-            Expire();
-            return Optional(Document).Map(static document => document.Solution.Start());
-        }).Map(static _ => unit), DefinedGrasshopperPlugin.Site(this).Sink, retain)),
-        None: static () => IO.pure(unit));
 
     // --- [PERSISTENCE]
     public override void Store(GrasshopperIO.IWriter writer) {
@@ -288,54 +251,6 @@ public static class ComponentOps {
     public static Option<A> CurrentInput<A>(ModularComponent component, ObjectSolutionState state, int index) =>
         Optional(state.Data.Tree(component.Parameters.Input(index).InstanceId))
             .Bind(static tree => tree.NonNullItems.Cast<A>().Distinct().ToArray() is [var value] ? Some(value) : None);
-
-    // --- [RENDER_SETTINGS]
-    public static ComponentRow<TSelf> RenderSettings<TSelf, TRecord, TParameter>(Nomen face, IGlyph glyph, int master, SpecialColour accent)
-        where TSelf : DefinedComponent<TSelf>, IComponentDefinition<TSelf>
-        where TRecord : notnull, IRenderSettingsRecord<TRecord, TParameter>
-        where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> {
-        Seq<(TParameter Parameter, ParameterText Text)> texts = ParameterText.Join<TRecord, TParameter, InvalidRhinoValue>(TRecord.Text);
-        Seq<ParameterField<TRecord>> fields = ParameterField.Join<TRecord, TParameter>(texts, static parameter => (parameter.ToValue(), None), glyph, master, accent);
-        ParameterRow Data<T>(string caption, string code, string help, Requirement requirement, Seq<(string Caption, T Value)> presets = default) where T : notnull =>
-            ParameterRow.Opaque<T>(new ParameterFace(ParameterText.Of(caption, help), code, None), glyph, master, accent,
-                Access.Item, requirement, presets);
-        ParameterRow State(string help, Requirement requirement) => ParameterRow.Of(
-            new StateParameter<TRecord>.Record<TRecord>(Lens.identity<TRecord>()),
-            new ParameterFace(ParameterText.Of("State", help), "S", None), glyph, master, accent, Access.Item, requirement, None);
-        Seq<ParameterRow> inputs = Seq(
-            Data("Document", "D", "Optional native document supplying the initial render settings and receiving applied settings.", Requirement.MayBeMissing,
-                Seq<(string, DocumentSource)>(("Active document", new DocumentSource.Active()))),
-            State("Optional complete state before individual field overrides.", Requirement.MayBeMissing),
-            Data<bool>("Apply", "A", "Write the effective settings into the document.", Requirement.MayBeMissing));
-        Seq<ParameterRow> outputs = Seq(
-            State("The complete native render settings.", Requirement.MustExist),
-            Data<ValueSet>("Values", "V", "The settings as typed store entries.", Requirement.MustExist));
-        return ComponentRow<TSelf>.Of(face, glyph, master, accent,
-            inputs.Concat(fields.Map(static field => field.Input)), outputs.Concat(fields.Map(static field => field.Output)), [],
-            (owner, access) =>
-                from document in IO.lift(() => Callbacks.Found(access.GetItem(0, out DocumentSource source), source))
-                from supplied in IO.lift(() => Callbacks.Found(access.GetItem(1, out TRecord state), state))
-                from apply in IO.lift(() => access.GetItem(2, out bool held) && held)
-                from seed in supplied.Match(
-                    Some: IO.pure,
-                    None: () => document.Match(
-                        Some: source => Documents.Read(source, static doc => RenderSettingsSources.Read(doc, TRecord.Read),
-                            static doc => RenderSettingsSources.Signal(doc, TRecord.Changed), owner.Observe),
-                        None: static () => IO.pure(TRecord.Default)))
-                from set in ParameterField.Read(fields, inputs.Count, access)
-                let effective = set(seed)
-                from published in IO.lift(() => {
-                    access.SetItem(0, effective);
-                    access.SetItem(1, ValueSet.Fields(TRecord.Owner, effective, texts.Map<IStateParameter<TRecord>>(static row => row.Parameter)));
-                })
-                from written in ParameterField.Write(fields, outputs.Count, effective, access)
-                from applied in document.Filter(_ => apply).Match(
-                    Some: source => owner.Solving(retain => Subscriptions.Idle<Unit, Unit>(_ => Documents.WithDocument(source, doc =>
-                            RenderSettingsSources.Store<TRecord>(doc).Write(effective).Map(static _ => unit)))(DefinedGrasshopperPlugin.Site(owner), retain))
-                        .Bind(static post => post((unit, unit))),
-                    None: static () => unitIO)
-                select applied);
-    }
 
     // --- [MESSAGES]
     public static Message Rendered(Func<string, string, MessageAction[], Message> level, Error note, Seq<MessageAction> actions) =>

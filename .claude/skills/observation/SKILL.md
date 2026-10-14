@@ -7,7 +7,7 @@ user-invocable: false
 # [OBSERVATION]
 
 Database `<db>` under the main worktree, one per repository, holds a row per event the hooks record while option `observation` is true, views over event rows, and finding tables agents write. Placeholders hold values of the loading session:
-- `<db>`: line `git worktree list --porcelain | rg -m1 -r '$p/.cache/observation/observation.db' '^worktree (?P<p>.+)'` prints
+- `<db>`: line `git worktree list --porcelain | rg -m1 -r '$p/.claude/observation/observation.db' '^worktree (?P<p>.+)'` prints
 - `<worktree>`: line `git rev-parse --show-toplevel` prints
 - `<session>`: `${CLAUDE_SESSION_ID}`, or the id of a session a reader names
 - `<branch>`: line `git branch --show-current` prints

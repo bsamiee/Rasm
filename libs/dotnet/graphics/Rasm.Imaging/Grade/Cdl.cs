@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Xml.Linq;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Grade;
@@ -91,8 +90,6 @@ public sealed record CdlState(
         $"{Declaration}\n{format.Ancestors.FoldBack(
             new XElement(Asc + CorrectionNode, id.ToSeq().Map(static value => new XAttribute(IdAttribute, value)), LutFiles.CorrectionNodes(Asc, state.Step)),
             static (inner, ancestor) => new XElement(Asc + ancestor, inner))}\n";
-
-    public static IO<Unit> Save(CdlState state, Option<string> id, CdlFormat format, OutputPath path) => FilePublication.Write(path, Write(state, id, format));
 
     private static Validation<Error, CdlState> Corrected(XElement correction) {
         static Validation<Error, T> Crossed<T>(float key) where T : IObjectFactory<T, float, InvalidGrade> =>

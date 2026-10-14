@@ -26,13 +26,13 @@ Texts reaching a model or harness (refusal, context, notice, band row) appear on
 Harness loads `hooks/register.ts` and its imports with no DOM and no Node. Modules import their own files by relative path and `claude-code` alone:
 - ALWAYS place each pure function in the folder of its concern, `hooks/register.ts` alone reads `$`
 - ALWAYS compose faults through the result type in `composition.ts`
-- ALWAYS spawn a tool by name, child processes inherit the harness's mise-activated environment
+- ALWAYS spawn a program by name, under `mise exec` when mise configuration changes the resolved path
 - ALWAYS keep session values in `$.state`, keys and types declared in `hooks/state.d.ts`, module variables and timers reset at reload
 - ALWAYS draw render hooks from `$.state` alone, handlers and events write
 
 ## [04]-[OBSERVATION]
 
-Database schema is the declarations in `observation/sql.ts`, and each load applies the delta. Removing `.cache/observation/` resets it:
+Database schema is the declarations in `observation/sql.ts`, and each load applies the delta. Removing `.claude/observation/` resets it:
 - ALWAYS add a purpose as one `_VIEWS` element with its reader in the `observation` skill, or as one `.claude/agents/` file preloading that skill
 - ALWAYS change the `observation` skill in the same change as the database it reads
 - Rows insert once, no statement updates or deletes one

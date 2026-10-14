@@ -1,52 +1,177 @@
 id: delete
 valid:
-    - fd -e cs . libs
-    - fd rm libs
-    - fd -H -t f -x wc -l {} . libs
-    - find . -name '*.orig' -print
-    - rm -rf .artifacts/blender/evaluate
+    - rm file.txt
+    - rm -f a.txt b.txt
+    - rm -rf node_modules
+    - rm -rf ./build
     - rm -r ../build
-    - rm "$file"
-    - rm -f ./*.orig
+    - rm -rf .artifacts/blender/evaluate
+    - rm -rf /explicit/path
+    - rm -rf ~/explicit/path
+    - rm -rf ~/.cache/foo
+    - rm -rf "/Users/someone/project/.cache/x"
+    - rm -rf -- /tmp/build
+    - rm '$literal'
+    - /bin/rm -rf /tmp/build
+    - sudo rm -rf /opt/tool
+    - trash ~/Downloads/file.zip
+    - unlink /tmp/socket
+    - git rm file.txt
     - git rm -r --cached .
+    - git commit -m "remove rm"
+    - git commit -m "rm -rf old build"
+    - nix-collect-garbage -d
+    - docker system prune -af
+    - pnpm store prune
+    - uv cache prune
+    - brew cleanup
+    - nx run rasm:clean
     - echo "rm -rf /"
+    - echo rm -rf .
     - echo 'fd -x rm {}' # rm -rf .
+    - printf '%s\n' "find . -delete"
+    - gh pr create --body 'fd -x rm {}'
+    - ls | grep rm
+    - ls -la /tmp | grep trash
+    - fd . | rg unlink
+    - git ls-files | grep -c rm
+    - fd -e md | xargs rg -n rm
+    - find . -name x -exec grep rm {} +
+    - fd -x echo rm {}
+    - ls | xargs echo rm
+    - command -v rm
+    - fd rm libs
+    - fd -e cs . libs
+    - fd -tx rm
+    - fd -H -t f -x wc -l {} . libs
+    - fd -e cs -X rg -l pattern
+    - fd -e ts -x sd 'rm' 'del' {}
+    - find . -name '*.orig' -print
+    - find . -name '*.cs' -exec grep -l foo {} +
+    - find . -name '*.cs' -print0 | xargs -0 wc -l
     - rg -l pattern | xargs sd before after
+    - rg -l rm .
     - cat paths.txt | xargs wc -l
     - for f in $(fd -e cs); do wc -l "$f"; done
+    - sh -c 'rm file.txt'
 invalid:
     - fd -H -t f -x rm -v {} --regex "\.orig$" . apps/rhino
     - fd -x rm {}
     - fd -e orig -X rm
     - fd -Hx /bin/rm {}
+    - fd -e orig --exec rm {}
     - fd -e orig --exec-batch trash
+    - fd -e orig -x unlink
+    - fd -e orig -X /usr/bin/trash
+    - fd -t d -x rm -r
+    - fd --type f --exec rm {}
+    - fd -t f -j 4 -x rm {}
+    - fd -t f -tx -x rm
     - find . -name '*.orig' -delete
+    - gfind . -delete
     - find . -name '*.orig' -exec rm {} +
     - find . -type d -execdir /bin/rm -rf {} \;
+    - find . -type f -exec shred -u {} +
+    - find . -ok rm {} \;
+    - sudo fd -e orig -x rm {}
+    - sudo find . -delete
+    - sudo find . -exec rm {} +
     - git ls-files | xargs rm
     - git ls-files -z | xargs -0 git rm
+    - git ls-files -d | xargs git rm
     - fd -e orig | xargs rm
     - find . -name '*.orig' -print0 | xargs -0 rm -f
     - rg -l pattern | xargs rm
     - ls | xargs unlink
+    - mdfind -name foo | xargs rm
     - fd -e orig 2>/dev/null | sort | xargs shred
-    - fd -e orig | while read -r f; do rm "$f"; done
-    - rm $(git ls-files -d)
-    - for f in $(fd -e orig); do rm "$f"; done
-    - while read -r f; do rm "$f"; done < <(fd -e orig)
+    - fd -e orig | xargs -I{} rm {}
+    - fd -e orig | xargs -I {} rm {}
+    - fd -e orig -0 | xargs -0 -n1 trash
+    - fd -e orig | sudo xargs rm
+    - xargs rm < list.txt
+    - xargs -0 rm < list.txt
+    - sudo xargs -0 rm < list.txt
+    - cat list.txt | xargs rm
+    - printf '%s\0' a b | xargs -0 rm
+    - xargs -a list.txt rm
     - xargs rm < <(fd -e orig)
+    - 'parallel rm ::: a b c'
+    - 'sudo parallel rm ::: a b'
+    - fd -e orig | parallel rm {}
+    - find . -name '*.orig' | parallel -X rm
+    - fd -e orig | while read -r f; do rm "$f"; done
+    - while read -r f; do rm "$f"; done < list.txt
+    - while read -r f; do trash "$f"; done < list.txt
+    - cat list.txt | while read -r f; do trash "$f"; done
+    - while read -r f; do rm "$f"; done < <(fd -e orig)
+    - for f in $(fd -e orig); do rm "$f"; done
+    - for f in $(cat list.txt); do rm "$f"; done
+    - for f in *.orig; do rm "$f"; done
+    - rm $(git ls-files -d)
+    - rm $(fd -e orig)
+    - rm -rf `fd x`
+    - rm -fr $(git rev-parse --show-toplevel)
+    - rm -rf "$(git rev-parse --show-toplevel)"
     - rm -rf "$dir"
     - rm -rf $dir
+    - rm -rf ${dir}
     - rm -rf "${root}/build"
-    - rm -fr $(git rev-parse --show-toplevel)
+    - rm -rf "$HOME"
+    - rm "$file"
+    - rm -f $X
     - rm -rf .
     - rm -rf ..
     - rm -rf ./
+    - rm -rf ../..
+    - rm -rf ''
+    - rm -r -f "."
+    - rm -fR .
+    - rm --force --recursive .
     - rm -rf *
+    - rm -rf **
+    - rm -r "*"
+    - rm *
+    - rm -f *
+    - rm -f ./*.orig
     - rm -rf ./*
     - rm -rf .*
+    - rm -rf ./.*
+    - rm -rf .??*
+    - rm -rf {.,..}
     - rm -rf /
+    - rm -rf /*
     - rm -rf ~
-    - rm -r -f "."
+    - rm -rf ~/
+    - rm -rf ~/*
     - rm --recursive ~/
+    - rm -rf ~user
+    - rm -rf /Users/someone/project/*
+    - rm -rf /Users/someone/project/{apps,libs,eng}
+    - rm -rf ~/Developer/project/*
+    - rm -rf /Users/someone/projec?
+    - \rm -rf .
+    - command rm -rf .
+    - env rm -rf "$X"
+    - env -u FOO rm -rf $X
+    - nice -n 10 rm -rf *
+    - timeout 5 rm -rf *
+    - time rm -rf .
+    - sudo rm -rf $VAR
+    - sudo rm -rf "$VAR"
+    - sudo rm -rf *
+    - sudo rm -rf .
+    - sudo rm -rf ~
     - sudo rm -rf /*
+    - sudo -u root rm -rf $VAR
+    - trash .
+    - trash *
+    - trash $X
+    - rimraf .
+    - unlink $X
+    - shred -u *
+    - git rm -r .
+    - rm "$1"
+    - rm "$0"
+    - rm "$@"
+    - rm {}

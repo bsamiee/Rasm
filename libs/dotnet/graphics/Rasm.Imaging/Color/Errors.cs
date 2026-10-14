@@ -18,8 +18,6 @@ internal enum Codes {
     LutSizeAbsent,
     LutCountMismatched,
     LutFormatRefused,
-    LutUnreadable,
-    LookupShapeRefused,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -50,11 +48,3 @@ public sealed record LutSizeAbsent(LutFormat Format) : Expected("LUT file states
 public sealed record LutCountMismatched(LutFormat Format, long Stated, long Read) : Expected("LUT file entry count differs from its size", (int)Codes.LutCountMismatched);
 
 public sealed record LutFormatRefused(LutFormat Format) : Expected("LUT format holds no such table", (int)Codes.LutFormatRefused);
-
-public sealed record LutUnreadable : Expected {
-    public LutUnreadable(LutPath path, Error cause) : base("LUT file unreadable", (int)Codes.LutUnreadable, cause) => Path = path;
-
-    public LutPath Path { get; }
-}
-
-public sealed record LookupShapeRefused(int Width, int Height) : Expected("lookup image size holds no lattice layout", (int)Codes.LookupShapeRefused);

@@ -41,8 +41,8 @@ public sealed record SafeFrameState(
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SafeFrameChanged;
 
-    public static IO<SafeFrameState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.SafeFrame, static frame => IO.lift(() =>
+    public static IO<SafeFrameState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, static frame => IO.lift(() =>
             (Conversions.Validated<FrameFraction, double, InvalidRhinoValue>(frame.ActionFrameXScale).ToValidation(),
              Conversions.Validated<FrameFraction, double, InvalidRhinoValue>(frame.ActionFrameYScale).ToValidation(),
              Conversions.Validated<FrameFraction, double, InvalidRhinoValue>(frame.TitleFrameXScale).ToValidation(),
@@ -54,8 +54,8 @@ public sealed record SafeFrameState(
                 .As()
                 .ToFin()));
 
-    public static IO<SafeFrameState> Write(RenderSettingsScope window, SafeFrameState state) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
+    public static IO<SafeFrameState> Write(RenderSettingsScope scope, SafeFrameState state) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
 
     public static ParameterText Text(SafeFrameParameter parameter) =>
         parameter.Map(
@@ -240,7 +240,7 @@ public static class Framing {
         [new RenderSize.ViewportSize(screenPort), new RenderSize.CustomSize(), .. editor.CustomRenderSizes.Map(static size => new RenderSize.Listed(size))];
 
     public static IO<Unit> Choose(RenderSettingsSource.Section section, RenderSize size) =>
-        from sized in RenderSettingsSources.Edit(section, window => ImageOutputState.Read(window).Bind(held => IO.lift(size.Applied(held))).Bind(next => ImageOutputState.Write(window, next)))
+        from sized in RenderSettingsSources.Edit(section, scope => ImageOutputState.Read(scope).Bind(held => IO.lift(size.Applied(held))).Bind(next => ImageOutputState.Write(scope, next)))
         from preset in SectionModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Map(viewportSize: false, customSize: false, listed: true)))
         select unit;
 

@@ -7,7 +7,6 @@ using System.Xml;
 using System.Xml.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
 using MathNet.Numerics.LinearAlgebra;
-using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using TinyEXR;
@@ -691,11 +690,6 @@ public static class LutFiles {
             ctf: static render => RenderProcessList(LutFormat.Ctf, render.Table, render.Name),
             hald: static _ => None,
             keyShotLookup: static _ => None).ToFin(new LutFormatRefused(format));
-
-    public static IO<Unit> Write(LutTable table, LutFormat format, OutputPath path) =>
-        from text in IO.lift(Render(table, format, Path.GetFileNameWithoutExtension(path)))
-        from _ in FilePublication.Write(path, text)
-        select unit;
 
     public static Fin<PixelFrame> Lookup(LutTable table, LookupLayout layout) =>
         (from lattice in Only<LutTable.Cube>(Flat(table)).Map(static cube => cube.Lattice)

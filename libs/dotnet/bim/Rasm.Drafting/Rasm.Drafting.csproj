@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
+    <ItemGroup Label="Core">
         <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 </Project>

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
+    <ItemGroup Label="Testing">
         <PackageReference Include="CsCheck" />
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
         <PackageReference Include="xunit.v3.assert" />

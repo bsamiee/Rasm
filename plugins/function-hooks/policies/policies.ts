@@ -12,6 +12,8 @@ interface Host {
     readonly scan: Scanner;
     readonly root: () => Promise<Option<string>>;
     readonly exists: (path: string) => Promise<boolean>;
+    readonly cwd: () => Promise<string>;
+    readonly home: () => Promise<Option<string>>;
 }
 interface GitRow {
     readonly reason: string;
@@ -46,7 +48,7 @@ interface Rewrite {
 
 const _WORKTREE = 'creates a second checkout with its own metadata and sync cost. Work in the main checkout';
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
-const _TRAILING = /\/+$/u;
+const _TILDE = /^~(?<user>[^/]*)/u;
 const _BINLOG = /^(?:--?|\/)(?:bl|binarylogger)(?::|$)/iu;
 const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
     [/^project\.json$/u, 'package.json'],
@@ -62,18 +64,51 @@ const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
 
 // --- [DELETE]
 
-const _recursive = (command: Command): readonly string[] =>
-    command.invocations.flatMap((invocation) => {
-        const { inputs, options } = operands(invocation);
-        return invocation[0] === 'rm' && options.some((name) => name === '-r' || name === '-R' || name === '--recursive') ? inputs.map((path) => path.replace(_TRAILING, '')).filter((path) => path.startsWith('/')) : [];
-    });
+const _segments = (path: string): readonly string[] =>
+    path
+        .split('/')
+        .filter((part) => part !== '' && part !== '.')
+        .reduce<readonly string[]>((kept, part) => (part === '..' ? kept.slice(0, -1) : kept.concat(part)), []);
+
+const _place = (word: string, cwd: string, home: Option<string>): readonly string[] => {
+    const user = _TILDE.exec(word)?.groups?.user;
+    const expanded = user === undefined || home.kind === 'none' ? word : `${user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`}${word.slice(user.length + 1)}`;
+    return _segments(expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`);
+};
+
+const _rooted = async (host: Host, commands: readonly Command[], root: readonly string[]): Promise<readonly string[]> => {
+    const [cwd, home] = await Promise.all([host.cwd(), host.home()]);
+    const { held } = commands.reduce<{ readonly cwd: string; readonly held: readonly { readonly source: string; readonly word: string; readonly start: number; readonly end: number }[] }>(
+        (state, { source, words, spans }) => ({
+            cwd: words[0] === 'cd' ? `/${_place(words[1] ?? '~', state.cwd, home).join('/')}` : state.cwd,
+            held: [
+                ...state.held,
+                ...words.flatMap((word, at) => {
+                    const place = _place(word, state.cwd, home);
+                    return place.length <= root.length && place.every((part, index) => part === root[index]) ? spans.slice(at, at + 1).map(({ start, end }) => ({ source, word, start, end })) : [];
+                }),
+            ],
+        }),
+        { cwd, held: [] },
+    );
+    const reasons = await Promise.all(
+        held.map(async ({ source, word, start, end }) => {
+            const bytes = new TextEncoder().encode(source);
+            const decoder = new TextDecoder();
+            const rescanned = await parse(host.scan, `${decoder.decode(bytes.subarray(0, start))}*${decoder.decode(bytes.subarray(end))}`);
+            return rescanned.kind === 'fault' ? [`command not parsed, ${rendered(rescanned.faults)}`] : rescanned.value.deletes.map(({ program }) => `${program} deletes ${word}, at or above the repository root`);
+        }),
+    );
+    return reasons.flat();
+};
 
 const _delete = async (host: Host, { commands, deletes }: Script, project: string): Promise<readonly string[]> => {
-    const removed = commands.flatMap((command) => _recursive(command).map((path) => ({ line: command.words.join(' '), path })));
-    const root = removed.length === 0 ? none : await host.root();
-    const held = root.kind === 'none' ? [] : removed.filter(({ path }) => root.value === path || root.value.startsWith(`${path}/`));
-    const reasons = [...deletes.map(({ text, message }) => `${text} ${message}`), ...held.map(({ line }) => `${line} deletes the repository root or a directory above it`)];
-    return reasons.length === 0 ? [] : [...reasons, `Delete one concrete path, or run nx run ${project}:clean`];
+    if (deletes.length > 0) {
+        return [...deletes.map(({ message }) => message), `Delete one literal path per command, or run nx run ${project}:clean`];
+    }
+    const root = await host.root();
+    const rooted = root.kind === 'none' ? [] : await _rooted(host, commands, _segments(root.value));
+    return rooted.length === 0 ? [] : [...rooted, `Delete paths beneath the repository root, or run nx run ${project}:clean`];
 };
 
 // --- [GIT]

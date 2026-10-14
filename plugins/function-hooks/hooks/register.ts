@@ -1,6 +1,6 @@
 import type { ClassicHookInputs, EngineInterface, Frozen, Next, PluginOptions, ProcessRunInit, Register, ToolCallInput, ToolCallResult } from 'claude-code';
 import { atom, memberOf, read, update } from 'claude-code';
-import { bind, decoded, type Fault, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from '../composition.ts';
+import { all, bind, decoded, type Fault, fault, fromUndefined, map, none, type Option, ok, type Result, rendered, some } from '../composition.ts';
 import { planned, pointer, tasked } from '../context/plan.ts';
 import { type Operation, type Ran, scanned, target, targets, written } from '../edits/targets.ts';
 import { type Boundary, delivered, outcome, request, type Spawn } from '../observation/delivery.ts';
@@ -70,18 +70,38 @@ const _faulted = async ($: EngineInterface, line: string, faults: readonly Fault
     });
 };
 
-const _run = async ($: EngineInterface, argv: Invocation, init: ProcessRunInit, exits: readonly number[]): Promise<Result<string>> =>
-    bind(await _result($.process.run(argv, init), 'unstarted', argv[0]), ({ exitCode, stdout, stderr }) => (exits.includes(exitCode) ? ok(stdout) : fault<string>({ kind: 'exited', subject: argv[0], code: exitCode, stderr: stderr.trim() })));
-
-const _streamed = async ($: EngineInterface, argv: Invocation, cwd: string): Promise<Result<Ran>> => {
-    const stream = $.process.spawn({ argv, cwd });
-    const pieces = { stdout: '', stderr: '' };
-    for await (const { stream: pipe, text } of stream) {
-        pieces[pipe] += text;
-    }
-    const { code, signal } = await stream.result;
-    return code === null ? fault({ kind: 'unstarted', subject: argv[0], cause: signal }) : ok({ code, ...pieces });
+const _loaded = <T>(held: Map<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> => {
+    const loading = held.get(key) ?? load();
+    held.set(key, loading);
+    return loading;
 };
+
+const _exited = async ($: EngineInterface, launcher: readonly string[], argv: Invocation, init: ProcessRunInit, exits: readonly number[]): Promise<Result<string>> =>
+    bind(await _result($.process.run([...launcher, ...argv], init), 'unstarted', argv[0]), ({ exitCode, stdout, stderr }) => (exits.includes(exitCode) ? ok(stdout) : fault<string>({ kind: 'exited', subject: argv[0], code: exitCode, stderr: stderr.trim() })));
+
+const _launcher = (
+    (held: Map<string, Promise<Result<readonly string[]>>>) =>
+    ($: EngineInterface, program: string): Promise<Result<readonly string[]>> =>
+        _loaded(held, program, async () => {
+            const exec: Invocation = ['mise', 'exec', '--'];
+            const cwd = await $.session.root();
+            const paths = await Promise.all([exec, ['mise', '--no-config', 'exec', '--']].map((launcher) => _exited($, launcher, ['which', program], { cwd }, [0, 1])));
+            return map(all(paths), ([configured, unconfigured]) => (configured === unconfigured ? [] : exec));
+        })
+)(new Map());
+
+const _run = async ($: EngineInterface, argv: Invocation, init: ProcessRunInit, exits: readonly number[]): Promise<Result<string>> => bind(await _launcher($, argv[0]), (launcher) => _exited($, launcher, argv, init, exits));
+
+const _streamed = async ($: EngineInterface, argv: Invocation, cwd: string): Promise<Result<Ran>> =>
+    bind(await _launcher($, argv[0]), async (launcher): Promise<Result<Ran>> => {
+        const stream = $.process.spawn({ argv: [...launcher, ...argv], cwd });
+        const pieces = { stdout: '', stderr: '' };
+        for await (const { stream: pipe, text } of stream) {
+            pieces[pipe] += text;
+        }
+        const { code, signal } = await stream.result;
+        return code === null ? fault({ kind: 'unstarted', subject: argv[0], cause: signal }) : ok({ code, ...pieces });
+    });
 
 const _real = ($: EngineInterface, path: string): Promise<Option<string>> =>
     $.fs.stat(path, { resolve: true }).then(
@@ -89,17 +109,25 @@ const _real = ($: EngineInterface, path: string): Promise<Option<string>> =>
         () => none,
     );
 
-const _rules = ($: EngineInterface, folder: string): Promise<Result<readonly string[]>> =>
-    _result(
-        $.fs.list(folder).then((entries) => Promise.all(entries.map(({ name }) => $.fs.read(`${folder}/${name}`)))),
-        'unread',
-        folder,
-    );
+const _scanner = (
+    (held: Map<string, Promise<Result<Invocation>>>) =>
+    ($: EngineInterface): Promise<Result<Invocation>> => {
+        const folder = `${$.plugin.root}/policies`;
+        const config = `${folder}/scan.yml`;
+        return _loaded(held, config, async () =>
+            bind(decoded<{ readonly ruleDirs: readonly string[] }>(config, await _result($.fs.read(config), 'unread', config)), async ({ ruleDirs }) =>
+                map(await _result(Promise.all(ruleDirs.map(async (dir) => Promise.all((await $.fs.list(`${folder}/${dir}`)).map(({ name }) => $.fs.read(`${folder}/${dir}/${name}`))))), 'unread', folder), (rules): Invocation => scan(rules.flat())),
+            ),
+        );
+    }
+)(new Map());
 
 const _host = ($: EngineInterface): Host => ({
-    scan: async (text) => bind(await _rules($, `${$.plugin.root}/policies/rules`), (rules) => _run($, scan(`${$.plugin.root}/policies/scan.yml`, rules), { stdin: text }, [0])),
+    scan: async (text) => bind(await _scanner($), async (argv) => _run($, argv, { stdin: text, cwd: await $.session.root() }, [0])),
     root: () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
     exists: (path) => $.fs.exists(path),
+    cwd: () => $.session.cwd(),
+    home: () => $.env.get('HOME').then(fromUndefined),
 });
 
 // --- [NOTICE]

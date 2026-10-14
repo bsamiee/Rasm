@@ -28,7 +28,7 @@ allowed-tools: Bash(playwright:*)
 |  [04]   | `playwright-trace` skill | Recorded trace                                                        |
 
 `playwright-test` server serves agents `playwright:playwright-test-planner`, `playwright:playwright-test-generator`, and `playwright:playwright-test-healer`. `playwright` server tools are `mcp__plugin_playwright_playwright__browser_<tool>` with schemas `ToolSearch` loads, one persistent context serves every client:
-- `--user-data-dir` on the server's `mise.toml` row keeps the profile and its sign-ins as user state at `~/Library/Caches/ms-playwright-mcp/mcp-chromium`, the default hashes the first client's root into the name
+- `--user-data-dir` on the server's `mise.toml` row keeps the profile and its sign-ins as user state at the path it names, the default hashes the first client's root into the name
 - Browsers install to Playwright's per-user `~/Library/Caches/ms-playwright`, shared by every checkout and pruned when no Playwright install links them
 - `browser_close` fails `The browser context is shared between clients and cannot be closed.`
 - Unnamed files go in `$PLAYWRIGHT_MCP_OUTPUT_DIR` with absolute links

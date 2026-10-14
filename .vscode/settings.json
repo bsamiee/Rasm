@@ -49,6 +49,7 @@
 
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true,
+    "dotnet.defaultSolution": "Workspace.slnx",
     "dotnet.preferCSharpExtension": true,
 
     // --- [JAVA] ------------------------------------------------------------------------

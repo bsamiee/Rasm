@@ -4,30 +4,48 @@
         <MapperlyAbstractionsScope>runtime</MapperlyAbstractionsScope>
     </PropertyGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="Microsoft.Win32.SystemEvents" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="LanguageExt.Streaming" />
-        <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="Microsoft.Win32.SystemEvents" />
         <PackageReference Include="NodaTime" />
-        <PackageReference Include="PeterO.Numbers" />
-        <PackageReference Include="QuikGraph" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
-        <PackageReference Include="SkiaSharp" />
-        <PackageReference Include="Svg.Model" />
-        <PackageReference Include="Svg.Skia" />
         <PackageReference Include="System.IO.Hashing" />
-        <PackageReference Include="UnitsNet" />
         <PackageReference Include="UUIDNext" />
+    </ItemGroup>
+
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mathematics">
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Desktop UI">
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="Svg.Model" />
+        <PackageReference Include="Svg.Skia" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Render Queue">
         <EmbeddedResource Include="Render/Queue/rasm_rhino_render.js" />
     </ItemGroup>
 </Project>

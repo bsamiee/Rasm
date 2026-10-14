@@ -220,10 +220,8 @@ public sealed class RenderHistory {
     private readonly Action<IDisposable> retain;
     private readonly Atom<Ledger> held = Atom(Ledger.Empty);
 
-    private RenderHistory(IPlugInViews plugIn, Seq<EffectKind> kinds, string suffix, View.Section section, ViewStore store, Action<IDisposable> retain) =>
-        (this.plugIn, Kinds, this.suffix, this.section, this.store, this.retain) = (plugIn, kinds, suffix, section, store, retain);
-
-    public Seq<EffectKind> Kinds { get; }
+    private RenderHistory(IPlugInViews plugIn, string suffix, View.Section section, ViewStore store, Action<IDisposable> retain) =>
+        (this.plugIn, this.suffix, this.section, this.store, this.retain) = (plugIn, suffix, section, store, retain);
 
     private sealed record Ledger(Option<string> Folder, Option<string> Claimed, HashMap<string, Rendering> Renderings) {
         public static Ledger Empty { get; } = new(None, None, HashMap<string, Rendering>());
@@ -242,8 +240,7 @@ public sealed class RenderHistory {
         View.Section settings, Func<RenderHistory, Seq<Func<IPlugInViews, Action<IDisposable>, IO<Unit>>>> readers) =>
         (sink, retain) => DisposalOps.Acquire(owned =>
             from store in IO.lift(settings.Store.ToFin(new Missing(nameof(View.Store))))
-            from kinds in IO.lift(() => EffectRegistry.Kinds.Of(sink))
-            from history in IO.lift(() => new RenderHistory(sink, kinds, $".{sink.PlugIn.Id:N}.json", settings, store, owned))
+            from history in IO.lift(() => new RenderHistory(sink, $".{sink.PlugIn.Id:N}.json", settings, store, owned))
             from saved in EventKind.ImageFileSaved.Inline(history.Saved, sink, owned)
             from loaded in EventKind.ImageFileLoaded.Inline(args => history.Listed(args.FileName), sink, owned)
             from deleted in EventKind.ImageFileDeleted.Inline(history.Deleted, sink, owned)
@@ -252,14 +249,14 @@ public sealed class RenderHistory {
             select unit, (_, lease) => retain(lease));
 
     // --- [BINDINGS]
-    public BindingGroup Grading(RhinoDoc doc) =>
-        new(Kinds.Map(kind => kind.Binding(doc)));
+    public Fin<BindingGroup> Grading(RhinoDoc doc) =>
+        EffectRegistry.Kinds.Of(plugIn).Map(kinds => new BindingGroup(kinds.Map(kind => kind.Binding(doc))));
 
-    public BindingGroup Bindings(RhinoDoc doc) =>
-        new(RenderSettingsSources.Bindings(doc).Bindings + Grading(doc).Bindings);
+    public Fin<BindingGroup> Bindings(RhinoDoc doc) =>
+        Grading(doc).Map(grading => new BindingGroup(RenderSettingsSources.Bindings(doc).Bindings + grading.Bindings));
 
     public Fin<HistoryBinding> Settings(RhinoDoc doc) =>
-        ViewOps.History(plugIn, section, store, Bindings(doc), Some(doc));
+        Bindings(doc).Bind(bindings => ViewOps.History(plugIn, section, store, bindings, Some(doc)));
 
     // --- [READS]
     public IO<Seq<Rendering>> Renderings =>
@@ -269,7 +266,8 @@ public sealed class RenderHistory {
 
     // --- [WRITES]
     public IO<T> Launched<T>(RhinoDoc doc, IO<(ImageFileEventArgs Saved, T Value)> render) =>
-        from captured in Bindings(doc).Capture
+        from bindings in IO.lift(() => Bindings(doc))
+        from captured in bindings.Capture
         from rendered in render
         from recorded in Recorded(rendered.Saved, Some(captured))
         select rendered.Value;
@@ -300,9 +298,9 @@ public sealed class RenderHistory {
         select unit;
 
     private static IO<Unit> Rechained(RhinoDoc doc, Seq<Guid> chain) =>
-        RenderSettingsSources.Edit(doc, window =>
-            from entries in EffectRegistry.Read(window.Settings)
-            from applied in EffectRegistry.Apply(window.Settings, Requests(entries, chain))
+        RenderSettingsSources.Edit(doc, scope =>
+            from entries in EffectRegistry.Read(scope.Settings)
+            from applied in EffectRegistry.Apply(scope.Settings, Requests(entries, chain))
             select applied);
 
     private static Seq<EffectRequest> Requests(Seq<EffectEntry> entries, Seq<Guid> chain) =>

@@ -34,23 +34,23 @@ public sealed record BackgroundState(
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
-    public static IO<BackgroundState> Read(RenderSettingsScope window) =>
-        IO.lift(() => window.Settings switch {
+    public static IO<BackgroundState> Read(RenderSettingsScope scope) =>
+        IO.lift(() => scope.Settings switch {
             var settings => new BackgroundState(
                 settings.BackgroundStyle, Conversions.Rgb(settings.BackgroundColorTop), Conversions.Rgb(settings.BackgroundColorBottom),
                 Conversions.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard)), settings.ScaleBackgroundToFit,
                 settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection), Conversions.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, RenderSettings.EnvironmentPurpose.Standard))),
         });
 
-    public static IO<BackgroundState> Write(RenderSettingsScope window, BackgroundState state) =>
+    public static IO<BackgroundState> Write(RenderSettingsScope scope, BackgroundState state) =>
         IO.pure(state with {
             BackdropEnvironment = state.BackdropEnvironment.Bind(Conversions.Present),
             ReflectionEnvironment = state.ReflectionEnvironment.Bind(Conversions.Present),
         }).Bind(accepted => IO.lift(() => {
-            BackgroundMapper.Update(accepted, window.Settings);
-            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, Conversions.Unset(accepted.BackdropEnvironment));
-            window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection, accepted.ReflectionOverride);
-            window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, Conversions.Unset(accepted.ReflectionEnvironment));
+            BackgroundMapper.Update(accepted, scope.Settings);
+            scope.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, Conversions.Unset(accepted.BackdropEnvironment));
+            scope.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection, accepted.ReflectionOverride);
+            scope.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, Conversions.Unset(accepted.ReflectionEnvironment));
             return accepted;
         }));
 
@@ -116,18 +116,18 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SkylightChanged;
 
-    public static IO<LightingState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => new LightingState(
+    public static IO<LightingState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.Skylight, skylight => IO.lift(() => new LightingState(
             skylight.Enabled,
-            window.Settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting),
-            Conversions.Present(window.Settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, RenderSettings.EnvironmentPurpose.Standard)))));
+            scope.Settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting),
+            Conversions.Present(scope.Settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, RenderSettings.EnvironmentPurpose.Standard)))));
 
-    public static IO<LightingState> Write(RenderSettingsScope window, LightingState state) =>
+    public static IO<LightingState> Write(RenderSettingsScope scope, LightingState state) =>
         IO.pure(state with { SkylightingEnvironment = state.SkylightingEnvironment.Bind(Conversions.Present) })
-            .Bind(accepted => RenderSettingsSources.SubOwner(window, static settings => settings.Skylight, skylight => IO.lift(() => {
+            .Bind(accepted => RenderSettingsSources.SubOwner(scope, static settings => settings.Skylight, skylight => IO.lift(() => {
                 skylight.Enabled = accepted.SkylightEnabled;
-                window.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting, accepted.SkylightingOverride);
-                window.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, Conversions.Unset(accepted.SkylightingEnvironment));
+                scope.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting, accepted.SkylightingOverride);
+                scope.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, Conversions.Unset(accepted.SkylightingEnvironment));
                 return accepted;
             })));
 
@@ -184,7 +184,7 @@ internal static partial class BackgroundMapper {
 public static class Environments {
     // --- [CURRENT]
     public static IO<Option<RenderEnvironment>> Current(RhinoDoc doc, RenderSettings.EnvironmentUsage usage) =>
-        RenderSettingsSources.Read(doc, window => IO.lift(() => Optional(window.Settings.RenderEnvironment(usage, RenderSettings.EnvironmentPurpose.ForRendering))));
+        RenderSettingsSources.Read(doc, scope => IO.lift(() => Optional(scope.Settings.RenderEnvironment(usage, RenderSettings.EnvironmentPurpose.ForRendering))));
 
     // --- [INTENSITY]
     public static IO<Option<SkylightIntensity>> Intensity(RenderEnvironment lighting) =>

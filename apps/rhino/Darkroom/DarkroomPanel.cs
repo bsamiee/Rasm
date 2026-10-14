@@ -10,7 +10,11 @@ using Rhino.UI;
 namespace Darkroom;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record DarkroomGlyph(string Key) : IGlyph {
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<InvalidRhinoValue>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+internal sealed partial class DarkroomGlyph : IGlyph {
     public static readonly DarkroomGlyph Mark = new("mark");
 }
 

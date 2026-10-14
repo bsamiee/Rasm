@@ -14,7 +14,7 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI.Assets;
 using UUIDNext;
 using UnitsNet;
@@ -55,27 +55,20 @@ internal sealed class ImageDataAssistant(Guid parameterId, string name, DefinedG
 }
 
 internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay text, CallbackSite site) : IValueDisplay {
-    private Option<(PixelExtent Extent, Bitmap Pixels)> raster;
-
     public DisplayHeight Height => DisplayHeight.Wide;
 
     public void Draw(Context context, Font font, Color background, ValueDisplayFrame frame) =>
         Callbacks.Run(IO.lift(() => DataTypes.Encoding(image)).Bind(encoding => encoding.Match(
             Some: transfer =>
-                from size in IO.pure(image.Item.Size)
+                from tiles in IO.lift(() => PreviewTiles.Current.Of(site.Sink))
+                let size = image.Item.Size
                 let fit = MathF.Min(frame.Inner.Width / size.Width, frame.Inner.Height / size.Height)
                 let target = RectangleF.FromCenter(frame.Inner.Center, new SizeF(size.Width * fit, size.Height * fit))
                 let device = Size.Ceiling(target.Size * CanvasPainting.Scale(context))
                 from extent in IO.lift(() => PixelExtent.Validate(device.Width, device.Height, out PixelExtent extent) is { } error ? Fin.Fail<PixelExtent>(error) : Fin.Succ(extent))
-                from pixels in raster.Filter(held => held.Extent == extent).Match(
-                    Some: static held => IO.pure(held.Pixels),
-                    None: () => IO.lift(() => image.Item.Downscaled(extent)).Map(reduced => {
-                        Bitmap drawn = Plots.Pixels(reduced.Size, transfer.Displayed(reduced));
-                        _ = raster.Iter(static held => held.Pixels.Dispose());
-                        raster = Some((extent, drawn));
-                        return drawn;
-                    }))
-                from painted in IO.lift(() => context.Graphics.DrawImage(pixels, target))
+                from drawn in tiles.Paint(typeof(ImageValueDisplay), Optional(context.Control as Eto.Forms.Control), image.Item, extent, transfer,
+                    bitmap => context.Graphics.DrawImage(bitmap, target))
+                from deferred in drawn.Match(Some: static _ => unitIO, None: () => IO.lift(context.Invalidate))
                 select unit,
             None: () => IO.lift(() => text.Draw(context, font, background, frame)))), site);
 }

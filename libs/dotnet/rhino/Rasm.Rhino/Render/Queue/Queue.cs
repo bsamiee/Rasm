@@ -422,10 +422,10 @@ public static class Queues {
         ArchivableDictionaries.Read(RenderSettingsSources.Dictionary(doc), QueueBook.Codec).Map(static book => book.IfNone(QueueBook.Empty));
 
     public static IO<QueueBook> Change(RhinoDoc doc, string caption, Func<QueueBook, QueueBook> change) =>
-        Commits.Commit(doc, caption, new RedrawPolicy.Silent(), RenderSettingsSources.Edit(doc, window =>
-            from before in ArchivableDictionaries.Read(RenderSettingsSources.Dictionary(window), QueueBook.Codec)
+        Commits.Commit(doc, caption, new RedrawPolicy.Silent(), RenderSettingsSources.Edit(doc, scope =>
+            from before in ArchivableDictionaries.Read(RenderSettingsSources.Dictionary(scope), QueueBook.Codec)
             let next = change(before.IfNone(QueueBook.Empty))
-            from written in ArchivableDictionaries.Write(RenderSettingsSources.Dictionary(window), QueueBook.Codec, next)
+            from written in ArchivableDictionaries.Write(RenderSettingsSources.Dictionary(scope), QueueBook.Codec, next)
             select next)).Map(static committed => committed.Value);
 
     public static Fin<QueuePlan> Plan(OutputBook outputs, Option<string> savedDocument, Seq<(QueuedEntry Entry, RenderOverride Override)> entries) =>
@@ -566,11 +566,11 @@ public static class Queues {
         select ran;
 
     private static IO<Unit> Sized(RhinoDoc doc, QueueEntry<OutputPath> entry, OverscanFrame rendered) =>
-        RenderSettingsSources.Edit(new RenderSettingsSource.Live(doc), window =>
-            from source in RenderSourceState.Write(window, entry.Source)
+        RenderSettingsSources.Edit(new RenderSettingsSource.Live(doc), scope =>
+            from source in RenderSourceState.Write(scope, entry.Source)
             from output in IO.lift(() => {
-                window.Settings.UseViewportSize = false;
-                window.Settings.ImageSize = new Size(rendered.Padded.Width, rendered.Padded.Height);
+                scope.Settings.UseViewportSize = false;
+                scope.Settings.ImageSize = new Size(rendered.Padded.Width, rendered.Padded.Height);
             })
             select unit);
 
@@ -704,7 +704,7 @@ public static class Queues {
             from icon in IO.lift(reveal.Icon.ToFin(new Missing(nameof(View.Panel.Icon))))
             from record in IO.lift(() => Conversions.Validated<OutputPath, string, InvalidFileValue>(Path.Combine(Directory.CreateDirectory(sink.PlugIn.SettingsDirectory).FullName, "render-queue.json")))
             from history in IO.lift(() => RenderHistory.Current.Of(sink))
-            from context in Acquire(record, settings.Settings(sink.Settings), sink, doc => IO.pure(history.Bindings(doc)), Some(history),
+            from context in Acquire(record, settings.Settings(sink.Settings), sink, doc => IO.lift(() => history.Bindings(doc)), Some(history),
                 new TrayRow(reveal.Caption, icon, Seq(Seq<MenuEntry>(new MenuEntry.Listed(reveal.Caption, IO.pure(Seq<MenuPick>(
                     new MenuPick.Item(reveal.Caption, Marked: false, Showing.Open(reveal)))))))),
                 new NoticeOptions(settings.Notices(sink.Settings), Some(icon), Some(reveal)),

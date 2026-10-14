@@ -1,5 +1,5 @@
 import { all, bind, decoded, map, type Result } from '../composition.ts';
-import { declared, type Invocation, invocations, operands } from './invocation.ts';
+import { declared, type Invocation, inner, invocations, operands } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,6 +12,7 @@ interface Span {
     readonly end: number;
 }
 interface Command extends Context {
+    readonly source: string;
     readonly words: readonly string[];
     readonly spans: readonly Span[];
     readonly invocations: readonly Invocation[];
@@ -19,7 +20,7 @@ interface Command extends Context {
     readonly reads: readonly string[];
 }
 interface Deletion {
-    readonly text: string;
+    readonly program: string;
     readonly message: string;
 }
 interface Script {
@@ -40,7 +41,7 @@ type Hit = Capture &
         | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
         | { readonly ruleId: 'operand' | 'write' | 'read'; readonly metaVariables: Owned }
         | { readonly ruleId: Marker | 'clock' }
-        | { readonly ruleId: 'delete'; readonly message: string }
+        | { readonly ruleId: 'delete'; readonly message: string; readonly metaVariables: { readonly single: { readonly PROGRAM: Capture } } }
     );
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -68,12 +69,12 @@ const _redirect = (id: 'write' | 'read', relation: string): string => `id: ${id}
 language: bash
 ${_OWNER}
 rule: {kind: file_redirect, all: [{has: {field: destination, pattern: $DEST, not: {kind: number}}}, {matches: owner}, ${relation}]}`;
-const scan = (config: string, rules: readonly string[]): Invocation => [
+const scan = (rules: readonly string[]): Invocation => [
     'ast-grep',
     'scan',
     '--stdin',
     '--config',
-    config,
+    '/dev/null',
     '--json=compact',
     '--inline-rules',
     [
@@ -103,7 +104,7 @@ const _unquoted = (_match: string, quote: string | undefined, body: string): str
 const _owner = (hit: Hit): number => (hit.ruleId === 'operand' || hit.ruleId === 'write' || hit.ruleId === 'read' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start;
 const _destinations = (own: readonly Hit[], id: 'write' | 'read'): readonly string[] => own.flatMap((other) => (other.ruleId === id ? [other.metaVariables.single.DEST.text.replace(_QUOTED, _unquoted)] : []));
 
-const _script = (hits: readonly Hit[], context: Context): Script => {
+const _script = (hits: readonly Hit[], context: Context, source: string): Script => {
     const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
     return {
         commands: [...Map.groupBy(sorted, _owner).values()].flatMap((own): readonly Command[] => {
@@ -115,23 +116,25 @@ const _script = (hits: readonly Hit[], context: Context): Script => {
             const marked = (marker: Marker): boolean => context[marker] || rules.has(marker);
             const tokens = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')].filter(({ text }) => _WORD.test(text));
             const words = tokens.map(({ text }) => text.replace(_QUOTED, _unquoted));
-            return [{ words, spans: tokens.map(({ range }) => range.byteOffset), invocations: invocations(words), nested: context.nested, looped: marked('looped'), polled: marked('polled'), fed: marked('fed'), writes: _destinations(own, 'write'), reads: _destinations(own, 'read') }];
+            return [{ source, words, spans: tokens.map(({ range }) => range.byteOffset), invocations: invocations(words), nested: context.nested, looped: marked('looped'), polled: marked('polled'), fed: marked('fed'), writes: _destinations(own, 'write'), reads: _destinations(own, 'read') }];
         }),
         clocks: sorted.flatMap((hit) => (hit.ruleId === 'clock' ? [hit.text] : [])),
-        deletes: sorted.flatMap((hit) => (hit.ruleId === 'delete' ? [{ text: hit.text, message: hit.message }] : [])),
+        deletes: sorted.flatMap((hit) => (hit.ruleId === 'delete' ? [{ program: hit.metaVariables.single.PROGRAM.text, message: hit.message }] : [])),
     };
 };
 
-const _bodies = (command: Command): readonly string[] => {
-    const invocation = command.invocations.at(-1);
-    if (invocation === undefined) {
-        return [];
-    }
+const _texts = (invocation: Invocation): readonly string[] => {
     const [program, ...rest] = invocation;
     const { bodies, shell } = declared(program);
     const { inputs, options, values } = operands(invocation);
     return [...(program === 'eval' ? [rest.join(' ')] : []), ...(shell === true && options.includes('-c') ? inputs.slice(0, 1) : []), ...(bodies === undefined ? [] : [...inputs, ...values.flatMap(([name, value]) => (bodies.includes(name) ? [value] : []))])];
 };
+
+const _bodies = (command: Command): readonly string[] =>
+    command.invocations
+        .slice(-1)
+        .flatMap((invocation) => [invocation, ...invocations(inner(invocation))])
+        .flatMap(_texts);
 
 // --- [PARSE]
 
@@ -139,8 +142,8 @@ const _joined = (scripts: readonly Script[]): Script => ({ commands: scripts.fla
 
 const _parse = async (scanner: Scanner, text: string, context: Context): Promise<Result<Script>> =>
     bind(decoded<readonly Hit[]>('ast-grep', await scanner(text)), async (hits): Promise<Result<Script>> => {
-        const script = _script(hits, context);
-        const expanded = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scanner, body, { ...command, nested: true })))), (inner) => _joined([{ commands: [command], clocks: [], deletes: [] }, ...inner]))));
+        const script = _script(hits, context, text);
+        const expanded = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scanner, body, { ...command, nested: true })))), (nested) => _joined([{ commands: [command], clocks: [], deletes: [] }, ...nested]))));
         return map(all(expanded), (scripts) => _joined([{ ...script, commands: [] }, ...scripts]));
     });
 

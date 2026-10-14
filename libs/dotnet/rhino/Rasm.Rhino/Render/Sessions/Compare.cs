@@ -163,7 +163,7 @@ public sealed class RenderingComparison : IDisposable {
     // --- [WRITES]
     public IO<Unit> Choose(CompareSide side, string caption) =>
         IO.lift(static environment => environment).Bind(environment => (
-        from request in IO.pure(side.Request(history.Kinds))
+        from request in IO.lift(() => EffectRegistry.Kinds.Of(sink).Map(kinds => side.Request(kinds)))
         let output = Output(request)
         let next = new Chosen(side, new FrameSide(output.Feed, caption), request, None, None, None)
         from current in Updated(state => state.Filter(chosen => chosen.Side == side) | Some(next))

@@ -368,6 +368,6 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     protected override object? TooltipDetails(PointF point, ObjectSolutionState state) => Callbacks.Answer(
         Tooltip.Map(custom => IO.pure(point).Bind(location => custom(location, state)).Map(Some)),
         () => hosted.IsSome || plot.Exists(static held => held.Reading.Value.IsSome)
-            ? Some<object>(Toolbars.Painter(Editor.Instance.Canvas, Site(nameof(TooltipDetails)), Figure)) : Optional(base.TooltipDetails(point, state)),
+            ? Some<object>(CanvasChrome.Painter(Editor.Instance.Canvas, Site(nameof(TooltipDetails)), Figure)) : Optional(base.TooltipDetails(point, state)),
         static () => None, Site()).ValueUnsafe();
 }

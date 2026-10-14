@@ -1,7 +1,6 @@
 ---
 name: clean-prose
 description: "Use when writing or rewriting markdown, comments, messages, identifiers, or file names, or reviewing for coined terms, filler, or restatement."
-disable-model-invocation: true
 ---
 
 # [CLEAN_PROSE]

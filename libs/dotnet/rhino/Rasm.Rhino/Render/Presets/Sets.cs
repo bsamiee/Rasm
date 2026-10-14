@@ -249,7 +249,7 @@ public sealed record RenderSets(Func<RhinoDoc, IO<HistoryBinding>> Settings, Fun
     public static ViewStore Store { get; } = new ViewStore.DocumentStores(new RedrawPolicy.Silent()) {
         Locks = Some(LockSets.Store),
         Bindings = Some<Func<IPlugInViews, RhinoDoc, Fin<BindingGroup>>>(static (owner, doc) =>
-            RenderHistory.Current.Of(owner).Map(history => history.Bindings(doc))),
+            RenderHistory.Current.Of(owner).Bind(history => history.Bindings(doc))),
     };
 
     // --- [READS]

@@ -1,4 +1,3 @@
-using Rasm.Rhino.Events;
 using Rhino;
 using Rhino.Collections;
 using Rhino.Commands;
@@ -106,25 +105,6 @@ public static class Documents {
                         IO.lift(() => Missing.Unless(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))),
                         static opened => IO.lift(opened.Dispose), own))).OnUiThread().Uninterruptible().Bind(body),
             static held => DisposalOps.Release(held).OnUiThread());
-
-    // --- [READ]
-    public static IO<T> Read<T>(DocumentSource source, Func<RhinoDoc, IO<T>> read, Func<RhinoDoc, Option<HostEvent<Unit>>> changed, Func<Option<HostEvent<Unit>>, IO<Unit>> observe) =>
-        from sourceObserved in when(source is DocumentSource.Active,
-            observe(Some(EventKind.ActiveDocumentChanged.Choose(static _ => Some(unit))))).As()
-        from value in WithDocument(source, doc =>
-            from observed in observe(source is DocumentSource.Headless or DocumentSource.Archive
-                ? None
-                : (Seq(
-                    EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)),
-                    EventKind.EndSaveDocument.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)),
-                    EventKind.CloseDocument.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)),
-                    EventKind.UndoRedo.In(doc.RuntimeSerialNumber).Choose(static args => Callbacks.Found(args.IsEndRecording || args.IsEndUndo || args.IsEndRedo, unit)))
-                    + changed(doc).ToSeq()).Strict() switch {
-                        var rows => Some(Subscriptions.Host(typeof(Documents), () => rows)),
-                    })
-            from held in read(doc)
-            select held)
-        select value;
 
     // --- [WORKSESSION]
     public static IO<WorksessionState> ReadWorksession(RhinoDoc doc, bool checkForUpdates) =>

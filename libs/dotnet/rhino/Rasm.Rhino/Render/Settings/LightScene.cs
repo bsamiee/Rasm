@@ -93,10 +93,10 @@ public sealed record LightScene(
         from transfer in Lights.Gamma(doc)
         from read in Lights.States(doc)
         from _ in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()
-        from sun in RenderSettingsSources.Read(doc, window =>
-            from state in SunState.Read(window)
-            from angles in SunState.Angles(window)
-            from moment in SunState.Moment(window, clock).Read
+        from sun in RenderSettingsSources.Read(doc, scope =>
+            from state in SunState.Read(scope)
+            from angles in SunState.Angles(scope)
+            from moment in SunState.Moment(scope, clock).Read
             from color in IO.lift(() => Sun.ColorFromAltitude(angles.Altitude))
             select (State: state, Angles: angles, Moment: moment, Color: color))
         from skylight in Skylights(doc)

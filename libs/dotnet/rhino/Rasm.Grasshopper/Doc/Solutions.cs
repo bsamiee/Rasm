@@ -32,5 +32,4 @@ public static class Solutions {
             IO.lift(static () => SolutionServer.EnableSolutions),
             static enabled => IO.lift(() => { SolutionServer.EnableSolutions = enabled; }))
             .Within(static _ => false, body);
-
 }

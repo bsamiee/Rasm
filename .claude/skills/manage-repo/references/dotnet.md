@@ -31,4 +31,4 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 
 ## [03]-[PROJECTS]
 
-- Libraries sit under `libs/dotnet/<group>/`, a domain group organizes alone, a host group holds every project built against that host's API and the build classifies its projects by that path
+- Use `README.md` for the group a library joins

@@ -19,7 +19,7 @@ namespace Rasm.Grasshopper.UI;
 public sealed record FloatingCommand(CommandRow Command, Either<FloatingPosition, PointF> Placement, Option<RowRule> Visible);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Toolbars {
+public static class CanvasChrome {
     // --- [TOOLBARS]
     public static IO<(BarControl Control, IO<Unit> Refresh)> Toolbar(Seq<Seq<CommandRow>> groups, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>

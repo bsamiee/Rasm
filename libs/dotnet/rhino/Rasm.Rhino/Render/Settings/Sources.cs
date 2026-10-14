@@ -17,8 +17,8 @@ namespace Rasm.Rhino.Render.Settings;
 public interface IRenderSettingsRecord<TSelf> : IStateRecord<TSelf> where TSelf : IRenderSettingsRecord<TSelf> {
     public static abstract string Owner { get; }
     public static abstract Option<DocumentEvent<RenderPropertyChangedEvent>> Changed { get; }
-    public static abstract IO<TSelf> Read(RenderSettingsScope window);
-    public static abstract IO<TSelf> Write(RenderSettingsScope window, TSelf record);
+    public static abstract IO<TSelf> Read(RenderSettingsScope scope);
+    public static abstract IO<TSelf> Write(RenderSettingsScope scope, TSelf record);
 }
 
 public interface IRenderSettingsRecord<TSelf, TParameter> : IRenderSettingsRecord<TSelf>, IStateRecord<TSelf, TParameter, InvalidRhinoValue>
@@ -39,19 +39,19 @@ public abstract partial record RenderSettingsSource {
 
     public sealed record Archive(File3dm File) : RenderSettingsSource;
 
-    public sealed record Detached(RenderSettingsScope Window) : RenderSettingsSource;
+    public sealed record Detached(RenderSettingsScope Scope) : RenderSettingsSource;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RenderSettingsSources {
-    // --- [WINDOWS]
+    // --- [SCOPES]
     public static IO<T> Read<T>(RenderSettingsSource source, Func<RenderSettingsScope, IO<T>> read) =>
         source.Switch(
             read,
             live: static (body, held) => Opened(held.Doc, body),
             section: static (body, held) => Opened(held.Doc, body),
             archive: static (body, held) => IO.lift(() => new RenderSettingsScope(held.File.Settings.RenderSettings, held.File.Settings.ModelUnits)).Bind(body),
-            detached: static (body, held) => body(held.Window));
+            detached: static (body, held) => body(held.Scope));
 
     public static IO<T> Edit<T>(RenderSettingsSource source, Func<RenderSettingsScope, IO<T>> edit) =>
         source.Switch(
@@ -78,16 +78,16 @@ public static class RenderSettingsSources {
         DisposalOps.Within(() => doc.RenderSettings, settings => body(new RenderSettingsScope(settings, doc.ModelUnits)), static settings => IO.lift(settings.Dispose));
 
     // --- [SUB_OWNERS]
-    public static IO<T> SubOwner<THost, T>(RenderSettingsScope window, Func<RenderSettings, THost> select, Func<THost, IO<T>> body) where THost : IDisposable =>
-        DisposalOps.Within(() => select(window.Settings), body, static held => IO.lift(held.Dispose));
+    public static IO<T> SubOwner<THost, T>(RenderSettingsScope scope, Func<RenderSettings, THost> select, Func<THost, IO<T>> body) where THost : IDisposable =>
+        DisposalOps.Within(() => select(scope.Settings), body, static held => IO.lift(held.Dispose));
 
     // --- [STORES]
     public static ValueStore<TRecord> Store<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
-        Read(source, static window => TRecord.Read(window)).Map(Held) switch {
+        Read(source, static scope => TRecord.Read(scope)).Map(Held) switch {
             var read => new(read,
                 value =>
                     from before in read
-                    from after in before == value.Bind(Held) ? IO.pure(before) : Edit(source, window => TRecord.Write(window, value.IfNone(TRecord.Default))).Map(Held)
+                    from after in before == value.Bind(Held) ? IO.pure(before) : Edit(source, scope => TRecord.Write(scope, value.IfNone(TRecord.Default))).Map(Held)
                     select ValueStore.Between(before, after),
                 EqualityComparer<TRecord>.Default.Equals, Applied.Live, Signal(source, TRecord.Changed)),
         };
@@ -105,8 +105,8 @@ public static class RenderSettingsSources {
         select ValueStore.Signal(row.In(serial), static _ => true);
 
     public static DictionaryOwner Dictionary(RenderSettingsSource source) =>
-        new(Read(source, static window => ArchivableDictionaries.UserDictionary(window.Settings).Map(static held => held.Clone())),
-            edit => Edit(source, window => ArchivableDictionaries.UserDictionary(window.Settings).Bind(target => IO.lift(() => edit(target)))));
+        new(Read(source, static scope => ArchivableDictionaries.UserDictionary(scope.Settings).Map(static held => held.Clone())),
+            edit => Edit(source, scope => ArchivableDictionaries.UserDictionary(scope.Settings).Bind(target => IO.lift(() => edit(target)))));
 
     // --- [ARRIVALS]
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register<TRecord>(Func<TRecord, TRecord> next) where TRecord : IRenderSettingsRecord<TRecord> =>

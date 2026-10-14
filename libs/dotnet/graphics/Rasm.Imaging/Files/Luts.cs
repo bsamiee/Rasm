@@ -1,7 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
-using Rasm.Imaging.Files;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp;
@@ -11,16 +11,16 @@ using SixLabors.ImageSharp.Formats.Tiff;
 using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
-namespace Rasm.Imaging.Color;
+namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<InvalidColor>]
+[ValidationError<InvalidFileValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LutPath {
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && LutFile.Readers.ContainsKey(Path.GetExtension(value)) ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
+        validationError = Path.IsPathFullyQualified(value) && LutFile.Readers.ContainsKey(Path.GetExtension(value)) ? null : new InvalidFileValue();
 }
 
 public sealed record LutFile {
@@ -50,6 +50,11 @@ public sealed record LutFile {
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() || error.HasException<ImageFormatException>(),
                 error => IO.fail<LutFile>(new LutUnreadable(path, error)));
 
+    public static IO<Unit> Write(LutTable table, LutFormat format, OutputPath path) =>
+        from text in IO.lift(LutFiles.Render(table, format, System.IO.Path.GetFileNameWithoutExtension(path)))
+        from _ in FilePublication.Write(path, text)
+        select unit;
+
     public static IO<Unit> WriteLookup(LutTable table, LookupLayout layout, FileMetadata metadata, OutputPath path) =>
         from still in IO.lift(LutFiles.Lookup(table, layout).Bind(static frame => StillFormat.PngRaster.From(frame, OutputDepth.UInt16, None, alpha: false)))
         from _ in StillWriter.Write(still, metadata, path)
@@ -76,7 +81,7 @@ public sealed record LutFile {
 }
 
 public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
-    : IStateRecord<LutLook, LutLookParameter, InvalidColor>, IPixelStage<LutLook> {
+    : IStateRecord<LutLook, LutLookParameter, InvalidFileValue>, IPixelStage<LutLook> {
     public static LutLook Default { get; } = new(None, LutSpace.Encoded.Default);
 
     public static Option<PixelPass> Pass(LutLook state, PassContext context) =>
@@ -92,11 +97,11 @@ public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
+[ValidationError<InvalidFileValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LutLookParameter : IStateParameter<LutLook> {
-    public static readonly LutLookParameter Lut = new("lut", new StateParameter<LutLook>.Loaded<LutFile, LutPath, string, InvalidColor>(
+    public static readonly LutLookParameter Lut = new("lut", new StateParameter<LutLook>.Loaded<LutFile, LutPath, string, InvalidFileValue>(
         Lens<LutLook, Option<LutFile>>.New(static look => look.Lut, static lut => look => look with { Lut = lut }),
         LutFile.Read,
         static file => file.Path));

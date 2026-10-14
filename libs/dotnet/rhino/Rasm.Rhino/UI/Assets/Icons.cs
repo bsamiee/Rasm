@@ -31,7 +31,6 @@ public sealed partial class GlyphRole : IGlyph {
     public static readonly GlyphRole Presets = new("presets");
     public static readonly GlyphRole Pick = new("pick");
     public static readonly GlyphRole Load = new("load");
-    public static readonly GlyphRole Save = new("save");
     public static readonly GlyphRole Options = new("options");
     public static readonly GlyphRole LockOpen = new("lock-open");
     public static readonly GlyphRole LockClosed = new("lock-closed");
@@ -44,7 +43,6 @@ public sealed partial class GlyphRole : IGlyph {
     public static readonly GlyphRole Flip = new("flip");
     public static readonly GlyphRole Grid = new("grid");
     public static readonly GlyphRole List = new("list");
-    public static readonly GlyphRole Search = new("search");
     public static readonly GlyphRole FavouriteOn = new("favourite-on");
     public static readonly GlyphRole FavouriteOff = new("favourite-off");
 }
@@ -107,12 +105,6 @@ public static class Icons {
     private static Fin<string> SvgSource(Assembly assembly, string resource) =>
         GlyphMissing.Unless(ImageResources.SvgFromResourceId(resource, assembly), resource);
 
-    public static IO<A> RenderSvg<A>(string source, Eto.Drawing.Size pixels, Option<Eto.Drawing.Color> currentColor, Func<Eto.Drawing.Bitmap, A> draw) =>
-        IO.lift(() => {
-            using Eto.Drawing.Bitmap bitmap = RenderSvg(source, new Size(pixels.Width, pixels.Height), currentColor, ToEtoBitmap).ThrowIfFail();
-            return draw(bitmap);
-        });
-
     private static Eto.Drawing.Bitmap ToEtoBitmap(SKBitmap bitmap) =>
         new(bitmap.Width, bitmap.Height, Eto.Drawing.PixelFormat.Format32bppRgba,
             bitmap.Pixels.Select(static color => unchecked((int)(uint)color)));
@@ -156,6 +148,13 @@ public static class Icons {
                 return released.Match<Fin<Eto.Drawing.Icon>>(Fail: fault => error + fault, Succ: _ => error);
             });
         }), static icon => new(icon.Width, icon.Height)));
+
+    private static readonly Func<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Eto.Drawing.Bitmap>> EtoRasters = memoUnsafe<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Eto.Drawing.Bitmap>>(static context =>
+        new(context.Assembly, (resource, pixels) => SvgSource(context.Assembly, resource).Bind(source => RenderSvg(source, pixels, Some(context.Ink), ToEtoBitmap)),
+            static bitmap => new(bitmap.Width, bitmap.Height)));
+
+    public static IO<Eto.Drawing.Bitmap> Inked(IGlyph glyph, int master, Eto.Drawing.Size pixels, Eto.Drawing.Color ink) =>
+        IO.lift(() => EtoRasters((glyph.GetType().Assembly, ink)).Get(ResourceName(glyph, master), new Size(pixels.Width, pixels.Height)));
 
     public static IO<Eto.Drawing.Icon> Frames((IGlyph Glyph, int Master) source, IconSlot slot) =>
         slot.Size().Bind(size => IO.lift(() => Frame(source.Glyph, source.Master, new(size, size))));

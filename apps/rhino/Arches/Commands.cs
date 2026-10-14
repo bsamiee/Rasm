@@ -171,8 +171,7 @@ internal static class ArchPrompts {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal sealed class ArchCommand(IPlugInSink sink, Guid id, string englishName, string prompt, IterableNE<ArchForm> forms) : HostCommand(sink, id, englishName, None) {
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
-        from tolerances in Tolerances.Read(doc, modelUnits: true)
-        from placed in Commits.WithinRedraw(doc, new RedrawPolicy.AllViews(Deferred: true),
-            Getters.Stages<ArchStage, Seq<Guid>>(new ArchStage.Choosing(), (stage, accept) => ArchPrompts.Pick(doc, site, prompt, forms, tolerances, stage, accept)))
-        select unit;
+        Tolerances.Read(doc, modelUnits: true).Bind(tolerances => Commits.WithinRedraw(doc, new RedrawPolicy.AllViews(Deferred: true),
+            Getters.Stages<ArchStage, Seq<Guid>>(new ArchStage.Choosing(), (stage, accept) => ArchPrompts.Pick(doc, site, prompt, forms, tolerances, stage, accept))))
+            .Map(static _ => unit);
 }

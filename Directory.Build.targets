@@ -96,7 +96,7 @@
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
 
-    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(_PlugInIcon)' != ''" Inputs="$(MSBuildThisFileFullPath);$(_PlugInIconSource);@(EmbeddedResource->WithMetadataValue('Extension', '.svg'))" Outputs="$(_PlugInAssetDir)$(_PlugInPackageIcon);$(_PlugInAssetDir)$(_PlugInIcon)">
+    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(_PlugInIcon)' != ''" Inputs="$(MSBuildThisFileFullPath);$(_PlugInIconSource)" Outputs="$(_PlugInAssetDir)$(_PlugInPackageIcon);$(_PlugInAssetDir)$(_PlugInIcon)">
         <MakeDir Directories="$(_PlugInAssetDir)" />
         <Exec Command="resvg -w 256 -h 256 &quot;$(_PlugInIconSource)&quot; &quot;$(_PlugInPackageIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
         <Exec Command="magick &quot;$(_PlugInPackageIcon)&quot; -define icon:auto-resize &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />

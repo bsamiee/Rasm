@@ -8,13 +8,13 @@ namespace Arches;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ArchCurves {
     // --- [RISE_DOMAINS]
-    public static ArchRise PositiveRise => new(new Interval(0, double.MaxValue), OpenMinimum: true);
-    public static ArchRise UpToSemicircle => new(new Interval(PositiveRise.Ratios.T0, 0.5), OpenMinimum: PositiveRise.OpenMinimum);
-    public static ArchRise FromSemicircle => new(new Interval(UpToSemicircle.Ratios.T1, PositiveRise.Ratios.T1), OpenMinimum: false);
-    public static ArchRise LancetRise => new(new Interval(double.Sqrt(3) / 2, PositiveRise.Ratios.T1), OpenMinimum: false);
-    public static ArchRise DepressedGothicRise => new(new Interval(UpToSemicircle.Ratios.T1, LancetRise.Ratios.T0), OpenMinimum: false);
-    public static ArchRise PointedHorseshoeRise => new(new Interval(double.Sqrt(5.0 / 12), PositiveRise.Ratios.T1), OpenMinimum: false);
-    public static ArchRise ThreeCenteredOgeeRise => new(new Interval(UpToSemicircle.Ratios.T1, (1 + double.Sqrt(2)) / 2), OpenMinimum: false);
+    public static readonly ArchRise PositiveRise = new(new Interval(0, double.MaxValue), OpenMinimum: true);
+    public static readonly ArchRise UpToSemicircle = new(new Interval(PositiveRise.Ratios.T0, 0.5), OpenMinimum: PositiveRise.OpenMinimum);
+    public static readonly ArchRise FromSemicircle = new(new Interval(UpToSemicircle.Ratios.T1, PositiveRise.Ratios.T1), OpenMinimum: false);
+    public static readonly ArchRise LancetRise = new(new Interval(double.Sqrt(3) / 2, PositiveRise.Ratios.T1), OpenMinimum: false);
+    public static readonly ArchRise DepressedGothicRise = new(new Interval(UpToSemicircle.Ratios.T1, LancetRise.Ratios.T0), OpenMinimum: false);
+    public static readonly ArchRise PointedHorseshoeRise = new(new Interval(double.Sqrt(5.0 / 12), PositiveRise.Ratios.T1), OpenMinimum: false);
+    public static readonly ArchRise ThreeCenteredOgeeRise = new(new Interval(UpToSemicircle.Ratios.T1, (1 + double.Sqrt(2)) / 2), OpenMinimum: false);
 
     // --- [CIRCULAR]
     public static IO<Seq<Curve>> Semicircular(ArchSpan span, Action<IDisposable> retain) =>
@@ -119,13 +119,6 @@ internal static class ArchCurves {
             .Map(static curve => Seq<Curve>(curve));
     }
 
-    // --- [SYMMETRY]
-    private static IO<Seq<Curve>> Symmetric(Line baseline, Plane frame, Seq<Arc> arcs, Action<IDisposable> retain) =>
-        Transform.Mirror(baseline.PointAt(0.5), frame.XAxis) switch {
-            var mirror => CurveConstruction.Arcs(arcs.Bind(arc => Seq(
-                new Arc(new Circle(new Plane(mirror * arc.Center, mirror * arc.Plane.XAxis, mirror * arc.Plane.YAxis), arc.Radius), arc.AngleDomain),
-                new Arc(new Circle(new Plane(arc.Center, arc.Plane.XAxis, -arc.Plane.YAxis), arc.Radius), new Interval(-arc.EndAngle, -arc.StartAngle)))), retain),
-        };
     // --- [MULTIFOIL]
     public static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, int count, Action<IDisposable> retain) {
         double divisions = 2.0 * ((count / 2) + (count & 1));
@@ -173,23 +166,6 @@ internal static class ArchCurves {
         return Symmetric(span.Baseline, span.Frame, Seq(springing, crown), retain);
     }
 
-    // --- [FOIL_GUIDES]
-    private static Arc FoilGuide(Line baseline, Plane frame, bool pointed, double divisions, int springing) {
-        (double centerFactor, double sweep) = pointed ? (-0.5, double.Pi / 3) : (0, double.Pi / 2);
-        double step = sweep / divisions;
-        double radius = baseline.Length / 2 / (centerFactor + double.Cos(step * springing) + (2 * double.Sin(step / 2)));
-        Point3d center = baseline.PointAt(0.5) + (frame.XAxis * (centerFactor * radius)) - (frame.YAxis * (radius * double.Sin(step * springing)));
-        return new Arc(frame, center, radius, sweep);
-    }
-
-    private static Func<double, Point3d> FoilDivisions(Arc guide, double divisions) =>
-        index => guide.PointAt(guide.AngleDomain.ParameterAt(index / divisions));
-
-    private static Arc FoilSpringing(Plane frame, Point3d center, Point3d through) =>
-        new(frame, center, center.DistanceTo(through), Vector3d.VectorAngle(frame.XAxis, through - center));
-
-    private static Arc FoilCrown(Plane frame, Point3d top, Point3d previous) =>
-        new(new Circle(frame, top, top.DistanceTo(previous)), new Interval(-Vector3d.VectorAngle(frame.XAxis, previous - top), double.Pi / 2));
     // --- [RAISED_OGEE]
     public static IO<Seq<Curve>> ThreeCenteredOgee(ArchSpan span, Point3d apex, Action<IDisposable> retain) {
         Point3d midpoint = span.Baseline.PointAt(0.5);
@@ -254,4 +230,30 @@ internal static class ArchCurves {
             new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), haunch.DistanceTo(span.Baseline.To)), sweep),
             new Arc(new Circle(new Plane(crown, span.Frame.XAxis, -span.Frame.YAxis), crown.DistanceTo(apex)), sweep)), retain);
     }
+
+    // --- [SYMMETRY]
+    private static IO<Seq<Curve>> Symmetric(Line baseline, Plane frame, Seq<Arc> arcs, Action<IDisposable> retain) =>
+        Transform.Mirror(baseline.PointAt(0.5), frame.XAxis) switch {
+            var mirror => CurveConstruction.Arcs(arcs.Bind(arc => Seq(
+                new Arc(new Circle(new Plane(mirror * arc.Center, mirror * arc.Plane.XAxis, mirror * arc.Plane.YAxis), arc.Radius), arc.AngleDomain),
+                new Arc(new Circle(new Plane(arc.Center, arc.Plane.XAxis, -arc.Plane.YAxis), arc.Radius), new Interval(-arc.EndAngle, -arc.StartAngle)))), retain),
+        };
+
+    // --- [FOIL_GUIDES]
+    private static Arc FoilGuide(Line baseline, Plane frame, bool pointed, double divisions, int springing) {
+        (double centerFactor, double sweep) = pointed ? (-0.5, double.Pi / 3) : (0, double.Pi / 2);
+        double step = sweep / divisions;
+        double radius = baseline.Length / 2 / (centerFactor + double.Cos(step * springing) + (2 * double.Sin(step / 2)));
+        Point3d center = baseline.PointAt(0.5) + (frame.XAxis * (centerFactor * radius)) - (frame.YAxis * (radius * double.Sin(step * springing)));
+        return new Arc(frame, center, radius, sweep);
+    }
+
+    private static Func<double, Point3d> FoilDivisions(Arc guide, double divisions) =>
+        index => guide.PointAt(guide.AngleDomain.ParameterAt(index / divisions));
+
+    private static Arc FoilSpringing(Plane frame, Point3d center, Point3d through) =>
+        new(frame, center, center.DistanceTo(through), Vector3d.VectorAngle(frame.XAxis, through - center));
+
+    private static Arc FoilCrown(Plane frame, Point3d top, Point3d previous) =>
+        new(new Circle(frame, top, top.DistanceTo(previous)), new Interval(-Vector3d.VectorAngle(frame.XAxis, previous - top), double.Pi / 2));
 }

@@ -230,8 +230,9 @@ public sealed class PresetBinding {
         from grading in IO.lift(() => history.Grading(doc))
         from current in grading.Capture
         from locks in scope.Locked
-        from entries in RenderSettingsSources.Read(doc, static scene => EffectRegistry.Read(scene.Settings))
-        from request in IO.lift(TileRequest.Applied(newest, preset, current, locks, EffectPipeline.Ordered(entries, history.Kinds)))
+        from entries in RenderSettingsSources.Read(doc, static held => EffectRegistry.Read(held.Settings))
+        from kinds in IO.lift(() => EffectRegistry.Kinds.Of(scope.Sink))
+        from request in IO.lift(TileRequest.Applied(newest, preset, current, locks, EffectPipeline.Ordered(entries, kinds)))
         select request;
 
     private IO<Unit> Picked(PresetName name) =>

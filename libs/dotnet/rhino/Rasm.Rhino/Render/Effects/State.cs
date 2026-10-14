@@ -173,16 +173,16 @@ public static class EffectStates {
                 ValueBinding.Fields(
                     owner,
                     ValueStore.Of(
-                        RenderSettingsSources.Read(doc, window => EffectRegistry.State<TEffect, TState>(window.Settings, Some(row.Default)))
+                        RenderSettingsSources.Read(doc, scope => EffectRegistry.State<TEffect, TState>(scope.Settings, Some(row.Default)))
                             .Map(record => Some(record).Filter(held => !EqualityComparer<TState>.Default.Equals(held, row.Default))),
-                        record => RenderSettingsSources.Edit(doc, window => EffectRegistry.Apply(window.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(row.Default)))).Map(static _ => unit),
+                        record => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(row.Default)))).Map(static _ => unit),
                         Applied.Live,
                         None),
                     row.Default,
                     ParameterText.Join<TState, TParameter, TError>(row.Text).Map<(IStateParameter<TState> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption))),
                 row.Amount.Map(factory => ValueBinding.Key(owner, AmountKey(factory), ValueStore.Of(
-                    RenderSettingsSources.Read(doc, static window => EffectRegistry.Amount<TEffect>(window.Settings)).Map(found => found.Filter(mix => mix != factory)),
-                    mix => RenderSettingsSources.Edit(doc, window => EffectRegistry.Apply(window.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(factory))])).Map(static _ => unit),
+                    RenderSettingsSources.Read(doc, static scope => EffectRegistry.Amount<TEffect>(scope.Settings)).Map(found => found.Filter(mix => mix != factory)),
+                    mix => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(factory))])).Map(static _ => unit),
                     Applied.Live,
                     None)))),
         };

@@ -450,7 +450,7 @@ public static class SectionRows {
                 from target in IO.lift((Conversions.Validated<CdlFormat, string, InvalidGrade>(Path.GetExtension(chosen)).ToValidation(),
                         Conversions.Validated<OutputPath, string, InvalidFileValue>(chosen).ToValidation())
                     .Apply(static (format, path) => (Format: format, Path: path)).As().ToFin())
-                from written in CdlState.Save(held, None, target.Format, target.Path)
+                from written in FilePublication.Write(target.Path, CdlState.Write(held, None, target.Format))
                 select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))));
 
     private static Seq<(string Description, Seq<string> Extensions)> Corrections =>

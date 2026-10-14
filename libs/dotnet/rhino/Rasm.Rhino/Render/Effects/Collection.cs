@@ -178,7 +178,7 @@ public static class EffectRegistry {
 
     private static IO<Unit> Arrange(Seq<EffectKind> kinds, Func<Seq<RhinoDoc>> documents, Func<RhinoDoc, Option<Seq<EffectRequest>>, IO<Unit>> step) =>
         from held in IO.lift(() => documents().Strict())
-        from arranged in Callbacks.Each(held.Map(doc => RenderSettingsSources.Read(doc, static window => Read(window.Settings)).Bind(entries => step(doc, Arrangement(kinds, entries)))))
+        from arranged in Callbacks.Each(held.Map(doc => RenderSettingsSources.Read(doc, static scope => Read(scope.Settings)).Bind(entries => step(doc, Arrangement(kinds, entries)))))
         select unit;
 
     private static IO<Unit> Mark(RhinoDoc doc, Option<Seq<EffectRequest>> arranged) =>
@@ -186,7 +186,7 @@ public static class EffectRegistry {
 
     private static IO<Unit> Write(RhinoDoc doc, Option<Seq<EffectRequest>> arranged) =>
         from released in when(arranged.IsSome, IO.lift(() => { _ = doc.RuntimeData.Remove(Pending); })).As()
-        from written in arranged.Traverse(requests => RenderSettingsSources.Edit(doc, window => Apply(window.Settings, requests))).As()
+        from written in arranged.Traverse(requests => RenderSettingsSources.Edit(doc, scope => Apply(scope.Settings, requests))).As()
         select unit;
 
     private static Option<Seq<EffectRequest>> Arrangement(Seq<EffectKind> kinds, Seq<EffectEntry> entries) =>

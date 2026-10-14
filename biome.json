@@ -3,7 +3,7 @@
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     "files": {
         "ignoreUnknown": true,
-        "includes": [ "**", "!!.venv", "!**/*.xcassets", "!**/*.icon" ]
+        "includes": [ "**", "!!.venv", "!!.cache", "!!.artifacts", "!**/*.xcassets", "!**/*.icon" ]
     },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },

@@ -10,6 +10,7 @@ using Rasm.Grasshopper.Components;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI.Assets;
 
 namespace Rasm.Grasshopper;
@@ -23,6 +24,7 @@ internal enum Codes {
 public sealed record GrasshopperPluginDefinition {
     public Option<(IGlyph Glyph, int Master)> Mark { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
     public Seq<Func<DefinedGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
 }
 
@@ -92,7 +94,10 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
     // --- [LOAD]
     public sealed override void OnLoaded() =>
         _ = (from initialized in IO.lift(static () => AssemblyLoading.Initialized)
-             from opened in Session.Open(this, [static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain), .. definition.Acquisitions])
+             from opened in Session.Open(this, [
+                 static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain),
+                 static (owner, retain) => PreviewTiles.Open(owner, owner.definition.Clock, IO.pure(TileLimits.Default), None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
+                 .. definition.Acquisitions])
              select unit)
             .Catch(error => IO.lift(() => Report(error, GetType(), nameof(OnLoaded))).Bind(_ => IO.fail<Unit>(error)))
             .As()

@@ -1,14 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
+    <ItemGroup Label="Rhino">
         <PackageReference Include="Grasshopper2" />
-        <PackageReference Include="Kiwi" />
-        <PackageReference Include="QuikGraph" />
-        <PackageReference Include="QuikGraph.Graphviz" />
-        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="QuikGraph.Graphviz" />
+    </ItemGroup>
+
+    <ItemGroup Label="Solvers">
+        <PackageReference Include="Kiwi" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>

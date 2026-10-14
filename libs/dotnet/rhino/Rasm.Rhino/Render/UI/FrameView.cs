@@ -155,15 +155,6 @@ public abstract partial record FrameEdit {
     public sealed record PixelPicked((double X, double Y) Pixel) : FrameEdit;
 }
 
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class PickKind {
-    public static readonly PickKind Value = new(Icons.PickCursor);
-    public static readonly PickKind Position = new(static _ => IO.pure(Cursors.Crosshair));
-
-    [UseDelegateFromConstructor]
-    public partial IO<Cursor> Cursor(Action<IDisposable> retain);
-}
-
 [Union]
 public abstract partial record FramePart {
     public sealed record Ground : FramePart;
@@ -183,7 +174,7 @@ public abstract partial record FrameDrag {
 
 public sealed record FrameViewState(
     FrameShown Current, Option<FrameShown> Reference, Nits Target, FrameTransform Transform, bool Comparing, CompareMode Mode, AxisFraction Split, bool Swapped,
-    Seq<FrameMask> Masks, Option<FrameOverlay> Overlay, FrameRegion Area, Option<FrameQuad> Quad, Option<PickKind> Picking, Option<FrameDrag> Drag);
+    Seq<FrameMask> Masks, Option<FrameOverlay> Overlay, FrameRegion Area, Option<FrameQuad> Quad, bool Picking, Option<FrameDrag> Drag);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class FrameView : ComponentControl<FrameViewState, FramePart, FrameEdit> {
@@ -217,10 +208,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     public IO<Unit> Overlay(Option<FrameOverlay> overlay) => Advance(state => new(state with { Overlay = overlay, Drag = None }, None));
 
-    public IO<Unit> Pick(PickKind kind) =>
-        from held in Picked(kind)
+    public IO<Unit> Pick =>
+        from held in PickCursor
         from focused in IO.lift(Focus)
-        from picked in Advance(state => new(state with { Picking = Some(kind), Drag = None }, None))
+        from picked in Advance(static state => new(state with { Picking = true, Drag = None }, None))
         select picked;
 
     protected override FrameViewState Received(FrameViewState state, Option<FrameEdit> value) =>
@@ -234,13 +225,13 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     protected override IO<Unit> Reconcile(FrameViewState before, FrameViewState after, Interaction<FramePart> was, Interaction<FramePart> now) =>
         from commanded in IO.lift(() => Commanded(after))
-        from released in when(before.Picking.IsSome && after.Picking.IsNone, Unpicked).As()
+        from released in when(before.Picking && !after.Picking, Unpicked).As()
         select released;
 
     protected override void OnLoad(EventArgs e) {
         base.OnLoad(e);
         Callbacks.Run(DisposalOps.Acquire(owned => HostTheme.In(this).Inline(_ =>
-            from cursor in State.Picking.Traverse(Picked).As()
+            from cursor in when(State.Picking, PickCursor).As()
             from refreshed in Advance(static state => new(state, None))
             from invalidated in IO.lift(() => Invalidate())
             select unit, Sink, owned), (_, lease) => appearance = Some(lease)), Site());
@@ -248,7 +239,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     protected override void OnUnLoad(EventArgs e) =>
         Callbacks.Run(Callbacks.Each(Seq(
-            Unwatched, IO.lift(() => base.OnUnLoad(e)), Advance(static state => new(state with { Picking = None, Drag = None }, None)), Emptied))
+            Unwatched, IO.lift(() => base.OnUnLoad(e)), Advance(static state => new(state with { Picking = false, Drag = None }, None)), Emptied))
             .Uninterruptible(), Site());
 
     protected override void Dispose(bool disposing) =>
@@ -265,7 +256,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static FrameViewState Initial((FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks) initial) =>
         new(initial.Current, initial.Reference, Nits.ReferenceWhite, new FrameTransform.Fitted(), Comparing: initial.Reference.IsSome, CompareMode.VerticalWipe, AxisFraction.Half, Swapped: false,
-            initial.Masks, None, FrameRegion.Whole, None, None, None);
+            initial.Masks, None, FrameRegion.Whole, None, Picking: false, None);
 
     private static Func<Control, IO<Func<FrameViewState, FrameViewState>>> Sampled(IPlugInSink sink, FrameSampling sampling) =>
         view =>
@@ -293,8 +284,8 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             }).Bind(_ => DisposalOps.Release(owned.Map(static pick => pick.Lease))),
             None: static () => IO.pure(unit))).Uninterruptible();
 
-    private IO<Unit> Picked(PickKind kind) =>
-        DisposalOps.Replace(kind.Cursor, (shape, lease) => {
+    private IO<Unit> PickCursor =>
+        DisposalOps.Replace(Icons.PickCursor, (shape, lease) => {
             Option<(Option<Cursor> Shape, Seq<(Cursor Shape, IDisposable Lease)> Owned)> prior = cache.Pick;
             Cursor selected = Cursor;
             Seq<(Cursor Shape, IDisposable Lease)> reserved = prior.ToSeq().Bind(static pick => pick.Owned).Add((shape, lease));
@@ -477,7 +468,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             : Seq(new RectangleF(size));
 
     private static Option<(FrameShown Left, FrameShown Right)> Compared(FrameViewState state) =>
-        state.Comparing && state.Picking.IsNone ? state.Reference.Map(reference => state.Swapped ? (state.Current, reference) : (reference, state.Current)) : None;
+        state.Comparing && !state.Picking ? state.Reference.Map(reference => state.Swapped ? (state.Current, reference) : (reference, state.Current)) : None;
 
     private static Option<(Orientation Along, float Position, RectangleF Bounds, FrameShown Left, FrameShown Right)> Divided(FrameViewState state, SizeF size, float scale) =>
         from pair in Compared(state)
@@ -492,7 +483,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         };
 
     private static Option<FrameOverlay> Overlaid(FrameViewState state) =>
-        state.Picking.IsNone && !state.Comparing ? state.Overlay : None;
+        !state.Picking && !state.Comparing ? state.Overlay : None;
 
     private static Option<FrameOverlay.AreaPick> Picked(FrameViewState state) =>
         Overlaid(state).Bind(static overlay => overlay.Switch<Option<FrameOverlay.AreaPick>>(
@@ -539,10 +530,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                 .Map(static point => RowText.Localize("{0:0.#}, {1:0.#}", None, point.X, point.Y).Local), None));
 
     protected override Option<Transition<FrameViewState, FrameEdit>> Pressed(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
-        At(state, size, scale, e.Location).Map(at => (state.Picking.IsSome, e.Buttons) switch {
+        At(state, size, scale, e.Location).Map(at => (state.Picking, e.Buttons) switch {
             (true, MouseButtons.Primary) => Pixel(at, e.Location).Match(
                 Some: pixel => new Transition<FrameViewState, FrameEdit>(
-                    state with { Picking = None }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Commit(new FrameEdit.PixelPicked(pixel)))),
+                    state with { Picking = false }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Commit(new FrameEdit.PixelPicked(pixel)))),
                 None: () => Viewed(state)),
             (false, MouseButtons.Primary) => Gripped(state, at, part, e.Location),
             _ => Viewed(state with { Drag = Some<FrameDrag>(new FrameDrag.Panning(at.Center)) }),
@@ -560,7 +551,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         .IfNone(() => Viewed(state));
 
     protected override Transition<FrameViewState, FrameEdit> Released(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
-        state.Picking.IsSome && e.Buttons != MouseButtons.Primary && state.Drag.Exists(drag => Still(state.Transform, drag))
+        state.Picking && e.Buttons != MouseButtons.Primary && state.Drag.Exists(drag => Still(state.Transform, drag))
             ? Cancelled(state)
             : Viewed(state with { Drag = None });
 
@@ -581,7 +572,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         select state.Drag.Bind(drag => Spreaded(state, drag, MathF.Pow(Spread, e.Delta.Height))).IfNone(() => Zoomed(state, at, e.Location, MathF.Pow(Notch, e.Delta.Height)));
 
     protected override Option<Transition<FrameViewState, FrameEdit>> KeyPressed(FrameViewState state, SizeF size, float scale, Option<FramePart> part, KeyEventArgs e) =>
-        e.KeyData == Keys.Escape && state.Picking.IsSome
+        e.KeyData == Keys.Escape && state.Picking
             ? Some(Cancelled(state))
             : bindings.Find(binding => binding.Command.Enabled && binding.Command.Shortcut == e.KeyData).Map(binding => binding.Act(state));
 
@@ -602,10 +593,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private static Transition<FrameViewState, FrameEdit> Viewed(FrameViewState state) => new(state, None);
 
     private static Transition<FrameViewState, FrameEdit> Cancelled(FrameViewState state) =>
-        new(state with { Picking = None, Drag = None }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Cancel()));
+        new(state with { Picking = false, Drag = None }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Cancel()));
 
     private Cursor Grounded(FrameViewState state) =>
-        (state.Picking.Bind(_ => cache.Pick).Bind(static pick => pick.Shape)
+        ((state.Picking ? cache.Pick : None).Bind(static pick => pick.Shape)
          | Compared(state).Bind(_ => state.Mode.Rule).Map(static rule => rule == Orientation.Vertical ? Cursors.VerticalSplit : Cursors.HorizontalSplit)
          | Picked(state).Map(static _ => Cursors.Crosshair))
         .IfNone(Cursors.Default);

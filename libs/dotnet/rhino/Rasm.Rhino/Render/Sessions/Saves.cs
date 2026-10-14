@@ -362,8 +362,8 @@ public static class Saves {
 
     // --- [PROMPTS]
     internal static IO<A> Measured<A>(RhinoDoc document, Func<RenderSettings, PixelExtent, IO<A>> body) =>
-        RenderSettingsSources.Read(document, window =>
-            IO.lift(() => EffectPipeline.Extent(RenderPipeline.RenderSize(document, fromRenderSources: true))).Bind(extent => body(window.Settings, extent)));
+        RenderSettingsSources.Read(document, scope =>
+            IO.lift(() => EffectPipeline.Extent(RenderPipeline.RenderSize(document, fromRenderSources: true))).Bind(extent => body(scope.Settings, extent)));
 
     internal static IO<OutputPath> Prompted(RhinoDoc document, RunMode mode, string title, string extension) =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
@@ -396,9 +396,10 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
             DisposalOps.Within(static () => new Derivations(), derivations =>
             from entries in EffectRegistry.Read(settings)
             from history in IO.lift(() => RenderHistory.Current.Of(site.Sink))
-            let grading = history.Grading(doc)
+            from grading in IO.lift(history.Grading(doc))
             from set in grading.Capture
-            let ordered = EffectPipeline.Ordered(entries, history.Kinds)
+            from kinds in IO.lift(() => EffectRegistry.Kinds.Of(site.Sink))
+            let ordered = EffectPipeline.Ordered(entries, kinds)
             let context = EffectPipeline.Detached(extent, derivations) with { Lights = Some(SceneLights.Empty) }
             from chain in EffectPipeline.Chain(set, ordered, context)
             from chosen in Getters.Stages<LutChoice, LutChoice>(LutChoice.Default, (choice, accepts) => Getters.Choice(doc, new GetterRequest<GetOption, StageStep<LutChoice, LutChoice>>(LocalName, site) {
@@ -411,7 +412,7 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
             from metadata in Saves.Metadata(doc, origin)
             from _ in toSeq(LookupLayout.Items).Find(layout => Equals(layout.Format, chosen.Format)).Match(
                 Some: layout => LutFile.WriteLookup(table, layout, metadata, path),
-                None: () => LutFiles.Write(table, chosen.Format, path))
+                None: () => LutFile.Write(table, chosen.Format, path))
             select unit, static derivations => IO.lift(derivations.Dispose)));
 
     private sealed record LutChoice(LatticeSize Size, AllocationStop Low, AllocationSpan Span, Gamut Gamut, Transfer Transfer, LutFormat Format) {

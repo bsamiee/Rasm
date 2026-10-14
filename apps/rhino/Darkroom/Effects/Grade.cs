@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Pixels;
@@ -10,7 +11,7 @@ using Rhino.Render.PostEffects;
 namespace Darkroom.Effects;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class LookEffect<TEffect> : StageEffect<TEffect, LutLook, LutLookParameter, InvalidColor>, IEffectDefinition<LutLook, LutLookParameter>
+public abstract class LookEffect<TEffect> : StageEffect<TEffect, LutLook, LutLookParameter, InvalidFileValue>, IEffectDefinition<LutLook, LutLookParameter>
     where TEffect : LookEffect<TEffect> {
     static EffectRow<LutLook, LutLookParameter> IEffectDefinition<LutLook, LutLookParameter>.Row { get; } = new(static parameter =>
         parameter.Map(

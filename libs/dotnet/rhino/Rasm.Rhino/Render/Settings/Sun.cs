@@ -19,8 +19,8 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
 
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SunChanged;
 
-    public static IO<SunState> Read(RenderSettingsScope window) =>
-        RenderSettingsSources.SubOwner(window, static settings => settings.Sun, static sun => IO.lift(() =>
+    public static IO<SunState> Read(RenderSettingsScope scope) =>
+        RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun => IO.lift(() =>
             (Conversions.Validated<SunIntensity, double, InvalidRhinoValue>(sun.Intensity).ToValidation(),
              sun.ManualControlOn ? Conversions.Validated<NorthAngle, double, InvalidRhinoValue>(sun.Azimuth).ToValidation() : Default.Azimuth,
              sun.ManualControlOn ? Conversions.Validated<SunAltitude, double, InvalidRhinoValue>(sun.Altitude).ToValidation() : Default.Altitude,
@@ -29,9 +29,9 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
                 .As()
                 .ToFin()));
 
-    public static IO<SunState> Write(RenderSettingsScope window, SunState state) =>
+    public static IO<SunState> Write(RenderSettingsScope scope, SunState state) =>
         (state.ManualControlOn ? state : state with { Azimuth = Default.Azimuth, Altitude = Default.Altitude }) switch {
-            var accepted => RenderSettingsSources.SubOwner(window, static settings => settings.Sun, sun => IO.lift(() => {
+            var accepted => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, sun => IO.lift(() => {
                 SunMapper.Update(accepted, sun);
                 return accepted;
             })),
@@ -60,13 +60,13 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
         };
 
     public static IO<SunAngles> Angles(RenderSettingsSource source) =>
-        RenderSettingsSources.Read(source, static window => RenderSettingsSources.SubOwner(window, static settings => settings.Sun, static sun =>
+        RenderSettingsSources.Read(source, static scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun =>
             IO.lift(() => { sun.Accuracy = Sun.Accuracies.Maximum; }).Map(_ => SunMapper.ToAngles(sun))));
 
     public static ValueStore<SunMoment> Moment(RenderSettingsSource source, TimeProvider clock) =>
         ValueStore.Of(
-            RenderSettingsSources.Read(source, static window => RenderSettingsSources.SubOwner(window, static settings => settings.Sun, static sun => IO.lift(() => SunMoment.Read(sun).Map(static moment => Some(moment))))),
-            moment => moment.Traverse(held => RenderSettingsSources.Edit(source, window => RenderSettingsSources.SubOwner(window, static settings => settings.Sun, sun => IO.lift(held.Write(sun, clock))))).As().Map(static _ => unit),
+            RenderSettingsSources.Read(source, static scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun => IO.lift(() => SunMoment.Read(sun).Map(static moment => Some(moment))))),
+            moment => moment.Traverse(held => RenderSettingsSources.Edit(source, scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, sun => IO.lift(held.Write(sun, clock))))).As().Map(static _ => unit),
             Applied.Live,
             RenderSettingsSources.Signal(source, EventKind.SunChanged));
 }

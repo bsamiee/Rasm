@@ -17,6 +17,7 @@ interface Program {
     readonly wholeWords?: true;
     readonly shell?: true;
     readonly runs?: readonly (readonly string[])[] | '--';
+    readonly execs?: readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -35,6 +36,8 @@ interface ParsedOption {
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-c', '-m'], informational: ['-V'] };
 const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', stdinless: ['-c'], shell: true };
+const _FD: Program = { execs: ['-x', '-X', '--exec', '--exec-batch'] };
+const _FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
 const _AST_GREP: Program = {
     valued: [
         '-c',
@@ -213,6 +216,10 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
             arities: new Map(Object.entries({ '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 })),
             bodies: ['-s', '--setup', '--reference', '-p', '--prepare', '-C', '--conclude', '-c', '--cleanup'],
         },
+        fd: _FD,
+        fdfind: _FD,
+        find: _FIND,
+        gfind: _FIND,
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
         'ast-grep': _AST_GREP,
         sg: _AST_GREP,
@@ -398,7 +405,15 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     return _ENV_ASSIGN.test(head) ? invocations(rest) : _chain(basename(head), rest);
 };
 
+const inner = (invocation: Invocation): readonly string[] => {
+    const { execs = [] } = declared(invocation[0]);
+    const at = operands(invocation).positions.find(({ names }) => names.some((name) => execs.includes(name)))?.at;
+    const rest = at === undefined ? [] : invocation.slice(at + 1);
+    const end = rest.findIndex((word) => word === ';' || word === '+');
+    return end < 0 ? rest : rest.slice(0, end);
+};
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Invocation, Operands };
-export { basename, declared, firstOperand, invocations, known, operands };
+export { basename, declared, firstOperand, inner, invocations, known, operands };
