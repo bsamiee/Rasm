@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-string-tag-field
+language: rust
+severity: error
+utils:
+    text-type:
+        any:
+            - {kind: type_identifier, regex: '^String$'}
+            - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}
+            - kind: generic_type
+              all:
+                - has: {field: type, regex: '^(Cow|Box|Arc|Rc)$'}
+                - has: {field: type_arguments, has: {kind: primitive_type, regex: '^str$'}}
+    field-read:
+        any:
+            - kind: field_expression
+              has: {field: field, pattern: $F}
+            - kind: call_expression
+              has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^(as_str|as_ref|deref|as_deref|borrow)$'}
+                    - has: {field: value, kind: field_expression, has: {field: field, pattern: $F}}
+            - kind: 'reference_expression, unary_expression'
+              has: {matches: field-read}
+    literal-array:
+        kind: array_expression
+        has: {kind: string_literal}
+        not: {has: {pattern: $_, not: {kind: string_literal}}}
+    literal-read:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^[!=]=$'}
+                - any:
+                    - all: [{has: {field: left, matches: field-read}}, {has: {field: right, kind: string_literal}}]
+                    - all: [{has: {field: right, matches: field-read}}, {has: {field: left, kind: string_literal}}]
+            - kind: match_expression
+              all:
+                - has: {field: value, matches: field-read}
+                - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {stopBy: end, kind: string_literal}}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(starts_with|ends_with|eq_ignore_ascii_case)$'}}, {has: {field: value, matches: field-read}}]}
+                - has: {field: arguments, has: {nthChild: 1, kind: string_literal}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^contains$'}}, {has: {field: value, matches: literal-array}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: field-read}}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^matches$'}
+                - has: {kind: token_tree, all: [{has: {kind: identifier, pattern: $F, follows: {regex: '^\.$'}}}, {has: {kind: string_literal}}]}
+    literal-write:
+        kind: field_initializer
+        all:
+            - has: {field: field, pattern: $F}
+            - has: {field: value, any: [{kind: string_literal}, {kind: call_expression, has: {field: function, has: {field: value, kind: string_literal}}}]}
+rule:
+    kind: field_declaration
+    all:
+        - has: {field: name, pattern: $F}
+        - has: {field: type, matches: text-type}
+        - has: {field: name, regex: '^(r#)?(\w+_)?(kind|type|tag|status|state|mode|variant|category|role|level|action|op|method|event)$'}
+        - any:
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: literal-read}}
+            - inside:
+                kind: source_file
+                stopBy: end
+                all:
+                    - has: {stopBy: end, matches: literal-write, pattern: $W}
+                    - has: {stopBy: end, matches: literal-write, not: {pattern: $W}}
+message: 'Field `$F` holds a tag as text that the file compares to or fills with string literals'
+note: 'Type the field as an enum with a variant per tag, decode the text once at the boundary through `FromStr` or `#[derive(Deserialize)]`, and match the variants'

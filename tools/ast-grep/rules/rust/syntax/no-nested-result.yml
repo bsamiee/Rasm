@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-result
+language: rust
+severity: error
+utils:
+    result:
+        kind: generic_type
+        has: {field: type, regex: '(^|::)Result$'}
+    option:
+        kind: generic_type
+        has: {field: type, regex: '^(((std|core)::)?option::)?Option$'}
+    nested:
+        any:
+            - matches: result
+              has: {field: type_arguments, has: {nthChild: 1, matches: result}}
+            - matches: result
+              has: {field: type_arguments, has: {nthChild: 1, matches: option, has: {field: type_arguments, has: {nthChild: 1, matches: result}}}}
+            - matches: option
+              has: {field: type_arguments, has: {nthChild: 1, matches: result, has: {field: type_arguments, has: {nthChild: 1, matches: option}}}}
+rule:
+    kind: generic_type
+    pattern: $TYPE
+    all:
+        - any: [{matches: nested}, {has: {stopBy: end, matches: nested}}]
+        - any:
+            - inside: {kind: 'function_item, function_signature_item, closure_expression', field: return_type}
+            - inside: {kind: 'parameter, field_declaration, type_item, let_declaration', field: type}
+        - not: {inside: {stopBy: end, matches: rust-fixed-signature}}
+message: '`$TYPE` nests one result layer in another'
+note: 'Return `Result<<value>, <error>>` with one error variant per cause, or an enum with a variant per outcome, a wire shape that tells absence from null decodes into that enum at the boundary, clippy `option_option` reports `Option<Option<T>>`'

@@ -1,0 +1,81 @@
+id: rust-type-alias
+language: rust
+role: item
+symbolType: struct
+rule:
+    kind: type_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    LINE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {has: {kind: visibility_modifier, regex: '^pub'}}
+
+---
+id: rust-macro
+language: rust
+role: item
+symbolType: function
+rule:
+    kind: macro_definition
+    has: {field: name, pattern: $NAME}
+name: $NAME
+signature: macro_rules! $NAME
+isExported: {follows: {kind: attribute_item, regex: '^#\[macro_export', stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}}}
+
+---
+id: rust-macro-invocation
+language: rust
+role: item
+symbolType: event
+rule:
+    kind: macro_invocation
+    inside: {kind: source_file}
+    has: {field: macro, pattern: $NAME}
+name: $NAME
+signature: $NAME!
+isExported: false
+
+---
+id: rust-associated-type
+language: rust
+role: member
+parentRuleIds: [rust-impl, rust-trait]
+symbolType: typeParameter
+rule:
+    kind: 'type_item, associated_type'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    LINE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: true
+
+---
+id: rust-associated-const
+language: rust
+role: member
+parentRuleIds: [rust-impl, rust-trait]
+symbolType: constant
+rule:
+    kind: const_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: value
+      rule: {inside: {kind: const_item, field: value}, pattern: $_}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: visibility_modifier}
+        - inside: {kind: declaration_list, inside: {kind: trait_item}}
+        - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, pattern: $_}}}

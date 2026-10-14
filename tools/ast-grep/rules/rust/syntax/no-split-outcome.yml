@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-outcome
+language: rust
+severity: error
+utils:
+    flag-tuple:
+        kind: tuple_type
+        has: {kind: primitive_type, regex: '^bool$'}
+    failure-name:
+        regex: '^(error|failure|fault|reason|problem|cause|err)$|_(error|failure|fault|reason|problem|cause|err)$|^(error|failure|fault|reason|problem|cause|err)_'
+    error-type:
+        any:
+            - {kind: type_identifier, regex: '(Error|Err|Failure)$'}
+            - {kind: scoped_type_identifier, has: {field: name, regex: '(Error|Err|Failure)$'}}
+            - kind: generic_type
+              all:
+                - has: {field: type, regex: '^(((std|alloc)::)?boxed::)?Box$'}
+                - has: {field: type_arguments, has: {nthChild: 1, any: [{kind: dynamic_type, has: {field: trait, regex: '(^|::)Error$'}}, {kind: bounded_type, has: {kind: dynamic_type, has: {field: trait, regex: '(^|::)Error$'}}}]}}
+    optional-error-type:
+        kind: generic_type
+        all:
+            - has: {field: type, regex: '^Option$'}
+            - has: {field: type_arguments, has: {nthChild: 1, matches: error-type}}
+    optional-text:
+        kind: generic_type
+        all:
+            - has: {field: type, regex: '^Option$'}
+            - has: {field: type_arguments, has: {nthChild: 1, regex: '^(String|&(''\w+\s+)?str|Box<str>|Cow<[^>]*str>)$'}}
+    status-flag:
+        kind: field_declaration
+        all:
+            - has: {field: name, regex: '^(ok|success|succeeded|successful|failed|failure|found|present|exists|valid|invalid|done|complete|completed|finished|matched|passed|errored|is_ok|is_err|is_valid|is_some|is_none|is_success|is_failure|is_complete|is_done|is_found|has_value|has_result|has_error|has_failed)$'}
+            - has: {field: type, kind: primitive_type, regex: '^bool$'}
+    optional-failure:
+        kind: field_declaration
+        any:
+            - has: {field: type, matches: optional-error-type}
+            - all:
+                - has: {field: name, matches: failure-name}
+                - has: {field: type, matches: optional-text}
+    optional-value:
+        kind: field_declaration
+        all:
+            - has: {field: name, not: {matches: failure-name}}
+            - has: {field: type, kind: generic_type, all: [{has: {field: type, regex: '^(Option|Result)$'}}, {not: {regex: '(Error|Err|Failure)\b'}}]}
+    outcome-value:
+        matches: optional-value
+        has: {field: name, regex: '^(value|result|output|outcome|data|response|body)$'}
+rule:
+    any:
+        - kind: 'function_item, function_signature_item'
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: return_type, any: [{matches: flag-tuple}, {has: {stopBy: end, matches: flag-tuple}}]}
+            - not: {matches: rust-fixed-signature}
+        - kind: field_declaration
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: type, any: [{matches: flag-tuple}, {has: {stopBy: end, matches: flag-tuple}}]}
+        - kind: field_declaration
+          all:
+            - has: {field: name, pattern: $NAME}
+            - matches: status-flag
+            - inside: {kind: field_declaration_list, has: {matches: optional-value}}
+        - kind: field_declaration
+          all:
+            - has: {field: name, pattern: $NAME}
+            - matches: optional-failure
+            - inside: {kind: field_declaration_list, has: {any: [{matches: status-flag}, {matches: outcome-value}]}}
+message: '`$NAME` splits one outcome into a flag, a value, and a failure held side by side'
+note: 'Hold one `Result<<value>, <error>>`, `Option<<value>>`, or an enum with a variant per outcome and match its case, parts held side by side admit a success that holds an error, a history can keep completed data beside a later failure'

@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": { "types": [ "node" ] },
-    "include": [ "*.config.ts", ".codex/hooks/*.ts", "tools/nx/*.ts", "tools/bridge/*.ts", "infra/*.ts", "eng/typescript/**/*.ts", "apps/**/vite.config.ts", "apps/**/vitest.config.ts", "libs/typescript/**/vitest.config.ts", "tests/typescript/**/vitest.config.ts" ],
+    "include": [ "*.config.ts", ".codex/hooks/*.ts", "tools/nx/*.ts", "infra/*.ts", "eng/typescript/**/*.ts", "apps/**/vite.config.ts", "apps/**/vitest.config.ts", "libs/typescript/**/vitest.config.ts", "tests/typescript/**/vitest.config.ts" ],
     "exclude": []
 }

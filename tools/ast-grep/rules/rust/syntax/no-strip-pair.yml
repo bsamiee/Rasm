@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-strip-pair
+language: rust
+severity: error
+utils:
+    pattern-argument:
+        any:
+            - kind: 'string_literal, raw_string_literal, char_literal, identifier, scoped_identifier, field_expression'
+            - kind: reference_expression
+              has: {field: value, matches: pattern-argument}
+            - kind: array_expression
+              not: {has: {pattern: $_, not: {kind: char_literal}}}
+    option-tail:
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+        inside: {kind: block, inside: {kind: function_item, field: body, has: {field: return_type, kind: generic_type, has: {field: type, regex: '^Option$'}}}}
+rule:
+    kind: 'call_expression, try_expression, let_chain'
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $S.strip_prefix($P).and_then(|$R| $R.strip_suffix($Q))
+            - pattern: $S.strip_suffix($Q).and_then(|$R| $R.strip_prefix($P))
+            - all: [{pattern: '$S.strip_prefix($P)?.strip_suffix($Q)?'}, {pattern: $TRY}]
+            - all: [{pattern: '$S.strip_suffix($Q)?.strip_prefix($P)?'}, {pattern: $TRY}]
+            - all: [{pattern: '$S.strip_prefix($P)?.strip_suffix($Q)'}, {matches: option-tail}]
+            - all: [{pattern: '$S.strip_suffix($Q)?.strip_prefix($P)'}, {matches: option-tail}]
+            - all:
+                - pattern: {context: 'if let Some($R) = $S.strip_prefix($P) && let Some($I) = $R.strip_suffix($Q) {}', selector: let_chain}
+                - pattern: $BOUND
+                - not: {inside: {kind: if_expression, has: {field: consequence, has: {stopBy: end, kind: identifier, pattern: $R}}}}
+            - all:
+                - pattern: {context: 'if let Some($R) = $S.strip_suffix($Q) && let Some($I) = $R.strip_prefix($P) {}', selector: let_chain}
+                - pattern: $BOUND
+                - not: {inside: {kind: if_expression, has: {field: consequence, has: {stopBy: end, kind: identifier, pattern: $R}}}}
+        - not: {has: {stopBy: end, kind: closure_expression, has: {field: body, has: {field: arguments, has: {stopBy: end, pattern: $R}}}}}
+constraints:
+    P: {matches: pattern-argument}
+    Q: {matches: pattern-argument}
+transform:
+    TRY_MARK: {replace: {source: $TRY, replace: '^[\s\S]+$', by: '?'}}
+    LET_OPEN: {replace: {source: $BOUND, replace: '^[\s\S]+$', by: 'let Some('}}
+    LET_CLOSE: {replace: {source: $BOUND, replace: '^[\s\S]+$', by: ') = '}}
+fix: $LET_OPEN$I$LET_CLOSE$S.strip_circumfix($P, $Q)$TRY_MARK
+message: 'Chained `strip_prefix` and `strip_suffix` calls on `$S` strip a circumfix by hand'
+note: 'Write `<text>.strip_circumfix(<prefix>, <suffix>)` (`str` and `[T]`, Rust 1.98), which returns `None` under the same conditions, for a suffix argument that evaluates without effects'

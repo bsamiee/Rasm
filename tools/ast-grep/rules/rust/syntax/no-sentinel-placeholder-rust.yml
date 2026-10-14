@@ -1,0 +1,185 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sentinel-placeholder-rust
+language: rust
+severity: error
+utils:
+    empty-path:
+        regex: '^((std|alloc)::\w+::)?(String|Vec|PathBuf|OsString)::(new|default)$'
+    empty-literal:
+        kind: string_literal
+        not: {has: {kind: 'string_content, escape_sequence'}}
+    empty-text:
+        any:
+            - matches: empty-literal
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: scoped_identifier, matches: empty-path}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - {kind: scoped_identifier, matches: empty-path}
+    bound:
+        any:
+            - kind: unary_expression
+              regex: '^-\s*1(\.0)?$'
+            - kind: scoped_identifier
+              regex: '^((std|core)::(primitive::)?)?(u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|f32|f64)::(MAX|MIN|NAN|INFINITY|NEG_INFINITY)$'
+    sentinel-const:
+        kind: const_item
+        all:
+            - has: {field: name, pattern: $ALIAS}
+            - has: {field: value, any: [{matches: empty-text}, {matches: bound}]}
+    aliased:
+        kind: identifier
+        pattern: $ALIAS
+        regex: '^[A-Z][A-Z0-9_]+$'
+        inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: sentinel-const}}
+    sentinel:
+        pattern: $SENTINEL
+        any:
+            - matches: empty-text
+            - matches: bound
+            - matches: aliased
+    text-path:
+        regex: '^((std|alloc)::\w+::)?(String|OsString)::(new|default)$'
+    absent-sentinel:
+        pattern: $SENTINEL
+        any:
+            - matches: empty-literal
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: scoped_identifier, matches: text-path}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - matches: bound
+            - matches: aliased
+    fallback:
+        any:
+            - matches: sentinel
+            - kind: closure_expression
+              has: {field: body, matches: sentinel}
+    absent-value:
+        any:
+            - matches: absent-sentinel
+            - kind: block
+              has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: absent-sentinel}, {kind: return_expression, has: {matches: absent-sentinel}}]}
+    zero-value:
+        any:
+            - matches: empty-text
+            - {kind: integer_literal, regex: '^0+(_?[iu](8|16|32|64|128|size))?$'}
+            - {kind: float_literal, regex: '^0+\.0*(_?f(32|64))?$'}
+            - {kind: boolean_literal, regex: '^false$'}
+    substitute:
+        kind: field_expression
+        all:
+            - has: {field: field, regex: '^(unwrap_or|unwrap_or_else|map_or|map_or_else)$'}
+            - not: {has: {field: value, kind: call_expression, has: {field: function, regex: '(::|\.)try_(from|into)$'}}}
+    defaulted:
+        kind: field_expression
+        has: {field: field, regex: '^(unwrap_or_default|map_or_default)$'}
+    binding:
+        kind: let_declaration
+        has: {field: pattern, kind: identifier, pattern: $NAME}
+    retested-sentinel:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - has: {pattern: $NAME}
+            - has: {pattern: $SENTINEL}
+    retested-zero:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $NAME}}, {has: {field: field, regex: '^is_empty$'}}]}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - has: {pattern: $NAME}
+                - has: {matches: zero-value}
+    retested:
+        inside: {matches: binding, stopBy: {kind: block}, inside: {kind: block, has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-sentinel}}}
+    text-option:
+        kind: generic_type
+        all:
+            - has: {field: type, regex: '^Option$'}
+            - has:
+                field: type_arguments
+                has:
+                    any:
+                        - {kind: type_identifier, regex: '^(String|PathBuf|OsString)$'}
+                        - {kind: reference_type, has: {field: type, regex: '^(str|Path|OsStr)$'}}
+                        - {kind: generic_type, has: {field: type, regex: '^(Vec|Cow|Box)$'}}
+    text-option-value:
+        any:
+            - kind: identifier
+              pattern: $NAME
+              inside:
+                kind: 'function_item, closure_expression'
+                stopBy: end
+                any:
+                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: type, matches: text-option}}]}}
+                    - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: type, matches: text-option}}]}
+            - kind: field_expression
+              all:
+                - has: {field: value, kind: self}
+                - has: {field: field, pattern: $NAME}
+                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: field_declaration, all: [{has: {field: name, pattern: $NAME}}, {has: {field: type, matches: text-option}}]}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(clone|cloned|take|as_deref|as_ref)$'}}, {has: {field: value, matches: text-option-value}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    absent-pattern:
+        kind: match_pattern
+        any:
+            - regex: '^None$'
+            - has: {kind: tuple_struct_pattern, has: {field: type, regex: '^Err$'}}
+            - kind: or_pattern
+    present-condition:
+        kind: let_condition
+        has: {field: pattern, kind: tuple_struct_pattern, has: {field: type, regex: '^(Some|Ok)$'}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: substitute}
+            - has: {field: arguments, has: {nthChild: 1, matches: fallback}}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: substitute}
+            - has: {field: arguments, has: {nthChild: 1, kind: 'integer_literal, float_literal, boolean_literal', pattern: $SENTINEL}}
+            - matches: retested
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: defaulted}
+            - any:
+                - inside: {matches: binding, stopBy: {kind: block}, inside: {kind: block, has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-zero}}}
+                - has: {field: function, all: [{has: {field: field, regex: '^unwrap_or_default$'}}, {has: {field: value, matches: text-option-value}}]}
+        - kind: match_arm
+          all:
+            - has: {field: pattern, matches: absent-pattern, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: value, matches: absent-value}
+            - inside: {kind: match_block, has: {kind: match_arm, has: {field: pattern, has: {kind: tuple_struct_pattern, has: {field: type, regex: '^(Some|Ok)$'}}}}}
+        - kind: else_clause
+          all:
+            - inside: {kind: if_expression, has: {field: condition, matches: present-condition}}
+            - has: {kind: block, matches: absent-value}
+        - kind: let_declaration
+          all:
+            - has: {field: pattern, kind: tuple_struct_pattern, has: {field: type, regex: '^(Some|Ok)$'}}
+            - has: {field: alternative, kind: block, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: return_expression, has: {matches: absent-sentinel}}}
+        - kind: let_declaration
+          all:
+            - has: {field: pattern, kind: identifier, pattern: $NAME}
+            - has: {field: value, any: [{matches: bound}, {matches: aliased}], pattern: $SENTINEL}
+            - inside: {kind: block, has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-sentinel}}
+        - kind: 'const_item, static_item'
+          all:
+            - has: {field: name, regex: '(?i)^(unset|none|null|missing|absent|invalid|unknown|undefined|sentinel|no_\w+|not_\w+)$'}
+            - has: {field: value, any: [{matches: empty-text}, {matches: bound}]}
+message: '`$SITE` collapses absence or failure into a sentinel value'
+note: 'Keep the `Option` or `Result` and match it where a consumer acts on absence, a sentinel (`""`, `-1`, `MAX`, `NAN`, an empty buffer, `Default`) is a valid value of its type and states no absence, clippy rewrites `unwrap_or(String::new())` into `unwrap_or_default()` with the sentinel kept, and `try_from(<n>).unwrap_or(<T>::MAX)` saturates a conversion and stays outside the rule'

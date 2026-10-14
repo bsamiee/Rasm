@@ -19,18 +19,19 @@ tests/
 - Each language area holds its reusable fixtures, generators, assertions, and doubles in one support project or directory, `libs/` holds none
 - .NET and Python suites mirror `libs/<language>/` under `tests/<language>/libs/<group>/<package>/`
 - TypeScript tests sit beside their source, a suite outside `libs/typescript` is a package under `tests/typescript/`
+- Rust tests sit in a `#[cfg(test)]` module of the file they test, integration tests in one `[[test]]` target of their member
 - Test files are `test_<module>.py`, `<module>.spec.ts`, and `<Subject>.Tests.cs`, PascalCase begins at a C# project directory
 
 ## [02]-[CLASSIFICATION]
 
 Classify each test by scope, technique, and execution mode, and apply every classification that fits.
 
-| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                           | [ROUTE]                                                        |
-| :-----: | :-------- | :------------- | :------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | Scope     | Unit           | Behavior with controlled collaborators | Default `test` run per language                                |
-|  [02]   | Scope     | Integration    | Real components or external boundary   | Python `network` marker                                        |
-|  [03]   | Technique | Property-based | Generated examples exercise invariants | `TestAssertions.ForAll`, Hypothesis `@given`, `it.effect.prop` |
-|  [04]   | Mode      | Benchmark      | Timing outside functional test session | `benchmark` fixture, Vitest `*.bench.ts` file                  |
+| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                           | [ROUTE]                                                                            |
+| :-----: | :-------- | :------------- | :------------------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | Scope     | Unit           | Behavior with controlled collaborators | Default `test` run per language                                                    |
+|  [02]   | Scope     | Integration    | Real components or external boundary   | Python `network` marker                                                            |
+|  [03]   | Technique | Property-based | Generated examples exercise invariants | `TestAssertions.ForAll`, Hypothesis `@given`, `it.effect.prop`, `#[property_test]` |
+|  [04]   | Mode      | Benchmark      | Timing outside functional test session | `benchmark` fixture, Vitest `*.bench.ts` file, Criterion `[[bench]]` target        |
 
 Python `@property_test(subject)` records public-API coverage.
 

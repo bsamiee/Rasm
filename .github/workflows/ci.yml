@@ -48,8 +48,7 @@ jobs:
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='!tag:host:macos' --configuration ci
-            - run: nx affected -t check --exclude='!tag:host:rhino'
+            - run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' --configuration ci
               env:
                 DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 

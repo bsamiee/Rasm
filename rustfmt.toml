@@ -1,0 +1,24 @@
+# --- [RUSTFMT] --------------------------------------------------------------------------
+# --- [EDITION]
+edition = "2024"
+style_edition = "2027"                 # Newest style edition the pinned nightly ships, widths and tail semicolons from its fixes
+# --- [LAYOUT]
+max_width = 200
+use_small_heuristics = "Max"
+newline_style = "Unix"
+fn_single_line = true                  # Functions whose body is one expression take one line, bodies are expressions
+where_single_line = true               # One-predicate `where` clauses share the signature line
+match_arm_blocks = false               # Arm bodies that wrap stay expressions, no block holds a lone expression
+# --- [IMPORTS]
+imports_granularity = "Crate"          # One `use` per crate, one concept has one home and one spelling
+group_imports = "StdExternalCrate"     # std, external, then local import groups in one fixed order
+# --- [ITEMS]
+reorder_impl_items = true              # Associated types and constants precede the methods that read them
+format_macro_matchers = true           # `$name:fragment` matchers take one spelling
+use_field_init_shorthand = true
+# --- [LITERALS]
+hex_literal_case = "Upper"             # One spelling per hex literal, digits uppercase as ruff format writes them in Python
+float_literal_trailing_zero = "Always" # One spelling per float literal, a fractional digit with or without suffix or exponent
+# --- [CHECKS]
+error_on_line_overflow = true          # A line rustfmt cannot fit within max_width fails the check in place of passing unformatted
+error_on_unformatted = true            # A comment or string literal past max_width or holding trailing whitespace fails the check

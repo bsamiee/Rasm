@@ -1,0 +1,51 @@
+warning: `DirEntry::path` builds a path to read the name `DirEntry::file_name` returns
+  --> $DIR/dir_entry_path_file_name.rs:24:101
+   |
+LL | fn std_names(root: &Path) -> io::Result<Vec<Option<OsString>>> { fs::read_dir(root)?.map(|entry| Ok(entry?.path().file_name().map(Os...
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `file_name` on the entry for the name as an `OsString`
+   = note: `#[warn(dir_entry_path_file_name)]` on by default
+
+warning: `DirEntry::path` builds a path to read the name `DirEntry::file_name` returns
+  --> $DIR/dir_entry_path_file_name.rs:33:16
+   |
+LL |             Ok(path.file_name().map(OsStr::to_os_string))
+   |                ^^^^^^^^^^^^^^^^
+   |
+   = help: call `file_name` on the entry for the name as an `OsString`
+
+warning: `DirEntry::path` builds a path to read the name `DirEntry::file_name` returns
+  --> $DIR/dir_entry_path_file_name.rs:48:125
+   |
+LL | ...?.try_fold(0, |count, entry| Ok(count + usize::from(entry?.path().file_name() == Some(OsStr::new("Cargo.toml"))))) }
+   |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `file_name` on the entry for the name as an `OsString`
+
+warning: `DirEntry::path` builds a path to read the name `DirEntry::file_name` returns
+  --> $DIR/dir_entry_path_file_name.rs:54:109
+   |
+LL | ...sString>>> { fs_err::read_dir(root)?.map(|entry| Ok(entry?.path().file_name().map(OsStr::to_os_string))).collect() }
+   |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `file_name` on the entry for the name as an `OsString`
+
+warning: `DirEntry::path` builds a path to read the name `DirEntry::file_name` returns
+  --> $DIR/dir_entry_path_file_name.rs:60:20
+   |
+LL |         names.push(entry.path().file_name().map(OsStr::to_os_string));
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `file_name` on the entry for the name as an `OsString`
+
+warning: `DirEntry::path` builds a path to read the name `DirEntry::file_name` returns
+  --> $DIR/dir_entry_path_file_name.rs:69:20
+   |
+LL |         names.push(entry.path().file_name().map(OsStr::to_os_string));
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `file_name` on the entry for the name as an `OsString`
+
+warning: 6 warnings emitted
+

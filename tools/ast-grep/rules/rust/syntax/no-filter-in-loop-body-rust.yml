@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-in-loop-body-rust
+language: rust
+severity: error
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment, empty_statement'}
+    control-exit:
+        kind: 'return_expression, break_expression, continue_expression, try_expression, await_expression'
+    closure-safe:
+        not: {any: [{matches: control-exit}, {has: {stopBy: end, matches: control-exit}}]}
+    skip-value:
+        any:
+            - kind: 'continue_expression, unit_expression'
+            - kind: block
+              not: {has: {pattern: $_, matches: slot, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
+    continue-block:
+        kind: block
+        all:
+            - has:
+                nthChild: {position: 1, ofRule: {matches: slot}}
+                any:
+                    - kind: continue_expression
+                    - {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+    exit:
+        any:
+            - kind: 'return_expression, break_expression'
+            - kind: expression_statement
+              has: {nthChild: 1, kind: 'return_expression, break_expression'}
+    plain-if:
+        kind: if_expression
+        all:
+            - has: {field: condition, pattern: $TEST, matches: closure-safe}
+            - not: {has: {field: alternative, pattern: $_}}
+            - not: {has: {field: consequence, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: slot}}, matches: exit}}}
+    loop-variable-flatten:
+        kind: let_condition
+        all:
+            - has: {field: pattern, kind: tuple_struct_pattern, has: {field: type, regex: '^(Some|Ok)$'}}
+            - has: {field: value, kind: identifier, pattern: $ELEMENT}
+    lending-call:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(entry|get_mut|iter_mut|values_mut|last_mut|first_mut|as_mut|lock|write|try_lock|try_write|borrow_mut)$'}}
+    lending-binding:
+        any:
+            - matches: lending-call
+            - has: {stopBy: end, matches: lending-call}
+    selecting-match:
+        kind: match_expression
+        all:
+            - has: {field: value, matches: closure-safe, not: {matches: lending-binding}}
+            - has: {field: body, not: {has: {kind: match_arm, nthChild: {position: 3, ofRule: {kind: match_arm}}}}}
+            - has: {field: body, has: {kind: match_arm, has: {field: value, matches: skip-value}}}
+            - has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, pattern: $TEST, not: {has: {field: condition, pattern: $_}}}}, {not: {has: {field: value, matches: skip-value}}}]}}
+    mutation:
+        any:
+            - kind: call_expression
+              has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: value, kind: identifier, pattern: $WRITTEN}
+                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append|remove|swap_remove|clear|truncate|drain|retain|entry|or_insert|or_insert_with|or_default|pop|pop_front|pop_back|take|swap|sort|sort_by|sort_by_key|sort_unstable|dedup|resize|fill|reverse)$'}
+            - kind: 'compound_assignment_expr, assignment_expression'
+              has: {field: left, kind: identifier, pattern: $WRITTEN}
+    test-reads-written-state:
+        all:
+            - has: {field: body, has: {stopBy: end, matches: mutation}}
+            - has: {field: body, has: {stopBy: end, pattern: $TEST, has: {stopBy: end, kind: identifier, pattern: $WRITTEN}}}
+rule:
+    kind: for_expression
+    all:
+        - has: {field: pattern, pattern: $ELEMENT}
+        - has:
+            field: body
+            kind: block
+            any:
+                - all:
+                    - has:
+                        nthChild: {position: 1, ofRule: {matches: slot}}
+                        kind: expression_statement
+                        has:
+                            nthChild: 1
+                            matches: plain-if
+                            not: {has: {field: condition, any: [{matches: loop-variable-flatten}, {kind: let_condition, has: {field: value, matches: lending-binding}}]}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                - all:
+                    - has: {nthChild: {position: 1, ofRule: {matches: slot}}, kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                - has:
+                    nthChild: {position: 1, ofRule: {matches: slot}}
+                    any:
+                        - kind: expression_statement
+                          has: {nthChild: 1, matches: plain-if, has: {field: consequence, matches: continue-block}}
+                        - kind: let_declaration
+                          all:
+                            - has: {field: pattern, pattern: $TEST}
+                            - has: {field: value, matches: closure-safe, not: {matches: lending-binding}}
+                            - has: {field: alternative, matches: continue-block}
+        - not: {matches: rust-statement-loop}
+        - not: {matches: test-reads-written-state}
+message: '`for` selects elements by the test `$TEST` at the top of its body'
+note: 'Select with `<iterator>.filter(<test>)`, `.filter_map(<f>)` for a binding the body reads, or `.flatten()` over nested options, the body then holds the work alone, a test the body cannot run in a closure (`?`, `.await`, `return`, a write the test reads) stays in the loop'

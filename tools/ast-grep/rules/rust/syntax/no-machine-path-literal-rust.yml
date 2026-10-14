@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-machine-path-literal-rust
+language: rust
+severity: error
+ignores: ['**/build.rs', '**/build/**', '**/tests/**', '**/benches/**']
+utils:
+    embedding-macro:
+        kind: macro_invocation
+        has: {field: macro, regex: '^((::)?(std|core)::)?(include_str|include_bytes|include)$'}
+rule:
+    pattern: $PATH
+    not: {matches: rust-test-scope}
+    any:
+        - kind: 'string_literal, raw_string_literal'
+          regex: '(^[rbc]*#*"|[\s"''=:(,]|file://)(~/|(/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
+        - kind: macro_invocation
+          all:
+            - has: {field: macro, regex: '^((::)?(std|core)::)?(env|option_env)$'}
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(CARGO_MANIFEST_DIR|CARGO_MANIFEST_PATH|CARGO_TARGET_TMPDIR|CARGO_WORKSPACE_DIR|CARGO_HOME|RUSTUP_HOME|OUT_DIR|HOME|USERPROFILE|USER|USERNAME|LOGNAME|PWD|HOSTNAME|TMPDIR)"$'}}
+            - not: {inside: {stopBy: end, matches: embedding-macro}}
+message: '`$PATH` bakes a path from one machine or the build checkout into the product'
+note: 'Read the location at run time from its owner (`std::env::home_dir`, `std::env::temp_dir`, `std::env::current_exe`, an argument the host passes) and append segments with `Path::join`, or embed checkout content at build time with `include_str!`, an installed binary runs where no checkout exists'

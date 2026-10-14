@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-impl-by-hand
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    std-error:
+        any:
+            - kind: scoped_type_identifier
+              regex: '^(::)?(std|core)::error::Error$'
+            - kind: scoped_type_identifier
+              all:
+                - has: {field: name, regex: '^Error$'}
+                - has: {field: path, kind: identifier, matches: {rust-imported-name: {root: {regex: '^(std|core)$'}, item: {regex: '^error$'}}}}
+            - kind: type_identifier
+              matches: {rust-imported-name: {root: {regex: '^(std|core)$'}, item: {regex: '^Error$'}}}
+rule:
+    kind: impl_item
+    all:
+        - has: {field: type, pattern: $TYPE}
+        - has: {field: trait, matches: std-error}
+message: '`$TYPE` implements `Error` by hand'
+note: 'Derive `thiserror::Error` with an `#[error("...")]` message on the type or each variant and `#[source]` or `#[from]` on the wrapped error, the derive writes `Display`, `Error`, and `source()` from the declaration'

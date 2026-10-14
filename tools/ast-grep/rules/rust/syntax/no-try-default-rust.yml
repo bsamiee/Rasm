@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-default-rust
+language: rust
+severity: error
+utils:
+    no-arguments:
+        has: {field: arguments, not: {has: {pattern: $_}}}
+    logged:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^inspect_err$'}}
+    ok-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^ok$'}}
+            - matches: no-arguments
+            - not: {has: {field: function, kind: field_expression, has: {field: value, matches: logged}}}
+    ok-pattern:
+        kind: tuple_struct_pattern
+        has: {field: type, regex: '^(\w+::)*Ok$'}
+    err-pattern:
+        kind: tuple_struct_pattern
+        has: {field: type, regex: '^(\w+::)*Err$'}
+    discarded-error:
+        kind: tuple_struct_pattern
+        regex: '^(\w+::)*Err\s*\(\s*(_\w*|\.\.)\s*\)$'
+    ok-condition:
+        kind: let_condition
+        has: {field: pattern, matches: ok-pattern}
+    empty-body:
+        any:
+            - kind: block
+              not: {has: {pattern: $_}}
+            - kind: unit_expression
+    leaving:
+        any:
+            - kind: continue_expression
+            - kind: return_expression
+              not: {has: {pattern: $_}}
+    leaving-body:
+        any:
+            - matches: leaving
+            - kind: block
+              matches: {rust-single-statement: {first: {any: [{matches: leaving}, {kind: expression_statement, has: {matches: leaving}}]}}}
+    ok-function:
+        any:
+            - {kind: scoped_identifier, regex: '^(((std|core)::)?result::)?Result::ok$'}
+            - kind: closure_expression
+              all:
+                - has: {field: parameters, has: {kind: identifier, pattern: $ITEM}}
+                - has: {field: body, matches: ok-call}
+    result-source:
+        any:
+            - kind: call_expression
+            - kind: 'await_expression, try_expression, parenthesized_expression'
+              has: {nthChild: 1, matches: result-source}
+    option-owner:
+        kind: 'function_item, closure_expression'
+        has: {field: return_type, kind: generic_type, has: {field: type, regex: '^Option$'}}
+    tail:
+        nthChild: {position: 1, reverse: true}
+        inside: {kind: block, inside: {matches: option-owner, field: body}}
+    returned:
+        inside: {kind: return_expression, inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: option-owner}}
+    bound-elsewhere:
+        kind: identifier
+        pattern: $R
+        not:
+            any:
+                - inside: {kind: 'let_declaration, parameter, closure_parameters', field: pattern}
+                - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: try_expression
+          has: {matches: ok-call}
+        - kind: call_expression
+          has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(unwrap_or|unwrap_or_else|unwrap_or_default|map|map_or|map_or_else|map_or_default|and_then|and|flatten|filter|zip|xor|or|or_else|ok_or|ok_or_else|is_some|is_none|is_some_and|is_none_or|unwrap|expect|iter|into_iter|as_ref|as_deref|as_mut|cloned|copied|take)$'}}, {has: {field: value, matches: ok-call}}]}
+        - all: [{matches: ok-call}, {any: [{matches: tail}, {matches: returned}]}]
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter_map|flat_map)$'}}
+            - has: {field: arguments, has: {matches: ok-function}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_ok|is_err)$'}}, {has: {field: value, matches: result-source}}]}
+            - matches: no-arguments
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_ok|is_err)$'}}, {has: {field: value, kind: identifier, pattern: $R}}]}
+            - matches: no-arguments
+            - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {kind: let_declaration, all: [{has: {field: pattern, kind: identifier, pattern: $R}}, {has: {field: value, matches: result-source}}]}}
+            - not: {inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, matches: bound-elsewhere}}}
+        - kind: if_expression
+          all:
+            - has: {field: condition, any: [{matches: ok-condition}, {kind: let_chain, has: {matches: ok-condition}}]}
+            - not: {has: {field: alternative, pattern: $_}}
+        - kind: if_expression
+          all:
+            - has: {field: condition, kind: let_condition, has: {field: pattern, matches: err-pattern}}
+            - has: {field: consequence, matches: empty-body}
+            - not: {has: {field: alternative, pattern: $_}}
+        - kind: match_arm
+          all:
+            - has: {field: pattern, has: {matches: discarded-error}, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: value, any: [{matches: empty-body}, {matches: leaving-body}]}
+        - kind: let_declaration
+          all:
+            - has: {field: pattern, matches: ok-pattern}
+            - has: {field: alternative, pattern: $_}
+message: '`$SITE` turns a failure into absence, a flag, or nothing and drops its reason'
+note: 'Keep the `Result` and propagate it with `?`, map the error into the caller''s variant with `map_err`, or recover through a closure that reads the error, a function that cannot produce a value returns the reason it cannot, a result `inspect_err` hands to a log first stays as written, clippy `manual_unwrap_or_default`, `map_err_ignore`, and `unused_result_ok` report a `Result` resolved to a default'

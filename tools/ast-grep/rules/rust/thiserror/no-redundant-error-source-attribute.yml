@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-redundant-error-source-attribute
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    attribute-run:
+        kind: 'attribute_item, line_comment, block_comment'
+    from-attribute:
+        kind: attribute_item
+        regex: '^#\[\s*from\s*\]$'
+    source-attribute:
+        kind: attribute_item
+        regex: '^#\[\s*source\s*\]$'
+    redundant-source:
+        matches: source-attribute
+        any:
+            - follows: {stopBy: {not: {matches: attribute-run}}, matches: from-attribute}
+            - precedes: {stopBy: {not: {matches: attribute-run}}, matches: from-attribute}
+            - precedes: {stopBy: {not: {matches: attribute-run}}, kind: field_declaration, has: {field: name, regex: '^source$'}}
+    paired-list:
+        kind: ordered_field_declaration_list
+        all:
+            - has: {matches: source-attribute}
+            - has: {matches: from-attribute}
+            - not: {has: {matches: attribute-run, not: {any: [{matches: source-attribute}, {matches: from-attribute}]}}}
+            - has: {field: type, pattern: $TYPE}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: attribute_item}}}}}
+    named-owner:
+        kind: 'enum_variant, struct_item'
+        all:
+            - has: {field: body, kind: field_declaration_list, has: {matches: redundant-source}}
+            - not: {has: {stopBy: end, matches: comment}}
+    other-attribute:
+        kind: attribute_item
+        not: {matches: source-attribute}
+rule:
+    any:
+        - matches: paired-list
+        - kind: enum_variant
+          pattern: $PLAIN
+          matches: named-owner
+          not: {has: {field: body, has: {matches: other-attribute}}}
+        - kind: enum_variant
+          pattern: $ATTRIBUTED
+          matches: named-owner
+          has: {field: body, has: {matches: other-attribute}}
+        - kind: struct_item
+          pattern: $STRUCT
+          matches: named-owner
+        - matches: redundant-source
+          all:
+            - not: {inside: {matches: paired-list}}
+            - not: {inside: {kind: field_declaration_list, inside: {matches: named-owner}}}
+            - precedes: {pattern: $NEXT}
+transform:
+    LIST: {replace: {source: $TYPE, replace: '(?s)^(.*)$', by: '(#[from] $1)'}}
+    STRUCT_STRIPPED: replace($STRUCT, replace='#\[\s*source\s*\]\s*', by='')
+    ATTRIBUTED_STRIPPED: replace($ATTRIBUTED, replace='#\[\s*source\s*\]\s*', by='')
+    PLAIN_JOINED: replace($PLAIN, replace='\s*\n\s*', by=' ')
+    PLAIN_STRIPPED: replace($PLAIN_JOINED, replace='#\[\s*source\s*\]\s*', by='')
+    PLAIN_CLOSED: replace($PLAIN_STRIPPED, replace=',\s*\}', by=' }')
+fix:
+    template: '$NEXT$LIST$STRUCT_STRIPPED$ATTRIBUTED_STRIPPED$PLAIN_CLOSED'
+    expandEnd: {pattern: $_, follows: {kind: attribute_item, regex: '^#\[\s*source\s*\]$'}}
+message: '`#[source]` restates what thiserror reads from `#[from]` or the field name `source`'
+note: 'Delete the attribute, thiserror takes a `#[from]` field or a field named `source` as the error source'

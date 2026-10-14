@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-duplicate-cfg-declaration
+language: rust
+severity: error
+utils:
+    cfg-attribute:
+        kind: attribute_item
+        has: {kind: attribute, has: {nthChild: 1, kind: identifier, regex: '^cfg$'}}
+    function-shape:
+        kind: 'function_item, function_signature_item'
+        all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: parameters, pattern: $PARAMS}
+            - any:
+                - has: {field: return_type, pattern: $RETURN}
+                - all: [{not: {has: {field: return_type, pattern: $_}}}, {has: {field: name, pattern: $RETURN}}]
+            - any:
+                - has: {field: type_parameters, pattern: $GENERICS}
+                - all: [{not: {has: {field: type_parameters, pattern: $_}}}, {has: {field: name, pattern: $GENERICS}}]
+            - any:
+                - has: {kind: where_clause, pattern: $WHERE}
+                - all: [{not: {has: {kind: where_clause}}}, {has: {field: name, pattern: $WHERE}}]
+            - any:
+                - has: {kind: function_modifiers, pattern: $MODIFIERS}
+                - all: [{not: {has: {kind: function_modifiers}}}, {has: {field: name, pattern: $MODIFIERS}}]
+    value-shape:
+        kind: 'const_item, static_item'
+        all:
+            - has: {field: name, pattern: $NAME, not: {regex: '^_$'}}
+            - has: {field: type, pattern: $TYPE}
+    impl-shape:
+        kind: impl_item
+        all:
+            - has: {field: type, pattern: $NAME}
+            - any:
+                - has: {field: trait, pattern: $TRAIT}
+                - all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, pattern: $TRAIT}}]
+            - any:
+                - has: {field: type_parameters, pattern: $GENERICS}
+                - all: [{not: {has: {field: type_parameters, pattern: $_}}}, {has: {field: type, pattern: $GENERICS}}]
+            - any:
+                - has: {kind: where_clause, pattern: $WHERE}
+                - all: [{not: {has: {kind: where_clause}}}, {has: {field: type, pattern: $WHERE}}]
+    declaration-shape:
+        any:
+            - matches: function-shape
+            - matches: value-shape
+            - matches: impl-shape
+rule:
+    kind: 'function_item, function_signature_item, const_item, static_item, impl_item'
+    all:
+        - follows: {stopBy: &run {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: cfg-attribute, pattern: $CFG}
+        - matches: declaration-shape
+        - precedes:
+            stopBy: end
+            all:
+                - matches: declaration-shape
+                - follows: {stopBy: *run, matches: cfg-attribute, not: {pattern: $CFG}}
+message: '`$NAME` repeats one signature under `$CFG` and another `cfg`'
+note: 'Declare `$NAME` once and gate the statements that differ, a `#[cfg(unix)]` and a `#[cfg(windows)]` `let` binding one name inside the body, `cfg_select!` at a `const` value, or one `impl` holding the gated members, declarations with differing signatures stay apart, and the merge rewrites both declarations so no rewrite states it'

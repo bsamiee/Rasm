@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-leaked-box-pointer
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $NN::from(Box::leak($B))
+            - pattern: $NN::from_mut(Box::leak($B))
+            - pattern: $NN::new_unchecked(Box::into_raw($B))
+            - pattern: $NN::new(Box::into_raw($B)).unwrap()
+            - pattern: $NN::new(Box::into_raw($B)).expect($_)
+            - all:
+                - pattern: $NN::new(Box::into_raw($B))
+                - pattern: $OPTION
+                - not: {inside: {kind: field_expression, field: value, has: {field: field, regex: '^(unwrap|expect)$'}}}
+constraints:
+    NN: {regex: '^((::)?(std|core)::)?(ptr::)?NonNull(::<[\s\S]*>)?$'}
+transform:
+    OPEN: {replace: {source: $OPTION, replace: '^[\s\S]+$', by: 'Some('}}
+    CLOSE: {replace: {source: $OPTION, replace: '^[\s\S]+$', by: ')'}}
+    CALL: {replace: {source: $B, replace: '^([\s\S]+)$', by: 'Box::into_non_null($1)'}}
+fix: $OPEN$CALL$CLOSE
+message: '`$NN` wraps the pointer of `$B` through a leak or a raw pointer by hand'
+note: 'Call `Box::into_non_null(<box>)` (Rust 1.99), which yields the pointer with no `&''static mut` borrow or null check between, an unwrapped `NonNull::new(Box::into_raw(..))` becomes `Some(Box::into_non_null(..))` and an `unwrap` or `expect` on it drops'

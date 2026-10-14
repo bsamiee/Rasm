@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-statement-loop
+language: rust
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment, empty_statement'}
+    state-write:
+        any:
+            - kind: call_expression
+              has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: value, kind: identifier, pattern: $STATE}
+                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
+            - kind: 'compound_assignment_expr, assignment_expression'
+              has: {field: left, kind: identifier, pattern: $STATE}
+    write-statement:
+        kind: expression_statement
+        has: {nthChild: 1, matches: state-write}
+    exit-statement:
+        any:
+            - kind: 'break_expression, continue_expression'
+              not: {has: {pattern: $_, not: {kind: label}}}
+            - kind: expression_statement
+              has: {nthChild: 1, kind: 'break_expression, continue_expression', not: {has: {pattern: $_, not: {kind: label}}}}
+    effect-free-let:
+        kind: let_declaration
+        not:
+            has:
+                stopBy: end
+                any:
+                    - kind: 'assignment_expression, compound_assignment_expr, await_expression'
+                    - kind: call_expression
+                      has: {field: function, kind: field_expression, has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append|remove|swap_remove|clear|truncate|drain|retain|entry|or_insert|or_insert_with|or_default|get_or_insert|get_or_insert_with|pop|pop_front|pop_back|take|swap|sort|sort_by|sort_by_key|sort_unstable|dedup|reserve|resize|fill|reverse|send|write|write_all|flush)$'}}
+    write-block:
+        kind: block
+        all:
+            - has: {matches: write-statement}
+            - not: {has: {pattern: $_, matches: slot, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}]}}}
+    guarded-write:
+        kind: expression_statement
+        has:
+            nthChild: 1
+            kind: if_expression
+            all:
+                - not: {has: {field: alternative, pattern: $_}}
+                - has: {field: consequence, matches: write-block}
+    valued-return:
+        kind: return_expression
+        has: {pattern: $_, not: {regex: '^Some\s*\('}}
+    return-block:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, kind: expression_statement, has: {nthChild: 1, matches: valued-return}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+    guarded-return:
+        kind: expression_statement
+        has:
+            nthChild: 1
+            kind: if_expression
+            all:
+                - not: {has: {field: alternative, pattern: $_}}
+                - has: {field: consequence, matches: return-block}
+    accumulating-body:
+        kind: block
+        all:
+            - not: {has: {stopBy: end, kind: await_expression}}
+            - any:
+                - matches: write-block
+                - all:
+                    - has: {matches: guarded-write}
+                    - not: {has: {pattern: $_, matches: slot, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
+    searching-body:
+        kind: block
+        all:
+            - not: {has: {stopBy: end, kind: await_expression}}
+            - has: {matches: guarded-return}
+            - not: {has: {pattern: $_, matches: slot, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
+    plain-next:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^next$'}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - not: {inside: {kind: await_expression}}
+    valued-break:
+        kind: break_expression
+        has: {pattern: $_, not: {kind: label}}
+    declared-before:
+        inside:
+            kind: expression_statement
+            follows:
+                stopBy: end
+                kind: let_declaration
+                all:
+                    - has: {kind: mutable_specifier}
+                    - has: {field: pattern, kind: identifier, pattern: $STATE}
+    iterating-while:
+        kind: while_expression
+        has: {field: condition, kind: let_condition, has: {field: value, matches: plain-next}}
+rule:
+    any:
+        - kind: for_expression
+          all:
+            - has: {field: body, matches: accumulating-body}
+            - matches: declared-before
+        - matches: iterating-while
+          all:
+            - has: {field: body, matches: accumulating-body}
+            - matches: declared-before
+        - kind: for_expression
+          has: {field: body, matches: searching-body}
+        - matches: iterating-while
+          has: {field: body, matches: searching-body}
+        - kind: loop_expression
+          all:
+            - has:
+                field: body
+                has:
+                    nthChild: {position: 1, ofRule: {matches: slot}}
+                    any:
+                        - kind: match_expression
+                          has: {field: value, matches: plain-next}
+                        - kind: expression_statement
+                          has: {kind: match_expression, has: {field: value, matches: plain-next}}
+                        - kind: let_declaration
+                          has: {field: value, any: [{matches: plain-next}, {kind: match_expression, has: {field: value, matches: plain-next}}]}
+            - has: {field: body, has: {stopBy: {kind: 'loop_expression, while_expression, for_expression, closure_expression'}, matches: valued-break}}

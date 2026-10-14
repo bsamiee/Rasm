@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-literal-rust
+language: rust
+severity: error
+ignores: ['**/build.rs', '**/tests/**', '**/benches/**', '**/examples/**']
+utils:
+    number:
+        kind: 'integer_literal, float_literal'
+        regex: '^(0[xXbBoO][0-9A-Fa-f_]{3,}|[0-9][0-9_]{2,}(\.[0-9_]*)?|[0-9]*\.[0-9]{3,})([eE][-+]?[0-9]+)?(_?[uif](8|16|32|64|128|size))?$'
+        not: {regex: '^0?\.0*[1-9](_?f(32|64))?$'}
+    text:
+        any:
+            - kind: string_literal
+              all:
+                - regex: '^"(?s:.{2,})"$'
+                - regex: '[^\\]\w'
+            - kind: raw_string_literal
+              all:
+                - regex: '^r#*"(?s:.{2,})"#*$'
+                - regex: '\w'
+    site:
+        any: [{matches: number}, {matches: text}]
+        not: {inside: {stopBy: end, kind: 'const_item, static_item, attribute_item, inner_attribute_item, token_tree, enum_variant'}}
+    negated:
+        inside: {kind: unary_expression, regex: '^-'}
+    plain-site:
+        matches: site
+        not: {matches: negated}
+    negated-site:
+        all: [{matches: site}, {matches: negated}]
+    earlier-plain:
+        follows: {stopBy: end, any: [{pattern: $LITERAL, matches: plain-site}, {has: {stopBy: end, pattern: $LITERAL, matches: plain-site}}]}
+    earlier-negated:
+        follows: {stopBy: end, any: [{pattern: $LITERAL, matches: negated-site}, {has: {stopBy: end, pattern: $LITERAL, matches: negated-site}}]}
+    owner-value:
+        kind: 'const_item, static_item'
+        has: {field: value, any: [{pattern: $LITERAL}, {has: {stopBy: end, pattern: $LITERAL}}]}
+    owned:
+        inside:
+            kind: source_file
+            stopBy: end
+            has:
+                any:
+                    - matches: owner-value
+                    - kind: impl_item
+                      has: {field: body, has: {matches: owner-value}}
+rule:
+    kind: 'integer_literal, float_literal, string_literal, raw_string_literal'
+    pattern: $LITERAL
+    all:
+        - matches: site
+        - not: {matches: rust-test-scope}
+        - any:
+            - all: [{matches: plain-site}, {any: [{matches: earlier-plain}, {inside: {stopBy: end, matches: earlier-plain}}, {matches: owned}]}]
+            - all: [{matches: negated-site}, {any: [{matches: earlier-negated}, {inside: {stopBy: end, matches: earlier-negated}}]}]
+message: '`$LITERAL` repeats a value an earlier site of the file spells'
+note: 'Declare the value once at its owner, a `const` under `[CONSTANTS]`, an associated `const` of the type it measures, or the library constant stating it (`u16::MAX`, `f64::consts::PI`), and read it at every site'

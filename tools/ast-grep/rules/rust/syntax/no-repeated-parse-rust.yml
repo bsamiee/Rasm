@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-parse-rust
+language: rust
+severity: error
+ignores: ['**/tests/**', '**/benches/**']
+utils:
+    parse-method:
+        kind: field_expression
+        all:
+            - has: {field: field, regex: '^parse$'}
+            - has: {field: value, pattern: $INPUT, not: {regex: '\.(next|next_back|nth|pop|pop_front|pop_back|recv|take|remove)\('}}
+    parser-path:
+        kind: scoped_identifier
+        regex: '::(from_str|from_str_radix|try_from|parse)$'
+    parse-of:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, any: [{matches: parse-method}, {kind: generic_function, has: {field: function, matches: parse-method}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - all:
+                - has: {field: function, matches: parser-path}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $INPUT, not: {regex: '^&\s*mut\b'}}, not: {has: {nthChild: 3}}}
+    after-parse:
+        inside: {kind: block}
+        follows: {stopBy: end, any: [{matches: parse-of}, {has: {stopBy: {kind: block}, matches: parse-of}}]}
+    parse-stream:
+        inside:
+            kind: 'function_item, closure_expression'
+            stopBy: end
+            any:
+                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: type, regex: 'Parse(Stream|Buffer)\b'}}]}}
+                - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: value, regex: '\.(fork|lookahead1)\(\)$'}}]}
+    keyed-parse:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, pattern: $ARGUMENT}}]}}, {has: {field: type_arguments, pattern: $KEY}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - all:
+                - has: {field: function, matches: parser-path, pattern: $KEY}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $ARGUMENT}, not: {has: {nthChild: 2}}}
+    owner-parse:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, kind: identifier, pattern: $PARAMETER}}]}}, {has: {field: type_arguments, pattern: $KEY}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - all:
+                - has: {field: function, matches: parser-path, pattern: $KEY}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}, not: {has: {nthChild: 2}}}
+    owner-shape:
+        kind: function_item
+        all:
+            - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, all: [{has: {field: pattern, kind: identifier, pattern: $PARAMETER}}, {has: {field: type, kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}}]}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: body, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: owner-parse}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+    owner:
+        matches: owner-shape
+        has: {field: name, pattern: $OWNER}
+    holder:
+        matches: owner-shape
+        has: {field: name, pattern: $HOLDER}
+    declared-as:
+        inside:
+            kind: 'function_item, closure_expression'
+            stopBy: end
+            any:
+                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, matches: declared-type}}]}}
+                - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, matches: declared-type}}]}
+    direct-shape:
+        any:
+            - kind: identifier
+              matches: declared-as
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(trim|trim_start|trim_end|as_str)$'}}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    borrowed-shape:
+        kind: identifier
+        inside:
+            kind: 'function_item, closure_expression'
+            stopBy: end
+            any:
+                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, kind: type_identifier, regex: '^String$'}}]}}
+                - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, kind: type_identifier, regex: '^String$'}}]}
+    declared-type:
+        kind: reference_type
+rule:
+    pattern: $SECOND
+    not: {matches: rust-test-scope}
+    any:
+        - matches: parse-of
+          pattern: $SAME
+          all:
+            - any:
+                - matches: after-parse
+                - inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: after-parse}
+            - not: {matches: parse-stream}
+        - matches: keyed-parse
+          all:
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: owner}}
+            - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $OWNER}}}
+            - has: {stopBy: end, all: [{pattern: $ARGUMENT}, {pattern: $DIRECT}, {matches: direct-shape}]}
+        - matches: keyed-parse
+          all:
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: owner}}
+            - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $OWNER}}}
+            - has: {stopBy: end, all: [{pattern: $ARGUMENT}, {pattern: $BORROWED}, {matches: borrowed-shape}]}
+        - matches: keyed-parse
+          pattern: $SAME
+          all:
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: holder}}
+            - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $HOLDER}}}
+transform:
+    CALL_DIRECT: {replace: {source: $DIRECT, replace: '^((?s).+)$', by: '($1)'}}
+    CALL_BORROWED: {replace: {source: $BORROWED, replace: '^((?s).+)$', by: '(&$1)'}}
+fix: $OWNER$CALL_DIRECT$CALL_BORROWED$SAME
+message: '`$SECOND` repeats a parse an earlier site of the file owns'
+note: 'Parse the input once at the boundary into its domain type and pass the value, every later reader receives the validated value, and a site parsing with the parser a one-parameter function of the file owns calls that function, the fix borrows a `String` argument and passes a reference-typed one as is'

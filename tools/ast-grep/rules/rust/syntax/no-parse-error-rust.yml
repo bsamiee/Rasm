@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-rust
+language: rust
+severity: error
+utils:
+    foreign-item:
+        kind: ERROR
+        regex: '^(safe|(pub(\s*\([^)]*\))?\s+)?type\s+\w+)$'
+        inside: {kind: declaration_list, stopBy: {kind: declaration_list}, inside: {kind: foreign_mod_item}}
+    macro-token:
+        kind: ERROR
+        regex: '^(~[~\s]*|\$)$'
+        inside: {kind: 'token_tree, token_tree_pattern'}
+    struct-where:
+        kind: ERROR
+        regex: '^where\b'
+        inside: {kind: struct_item}
+    unit-bound:
+        kind: type_identifier
+        inside: {kind: tuple_type, regex: '^\(\s*\)$', inside: {kind: where_predicate}}
+    empty-raw-string:
+        kind: string_content
+        inside: {kind: raw_string_literal}
+    unreported:
+        any:
+            - inside: {kind: ERROR, stopBy: end}
+            - matches: foreign-item
+            - matches: macro-token
+            - matches: struct-where
+            - matches: unit-bound
+            - matches: empty-raw-string
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: source_file
+          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: >-
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Call a macro named after a primitive type by its path (`snapbox::str![..]`). Unreported tree-sitter-rust grammar gaps are `safe` items and foreign types of an `extern` block (`pub safe fn sqrt(x: f64) -> f64;`, `pub type Node;`), `~` and lone `$` tokens in a macro token tree, a `where` clause on a unit struct (`struct Marker where T: Send;`), the unit type bounded in a `where` clause (`(): Bound<T>`), and the empty content of a raw string (`r""`)

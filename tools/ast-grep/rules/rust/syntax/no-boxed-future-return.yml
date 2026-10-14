@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-boxed-future-return
+language: rust
+severity: error
+utils:
+    boxed-future:
+        any:
+            - {kind: generic_type, regex: '^(\w+::)*Box\s*<\s*dyn\s+(\w+::)*Future\b'}
+            - {kind: 'type_identifier, generic_type', regex: '^(\w+::)*(Local)?BoxFuture\b'}
+    handed-future:
+        any:
+            - matches: boxed-future
+            - kind: generic_type
+              all:
+                - has: {field: type, regex: '^(\w+::)*(Pin|Option|Result)$'}
+                - has: {field: type_arguments, has: {matches: handed-future}}
+            - kind: tuple_type
+              has: {matches: handed-future}
+    own-name:
+        any:
+            - {kind: identifier, pattern: $NAME}
+            - kind: scoped_identifier
+              all: [{has: {field: path, regex: '^Self$'}}, {has: {field: name, pattern: $NAME}}]
+            - kind: field_expression
+              all: [{has: {field: value, kind: self}}, {has: {field: field, pattern: $NAME}}]
+    own-call:
+        kind: call_expression
+        has: {field: function, any: [{matches: own-name}, {kind: generic_function, has: {field: function, matches: own-name}}]}
+    value-use:
+        any:
+            - {kind: identifier, pattern: $NAME}
+            - {kind: scoped_identifier, has: {field: name, pattern: $NAME}}
+        inside: {kind: 'arguments, field_initializer, shorthand_field_initializer, array_expression, tuple_expression, let_declaration'}
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: return_type, matches: handed-future}
+        - not: {matches: rust-fixed-signature}
+        - not: {inside: {kind: declaration_list, inside: {kind: trait_item}}}
+        - not: {has: {field: body, has: {stopBy: end, matches: own-call}}}
+        - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: value-use}}}
+message: '`$NAME` returns a boxed trait-object future'
+note: 'Declare `async fn` or return `impl Future<Output = <value>>`, each returns the concrete future with its auto traits and no allocation, and a trait method, a recursive async function, or a function stored as a value keeps the nameable box'

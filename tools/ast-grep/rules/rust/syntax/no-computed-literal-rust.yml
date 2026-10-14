@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-computed-literal-rust
+language: rust
+severity: error
+ignores: ['**/tests/**', '**/benches/**']
+utils:
+    literal:
+        any:
+            - kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'
+            - kind: unary_expression
+              regex: '^-'
+              has: {kind: 'integer_literal, float_literal'}
+    number:
+        any:
+            - kind: 'integer_literal, float_literal'
+            - kind: unary_expression
+              regex: '^-'
+              has: {kind: 'integer_literal, float_literal'}
+    text:
+        kind: 'string_literal, raw_string_literal'
+    fixed-token:
+        any:
+            - kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'
+            - kind: identifier
+              regex: '^(env|option_env|concat|stringify|file|line|column|module_path|std|core|alloc)$'
+              precedes: {regex: '^(!|::)$'}
+            - kind: token_tree
+              follows: {regex: '^!$'}
+    fixed-format:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((::)?(std|alloc)::)?format$'}
+            - has:
+                kind: token_tree
+                all:
+                    - has: {nthChild: 1, kind: string_literal, not: {any: [{regex: '\{[A-Za-z_]'}, {regex: '\{[^}]*[0-9][^}]*\}'}, {regex: '^"\{(:\?)?\}"$'}]}}
+                    - has: {regex: '^,$'}
+                    - not: {has: {pattern: $_, not: {matches: fixed-token}}}
+                    - not: {has: {regex: '^(default|union|gen|raw|self|crate|super)$'}}
+    fixed-concat:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((::)?(std|core)::)?concat$'}
+            - has:
+                kind: token_tree
+                all:
+                    - has: {nthChild: 2, kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'}
+                    - not: {has: {pattern: $_, not: {kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'}}}
+    literal-path-join:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^join$'}
+                    - has:
+                        field: value
+                        kind: call_expression
+                        all:
+                            - has: {field: function, regex: '^((::)?(std::path::|camino::))?(Utf8)?Path(Buf)?::(new|from)$'}
+                            - has: {field: arguments, has: {nthChild: 1, matches: text}, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, has: {nthChild: 1, matches: text, not: {regex: '^r?#*"(/|[A-Za-z]:|\\)'}}, not: {has: {nthChild: 2}}}
+    literal-array-join:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^(concat|join)$'}
+                    - has: {field: value, kind: array_expression, has: {kind: string_literal}, not: {has: {pattern: $_, not: {kind: string_literal}}}}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {kind: 'string_literal, char_literal'}}}}
+    literal-text-method:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: value, matches: text}
+                    - has: {field: field, regex: '^(to_uppercase|to_lowercase|to_ascii_uppercase|to_ascii_lowercase|trim|trim_start|trim_end|trim_matches|trim_start_matches|trim_end_matches|replace|replacen|strip_prefix|strip_suffix)$'}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
+    owned-text:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: text}}, {has: {field: field, regex: '^(to_string|to_owned|into)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((::)?(std|alloc)::string::)?String::from$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: text}, not: {has: {nthChild: 2}}}
+    literal-concat:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: left, any: [{matches: owned-text}, {matches: literal-concat}]}
+            - has: {field: right, any: [{matches: text}, {matches: owned-text}]}
+    arith-operand:
+        any:
+            - matches: number
+            - kind: parenthesized_expression
+              has: {matches: arith-operand}
+            - matches: literal-arith
+    literal-arith:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(\+|-|\*|/|%|<<|>>|&|\||\^)$'}
+            - has: {field: left, matches: arith-operand}
+            - has: {field: right, matches: arith-operand}
+    outer:
+        not: {inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: binary_expression, matches: computed-operator}}
+    computed-operator:
+        any: [{matches: literal-arith}, {matches: literal-concat}]
+rule:
+    pattern: $COMPUTED
+    any:
+        - matches: fixed-format
+        - matches: fixed-concat
+        - matches: literal-path-join
+        - matches: literal-array-join
+        - matches: literal-text-method
+        - all: [{matches: literal-concat}, {matches: outer}]
+        - all: [{matches: literal-arith}, {matches: outer}, {not: {matches: rust-const-context}}, {not: {matches: rust-test-scope}}]
+message: '`$COMPUTED` computes a literal from literals'
+note: 'Write one literal holding the result, or bind arithmetic to a `const` named for the fact it derives, a reader sees the value without evaluating code, joined constant path segments take `PathBuf::from("<base>/<segment>")` and text built from `env!` values takes `concat!(<piece>, env!("<NAME>"))`'

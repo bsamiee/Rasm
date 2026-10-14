@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-leaked-allocation
+language: rust
+severity: error
+utils:
+    leaking-type:
+        regex: '^((::)?(std|alloc)::(boxed|vec|string)::)?(Box|Vec|String)$'
+    leaking-path:
+        any:
+            - {kind: 'identifier, scoped_identifier', matches: leaking-type}
+            - {kind: generic_type, has: {field: type, matches: leaking-type}}
+    leak-path:
+        kind: scoped_identifier
+        all:
+            - has: {field: name, regex: '^leak$'}
+            - has: {field: path, matches: leaking-path}
+    owned-type:
+        any:
+            - {kind: 'type_identifier, scoped_type_identifier', matches: leaking-type}
+            - {kind: generic_type, has: {field: type, matches: leaking-type}}
+    owned-expression:
+        any:
+            - kind: macro_invocation
+              has: {field: macro, regex: '^(((std|alloc)::)?\w+::)?(format|vec)$'}
+            - kind: call_expression
+              has: {field: function, kind: scoped_identifier, all: [{has: {field: name, regex: '^(new|from|with_capacity)$'}}, {has: {field: path, matches: leaking-path}}]}
+    owned-binding:
+        any:
+            - kind: parameter
+              all: [{has: {field: pattern, kind: identifier, pattern: $R}}, {has: {field: type, matches: owned-type}}]
+            - kind: let_declaration
+              all:
+                - has: {field: pattern, kind: identifier, pattern: $R}
+                - any: [{has: {field: type, matches: owned-type}}, {has: {field: value, matches: owned-expression}}]
+    owned-receiver:
+        any:
+            - matches: owned-expression
+            - kind: identifier
+              pattern: $R
+              inside: {kind: function_item, stopBy: end, any: [{has: {field: parameters, has: {matches: owned-binding}}}, {has: {field: body, has: {stopBy: end, matches: owned-binding}}}]}
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - any:
+            - has: {field: function, any: [{matches: leak-path}, {kind: generic_function, has: {field: function, matches: leak-path}}]}
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^leak$'}}, {has: {field: value, matches: owned-receiver}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+        - not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((::)?(std|core)::)?(ptr::)?NonNull(::<[\s\S]*>)?::(from|from_mut)$'}}}}
+message: '`$CALL` leaks its allocation for the process lifetime'
+note: 'Hold the value in `main` and pass `&` or `Arc`, or store it in the owner that outlives every reader, a leaked allocation has no release path, a `Box::leak` under `NonNull::from` is the site of `no-leaked-box-pointer`'

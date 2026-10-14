@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-constant-rust
+language: rust
+severity: error
+utils:
+    literal:
+        any:
+            - kind: 'integer_literal, float_literal, string_literal, raw_string_literal, char_literal, boolean_literal, negative_literal, scoped_identifier'
+            - kind: 'array_expression, tuple_expression, reference_expression, parenthesized_expression, binary_expression, unary_expression'
+              not: {has: {pattern: $_, not: {matches: literal}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: scoped_identifier}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
+    reference:
+        kind: identifier
+        pattern: $NAME
+        not: {inside: {kind: 'const_item, static_item', field: name}}
+    reader:
+        kind: function_item
+        pattern: $READER
+        not: {inside: {kind: function_item, stopBy: end}}
+        has: {stopBy: end, matches: reference}
+rule:
+    kind: 'const_item, static_item'
+    all:
+        - not: {has: {kind: visibility_modifier, not: {regex: '^pub\s*\(\s*self\s*\)$'}}}
+        - not: {follows: {kind: attribute_item}}
+        - has: {field: name, pattern: $NAME}
+        - has: {field: value, matches: literal}
+        - any:
+            - inside: {kind: source_file}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, not: {has: {field: trait, pattern: $_}}}}
+        - inside:
+            kind: source_file
+            stopBy: end
+            all:
+                - has: {stopBy: end, matches: reader}
+                - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER}}}}
+labels:
+    READER: {style: secondary, message: Only reader}
+message: 'Constant `$NAME` has one reader'
+note: 'Bind the value inside its one reader, as a block-level `const` or a `let` where its name states a fact and inline otherwise, module level holds entry points and the types they return'

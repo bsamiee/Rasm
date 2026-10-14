@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-function-rust
+language: rust
+severity: error
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    named-callee:
+        any:
+            - {kind: identifier, not: {regex: '^Self$'}}
+            - kind: scoped_identifier
+            - kind: generic_function
+              has: {field: function, kind: 'identifier, scoped_identifier'}
+            - kind: field_expression
+              has: {field: value, kind: self}
+    forwarded-call:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: named-callee, pattern: $F}
+            - has: {field: arguments, pattern: $ARGS}
+    forwarding-statement:
+        any:
+            - matches: forwarded-call
+            - kind: 'await_expression, expression_statement, return_expression'
+              has: {nthChild: 1, matches: forwarding-statement}
+    forwarding-body:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: forwarding-statement}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+    parameter-name:
+        kind: parameter
+        has: {field: pattern, kind: identifier, pattern: $X}
+    unforwarded-argument:
+        any:
+            - all:
+                - pattern: $_
+                - not: {kind: 'identifier, line_comment, block_comment'}
+            - kind: identifier
+              pattern: $X
+              not: {inside: {kind: function_item, stopBy: &owner {kind: function_item}, has: {field: parameters, has: {matches: parameter-name}}}}
+            - kind: identifier
+              pattern: $X
+              precedes: {stopBy: {kind: identifier}, kind: identifier, pattern: $Y}
+              not:
+                inside:
+                    kind: function_item
+                    stopBy: *owner
+                    has:
+                        field: parameters
+                        has:
+                            matches: parameter-name
+                            precedes: {stopBy: {kind: 'parameter, self_parameter'}, kind: parameter, has: {field: pattern, pattern: $Y}}
+    misplaced-leading-argument:
+        kind: identifier
+        nthChild: {position: 1, ofRule: {not: {matches: comment}}}
+        pattern: $X
+        not: {inside: {kind: function_item, stopBy: *owner, has: {field: parameters, has: {matches: parameter-name, nthChild: {position: 1, ofRule: {kind: parameter}}}}}}
+    unforwarded-parameter:
+        not: {kind: self_parameter}
+        any:
+            - not: {matches: parameter-name}
+            - all:
+                - matches: parameter-name
+                - not: {inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, kind: arguments, pattern: $ARGS, has: {kind: identifier, pattern: $X}}}}}}
+    plain-attribute:
+        kind: attribute_item
+        regex: '^#\[\s*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)\b'
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME, not: {regex: '^main$'}}
+        - has: {field: body, matches: forwarding-body}
+        - not: {has: {field: body, has: {stopBy: end, kind: call_expression, has: {field: function, any: [{pattern: $NAME}, {pattern: self.$NAME}, {pattern: 'Self::$NAME'}]}}}}
+        - any:
+            - not: {has: {kind: function_modifiers, regex: '\basync\b'}}
+            - has: {field: body, has: {stopBy: end, kind: await_expression}}
+        - not: {has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $F}}}}
+        - not: {has: {field: body, has: {stopBy: end, pattern: $ARGS, has: {pattern: $_, matches: unforwarded-argument}}}}
+        - not: {has: {field: body, has: {stopBy: end, pattern: $ARGS, has: {matches: misplaced-leading-argument}}}}
+        - not: {has: {field: parameters, has: {pattern: $_, matches: unforwarded-parameter}}}
+        - not: {inside: {kind: impl_item, stopBy: end, has: {field: type, any: [{pattern: $F}, {has: {field: type, pattern: $F}}]}}}
+        - not: {inside: {kind: declaration_list, inside: {kind: trait_item}}}
+        - not: {matches: rust-fixed-signature}
+        - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, not: {matches: plain-attribute}}}
+message: 'Function forwards its parameters unchanged to `$F`'
+note: 'Call `<callee>` at each call site, and re-export it by name (`pub use <path>::<callee>;`) where the forwarder widened its visibility'

@@ -1,0 +1,32 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name = "dir_entry_path_file_name"
+edition.workspace = true
+
+[package.metadata.rust-analyzer]
+rustc_private = true
+
+# --- [LIB] ------------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+crate-type = ["cdylib"]
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+
+[dev-dependencies]
+dylint_testing = { workspace = true }
+fs-err = { workspace = true }
+ignore = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }

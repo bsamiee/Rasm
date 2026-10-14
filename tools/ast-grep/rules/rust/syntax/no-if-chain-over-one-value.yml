@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-if-chain-over-one-value
+language: rust
+severity: error
+utils:
+    pattern-operand:
+        any:
+            - kind: 'integer_literal, char_literal, boolean_literal, float_literal, scoped_identifier'
+            - {kind: identifier, regex: '^[A-Z][A-Z0-9_]*$'}
+            - kind: unary_expression
+              regex: '^-'
+              has: {kind: 'integer_literal, float_literal'}
+            - kind: call_expression
+              all:
+                - has: {field: function, any: [{kind: identifier, regex: '^[A-Z]'}, {kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}]}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {matches: pattern-operand}}}}
+    text-operand:
+        kind: 'string_literal, raw_string_literal'
+    equality:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^==$'}
+            - has: {field: left, pattern: $VALUE}
+    constant-condition:
+        any:
+            - matches: equality
+              has: {field: right, matches: pattern-operand}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^matches$'}
+                - any:
+                    - pattern: matches!($VALUE, $$$_)
+                    - pattern: matches!($VALUE.$FIELD, $$$_)
+                    - pattern: matches!(*$VALUE, $$$_)
+            - kind: let_condition
+              has: {field: value, pattern: $VALUE}
+    text-condition:
+        matches: equality
+        has: {field: right, matches: text-operand}
+    constant-test:
+        kind: if_expression
+        has: {field: condition, matches: constant-condition}
+    text-test:
+        kind: if_expression
+        has: {field: condition, matches: text-condition}
+    chained:
+        has: {field: alternative, kind: else_clause, has: {kind: if_expression, any: [{matches: constant-test}, {matches: text-test}]}}
+rule:
+    kind: if_expression
+    all:
+        - not: {inside: {kind: else_clause}}
+        - any:
+            - all:
+                - matches: constant-test
+                - matches: chained
+            - all:
+                - matches: text-test
+                - matches: chained
+                - any:
+                    - matches: rust-text-decoder
+                    - has: {field: consequence, matches: rust-variant-value}
+message: '`if` chain tests `$VALUE` branch by branch'
+note: 'Write one `match` over the value with an arm per constant or pattern (`match <value> { <pattern> => .., <pattern> => .. }`), the compiler then checks the arms for overlap and exhaustiveness, a chain over text literals outside a decoder is a string tag branch'

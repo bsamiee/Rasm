@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-formatted-map-key
+language: rust
+severity: error
+utils:
+    literal:
+        kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'
+    joined-key:
+        any:
+            - matches: rust-interpolating-format
+              has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"(\{[^{}]*\}[-:./#|_@ ]{1,2})+\{[^{}]*\}"$'}}
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    kind: field_expression
+                    all:
+                        - has: {field: field, regex: '^(join|concat)$'}
+                        - has: {field: value, kind: array_expression, all: [{has: {nthChild: 2}}, {has: {pattern: $_, not: {matches: literal}}}]}
+                - any:
+                    - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"[-:./#|_@ ]{1,2}"$'}, not: {has: {nthChild: 2}}}
+                    - all:
+                        - has: {field: function, has: {field: field, regex: '^concat$'}}
+                        - has: {field: arguments, not: {has: {pattern: $_}}}
+    keyed-call:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(insert|get|get_mut|entry|contains_key|remove)$'}}
+    key-name:
+        regex: '(?i)(^|_)(id|key)$'
+rule:
+    matches: joined-key
+    pattern: $KEY
+    any:
+        - nthChild: 1
+          inside: {kind: arguments, inside: {matches: keyed-call}}
+        - inside: {kind: reference_expression, nthChild: 1, inside: {kind: arguments, inside: {matches: keyed-call}}}
+        - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, regex: '(?i)(^|_)id$'}}
+        - inside:
+            kind: let_declaration
+            has: {field: pattern, kind: identifier, pattern: $BOUND}
+            precedes: {stopBy: end, has: {stopBy: end, matches: keyed-call, has: {field: arguments, has: {nthChild: 1, any: [{pattern: $BOUND}, {kind: reference_expression, has: {pattern: $BOUND}}]}}}}
+        - inside: {kind: field_initializer, has: {field: field, matches: key-name}}
+        - inside: {kind: assignment_expression, has: {field: left, matches: key-name}}
+        - nthChild: 1
+          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(Id|Key)$'}}}
+message: '`$KEY` joins typed parts into a text key'
+note: 'Key the map by a tuple `(<a>, <b>)` or a struct deriving `Hash` and `Eq`, the parts stay typed and no separator can collide with a part''s text'

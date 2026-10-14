@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parameter-accumulator-rust
+language: rust
+severity: error
+utils:
+    out-type:
+        any:
+            - kind: primitive_type
+            - {kind: type_identifier, regex: '^String$'}
+            - kind: generic_type
+              has: {field: type, regex: '(^|::)(Option|Vec|VecDeque|BTreeMap|BTreeSet|HashMap|HashSet|IndexMap|IndexSet)$'}
+    out-parameter:
+        kind: parameter
+        all:
+            - has: {field: pattern, kind: identifier, pattern: $P}
+            - has: {field: type, kind: reference_type, all: [{has: {kind: mutable_specifier}}, {has: {field: type, matches: out-type}}]}
+    target:
+        any:
+            - {kind: identifier, pattern: $P}
+            - {kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $P}}
+            - {kind: parenthesized_expression, has: {matches: target}}
+    write:
+        any:
+            - kind: 'assignment_expression, compound_assignment_expr'
+              has: {field: left, matches: target}
+            - kind: call_expression
+              has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: value, matches: target}
+                    - has: {field: field, regex: '^(push|push_str|push_back|push_front|insert|insert_str|extend|append|clear|remove|retain|truncate|drain|sort|sort_by|sort_by_key|sort_unstable|dedup|replace|take|get_or_insert|get_or_insert_with|entry|pop|resize|swap_remove|reserve)$'}
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has:
+            field: parameters
+            has:
+                matches: out-parameter
+                inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, matches: write, pattern: $WRITE}}}}
+        - not: {matches: rust-fixed-signature}
+message: '`$WRITE` writes the result of `$NAME` into its parameter `$P`'
+note: 'Return the value, or a `Result` holding it, and let the caller bind it, a `&mut` flag, option, string, or collection argument shares mutable state between caller and callee'

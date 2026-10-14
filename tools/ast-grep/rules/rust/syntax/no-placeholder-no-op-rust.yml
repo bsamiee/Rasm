@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-placeholder-no-op-rust
+language: rust
+severity: error
+utils:
+    cfg-attribute:
+        follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\b'}
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, kind: block, not: {has: {pattern: $_, not: {kind: 'line_comment, block_comment'}}}}
+        - inside: {kind: declaration_list, inside: {kind: impl_item, not: {has: {field: trait, pattern: $_}}}}
+        - not: {matches: cfg-attribute}
+        - not: {inside: {stopBy: end, kind: 'impl_item, mod_item', matches: cfg-attribute}}
+message: 'Inherent method `$NAME` holds an empty body'
+note: 'Delete the method and each call to it, a no-op member stands in for behavior the type lacks'

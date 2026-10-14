@@ -15,6 +15,7 @@ Rasm/
 ├── libs/                     # Packages, one directory per language
 │   ├── dotnet/
 │   ├── python/
+│   ├── rust/
 │   └── typescript/
 ├── tests/                    # Shared test support per language and suites outside libs/
 ├── eng/
@@ -24,7 +25,8 @@ Rasm/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines, rules, and utilities per language
-│   ├── bridge/               # Streamable HTTP bridge every stdio MCP server's launchd agent runs through
+│   ├── bridge/               # mcp-bridge binary serving each launchd agent's stdio MCP server over Streamable HTTP
+│   ├── dylint/               # Rust lint libraries, one crate per lint
 │   └── nx/                   # Nx plugin inferring a project from each project file
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
 ├── mise.toml                 # Tool binaries and process environment
@@ -46,15 +48,22 @@ Rasm/
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
+├── rust-toolchain.toml       # Rust toolchain channel and components rustup and mise read
+├── rustfmt.toml              # Rust format rules
+├── clippy.toml               # Clippy lint options Cargo.toml lint tables lack
+├── Cargo.toml                # Rust workspace members, dependency catalog, lints, and profiles
 ├── .editorconfig             # Editor settings and .NET analyzer severity
+├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
 ├── .lldbinit                 # LLDB MCP server start every Xcode scheme's Run loads
 ├── .yamllint.yaml, .yamlfmt  # YAML lint and format
+├── .cargo/                   # Cargo build directories, warning policy, compiler flags, and unstable Cargo flags
 ├── .github/                  # Continuous integration and repository workflows
 ├── .claude/                  # Agent harness knowledge and settings
 ├── .mcp.json                 # Agent harness MCP servers
 ├── .codex/                   # Codex harness knowledge and settings
+├── .vscode/                  # Editor settings and recommended extensions
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
 ```
@@ -65,7 +74,7 @@ Rasm/
 flowchart LR
     subgraph toolchain ["Toolchain"]
         direction TB
-        mise_tools["mise.toml [tools], global.json"] --> binaries["Tool binaries"]
+        mise_tools["mise.toml [tools], global.json, rust-toolchain.toml"] --> binaries["Tool binaries"]
         mise_env["mise.toml [env]"] --> processes["Every process"]
         xcode["xcode-select"] --> apple_tools["Xcode toolchain and macOS SDK"]
         brew["Homebrew formula ghidra"] --> ghidra_tool["Ghidra install"]
@@ -75,6 +84,7 @@ flowchart LR
         direction TB
         catalog_ts["pnpm-workspace.yaml catalog"] --> lock_ts["pnpm-lock.yaml"]
         catalog_py["pyproject.toml dependencies and groups"] --> lock_py["uv.lock, .venv/bin on PATH"]
+        catalog_rust["Cargo.toml [workspace.dependencies]"] --> lock_rust["Cargo.lock"]
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
         catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
         catalog_swift[".xcodeproj package requirements"] --> lock_swift["Package.resolved"]
@@ -91,7 +101,7 @@ flowchart LR
         direction TB
         lint["nx run rasm:lint"] --> checkers["One cached target per portable checker"]
         format_tree["nx run rasm:format"] --> writers["Every portable writer, then .NET fixes"]
-        check_all["nx run-many -t check"] --> project_check["Build, typecheck, or test per project"]
+        check_all["nx run-many -t check"] --> project_check["Build, typecheck, test, or lint per project"]
         check_affected["nx affected -t check"] --> project_check
         ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner"]
     end
@@ -109,11 +119,11 @@ flowchart LR
 - `--skip-nx-cache` runs a build in place of an Nx cache replay
 - `nx run <project>:install` builds or packs a project, then installs its product into its host
 - `nx run <project>:pack` writes a project's product as the package its host installs
-- `nx run rasm:upgrade` moves catalogs, Swift package locks, and tool binaries to newest builds
+- `nx run rasm:upgrade` moves catalogs, Swift package locks, the Rust nightly date, and tool binaries to newest builds
 - `nx run rasm:clean` removes declared outputs and tool residue, prunes unused installations and caches, and recovers stale macOS processes
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- Workspace plugin names each project's tags and targets by project file and Python edges by import, `@nx/dotnet` and `@nx/vitest` infer theirs
+- Workspace plugin names each project's tags and targets by project file, Python edges by import, and Rust edges by catalog path row, `@nx/dotnet` and `@nx/vitest` infer theirs
 - File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
 - `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
 - `nx run rasm:format:files -- <paths>` runs each portable writer over the named paths it formats
@@ -129,7 +139,7 @@ flowchart LR
 | :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------- |
 |  [01]   | Tool binary                    | `mise.toml` `[tools]` at `latest`, prereleases included                                              |
 |  [02]   | Process variable               | `mise.toml` `[env]`                                                                                  |
-|  [03]   | SDK version                    | `global.json` for .NET, `xcode-select` for Swift                                                     |
+|  [03]   | SDK version                    | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
 |  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
 |  [05]   | .NET tool package              | `dotnet dnx <id>` on the command                                                                     |
 |  [06]   | Task graph                     | `nx.json`, root `package.json` `nx`                                                                  |
@@ -140,10 +150,11 @@ flowchart LR
 |  [11]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                                         |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
 |  [13]   | Swift package version          | `.xcodeproj` package requirement                                                                     |
-|  [14]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [15]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
-|  [16]   | MCP tool a skill replaces      | `--hide <glob>` on server's `mise.toml` launchd agent row                                            |
-|  [17]   | Python runtime version         | Nested `requires-python` at the root of the folder holding host code                                 |
+|  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
+|  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
+|  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
+|  [17]   | MCP tool a skill replaces      | `mcp-bridge --hide <glob>` on server's `mise.toml` launchd agent row                                 |
+|  [18]   | Python runtime version         | Nested `requires-python` at the root of the folder holding host code                                 |
 
 - Tool rows name a release where `latest` resolves a development build
 - Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
@@ -156,11 +167,12 @@ flowchart LR
 - .NET `format` applies whitespace, style, and analyzer fixes
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc` under strict options
+- Rust: `cargo clippy`, `cargo dylint`, `cargo fmt --check`, and `cargo shear` at zero findings
 - Swift: warnings as errors, strict memory safety, every supported upcoming feature, `swift-format lint --strict` and `swiftlint lint` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Checker decisions: PMD `AvoidAccessibilityAlteration` skips `use-ghidra` `Headers.run`, Ghidra's `PreProcessor` takes a `DefineTable` through package-private field `defs` alone
 - Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
-- Writers: `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format`
+- Writers: `ruff format`, Biome, yamlfmt, rustfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format`
 
 ## [06]-[STRUCTURE]
 
@@ -169,6 +181,7 @@ flowchart LR
 - Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
 - Product assets sit in the folder their build reads: `Assets/` for .NET, `Resources/` for Xcode, `icons/` for Blender, `public/` for Vite
 - Libraries group under `libs/<language>/<group>/` by domain or by host
+- Rust library crates sit at `libs/rust/<crate>/`, named for their domain with no prefix
 - Host groups hold every project built against the host's API
 - Task graph takes the host list from the `apps/<host>/` folders and tags a project by the host name in its path, .NET build takes Rhino hosts from the `rhino/` path folder
 - Python packages build into one `rasm` wheel
@@ -176,7 +189,7 @@ flowchart LR
 - `Grasshopper2` package references add Grasshopper 2 global usings
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`
-- Project files are `.csproj`, `.cs` files opening with `#!`, `package.json` with `tsconfig.json`, `py.typed`, `blender_manifest.toml`, and `.xcodeproj`
+- Project files are `.csproj`, `.cs` files opening with `#!`, `package.json` with `tsconfig.json`, `py.typed`, `blender_manifest.toml`, member `Cargo.toml`, and `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Projects hold no `src/` directory and no folder with one file, folders group by domain per language

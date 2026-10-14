@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-global-handler-state
+language: rust
+severity: error
+utils:
+    service-handler:
+        kind: function_item
+        any:
+            - inside:
+                kind: declaration_list
+                inside: {kind: impl_item, has: {field: trait, regex: '(^|::)(ServerHandler|ClientHandler)$'}}
+            - has:
+                field: parameters
+                has:
+                    kind: parameter
+                    any:
+                        - has: {field: pattern, kind: tuple_struct_pattern, has: {field: type, regex: '^(axum::)?(extract::)?(State|Json|Path|Query|Extension|Form|ConnectInfo)$'}}
+                        - has: {field: type, regex: '^(axum::)?(extract::|http::|body::)?(State|Json|Path|Query|Extension|Form|ConnectInfo|HeaderMap|Request|Body)\b'}
+            - all:
+                - has: {field: name, pattern: $HANDLER}
+                - inside:
+                    kind: source_file
+                    has:
+                        stopBy: end
+                        kind: call_expression
+                        all:
+                            - has: {field: function, regex: '^((axum::)?routing::)?(get|post|put|patch|delete|head|options|trace|connect|any|on)$'}
+                            - has: {field: arguments, has: {kind: identifier, pattern: $HANDLER}}
+    ambient-initializer:
+        regex: '\b(env::(var|var_os|vars|vars_os|args|args_os|current_dir|home_dir|temp_dir)|fs::(read|read_to_string)|File::open)\b'
+    injected-type:
+        regex: '^(\w+::)*(OnceLock|OnceCell)\b'
+    mutable-type:
+        regex: '^(\w+::)*(Mutex|RwLock|Atomic\w+|RefCell|ArcSwap(Option|Any)?)\b'
+    lazy-type:
+        regex: '^(\w+::)*(LazyLock|LazyCell|Lazy)\b'
+    global-state:
+        kind: static_item
+        any:
+            - has: {kind: mutable_specifier}
+            - has: {field: type, matches: injected-type}
+            - has: {field: type, matches: mutable-type}
+            - all:
+                - has: {field: type, matches: lazy-type}
+                - has: {field: value, matches: ambient-initializer}
+rule:
+    any:
+        - kind: static_item
+          pattern: $LOCATOR
+          all:
+            - matches: global-state
+            - has: {field: name, pattern: $NAME}
+            - inside:
+                kind: source_file
+                stopBy: end
+                all:
+                    - has: {stopBy: end, kind: use_declaration, regex: '\b(axum|rmcp)\b'}
+                    - has:
+                        stopBy: end
+                        matches: service-handler
+                        has: {field: body, has: {stopBy: end, kind: identifier, pattern: $NAME}}
+        - kind: generic_type
+          pattern: $LOCATOR
+          all:
+            - has: {field: type, regex: '^((std::)?collections::)?(HashMap|BTreeMap|IndexMap)$'}
+            - has: {field: type_arguments, has: {nthChild: 1, regex: '^((std::)?any::)?TypeId$'}}
+            - has: {field: type_arguments, has: {nthChild: 2, has: {stopBy: end, kind: dynamic_type, regex: '\bAny\b'}}}
+message: '`$LOCATOR` supplies a dependency through a global or type-keyed lookup'
+note: 'Build the value once in `main` and pass it through `Router::with_state` and the `State` extractor or a handler field the `StreamableHttpService` factory closure fills, a global read hides the dependency from the signature and a type-keyed registry turns a missing dependency into a run-time `None`'

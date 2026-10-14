@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-struct-update-from-default
+language: rust
+severity: error
+utils:
+    default-call:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^(\w+::)*default$'}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    sentinel-type:
+        any:
+            - {kind: primitive_type, not: {regex: '^bool$'}}
+            - {kind: 'type_identifier, scoped_type_identifier', regex: '(^|::)(String|PathBuf|OsString|Duration)$'}
+            - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}
+    initialized:
+        inside:
+            stopBy: end
+            kind: source_file
+            has:
+                stopBy: end
+                kind: struct_expression
+                pattern: $LIT
+                has:
+                    field: body
+                    has:
+                        any:
+                            - {kind: field_initializer, has: {field: field, pattern: $F}}
+                            - {kind: shorthand_field_initializer, pattern: $F}
+    required-field:
+        kind: field_declaration
+        all:
+            - has: {field: name, pattern: $F, not: {regex: '(?i)(^|_)(count|counts|counter|total|freq|frequency|hits|misses|calls|seen)$|^(num|total|n)_'}}
+            - has: {field: type, matches: sentinel-type}
+            - not: {matches: initialized}
+    derived-default:
+        kind: attribute_item
+        regex: '^#\[\s*derive\s*\([^)]*\bDefault\b'
+    defaulted-struct:
+        kind: struct_item
+        all:
+            - has: {field: name, pattern: $T}
+            - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derived-default}
+            - has: {field: body, kind: field_declaration_list, has: {matches: required-field}}
+    type-name:
+        any:
+            - {kind: type_identifier, pattern: $T}
+            - {kind: scoped_type_identifier, has: {field: name, pattern: $T}}
+            - {kind: generic_type, has: {field: type, matches: type-name}}
+rule:
+    kind: struct_expression
+    pattern: $LIT
+    all:
+        - has: {field: body, has: {kind: base_field_initializer, pattern: $BASE, has: {matches: default-call}}}
+        - any:
+            - has: {field: name, not: {regex: '^Self$'}, matches: type-name}
+            - all:
+                - has: {field: name, regex: '^Self$'}
+                - inside: {stopBy: end, kind: impl_item, has: {field: type, matches: type-name}}
+        - inside: {stopBy: end, kind: source_file, has: {stopBy: end, matches: defaulted-struct}}
+message: 'Struct literal of `$T` fills required field `$F` from `$BASE`'
+note: 'Write every number, text, path, and duration field in the literal and keep `..Default::default()` for optional fields and types with a default of their own, a derived default gives a required field a zero or empty value no caller chose, a counter starts at zero and stays out'

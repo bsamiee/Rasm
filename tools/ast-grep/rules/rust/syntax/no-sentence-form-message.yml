@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sentence-form-message
+language: rust
+severity: error
+utils:
+    sentence:
+        kind: string_literal
+        any:
+            - regex: '^"(?i:a|an|the)\s'
+            - regex: '^"\p{Lu}\p{Ll}+[\s,.:;!?]'
+            - regex: '^"([a-z][a-z0-9]*_\w*|\w+(::\w+)+|\w+\(\))(\(\))?:\s'
+            - all:
+                - regex: '[^.]\.\s*"$'
+                - not: {regex: '\.\s+\S[^"]*"$'}
+    source-attribute:
+        kind: attribute_item
+        regex: '^#\[\s*(source|from)\s*\]'
+    tuple-source:
+        kind: ordered_field_declaration_list
+        has: {nthChild: 1, matches: source-attribute}
+    named-source:
+        kind: field_declaration_list
+        has:
+            kind: field_declaration
+            any:
+                - has: {field: name, regex: '^source$'}
+                - follows: {matches: source-attribute}
+    owner:
+        kind: 'enum_variant, struct_item'
+    rendered-source-message:
+        kind: attribute_item
+        all:
+            - has: {kind: attribute, has: {kind: identifier, regex: '^error$'}}
+            - any:
+                - all:
+                    - has: {kind: attribute, has: {field: arguments, has: {kind: string_literal, regex: '\{0[}:]'}}}
+                    - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: owner, has: {field: body, matches: tuple-source}}
+                - all:
+                    - has: {kind: attribute, has: {field: arguments, has: {kind: string_literal, regex: '\{(source|error|err|e|cause|inner)[}:]'}}}
+                    - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: owner, has: {field: body, matches: named-source}}
+    error-attribute:
+        kind: attribute
+        all:
+            - has: {kind: identifier, regex: '^error$'}
+            - has: {field: arguments, has: {nthChild: 1, matches: sentence, pattern: $TEXT}}
+            - not: {inside: {kind: attribute_item, matches: rendered-source-message}}
+    message-macro:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((tracing|log)::)?(trace|debug|info|warn|error|event|(\w+_)?span)$|^((anyhow|eyre|color_eyre)::)?(anyhow|bail|ensure|eyre)$'}
+            - has:
+                kind: token_tree
+                has:
+                    kind: string_literal
+                    matches: sentence
+                    pattern: $TEXT
+                    not: {any: [{follows: {regex: '^(=|:)$'}}, {precedes: {regex: '^(=|:)$'}}]}
+    panic-macro:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((std|core)::)?(panic|unreachable|todo|unimplemented)$'}
+            - has: {kind: token_tree, has: {nthChild: 1, matches: sentence, pattern: $TEXT}}
+    message-callee:
+        any:
+            - kind: field_expression
+              has: {field: field, regex: '^(context|expect|expect_err|internal_error|invalid_params|invalid_request|resource_not_found|custom|other)$'}
+            - kind: scoped_identifier
+              all:
+                - has: {field: path, regex: '(Error|ErrorData|McpError)$|^E$'}
+                - has: {field: name, regex: '^(internal_error|invalid_params|invalid_request|resource_not_found|parse_error|method_not_found|custom|other|new|msg)$'}
+    context-call:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: message-callee}
+            - has: {field: arguments, has: {matches: sentence, pattern: $TEXT}}
+    context-closure:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(with_context|wrap_err_with)$'}}
+            - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, matches: sentence, pattern: $TEXT}}}
+rule:
+    any:
+        - matches: error-attribute
+        - matches: message-macro
+        - matches: panic-macro
+        - matches: context-call
+        - matches: context-closure
+message: 'Message `$TEXT` opens with an article, a capital letter, or a code location, or ends with a period'
+note: 'Write the message as a lowercase clause with no article and no trailing period (`cannot bind 127.0.0.1:{port}`), error chains and log lines join messages into one line'

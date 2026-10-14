@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-contextless-io-error
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    io-path:
+        kind: scoped_identifier
+        all:
+            - has: {field: name, regex: '^Error$'}
+            - has: {field: path, regex: '(^|::)io$'}
+    io-error-import:
+        any:
+            - kind: use_as_clause
+              all: [{has: {field: alias, pattern: $IMPORTED}}, {has: {field: path, matches: io-path}}]
+            - matches: io-path
+              all:
+                - has: {field: name, pattern: $IMPORTED}
+                - not: {inside: {kind: use_as_clause}}
+                - inside: {kind: 'use_declaration, use_list'}
+            - kind: identifier
+              pattern: $IMPORTED
+              inside: {kind: use_list, inside: {kind: scoped_use_list, has: {field: path, regex: '(^|::)io$'}}}
+    io-error:
+        any:
+            - kind: scoped_type_identifier
+              regex: '^((::)?(std|tokio)::)?io::Error$'
+            - kind: type_identifier
+              pattern: $IMPORTED
+              inside: {kind: 'source_file, declaration_list', stopBy: {kind: mod_item}, has: {kind: use_declaration, has: {stopBy: end, matches: io-error-import}}}
+    from-attribute:
+        kind: attribute_item
+        regex: '^#\[\s*from\s*\]$'
+    from-io-field:
+        any:
+            - matches: io-error
+              inside: {kind: ordered_field_declaration_list, field: type}
+              follows: {matches: from-attribute}
+            - kind: field_declaration
+              has: {field: type, matches: io-error}
+              follows: {matches: from-attribute}
+rule:
+    kind: 'enum_variant, struct_item'
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, has: {matches: from-io-field}}
+message: '`$NAME` takes every `io::Error` through `#[from]` and keeps no operation or subject'
+note: 'Declare one variant per operation holding its subject beside a `source: io::Error` field and map at the call (`map_err(|source| Error::<Operation> { <subject>, source })`), `?` through `#[from]` names no operation'

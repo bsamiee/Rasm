@@ -1,0 +1,83 @@
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:16:52
+   |
+LL |     fn release(&mut self, task: JoinHandle<u64>) { drop(task); }
+   |                                                    ^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+   = note: `#[warn(detached_task)]` on by default
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:40:18
+   |
+LL | fn statement() { tokio::spawn(async {}); }
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:42:33
+   |
+LL | fn on_handle(handle: &Handle) { handle.spawn(async {}); }
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `std::thread::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:44:15
+   |
+LL | fn unread() { let _worker = thread::spawn(|| 1); }
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn the thread inside `std::thread::scope`
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:46:24
+   |
+LL | fn through_wrapper() { start(1); }
+   |                        ^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:48:16
+   |
+LL | fn dropped() { drop(tokio::spawn(async {})); }
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:52:5
+   |
+LL |     drop(task);
+   |     ^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:55:34
+   |
+LL | fn abort_handle() { let _abort = tokio::spawn(async {}).abort_handle(); }
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:57:25
+   |
+LL | fn finished() -> bool { tokio::spawn(async {}).is_finished() }
+   |                         ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: dropping `tokio::task::JoinHandle` detaches its work
+  --> $DIR/detached_task.rs:59:38
+   |
+LL | fn returned_abort() -> AbortHandle { tokio::spawn(async {}).abort_handle() }
+   |                                      ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
+
+warning: 10 warnings emitted
+

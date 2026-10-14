@@ -1,0 +1,29 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name = "async_mutex_without_await"
+edition.workspace = true
+
+[package.metadata.rust-analyzer]
+rustc_private = true
+
+# --- [LIB] ------------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+crate-type = ["cdylib"]
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+clippy_utils = { workspace = true }
+dylint_linting = { workspace = true }
+
+[dev-dependencies]
+dylint_testing = { workspace = true }
+tokio = { workspace = true }

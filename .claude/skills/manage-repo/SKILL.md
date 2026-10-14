@@ -15,8 +15,9 @@ Entries state the principles by which the repository is maintained and improved.
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, analyzer rows, file-based apps, library groups
 - [06]-[SWIFT](references/swift.md): Project files, build settings, compiler policy, packages, checkers, CI, SwiftPM, new projects, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, language server
-- [08]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
-- [09]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex parity, converting components
+- [08]-[RUST](references/rust.md): Workspace root, catalog, lints, builds, members, checkers, upgrades, lint libraries
+- [09]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
+- [10]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex parity, converting components
 
 ## [01]-[PLACEMENT]
 

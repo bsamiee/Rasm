@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-assert-of-matches
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    all:
+        - has: {field: macro, regex: '^((::)?(std|core)::)?(debug_)?assert$', pattern: $MACRO}
+        - has: {kind: token_tree, regex: '^\(\s*((::)?(std|core)::)?matches\s*!'}
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-const-context}
+        - any:
+            - pattern: $MACRO!($$$PATH matches!($$$SHAPE))
+            - pattern: $MACRO!($$$PATH matches!($$$SHAPE), $$$MESSAGE)
+transform:
+    TARGET: {replace: {source: $MACRO, replace: '^(?:(?:::)?(?:std|core)::)?(debug_)?assert$', by: 'core::${1}assert_matches'}}
+    SHAPE_LINE: {replace: {source: $$$SHAPE, replace: '\s*\n\s*', by: ' '}}
+    SEPARATOR: {replace: {source: $$$MESSAGE, replace: '^[\s\S]+$', by: ', '}}
+    MESSAGE_LINE: {replace: {source: $$$MESSAGE, replace: '\s*\n\s*', by: ' '}}
+fix: $TARGET!($SHAPE_LINE$SEPARATOR$MESSAGE_LINE)
+message: '`$MACRO!(matches!(..))` asserts a pattern through a boolean and prints no value on failure'
+note: 'Write `core::assert_matches!(<value>, <pattern>[ if <guard>][, <message>])` or `core::debug_assert_matches!` (Rust 1.96), which panics with the missed value''s `Debug` form, a `const fn` keeps `assert!` since the failure path formats at run time'

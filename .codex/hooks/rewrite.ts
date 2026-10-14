@@ -59,10 +59,15 @@ const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
     [/^project\.json$/u, 'package.json'],
     [/^\.nxignore$/u, '.gitignore'],
     [/^(?:\.mise(?:\..+)?\.toml|mise\..+\.toml|\.miserc\.toml|\.rtx\.toml|\.tool-versions|\.nvmrc|\.(?:node|python)-version)$/u, 'mise.toml'],
+    [/^rust-toolchain$/u, 'rust-toolchain.toml'],
     [/^tsconfig\.(?!base\.json$).+\.json$/u, 'tsconfig.json'],
     [/^(?:\.?ruff\.toml|\.?mypy\.ini|pytest\.ini|tox\.ini|setup\.cfg)$/u, 'pyproject.toml'],
     [/^biome\.jsonc$/u, 'biome.json'],
     [/^\.yamllint(?:\.yml)?$/u, '.yamllint.yaml'],
+    [/^\.rustfmt\.toml$/u, 'rustfmt.toml'],
+    [/^\.clippy\.toml$/u, 'clippy.toml'],
+    [/^rust-project\.json$/u, 'Cargo.toml'],
+    [/^rust-analyzer\.toml$/u, '.vscode/settings.json'],
 ];
 const _WRAPPERS: ReadonlyMap<string, { readonly valued: readonly string[]; readonly leading: number }> = new Map(
     Object.entries({

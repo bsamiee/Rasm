@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-typed-binding
+language: rust
+arguments: [type]
+rule:
+    any:
+        - kind: identifier
+          pattern: $NAME
+          any:
+            - inside:
+                kind: 'function_item, closure_expression'
+                stopBy: end
+                has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: type, matches: type}}]}}
+            - inside:
+                kind: block
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: type, matches: type}}]}
+        - kind: field_expression
+          all:
+            - has: {field: value, kind: self}
+            - has: {field: field, pattern: $NAME}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: field_declaration, all: [{has: {field: name, pattern: $NAME}}, {has: {field: type, matches: type}}]}}

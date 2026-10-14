@@ -1,0 +1,87 @@
+warning: `tokio::sync::Mutex` holds no guard across an `.await`
+  --> $DIR/async_mutex_without_await.rs:14:5
+   |
+LL |     hits: Mutex<u64>,
+   |     ^^^^^^^^^^^^^^^^
+   |
+note: every lock site releases its guard before the next `.await`
+  --> $DIR/async_mutex_without_await.rs:20:24
+   |
+LL |         let mut hits = self.hits.lock().await;
+   |                        ^^^^^^^^^^^^^^^^
+   = help: declare `parking_lot::Mutex` in place of `tokio::sync::Mutex`
+   = note: `#[warn(async_mutex_without_await)]` on by default
+
+warning: `tokio::sync::RwLock` holds no guard across an `.await`
+  --> $DIR/async_mutex_without_await.rs:15:5
+   |
+LL |     samples: RwLock<Vec<u64>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: every lock site releases its guard before the next `.await`
+  --> $DIR/async_mutex_without_await.rs:25:40
+   |
+LL |     async fn add(&self, sample: u64) { self.samples.write().await.push(sample); }
+   |                                        ^^^^^^^^^^^^^^^^^^^^
+LL |
+LL |     async fn sum(&self) -> u64 { self.samples.read().await.iter().sum() }
+   |                                  ^^^^^^^^^^^^^^^^^^^
+   = help: declare `parking_lot::RwLock` in place of `tokio::sync::RwLock`
+
+warning: `tokio::sync::Mutex` holds no guard across an `.await`
+  --> $DIR/async_mutex_without_await.rs:32:5
+   |
+LL |     count: Arc<Mutex<u64>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: every lock site releases its guard before the next `.await`
+  --> $DIR/async_mutex_without_await.rs:41:25
+   |
+LL |         let mut count = self.count.lock().await;
+   |                         ^^^^^^^^^^^^^^^^^
+   = help: declare `parking_lot::Mutex` in place of `tokio::sync::Mutex`
+
+warning: `tokio::sync::Mutex` holds no guard across an `.await`
+  --> $DIR/async_mutex_without_await.rs:78:5
+   |
+LL |     count: Mutex<u64>,
+   |     ^^^^^^^^^^^^^^^^^
+   |
+note: every lock site releases its guard before the next `.await`
+  --> $DIR/async_mutex_without_await.rs:84:25
+   |
+LL |         let mut guard = count.lock().await;
+   |                         ^^^^^^^^^^^^
+   = help: declare `parking_lot::Mutex` in place of `tokio::sync::Mutex`
+
+warning: `tokio::sync::Mutex` holds no guard across an `.await`
+  --> $DIR/async_mutex_without_await.rs:110:9
+   |
+LL |     let total = Mutex::new(0);
+   |         ^^^^^
+   |
+note: every lock site releases its guard before the next `.await`
+  --> $DIR/async_mutex_without_await.rs:111:6
+   |
+LL |     *total.lock().await += 1;
+   |      ^^^^^^^^^^^^
+   = help: declare `parking_lot::Mutex` in place of `tokio::sync::Mutex`
+
+warning: `tokio::sync::Mutex` holds no guard across an `.await`
+  --> $DIR/async_mutex_without_await.rs:10:1
+   |
+LL | static TOTAL: Mutex<u64> = Mutex::const_new(0);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: every lock site releases its guard before the next `.await`
+  --> $DIR/async_mutex_without_await.rs:115:24
+   |
+LL | fn initial() -> u64 { *TOTAL.blocking_lock() }
+   |                        ^^^^^^^^^^^^^^^^^^^^^
+LL |
+LL | async fn current() -> u64 { *TOTAL.lock().await }
+   |                              ^^^^^^^^^^^^
+   = help: declare `parking_lot::Mutex` in place of `tokio::sync::Mutex`
+
+warning: 6 warnings emitted
+

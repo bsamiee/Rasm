@@ -1,0 +1,28 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "mcp-bridge"
+description       = "Serves one stdio MCP server over a loopback Streamable HTTP endpoint, leaving out the tools whose names match a hide glob"
+edition.workspace = true
+
+# --- [BIN] ------------------------------------------------------------------------------
+
+[[bin]]
+name = "mcp-bridge"
+path = "main.rs"
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+mcp       = { workspace = true }
+rmcp      = { workspace = true }
+tokio     = { workspace = true }
+clap      = { workspace = true }
+globset   = { workspace = true }
+thiserror = { workspace = true }
+tracing   = { workspace = true }

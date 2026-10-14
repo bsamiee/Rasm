@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-handle-await-loop
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    spawn-call:
+        kind: call_expression
+        has: {field: function, regex: '(^|::|\.)spawn(_blocking|_local)?$'}
+    handles-chain:
+        any:
+            - kind: identifier
+              pattern: $HANDLES
+            - kind: reference_expression
+              has: {field: value, matches: handles-chain}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: value, matches: handles-chain}}
+    handles-binding:
+        any:
+            - kind: let_declaration
+              all:
+                - has: {field: pattern, pattern: $HANDLES}
+                - has: {field: value, has: {stopBy: end, matches: spawn-call}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $HANDLES}}, {has: {field: field, regex: '^(push|push_back|push_front|insert|extend)$'}}]}
+                - has: {field: arguments, has: {stopBy: end, matches: spawn-call}}
+rule:
+    kind: 'for_expression, while_expression'
+    all:
+        - has: {field: body, has: {stopBy: {kind: 'closure_expression, async_block, function_item'}, kind: await_expression, has: {nthChild: 1, kind: identifier, pattern: $HANDLE}}}
+        - any:
+            - kind: for_expression
+              all:
+                - has: {field: pattern, any: [{kind: identifier, pattern: $HANDLE}, {kind: tuple_pattern, has: {kind: identifier, pattern: $HANDLE}}]}
+                - has: {field: value, matches: handles-chain}
+            - kind: while_expression
+              has:
+                field: condition
+                kind: let_condition
+                all:
+                    - has: {field: pattern, kind: tuple_struct_pattern, has: {kind: identifier, pattern: $HANDLE}}
+                    - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(pop|pop_front|pop_back|next)$'}}, {has: {field: value, matches: handles-chain}}]}}
+        - inside:
+            kind: block
+            stopBy: {kind: 'function_item, closure_expression, async_block'}
+            has: {stopBy: {kind: 'function_item, closure_expression'}, matches: handles-binding}
+message: '`$HANDLES` holds spawned tasks awaited one at a time in spawn order'
+note: 'Collect the tasks into a `JoinSet` (`<iterator>.collect::<JoinSet<_>>()` or `set.spawn`) and drain it with `join_next` in completion order, or track them in a `TaskTracker` the owner closes and waits on, a dropped `JoinSet` aborts its remaining tasks'

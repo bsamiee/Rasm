@@ -25,6 +25,19 @@ runs:
                 .cache/pnpm/store
                 .cache/pnpm/cache
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+        - uses: actions/cache@v6
+          if: runner.os == 'Linux'
+          with:
+            path: |
+                ~/.cargo/registry/index
+                ~/.cargo/registry/cache
+                ~/.cargo/git/db
+            key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+        - uses: actions/cache@v6
+          if: runner.os == 'Linux'
+          with:
+            path: ~/.dylint_drivers
+            key: dylint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
         - run: pnpm install
           shell: bash
         - run: uv sync --locked --no-default-groups --group dev

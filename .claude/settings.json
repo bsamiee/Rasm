@@ -59,7 +59,7 @@
         ],
         "FileChanged": [
             {
-                "matcher": "mise.toml|global.json",
+                "matcher": "mise.toml|global.json|rust-toolchain.toml",
                 "hooks": [
                     {
                         "type": "command",

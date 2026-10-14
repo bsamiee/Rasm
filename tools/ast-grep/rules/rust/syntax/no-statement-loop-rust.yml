@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-statement-loop-rust
+language: rust
+severity: error
+utils:
+    state-write:
+        any:
+            - kind: call_expression
+              has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: value, kind: identifier, pattern: $STATE}
+                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
+            - kind: 'compound_assignment_expr, assignment_expression'
+              has: {field: left, kind: identifier, pattern: $STATE}
+    valued-return:
+        kind: return_expression
+        has: {pattern: $STATE, not: {regex: '^Some\s*\('}}
+    valued-break:
+        kind: break_expression
+        has: {pattern: $STATE, not: {kind: label}}
+rule:
+    matches: rust-statement-loop
+    has:
+        field: body
+        has:
+            stopBy: {kind: 'loop_expression, while_expression, for_expression, closure_expression'}
+            any:
+                - matches: state-write
+                - matches: valued-return
+                - matches: valued-break
+message: 'Loop iterates by statement to produce `$STATE`'
+note: 'Bind the result to one adapter chain, `.map(<f>).collect()` builds a collection, `.filter(<test>)` keeps elements, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.any(<test>)`, `.all(<test>)`, `.find(<test>)`, `.position(<test>)`, or `.find_map(<f>)` stops at the first match, and `collect::<Result<_, _>>()?` stops a fallible traversal at the first error'

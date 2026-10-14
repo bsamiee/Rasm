@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-arm-nested-let
+language: rust
+severity: error
+utils:
+    statement:
+        kind: 'expression_statement, let_declaration, empty_statement'
+    let-else-branch:
+        kind: if_expression
+        all:
+            - has: {field: condition, kind: let_condition, pattern: $COND}
+            - has:
+                field: consequence
+                kind: block
+                any:
+                    - all: [{has: {nthChild: 1, not: {matches: statement}, pattern: $A}}, {not: {has: {nthChild: 2}}}]
+                    - pattern: $AB
+            - has:
+                field: alternative
+                kind: else_clause
+                has:
+                    kind: block
+                    any:
+                        - all: [{has: {nthChild: 1, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: 2}}}]
+                        - pattern: $X
+    fallback:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, regex: '^_$'}
+            - has: {field: value, pattern: $X}
+rule:
+    kind: match_arm
+    all:
+        - has: {field: pattern, kind: match_pattern, pattern: $P, not: {has: {field: condition, pattern: $_}}}
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - has:
+            field: value
+            any:
+                - matches: let-else-branch
+                - kind: block
+                  all:
+                    - has: {nthChild: 1, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
+                    - not: {has: {nthChild: 2}}
+        - precedes: {matches: fallback}
+        - not:
+            has:
+                field: value
+                has:
+                    stopBy: end
+                    kind: else_clause
+                    has:
+                        stopBy: end
+                        kind: identifier
+                        pattern: $NAME
+                        inside:
+                            kind: match_arm
+                            stopBy: end
+                            has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
+transform:
+    COMMA: {replace: {source: $A, replace: '^[\s\S]+$', by: ','}}
+fix: '$P if $COND => $A$AB$COMMA'
+message: 'Arm `$P` nests an `if let` whose `else` repeats the catch-all arm'
+note: 'Move the `let` into the arm guard (`<pattern> if let <binding> = <value> => <body>`, Rust 1.95), the failed guard falls through to the catch-all arm the `else` repeated'

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-small-builder
+language: rust
+severity: error
+utils:
+    small-body:
+        kind: field_declaration_list
+        all:
+            - not: {has: {kind: field_declaration, nthChild: {position: 3, ofRule: {kind: field_declaration}}}}
+            - not:
+                has:
+                    kind: field_declaration
+                    any:
+                        - has: {field: name, regex: '^(config|inner|options|settings|buffer|buf|storage|output|out|data|bytes|request|target|items|entries|len|count|cursor|pos|position|offset|index|cache)$'}
+                        - has: {field: type, regex: '^(&(''\w+ )?(mut )?)?(\w+::)*(Vec|VecDeque|String|Bytes|BytesMut|HashMap|BTreeMap|Result|Request)\b|(Builder|Config|Options|Settings|Attributes|Buffer|Storage|Writer|Encoder|Sink|Stream)\b'}
+    builder-derive:
+        kind: attribute_item
+        regex: '^#\[\s*derive\s*\([^)]*\b(Builder|TypedBuilder|bon::Builder|derive_builder::Builder)\b'
+rule:
+    kind: struct_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, matches: small-body}
+        - any:
+            - all:
+                - has: {field: name, regex: 'Builder$'}
+                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: function_item, has: {field: name, regex: '^(build|finish)$'}}}
+            - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: builder-derive}
+message: '`$NAME` builds a value of at most two fields through a builder'
+note: 'Construct the value with a struct literal, `..Default::default()` for the optional field, or one `new(<required>)`, a builder pays for itself across many optional inputs'

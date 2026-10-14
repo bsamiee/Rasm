@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-version-literal
+language: rust
+severity: error
+ignores: ['**/build.rs', '**/tests/**', '**/benches/**']
+utils:
+    version-name:
+        regex: '(?i)(^|_)(version|user_agent|useragent)$'
+    version-slot:
+        any:
+            - inside: {kind: field_initializer, has: {field: field, matches: version-name}}
+            - inside: {kind: let_declaration, has: {field: pattern, matches: version-name}}
+            - inside: {kind: assignment_expression, has: {field: left, matches: version-name}}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, any: [{kind: field_expression, has: {field: field, matches: version-name}}, {kind: scoped_identifier, has: {field: name, matches: version-name}}]}}}
+    positioned:
+        any:
+            - matches: version-slot
+            - inside: {kind: field_expression, field: value, inside: {kind: call_expression, matches: version-slot}}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^(String|ToOwned|ToString|Into|From)::'}, matches: version-slot}}
+rule:
+    kind: string_literal
+    pattern: $VERSION
+    any:
+        - regex: '^"v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?"$'
+        - regex: '^"[A-Za-z][\w.-]*/v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?( .*)?"$'
+        - regex: '^"([A-Za-z][\w.-]*/)?v?[0-9]+(\.[0-9]+)*([-+][0-9A-Za-z.+-]+)?"$'
+          matches: positioned
+    not:
+        any:
+            - inside: {stopBy: end, kind: 'attribute_item, inner_attribute_item'}
+            - all: [{inside: {kind: token_tree}}, {follows: {regex: '^(=|:)$'}}]
+            - inside: {kind: 'const_item, static_item', field: value}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(?i)oid'}}}
+            - matches: rust-test-scope
+message: '`$VERSION` restates a version the package manifest owns'
+note: 'Read the product version from `env!("CARGO_PKG_VERSION")`, and a dependency or protocol version from the `const` its owner declares once'

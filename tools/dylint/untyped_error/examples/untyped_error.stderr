@@ -1,0 +1,152 @@
+warning: error type is a boxed `dyn Error` that callers cannot match: `std::boxed::Box<(dyn std::error::Error + std::marker::Send + std::marker::Sync + 'static)>`
+  --> $DIR/untyped_error.rs:10:17
+   |
+LL | type Boxed<T> = Result<T, Box<dyn Error + Send + Sync>>;
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+   = note: `#[warn(untyped_error)]` on by default
+
+warning: error type is text that callers cannot match: `std::string::String`
+  --> $DIR/untyped_error.rs:14:23
+   |
+LL |     fn read(&self) -> Result<u16, String>;
+   |                       ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type `()` names no failure: `()`
+  --> $DIR/untyped_error.rs:27:14
+   |
+LL |     outcome: Result<u16, ()>,
+   |              ^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::string::String`
+  --> $DIR/untyped_error.rs:36:32
+   |
+LL |     fn try_from(text: &str) -> Result<Self, Self::Error> { text.parse().map(Self).map_err(|_error: ParseIntError| String::from("text...
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::string::String`
+  --> $DIR/untyped_error.rs:52:40
+   |
+LL |     async fn fetch(&self, key: u16) -> Result<u16, Self::Error> {
+   |                                        ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::string::String`
+  --> $DIR/untyped_error.rs:89:27
+   |
+LL | fn spelled(text: &str) -> Result<u16, String> { Digits::try_from(text).map(|digits| digits.0) }
+   |                           ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `&'static str`
+  --> $DIR/untyped_error.rs:91:28
+   |
+LL | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is an opaque report that callers cannot match: `anyhow::Error`
+  --> $DIR/untyped_error.rs:93:33
+   |
+LL | fn renamed_alias(text: &str) -> Outcome<u16> { Ok(text.parse()?) }
+   |                                 ^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is an opaque report that callers cannot match: `eyre::Report`
+  --> $DIR/untyped_error.rs:95:35
+   |
+LL | fn imported_report(text: &str) -> Result<u16, Report> { Ok(text.parse()?) }
+   |                                   ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is a boxed `dyn Error` that callers cannot match: `std::boxed::Box<(dyn std::error::Error + std::marker::Send + std::marker::Sync + 'static)>`
+  --> $DIR/untyped_error.rs:97:37
+   |
+LL | fn foreign_box_alias(text: &str) -> Result<u16, BoxError> { Ok(text.parse()?) }
+   |                                     ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is a boxed `dyn Error` that callers cannot match: `std::boxed::Box<(dyn std::error::Error + std::marker::Send + std::marker::Sync + 'static)>`
+  --> $DIR/untyped_error.rs:99:25
+   |
+LL | fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.parse()?) }
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::string::String`
+  --> $DIR/untyped_error.rs:103:35
+   |
+LL | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
+   |                                   ^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::string::String`
+  --> $DIR/untyped_error.rs:105:33
+   |
+LL | async fn awaited(text: &str) -> Result<u16, String> {
+   |                                 ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::boxed::Box<str>`
+  --> $DIR/untyped_error.rs:116:30
+   |
+LL | fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("port is not a number")) }
+   |                              ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::sync::Arc<str>`
+  --> $DIR/untyped_error.rs:118:31
+   |
+LL | fn shared_text(text: &str) -> Result<u16, Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("port is not a number")) }
+   |                               ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::rc::Rc<str>`
+  --> $DIR/untyped_error.rs:120:32
+   |
+LL | fn counted_text(text: &str) -> Result<u16, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("port is not a number")) }
+   |                                ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type is text that callers cannot match: `std::borrow::Cow<'static, str>`
+  --> $DIR/untyped_error.rs:122:33
+   |
+LL | fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port is...
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error type renders through `Display` and implements no `std::error::Error`: `Code`
+  --> $DIR/untyped_error.rs:64:1
+   |
+LL | enum Code {
+   | ^^^^^^^^^
+   |
+note: returned as a `Result` error here
+  --> $DIR/untyped_error.rs:110:25
+   |
+LL | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
+   |                         ^^^^^^^^^^^^^^^^^
+   = help: derive `thiserror::Error` in place of the `Display` impl
+
+warning: 18 warnings emitted
+

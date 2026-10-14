@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-text-decoder
+language: rust
+rule:
+    inside:
+        stopBy: end
+        any:
+            - kind: function_item
+              has: {field: name, regex: '^(from_str|try_from|parse|parse_ref|visit_str|visit_borrowed_str|visit_string|deserialize)$'}
+            - kind: impl_item
+              has: {field: trait, regex: '^((std|core|serde|clap)::(\w+::)*)?(FromStr|TryFrom<|Visitor|Deserialize|ValueEnum|TypedValueParser)'}

@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-property-rust
+language: rust
+severity: error
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    inherent-method:
+        inside:
+            kind: declaration_list
+            inside:
+                kind: impl_item
+                all:
+                    - not: {has: {field: trait, pattern: $_}}
+                    - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $TYPE}}, {pattern: $TYPE}]}
+    self-field:
+        kind: field_expression
+        all:
+            - has: {field: value, kind: self}
+            - has: {field: field, pattern: $F}
+    field-read:
+        any:
+            - matches: self-field
+            - kind: reference_expression
+              has: {field: value, matches: self-field}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(clone|as_ref|as_deref|as_str|as_slice)$'}}, {has: {field: value, matches: self-field}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    sole:
+        kind: block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+    reachable-visibility:
+        kind: visibility_modifier
+        any:
+            - regex: '^pub$'
+            - pattern: $VIS
+              inside: {stopBy: end, kind: source_file, has: {stopBy: end, kind: function_item, all: [{has: {field: name, pattern: $NAME}}, {has: {kind: visibility_modifier, pattern: $VIS}}]}}
+    public-field:
+        inside:
+            kind: source_file
+            stopBy: end
+            has:
+                stopBy: end
+                kind: struct_item
+                all:
+                    - has: {field: name, pattern: $TYPE}
+                    - has:
+                        field: body
+                        any:
+                            - has: {kind: field_declaration, all: [{has: {field: name, pattern: $F}}, {has: {matches: reachable-visibility}}]}
+                            - all:
+                                - kind: ordered_field_declaration_list
+                                - has: {nthChild: 1, matches: reachable-visibility}
+    assigned-parameter:
+        kind: expression_statement
+        has:
+            kind: assignment_expression
+            all:
+                - has: {field: left, matches: self-field}
+                - has: {field: right, kind: identifier, pattern: $P}
+    setter-parameters:
+        all:
+            - has: {kind: self_parameter, has: {kind: mutable_specifier}}
+            - has: {kind: parameter, has: {field: pattern, pattern: $P}}
+            - not: {has: {kind: parameter, nthChild: {position: 2, ofRule: {kind: parameter}}}}
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - matches: inherent-method
+        - not: {matches: rust-fixed-signature}
+        - any:
+            - all:
+                - has: {field: parameters, has: {kind: self_parameter, not: {has: {kind: mutable_specifier}}}, not: {has: {kind: parameter}}}
+                - has: {field: body, matches: sole, has: {matches: field-read}}
+                - matches: public-field
+            - all:
+                - has: {field: parameters, matches: setter-parameters}
+                - has: {field: body, matches: sole, has: {matches: assigned-parameter}}
+            - all:
+                - has: {field: parameters, matches: setter-parameters}
+                - has:
+                    field: body
+                    all:
+                        - has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: assigned-parameter}
+                        - has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}, kind: self}
+                        - not: {has: {nthChild: {position: 3, ofRule: {not: {matches: comment}}}}}
+message: 'Method `$NAME` reads or writes field `$F` of `$TYPE` unchanged'
+note: 'Read `<value>.<field>` or assign it at each use, and build the value with a struct literal or `..<base>` update, a method that copies a field unchanged adds a name and no check'

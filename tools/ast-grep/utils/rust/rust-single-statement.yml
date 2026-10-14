@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-single-statement
+language: rust
+arguments: [first]
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment, empty_statement, label'}
+rule:
+    kind: block
+    all:
+        - has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: first}
+        - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}

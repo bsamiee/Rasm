@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-forwarding-method
+language: rust
+severity: error
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    own-field:
+        kind: field_expression
+        all:
+            - has: {field: value, kind: self}
+            - has: {field: field, pattern: $FIELD}
+    policy-name:
+        kind: 'identifier, scoped_identifier'
+    wrapped-chain:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: value, kind: 'call_expression, await_expression, try_expression'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: policy-name}, not: {has: {nthChild: 2}}}
+    wrap-call:
+        kind: call_expression
+        all:
+            - has: {stopBy: end, matches: own-field}
+            - matches: wrapped-chain
+            - has: {field: function, has: {field: field, pattern: $WRAP}}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $F}}
+    free-call:
+        kind: call_expression
+        all:
+            - has: {stopBy: end, matches: own-field}
+            - has: {field: function, matches: policy-name, pattern: $F}
+    plain-call:
+        kind: call_expression
+        all:
+            - has: {stopBy: end, matches: own-field}
+            - not: {matches: wrapped-chain}
+            - has: {field: function, kind: field_expression, has: {field: value, pattern: $RECEIVER}}
+    wrap-tail:
+        any:
+            - matches: wrap-call
+            - kind: 'expression_statement, await_expression, try_expression, return_expression'
+              has: {nthChild: 1, matches: wrap-tail}
+    free-tail:
+        any:
+            - matches: free-call
+            - kind: 'expression_statement, await_expression, try_expression, return_expression'
+              has: {nthChild: 1, matches: free-tail}
+    plain-tail:
+        any:
+            - matches: plain-call
+            - kind: 'expression_statement, await_expression, try_expression, return_expression'
+              has: {nthChild: 1, matches: plain-tail}
+    one-statement:
+        kind: block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+    wrap-shape:
+        kind: function_item
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: wrap-tail}}
+    free-shape:
+        kind: function_item
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: free-tail}}
+    plain-shape:
+        kind: function_item
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: plain-tail}}
+    wrap-trio:
+        all:
+            - matches: wrap-shape
+            - any:
+                - follows: {stopBy: end, matches: wrap-shape, follows: {stopBy: end, matches: wrap-shape}}
+                - precedes: {stopBy: end, matches: wrap-shape, precedes: {stopBy: end, matches: wrap-shape}}
+                - all:
+                    - follows: {stopBy: end, matches: wrap-shape}
+                    - precedes: {stopBy: end, matches: wrap-shape}
+    free-trio:
+        all:
+            - matches: free-shape
+            - any:
+                - follows: {stopBy: end, matches: free-shape, follows: {stopBy: end, matches: free-shape}}
+                - precedes: {stopBy: end, matches: free-shape, precedes: {stopBy: end, matches: free-shape}}
+                - all:
+                    - follows: {stopBy: end, matches: free-shape}
+                    - precedes: {stopBy: end, matches: free-shape}
+    plain-trio:
+        all:
+            - matches: plain-shape
+            - any:
+                - follows: {stopBy: end, matches: plain-shape, follows: {stopBy: end, matches: plain-shape}}
+                - precedes: {stopBy: end, matches: plain-shape, precedes: {stopBy: end, matches: plain-shape}}
+                - all:
+                    - follows: {stopBy: end, matches: plain-shape}
+                    - precedes: {stopBy: end, matches: plain-shape}
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - inside: {kind: declaration_list, inside: {kind: impl_item}}
+        - any:
+            - matches: wrap-trio
+            - matches: free-trio
+            - matches: plain-trio
+message: '`$NAME` repeats the forwarding shape of two sibling methods over `self.$FIELD`'
+note: 'Hold the shared policy in one function and generate the forwarding methods from one `macro_rules!` invocation listing a row per method, the macro states the forwarding shape once'

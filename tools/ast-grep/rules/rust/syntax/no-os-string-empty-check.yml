@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-os-string-empty-check
+language: rust
+severity: error
+utils:
+    component-binding:
+        any:
+            - matches: {rust-typed-binding: {type: {regex: '\bComponent\b'}}}
+            - kind: identifier
+              inside: {kind: for_expression, stopBy: end, all: [{has: {field: pattern, pattern: $P}}, {has: {field: value, regex: '\.components\(\)'}}]}
+            - kind: identifier
+              inside:
+                kind: closure_expression
+                stopBy: end
+                all:
+                    - has: {field: parameters, has: {pattern: $P}}
+                    - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, regex: '\.components\(\)'}}}}
+rule:
+    kind: call_expression
+    all:
+        - pattern: $P.as_os_str().is_empty()
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+constraints:
+    P: {not: {matches: component-binding}}
+fix: $P.is_empty()
+message: '`$P.as_os_str().is_empty()` tests emptiness through the `OsStr` view'
+note: 'Call `<path>.is_empty()` (`Path`, Rust 1.98, reached through deref from `PathBuf`, and `OsStr::is_empty` from `OsString`), a `Component` value keeps `as_os_str()` since it has no `is_empty`, the rule refuses one a type, a `for` over `components()`, or a closure over `components()` names'

@@ -1,0 +1,180 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-source-conversion-by-hand
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    attribute-run:
+        kind: 'attribute_item, line_comment, block_comment'
+    owner-path:
+        kind: identifier
+        any: [{regex: '^Self$'}, {pattern: $Y}]
+    wrap:
+        any:
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    pattern: $TARGET
+                    any:
+                        - matches: owner-path
+                        - kind: scoped_identifier
+                          all: [{has: {field: path, matches: owner-path}}, {has: {field: name, pattern: $V}}]
+                - has: {field: arguments, all: [{has: {kind: identifier, pattern: $A}}, {not: {has: {nthChild: 2}}}]}
+            - kind: struct_expression
+              all:
+                - has:
+                    field: name
+                    pattern: $TARGET
+                    any:
+                        - kind: type_identifier
+                          any: [{regex: '^Self$'}, {pattern: $Y}]
+                        - kind: scoped_type_identifier
+                          all: [{has: {field: path, matches: owner-path}}, {has: {field: name, pattern: $V}}]
+                - has:
+                    field: body
+                    all:
+                        - has: {any: [{kind: shorthand_field_initializer, pattern: $A}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $A}}]}
+                        - not: {has: {nthChild: 2}}
+    from-body:
+        kind: block
+        all:
+            - has:
+                nthChild: {position: 1, ofRule: {not: {matches: comment}}}
+                any:
+                    - matches: wrap
+                    - kind: expression_statement
+                      has: {kind: return_expression, has: {matches: wrap}}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+    from-impl:
+        kind: impl_item
+        all:
+            - has:
+                field: trait
+                kind: generic_type
+                all:
+                    - has: {field: type, regex: '^((::)?(std|core)::convert::)?From$'}
+                    - has: {field: type_arguments, has: {nthChild: 1, pattern: $X, matches: type-key}}
+            - has: {field: type, pattern: $Y}
+            - has:
+                field: body
+                has:
+                    kind: function_item
+                    all:
+                        - has: {field: name, regex: '^from$'}
+                        - has: {field: parameters, all: [{has: {kind: parameter, has: {field: pattern, kind: identifier, pattern: $A}}}, {not: {has: {nthChild: 2}}}]}
+                        - has: {field: body, matches: from-body}
+    clean-impl:
+        kind: impl_item
+        all:
+            - matches: from-impl
+            - not: {has: {stopBy: end, matches: comment}}
+            - not: {follows: {matches: attribute-run}}
+    type-key:
+        any:
+            - kind: scoped_type_identifier
+              all:
+                - has: {field: name, pattern: $XN}
+                - has: {field: path, any: [{kind: scoped_identifier, has: {field: name, pattern: $XM}}, {not: {kind: scoped_identifier}, pattern: $XM}]}
+            - kind: 'type_identifier, generic_type, reference_type, dynamic_type'
+              all: [{pattern: $XM}, {pattern: $XN}]
+    field-node:
+        any:
+            - kind: field_declaration
+              has: {field: type, matches: type-key}
+            - kind: 'type_identifier, scoped_type_identifier, generic_type, reference_type, dynamic_type'
+              matches: type-key
+              inside: {kind: ordered_field_declaration_list, field: type}
+    single-field-list:
+        any:
+            - kind: ordered_field_declaration_list
+              not: {has: {nthChild: {position: 2, ofRule: {not: {matches: attribute-run}}}}}
+            - kind: field_declaration_list
+              not: {has: {kind: field_declaration, nthChild: {position: 2, ofRule: {kind: field_declaration}}}}
+    owner:
+        kind: 'enum_item, struct_item'
+        has: {field: name, pattern: $Y}
+    derived-owner:
+        matches: owner
+        all:
+            - not: {has: {field: type_parameters, pattern: $_}}
+            - follows: {stopBy: {not: {matches: attribute-run}}, kind: attribute_item, regex: '^#\[\s*derive\s*\([^)]*\b(thiserror::)?Error\b'}
+    home:
+        any:
+            - kind: enum_variant
+              has: {field: name, pattern: $V}
+              inside: {kind: enum_variant_list, inside: {matches: owner}}
+            - matches: owner
+    derived-home:
+        any:
+            - kind: enum_variant
+              has: {field: name, pattern: $V}
+              inside: {kind: enum_variant_list, inside: {matches: derived-owner}}
+            - matches: derived-owner
+    clean-home:
+        matches: derived-home
+        not: {has: {stopBy: end, matches: comment}}
+    source-marked:
+        any:
+            - follows: {kind: attribute_item, regex: '^#\[\s*source\s*\]$'}
+            - kind: field_declaration
+              has: {field: name, regex: '^source$'}
+            - inside: {kind: 'ordered_field_declaration_list, field_declaration_list', inside: {kind: 'enum_variant, struct_item', follows: {stopBy: {not: {matches: attribute-run}}, kind: attribute_item, regex: '^#\[\s*error\s*\(\s*transparent\s*\)\s*\]$'}}}
+    marked-field:
+        all:
+            - matches: field-node
+            - matches: source-marked
+            - any:
+                - inside: {kind: ordered_field_declaration_list, matches: single-field-list, inside: {matches: derived-home}}
+                - inside: {kind: field_declaration_list, matches: single-field-list, inside: {matches: clean-home}}
+    paired-field:
+        all:
+            - matches: field-node
+            - any: [{matches: source-marked}, {regex: 'Error\b'}]
+            - inside: {kind: 'ordered_field_declaration_list, field_declaration_list', inside: {matches: home}}
+    fixable-impl:
+        all:
+            - matches: clean-impl
+            - inside: {kind: 'source_file, declaration_list', stopBy: end, has: {stopBy: end, matches: marked-field}}
+    paired-with-impl:
+        inside: {kind: 'source_file, declaration_list', stopBy: end, has: {stopBy: end, matches: clean-impl}}
+rule:
+    any:
+        - matches: fixable-impl
+        - kind: 'type_identifier, scoped_type_identifier, generic_type, reference_type, dynamic_type'
+          pattern: $ORDERED
+          all:
+            - matches: marked-field
+            - matches: paired-with-impl
+        - kind: enum_variant
+          pattern: $VARIANT
+          all:
+            - has: {field: body, kind: field_declaration_list, has: {matches: marked-field}}
+            - matches: paired-with-impl
+        - kind: struct_item
+          pattern: $STRUCT
+          all:
+            - has: {field: body, kind: field_declaration_list, has: {matches: marked-field}}
+            - matches: paired-with-impl
+        - kind: declaration_list
+          pattern: $KEPT
+          inside:
+            kind: impl_item
+            field: body
+            all:
+                - matches: from-impl
+                - inside: {kind: 'source_file, declaration_list', stopBy: end, has: {stopBy: end, matches: paired-field}}
+                - not: {matches: fixable-impl}
+transform:
+    MARKED_ORDERED: replace($ORDERED, replace='^', by='#[from] ')
+    VARIANT_STRIPPED: replace($VARIANT, replace='#\[\s*source\s*\]\s*', by='')
+    MARKED_VARIANT: {replace: {source: $VARIANT_STRIPPED, replace: '(?s)^(\w+)\s*\{\s*(.*?),?\s*\}$', by: "$1 {\n    #[from]\n    $2,\n}"}}
+    STRUCT_STRIPPED: replace($STRUCT, replace='#\[\s*source\s*\]\s*', by='')
+    MARKED_STRUCT: {replace: {source: $STRUCT_STRIPPED, replace: '(?s)^(.*?)\s*\{\s*(.*?),?\s*\}$', by: "$1 {\n    #[from]\n    $2,\n}"}}
+fix:
+    template: '$MARKED_ORDERED$MARKED_VARIANT$MARKED_STRUCT$KEPT'
+    expandStart: {kind: attribute_item, regex: '^#\[\s*source\s*\]$'}
+message: '`impl From<$X> for $Y` wraps `$X` in `$TARGET` by hand'
+note: 'Mark the field `#[from]`, thiserror derives the `From` impl and returns the field from `source()`, an impl into a `Box` of the source or a field with no `#[source]` mark or `source` name stays by hand, `#[from]` adds the `source()` link and derives `From` of the field type alone'

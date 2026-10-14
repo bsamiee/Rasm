@@ -72,11 +72,8 @@
         "@loaders.gl/core": "catalog:",
         "@loaders.gl/las": "catalog:",
         "@lume/kiwi": "catalog:",
-        "@modelcontextprotocol/client": "catalog:",
-        "@modelcontextprotocol/core": "catalog:",
         "@modelcontextprotocol/ext-apps": "catalog:",
         "@modelcontextprotocol/inspector": "catalog:",
-        "@modelcontextprotocol/server": "catalog:",
         "@msgpack/msgpack": "catalog:",
         "@nats-io/jetstream": "catalog:",
         "@nats-io/kv": "catalog:",
@@ -233,7 +230,6 @@
         "lucide-react": "catalog:",
         "magic-string": "catalog:",
         "maplibre-gl": "catalog:",
-        "mcp-proxy": "catalog:",
         "meshoptimizer": "catalog:",
         "minimatch": "catalog:",
         "motion": "catalog:",
@@ -321,14 +317,14 @@
                 "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so" ],
                 "options": { "commands": [ "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3" ], "parallel": false }
             },
-            "rewrite": { "command": "lockf -k .cache/ast-grep/rewrite.lock ast-grep scan --custom-languages allow --no-ignore hidden --globs '!pnpm-lock.yaml' -U", "parallelism": false, "dependsOn": [ "grammar" ] },
+            "rewrite": { "command": "lockf -k .cache/ast-grep/rewrite.lock ast-grep scan --custom-languages allow --no-ignore hidden --globs '!pnpm-lock.yaml' --globs '!tools/dylint/*/examples/**' -U", "parallelism": false, "dependsOn": [ "grammar" ] },
             "outline": {
-                "command": "ast-grep outline --custom-languages allow --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml",
+                "command": "ast-grep outline --custom-languages allow --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml --outline-rules tools/ast-grep/outline/rust.yml",
                 "options": { "env": { "NO_COLOR": "1" } },
                 "dependsOn": [ "grammar" ]
             },
             "lint:ast-grep": {
-                "command": "ast-grep scan --custom-languages allow --no-ignore hidden --globs '!pnpm-lock.yaml' --error=no-suppress-all",
+                "command": "ast-grep scan --custom-languages allow --no-ignore hidden --globs '!pnpm-lock.yaml' --globs '!tools/dylint/*/examples/**' --error=no-suppress-all",
                 "cache": true,
                 "dependsOn": [ "grammar" ],
                 "inputs": [
@@ -336,8 +332,8 @@
                     "{workspaceRoot}/tools/ast-grep/{rules,utils}/**/*",
                     "pythonFiles",
                     "yamlFiles",
-                    "!{workspaceRoot}/pnpm-lock.yaml",
                     "javaFiles",
+                    "rustFiles",
                     "{workspaceRoot}/**/*.{bash,bats,cgi,command,env,fcgi,ksh,sh,tmux,tool,zsh}",
                     "{workspaceRoot}/**/*.cs",
                     "{workspaceRoot}/**/*.{cjs,js,mjs,jsx}",
@@ -374,6 +370,8 @@
                 "inputs": [ "javaFiles", "{workspaceRoot}/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
             },
+            "lint:rustfmt": { "command": "cargo fmt --check", "cache": true, "inputs": [ "rustFiles", "{workspaceRoot}/**/Cargo.toml", "{workspaceRoot}/rustfmt.toml", { "externalDependencies": [] }, { "runtime": "rustfmt --version" } ] },
+            "lint:dylint": { "command": "cargo dylint --all -- --lib --bins --tests --locked", "cache": true, "parallelism": false, "inputs": [ "rust", "rustFiles", "{workspaceRoot}/**/Cargo.toml", { "externalDependencies": [] }, { "runtime": "cargo dylint --version" } ] },
             "lint:dotnet-format": {
                 "options": { "args": [ "Workspace.slnx", "--no-restore", "--verify-no-changes" ] },
                 "cache": true,
@@ -390,6 +388,7 @@
             "format:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --replace", "configurations": { "files": { "command": "google-java-format --aosp --replace" } } },
             "format:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --fix --quiet", "configurations": { "files": { "command": "swiftlint lint --fix --quiet" } } },
             "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "dependsOn": [ { "target": "format:swiftlint", "params": "forward" } ], "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } } },
+            "format:rustfmt": { "command": "cargo fmt", "configurations": { "files": { "command": "rustfmt" } } },
             "format:dotnet": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "restore" ] },
             "typecheck:tsc": {
                 "command": "tsc --pretty false",
@@ -405,6 +404,7 @@
             "upgrade": { "command": "mise upgrade --local", "parallelism": false, "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:swift" ], "target": "upgrade" } ] },
             "upgrade:dotnet": { "command": "dotnet run --no-build --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "dependsOn": [ { "projects": [ "Rasm.Upgrade" ], "target": "build" } ] },
             "upgrade:python": { "command": "uv sync --upgrade" },
+            "upgrade:rust": { "executor": "nx:run-commands", "options": { "commands": [ "cargo dylint upgrade", "cargo upgrade --incompatible", "cargo update" ], "parallel": false } },
             "upgrade:typescript": { "executor": "nx:run-commands", "parallelism": false, "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never", "pnpm install", "playwright install chromium" ], "parallel": false } }
         }
     }

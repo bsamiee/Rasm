@@ -20,6 +20,12 @@
         "extensionToLanguage": { ".py": "python", ".pyi": "python" },
         "diagnostics": false
     },
+    "rust": {
+        "command": "rust-analyzer",
+        "extensionToLanguage": { ".rs": "rust" },
+        "diagnostics": false,
+        "initializationOptions": { "check": { "command": "clippy" }, "rustc": { "source": "discover" } }
+    },
     "swift": {
         "command": "sourcekit-lsp",
         "extensionToLanguage": { ".swift": "swift" },

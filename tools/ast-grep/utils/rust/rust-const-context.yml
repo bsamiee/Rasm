@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-const-context
+language: rust
+rule:
+    inside:
+        stopBy: {kind: 'function_item, closure_expression, const_item, static_item, const_block'}
+        any:
+            - kind: 'const_item, static_item, const_block'
+            - kind: function_item
+              has: {kind: function_modifiers, regex: '\bconst\b'}

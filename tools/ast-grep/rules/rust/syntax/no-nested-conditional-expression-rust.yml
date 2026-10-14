@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-conditional-expression-rust
+language: rust
+severity: error
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment, empty_statement'}
+    statement:
+        kind: 'expression_statement, let_declaration, empty_statement'
+    valued-if:
+        kind: if_expression
+        has: {field: alternative, pattern: $_}
+    conditional:
+        any:
+            - matches: valued-if
+            - kind: match_expression
+    tail-conditional:
+        any:
+            - matches: conditional
+            - kind: expression_statement
+              all:
+                - has: {nthChild: 1, matches: conditional}
+                - not: {has: {regex: '^;$'}}
+    plain-read:
+        any:
+            - kind: 'identifier, self'
+            - kind: field_expression
+              has: {field: value, matches: plain-read}
+            - kind: 'reference_expression, parenthesized_expression'
+              has: {nthChild: 1, matches: plain-read}
+            - kind: unary_expression
+              regex: '^\*'
+              has: {matches: plain-read}
+    bound-name:
+        kind: identifier
+        pattern: $BOUND
+        regex: '^[a-z_]'
+        not: {any: [{inside: {kind: 'tuple_struct_pattern, struct_pattern', field: type}}, {inside: {kind: scoped_identifier}}]}
+    binding-condition:
+        kind: let_condition
+        has: {field: pattern, has: {stopBy: end, matches: bound-name}}
+    binding-owner:
+        any:
+            - kind: match_arm
+              has: {field: pattern, has: {stopBy: end, matches: bound-name}}
+            - kind: if_expression
+              has: {field: condition, any: [{matches: binding-condition}, {kind: let_chain, has: {matches: binding-condition}}]}
+    consuming-match:
+        kind: match_expression
+        has:
+            field: value
+            not: {matches: plain-read}
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $BOUND
+                inside: {kind: 'match_arm, if_expression', stopBy: {kind: 'match_arm, if_expression, closure_expression, function_item'}, matches: binding-owner}
+    consuming-tail:
+        any:
+            - matches: consuming-match
+            - kind: expression_statement
+              has: {nthChild: 1, matches: consuming-match}
+    nested-block:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: tail-conditional, not: {matches: consuming-tail}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+    nested-match-block:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, any: [{kind: match_expression}, {kind: expression_statement, has: {nthChild: 1, kind: match_expression}}], not: {matches: consuming-tail}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+    nested-value:
+        any:
+            - matches: conditional
+              not: {matches: consuming-match}
+            - matches: nested-block
+    let-else-branch:
+        kind: if_expression
+        all:
+            - has: {field: condition, kind: let_condition}
+            - has:
+                field: alternative
+                kind: else_clause
+                has:
+                    kind: block
+                    any:
+                        - all: [{has: {nthChild: 1, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: 2}}}]
+                        - pattern: $X
+    guard-foldable-arm:
+        kind: match_arm
+        all:
+            - has:
+                field: value
+                any:
+                    - matches: let-else-branch
+                    - kind: block
+                      all:
+                        - has: {nthChild: 1, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
+                        - not: {has: {nthChild: 2}}
+            - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
+            - not:
+                has:
+                    field: value
+                    has:
+                        stopBy: end
+                        kind: else_clause
+                        has:
+                            stopBy: end
+                            kind: identifier
+                            pattern: $NAME
+                            inside:
+                                kind: match_arm
+                                stopBy: end
+                                has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
+    nesting-branch:
+        any:
+            - matches: valued-if
+              any:
+                - has: {field: consequence, matches: nested-block}
+                - has: {field: alternative, has: {kind: block, matches: nested-match-block}}
+                - has: {field: alternative, has: {kind: if_expression, matches: nesting-branch}}
+            - kind: match_expression
+              has: {field: body, has: {kind: match_arm, all: [{has: {field: value, matches: nested-value}}, {not: {matches: guard-foldable-arm}}]}}
+    body-tail:
+        kind: expression_statement
+        all:
+            - nthChild: {position: 1, reverse: true, ofRule: {matches: slot}}
+            - not: {has: {regex: '^;$'}}
+            - inside:
+                kind: block
+                any:
+                    - inside: {kind: function_item, field: body, has: {field: return_type, pattern: $_}}
+                    - inside: {kind: closure_expression, field: body}
+rule:
+    matches: nesting-branch
+    any:
+        - inside: {kind: let_declaration, field: value}
+        - inside: {kind: assignment_expression, field: right}
+        - inside: {kind: return_expression}
+        - inside: {kind: match_arm, field: value}
+        - inside: {kind: closure_expression, field: body}
+        - inside: {matches: body-tail}
+message: 'Conditional expression nests a conditional'
+note: 'Select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or a guard on the arm (`<pattern> if <test> =>`), a nested conditional hides the test combination that selects each value, an inner `match` over a call that consumes the outer binding stays nested'

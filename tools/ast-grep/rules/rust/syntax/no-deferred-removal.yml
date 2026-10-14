@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-deferred-removal
+language: rust
+severity: error
+utils:
+    removal-lint:
+        kind: identifier
+        regex: '^(dead_code|unused|unused_imports|unused_variables|unused_assignments|unused_macros|unused_macro_rules|unused_extern_crates|unused_crate_dependencies|unused_lifetimes|unused_labels|unused_attributes|unused_features)$'
+    suppression:
+        kind: identifier
+        regex: '^expect$'
+rule:
+    any:
+        - kind: attribute
+          pattern: $MARK
+          any:
+            - has: {nthChild: 1, kind: identifier, regex: '^deprecated$'}
+            - all:
+                - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
+                - has: {field: arguments, has: {kind: identifier, regex: '^deprecated$', follows: {regex: '^,$'}}}
+        - matches: removal-lint
+          pattern: $MARK
+          inside:
+            kind: token_tree
+            any:
+                - inside: {kind: attribute, has: {nthChild: 1, matches: suppression}}
+                - follows: {matches: suppression}
+        - kind: 'function_item, struct_item, enum_item, union_item, const_item, static_item, type_item, trait_item, mod_item, macro_definition'
+          has: {field: name, regex: '^_\w', pattern: $MARK}
+          not: {has: {kind: visibility_modifier, regex: '^pub$'}}
+message: '`$MARK` keeps an item in place of finishing its removal'
+note: 'Delete the deprecated or unused item and move each consumer to its replacement in the same change, a deprecation, an `#[expect]` on a dead-code lint, or a leading underscore keeps the cause the compiler reports, and the deletion reaches every consumer so no rewrite states it'

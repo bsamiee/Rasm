@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-drop-guard-by-hand
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    release-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(abort|cancel)$', pattern: $RELEASE}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    handle-holder:
+        kind: struct_item
+        all:
+            - has: {field: name, pattern: $TYPE}
+            - has: {field: body, regex: '\b(JoinHandle|AbortHandle|CancellationToken)\b'}
+rule:
+    kind: impl_item
+    all:
+        - has: {field: trait, regex: '^((std|core)::)?(ops::)?Drop$'}
+        - has: {field: type, any: [{kind: type_identifier, pattern: $TYPE}, {kind: generic_type, has: {field: type, pattern: $TYPE}}]}
+        - has:
+            field: body
+            has:
+                kind: function_item
+                all:
+                    - has: {field: name, regex: '^drop$'}
+                    - has: {field: body, has: {stopBy: {kind: 'closure_expression, async_block, function_item'}, matches: release-call}}
+        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: handle-holder}}
+message: '`Drop` for `$TYPE` calls `$RELEASE` on a held handle by hand'
+note: 'Hold `tokio_util::task::AbortOnDropHandle` in place of a `JoinHandle` aborted in `drop`, `AbortOnDrop` in place of an `AbortHandle`, and `CancellationToken::drop_guard()` in place of a token cancelled in `drop`, a release task spawned through the owner''s `TaskTracker` awaits a clone of the guarded token through `cancelled_owned` or `run_until_cancelled_owned`'

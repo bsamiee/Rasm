@@ -168,6 +168,8 @@ Source files group declarations into sections and an owner's members into operat
 - Python: `TYPE_CHECKING` blocks and conditional imports join the preamble, `__all__` closes the file under `[EXPORTS]`
 - TypeScript: runtime schemas and data classes are `[MODELS]`, Effect services `[SERVICES]`, `Layer` values `[COMPOSITION]`
 - Swift: `@main` types are `[COMPOSITION]`, an `extension` sits in the section of the type it extends
+- Rust: traits and unit enums are `[TYPES]`, payload enums `[MODELS]`, error enums `[ERRORS]`, an `impl` block sits in the section of its type, a lint pass `impl` `[COMPOSITION]`
+- Rust: a crate root holds code, a root of `mod` and `pub use` lines alone is a defect
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)

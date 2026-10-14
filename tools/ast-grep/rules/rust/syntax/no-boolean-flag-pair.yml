@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-boolean-flag-pair
+language: rust
+severity: error
+utils:
+    optional-type:
+        kind: generic_type
+        all:
+            - has: {field: type, regex: '^((std|core)::option::)?Option$'}
+            - has: {field: type_arguments, has: {kind: primitive_type, regex: '^bool$'}, not: {has: {nthChild: 2}}}
+    flag-type:
+        any:
+            - {kind: primitive_type, regex: '^bool$'}
+            - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^bool$'}}
+            - matches: optional-type
+    flag:
+        kind: parameter
+        has: {field: type, matches: flag-type}
+    flag-field:
+        kind: field_declaration
+        has: {field: type, matches: flag-type}
+    optional-field:
+        kind: field_declaration
+        has: {field: type, matches: optional-type}
+rule:
+    any:
+        - kind: 'function_item, function_signature_item'
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: parameters, has: {matches: flag, pattern: $FIRST, precedes: {stopBy: end, matches: flag, pattern: $SECOND}}}
+            - not: {matches: rust-fixed-signature}
+        - kind: struct_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has:
+                field: body
+                any:
+                    - has: {matches: optional-field, pattern: $FIRST, precedes: {stopBy: end, matches: flag-field, pattern: $SECOND}}
+                    - has: {matches: flag-field, pattern: $FIRST, precedes: {stopBy: end, matches: optional-field, pattern: $SECOND}}
+message: '`$NAME` encodes one choice as `bool` flags `$FIRST` and `$SECOND`'
+note: 'Take one enum with a variant per combination the code handles, a flag pair admits combinations no caller means and `Option<bool>` adds a third state to each flag'

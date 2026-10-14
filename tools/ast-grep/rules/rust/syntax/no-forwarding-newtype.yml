@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-newtype
+language: rust
+severity: error
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    single-field:
+        kind: ordered_field_declaration_list
+        has: {field: type, pattern: $INNER}
+        not: {has: {field: type, precedes: {stopBy: end, regex: '\w'}}}
+    inner-read:
+        kind: field_expression
+        all:
+            - has: {field: value, kind: self}
+            - has: {field: field, regex: '^0$'}
+    forwarding-expression:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: value, matches: inner-read}}, {has: {field: field, pattern: $M}}]}
+            - kind: reference_expression
+              has: {field: value, matches: inner-read}
+              inside: {stopBy: end, kind: function_item, has: {field: name, regex: '^(deref|deref_mut|as_ref|as_mut|borrow|borrow_mut)$'}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^map$'}}, {has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^parse$'}}}}]}
+                - has: {field: arguments, has: {nthChild: 1, regex: '^Self$'}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^Self$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier}, not: {has: {nthChild: 2}}}
+    forwarding-method:
+        kind: function_item
+        all:
+            - has: {field: name, pattern: $M}
+            - has: {field: body, all: [{has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: forwarding-expression}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}}]}
+    own-impl:
+        kind: impl_item
+        has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $NAME}}, {pattern: $NAME}]}
+rule:
+    kind: struct_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, matches: single-field}
+        - inside:
+            kind: source_file
+            stopBy: end
+            all:
+                - has: {stopBy: end, matches: own-impl, has: {field: trait, pattern: $_}}
+                - not: {has: {stopBy: end, matches: own-impl, not: {has: {field: trait, pattern: $_}}}}
+                - not: {has: {stopBy: end, matches: own-impl, not: {has: {field: body, has: {kind: function_item}}}}}
+                - not: {has: {stopBy: end, matches: own-impl, has: {field: body, has: {kind: function_item, not: {matches: forwarding-method}}}}}
+message: '`$NAME` wraps `$INNER` and every impl it holds forwards to the inner value'
+note: 'Use `<inner>` at each site, the inner type implements each forwarded trait and holds every invariant the wrapper states, a newtype that gives a foreign type a foreign trait impl under the orphan rule is the one form that stays'

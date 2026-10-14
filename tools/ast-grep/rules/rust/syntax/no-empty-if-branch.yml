@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-if-branch
+language: rust
+severity: error
+utils:
+    comment:
+        kind: 'line_comment, block_comment'
+    primary:
+        kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
+    negation:
+        kind: unary_expression
+        regex: '^!'
+    compound:
+        not: {any: [{matches: primary}, {matches: negation}, {kind: 'let_condition, let_chain'}]}
+    empty-then:
+        kind: block
+        not: {has: {pattern: $_, not: {matches: comment}}}
+    bare-then:
+        kind: block
+        not: {has: {pattern: $_}}
+    else-block:
+        kind: else_clause
+        all:
+            - has: {kind: block, pattern: $BLOCK}
+            - not: {has: {matches: comment}}
+            - not: {follows: {matches: comment}}
+rule:
+    kind: if_expression
+    all:
+        - has: {field: consequence, matches: empty-then}
+        - has: {field: condition, pattern: $COND}
+        - has: {field: alternative, kind: else_clause}
+        - any:
+            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: primary, pattern: $P}}, {has: {field: alternative, matches: else-block}}]
+            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: negation, pattern: $N}}, {has: {field: alternative, matches: else-block}}]
+            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: compound, pattern: $Q}}, {has: {field: alternative, matches: else-block}}]
+            - pattern: $UNFIXED
+transform:
+    NEGATED: {replace: {source: $P, replace: '^([\s\S]+)$', by: 'if !$1 '}}
+    STRIPPED: {replace: {source: $N, replace: '^!\s*([\s\S]+)$', by: 'if $1 '}}
+    GROUPED: {replace: {source: $Q, replace: '^([\s\S]+)$', by: 'if !($1) '}}
+fix: $NEGATED$STRIPPED$GROUPED$BLOCK$UNFIXED
+message: '`if $COND` holds an empty branch beside its `else`'
+note: 'State the acting case as the condition (`if !<cond> { <else> }`), a `let` condition takes `let <pattern> = <value> else { <else> };` where the `else` diverges and `!matches!(<value>, <pattern>)` otherwise, an `else if` chain opens with its first acting test, and a branch holding a comment keeps the comment''s fact in a name or the condition, an empty branch inverts the test the reader sees'

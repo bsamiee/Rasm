@@ -15,6 +15,7 @@ const WRITERS: readonly { readonly target: string; readonly extensions: Option.O
     { target: 'format:yamlfmt', extensions: Option.some(['.yaml', '.yml']) },
     { target: 'format:google-java-format', extensions: Option.some(['.java']) },
     { target: 'format:swift-format', extensions: Option.some(['.swift']) },
+    { target: 'format:rustfmt', extensions: Option.some(['.rs']) },
 ];
 
 // --- [ERRORS] --------------------------------------------------------------------------

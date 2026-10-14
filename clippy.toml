@@ -1,0 +1,47 @@
+# --- [CLIPPY] ---------------------------------------------------------------------------
+
+# --- [API]
+avoid-breaking-exported-api = false
+
+# --- [FORMS]
+warn-on-all-wildcard-imports = true # Prelude, test-module `super::*`, and `pub use` globs, each import names its item from its owner
+matches-for-let-else = "AllTypes"   # Every type, not only Option and Result, takes `let`-`else` over a diverging match
+max-struct-bools = 1                # Structs with two or more `bool` fields, invalid states stay unrepresentable at construction
+excessive-nesting-threshold = 5     # Impl and fn bodies count as levels, a method's fourth control level is its sixth block
+
+# --- [GRAPH]
+allowed-duplicate-crates = ["syn"]  # syn 2 under proc macros not on syn 3
+
+# --- [BANS]
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "Domain code reads no ambient source, callers pass the clock as an argument" },
+    { path = "std::time::Instant::now", reason = "Domain code reads no ambient source, callers pass the clock as an argument" },
+    { path = "tokio::time::Instant::now", reason = "Domain code reads no ambient source, callers pass the clock as an argument" },
+    { path = "std::env::var", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
+    { path = "std::env::var_os", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
+    { path = "std::env::vars", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
+    { path = "std::env::vars_os", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
+    { path = "std::env::current_dir", reason = "Domain code reads no ambient source, callers pass each path as an argument" },
+    { path = "std::env::home_dir", reason = "Domain code reads no ambient source, callers pass each path as an argument" },
+    { path = "std::env::temp_dir", reason = "Domain code reads no ambient source, callers pass each path as an argument" },
+    { path = "std::env::args", reason = "`clap::Parser::parse` validates command-line arguments into typed values at the boundary" },
+    { path = "std::env::args_os", reason = "`clap::Parser::parse` validates command-line arguments into typed values at the boundary" },
+    { path = "std::thread::sleep", replacement = "tokio::time::sleep", reason = "Blocks a runtime worker thread" },
+    { path = "tokio::task::block_in_place", replacement = "tokio::task::spawn_blocking", reason = "Suspends every future joined in the calling task and panics on a current-thread runtime" },
+    { path = "tokio::runtime::Handle::block_on", reason = "Panics inside an async context, await the future" },
+    { path = "std::net::ToSocketAddrs::to_socket_addrs", replacement = "tokio::net::lookup_host", reason = "Blocks a runtime worker thread on name resolution" },
+]
+disallowed-types = [
+    { path = "std::sync::Mutex", replacement = "parking_lot::Mutex", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::Mutex` serves a guard held across an `.await` alone" },
+    { path = "std::sync::RwLock", replacement = "parking_lot::RwLock", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::RwLock` serves a guard held across an `.await` alone" },
+    { path = "std::process::Command", replacement = "tokio::process::Command", reason = "`output`, `status`, and `Child::wait` block a runtime worker thread" },
+    { path = "std::net::TcpListener", replacement = "tokio::net::TcpListener", reason = "`accept` blocks a runtime worker thread" },
+    { path = "std::net::TcpStream", replacement = "tokio::net::TcpStream", reason = "`connect`, reads, and writes block a runtime worker thread" },
+    { path = "std::net::UdpSocket", replacement = "tokio::net::UdpSocket", reason = "Sends and receives block a runtime worker thread" },
+    { path = "std::collections::HashMap", replacement = "std::collections::BTreeMap", reason = "Iteration order varies per instance, result order stays deterministic" },
+    { path = "std::collections::HashSet", replacement = "std::collections::BTreeSet", reason = "Iteration order varies per instance, result order stays deterministic" },
+]
+await-holding-invalid-types = [
+    { path = "tracing::span::Entered", reason = "Spans entered across an await cover every task the worker polls meanwhile, instrument the future through `tracing::Instrument`" },
+    { path = "tracing::span::EnteredSpan", reason = "Spans entered across an await cover every task the worker polls meanwhile, instrument the future through `tracing::Instrument`" },
+]

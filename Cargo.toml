@@ -1,0 +1,669 @@
+# --- [CARGO_FEATURES] -------------------------------------------------------------------
+
+cargo-features = ["trim-paths"]
+
+# --- [WORKSPACE] ------------------------------------------------------------------------
+
+[workspace]
+resolver = "3"
+members  = ["libs/rust/*", "tools/bridge", "tools/dylint/*"]
+
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[workspace.package]
+edition = "2024"
+
+# --- [METADATA] -------------------------------------------------------------------------
+
+[workspace.metadata.dylint]
+libraries = [{ path = "tools/dylint/*" }]
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[workspace.dependencies]
+# --- [RUNTIME]
+futures = { version = "0.3.34", default-features = false, features = ["std", "async-await"] } # Future joins and stream combinators with ordered results
+pin-project-lite = { version = "0.2.17", default-features = false } # Pinned fields of hand-written futures and tower response types without unsafe
+tokio = { version = "1.53.3", default-features = false, features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync"] } # Async runtime every service, client, and store driver runs on
+tokio-util = { version = "0.7.20", default-features = false, features = ["rt"] } # Cancellation tokens, task trackers, and drop guards that scope service lifetimes
+tokio-stream = { version = "0.1.19", default-features = false, features = ["sync", "time"] } # Stream adapters over tokio channels, watches, and intervals
+# --- [CONCURRENCY]
+arc-swap = { version = "1.9.2", default-features = false } # Read-mostly snapshots replaced whole while readers keep their copy
+deadpool = { version = "0.13.1", default-features = false, features = ["managed", "unmanaged", "rt_tokio_1"] } # Async pools of reusable connections and handles
+papaya = { version = "0.2.5", default-features = false, features = ["fast-barrier"] } # Concurrent maps that read without a lock across await points
+parking_lot = { version = "0.12.5", default-features = false } # Synchronous locks without poisoning that return guards without unwrap
+rayon = { version = "1.12.0", default-features = false }  # Data parallelism over independent CPU-bound work
+# --- [CACHES]
+foyer = { version = "0.22.6", default-features = false, features = ["runtime-tokio", "tracing", "serde"] } # Hybrid memory and disk caches holding results larger than memory
+moka = { version = "0.12.16", default-features = false, features = ["future", "sync"] } # Bounded caches with per-entry expiry and coalesced async loads
+# --- [SYSTEM]
+process-wrap = { version = "10.0.1", default-features = false, features = ["tokio1", "process-group", "process-session", "kill-on-drop", "job-object", "creation-flags", "tracing"] } # Child processes in groups and job objects that die with their owner
+rustix = { version = "1.1.5", default-features = false, features = ["std", "fs", "process"] } # Typed POSIX calls returning errno values where std stops
+sd-notify = { version = "0.5.0", default-features = false } # Readiness and watchdog signals to systemd
+velopack = { version = "1.2.161", default-features = false } # Product installation and in-place updates
+windows-service = { version = "0.8.1", default-features = false } # Windows service control lifetime
+wasmtime = { version = "50.0.0-rc.1", default-features = false, features = ["std", "runtime", "cranelift", "async", "component-model", "pooling-allocator", "parallel-compilation"] } # In-process WebAssembly sandbox around untrusted guest code
+# --- [ERRORS]
+annotate-snippets = { version = "0.12.16", default-features = false, features = ["std"] } # Grammar errors rendered over source spans
+nonempty-collections = { version = "1.4.0", default-features = false, features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
+thiserror = { version = "2.0.21", default-features = false } # Error enums that consumers match by variant
+validated = { version = "1.0.0", default-features = false } # Applicative validation accumulating every independent error
+# --- [DERIVES]
+auto_impl = { version = "1.4.0", default-features = false } # Capability traits implemented for references, Arc, and Box from one impl
+bon = { version = "3.10.2", default-features = false, features = ["std"] } # Compile-time-checked builders on structs, functions, and methods
+derive-where = { version = "1.7.0", default-features = false } # Derives on generic and phantom-typed records without spurious bounds
+derive_more = { version = "2.1.1", default-features = false, features = ["std", "from", "into", "try_from", "display", "deref", "constructor", "is_variant"] } # Conversion, display, and constructor derives on invariant-free newtypes
+dynosaur = { version = "0.3.1", default-features = false } # Dynamic dispatch over async capability traits swapped at composition
+o2o = { version = "0.5.5", default-features = false }     # Field mappings between domain records and contract records
+strum = { version = "0.28.0", default-features = false, features = ["std", "derive"] } # Enum name tables, iteration, and discriminant enums
+trait-variant = { version = "0.1.3", default-features = false } # Send variants of async capability traits
+# --- [COLLECTIONS]
+cardinality-estimator = { version = "1.0.3", default-features = false, features = ["with_serde"] } # HyperLogLog distinct counts that merge across shards
+enum-map = { version = "3.1.0", default-features = false, features = ["derive", "serde"] } # Total maps holding one value per enum variant
+fastbloom = { version = "0.17.0", default-features = false, features = ["std"] } # Bloom filters that precheck membership
+fst = { version = "0.4.7", default-features = false, features = ["levenshtein"] } # Finite-state sets and maps with prefix, range, and fuzzy queries
+imbl = { version = "7.0.2", default-features = false, features = ["serde"] } # Persistent vectors and maps shared across tasks by structural sharing
+indexmap = { version = "2.14.2", default-features = false, features = ["std", "serde"] } # Insertion-ordered maps and sets that keep iteration and output deterministic
+itertools = { version = "0.15.0", default-features = false, features = ["use_std"] } # Partitioned results, grouping, windows, and merges over iterators
+roaring = { version = "0.11.5", default-features = false, features = ["std"] } # Compressed integer sets with set algebra
+rust-lapper = { version = "2.0.0-beta.1", default-features = false } # Interval overlap and stabbing queries
+slotmap = { version = "1.1.1", default-features = false, features = ["std"] } # Generational-index arenas holding graph and scene nodes
+smallvec = { version = "2.0.0-beta.2", default-features = false, features = ["std", "serde"] } # Inline small vectors that spill to the heap
+tdigests = { version = "1.0.1", default-features = false } # Mergeable quantile estimates over streams
+# --- [CRDT]
+loro = { version = "1.16.2", default-features = false }   # Loro documents with text, list, map, and tree history
+yrs = { version = "0.28.0", default-features = false }    # Yjs documents with state vectors and update exchange
+# --- [SERIALIZATION]
+binrw = { version = "0.15.2", default-features = false, features = ["std"] } # Binary formats read and written from one declaration
+csv = { version = "1.4.0", default-features = false }     # CSV rows decoded into typed records
+data-encoding = { version = "2.11.1", default-features = false, features = ["std"] } # Base64, base32, and hex codecs
+serde = { version = "1.0.229", default-features = false, features = ["std", "derive"] } # Derived encode and decode of records and tagged unions
+serde-saphyr = { version = "2.0.0", default-features = false, features = ["serialize", "deserialize"] } # YAML codec without unsafe libyaml
+toml = { version = "1.1.8", default-features = false, features = ["std", "serde", "parse", "display"] } # Typed TOML decode and encode
+toml_edit = { version = "0.25.17", default-features = false, features = ["parse", "display", "serde"] } # TOML edits that keep comments and layout
+yaml-edit = { version = "0.3.2", default-features = false } # YAML edits that keep comments and layout
+bytes = { version = "1.12.1", default-features = false, features = ["std", "serde"] } # Shared immutable byte buffers
+cbor4ii = { version = "1.2.3", default-features = false, features = ["serde1", "use_std"] } # CBOR codec
+plist = { version = "1.10.1", default-features = false, features = ["serde"] } # XML and binary property lists
+rmp-serde = { version = "1.3.1", default-features = false } # MessagePack codec
+serde_json = { version = "1.0.154", default-features = false, features = ["std", "raw_value", "float_roundtrip"] } # JSON codec with values and raw passthrough
+serde_path_to_error = { version = "0.1.20", default-features = false } # Boundary decode errors that name the failing field path
+apache-avro = { version = "0.22.0", default-features = false, features = ["derive", "zstandard", "snappy"] } # Avro schemas, binary encoding, and container files
+jsonptr = { version = "0.8.2", default-features = false, features = ["std", "serde", "json", "resolve", "assign", "delete"] } # JSON Pointer resolution with typed failures
+serde_with = { version = "3.24.0", default-features = false, features = ["std", "macros", "base64", "hex", "jiff_0_2", "schemars_1"] } # Field codecs declared on records that schema derivation reads
+json-patch = { version = "4.2.0", default-features = false, features = ["diff"] } # JSON Patch apply and diff over JSON values
+# --- [SCHEMA]
+jsonschema = { version = "0.58.6", default-features = false, features = ["resolve-file", "resolve-async", "tls-aws-lc-rs"] } # Runtime validation of documents against JSON Schema
+schemars = { version = "1.2.3", default-features = false, features = ["std", "derive", "jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1"] } # JSON Schema derived from record types
+# --- [NEWTYPES]
+bounded-integer = { version = "0.6.2", default-features = false, features = ["std", "serde1", "schemars1"] } # Ranged integers with bounds that reach the derived schema
+nutype = { version = "0.8.0", default-features = false, features = ["std", "serde", "regex"] } # Validated newtypes with a generated error enum per type
+ordered-float = { version = "5.5.0", default-features = false, features = ["std", "serde"] } # NaN-free floats usable as ordered keys
+# --- [TIME]
+jiff = { version = "0.2.38", default-features = false, features = ["std", "serde", "tz-system", "tz-fat", "tzdb-bundle-platform", "tzdb-zoneinfo", "perf-inline"] } # Instants, zoned date-times, spans, and the zone database
+croner = { version = "4.0.1", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants
+# --- [IDENTIFIERS]
+semver = { version = "1.0.28", default-features = false, features = ["std", "serde"] } # Semantic version and requirement parsing
+uuid = { version = "1.28.0", default-features = false, features = ["std", "v7", "serde"] } # Creation-ordered identifiers
+newtype-uuid = { version = "1.4.0", default-features = false, features = ["std", "v7", "serde"] } # Identifiers typed by the entity kind they name
+# --- [HASHING]
+blake3 = { version = "1.8.7", default-features = false, features = ["std"] } # Content-addressed keys
+crc-fast = { version = "1.10.0", default-features = false, features = ["std"] } # CRC-32 and CRC-64 checksums across catalogued polynomials
+xxhash-rust = { version = "0.8.19", default-features = false, features = ["std", "xxh3", "xxh64"] } # XXH3 and XXH64 content identity hashes
+# --- [TEXT]
+aho-corasick = { version = "1.1.5", default-features = false, features = ["std", "perf-literal"] } # Many-literal search in one pass
+bytesize = { version = "2.7.0", default-features = false, features = ["std", "serde"] } # Byte sizes parsed and displayed in binary and decimal units
+encoding_rs = { version = "0.8.42", default-features = false, features = ["alloc"] } # Legacy text encodings decoded and encoded
+frizbee = { version = "0.13.0", default-features = false, features = ["std"] } # Typo-tolerant ranking of completion candidates
+hypher = { version = "0.1.8", default-features = false, features = ["alloc", "full"] } # Language-aware hyphenation
+icu = { version = "2.3.1", default-features = false, features = ["compiled_data"] } # Segmentation, collation, properties, and plural rules from Unicode data
+ropey = { version = "2.0.0-beta.1", default-features = false, features = ["metric_lines_lf_cr", "metric_utf16", "simd"] } # Editable text buffers with UTF-16 position conversion
+strsim = { version = "0.11.1", default-features = false } # Edit-distance and similarity metrics
+unicode-bidi = { version = "0.3.18", default-features = false, features = ["std", "hardcoded-data"] } # Bidirectional reordering before shaping
+unicode-width = { version = "0.2.2", default-features = false, features = ["cjk"] } # Display width of wide, combining, and emoji text
+# --- [PARSING]
+chumsky = { version = "0.13.0", default-features = false, features = ["std", "stacker", "pratt"] } # Parser combinators that recover and collect every error
+ec4rs = { version = "2.0.0-rc.1", default-features = false, features = ["ec4rs_glob"] } # EditorConfig properties resolved per path
+nmea = { version = "0.8.0", default-features = false, features = ["std", "all-sentences"] } # NMEA 0183 sentences
+oxc = { version = "0.154.0", default-features = false, features = ["ast_visit", "semantic", "codegen", "regular_expression"] } # JavaScript and TypeScript parsing, analysis, and printing
+regex = { version = "1.13.1", default-features = false, features = ["std", "perf", "unicode"] } # Unicode patterns with linear-time matching
+sqlparser = { version = "0.63.0", default-features = false, features = ["std", "visitor", "recursive-protection"] } # SQL text parsed into dialect ASTs
+syntect = { version = "5.3.0", default-features = false, features = ["parsing", "default-syntaxes", "regex-fancy"] } # Syntax definitions looked up by name, alias, and extension
+tree-sitter-sequel = { version = "0.3.11", default-features = false } # SQL grammar
+tree-sitter-xml = { version = "0.7.0", default-features = false } # XML and DTD grammar
+winnow = { version = "1.0.4", default-features = false, features = ["std", "ascii", "binary"] } # Parser combinators with caller-defined error types
+cel = { version = "0.15.0", default-features = false, features = ["regex", "json"] } # Common Expression Language policies
+tree-sitter = { version = "0.27.1", default-features = false, features = ["std"] } # Incremental parsing runtime that loads grammar crates
+ast-grep-core = { version = "0.50.0", default-features = false, features = ["tree-sitter"] } # Structural search and rewrite over syntax trees
+ast-grep-language = { version = "0.50.0", default-features = false, features = ["builtin-parser"] } # Built-in grammars of structural search
+# --- [MARKUP]
+ammonia = { version = "4.2.3", default-features = false } # Allow-list sanitization of untrusted HTML
+comrak = { version = "0.56.0", default-features = false } # CommonMark and GFM parsed into an AST
+htmd = { version = "0.5.5", default-features = false }    # HTML converted to Markdown
+lightningcss = { version = "1.0.0-alpha.72", default-features = false, features = ["visitor", "into_owned"] } # CSS parsing, transformation, and minification
+minijinja = { version = "3.0.0", default-features = false, features = ["builtins", "macros", "multi_template", "std_collections", "serde", "json", "loop_controls", "urlencode"] } # Jinja templates rendering reports and generated documents
+quick-xml = { version = "0.42.0", default-features = false, features = ["serialize", "encoding"] } # Streaming XML read and write with serde mapping
+roxmltree = { version = "0.21.1", default-features = false, features = ["std", "positions"] } # Read-only XML trees with source positions that locate validation errors
+scraper = { version = "0.27.0", default-features = false, features = ["errors"] } # HTML parsing with CSS selectors
+xot = { version = "0.31.2", default-features = false }    # Mutable XML trees with namespaces and parent access
+# --- [FILES]
+camino = { version = "1.2.6", default-features = false, features = ["serde1"] } # UTF-8 paths as a construction invariant
+dunce = { version = "1.0.5", default-features = false }   # Canonical Windows paths without the verbatim prefix
+etcetera = { version = "0.11.0", default-features = false } # Configuration, data, and cache directories under native or XDG conventions
+file-format = { version = "0.29.0", default-features = false, features = ["reader-zip", "reader-xml", "reader-pdf", "reader-cfb", "reader-ebml", "reader-exe", "reader-mp4", "reader-rm", "reader-sqlite3", "reader-txt"] } # Format detection from leading bytes and container contents
+fs-err = { version = "3.3.2", default-features = false, features = ["tokio"] } # File calls with errors that name the path
+globset = { version = "0.4.20", default-features = false } # One path matched against many globs in one pass
+notify = { version = "9.0.0-rc.5", default-features = false, features = ["macos_fsevent", "tokio"] } # File system change events
+tempfile = { version = "3.27.0", default-features = false, features = ["getrandom"] } # Temporary files and atomic writes that keep occupied destinations
+cap-std = { version = "4.0.3", default-features = false, features = ["fs_utf8"] } # Directory capabilities opened at the boundary and passed in
+ignore = { version = "0.4.33", default-features = false } # Gitignore-aware parallel directory walks
+notify-debouncer-full = { version = "0.8.0-rc.2", default-features = false, features = ["macos_fsevent", "tokio"] } # Debounced, rename-aware change batches
+# --- [COMPRESSION]
+async-compression = { version = "0.4.50", default-features = false, features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] } # Compression over async byte streams
+brotli = { version = "9.0.0", default-features = false, features = ["std"] } # Brotli streams
+bzip2 = { version = "0.6.1" }                             # bzip2 streams
+flate2 = { version = "1.1.10", default-features = false, features = ["zlib-rs"] } # Deflate, zlib, and gzip streams
+lz4_flex = { version = "0.14.0", default-features = false, features = ["std", "frame", "safe-encode", "safe-decode", "checked-decode"] } # LZ4 block and frame codecs
+lzma-rust2 = { version = "0.22.0", default-features = false, features = ["std", "xz", "lzip", "encoder", "optimization"] } # XZ, LZMA, and LZIP streams
+snap = { version = "1.1.2", default-features = false }    # Snappy frames
+tar = { version = "0.4.46", default-features = false }    # Tar archives
+zstd = { version = "0.14.2", default-features = false, features = ["zdict_builder", "zstdmt"] } # Zstandard frames with dictionaries
+qbsdiff = { version = "1.4.4", default-features = false } # Binary deltas between file versions
+sevenz-rust2 = { version = "0.24.0", default-features = false, features = ["compress", "util", "aes256", "bzip2", "zstd", "ppmd"] } # 7z archives
+zip = { version = "9.0.3", default-features = false, features = ["aes-crypto", "deflate-flate2-zlib-rs", "zstd", "bzip2", "lzma", "jiff-02"] } # ZIP archives with ZIP64 and AES
+# --- [CRYPTOGRAPHY]
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc", "password-hash", "getrandom"] } # Password hashing in PHC strings
+aws-lc-rs = { version = "1.18.2", default-features = false, features = ["aws-lc-sys", "alloc", "prebuilt-nasm"] } # Digests, MACs, key derivation, AEAD, signatures, and key wrap
+crypto_box = { version = "0.10.0-pre.0", default-features = false, features = ["alloc", "salsa20", "os_rng"] } # NaCl public-key boxes
+rustls = { version = "0.23.46", default-features = false, features = ["std", "tls12", "aws_lc_rs", "prefer-post-quantum"] } # TLS stack with the process-wide aws-lc-rs provider each binary installs
+sigstore = { version = "0.14.0", default-features = false, features = ["sign", "verify", "bundle", "rustls-tls"] } # Keyless signing and transparency-log verification
+x509-parser = { version = "0.18.1", default-features = false, features = ["verify-aws"] } # X.509 certificate parsing and signature checks
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] } # X.509 certificates issued to loopback and test endpoints
+rustls-platform-verifier = { version = "0.7.1", default-features = false } # Certificate verification through the OS trust store
+# --- [AUTHENTICATION]
+httpsig = { version = "0.0.26", default-features = false, features = ["rsa-signature"] } # HTTP message signatures
+jsonwebtoken = { version = "11.1.0", default-features = false, features = ["aws_lc_rs", "use_pem"] } # JWT signing and validation
+openidconnect = { version = "4.0.1", default-features = false, features = ["timing-resistant-secret-traits"] } # OpenID Connect discovery, PKCE flows, and ID token validation
+totp-rs = { version = "6.0.0", default-features = false, features = ["std", "otpauth", "gen_secret", "zeroize"] } # One-time passwords and otpauth URLs
+webauthn-rs = { version = "0.6.1-dev", default-features = false, features = ["attestation", "conditional-ui", "resident-key-support"] } # Passkey registration and authentication ceremonies
+webbrowser = { version = "1.2.4", default-features = false } # Authorization URLs opened in the user's browser
+# --- [SECRETS]
+aws-config = { version = "1.12.0", default-features = false, features = ["rt-tokio", "default-https-client", "credentials-process", "sso", "behavior-version-latest"] } # AWS credential and region resolution
+aws-sdk-kms = { version = "1.123.0", default-features = false, features = ["rt-tokio", "default-https-client", "behavior-version-latest"] } # AWS KMS keys
+azure_identity = { version = "1.1.0-beta.1", default-features = false, features = ["reqwest_rustls", "tokio"] } # Microsoft Entra ID credential chain
+azure_security_keyvault_keys = { version = "1.0.1", default-features = false } # Azure Key Vault keys and cryptographic operations
+azure_security_keyvault_secrets = { version = "1.0.1", default-features = false } # Azure Key Vault secrets
+google-cloud-kms-v1 = { version = "1.15.0", default-features = false, features = ["default-rustls-provider"] } # Google Cloud KMS keys
+google-cloud-secretmanager-v1 = { version = "1.14.0", default-features = false, features = ["default-rustls-provider"] } # Google Cloud Secret Manager secrets
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] } # OS keychain storage of OAuth tokens
+secrecy = { version = "0.10.3", default-features = false, features = ["serde"] } # Secrets redacted from Debug output and zeroized on drop
+vaultrs = { version = "0.8.0", default-features = false, features = ["rustls"] } # HashiCorp Vault secrets, transit, and PKI
+# --- [HTTP]
+headers = { version = "0.4.2", default-features = false } # Typed conditional, range, and entity-tag headers
+hickory-resolver = { version = "0.26.3", default-features = false, features = ["tokio", "system-config"] } # Async DNS resolution with SRV lookups
+progenitor = { version = "0.15.1", default-features = false } # Typed clients generated from OpenAPI documents
+sfv = { version = "0.16.0", default-features = false, features = ["parsed-types"] } # HTTP structured field values
+tower = { version = "0.5.3", default-features = false, features = ["util", "timeout", "limit", "load-shed"] } # Service and layer composition with timeouts, limits, and load shedding
+tower-http = { version = "0.7.1", default-features = false, features = ["trace"] } # Request tracing layers on served routes
+url = { version = "2.5.8", default-features = false, features = ["std", "serde"] } # WHATWG URLs parsed at boundaries
+axum = { version = "0.8.9", default-features = false, features = ["tokio", "http1"] } # Server that mounts tower services on loopback ports
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "http2", "json", "stream", "gzip", "zstd", "brotli", "charset", "system-proxy"] } # HTTP client with pooling, streaming, and decompression
+aide = { version = "0.16.0-alpha.4", default-features = false, features = ["axum", "axum-json", "axum-query", "scalar"] } # OpenAPI documents derived from the same schemas as tool parameters
+octocrab = { version = "0.54.4", default-features = false, features = ["default-client", "rustls", "rustls-aws-lc-rs", "follow-redirect", "timeout", "tracing", "stream"] } # GitHub REST client
+reqwest-middleware = { version = "0.5.2", default-features = false, features = ["json", "rustls"] } # Middleware chain around HTTP clients
+http-cache-reqwest = { version = "1.0.0-alpha.9", default-features = false, features = ["reqwest-middleware", "manager-redb", "url-standard"] } # RFC 9111 response cache in an embedded store
+reqwest-tracing = { version = "0.7.1", default-features = false } # Client request spans with semantic-convention attributes
+# --- [RPC]
+async-lsp = { version = "0.2.4", default-features = false, features = ["omni-trait", "stdio", "tokio", "tracing"] } # Language Server Protocol clients and servers as tower services
+buffa = { version = "0.9.2", default-features = false, features = ["std", "json", "fast-utf8"] } # Protobuf messages with editions, views, and canonical JSON
+rmcp = { version = "3.5.1", default-features = false, features = ["client", "server", "transport-child-process", "transport-streamable-http-server"] } # MCP sessions over child-process stdio and Streamable HTTP
+buffa-types = { version = "0.9.2", default-features = false, features = ["std", "json", "jiff"] } # Protobuf well-known types with JSON mapping and jiff conversion
+connectrpc = { version = "0.9.1", default-features = false, features = ["server", "client", "client-tls", "axum", "json", "gzip", "zstd"] } # Connect, gRPC, and gRPC-Web services and clients
+protovalidate-buffa = { version = "0.7.2", default-features = false, features = ["connect", "json"] } # Protovalidate rules compiled into message validation
+# --- [TRANSFER]
+object_store = { version = "0.14.2", default-features = false, features = ["fs", "aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores
+reqwest_dav = { version = "0.3.3", default-features = false, features = ["rustls-tls-no-provider"] } # WebDAV transfers
+russh = { version = "0.64.1", default-features = false, features = ["aws-lc-rs", "flate2", "rsa"] } # SSH clients and servers reaching remote workers
+russh-sftp = { version = "3.0.1", default-features = false } # SFTP over SSH channels
+suppaftp = { version = "12.2.0", default-features = false, features = ["tokio", "tokio-rustls-aws-lc-rs"] } # FTP and FTPS transfers
+# --- [TELEMETRY]
+opentelemetry = { version = "0.33.1", default-features = false, features = ["trace", "metrics", "logs"] } # Trace, metric, and log API
+opentelemetry-semantic-conventions = { version = "0.33.1", default-features = false, features = ["semconv_experimental"] } # Semantic-convention attribute names
+pprof = { version = "0.15.0", default-features = false, features = ["flamegraph", "frame-pointer"] } # In-process CPU profiles and flamegraphs
+pyroscope = { version = "2.1.2", default-features = false, features = ["backend-pprof-rs", "rustls-no-provider"] } # Continuous profiles pushed to Pyroscope
+sysinfo = { version = "0.39.6", default-features = false, features = ["system", "disk", "network"] } # Process and host resource readings
+tokio-metrics = { version = "0.5.2", default-features = false, features = ["rt"] } # Runtime and task metrics on stable tokio
+tracing = { version = "0.1.44", default-features = false } # Spans and events emitted at service boundaries
+opentelemetry-http = { version = "0.33.1", default-features = false, features = ["reqwest"] } # W3C trace context injected into and extracted from HTTP headers
+opentelemetry_sdk = { version = "0.33.1", default-features = false, features = ["trace", "metrics", "logs", "rt-tokio"] } # Tracer, meter, and logger providers with processors and samplers
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["env-filter", "fmt"] } # Subscriber layers filtering and formatting service telemetry
+opentelemetry-appender-tracing = { version = "0.33.1", default-features = false } # Tracing events exported as log records
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["trace", "metrics", "logs", "http-proto", "reqwest-client"] } # OTLP export over HTTP
+opentelemetry-resource-detectors = { version = "0.13.0", default-features = false } # Host, OS, and process resource attributes
+tracing-appender = { version = "0.2.5", default-features = false } # Rolling and non-blocking file writers
+tracing-opentelemetry = { version = "0.34.0", default-features = false, features = ["metrics"] } # Tracing spans exported as OpenTelemetry spans and metrics
+# --- [CLI]
+anstyle = { version = "1.0.14", default-features = false, features = ["std"] } # Style values shared by help text, terminal output, and TUI spans
+clap = { version = "4.6.7", default-features = false, features = ["derive", "std", "help", "usage", "error-context"] } # Typed command-line arguments and environment values
+comfy-table = { version = "8.0.1", default-features = false, features = ["tty"] } # Terminal tables sized to the terminal width
+indicatif = { version = "0.18.6", default-features = false, features = ["unicode-width"] } # Progress bars and spinners
+inquire = { version = "0.9.4", default-features = false, features = ["crossterm", "fuzzy", "editor"] } # Interactive prompts
+minus = { version = "5.8.0", default-features = false, features = ["static_output", "dynamic_output", "search"] } # In-process pager
+anstream = { version = "1.0.0", default-features = false, features = ["auto", "wincon"] } # Writers that keep, strip, or translate ANSI per terminal
+clap-verbosity-flag = { version = "3.0.4", default-features = false, features = ["tracing"] } # Verbosity flags resolved to a tracing level filter
+clap_complete = { version = "4.6.11", default-features = false } # Shell completion scripts generated from each command
+clap_mangen = { version = "0.3.3", default-features = false } # Man pages generated from each command
+colorchoice-clap = { version = "1.0.8", default-features = false } # Color choice flag feeding terminal writers
+tracing-indicatif = { version = "0.3.14", default-features = false } # Progress bars driven by tracing spans
+# --- [TERMINAL]
+crossterm = { version = "0.29.0", default-features = false, features = ["events", "event-stream", "bracketed-paste", "windows"] } # Raw mode, alternate screen, and async terminal events
+ratatui-core = { version = "0.1.2", default-features = false, features = ["std", "anstyle"] } # Conversions between terminal styles and TUI styles
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache", "underline-color", "macros"] } # Terminal UI layout, buffer diffing, and widgets
+ratatui-textarea = { version = "0.9.3", default-features = false, features = ["crossterm"] } # Multi-line text editing widget
+tui-popup = { version = "0.7.7", default-features = false } # Popups and dialogs
+tui-scrollview = { version = "0.6.8", default-features = false } # Scrollable viewports
+tui-tree-widget = { version = "0.24.1", default-features = false } # Collapsible tree views
+ratatui-image = { version = "12.0.0-rc.2", default-features = false, features = ["crossterm", "image-defaults"] } # Raster previews in the terminal
+throbber-widgets-tui = { version = "0.11.1", default-features = false, features = ["std"] } # Activity indicators of pending effects
+tui-logger = { version = "0.18.3", default-features = false, features = ["crossterm", "tracing-support"] } # Log pane fed by tracing events
+# --- [DATABASES]
+clickhouse = { version = "0.15.3", default-features = false, features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "lz4", "inserter", "uuid"] } # Typed row inserts and selects over ClickHouse
+duckdb = { version = "1.10506.0", default-features = false, features = ["bundled", "json", "parquet", "appender-arrow", "vtab-arrow"] } # In-process analytics over Parquet, CSV, JSON, and attached databases
+falkordb = { version = "0.10.4", default-features = false, features = ["tokio-rustls"] } # FalkorDB graph queries
+fjall = { version = "3.1.12", default-features = false, features = ["lz4"] } # Embedded LSM key-value store holding write-heavy state
+influxdb3-client = { version = "0.3.0", default-features = false } # InfluxDB 3 writes and queries
+kurrentdb = { version = "1.2.0", default-features = false } # KurrentDB event streams and subscriptions
+mongodb = { version = "3.9.1", default-features = false, features = ["rustls-tls-aws-lc", "dns-resolver", "compat-3-3-0", "bson-3"] } # MongoDB documents, aggregation, and change streams
+neo4rs = { version = "0.9.0-rc.10", default-features = false } # Neo4j graph queries over Bolt
+questdb-rs = { version = "7.0.0", default-features = false, features = ["sync-sender", "tls-native-certs", "aws-lc-crypto"] } # QuestDB time-series ingestion
+redb = { version = "4.4.0", default-features = false, features = ["std"] } # Embedded transactional key-value store with typed tables
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled", "cache", "jiff", "serde_json", "functions", "backup", "blob"] } # Synchronous SQLite with the engine bundled
+scylla = { version = "1.9.0", default-features = false, features = ["rustls-023", "metrics"] } # Cassandra and ScyllaDB queries
+snowflake-api = { version = "0.14.0", default-features = false, features = ["cert-auth"] } # Snowflake SQL with Arrow results
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "macros", "postgres", "sqlite-bundled", "mysql", "json", "uuid", "rust_decimal", "sqlx-toml"] } # PostgreSQL, SQLite, and MySQL pools with queries checked at compile time
+surrealdb = { version = "3.3.4", default-features = false, features = ["protocol-ws", "rustls"] } # SurrealDB queries
+tiberius = { version = "0.13.0", default-features = false, features = ["tds80", "rustls", "sql-browser-tokio", "rust_decimal"] } # SQL Server client
+turso = { version = "0.8.3", default-features = false, features = ["sync"] } # SQLite-compatible embedded database with concurrent writes and cloud sync
+jiff-sqlx = { version = "0.2.0", default-features = false, features = ["postgres", "sqlite"] } # jiff values as sqlx column types
+pgvector = { version = "0.4.2", default-features = false, features = ["sqlx", "halfvec", "serde"] } # pgvector column types
+sea-query = { version = "1.0.2", default-features = false, features = ["derive", "backend-postgres", "backend-sqlite", "backend-mysql", "with-jiff", "with-uuid", "with-json", "postgres-vector", "postgres-array"] } # DDL and dynamic queries built from typed table definitions
+sea-schema = { version = "0.18.1", default-features = false, features = ["postgres", "sqlite", "mysql", "discovery", "writer", "sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "runtime-tokio"] } # Live schema discovery that owning types diff against
+# --- [SEARCH]
+elasticsearch = { version = "9.1.0-alpha.1", default-features = false, features = ["rustls-tls"] } # Elasticsearch indexes and search
+lancedb = { version = "0.40.0", default-features = false, features = ["aws"] } # Embedded vector tables with ANN, full-text, and hybrid search
+meilisearch-sdk = { version = "0.33.0", default-features = false } # Meilisearch indexes and search
+opensearch = { version = "2.4.0", default-features = false, features = ["rustls-tls"] } # OpenSearch indexes and search
+qdrant-client = { version = "1.19.0", default-features = false, features = ["serde"] } # Qdrant vector search
+tantivy = { version = "0.26.2", default-features = false, features = ["mmap", "stopwords", "stemmer", "lz4-compression", "zstd-compression", "columnar-zstd-compression"] } # Embedded full-text index
+usearch = { version = "2.26.4", default-features = false, features = ["numkong"] } # HNSW vector indexes
+# --- [MESSAGING]
+cloudevents-sdk = { version = "0.9.0", default-features = false, features = ["axum", "http-binding"] } # CloudEvents envelopes with HTTP bindings
+lapin = { version = "4.12.2", default-features = false, features = ["rustls", "tokio"] } # AMQP 0-9-1 client
+lettre = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] } # Mail messages over pooled SMTP
+nkeys = { version = "0.4.5", default-features = false }   # NATS key pairs that sign and verify credentials
+pulsar = { version = "6.9.0", default-features = false, features = ["tokio-rustls-runtime", "compression"] } # Pulsar producers, consumers, and readers
+rdkafka = { version = "0.39.0", default-features = false, features = ["tokio", "cmake-build", "libz", "zstd"] } # Kafka producers, consumers, and admin
+redis = { version = "1.7.1", default-features = false, features = ["aio", "tokio-comp", "tokio-rustls-comp", "connection-manager", "cluster-async", "streams", "json", "script"] } # Redis and Valkey commands, pub/sub, streams, and cluster
+rumqttc-next = { version = "0.34.0", default-features = false, features = ["use-rustls-aws-lc", "tracing"] } # MQTT 5 client
+schema_registry_converter = { version = "5.1.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] } # Schema Registry serdes over Avro, JSON Schema, and Protobuf
+temporalio-client = { version = "1.1.0", default-features = false, features = ["envconfig", "tls-aws-lc"] } # Workflow starts, signals, queries, and results
+zeromq = { version = "0.6.0", default-features = false, features = ["tokio-runtime", "tcp-transport", "ipc-transport"] } # ZeroMQ sockets
+async-nats = { version = "0.50.0", default-features = false, features = ["aws-lc-rs", "jetstream", "kv", "object-store", "service", "nkeys", "nuid", "crypto", "server_2_10", "server_2_11", "server_2_12", "server_2_14"] } # NATS core, JetStream, key-value, object store, and services
+temporalio-sdk = { version = "1.1.0", default-features = false, features = ["envconfig"] } # Durable workflows and activities replayed from history
+# --- [DEVICES]
+async-opcua = { version = "0.19.0", default-features = false, features = ["client", "server"] } # OPC UA clients and servers
+bacnet-rs = { version = "0.3.2", default-features = false, features = ["std", "async"] } # BACnet/IP and MS/TP
+hidapi = { version = "2.6.7", default-features = false, features = ["linux-static-hidraw"] } # USB HID devices
+tokio-serial = { version = "5.5.0", default-features = false } # Async serial ports
+tokio-modbus = { version = "0.17.0", default-features = false, features = ["tcp", "rtu", "tcp-server", "rtu-server"] } # Modbus TCP and RTU clients and servers
+# --- [COLUMNAR]
+adbc_core = { version = "0.24.0", default-features = false } # Database access through ADBC returning record batches
+arrow = { version = "60.0.0", default-features = false, features = ["ipc", "ipc_compression", "csv", "json", "ffi", "prettyprint"] } # Columnar record batches and IPC
+arrow-flight = { version = "60.0.0", default-features = false, features = ["flight-sql", "tls-aws-lc"] } # Arrow Flight and Flight SQL
+deltalake = { version = "1.1.1", default-features = false, features = ["rustls", "datafusion", "s3", "gcs", "azure"] } # Delta Lake tables
+parquet = { version = "60.0.0", default-features = false, features = ["arrow", "async", "object_store", "zstd", "lz4", "snap", "brotli", "flate2-zlib-rs", "base64", "simdutf8"] } # Parquet files read and written as record batches
+polars = { version = "0.55.2", default-features = false, features = ["lazy", "parquet", "csv", "ipc", "json", "temporal", "dtype-full", "sql", "streaming"] } # Dataframes with a lazy query engine
+substrait = { version = "0.65.0", default-features = false, features = ["parse", "extensions", "serde"] } # Substrait plan model
+adbc_driver_manager = { version = "0.24.0", default-features = false } # ADBC drivers loaded from shared libraries
+datafusion = { version = "55.2.0", default-features = false, features = ["parquet", "sql", "nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "string_expressions", "regex_expressions", "unicode_expressions", "compression", "recursive_protection"] } # SQL query engine over Arrow and object stores
+iceberg = { version = "0.10.1", default-features = false } # Apache Iceberg tables
+datafusion-substrait = { version = "55.2.0", default-features = false, features = ["physical"] } # DataFusion plans converted to and from Substrait
+iceberg-catalog-rest = { version = "0.10.1", default-features = false } # Iceberg REST catalogs
+# --- [ARRAYS]
+hdf5-metno = { version = "0.15.0", default-features = false, features = ["static", "zlib", "lzf", "blosc-all"] } # HDF5 arrays
+icechunk = { version = "2.3.0", default-features = false, features = ["s3", "object-store-s3", "object-store-gcs", "object-store-azure", "object-store-fs"] } # Versioned tensor stores
+netcdf = { version = "0.12.1", default-features = false, features = ["ndarray", "static"] } # netCDF fields
+zarrs = { version = "0.23.14", default-features = false, features = ["filesystem", "ndarray", "sharding", "zstd", "gzip", "blosc", "crc32c", "transpose", "async", "jiff"] } # Zarr chunked arrays
+# --- [NUMERICS]
+dashu = { version = "0.6.2", default-features = false, features = ["std", "num-order"] } # Arbitrary-precision integers, rationals, and floats
+faer = { version = "0.24.4", default-features = false, features = ["std", "linalg", "sparse", "sparse-linalg", "rayon"] } # Dense and sparse decompositions and solves
+glam = { version = "0.34.1", default-features = false, features = ["std", "all-types", "serde"] } # SIMD f32 vector and matrix math in graphics code
+inari = { version = "2.0.0", default-features = false }   # Interval arithmetic with verified enclosures
+iso_currency = { version = "0.7.1", default-features = false, features = ["with-serde"] } # ISO 4217 currency codes and minor units
+ndarray = { version = "0.17.2", default-features = false, features = ["std", "rayon", "serde"] } # N-dimensional arrays holding image planes and analysis data
+rand = { version = "0.10.3", default-features = false, features = ["std", "std_rng", "sys_rng", "chacha"] } # Seeded generators passed into domain functions
+rustfft = { version = "6.4.1", default-features = false, features = ["avx", "sse", "neon"] } # FFT of any length
+twofloat = { version = "0.8.4", default-features = false, features = ["std", "math_funcs"] } # Double-double arithmetic in ill-conditioned predicates
+uom = { version = "0.38.0", default-features = false, features = ["std", "si", "f64", "autoconvert", "use_serde"] } # Quantities with dimensions checked at compile time
+nalgebra = { version = "0.35.0", default-features = false, features = ["std", "macros", "serde-serialize"] } # Fixed-size vectors, points, and transforms shared by the geometry crates
+rand_distr = { version = "0.6.0", default-features = false, features = ["std"] } # Sampling distributions over passed-in generators
+realfft = { version = "3.5.0", default-features = false } # Real-input FFT at half the work
+rust_decimal = { version = "1.43.0", default-features = false, features = ["std", "serde-with-str"] } # Fixed-scale decimals holding money and exact values
+gauss-quad = { version = "0.3.2", default-features = false, features = ["std"] } # Gaussian quadrature rules
+num-dual = { version = "0.15.1", default-features = false, features = ["nalgebra"] } # Forward-mode automatic differentiation
+statrs = { version = "0.19.1", default-features = false, features = ["std", "rand", "nalgebra"] } # Distributions and descriptive statistics
+# --- [SOLVERS]
+argmin-math = { version = "0.5.1", default-features = false, features = ["faer_latest"] } # Linear algebra backend of argmin solvers
+clarabel = { version = "0.11.1", default-features = false, features = ["serde"] } # Conic interior-point solves
+diffsol = { version = "0.17.1", default-features = false, features = ["faer"] } # ODE and DAE solvers with sensitivities
+fmi = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMU co-simulation and model exchange
+kasuari = { version = "0.4.12", default-features = false, features = ["std"] } # Cassowary constraint solving of layouts
+nlopt = { version = "0.8.1", default-features = false }   # Constrained local and global optimization
+nuts-rs = { version = "0.19.0", default-features = false, features = ["ndarray"] } # No-U-Turn sampling
+argmin = { version = "0.11.0", default-features = false } # Gradient, quasi-Newton, simplex, and trust-region minimization
+good_lp = { version = "1.15.3", default-features = false, features = ["clarabel", "highs"] } # LP and MIP models over HiGHS and Clarabel
+# --- [GRAPHS]
+petgraph = { version = "0.8.3", default-features = false, features = ["std", "stable_graph", "graphmap", "serde-1", "rayon"] } # Graph structures with traversal, ordering, and shortest paths
+petgraph-graphml = { version = "5.0.0", default-features = false } # GraphML output of graphs
+rust-sugiyama = { version = "0.4.0", default-features = false } # Layered placement of directed graphs
+rustworkx-core = { version = "0.18.1", default-features = false } # Centrality, community, and layout algorithms over graphs
+# --- [GEOMETRY]
+cavalier_contours = { version = "0.9.0", default-features = false } # Polyline offsets and booleans with arc segments
+fidget = { version = "0.5.1", default-features = false, features = ["mesh", "jit"] } # Implicit surfaces evaluated, meshed, and rendered
+jagua-rs = { version = "1.1.0", default-features = false, features = ["spp"] } # Collision detection inside 2D irregular nesting
+kiddo = { version = "6.3.0", default-features = false }   # k-d tree nearest-neighbor queries
+manifold-rust = { version = "0.16.0", default-features = false } # Manifold mesh booleans
+meshopt = { version = "0.6.2", default-features = false } # Mesh simplification, vertex cache optimization, and compression
+spade = { version = "2.15.1", default-features = false, features = ["std"] } # Constrained Delaunay triangulation and Voronoi duals
+urdf-rs = { version = "0.10.0", default-features = false } # URDF robot descriptions
+curvo = { version = "0.3.2", default-features = false }   # NURBS curves and surfaces
+k = { version = "0.32.0", default-features = false }      # Forward and inverse kinematics of serial chains
+parry3d-f64 = { version = "0.31.1", default-features = false, features = ["std", "required-features", "spade", "parallel"] } # 3D distances, intersections, ray casts, and contacts over f64 shapes
+rapier3d-f64 = { version = "0.36.1", default-features = false, features = ["std", "dim3", "f64", "parallel"] } # Rigid-body dynamics
+# --- [INTERCHANGE]
+acadrust = { version = "0.6.4", default-features = false } # DWG and DXF drawings
+e57 = { version = "0.11.13", default-features = false }   # E57 point clouds
+gltf = { version = "1.4.1", default-features = false, features = ["import", "utils", "names", "extensions", "extras"] } # glTF and GLB
+ifc-lite-core = { version = "20.4.0", default-features = false } # IFC building models
+las = { version = "0.11.1", default-features = false, features = ["laz-parallel"] } # LAS and LAZ point clouds
+openusd = { version = "0.8.0", default-features = false } # USD stages
+ply-rs-bw = { version = "4.0.1", default-features = false } # PLY meshes and point clouds
+russimp = { version = "3.2.1", default-features = false, features = ["prebuilt"] } # Assimp-supported 3D formats
+stl_io = { version = "0.11.0", default-features = false } # STL meshes
+tobj = { version = "4.0.5", default-features = false }    # Wavefront OBJ and MTL
+# --- [GEOSPATIAL]
+geoarrow-schema = { version = "0.9.0", default-features = false } # GeoArrow extension types
+grib = { version = "0.19.1", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate"] } # GRIB2 fields
+osmpbf = { version = "0.3.8", default-features = false, features = ["rust-zlib"] } # OpenStreetMap PBF extracts
+pmtiles = { version = "0.24.1", default-features = false, features = ["write", "mmap-async-tokio"] } # PMTiles archives
+rstar = { version = "0.13.0", default-features = false }  # R*-tree envelope and nearest queries
+solar-positioning = { version = "0.7.1", default-features = false, features = ["std"] } # Solar positions
+tzf-rs = { version = "2.1.3", default-features = false, features = ["bundled"] } # Time zones from coordinates
+geo-types = { version = "0.7.20", default-features = false, features = ["std", "serde"] } # Geometry primitives shared by the georust crates
+geoarrow-array = { version = "0.9.0", default-features = false } # GeoArrow geometry arrays
+gdal = { version = "0.19.0", default-features = false, features = ["array"] } # GDAL rasters and OGR vectors
+geo = { version = "0.33.1", default-features = false, features = ["spade", "earcut", "use-serde"] } # Planar predicates, booleans, buffers, simplification, and triangulation
+geohash = { version = "0.13.2", default-features = false, features = ["std"] } # Geohash cells
+geojson = { version = "1.0.0", default-features = false, features = ["geo-types"] } # GeoJSON
+geoparquet = { version = "0.9.0", default-features = false, features = ["async"] } # GeoParquet
+kml = { version = "0.14.0", default-features = false, features = ["geo-types", "zip"] } # KML and KMZ
+proj = { version = "0.31.0", default-features = false, features = ["geo-types", "bundled_proj"] } # CRS transforms with the PROJ database
+shapefile = { version = "0.9.0", default-features = false, features = ["geo-types"] } # Shapefiles
+geoarrow-expr-geo = { version = "0.9.0", default-features = false } # georust operations on GeoArrow arrays
+geozero = { version = "0.15.1", default-features = false, features = ["with-geo", "with-geojson", "with-wkb", "with-wkt", "with-mvt", "with-gpkg"] } # Streaming conversion between WKB, WKT, GeoJSON, MVT, and GeoPackage
+h3o = { version = "0.11.0", default-features = false, features = ["std", "geo"] } # H3 hexagonal cells
+stac = { version = "0.17.6", default-features = false, features = ["std", "geo", "geoparquet", "async"] } # STAC catalogs, items, and collections
+flatgeobuf = { version = "6.0.1", default-features = false } # FlatGeobuf
+stac-io = { version = "0.3.4", default-features = false, features = ["store-aws", "geoparquet"] } # STAC reads and writes over object stores
+# --- [COLOR]
+color = { version = "0.3.3", default-features = false, features = ["std", "serde"] } # CSS color parsing, serialization, interpolation, and gamut mapping
+colorgrad = { version = "0.9.0", default-features = false, features = ["std", "preset", "named-colors"] } # Color gradients and colormaps
+colorimetry = { version = "0.1.0", default-features = false, features = ["cie-illuminants"] } # CIE observers and spectral integration
+moxcms = { version = "0.9.1", default-features = false, features = ["lut", "neon_luts", "avx_luts", "sse_luts", "neon_shaper_paths", "avx_shaper_paths", "sse_shaper_paths", "neon_shaper_fixed_point_paths", "avx_shaper_fixed_point_paths", "sse_shaper_fixed_point_paths"] } # ICC profile transforms
+palette = { version = "0.7.7", default-features = false, features = ["std", "approx", "named_from_str", "serializing"] } # Typed color spaces, conversions, and chromatic adaptation
+# --- [IMAGING]
+exr = { version = "1.74.2", default-features = false, features = ["rayon"] } # Multi-layer OpenEXR
+imagesize = { version = "0.15.0", default-features = false, features = ["png", "jpeg", "webp", "gif", "heif", "tiff", "bmp"] } # Image dimensions read from header bytes
+intel_tex_2 = { version = "0.5.0", default-features = false } # BCn, ASTC, and ETC1 texture compression
+jxl-oxide = { version = "0.12.6", default-features = false, features = ["moxcms"] } # JPEG XL decoding
+ktx2 = { version = "0.5.0", default-features = false, features = ["std"] } # KTX2 texture containers
+libvips = { version = "2.3.0", default-features = false } # Streaming decode, downscale, and ICC over libvips
+nom-exif = { version = "3.8.0", default-features = false } # EXIF and QuickTime metadata
+opencv = { version = "0.101.1", default-features = false, features = ["imgproc", "imgcodecs", "calib3d", "features2d", "dnn", "videoio"] } # Image processing, camera calibration, feature matching, and video
+oxipng = { version = "10.2.1", default-features = false, features = ["parallel", "zopfli"] } # Lossless PNG optimization
+rxing = { version = "0.9.3", default-features = false, features = ["encoding_rs", "encoders", "decoders", "full_barcode_format_support"] } # Barcode encode and decode
+tiff = { version = "0.11.3", default-features = false, features = ["deflate", "lzw", "jpeg", "zstd", "fax"] } # TIFF and DNG containers with tag access
+turbojpeg = { version = "1.5.1", default-features = false, features = ["cmake", "require-simd"] } # JPEG encode and decode through libjpeg-turbo
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "webp", "exr", "hdr", "gif", "bmp", "avif", "rayon"] } # Raster decode, encode, and conversion
+fast_image_resize = { version = "6.1.0", default-features = false, features = ["std", "image", "rayon"] } # SIMD resampling of previews and downscales
+image-compare = { version = "0.5.0", default-features = false } # Structural similarity between images
+# --- [FONTS]
+fontdb = { version = "0.24.0", default-features = false, features = ["std", "fs", "memmap", "fontconfig"] } # System and file font discovery
+harfrust = { version = "0.14.0", default-features = false, features = ["std"] } # Text shaping
+parley = { version = "0.12.0", default-features = false, features = ["std", "system"] } # Rich text layout with bidi, line breaking, and fallback
+skrifa = { version = "0.48.0", default-features = false, features = ["std", "autohint_shaping"] } # Font metrics, outlines, axes, and charmaps
+write-fonts = { version = "0.54.0", default-features = false, features = ["read", "tables"] } # Font table compilation
+subsetter = { version = "0.2.6", default-features = false, features = ["variable-fonts"] } # Font subsetting with variable instancing
+# --- [GRAPHICS]
+gilrs = { version = "0.11.2", default-features = false, features = ["wgi"] } # Gamepad input navigating viewports
+iced = { version = "0.14.0", default-features = false, features = ["wgpu", "tiny-skia", "tokio", "x11", "wayland"] } # Windows in The Elm Architecture
+kurbo = { version = "0.13.1", default-features = false, features = ["std"] } # 2D Bezier paths, affine transforms, offsets, and arc lengths
+tiny-skia = { version = "0.12.0", default-features = false, features = ["std", "simd", "png-format"] } # CPU rasterization of paths, gradients, and patterns
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "metal", "vulkan", "dx12", "wgsl"] } # WebGPU compute and rendering over native backends
+winit = { version = "0.31.0-beta.3", default-features = false, features = ["x11", "wayland", "wayland-dlopen"] } # Native windows and input events
+linesweeper = { version = "0.5.0", default-features = false } # Boolean operations on curved paths
+usvg = { version = "0.48.1", default-features = false, features = ["text", "system-fonts", "memmap-fonts", "svgz", "writer"] } # SVG parsing and normalization
+resvg = { version = "0.48.1", default-features = false, features = ["text", "system-fonts", "memmap-fonts", "raster-images", "svgz"] } # SVG rasterization
+# --- [VISUALIZATION]
+mermaid-rs-renderer = { version = "0.3.1", default-features = false, features = ["png"] } # Mermaid diagrams rendered without a browser
+plotly = { version = "0.14.1", default-features = false } # Plotly chart documents
+vl-convert-rs = { version = "2.0.0-rc7", default-features = false } # Vega and Vega-Lite rendered to SVG, PNG, and PDF
+# --- [DOCUMENTS]
+calamine = { version = "0.36.1", default-features = false, features = ["dates"] } # XLSX, XLSB, XLS, and ODS reading
+chromiumoxide = { version = "0.9.1", default-features = false, features = ["bytes"] } # HTML printed to PDF through Chromium
+docx-rs = { version = "0.4.22", default-features = false, features = ["image"] } # DOCX reading and writing
+hayro = { version = "0.8.0", default-features = false, features = ["embed-fonts", "embed-cmaps", "simd"] } # PDF rasterization
+ironcalc = { version = "0.8.3", default-features = false } # Spreadsheet formula evaluation
+krilla = { version = "0.8.2", default-features = false, features = ["raster-images", "simple-text", "rayon"] } # PDF creation with subsetting, tagging, and PDF/A and PDF/UA export
+lopdf = { version = "0.45.0", default-features = false, features = ["jiff", "rayon"] } # PDF structure edits, merges, and splits
+office-crypto = { version = "0.4.0", default-features = false } # Encrypted Office documents decrypted
+pdf_oxide = { version = "0.3.78", default-features = false, features = ["parallel"] } # PDF text, structure, and form extraction
+rust_xlsxwriter = { version = "0.99.1", default-features = false, features = ["constant_memory", "jiff", "serde", "zlib"] } # Streaming XLSX writing with formats, tables, and charts
+spreadsheet-ods = { version = "1.0.4", default-features = false } # ODS spreadsheets
+typst = { version = "0.15.1", default-features = false }  # Typst typesetting
+umya-spreadsheet = { version = "3.1.1", default-features = false } # XLSX read-modify-write with styles
+typst-pdf = { version = "0.15.1", default-features = false } # Typst documents exported to PDF
+# --- [MEDIA]
+c2pa = { version = "0.91.2", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified
+cpal = { version = "0.18.2", default-features = false }   # Audio device input and output
+ffmpeg-next = { version = "9.0.0", default-features = false, features = ["codec", "format", "filter", "software-scaling", "software-resampling"] } # Video and audio mux, demux, and encode
+libmpv2 = { version = "6.0.0", default-features = false } # Media playback through mpv
+lofty = { version = "0.25.4", default-features = false, features = ["id3v2_compression_support"] } # Audio metadata tags
+midly = { version = "0.5.3", default-features = false, features = ["std", "alloc"] } # MIDI files
+nokhwa = { version = "0.10.11", default-features = false, features = ["input-native", "decoding"] } # Camera frame capture
+ogg = { version = "0.9.2", default-features = false }     # Ogg containers
+opus = { version = "0.4.0", default-features = false }    # Opus encoding and decoding
+subtitler = { version = "2.9.0", default-features = false, features = ["srt", "vtt", "ass", "ssa", "ttml"] } # Subtitle parsing, conversion, and retiming
+symphonia = { version = "0.6.1", default-features = false, features = ["mp3", "vorbis", "flac", "aac", "wav", "ogg", "isomp4", "opt-simd"] } # Audio decoding
+# --- [MACHINE_LEARNING]
+genai = { version = "0.7.0-rc.4", default-features = false, features = ["rustls-tls"] } # Model completions across Anthropic, OpenAI, and OpenRouter
+linfa = { version = "0.8.1", default-features = false }   # Clustering, linear models, and decision trees
+ort = { version = "2.0.0-rc.14", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "copy-dylibs", "tls-rustls-no-provider", "api-31", "coreml"] } # ONNX Runtime inference
+safetensors = { version = "0.8.0", default-features = false, features = ["std"] } # Safetensors weights
+tiktoken-rs = { version = "0.12.1", default-features = false } # tiktoken vocabularies
+tokenizers = { version = "1.0.0-rc.2", default-features = false } # BPE, WordPiece, Unigram, and SentencePiece tokenizers
+whisper-rs = { version = "0.16.0", default-features = false, features = ["metal"] } # Speech recognition
+candle-core = { version = "0.11.0", default-features = false, features = ["metal"] } # Tensor computation on CPU and Metal
+mistralrs = { version = "0.8.1", default-features = false, features = ["metal"] } # Local LLM inference with sampling and KV caching
+# --- [BUILD]
+cargo_metadata = { version = "0.23.1", default-features = false } # Cargo workspace and dependency graph reads
+quote = { version = "1.0.47", default-features = false, features = ["proc-macro"] } # Rust token generation
+syn = { version = "3.0.9", default-features = false, features = ["full", "parsing", "printing", "visit", "clone-impls", "proc-macro"] } # Rust syntax trees that code generation builds
+prettyplease = { version = "0.3.0", default-features = false } # Generated Rust syntax formatted as checked-in source
+# --- [LINTING]
+clippy_utils = { git = "https://github.com/rust-lang/rust-clippy", rev = "a7fb0ed8a7b593daa6fb8c3d5e161cd9e0d06fb8" } # Type, path, and diagnostic queries over compiler HIR for lint passes, its revision names the pinned nightly
+dylint_linting = { version = "6.1.1" }                    # Late lint declarations and the registration entry the dylint driver loads
+# --- [TESTING]
+approx = { version = "0.6.0-rc2", default-features = false, features = ["array_impl", "tuple_impl", "vec_impl", "derive"] } # Tolerance comparisons in float assertions
+assert_fs = { version = "1.1.4", default-features = false } # Temporary directory fixtures with path predicates
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support", "async_tokio"] } # Statistical benchmarks with saved baselines
+dylint_testing = { version = "6.1.1" }                    # Lint fixtures run through the dylint driver against their expected output
+anyhow = { version = "1.0.104", default-features = false, features = ["std"] } # Opaque error type the `untyped_error` fixture returns for its lint to report
+eyre = { version = "0.6.14", default-features = false }   # Opaque report type the `untyped_error` fixture returns for its lint to report
+insta = { version = "1.49.0", default-features = false, features = ["json", "yaml", "redactions", "filters", "colors"] } # Snapshot assertions with redactions
+proptest = { version = "1.12.0", default-features = false, features = ["std", "bit-set", "fork", "timeout", "attr-macro"] } # Property tests with shrinking and persisted failures
+proptest-derive = { version = "0.9.0", default-features = false } # Strategies derived from record types
+rstest = { version = "0.27.0", default-features = false, features = ["async-timeout"] } # Fixtures, parameterized cases, and per-test timeouts
+similar-asserts = { version = "2.0.0", default-features = false, features = ["unicode"] } # Diffed assertion failures over large values
+testcontainers = { version = "0.28.0", default-features = false, features = ["aws-lc-rs"] } # Disposable service containers
+tracing-test = { version = "0.2.6", default-features = false } # Captured spans and events asserted in tests
+wiremock = { version = "0.6.5", default-features = false } # HTTP doubles on a loopback server
+insta-cmd = { version = "0.7.0", default-features = false } # Binary runs snapshotted with exit code and output
+proptest-state-machine = { version = "0.9.0", default-features = false, features = ["std"] } # Model-based tests over operation sequences
+testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "localstack", "minio", "kafka", "nats", "rabbitmq", "mosquitto", "hashicorp_vault", "postgres", "redis"] } # Prebuilt service definitions that integration tests start
+# --- [MEMBERS]
+mcp = { path = "libs/rust/mcp" }                          # MCP host, client, and telemetry every MCP service composes
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[workspace.lints.rust]
+ambiguous_negative_literals = "warn"                      # `-1.abs()` negating the method result in place of the literal
+closure_returning_async_block = "warn"                    # Closures returning an `async` block, an async closure is the direct form
+deprecated_in_future = "warn"                             # Items marked deprecated from a future release
+deref_into_dyn_supertrait = "warn"                        # `Deref` impls from a `dyn` subtrait to its supertrait object, which trait upcasting shadows
+impl_trait_redundant_captures = "warn"                    # `use<..>` listing every in-scope parameter, which edition 2024 `impl Trait` captures by default
+let_underscore_drop = "warn"                              # `let _ =` dropping values with a destructor at once, acquisition and release pair in one resource scope
+missing_debug_implementations = "warn"                    # Public types without `Debug`, boundary tracing records values with `?`
+non_ascii_idents = "warn"                                 # Non-ASCII identifiers
+redundant_imports = "warn"                                # Imports the prelude or an earlier `use` provides
+redundant_lifetimes = "warn"                              # Lifetime parameters that bounds make equal to another named lifetime
+rust_2018_idioms = { level = "warn", priority = -1 }      # Hidden lifetime parameters in paths, outlives bounds the compiler infers, and unused `extern crate` items
+unnameable_types = "warn"                                 # Types and traits public signatures expose but consumers cannot name
+unreachable_pub = "warn"                                  # `pub` items unreachable from crate root, `pub(crate)` states their reach
+unsafe_code = "forbid"                                    # Unsafe code and unsafe attributes with no override, unsafe operations stay inside owning crates
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(dylint_lib, values(any()))"] } # `cfg` names rustc does not know, `dylint_lib` names the dylint library checking the crate
+unused_import_braces = "warn"                             # `use a::{b}` braces around one import, code keeps the direct form
+unused_macro_rules = "warn"                               # `macro_rules!` rules nothing invokes, removals delete every mention
+unused_qualifications = "warn"                            # Qualified paths to names already in scope, code calls owning APIs in direct form
+
+[workspace.lints.clippy]
+# --- [GROUPS]
+default = { level = "warn", priority = -1 }               # Default correctness, suspicious, style, complexity, and perf lints, code smells are fixed as found
+cargo = { level = "warn", priority = -1 }                 # Missing package metadata, duplicate crate versions, negative or redundant feature names, and wildcard requirements
+nursery = { level = "warn", priority = -1 }               # Lints under development, code smells are fixed as found
+pedantic = { level = "warn", priority = -1 }              # Strict lints with occasional false positives, code smells are fixed as found
+# --- [PARTIALITY]
+as_conversions = "warn"                                   # Every `as` cast, TryFrom returns the reason a conversion fails
+exit = "warn"                                             # `process::exit` outside `main`, the boundary translates results into exit codes
+expect_used = "warn"                                      # `expect` on Option and Result, consumers compose without unwrapping
+indexing_slicing = "warn"                                 # Index and slice expressions that can panic, absence stays an Option
+infinite_loop = "warn"                                    # Endless loops in functions not returning `!`, signatures name return types directly
+missing_assert_message = "warn"                           # Assertions outside tests without a message, each defect panic names its broken invariant
+panic = "warn"                                            # `panic!` calls, expected failures use the result type
+panic_in_result_fn = "warn"                               # `panic!` and assertions inside functions returning Result, expected failures use the result type
+string_slice = "warn"                                     # Every string slice, `str::get` returns an Option in place of panicking off a char boundary
+todo = "warn"                                             # `todo!` placeholders, work runs to completion
+unimplemented = "warn"                                    # `unimplemented!` placeholders, work runs to completion
+unreachable = "warn"                                      # `unreachable!` calls, invalid states stay unrepresentable at construction
+unwrap_in_result = "warn"                                 # `unwrap` and `expect` inside functions returning Result, expected failures use the result type
+unwrap_used = "warn"                                      # `unwrap` on Option and Result, consumers compose without unwrapping
+# --- [OUTPUT]
+dbg_macro = "warn"                                        # `dbg!` calls, telemetry goes through tracing at boundaries
+print_stderr = "warn"                                     # `eprint!` and `eprintln!`, domain functions write only their return value
+print_stdout = "warn"                                     # `print!` and `println!`, domain functions write only their return value
+# --- [ATTRIBUTES]
+allow_attributes = "warn"                                 # Outer `#[allow]` attributes, `#[expect]` warns once its lint stops firing
+allow_attributes_without_reason = "warn"                  # `#[allow]` and `#[expect]` without `reason`, each suppression states why the code stands
+cfg_not_test = "warn"                                     # `#[cfg(not(test))]` code, tests run what the product runs
+redundant_test_prefix = "warn"                            # `test_` prefixes on `#[test]` functions, each fact is stated once
+tests_outside_test_module = "warn"                        # `#[test]` functions outside a `#[cfg(test)]` module
+# --- [RESULTS]
+assertions_on_result_states = "warn"                      # `assert!(r.is_ok())` and `assert!(r.is_err())`, which print nothing a Result holds
+let_underscore_must_use = "warn"                          # `let _ =` on must-use values, control flow matches every result case
+map_err_ignore = "warn"                                   # `map_err(|_| ..)` closures dropping the source error, boundary mappings keep it
+try_err = "warn"                                          # `Err(x)?` in place of `return Err(x)`, bodies construct every return case explicitly
+unused_result_ok = "warn"                                 # `.ok()` calls discarding a Result, control flow matches every result case
+# --- [EXPRESSIONS]
+deref_by_slicing = "warn"                                 # `&v[..]` full-range slices, deref is the direct form
+else_if_without_else = "warn"                             # `else if` chains with no final `else`, bodies construct every return case explicitly
+if_then_some_else_none = "warn"                           # `if` choosing `Some` or `None`, `bool::then` states it as one expression
+iter_over_hash_type = "warn"                              # `for` loops over `HashMap` or `HashSet`, result order stays deterministic
+map_with_unused_argument_over_ranges = "warn"             # `(0..n).map(|_| x)`, `repeat_n` states the count directly
+mixed_read_write_in_expression = "warn"                   # Reads and writes of one variable ordered by operand evaluation order
+pathbuf_init_then_push = "warn"                           # `PathBuf` creation followed by `push`, paths build in one expression
+redundant_type_annotations = "warn"                       # Annotations restating the initializer's type, inferred types stand
+verbose_file_reads = "warn"                               # `read_to_end` and `read_to_string` on a `File`, `fs::read` and `fs::read_to_string` are the direct form
+# --- [PATTERNS]
+ref_patterns = "warn"                                     # `ref` bindings, matching on a borrowed scrutinee is the direct form
+rest_pattern_accessible_field = "warn"                    # `..` over accessible fields, which leaves fields added later unhandled
+unnecessary_rest_pattern = "warn"                         # `..` capturing no field, patterns state exactly the fields they bind
+wildcard_enum_match_arm = "warn"                          # `_` arms in enum matches, every variant gets its own arm
+# --- [NUMERICS]
+float_cmp_const = "warn"                                  # `==` and `!=` against nonzero float constants, comparisons state their tolerance
+host_endian_bytes = "warn"                                # `to_ne_bytes` and `from_ne_bytes`, encodings name their endianness
+lossy_float_literal = "warn"                              # Whole-number float literals the type cannot hold exactly
+precedence_bits = "warn"                                  # Shifts mixed with `&`, `|`, or `^` without parentheses
+suspicious_xor_used_as_pow = "warn"                       # `2 ^ 8` read as a power, `pow` states exponentiation
+# --- [STRINGS]
+needless_raw_strings = "warn"                             # `r"..."` literals with nothing to escape, code keeps the direct form
+str_to_string = "warn"                                    # `str::to_string` calls, `to_owned` names the conversion directly
+string_add = "warn"                                       # `String + &str`, an asymmetric `Add` that `push_str` replaces
+string_lit_chars_any = "warn"                             # `"abc".chars().any(..)` membership tests, `matches!` states the set directly
+# --- [OWNERSHIP]
+clone_on_ref_ptr = "warn"                                 # Method-call clones of `Rc`, `Arc`, or `Weak`, `Rc::clone` and `Arc::clone` show only the pointer copies
+empty_drop = "warn"                                       # Empty `Drop` impls, removals delete every mention
+mem_forget = "warn"                                       # `mem::forget` on values with a destructor, release runs on every path
+rc_buffer = "warn"                                        # `Rc` or `Arc` over a growable buffer, shared values publish as immutable `str` or slices
+# --- [DECLARATIONS]
+empty_enum_variants_with_brackets = "warn"                # `Variant()` and `Variant {}` with no fields, `Variant` is the direct form
+empty_structs_with_brackets = "warn"                      # `struct S {}` and `struct S();`, `struct S;` is the direct form
+impl_trait_in_params = "warn"                             # `impl Trait` parameters, signatures name parameter types directly
+inline_trait_bounds = "warn"                              # Bounds inside a function's `<..>`, every bound sits in the `where` clause
+multiple_inherent_impl = "warn"                           # Inherent `impl` blocks split across a crate, a type's members stay in its section
+same_name_method = "warn"                                 # Inherent methods sharing a trait method's name, each call site names one member
+# --- [VISIBILITY]
+field_scoped_visibility_modifiers = "warn"                # `pub(crate)` and `pub(super)` fields, construction stays with the type or its fields are plain data
+partial_pub_fields = "warn"                               # Structs mixing public and private fields, a type is plain data or guards its invariant whole
+pub_without_shorthand = "warn"                            # `pub(in super)` visibility paths, `pub(super)` is the direct form
+# --- [MODULES]
+absolute_paths = "warn"                                   # Crate-rooted paths past two segments, preamble imports name each item
+inline_modules = "warn"                                   # Inline `mod` blocks outside tests, each module takes its own file
+mod_module_files = "warn"                                 # `mod.rs` files, each module file takes its module's name
+pub_use = "warn"                                          # Every `pub use` re-export, items sit in the public module that owns them
+unnecessary_self_imports = "warn"                         # `use m::{self}` imports, code keeps the direct form
+unused_trait_names = "warn"                               # `use Trait` imported for its methods alone, `as _` states the import serves method resolution
+# --- [NAMING]
+error_impl_error = "warn"                                 # Error types named `Error`, each names the package that raises it
+min_ident_chars = "warn"                                  # Single-character identifiers outside the default `i`, `j`, `n`, `w`, `x`, `y`, and `z`
+renamed_function_params = "warn"                          # Trait impls renaming trait parameters, the trait owns each parameter name
+shadow_unrelated = "warn"                                 # Rebinding a name to an unrelated value, one name holds one concept
+single_char_lifetime_names = "warn"                       # Single-character lifetime names, each lifetime names its purpose
+# --- [ALLOWED]
+literal_string_with_formatting_args = "allow"             # Reads `{name}` in MCP URI templates and axum routes as a missing `format!` beside a same-named binding
+missing_errors_doc = "allow"                              # Code carries no comment beyond section dividers, names and types state each contract
+missing_panics_doc = "allow"                              # Code carries no comment beyond section dividers, names and types state each contract
+option_if_let_else = "allow"                              # Rewrites `match` and `if let` over Option into `map_or` or `map_or_else`, control flow selects by pattern matching result cases
+redundant_pub_crate = "allow"                             # Demands `pub` on items in private modules where rustc `unreachable_pub` demands `pub(crate)`
+significant_drop_tightening = "allow"                     # Demands `drop` of lock guards before scope end, acquisition and release pair in one resource scope
+suboptimal_flops = "allow"                                # Fuses one product of a cross product or determinant into `mul_add`, breaking the zero cross product of parallel vectors
+too_many_lines = "allow"                                  # Caps functions at 100 lines, data dependency decides composition in place of a line count
+
+[workspace.lints.cargo]
+pedantic = { level = "warn", priority = -1 }              # A `readme` key restating the inferred file and binary names off kebab case, each fact is stated once
+unused_workspace_dependencies = "allow"                   # Flags catalog rows no member inherits, the catalog holds rows for future members and Cargo resolves inherited rows alone
+
+# --- [PROFILES] -------------------------------------------------------------------------
+
+[profile.dev]
+debug = "line-tables-only"                                # Line tables alone, backtraces show file and line with no variable or parameter info
+
+[profile.dev.package."*"]
+debug = false                                             # Dependencies outside the workspace build with no debug info, their backtrace frames lack file and line
+
+[profile.dist]
+inherits = "release"                                      # Installed binaries build under `dist`, `release` stays the profile `cargo dylint` builds lint libraries under
+lto = "fat"                                               # Optimization across every crate in the dependency graph for installed binaries, at longer link time
+codegen-units = 1                                         # One code generation unit per crate, trading parallel codegen for code that can run faster
+panic = "abort"                                           # Panics as defects abort the process for its service manager to restart in place of tokio catching each task panic
+overflow-checks = true                                    # Integer overflow panics as a defect in release builds in place of wrapping to a wrong value
+trim-paths = "object"                                     # Panic locations and tracing file fields name /cargo/registry and /rustc in place of the builder's home directory, 418 home paths to 0 in the installed binary

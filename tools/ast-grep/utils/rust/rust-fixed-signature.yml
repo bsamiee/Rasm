@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-fixed-signature
+language: rust
+rule:
+    kind: 'function_item, function_signature_item'
+    any:
+        - inside: {kind: declaration_list, inside: {kind: 'impl_item, foreign_mod_item', any: [{kind: foreign_mod_item}, {has: {field: trait, pattern: $_}}]}}
+        - has: {kind: function_modifiers, has: {kind: extern_modifier}}
+        - follows:
+            stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
+            kind: attribute_item
+            regex: '^#\[\s*(unsafe\s*\(\s*)?(no_mangle|export_name)\b'

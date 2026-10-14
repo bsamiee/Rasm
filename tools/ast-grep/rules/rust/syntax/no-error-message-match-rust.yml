@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-message-match-rust
+language: rust
+severity: error
+utils:
+    error-pattern:
+        kind: tuple_struct_pattern
+        all:
+            - has: {field: type, regex: '^(\w+::)*Err$'}
+            - has: {stopBy: end, kind: identifier, pattern: $E}
+    error-condition:
+        kind: let_condition
+        has: {field: pattern, matches: error-pattern}
+    closure-error:
+        kind: closure_expression
+        all:
+            - has:
+                field: parameters
+                has:
+                    any:
+                        - {kind: identifier, pattern: $E}
+                        - {kind: parameter, has: {field: pattern, pattern: $E}}
+            - inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has:
+                        field: function
+                        kind: field_expression
+                        any:
+                            - has: {field: field, regex: '^(map_err|or_else|unwrap_or_else|inspect_err|is_err_and|map_or_else)$'}
+                            - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^chain$'}}}
+    error-scope:
+        any:
+            - kind: match_arm
+              has: {field: pattern, has: {stopBy: end, matches: error-pattern}}
+            - kind: 'if_expression, while_expression'
+              has: {field: condition, any: [{matches: error-condition}, {kind: let_chain, has: {matches: error-condition}}]}
+            - matches: closure-error
+            - kind: function_item
+              has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $E}}, {has: {field: type, regex: 'Error\b'}}]}}
+    error-value:
+        any:
+            - {kind: identifier, pattern: $E}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^root_cause$'}}, {has: {field: value, kind: identifier, pattern: $E}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    message:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^to_string$'}}, {has: {field: value, matches: error-value}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^(as_str|as_ref|to_lowercase|to_uppercase|to_ascii_lowercase|to_ascii_uppercase|trim|trim_start|trim_end)$'}
+                    - has: {field: value, matches: message}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^format$'}
+                - has:
+                    kind: token_tree
+                    any:
+                        - has: {kind: identifier, pattern: $E, follows: {regex: '^,$'}}
+                        - has: {kind: string_literal, regex: '\{[A-Za-z_]\w*(:[^}]*)?\}'}
+            - kind: 'reference_expression, parenthesized_expression'
+              has: {matches: message}
+            - kind: identifier
+              pattern: $TEXT
+              inside:
+                stopBy: end
+                follows:
+                    stopBy: end
+                    kind: let_declaration
+                    all:
+                        - has: {field: pattern, pattern: $TEXT}
+                        - has: {field: value, matches: message}
+    text-method:
+        regex: '^(contains|starts_with|ends_with|find|rfind|matches|match_indices|eq|ne|eq_ignore_ascii_case|strip_prefix|strip_suffix|split_once|rsplit_once|is_match|captures)$'
+    message-tokens:
+        kind: identifier
+        any:
+            - all:
+                - regex: '^to_string$'
+                - follows: {regex: '^\.$', follows: {kind: identifier, pattern: $E}}
+            - matches: message
+    rendered:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^to_string$'}}, {has: {field: value, pattern: $VALUE}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^format$'}
+                - has: {kind: token_tree, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"\{(:\?)?\}"$'}}, {has: {nthChild: 2, pattern: $VALUE}}, {not: {has: {nthChild: 3}}}]}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^format$'}
+                - has: {kind: token_tree, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"\{\w+(:\?)?\}"$', pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(as_str|as_ref|to_lowercase|to_uppercase|to_ascii_lowercase|to_ascii_uppercase|trim|trim_start|trim_end)$'}}, {has: {field: value, matches: rendered}}]}
+rule:
+    pattern: $MATCH
+    any:
+        - all:
+            - any:
+                - kind: binary_expression
+                  all:
+                    - has: {field: operator, regex: '^(==|!=)$'}
+                    - has: {matches: message}
+                - kind: call_expression
+                  has: {field: function, kind: field_expression, all: [{has: {field: field, matches: text-method}}, {has: {field: value, matches: message}}]}
+                - kind: call_expression
+                  all:
+                    - has: {field: function, kind: field_expression, has: {field: field, matches: text-method}}
+                    - has: {field: arguments, has: {matches: message}}
+                - kind: match_expression
+                  all:
+                    - has: {field: value, matches: message}
+                    - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {stopBy: end, kind: string_literal}}}}
+                - kind: macro_invocation
+                  all:
+                    - has: {field: macro, regex: '^matches$'}
+                    - has: {kind: token_tree, has: {matches: message-tokens}}
+            - inside: {stopBy: end, matches: error-scope}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - any: [{has: {field: left, matches: rendered}}, {has: {field: right, matches: rendered}}]
+            - any: [{has: {field: left, kind: string_literal}}, {has: {field: right, kind: string_literal}}]
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(starts_with|ends_with|contains|eq_ignore_ascii_case|eq|ne)$'}}, {has: {field: value, matches: rendered}}]}
+            - has: {field: arguments, has: {kind: string_literal}}
+        - kind: match_expression
+          all:
+            - has: {field: value, matches: rendered}
+            - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {stopBy: end, kind: string_literal}}}}
+message: '`$MATCH` classifies a value by its rendered text'
+note: 'Compare the value (`<value> == <Type>::<Variant>`) or match its variants, and for an error match the variant (`Err(Error::NotFound { .. })`), the kind (`e.kind() == io::ErrorKind::NotFound`), or the type (`e.downcast_ref::<<Type>>()`), rendered text changes with each `Display` wording'

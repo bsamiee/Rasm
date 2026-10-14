@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-detached-work-rust
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    launcher:
+        any:
+            - kind: scoped_identifier
+              regex: '^(::)?((tokio::)?task::|tokio::|(std::)?thread::|(async_std|smol)::(task::)?)spawn(_blocking|_local)?$'
+            - kind: field_expression
+              has: {field: field, regex: '^spawn(_blocking|_local)?$'}
+            - kind: identifier
+              matches: {rust-imported-name: {root: {regex: '^(std|tokio|async_std|smol)$'}, item: {regex: '^spawn(_blocking|_local)?$'}}}
+    builder-launch:
+        kind: field_expression
+        all:
+            - has: {field: field, regex: '^spawn(_blocking|_local)?(_on)?$'}
+            - has: {field: value, regex: '^((tokio::)?task::)?Builder::new\(\)'}
+    launch-function:
+        any:
+            - matches: launcher
+            - matches: builder-launch
+            - kind: generic_function
+              has: {field: function, matches: launcher}
+    drop-method:
+        kind: function_item
+        all:
+            - has: {field: name, regex: '^drop$'}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '^((std::|core::)?ops::)?Drop$'}}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, pattern: $SPAWN, matches: launch-function}
+        - inside: {stopBy: {kind: function_item}, matches: drop-method}
+message: '`$SPAWN` detaches a task from `Drop::drop`, where no owner joins, aborts, or waits for it'
+note: 'Release from `Drop::drop` through `tracker.spawn_on(<release>, &handle)` with a `Handle` captured at construction, or hold a `DropGuard` whose token the release task awaits, the `detached_task` dylint owns every spawn outside `Drop`'

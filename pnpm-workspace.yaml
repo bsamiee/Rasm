@@ -113,10 +113,6 @@ catalog:
     '@effect/ai-openai': 4.0.1
     '@effect/ai-openrouter': 4.0.1
     '@effect/ai-openai-compat': 4.0.1
-    '@modelcontextprotocol/client': 2.3.0 # MCP SDK client
-    '@modelcontextprotocol/server': 2.3.0 # MCP SDK server
-    '@modelcontextprotocol/core': 2.3.0 # MCP SDK protocol
-    mcp-proxy: 6.7.19 # Shared stdio MCP transport over Streamable HTTP
     '@modelcontextprotocol/ext-apps': 2.0.3 # MCP application protocol and browser client
     '@panzoom/panzoom': 4.6.2 # Native pointer and gesture transforms for snapshot presentation
     '@openfeature/server-sdk': 1.23.0

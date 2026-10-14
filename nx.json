@@ -8,8 +8,10 @@
         "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "DOTNET_CLI_ENABLEAOT" }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" } ],
         "python": [ "{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
+        "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] }, { "runtime": "rustc --version" } ],
         "pythonFiles": [ "{workspaceRoot}/**/*.{py,pyi}" ],
-        "yamlFiles": [ "{workspaceRoot}/**/*.{yml,yaml}" ],
+        "rustFiles": [ "{workspaceRoot}/**/*.rs" ],
+        "yamlFiles": [ "{workspaceRoot}/**/*.{yml,yaml}", "!{workspaceRoot}/pnpm-lock.yaml" ],
         "javaFiles": [ "{workspaceRoot}/**/*.java" ]
     },
     "targetDefaults": {
@@ -44,6 +46,7 @@
                 "configurations": { "ci": { "args": [ "CODE_SIGN_STYLE=Manual", "CODE_SIGN_IDENTITY=-", "DEVELOPMENT_TEAM=", "COMPILER_INDEX_STORE_ENABLE=NO" ] } },
                 "outputs": [ "{workspaceRoot}/.cache/xcode/{projectRoot}/Build" ]
             },
+            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "inputs": [ "default", "^default", "rust" ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect" ] } ], "outputs": [ "{projectRoot}/dist" ] },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "vite build --config uxp.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
@@ -85,6 +88,7 @@
                 "parallelism": false
             },
             { "filter": { "projects": [ "tag:host:blender" ] }, "dependsOn": [ "pack" ], "parallelism": false },
+            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo install --locked --profile dist --path {projectRoot}", "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false }
         ],
         "upgrade": [
@@ -108,7 +112,8 @@
                 "cache": true,
                 "inputs": [ "default", "{workspaceRoot}/.swift-format", "{workspaceRoot}/.swiftlint.yml", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" }, { "runtime": "swiftlint version" } ],
                 "options": { "commands": [ "xcrun swift-format lint --strict --parallel --recursive {projectRoot}", "swiftlint lint --quiet {projectRoot}" ], "parallel": false }
-            }
+            },
+            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo shear --deny-warnings --locked --package {projectName}", "cache": true, "inputs": [ "default", "rust", { "runtime": "cargo shear --version" } ] }
         ],
         "serve": [ { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite", "options": { "cwd": "{projectRoot}" }, "continuous": true } ],
         "restore{,:*.cs}": { "command": "dotnet restore -bl:.artifacts/dotnet/binlog/restore-{}.binlog", "cache": true, "parallelism": false },
@@ -122,6 +127,13 @@
                 "cache": true,
                 "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "typescript" ] } ],
                 "options": { "cwd": "{projectRoot}" }
+            },
+            {
+                "filter": { "projects": [ "tag:language:rust" ] },
+                "command": "cargo clippy --locked --package {projectName} --all-targets",
+                "cache": true,
+                "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ],
+                "parallelism": false
             }
         ],
         "typecheck:ty{,-*}": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "ty --version" } ] },
@@ -139,9 +151,27 @@
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
                 "inputs": [ "...", "typescript", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml" ] } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}" ]
+            },
+            {
+                "filter": { "projects": [ "tag:language:rust" ] },
+                "command": "cargo llvm-cov nextest --locked --package {projectName} --no-tests=pass --html --output-dir .artifacts/rust/coverage/{projectName}",
+                "inputs": [ "default", "^default", "rust", { "runtime": "cargo llvm-cov --version" }, { "runtime": "cargo nextest --version" } ],
+                "outputs": [ "{workspaceRoot}/.artifacts/rust/coverage/{projectName}" ],
+                "parallelism": false
+            },
+            {
+                "filter": { "projects": [ "tag:tool:dylint" ] },
+                "command": "cargo nextest run --locked --package {projectName} --no-tests=pass",
+                "inputs": [ "default", "^default", "rust", { "runtime": "cargo nextest --version" } ],
+                "outputs": [],
+                "parallelism": false
             }
         ],
-        "check": [ { "filter": { "projects": [ "tag:language:*" ] }, "executor": "nx:noop", "dependsOn": [ "typecheck", "test" ] }, { "filter": { "projects": [ "tag:language:swift" ] }, "dependsOn": [ { "target": "build", "params": "forward" }, "lint" ] } ]
+        "check": [
+            { "filter": { "projects": [ "tag:language:*" ] }, "executor": "nx:noop", "dependsOn": [ "typecheck", "test" ] },
+            { "filter": { "projects": [ "tag:language:swift" ] }, "dependsOn": [ { "target": "build", "params": "forward" }, "lint" ] },
+            { "filter": { "projects": [ "tag:language:rust" ] }, "dependsOn": [ "...", "lint" ] }
+        ]
     },
     "plugins": [ { "plugin": "@nx/vitest", "include": [ "**/vitest.config.ts" ], "exclude": [ "vitest.config.ts" ], "options": { "testMode": "run" } }, { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } }, { "plugin": "./tools/nx/workspace.ts" } ]
 }

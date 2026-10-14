@@ -2,6 +2,13 @@
 
 # --- [DIFF] -----------------------------------------------------------------------------
 *.cs diff=csharp
+*.rs diff=rust
+*.py diff=python
+*.java diff=java
+*.sh diff=bash
+*.md diff=markdown
+*.css diff=css
+*.html diff=html
 
 # --- [RHINO] ----------------------------------------------------------------------------
 *.3dm filter=lfs diff=lfs merge=lfs -text

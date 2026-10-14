@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-receiver
+language: rust
+severity: error
+files: ['libs/rust/**', 'tools/bridge/**']
+utils:
+    channel-path:
+        kind: scoped_identifier
+        all:
+            - pattern: $MODULE::channel
+            - regex: '(^|::)(broadcast|watch)::channel$'
+    channel-call:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - matches: channel-path
+                    - kind: generic_function
+                      all:
+                        - has: {field: function, matches: channel-path}
+                        - has: {field: type_arguments, pattern: $TYPES}
+            - has: {field: arguments, pattern: $ARGS}
+rule:
+    kind: let_declaration
+    all:
+        - any:
+            - all:
+                - has: {field: pattern, kind: tuple_pattern, all: [{regex: '^\(\s*(mut\s+)?\w+\s*,\s*_\s*,?\s*\)$'}, {has: {nthChild: 1, pattern: $SENDER}}]}
+                - has: {field: value, matches: channel-call}
+            - all:
+                - has: {field: pattern, kind: 'identifier, mut_pattern', pattern: $SENDER}
+                - has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^0$'}}, {has: {field: value, matches: channel-call}}]}
+        - any:
+            - has: {field: type, kind: tuple_type, has: {nthChild: 1, pattern: $SENDER_TYPE}}
+            - has: {field: type, not: {kind: tuple_type}, pattern: $SENDER_TYPE}
+            - not: {has: {field: type, pattern: $_}}
+transform:
+    TURBOFISH: replace($TYPES, replace='^<', by='::<')
+    ANNOTATION:
+        replace: {source: $SENDER_TYPE, replace: '^(.+)$', by: ': $1'}
+fix: let $SENDER$ANNOTATION = $MODULE::Sender$TURBOFISH::new$ARGS;
+message: '`$MODULE::channel` builds a receiver the `$SENDER` binding discards'
+note: 'Construct the sender alone with `$MODULE::Sender::new`, receivers come from `Sender::subscribe` where a consumer exists'

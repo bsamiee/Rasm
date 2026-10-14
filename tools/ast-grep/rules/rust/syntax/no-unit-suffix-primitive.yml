@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unit-suffix-primitive
+language: rust
+severity: error
+utils:
+    number-type:
+        kind: primitive_type
+        regex: '^(u8|u16|u32|u64|u128|usize|i8|i16|i32|i64|i128|isize|f32|f64)$'
+    text-type:
+        any:
+            - {kind: type_identifier, regex: '^String$'}
+            - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}
+    duration-name:
+        regex: '(?i)(^|_)(secs|seconds|ms|millis|milliseconds|us|micros|ns|nanos|mins|minutes|hours|timeout|interval|delay|ttl|duration|elapsed)$'
+    path-name:
+        regex: '(?i)(^|_)(path|dir|directory|file|folder)$'
+rule:
+    kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
+    pattern: $DECLARATION
+    all:
+        - any:
+            - all:
+                - any: [{has: {field: name, matches: duration-name}}, {has: {field: pattern, kind: identifier, matches: duration-name}}]
+                - has: {field: type, matches: number-type}
+            - all:
+                - any: [{has: {field: name, matches: path-name}}, {has: {field: pattern, kind: identifier, matches: path-name}}]
+                - has: {field: type, matches: text-type}
+        - not: {inside: {kind: parameters, inside: {matches: rust-fixed-signature}}}
+        - not: {inside: {stopBy: end, kind: 'struct_item, enum_item, union_item', follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*repr\b'}}}
+message: '`$DECLARATION` holds a duration or path as a plain number or string'
+note: 'Type it with its owner''s range, `std::time::Duration` for a span and `PathBuf` or `&Path` for a location, conversion from the host''s number or text happens once at the boundary'

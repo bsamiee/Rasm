@@ -10,7 +10,7 @@ mise owns tool binaries, the process environment, and local services.
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
 - `prereleases = true` includes prereleases in `latest`, `minimum_release_age = "0s"` removes the 24h delay on a new release
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
-- `idiomatic_version_file_enable_tools` names the tools with a version file mise reads, `global.json` for `dotnet`
+- `idiomatic_version_file_enable_tools` names the tools with a version file mise reads, `global.json` for `dotnet`, `rust-toolchain.toml` for `rust`
 - `dotnet.isolated = true` installs each SDK under its own root and `dotnet` host, macOS kills a shared-root host a new SDK overwrote
 - Isolated roots hold the SDK's runtime alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
@@ -18,7 +18,7 @@ mise owns tool binaries, the process environment, and local services.
 - `NuGet.config` `globalPackagesFolder` relocates packages for runs with repository working directories, including editor restores
 - HTTP cache has no NuGet config key and keeps its `mise.toml` row
 - Editor settings name a mise install by its `latest` link and a Homebrew install by its `opt` link, a server reading mise's environment takes neither
-- `mise upgrade` moves each `latest` row, a `pypi:` row from a GitHub repository with no release stays at the branch HEAD it installed
+- `mise upgrade` moves each `latest` row and leaves an exact row, `mise upgrade --bump <tool>` rewrites one exact row and keeps its options, a `pypi:` row from a GitHub repository with no release stays at the branch HEAD it installed
 
 ## [02]-[ENVIRONMENT]
 
@@ -42,6 +42,6 @@ Launchd agents run each local MCP server once as a Streamable HTTP service on a 
 - Agents inherit the GUI domain environment, and `exec --` adds repository `[env]` and tool paths
 - `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.<name>.plist`, launchd discards an agent's output
 - `mise bootstrap macos launchd-agents status` lists each agent's state, `launchctl print gui/$UID/dev.mise.<name>` its pid and last exit code
-- Servers speaking stdio alone, or exposing a tool a skill replaces, run over stdio behind `tools/bridge/bridge.ts`
-- `--hide <glob>` before the bridge's `--` leaves each server tool it matches out of the endpoint, repeated per glob
+- Servers speaking stdio alone, or exposing a tool a skill replaces, run over stdio behind `mcp-bridge`
+- `--hide <glob>` before `mcp-bridge`'s `--` leaves each server tool it matches out of the endpoint, repeated per glob
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-variant-value
+language: rust
+rule:
+    any:
+        - {kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}
+        - kind: struct_expression
+        - kind: call_expression
+          any:
+            - has: {field: function, kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}
+            - all:
+                - has: {field: function, kind: identifier, regex: '^(Some|Ok|Box)$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: rust-variant-value}}
+        - kind: 'return_expression, parenthesized_expression, reference_expression'
+          has: {matches: rust-variant-value}
+        - kind: block
+          has: {nthChild: {position: 1, reverse: true}, any: [{matches: rust-variant-value}, {kind: expression_statement, has: {matches: rust-variant-value}}]}

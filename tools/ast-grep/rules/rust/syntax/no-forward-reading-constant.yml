@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forward-reading-constant
+language: rust
+severity: error
+utils:
+    later-declaration:
+        precedes:
+            stopBy: end
+            kind: 'const_item, static_item, function_item, function_signature_item, struct_item, enum_item, union_item, type_item, trait_item, mod_item'
+            has: {field: name, pattern: $READ}
+    forward-read:
+        kind: 'identifier, type_identifier'
+        pattern: $READ
+        inside: {kind: 'const_item, static_item', stopBy: end, matches: later-declaration}
+rule:
+    kind: 'const_item, static_item'
+    inside: {kind: 'source_file, declaration_list'}
+    all:
+        - has: {field: name, pattern: $NAME}
+        - any:
+            - has: {field: value, any: [{matches: forward-read}, {has: {stopBy: end, matches: forward-read}}]}
+            - has: {field: type, any: [{matches: forward-read}, {has: {stopBy: end, matches: forward-read}}]}
+message: '`$NAME` reads later declaration `$READ`'
+note: 'Move the registry, table, or decoder into a section after the declarations it reads, `[CONSTANTS]` holds values reading no later declaration, and the move crosses sections so no rewrite states it'

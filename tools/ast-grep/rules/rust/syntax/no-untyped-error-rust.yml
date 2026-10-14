@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untyped-error-rust
+language: rust
+severity: error
+utils:
+    no-arguments:
+        has: {field: arguments, not: {has: {pattern: $_}}}
+    text:
+        any:
+            - kind: 'string_literal, raw_string_literal'
+            - kind: macro_invocation
+              has: {field: macro, regex: '^(((std|alloc)::)?(fmt::)?)?format$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^to_string$'}}
+                - matches: no-arguments
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|into|as_str|into_boxed_str|clone)$'}}, {has: {field: value, matches: text}}]}
+                - matches: no-arguments
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: scoped_identifier, regex: '^((std|alloc)::)?(string::)?String::from$|^((std|alloc)::)?(boxed::)?Box(::<[^>]*>)?::from$|^(((std|core)::)?convert::)?(From::from|Into::into)$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: text}}
+    text-error:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: scoped_identifier, regex: '^(((std|core)::)?io::)?Error::(other|new)$'}
+            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: text}}
+    text-type:
+        any:
+            - {kind: type_identifier, regex: '^String$'}
+            - {kind: scoped_type_identifier, regex: '^((std|alloc)::)?string::String$'}
+            - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}
+            - {kind: generic_type, regex: '^(((std|alloc)::)?borrow::)?Cow<[^,]*,\s*str>$'}
+            - {kind: generic_type, regex: '^(((std|alloc)::)?boxed::)?Box<str>$'}
+    error-derive:
+        follows:
+            stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
+            kind: attribute_item
+            regex: '^#\[\s*derive\s*\([^)]*\bError\b'
+    text-variant:
+        kind: enum_variant
+        inside: {kind: enum_variant_list, inside: {kind: enum_item, matches: error-derive}}
+        has:
+            field: body
+            any:
+                - kind: ordered_field_declaration_list
+                  not: {has: {field: type, not: {matches: text-type}}}
+                - kind: field_declaration_list
+                  all:
+                    - has: {kind: field_declaration, has: {field: name, regex: '^(message|msg|text|reason|description|detail|details)$'}}
+                    - not: {has: {kind: field_declaration, not: {has: {field: type, matches: text-type}}}}
+    test-scope:
+        any:
+            - kind: function_item
+              any:
+                - has: {field: name, regex: '^main$'}
+                - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*(tokio::|async_std::)?(test|bench)\b'}
+            - kind: mod_item
+              follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\s*\(\s*test\s*\)'}
+rule:
+    pattern: $SITE
+    all:
+        - any:
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((((std|core)::)?result::)?Result::)?Err$'}
+                - has: {field: arguments, has: {any: [{matches: text}, {matches: text-error}]}}
+            - matches: text-variant
+        - not: {inside: {stopBy: end, matches: test-scope}}
+message: '`$SITE` holds a failure as text with no variant to match'
+note: 'Raise a variant of the crate''s `thiserror` enum with its typed fields and `#[source]`, consumers match the variant and `Display` renders text at the boundary alone, `main` and tests stay outside, the `untyped_error` dylint owns signatures, aliases, and erased errors'

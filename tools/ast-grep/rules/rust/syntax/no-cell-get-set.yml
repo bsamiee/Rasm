@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cell-get-set
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - pattern: $C.set($E)
+        - has: {field: arguments, has: {stopBy: end, pattern: $C.get()}}
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {has: {field: arguments, has: {stopBy: end, kind: identifier, regex: '^current$'}}}
+        - not: {has: {field: arguments, has: {stopBy: end, any: [{pattern: $C.set($$$)}, {pattern: $C.replace($$$)}, {pattern: $C.take()}]}}}
+        - not: {has: {field: arguments, has: {stopBy: end, pattern: $C, not: {inside: {kind: field_expression, field: value, has: {field: field, regex: '^get$'}}}}}}
+constraints:
+    C: {kind: 'identifier, self, field_expression, scoped_identifier'}
+rewriters:
+    - id: current-read
+      rule: {pattern: $C.get()}
+      fix: current
+transform:
+    NEXT: {rewrite: {source: $E, rewriters: [current-read]}}
+fix: '$C.update(|current| $NEXT)'
+message: '`$C.set(..)` writes a value computed from `$C.get()`'
+note: 'Call `<cell>.update(|current| <next>)` (`Cell`, Rust 1.88, `LocalKey<Cell<T>>`, Rust 1.99), which reads, computes, and writes in one call, clippy `redundant_closure` then reduces a closure calling one function to `update(<f>)`, a value passing the cell to another call stays as written since `update` reads the cell before that call runs'
