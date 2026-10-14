@@ -1,4 +1,4 @@
-using Rasm.Imaging.Output;
+using Rasm.Imaging.Files;
 
 namespace Rasm.Rhino.Document.Files;
 

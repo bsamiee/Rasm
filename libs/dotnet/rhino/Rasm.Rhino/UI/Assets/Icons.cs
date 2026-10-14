@@ -157,23 +157,23 @@ public static class Icons {
             });
         }), static icon => new(icon.Width, icon.Height)));
 
-    public static IO<Eto.Drawing.Icon> Frames(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot) =>
-        slot.Size().Bind(size => IO.lift(() => Frame(plugIn, source.Glyph, source.Master, new(size, size))));
+    public static IO<Eto.Drawing.Icon> Frames((IGlyph Glyph, int Master) source, IconSlot slot) =>
+        slot.Size().Bind(size => IO.lift(() => Frame(source.Glyph, source.Master, new(size, size))));
 
-    public static Eto.Drawing.Icon Frame(IPlugInSink plugIn, IGlyph glyph, int master, Size logicalSize) {
+    public static Eto.Drawing.Icon Frame(IGlyph glyph, int master, Size logicalSize) {
         Set<float> scales = toSet(Screen.Screens.Select(static screen => screen.LogicalPixelSize)
             .Prepend(1f).Concat(HostUtils.RunningOnOSX ? [2f] : []));
-        return EtoIcons((plugIn.GetType().Assembly, PaintSlot.ControlText.Read(), scales)).Get(ResourceName(glyph, master), logicalSize);
+        return EtoIcons((glyph.GetType().Assembly, PaintSlot.ControlText.Read(), scales)).Get(ResourceName(glyph, master), logicalSize);
     }
 
     public static IO<Unit> Themed(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write, Action<IDisposable> retain) =>
-        from written in IO.pure(Frames(plugIn, source, slot).Bind(icon => IO.lift(() => write(icon))))
+        from written in IO.pure(Frames(source, slot).Bind(icon => IO.lift(() => write(icon))))
         from _ in written
         from subscription in changes.Inline(__ => written, plugIn, retain)
         select subscription;
 
-    public static IO<Cursor> PickCursor(IPlugInSink plugIn, Action<Cursor> retain) =>
-        Frames(plugIn, (GlyphRole.Pick, IconSlot.Cursor.Master), IconSlot.Cursor)
+    public static IO<Cursor> PickCursor(Action<Cursor> retain) =>
+        Frames((GlyphRole.Pick, IconSlot.Cursor.Master), IconSlot.Cursor)
             .Bind(icon => DisposalOps.Acquire(IO.lift(() => new Cursor(icon, new(4f, 20f))), static cursor => IO.lift(cursor.Dispose), retain));
 
     // --- [DRAWING]
@@ -204,20 +204,17 @@ public static class Icons {
             return icon.ToBitmap();
         }).Run(), static bitmap => bitmap.Size));
 
-    public static IO<Bitmap> Raster(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot) =>
+    public static IO<Bitmap> Raster((IGlyph Glyph, int Master) source, IconSlot slot) =>
         from size in slot.Size()
         from pixels in HostTheme.Device(new(size, size))
-        from bitmap in Raster(plugIn, source.Glyph, source.Master, pixels)
+        from bitmap in Raster(source.Glyph, source.Master, pixels)
         select bitmap;
 
-    public static IO<Bitmap> Raster(IPlugInSink plugIn, IGlyph glyph, int master, Size pixels) =>
-        IO.lift(() => Rasters((plugIn.GetType().Assembly, PaintSlot.ControlText.Read())).Get(ResourceName(glyph, master), pixels));
+    public static IO<Bitmap> Raster(IGlyph glyph, int master, Size pixels) =>
+        IO.lift(() => Rasters((glyph.GetType().Assembly, PaintSlot.ControlText.Read())).Get(ResourceName(glyph, master), pixels));
 
-    public static IO<Icon> DrawingIcon(IPlugInSink plugIn, IGlyph glyph, int master, Size pixels) =>
-        IO.lift(() => DrawingIcons((plugIn.GetType().Assembly, PaintSlot.ControlText.Read())).Get(ResourceName(glyph, master), pixels));
-
-    public static IO<Bitmap> PageImage(IPlugInSink plugIn) =>
-        IO.lift(() => Missing.Unless(((PlugIn)plugIn).Icon(new(128, 128)), nameof(PlugIn.Icon)));
+    public static IO<Icon> DrawingIcon(IGlyph glyph, int master, Size pixels) =>
+        IO.lift(() => DrawingIcons((glyph.GetType().Assembly, PaintSlot.ControlText.Read())).Get(ResourceName(glyph, master), pixels));
 
     public static IO<Option<TImage>> PlugInImage<TImage>(IPlugInSink plugIn, Func<(NativeAssets Native, ResourceCache<Bitmap, Size> IconBitmaps), string, TImage> read) =>
         IO.lift(() => {

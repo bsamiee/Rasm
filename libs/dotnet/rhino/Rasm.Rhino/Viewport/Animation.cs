@@ -1,6 +1,5 @@
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Geolocation;
 using Rhino;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
@@ -128,8 +127,8 @@ public static partial class Animations {
                 Camera(flight.Path, target);
             },
             sun: static (target, sun) => {
-                SunSiteMapper.Update(sun.Site, target);
-                SunSiteMapper.Update(sun.Window, target);
+                SunMapper.Update(sun.Site, target);
+                SunMapper.Update(sun.Window, target);
             });
 
     private static void Camera(AnimationPath path, AnimationProperties properties) =>

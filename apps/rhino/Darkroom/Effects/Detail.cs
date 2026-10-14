@@ -1,7 +1,7 @@
+using System.Runtime.InteropServices;
 using Rasm.Imaging.Filters.Detail;
 using Rasm.Rhino.Render.Effects;
-
-using System.Runtime.InteropServices;
+using Rasm.Rhino.UI.Rows;
 using Rhino.Render.PostEffects;
 
 namespace Darkroom.Effects;

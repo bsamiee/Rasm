@@ -1,7 +1,7 @@
 using Eto.Forms;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Events;
+using Rasm.Rhino.Modeling;
 using Rhino;
 
 namespace Rasm.Rhino.Viewport;

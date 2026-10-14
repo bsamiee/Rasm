@@ -1,12 +1,13 @@
 using System.Globalization;
 using LanguageExt.ClassInstances;
-using Rasm.Imaging.ColorManagement;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Notation;
-using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
+using Rasm.Rhino.Modeling;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;

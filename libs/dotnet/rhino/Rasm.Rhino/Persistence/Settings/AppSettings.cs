@@ -2,12 +2,11 @@ using System.Buffers;
 using System.Drawing;
 using System.Reflection;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Notation;
+using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.ApplicationSettings;
-using Rhino.PlugIns;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
@@ -208,8 +207,8 @@ public static class AppSettings {
         path => IO.lift(() => path.Traverse(existing).As()).Bind(checkedPath => IO.lift(() => write(Conversions.Unset(checkedPath)))));
 
     // --- [NUDGE]
-    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
-        (_, sink, retain) => Subscriptions.Host(typeof(AppSettings), static () => Seq(
+    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
+        (sink, retain) => Subscriptions.Host(typeof(AppSettings), static () => Seq(
                 EventKind.DocumentArrived.Choose(static _ => Some((unit, unit))),
                 EventKind.ActiveDocumentChanged.Choose(static _ => Some((unit, unit))),
                 EventKind.DocumentPropertiesChanged.Choose(static _ => Some((unit, unit)))))
@@ -230,8 +229,8 @@ public static class AppSettings {
         select written;
 
     // --- [LIFETIME]
-    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
-        (_, _, retain) =>
+    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
+        (_, retain) =>
             (from prior in setting.Read
              from lease in IO.lift(() => new Disposal<T>(prior, held =>
                  setting.Read.Bind(current => when(current.Equals(value) && !held.Equals(value), setting.Write(held)).As()).Run()))

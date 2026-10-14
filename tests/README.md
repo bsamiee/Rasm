@@ -17,7 +17,7 @@ tests/
 
 [PLACEMENT]:
 - Each language area holds its reusable fixtures, generators, assertions, and doubles in one support project or directory, `libs/` holds none
-- .NET and Python suites mirror `libs/<language>/` under `tests/<language>/libs/<package>/`
+- .NET and Python suites mirror `libs/<language>/` under `tests/<language>/libs/<group>/<package>/`
 - TypeScript tests sit beside their source, a suite outside `libs/typescript` is a package under `tests/typescript/`
 - Test files are `test_<module>.py`, `<module>.spec.ts`, and `<Subject>.Tests.cs`, PascalCase begins at a C# project directory
 

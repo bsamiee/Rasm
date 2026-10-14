@@ -1,4 +1,3 @@
-using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2.Extensions;
@@ -6,6 +5,7 @@ using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.Icon.Vector;
 using Rasm.Rhino;
 using Rasm.Rhino.UI.Assets;
+using Rhino.UI;
 
 namespace Rasm.Grasshopper;
 
@@ -72,18 +72,10 @@ internal sealed class GlyphIcon : AbstractIcon {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CanvasIcons {
     // --- [VECTORS]
-    private static readonly AtomHashMap<(Assembly Assembly, string Name), string> Sources = AtomHashMap<(Assembly Assembly, string Name), string>();
-
-    public static IO<IIcon> Vector(IPlugInSink plugIn, IGlyph glyph, int master) {
-        (Assembly Assembly, string Name) resource = (plugIn.GetType().Assembly, Icons.ResourceName(glyph, master));
-        return
-            from source in IO.lift(() => Sources.FindOrAdd(resource, () => {
-                using Stream stream = GlyphMissing.Unless(resource.Assembly.GetManifestResourceStream(resource.Name), resource.Name).ThrowIfFail();
-                using StreamReader reader = new(stream);
-                return reader.ReadToEnd();
-            }))
-            select (IIcon)new SvgGlyphIcon(plugIn, source);
-    }
+    public static IO<IIcon> Vector(IPlugInSink plugIn, IGlyph glyph, int master) =>
+        IO.lift(() => Icons.ResourceName(glyph, master) switch {
+            var resource => GlyphMissing.Unless(ImageResources.SvgFromResourceId(resource, glyph.GetType().Assembly), resource),
+        }).Map(source => (IIcon)new SvgGlyphIcon(plugIn, source));
 
     // --- [COMPOSITES]
     public static IO<IIcon> Accented(IPlugInSink plugIn, IGlyph glyph, int master, SpecialColour accent) =>

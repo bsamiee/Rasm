@@ -1,11 +1,7 @@
-using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Viewers;
 using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI.Inputs;
@@ -25,32 +21,6 @@ public static class ButtonRows {
         from button in Push(command, owned)
         from sized in IO.lift(() => { (button.Text, button.MinimumSize) = ("", Size.Empty); })
         from themed in Icons.Themed(sink, glyph, IconSlot.PickButton, HostTheme.In(button), icon => button.Image = icon, owned)
-        select button, (_, lease) => retain(lease));
-
-    public static IO<Button> Pick(StageInput stage, string caption, Func<Vector4, IO<Unit>> picked, RowScope scope, Action<IDisposable> retain) =>
-        Started(stage, caption, PickKind.Value, (picker, pixel) =>
-            from square in picker.Sample(scope)
-            from frame in stage.Read
-            from done in frame.Bind(held => square.Mean(held, pixel)).Match(Some: picked, None: static () => IO.pure(unit))
-            select done, scope, retain);
-
-    public static IO<Button> Place(
-        StageInput stage, string caption, Func<(double X, double Y), PixelExtent, IO<Unit>> placed, RowScope scope, Action<IDisposable> retain) =>
-        Started(stage, caption, PickKind.Position, (_, pixel) =>
-            stage.Read.Bind(frame => frame.Match(Some: held => placed((pixel.X - held.Origin.X, pixel.Y - held.Origin.Y), held.Extent), None: static () => IO.pure(unit))), scope, retain);
-
-    private static IO<Button> Started(
-        StageInput stage, string caption, PickKind kind, Func<FramePicker, (double X, double Y), IO<Unit>> continuation, RowScope scope, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-        from command in IO.lift(static () => new Command())
-        from faced in IO.lift(() => { (command.ToolTip, command.Enabled) = (RowText.Localize(caption).Local, stage.Pick.IsSome); })
-        let site = new CallbackSite(scope.Sink, typeof(Command), nameof(Command.Executed))
-        from executed in stage.Pick.Traverse(picker => Subscriptions.Attach(
-            h => command.Executed += h, h => command.Executed -= h,
-            Callbacks.Handler<EventArgs>(
-                _ => IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
-                    .Bind(document => picker.Start(document, kind, pixel => continuation(picker, pixel), owned)), site), owned)).As()
-        from button in Pick(command, (GlyphRole.Pick, IconSlot.PickButton.Master), scope.Sink, owned)
         select button, (_, lease) => retain(lease));
 
     // --- [GLYPHS]
@@ -77,7 +47,7 @@ public static class ButtonRows {
             button.Items.AddRange([pressed, dropdown]);
         })
         let shown = IO.lift(() => modes.Find(static mode => mode.Command.Checked))
-            .Bind(mode => mode.Traverse(checkedMode => Icons.Frames(sink, checkedMode.Glyph, slot)).As())
+            .Bind(mode => mode.Traverse(checkedMode => Icons.Frames(checkedMode.Glyph, slot)).As())
             .Bind(icon => IO.lift(() => icon.Iter(frames => pressed.Image = frames)))
         from heard in Callbacks.Each(modes.Map(mode => Subscriptions.Attach(
             h => mode.Command.CheckedChanged += h, h => mode.Command.CheckedChanged -= h,

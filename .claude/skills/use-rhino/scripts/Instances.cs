@@ -1,7 +1,6 @@
 #!/usr/bin/env dotnet
 #:package Grasshopper
 #:package Grasshopper2
-#:package LanguageExt.Core
 #:package ModelContextProtocol.Core
 #:package RhinoCommon
 #:property PublishAot=false

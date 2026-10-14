@@ -2,8 +2,8 @@ using System.Drawing;
 using LanguageExt.ClassInstances;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -83,7 +83,7 @@ public sealed record DefinitionState(
             Conversions.Rows(definition.GetObjectIds()),
             Conversions.Rows(definition.GetContainers()).Map(static container => container.Id).Strict(),
             new DefinitionUsage(topLevel, nested),
-            Document.Tables.UserStrings.Held(definition.GetUserStrings()));
+            Persistence.UserStrings.Held(definition.GetUserStrings()));
     }
 }
 

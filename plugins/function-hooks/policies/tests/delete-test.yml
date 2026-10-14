@@ -1,0 +1,52 @@
+id: delete
+valid:
+    - fd -e cs . libs
+    - fd rm libs
+    - fd -H -t f -x wc -l {} . libs
+    - find . -name '*.orig' -print
+    - rm -rf .artifacts/blender/evaluate
+    - rm -r ../build
+    - rm "$file"
+    - rm -f ./*.orig
+    - git rm -r --cached .
+    - echo "rm -rf /"
+    - echo 'fd -x rm {}' # rm -rf .
+    - rg -l pattern | xargs sd before after
+    - cat paths.txt | xargs wc -l
+    - for f in $(fd -e cs); do wc -l "$f"; done
+invalid:
+    - fd -H -t f -x rm -v {} --regex "\.orig$" . apps/rhino
+    - fd -x rm {}
+    - fd -e orig -X rm
+    - fd -Hx /bin/rm {}
+    - fd -e orig --exec-batch trash
+    - find . -name '*.orig' -delete
+    - find . -name '*.orig' -exec rm {} +
+    - find . -type d -execdir /bin/rm -rf {} \;
+    - git ls-files | xargs rm
+    - git ls-files -z | xargs -0 git rm
+    - fd -e orig | xargs rm
+    - find . -name '*.orig' -print0 | xargs -0 rm -f
+    - rg -l pattern | xargs rm
+    - ls | xargs unlink
+    - fd -e orig 2>/dev/null | sort | xargs shred
+    - fd -e orig | while read -r f; do rm "$f"; done
+    - rm $(git ls-files -d)
+    - for f in $(fd -e orig); do rm "$f"; done
+    - while read -r f; do rm "$f"; done < <(fd -e orig)
+    - xargs rm < <(fd -e orig)
+    - rm -rf "$dir"
+    - rm -rf $dir
+    - rm -rf "${root}/build"
+    - rm -fr $(git rev-parse --show-toplevel)
+    - rm -rf .
+    - rm -rf ..
+    - rm -rf ./
+    - rm -rf *
+    - rm -rf ./*
+    - rm -rf .*
+    - rm -rf /
+    - rm -rf ~
+    - rm -r -f "."
+    - rm --recursive ~/
+    - sudo rm -rf /*

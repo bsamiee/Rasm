@@ -4,23 +4,16 @@
         <Description>Image formation, output, and render management</Description>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
-        <PackageReference Include="LanguageExt.Core" />
+    <ItemGroup>
+        <PackageReference Include="Emgu.CV" />
         <PackageReference Include="NodaTime" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+        <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
-    <ItemGroup Label="Imaging">
-        <PackageReference Include="Emgu.CV" />
-        <PackageReference Include="SixLabors.ImageSharp" />
-    </ItemGroup>
-
-    <ItemGroup Label="Workspace Packages">
-        <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging/Rasm.Imaging.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging.Files/Rasm.Imaging.Files.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
+    <ItemGroup>
+        <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
     </ItemGroup>
 </Project>

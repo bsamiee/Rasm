@@ -46,6 +46,7 @@ interface Rewrite {
 
 const _WORKTREE = 'creates a second checkout with its own metadata and sync cost. Work in the main checkout';
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
+const _TRAILING = /\/+$/u;
 const _BINLOG = /^(?:--?|\/)(?:bl|binarylogger)(?::|$)/iu;
 const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
     [/^project\.json$/u, 'package.json'],
@@ -58,6 +59,22 @@ const _MINI_CONFIGS: readonly (readonly [RegExp, string])[] = [
 ];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [DELETE]
+
+const _recursive = (command: Command): readonly string[] =>
+    command.invocations.flatMap((invocation) => {
+        const { inputs, options } = operands(invocation);
+        return invocation[0] === 'rm' && options.some((name) => name === '-r' || name === '-R' || name === '--recursive') ? inputs.map((path) => path.replace(_TRAILING, '')).filter((path) => path.startsWith('/')) : [];
+    });
+
+const _delete = async (host: Host, { commands, deletes }: Script, project: string): Promise<readonly string[]> => {
+    const removed = commands.flatMap((command) => _recursive(command).map((path) => ({ line: command.words.join(' '), path })));
+    const root = removed.length === 0 ? none : await host.root();
+    const held = root.kind === 'none' ? [] : removed.filter(({ path }) => root.value === path || root.value.startsWith(`${path}/`));
+    const reasons = [...deletes.map(({ text, message }) => `${text} ${message}`), ...held.map(({ line }) => `${line} deletes the repository root or a directory above it`)];
+    return reasons.length === 0 ? [] : [...reasons, `Delete one concrete path, or run nx run ${project}:clean`];
+};
 
 // --- [GIT]
 
@@ -315,7 +332,7 @@ const _refusal = async (host: Host, tool: 'Bash' | 'Monitor', script: Script, pr
     const calls = _calls(commands);
     const named = calls.flatMap((call) => (call.kind === 'subcommand' && (call.key === 'reset' || call.key === 'checkout') ? call.args.filter((word) => !word.startsWith('-')) : []));
     const existing = await Promise.all(named.map(async (path) => ((await host.exists(path)) ? [path] : [])));
-    const reasons = [_git(calls, existing.flat()), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script), _dotnet(commands, project)] : [])].find((found) => found.length > 0);
+    const reasons = [await _delete(host, script, project), _git(calls, existing.flat()), _stdin(commands), _wait(commands), ...(tool === 'Bash' ? [_script(script), _dotnet(commands, project)] : [])].find((found) => found.length > 0);
     return reasons === undefined ? none : some([...new Set(reasons)].join('. '));
 };
 

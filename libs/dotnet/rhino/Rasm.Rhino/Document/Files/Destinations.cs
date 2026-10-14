@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using Rasm.Imaging.Output;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rhino;
 
@@ -123,7 +123,7 @@ public static class Destinations {
                 unversioned: static (_, _) => Option<OutputVersion>.None,
                 pinned: static (_, pinned) => Some(pinned.Version),
                 nextFree: static (state, _) => Some(state.Next[state.Scope]))))
-            .Traverse(held => Conversions.Validated<OutputPath, string, InvalidOutput>(Path.Join(folder, Naming.Compose(stem, held.Name, held.Version)))
+            .Traverse(held => Conversions.Validated<OutputPath, string, InvalidFileValue>(Path.Join(folder, Naming.Compose(stem, held.Name, held.Version)))
                 .Map(path => (Name: held.Name with { Version = held.Version.Map<OutputVersioning>(static version => version).IfNone(held.Name.Version) }, Path: path))
                 .ToValidation())
             .As();

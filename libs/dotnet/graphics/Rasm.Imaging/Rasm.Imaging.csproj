@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+        <PackageReference Include="BitMiracle.LibTiff.NET" />
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="Mono.Unix" />
+        <PackageReference Include="PeterO.Numbers" />
+        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="TinyEXR.NET" />
+        <PackageReference Include="UnitsNet" />
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Color/Tables/**;Quantization/BlueNoise.tif" WithCulture="false" />
+    </ItemGroup>
+</Project>

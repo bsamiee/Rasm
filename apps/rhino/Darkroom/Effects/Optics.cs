@@ -1,10 +1,9 @@
-using Rasm.Imaging.Filters.Generators;
-
-using Rasm.Imaging.Filters.Optics;
-using Rasm.Rhino.Render.Effects;
-
 using System.Runtime.InteropServices;
+using Rasm.Imaging.Filters.Generators;
+using Rasm.Imaging.Filters.Optics;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Render.Effects;
+using Rasm.Rhino.UI.Rows;
 using Rhino.Render.PostEffects;
 
 namespace Darkroom.Effects;
@@ -139,7 +138,7 @@ public sealed class NaturalVignetting : StageEffect<NaturalVignetting, Vignette,
             natural: ("Natural", HashMap<string, ParameterText>()),
             outline: ("Outline", ParameterText.Fields<Vignette.Outline, VignetteOutlineParameter, InvalidOptics>(static outline => outline.Map(
                 shape: ParameterText.Of("Boundary", "Figure bounding the illuminated region") with {
-                    Parameters = ParameterText.Fields<ShapePrimitive, ShapePrimitiveParameter, InvalidGenerator>(PrimitiveText.Text),
+                    Parameters = ParameterText.Fields<ShapePrimitive, ShapePrimitiveParameter, InvalidGenerator>(ShapeText.Text),
                 },
                 feather: ParameterText.Of("Feather", "Edge softness as a share of the frame's short side"),
                 pull: ParameterText.Of("Pull", "Scene-linear color beyond the outline"))))))));

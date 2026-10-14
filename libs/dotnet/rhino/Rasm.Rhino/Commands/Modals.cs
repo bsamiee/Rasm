@@ -1,5 +1,5 @@
 using System.Drawing;
-using Rasm.Rhino.Document;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;

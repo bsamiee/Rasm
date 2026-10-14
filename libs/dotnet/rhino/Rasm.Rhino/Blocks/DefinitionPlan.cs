@@ -1,6 +1,6 @@
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.DocObjects;
 

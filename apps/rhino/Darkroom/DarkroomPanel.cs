@@ -1,16 +1,18 @@
+using System.Runtime.InteropServices;
+using Eto.Forms;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Assets;
-
-using Rasm.Rhino.UI.Views;
-
-using System.Runtime.InteropServices;
-using Darkroom.Sections;
-using Eto.Forms;
 using Rhino;
 using Rhino.UI;
 
 namespace Darkroom;
+
+// --- [MODELS] --------------------------------------------------------------------------
+internal sealed record DarkroomGlyph(string Key) : IGlyph {
+    public static readonly DarkroomGlyph Mark = new("mark");
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Guid("4308ea2f-3fbd-48ea-bea8-6ca01d23f170")]
@@ -18,7 +20,7 @@ public sealed class DarkroomPanel(RhinoDoc? document) : DefinedPanel(document, R
     public static readonly View.Panel Row = new() {
         Identity = typeof(DarkroomPanel),
         Caption = "Darkroom",
-        Icon = Some<(IGlyph Glyph, int Master)>((DarkroomGlyph.Mark, DarkroomGlyph.MarkPoints)),
+        Icon = Some<(IGlyph Glyph, int Master)>((DarkroomGlyph.Mark, IconSlot.PanelTab.Master)),
         InitialAfter = Some(PanelIds.Rendering),
         Children = [
             new ContainerRow.Split(

@@ -87,8 +87,8 @@ public static class SettingRoots {
             plugInNode: static plugIn => Heard(() => Optional(PlugIn.Find(plugIn.Id))),
             commandNode: static command => Heard(() => Some(command.Command.PlugIn)));
 
-    public static Func<PlugIn, IPlugInSink, Action<IDisposable>, IO<Unit>> SavedByAnotherRhino(Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver) =>
-        (plugIn, sink, retain) => EventKind.SettingsSaved(plugIn).Choose(static args => Callbacks.Found(!args.SavedByThisRhino, args)).Inline(deliver, sink, retain);
+    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> SavedByAnotherRhino(Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver) =>
+        (sink, retain) => EventKind.SettingsSaved((PlugIn)sink).Choose(static args => Callbacks.Found(!args.SavedByThisRhino, args)).Inline(deliver, sink, retain);
 
     private static readonly HostEvent<Unit> SettingsSaved =
         Subscriptions.Host<PersistentSettingsSavedEventArgs>(typeof(RhinoApp), static handler => add_SettingsSaved(owner: null, handler), static handler => remove_SettingsSaved(owner: null, handler))

@@ -6,10 +6,10 @@
     </PropertyGroup>
 
     <ItemGroup Label="Analyzers">
-        <PackageVersion Include="ErrorProne.NET.CoreAnalyzers"                            Version="0.9.0-beta.4" />          <!-- Roslyn analyzers for correctness and performance defects -->
-        <PackageVersion Include="Meziantou.Analyzer"                                      Version="3.0.296" />               <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
-        <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers"              Version="18.7.23" />               <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
-        <PackageVersion Include="Roslynator.Analyzers"                                    Version="5.0.1" />                 <!-- C# code quality analyzers, refactorings, and code fixes -->
+        <GlobalPackageReference Include="ErrorProne.NET.CoreAnalyzers"                    Version="0.9.0-beta.4" />          <!-- Roslyn analyzers for correctness and performance defects -->
+        <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.296" />               <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
+        <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers"      Version="18.7.23" />               <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
+        <GlobalPackageReference Include="Roslynator.Analyzers"                            Version="5.0.1" />                 <!-- C# code quality analyzers, refactorings, and code fixes -->
     </ItemGroup>
 
     <ItemGroup Label="Rhino">
@@ -22,7 +22,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Core">
-        <PackageVersion Include="CliWrap"                                                  Version="3.10.5" />
+        <PackageVersion Include="CliWrap"                                                 Version="3.10.5" />
         <PackageVersion Include="CommunityToolkit.HighPerformance"                        Version="8.4.2" />                 <!-- Helpers for spans, buffers, and pooled memory -->
         <PackageVersion Include="CommunityToolkit.Mvvm"                                   Version="8.4.2" />
         <PackageVersion Include="LanguageExt.Core"                                        Version="5.0.0-beta-78" />         <!-- Functional programming base: option, either, immutable collections, and effects -->

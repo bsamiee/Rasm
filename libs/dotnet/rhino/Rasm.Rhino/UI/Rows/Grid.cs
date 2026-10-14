@@ -3,7 +3,7 @@ using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI.Rows;
@@ -133,10 +133,10 @@ public sealed class RowGrid : Panel {
         from restore in IO.lift(static () => new Command { MenuText = RowText.Localize("Reset").Local })
         from copy in IO.lift(static () => new Command { MenuText = RowText.Localize("Copy").Local })
         from paste in IO.lift(static () => new Command { MenuText = RowText.Localize("Paste").Local })
-        from reset in Sized(scope.Sink, GlyphRole.Reset, retain)
+        from reset in Sized(GlyphRole.Reset, retain)
         from assigned in IO.lift(() => reset.Command = restore)
         from padlock in scope.Locks
-            .Traverse(_ => Sized(scope.Sink, GlyphRole.LockOpen, retain).Map(static button => (Command: new CheckCommand { MenuText = RowText.Localize("Lock").Local }, Button: button)))
+            .Traverse(_ => Sized(GlyphRole.LockOpen, retain).Map(static button => (Command: new CheckCommand { MenuText = RowText.Localize("Lock").Local }, Button: button)))
             .As()
         from held in (Seq((Command: restore, Run: edit.Reset), (Command: copy, Run: Transfer.Copy(bound, Some(keys), scope)), (Command: paste, Run: Transfer.Paste(bound, Some(keys), scope).Map(static _ => unit)))
                 .Map(row => Subscriptions.Host<EventArgs>(typeof(Command), h => row.Command.Executed += h, h => row.Command.Executed -= h, nameof(Command.Executed)).Inline(_ => row.Run, scope.Sink, retain))
@@ -148,8 +148,8 @@ public sealed class RowGrid : Panel {
             .TraverseM(static attached => attached).As()
         select new RowTrail(keys, reset, restore, copy, paste, padlock);
 
-    private static IO<ImageButton> Sized(IPlugInSink sink, GlyphRole glyph, Action<IDisposable> retain) =>
-        from icon in Icons.Frames(sink, (glyph, IconSlot.PanelButton.Master), IconSlot.PanelButton)
+    private static IO<ImageButton> Sized(GlyphRole glyph, Action<IDisposable> retain) =>
+        from icon in Icons.Frames((glyph, IconSlot.PanelButton.Master), IconSlot.PanelButton)
         from button in DisposalOps.Acquire(IO.lift(static () => new ImageButton()), static button => IO.lift(button.Dispose), retain)
         from assigned in IO.lift(() => button.Image = icon)
         select button;
@@ -320,8 +320,8 @@ public sealed class RowGrid : Panel {
             (true, true) => PaintSlot.ContentHighlight,
             (true, false) => PaintSlot.ContentTextEnabled,
         }
-        from reset in place.Trail.Filter(_ => modified).Traverse(_ => Icons.Frames(Sink, (GlyphRole.Reset, IconSlot.PanelButton.Master), IconSlot.PanelButton)).As()
-        from padlock in place.Trail.Bind(static trail => trail.Lock).Traverse(_ => Icons.Frames(Sink, (locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, IconSlot.PanelButton.Master), IconSlot.PanelButton)).As()
+        from reset in place.Trail.Filter(_ => modified).Traverse(static _ => Icons.Frames((GlyphRole.Reset, IconSlot.PanelButton.Master), IconSlot.PanelButton)).As()
+        from padlock in place.Trail.Bind(static trail => trail.Lock).Traverse(_ => Icons.Frames((locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, IconSlot.PanelButton.Master), IconSlot.PanelButton)).As()
         from painted in IO.lift(() => Painted(place, enabled, modified, locked, ink, reset, padlock))
         from available in place.Cells.Availability.Traverse(changed => changed(shown && enabled)).As()
         from showed in place.Cells.Show

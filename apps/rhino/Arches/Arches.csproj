@@ -1,16 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetExt>.rhp</TargetExt>
-        <Description>Rhino commands drawing historical arch profiles from picked span, apex, and foil inputs</Description>
+        <Description>Historical arch profiles from picked span, apex, and foil inputs</Description>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
-        <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
-    </ItemGroup>
-
-    <ItemGroup Label="Workspace Packages">
+    <ItemGroup>
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

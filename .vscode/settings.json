@@ -49,6 +49,7 @@
 
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true,
+    "dotnet.preferCSharpExtension": true,
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.jdt.ls.java.home": "~/.local/share/mise/installs/java/latest",

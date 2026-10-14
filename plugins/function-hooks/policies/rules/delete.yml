@@ -1,0 +1,44 @@
+id: delete
+language: bash
+message: deletes paths a finder, variable, glob, or directory shorthand selects
+utils:
+    remover: {kind: 'command_name, word', regex: '^(?:\S*/)?(?:rm|rimraf|trash|unlink|shred)$'}
+    rm: {kind: 'command_name, word', regex: '^(?:\S*/)?rm$'}
+    deletes: {kind: command, has: {matches: remover}}
+    finder:
+        kind: command
+        any:
+            - has: {kind: 'command_name, word', regex: '^(?:\S*/)?(?:fd|fdfind|g?find|g?ls|locate|mdfind)$'}
+            - all:
+                - has: {kind: 'command_name, word', regex: '^(?:\S*/)?(?:rg|g?grep|ag)$'}
+                - has: {kind: word, regex: '^(?:-[A-Za-z]*l[A-Za-z]*|--files(?:-with(?:out)?-match(?:es)?)?)$'}
+            - all:
+                - has: {kind: 'command_name, word', regex: '^(?:\S*/)?git$'}
+                - has: {kind: word, regex: '^ls-(?:files|tree)$'}
+    stage: {any: [{matches: finder}, {kind: redirected_statement, has: {field: body, matches: finder}}]}
+    reached: {any: [{matches: deletes}, {has: {stopBy: end, matches: deletes}}]}
+rule:
+    any:
+        - kind: command
+          all:
+            - has: {kind: 'command_name, word', regex: '^(?:\S*/)?(?:fd|fdfind|g?find)$'}
+            - has:
+                kind: word
+                any:
+                    - regex: '^-delete$'
+                    - {regex: '^(?:-[HIusigFalLp01q]*[xX]|--exec(?:-batch)?|-(?:exec|execdir|ok|okdir))$', precedes: {stopBy: end, matches: remover}}
+        - kind: pipeline
+          has: {matches: reached, follows: {stopBy: end, matches: stage}}
+        - kind: 'command_substitution, process_substitution'
+          has: {stopBy: end, matches: finder}
+          inside: {stopBy: end, any: [{matches: deletes}, {kind: 'for_statement, redirected_statement', has: {field: body, matches: reached}}]}
+        - kind: command
+          all:
+            - has: {kind: word, regex: '^(?:-[A-Za-z]*[rR][A-Za-z]*|--recursive)$', follows: {stopBy: end, matches: rm}}
+            - has:
+                follows: {stopBy: end, matches: rm}
+                any:
+                    - kind: 'simple_expansion, expansion, command_substitution'
+                    - {kind: 'string, concatenation', has: {stopBy: end, kind: 'simple_expansion, expansion, command_substitution'}}
+                    - {kind: 'word, string, raw_string', regex: '^["'']?(?:~[^/"'']*|\.{1,2}|\*+|\.\*)?(?:/+(?:\.{1,2}|\*+|\.\*)?)*["'']?$'}
+          not: {has: {kind: word, regex: '^--cached$'}}

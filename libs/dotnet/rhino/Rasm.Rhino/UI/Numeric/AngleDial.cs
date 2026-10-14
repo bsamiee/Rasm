@@ -2,7 +2,7 @@ using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 
 namespace Rasm.Rhino.UI.Numeric;
 

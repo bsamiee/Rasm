@@ -20,19 +20,14 @@
             {
                 "filter": { "projects": [ "tag:output:rhp" ] },
                 "dependsOn": [ { "projects": [ "rasm" ], "target": "restore" } ],
-                "inputs": [ "...", { "runtime": "resvg --version" }, { "runtime": "magick -version" } ],
                 "options": { "args": [ "--no-restore" ] },
                 "configurations": { "debug": { "args": [ "--no-restore", "--configuration", "Debug" ] }, "release": { "args": [ "--no-restore", "--configuration", "Release" ] } }
             },
             {
                 "filter": { "projects": [ "tag:language:dotnet" ] },
-                "command": "dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog\"",
-                "inputs": [ "...", "dotnet" ]
-            },
-            {
-                "filter": { "projects": [ "tag:package:SixLabors.ImageSharp" ] },
-                "command": "doppler run --project rasm --config dev_repo --only-secrets SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog\"",
-                "inputs": [ "...", { "runtime": "doppler --version" } ]
+                "command": "doppler run --project rasm --config dev_repo --no-fallback --attempts 1 -- dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/build-{}.binlog\"",
+                "inputs": [ "...", "dotnet", { "runtime": "doppler --version" } ],
+                "parallelism": false
             },
             {
                 "filter": { "projects": [ "tag:language:swift" ] },

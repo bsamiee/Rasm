@@ -1,4 +1,4 @@
-using Rasm.Rhino.Document.Notation;
+using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence.Settings;
 using Rhino;
 using Rhino.Commands;

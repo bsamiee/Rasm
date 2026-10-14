@@ -2,7 +2,7 @@ using Eto.Drawing;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;

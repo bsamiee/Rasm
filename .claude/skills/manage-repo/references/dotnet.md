@@ -28,3 +28,7 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 - `dotnet msbuild` rejects a `.cs` file with `MSB4025`
 - `dotnet format` missing `project.assets.json` prints `Required references did not load`, skips analysis, and exits 0
 - Builds run code-style analyzers under `EnforceCodeStyleInBuild`, failing an app on formatting and style findings
+
+## [03]-[PROJECTS]
+
+- Libraries sit under `libs/dotnet/<group>/`, a domain group organizes alone, a host group holds every project built against that host's API and the build classifies its projects by that path

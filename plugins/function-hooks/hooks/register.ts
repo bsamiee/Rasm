@@ -89,8 +89,15 @@ const _real = ($: EngineInterface, path: string): Promise<Option<string>> =>
         () => none,
     );
 
+const _rules = ($: EngineInterface, folder: string): Promise<Result<readonly string[]>> =>
+    _result(
+        $.fs.list(folder).then((entries) => Promise.all(entries.map(({ name }) => $.fs.read(`${folder}/${name}`)))),
+        'unread',
+        folder,
+    );
+
 const _host = ($: EngineInterface): Host => ({
-    scan: (text) => _run($, scan(`${$.plugin.root}/policies/scan.yml`), { stdin: text }, [0]),
+    scan: async (text) => bind(await _rules($, `${$.plugin.root}/policies/rules`), (rules) => _run($, scan(`${$.plugin.root}/policies/scan.yml`, rules), { stdin: text }, [0])),
     root: () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
     exists: (path) => $.fs.exists(path),
 });

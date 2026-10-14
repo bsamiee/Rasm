@@ -6,23 +6,36 @@ using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
-using Rasm.Grasshopper.Authoring;
+using Rasm.Grasshopper.Components;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Plugin;
-using Rasm.Rhino.Plugin.Hosting;
+using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI.Assets;
-using Riok.Mapperly.Abstractions;
-
-[assembly: UseStaticMapper(typeof(Conversions))]
 
 namespace Rasm.Grasshopper;
+
+// --- [TYPES] ---------------------------------------------------------------------------
+internal enum Codes {
+    PluginRefused = 1,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GrasshopperPluginDefinition {
     public Option<(IGlyph Glyph, int Master)> Mark { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+public sealed record PluginRefused : Expected {
+    public PluginRefused(string location, FailureKind reason, Option<Error> cause) : base("{Location} failed to load with {Reason}", (int)Codes.PluginRefused, cause) =>
+        (Location, Reason) = (location, reason);
+
+    public string Location { get; }
+    public FailureKind Reason { get; }
+
+    public static Fin<Unit> Unless(bool loaded, FailureInfo failure) =>
+        loaded ? unit : new PluginRefused(failure.Location, failure.Kind, Optional(failure.Exception).Map(static exception => New(exception)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,14 +50,16 @@ public static class GrasshopperPlugins {
 public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
     // --- [STATE]
     private readonly GrasshopperPluginDefinition definition;
-    private readonly PlugInSession session = new();
 
     protected DefinedGrasshopperPlugin(GrasshopperPluginDefinition definition) {
         this.definition = definition;
         SettingsFile = SettingsFile.InDefaultFolder(Path.GetFileNameWithoutExtension(Location));
+        Session = new(IO.lift(() => Refused.Unless(SettingsFile.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile))));
     }
 
     public SettingsFile SettingsFile { get; }
+
+    public PlugInSession Session { get; }
 
     // --- [IDENTITY]
     public sealed override IIcon Icon =>
@@ -52,7 +67,7 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
             definition.Mark.Map(mark => CanvasIcons.Vector(this, mark.Glyph, mark.Master)),
             () => base.Icon,
             () => base.Icon,
-            new CallbackSite(this, GetType(), nameof(Icon)));
+            CallbackSite.Of(this));
 
     // --- [HARVEST]
     protected sealed override void HarvestCustomTypes() =>
@@ -72,27 +87,19 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
         })
                       from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(this).Bind(row)))
                       from registered in Callbacks.Each(derived.Map(row => IO.pure(this).Bind(row.Register)))
-                      select unit, new CallbackSite(this, GetType(), nameof(HarvestCustomTypes)));
+                      select unit, CallbackSite.Of(this));
 
     // --- [LOAD]
     public sealed override void OnLoaded() =>
-        _ = DisposalOps.OnFailure(
-            from initialized in IO.lift(static () => AssemblyLoading.Initialized)
-            from opened in session.Open(fun((Action<IDisposable> retain) => EventKind.RhinoAppClosing.Inline(_ => Close, this, retain))
-                .Cons(definition.Acquisitions.Map(row => fun((Action<IDisposable> retain) => IO.pure(this).Bind(owner => row(owner, retain))))))
-            select unit,
-            session.Close())
+        _ = (from initialized in IO.lift(static () => AssemblyLoading.Initialized)
+             from opened in Session.Open(this, [static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain), .. definition.Acquisitions])
+             select unit)
             .Catch(error => IO.lift(() => Report(error, GetType(), nameof(OnLoaded))).Bind(_ => IO.fail<Unit>(error)))
             .As()
             .Run();
 
-    // --- [CLOSE]
-    public IO<Unit> Close =>
-        Callbacks.Each(Seq(session.Close(), IO.lift(() => Refused.Unless(SettingsFile.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile)))))
-            .Map(static _ => unit).Uninterruptible();
-
     // --- [SINK]
-    public void Report(Error error, Type owner, string member) => session.Report(error, owner, member);
+    public void Report(Error error, Type owner, string member) => Session.Report(error, owner, member);
 
     public static CallbackSite Site(IDocumentObject constructed, [CallerMemberName] string member = "") =>
         new((IPlugInSink)PluginServer.FindPluginForObject(constructed), constructed.GetType(), member);

@@ -1,13 +1,13 @@
+using System.Runtime.InteropServices;
+using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
-
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Queue;
-using Rasm.Rhino.Render.Slots;
-
-using System.Runtime.InteropServices;
-using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Render.Sessions;
+using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Rows;
 using UnitsNet;
 using UnitsNet.Units;
 
@@ -76,15 +76,13 @@ public static class DarkroomSettings {
                     SettingType.String, Applied.Live, [], Hidden: false),
             }));
 
-    public static readonly HistoryLimits DefaultHistory = new(10, Duration.FromSeconds(5));
-
     public static readonly (PlugInSetting<int, int> Capacity, PlugInSetting<int, int> Window) History = (
         new(
-            ValueKey.Numeric("HistorySteps", "Undo steps", "Edits each Darkroom section keeps for undo, redo, and restore; zero disables history", DefaultHistory.Capacity,
+            ValueKey.Numeric("HistorySteps", "Undo steps", "Edits each Darkroom section keeps for undo, redo, and restore; zero disables history", HistoryLimits.Default.Capacity,
                 Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((1, 100)) }),
             SettingType.Integer, Applied.Live, [], Hidden: false),
         new(
-            ValueKey.Numeric("HistoryMergeWindow", "Merge edits within", "Joins edits of one section made within this time of its last edit into one undo step", (int)DefaultHistory.Window.TotalSeconds,
+            ValueKey.Numeric("HistoryMergeWindow", "Merge edits within", "Joins edits of one section made within this time of its last edit into one undo step", (int)HistoryLimits.Default.Window.TotalSeconds,
                 Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((0, 600)), Unit = Quantity.GetUnitInfo(DurationUnit.Second) }),
             SettingType.Integer, Applied.Live, [], Hidden: false));
 
@@ -127,4 +125,23 @@ public static class DarkroomSettings {
         (reader.Current(History.Capacity), reader.Current(History.Window))
             .Apply(static (capacity, seconds) => new HistoryLimits(capacity, Duration.FromSeconds(seconds)))
             .As();
+}
+
+public sealed class DarkroomPage() : DefinedOptionsPage(Row) {
+    public static readonly View.OptionsPage Row = new() {
+        Identity = typeof(DarkroomPage),
+        Caption = "Darkroom",
+        Commit = new CommitMode.Immediate(),
+        Store = Some<ViewStore>(new ViewStore.ApplicationStores()),
+        Children = [
+            .. DarkroomSettings.Queue.Children,
+            new ControlRow.Group("Section history", RowRules.Always),
+            .. SectionRows.Setting(DarkroomSettings.History.Capacity, RowRules.Always).Map(static row => (Child)row),
+            .. SectionRows.Setting(DarkroomSettings.History.Window, RowRules.Always).Map(static row => (Child)row),
+            new ControlRow.Group("Render comparison", RowRules.Always),
+            .. DarkroomSettings.Comparison.Children,
+            new ControlRow.Group("Preview tiles", RowRules.Always),
+            .. DarkroomSettings.Tiles.Children,
+        ],
+    };
 }

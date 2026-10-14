@@ -18,9 +18,14 @@ interface Command extends Context {
     readonly writes: readonly string[];
     readonly reads: readonly string[];
 }
+interface Deletion {
+    readonly text: string;
+    readonly message: string;
+}
 interface Script {
     readonly commands: readonly Command[];
     readonly clocks: readonly string[];
+    readonly deletes: readonly Deletion[];
 }
 interface Capture {
     readonly text: string;
@@ -30,7 +35,13 @@ interface Owned {
     readonly single: { readonly BODY: Capture; readonly DEST: Capture };
 }
 
-type Hit = Capture & ({ readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } } | { readonly ruleId: 'operand' | 'write' | 'read'; readonly metaVariables: Owned } | { readonly ruleId: Marker | 'clock' });
+type Hit = Capture &
+    (
+        | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
+        | { readonly ruleId: 'operand' | 'write' | 'read'; readonly metaVariables: Owned }
+        | { readonly ruleId: Marker | 'clock' }
+        | { readonly ruleId: 'delete'; readonly message: string }
+    );
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -57,7 +68,7 @@ const _redirect = (id: 'write' | 'read', relation: string): string => `id: ${id}
 language: bash
 ${_OWNER}
 rule: {kind: file_redirect, all: [{has: {field: destination, pattern: $DEST, not: {kind: number}}}, {matches: owner}, ${relation}]}`;
-const scan = (config: string): Invocation => [
+const scan = (config: string, rules: readonly string[]): Invocation => [
     'ast-grep',
     'scan',
     '--stdin',
@@ -82,6 +93,7 @@ rule: {matches: value, follows: {matches: value}, inside: {kind: file_redirect, 
         `id: clock
 language: bash
 rule: {any: [{kind: variable_name, regex: '^(SECONDS|EPOCHREALTIME|EPOCHSECONDS)$'}, {kind: command, has: {field: name, regex: '^date$'}, inside: {kind: arithmetic_expansion, stopBy: end}}]}`,
+        ...rules,
     ].join('\n---\n'),
 ];
 
@@ -106,6 +118,7 @@ const _script = (hits: readonly Hit[], context: Context): Script => {
             return [{ words, spans: tokens.map(({ range }) => range.byteOffset), invocations: invocations(words), nested: context.nested, looped: marked('looped'), polled: marked('polled'), fed: marked('fed'), writes: _destinations(own, 'write'), reads: _destinations(own, 'read') }];
         }),
         clocks: sorted.flatMap((hit) => (hit.ruleId === 'clock' ? [hit.text] : [])),
+        deletes: sorted.flatMap((hit) => (hit.ruleId === 'delete' ? [{ text: hit.text, message: hit.message }] : [])),
     };
 };
 
@@ -122,13 +135,13 @@ const _bodies = (command: Command): readonly string[] => {
 
 // --- [PARSE]
 
-const _joined = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), clocks: scripts.flatMap(({ clocks }) => clocks) });
+const _joined = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), clocks: scripts.flatMap(({ clocks }) => clocks), deletes: scripts.flatMap(({ deletes }) => deletes) });
 
 const _parse = async (scanner: Scanner, text: string, context: Context): Promise<Result<Script>> =>
     bind(decoded<readonly Hit[]>('ast-grep', await scanner(text)), async (hits): Promise<Result<Script>> => {
         const script = _script(hits, context);
-        const expanded = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scanner, body, { ...command, nested: true })))), (inner) => _joined([{ commands: [command], clocks: [] }, ...inner]))));
-        return map(all(expanded), (scripts) => _joined([{ commands: [], clocks: script.clocks }, ...scripts]));
+        const expanded = await Promise.all(script.commands.map(async (command): Promise<Result<Script>> => map(all(await Promise.all(_bodies(command).map((body) => _parse(scanner, body, { ...command, nested: true })))), (inner) => _joined([{ commands: [command], clocks: [], deletes: [] }, ...inner]))));
+        return map(all(expanded), (scripts) => _joined([{ ...script, commands: [] }, ...scripts]));
     });
 
 const parse = (scanner: Scanner, command: string): Promise<Result<Script>> => _parse(scanner, command, { looped: false, polled: false, fed: false, nested: false });

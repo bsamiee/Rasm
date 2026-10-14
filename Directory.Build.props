@@ -1,16 +1,15 @@
 <Project>
     <PropertyGroup Label="Workspace">
-        <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
-        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
         <IncludeProjectNameInArtifactsPaths>true</IncludeProjectNameInArtifactsPaths>
         <Authors>Bardia Samiee</Authors>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
-        <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
+        <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tests/'))">tests</ProjectRole>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
-        <AssemblyName Condition="'$(RhinoPlugIn)' != '' and !$(MSBuildProjectName.StartsWith('$(RhinoPlugIn).'))">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
+        <AssemblyName Condition="'$(RhinoPlugIn)' != ''">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
@@ -35,7 +34,6 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>
-        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <PropertyGroup Label="Mapperly">
@@ -50,10 +48,8 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
-    <ItemGroup Label="Workspace Analyzers">
-        <PackageReference Include="ErrorProne.NET.CoreAnalyzers"               PrivateAssets="all" />
-        <PackageReference Include="Meziantou.Analyzer"                         PrivateAssets="all" />
-        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
-        <PackageReference Include="Roslynator.Analyzers"                       PrivateAssets="all" />
+    <ItemGroup Label="Workspace Language">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 </Project>

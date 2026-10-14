@@ -403,7 +403,7 @@
             "infra": { "command": "doppler run --project rasm --config dev_repo --no-fallback --attempts 1 -- node infra/cli.ts", "parallelism": false, "configurations": { "up": { "args": "up" }, "refresh": { "args": "refresh" } } },
             "clean": { "command": "node eng/typescript/cleanup/main.ts", "parallelism": false },
             "upgrade": { "command": "mise upgrade --local", "parallelism": false, "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:swift" ], "target": "upgrade" } ] },
-            "upgrade:dotnet": { "command": "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props" },
+            "upgrade:dotnet": { "command": "dotnet run --no-build --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props", "dependsOn": [ { "projects": [ "Rasm.Upgrade" ], "target": "build" } ] },
             "upgrade:python": { "command": "uv sync --upgrade" },
             "upgrade:typescript": { "executor": "nx:run-commands", "parallelism": false, "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never", "pnpm install", "playwright install chromium" ], "parallel": false } }
         }

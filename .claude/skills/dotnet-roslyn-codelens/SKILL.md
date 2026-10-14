@@ -306,15 +306,13 @@ External types resolve by name in `mcp__roslyn-codelens__go_to_definition`, `mcp
 
 ### [03.9]-[SOLUTION_MANAGEMENT]
 
-Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Edits to `.cs`, `.csproj`, `.props`, and `.targets` files recompile the affected projects on the next tool call with no further action.
+Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. The server holds one workspace per loaded solution and serves it to every client, so a load, unload, or rebuild reaches every client. Writing, creating, deleting, or renaming a `.cs`, `.csproj`, `.props`, or `.targets` file recompiles on the next tool call: a `.cs` edit recompiles its project and dependents, any other change reopens the solution.
 
 - `mcp__roslyn-codelens__rebuild_solution` — a full reload: re-open the solution, recompile every project, rebuild every index
-    - Serves a package or analyzer change, and results that stay stale after an edit
-- `mcp__roslyn-codelens__load_solution` — loads a `.sln` or `.slnx` at run time and makes it active
-    - Current solution stays active until the load succeeds
-    - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names
-    - Both match the project file name without its extension, and both seed a transitive `ProjectReference` closure
-    - Filters that match nothing are an error, load with no filter first and read the names from `mcp__roslyn-codelens__list_solutions`
+    - Serves the changes the watcher misses: a moved or renamed directory, a `.slnx` edit, and a restore that changed packages or analyzers
+- `mcp__roslyn-codelens__load_solution` — loads a `.sln` or `.slnx` at run time and makes it active, the current one stays active until the load succeeds
+    - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names, both match the project file name without its extension and seed a transitive `ProjectReference` closure
+    - A filter on a loaded solution disposes its workspace and reloads the subset for every client until the next reload, a filter that matches nothing is an error
     - For a solution that takes minutes to open, `background: true` returns a `taskId` for `mcp__roslyn-codelens__get_task_status`
 - `mcp__roslyn-codelens__list_solutions` — the loaded solutions and the active one, read when an expected symbol is missing
     - `skippedProjects` per entry names each skipped project's `kind` and `reason`

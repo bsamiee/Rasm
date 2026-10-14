@@ -101,6 +101,42 @@ public sealed record RowField<TRecord>(IStateParameter<TRecord> Parameter, strin
     }
 }
 
+public sealed record ParameterText(
+    string Caption, string Help, HashMap<string, (string Caption, HashMap<string, ParameterText> Parameters)> Items, Option<string> Absent) {
+    public HashMap<string, ParameterText> Parameters { get; init; }
+
+    public static ParameterText Of(string caption, string help) => new(caption, help, [], None);
+
+    public static ParameterText Choice<TValue, TError>(string caption, string help, Func<TValue, string> items)
+        where TValue : ISmartEnum<string, TValue, TError>
+        where TError : Error, IValidationError<TError> =>
+        new(caption, help, toHashMap(toSeq(TValue.Items).Map(item => (item.ToValue(), (items(item), HashMap<string, ParameterText>())))), None);
+
+    public static ParameterText Choice<TValue, TError>(string caption, string help, string absent, Func<TValue, string> items)
+        where TValue : ISmartEnum<string, TValue, TError>
+        where TError : Error, IValidationError<TError> =>
+        Choice<TValue, TError>(caption, help, items) with { Absent = absent };
+
+    public static ParameterText Variant<TValue>(
+        string caption, string help, Func<TValue, (string Caption, HashMap<string, ParameterText> Parameters)> items) where TValue : class =>
+        new(caption, help, toHashMap(StateCase<TValue>.Items.Map(item => (item.Key, items(item.Default)))), None);
+
+    public static ParameterText Enumeration<TEnum>(string caption, string help, Func<TEnum, string> members) where TEnum : struct, Enum =>
+        new(caption, help, toHashMap(toSeq(Enum.GetValues<TEnum>()).Map(member => (StoredText.Format(member), (members(member), HashMap<string, ParameterText>())))), None);
+
+    public static HashMap<string, ParameterText> Fields<TState, TParameter, TError>(Func<TParameter, ParameterText> text)
+        where TState : IStateRecord<TState, TParameter, TError>
+        where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
+        where TError : Error, IValidationError<TError> =>
+        toHashMap(Join<TState, TParameter, TError>(text).Map(static pair => (pair.Parameter.Key, pair.Text)));
+
+    public static Seq<(TParameter Parameter, ParameterText Text)> Join<TState, TParameter, TError>(Func<TParameter, ParameterText> text)
+        where TState : IStateRecord<TState, TParameter, TError>
+        where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
+        where TError : Error, IValidationError<TError> =>
+        toSeq(TParameter.Items).Map(parameter => (Parameter: parameter, Text: text(parameter))).Strict();
+}
+
 public abstract record RowSource {
     // --- [BINDING]
     private protected RowSource(string owner) => Owner = owner;

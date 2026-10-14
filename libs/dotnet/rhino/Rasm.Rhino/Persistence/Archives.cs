@@ -1,6 +1,6 @@
 using QuikGraph;
+using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Geolocation;
 using Rasm.Rhino.Document.Tables;
 using Rhino.DocObjects;
 using Rhino.FileIO;

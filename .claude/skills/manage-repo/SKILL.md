@@ -12,7 +12,7 @@ Entries state the principles by which the repository is maintained and improved.
 - [02]-[TOOLING](references/tooling.md): Tool rows, backends, release settings, version files, install paths, environment templates, launchd services
 - [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, direct execution, Biome rows
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
-- [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, analyzer rows, file-based apps
+- [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, analyzer rows, file-based apps, library groups
 - [06]-[SWIFT](references/swift.md): Project files, build settings, compiler policy, packages, checkers, CI, SwiftPM, new projects, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, language server
 - [08]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions

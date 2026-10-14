@@ -6,10 +6,8 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Chrome;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Views;
 using Rhino.UI;
 using Rhino.UI.Controls;
 

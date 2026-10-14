@@ -1,27 +1,17 @@
 using System.Numerics;
 using Eto.Forms;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino.Document.Notation;
+using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Viewers;
 using Rhino;
 using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record VectorAxis<TRecord> where TRecord : notnull {
-    internal VectorAxis(RowField<TRecord> field, Func<IPlugInSink, int, Action<IDisposable>, IO<AxisCell<TRecord>>> realize) => (Field, Realize) = (field, realize);
-
-    public RowField<TRecord> Field { get; }
-    internal Func<IPlugInSink, int, Action<IDisposable>, IO<AxisCell<TRecord>>> Realize { get; }
-}
-
-public sealed record PositionPick<TRecord>(StageInput Stage, string Caption, Func<TRecord, (double X, double Y), PixelExtent, Fin<TRecord>> Placed) where TRecord : notnull;
-
 internal sealed record NumericPart<TValue>(
     TableCell Cell, bool Square, Func<Option<TValue>, IO<Unit>> Receive, Action<EventHandler<EditEventArgs<TValue>>> Add, Action<EventHandler<EditEventArgs<TValue>>> Remove)
     where TValue : notnull;
@@ -53,9 +43,6 @@ internal sealed record NumericCell<TValue, TKey>(Control Value, FieldFit Fit, Op
             new RowHelp(Some((Text.Shown(Some(Bounds.Low)), Text.Shown(Some(Bounds.High)))), initial.Map(value => Text.Shown(Some(Key(value))))),
             edit.Shown, Some<RowEdit>(edit), Some(ChoiceRows.Context(Value, [], [], site.Sink)));
 }
-
-internal sealed record AxisCell<TRecord>(Label Letter, FieldFit Fit, Func<Option<TRecord>, IO<Unit>> Show, Action<RowEdit<TRecord>> Add, Action<RowEdit<TRecord>> Remove)
-    where TRecord : notnull;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NumericRows {
@@ -91,26 +78,6 @@ public static class NumericRows {
         where TValue : IObjectFactory<TValue, Length, TError>, IConvertible<Length>, IMinMaxValue<TValue>
         where TError : Error, IValidationError<TError> =>
         ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Measured<TRecord, TValue, TError>(source, field, lens, soft, modelUnits, scope, retain), rules);
-
-    public static ControlRow Vector<TRecord>(
-        RowSource<TRecord> source, string caption, string help, IterableNE<VectorAxis<TRecord>> axes, Option<PositionPick<TRecord>> pick, RowRules rules)
-        where TRecord : notnull =>
-        ControlRow.Of(source, axes.Map(static axis => axis.Field), caption, help, RowShape.Inline, (scope, retain) => Vectored(source, axes, pick, scope, retain), rules);
-
-    public static VectorAxis<TRecord> Axis<TRecord, TValue, TKey, TError>(RowField<TRecord> field, Lens<TRecord, TValue> lens, Presentation<TKey> presentation, string letter)
-        where TRecord : notnull
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError> =>
-        new(field, (sink, index, retain) =>
-            from typed in Typed(NumberText.Scalar(presentation, (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), RowEdit.Varies), Conversions.Validated<TValue, TKey, TError>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), sink, retain)
-            from label in DisposalOps.Acquire(IO.lift(() => {
-                typed.Part.Cell.Control.TabIndex = index;
-                return RhinoLayout.NewLabel(letter);
-            }), static value => IO.lift(value.Dispose), retain)
-            let handled = memo(Handled(lens, new CallbackSite(sink, typeof(NumericRows), nameof(Vector))))
-            select new AxisCell<TRecord>(
-                label, typed.Fit, held => typed.Part.Receive(held.Map(lens.Get)), edit => typed.Part.Add(handled(edit)), edit => typed.Part.Remove(handled(edit))));
 
     // --- [LINES]
     public static IO<(RowLine Line, Func<Option<TRecord>, IO<Unit>> Show)> Line<TRecord, TValue, TKey, TError>(
@@ -266,25 +233,4 @@ public static class NumericRows {
                     .Bind(_ => edit.Shown), scope.Sink, retain),
             scope, new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Distance)), retain)
         select cells;
-
-    private static IO<RowCells> Vectored<TRecord>(RowSource<TRecord> source, IterableNE<VectorAxis<TRecord>> axes, Option<PositionPick<TRecord>> pick, RowScope scope, Action<IDisposable> retain)
-        where TRecord : notnull =>
-        from cells in toSeq(axes).Map((axis, index) => axis.Realize(scope.Sink, index, retain)).TraverseM(static cell => cell).As()
-        from value in DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(cells.Bind(static cell => Seq(new TableCell(cell.Letter), new TableCell(cell.Fit.Field)))))), static value => IO.lift(value.Dispose), retain)
-        from spaced in IO.lift(() => { value.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table); })
-        let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Vector))
-        let fit = Optional(cells.Map(static cell => cell.Fit).MaxBy(static fit => fit.Width))
-        let widen = fun((Control widest) => IO.lift(() => cells.Iter(cell => cell.Fit.Field.Width = widest.Width)))
-        from bound in RowEdit.Bind<TRecord, Func<RowEdit<TRecord>>>(source, axes.Map(static axis => axis.Field),
-            handler => cells.Iter(cell => cell.Add(handler())), handler => cells.Iter(cell => cell.Remove(handler())),
-            static edit => () => edit, held => cells.TraverseM(cell => cell.Show(held)).As().Map(static _ => unit), scope, site, retain)
-        from placed in pick.Traverse(held => ButtonRows.Place(held.Stage, held.Caption,
-                (pixel, extent) => scope.Read(source).Bind(record => bound.Commit(held.Placed(record, pixel, extent))).Map(static _ => unit), scope, retain)).As()
-        from followed in
-            fit.Traverse(widest => Subscriptions.Attach(
-                handler => widest.Field.SizeChanged += handler, handler => widest.Field.SizeChanged -= handler,
-                Callbacks.Handler<EventArgs>(_ => widen(widest.Field), site with { Member = nameof(Control.SizeChanged) }), retain)).As()
-        select new RowCells(
-            value, None, placed.Map(static held => (Control)held), fit, [], [], new RowHelp(None, None), bound.Shown, Some<RowEdit>(bound),
-            Some(ChoiceRows.Context(value, [], [], scope.Sink)));
 }

@@ -5,9 +5,8 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Viewers;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -346,7 +345,7 @@ public static class ListRows {
             label: static (held, label) => label.Icon.Match(
                 Some: icon =>
                     from cell in DisposalOps.Acquire(IO.lift(static () => new ImageTextCell()), static made => IO.lift(made.Dispose), held.Retain)
-                    from bound in IO.lift(() => { (cell.ImageBinding, cell.TextBinding) = (Pictured(icon, held.Sink, held.Size), Written(label)); })
+                    from bound in IO.lift(() => { (cell.ImageBinding, cell.TextBinding) = (Pictured(icon, held.Size), Written(label)); })
                     select (Cell)cell,
                 None: () =>
                     from cell in DisposalOps.Acquire(IO.lift(static () => new TextBoxCell()), static made => IO.lift(made.Dispose), held.Retain)
@@ -358,16 +357,16 @@ public static class ListRows {
                 select (Cell)cell,
             glyph: static (held, glyph) =>
                 from cell in DisposalOps.Acquire(IO.lift(static () => new ImageViewCell()), static made => IO.lift(made.Dispose), held.Retain)
-                from bound in IO.lift(() => cell.Binding = Pictured(glyph.Icon, held.Sink, held.Size))
+                from bound in IO.lift(() => cell.Binding = Pictured(glyph.Icon, held.Size))
                 select (Cell)cell,
             progress: static (held, progress) =>
                 from cell in DisposalOps.Acquire(IO.lift(static () => new ProgressCell()), static made => IO.lift(made.Dispose), held.Retain)
                 from bound in IO.lift(() => cell.Binding = Binding.Delegate<RowItem<TItem>, float?>(node => progress.Read(node.Row).ToNullable()))
                 select (Cell)cell));
 
-    private static IndirectBinding<Image> Pictured<TItem>(Func<TItem, (IGlyph Glyph, int Master)> icon, IPlugInSink sink, System.Drawing.Size logicalSize) where TItem : notnull =>
+    private static IndirectBinding<Image> Pictured<TItem>(Func<TItem, (IGlyph Glyph, int Master)> icon, System.Drawing.Size logicalSize) where TItem : notnull =>
         Binding.Delegate<RowItem<TItem>, Image>(node => icon(node.Row) switch {
-            var source => Icons.Frame(sink, source.Glyph, source.Master, logicalSize),
+            var source => Icons.Frame(source.Glyph, source.Master, logicalSize),
         });
 
     private static IndirectBinding<string> Written<TItem>(ListColumn<TItem>.Label label) where TItem : notnull =>

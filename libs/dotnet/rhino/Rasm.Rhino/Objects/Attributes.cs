@@ -1,7 +1,8 @@
 using System.Drawing;
 using LanguageExt.ClassInstances;
-using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;

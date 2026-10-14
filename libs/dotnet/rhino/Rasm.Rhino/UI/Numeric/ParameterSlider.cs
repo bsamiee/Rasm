@@ -1,10 +1,10 @@
 using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Imaging.ColorManagement;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Components;
+using Rasm.Rhino.UI.Drawing;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.UI.Numeric;

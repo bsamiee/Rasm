@@ -1,6 +1,7 @@
 using LanguageExt.ClassInstances;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;

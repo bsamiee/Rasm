@@ -101,18 +101,18 @@ public static class Cameras {
         xform.ToFloatArray(rowDominant: false) switch {
             var entries => entries.All(float.IsFinite)
                 ? MemoryMarshal.Cast<float, System.Numerics.Matrix4x4>(entries.AsSpan())[0]
-                : new InvalidPixelValue(),
+                : new InvalidRhinoValue(),
         };
 
     public static Fin<System.Numerics.Vector3> Numeric(Point3d point) =>
         Seq(point.X, point.Y, point.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
             ? new System.Numerics.Vector3((float)point.X, (float)point.Y, (float)point.Z)
-            : new InvalidPixelValue();
+            : new InvalidRhinoValue();
 
     public static Fin<System.Numerics.Vector3> Numeric(Vector3d vector) =>
         Seq(vector.X, vector.Y, vector.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
             ? new System.Numerics.Vector3((float)vector.X, (float)vector.Y, (float)vector.Z)
-            : new InvalidPixelValue();
+            : new InvalidRhinoValue();
 
     public static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<FocalLength> focal, Option<FNumber> aperture) =>
         aperture.IsSome

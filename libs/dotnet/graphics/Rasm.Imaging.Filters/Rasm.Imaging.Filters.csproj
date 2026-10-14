@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Emgu.CV" />
+        <PackageReference Include="Emgu.CV.runtime.mini.macos" />
+        <PackageReference Include="libtorch-cpu" />
+        <PackageReference Include="libtorch-cpu-win-arm64" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
+        <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="TorchSharp" />
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+</Project>

@@ -1,13 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>Generators, numeric reference calculations, property assertions, test doubles, and temporary directories for xUnit and CsCheck suites</Description>
-    </PropertyGroup>
-
-    <ItemGroup Label="Test Dependencies">
+    <ItemGroup>
         <PackageReference Include="CsCheck" />
-        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="xunit.v3.assert" />
         <PackageReference Include="xunit.v3.extensibility.core" />
     </ItemGroup>

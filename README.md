@@ -167,6 +167,7 @@ flowchart LR
 - `eng/<language>/` owns engineering workflows over repository projects and artifacts
 - `tools/` provides capabilities for development tools and applications
 - Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
+- .NET and Python libraries group under `libs/<language>/<group>/`, a group named for a domain or a host, and a host group holds every project tied to that host's runtime or API
 - Task graph takes the host list from the `apps/<host>/` folders and tags a project by the host name in its path, .NET build takes Rhino hosts from the `rhino/` path folder
 - Python packages build into one `rasm` wheel
 - First-party Python imports use `from <import root>.<module> import <member>` for private Blender extension relocation

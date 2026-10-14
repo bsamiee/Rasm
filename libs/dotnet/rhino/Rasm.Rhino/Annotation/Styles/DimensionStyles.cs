@@ -1,10 +1,11 @@
 using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
-using Rasm.Rhino.Document.Notation;
-using Rasm.Rhino.Document.Shapes;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling;
 using Rasm.Rhino.Objects;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;

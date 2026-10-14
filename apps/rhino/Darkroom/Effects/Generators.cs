@@ -1,9 +1,9 @@
-using Rasm.Imaging.Filters.Generators;
-using Rasm.Rhino.Render.Effects;
-
 using System.Runtime.InteropServices;
+using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Render.Effects;
+using Rasm.Rhino.UI.Rows;
 using Rhino.Render.PostEffects;
 
 namespace Darkroom.Effects;
@@ -49,7 +49,7 @@ file static class GeneratorText {
     };
 
     public static ParameterText Placement => ParameterText.Of("Placement", "Position and turn of the field") with {
-        Parameters = ParameterText.Fields<Placement, PlacementParameter, InvalidGenerator>(PrimitiveText.Text),
+        Parameters = ParameterText.Fields<Placement, PlacementParameter, InvalidGenerator>(ShapeText.Text),
     };
 
     public static ParameterText Source => ParameterText.Of("Source", "Frame position or scene light the generated light follows") with {
@@ -401,10 +401,10 @@ public sealed class ShapeLayer : StageEffect<ShapeLayer, Shapes, ShapesParameter
     public static EffectRow<Shapes, ShapesParameter> Row { get; } = new(static parameter =>
         parameter.Map(
             first: ParameterText.Of("First", "First figure of the combination") with {
-                Parameters = ParameterText.Fields<ShapePrimitive, ShapePrimitiveParameter, InvalidGenerator>(PrimitiveText.Text),
+                Parameters = ParameterText.Fields<ShapePrimitive, ShapePrimitiveParameter, InvalidGenerator>(ShapeText.Text),
             },
             second: ParameterText.Of("Second", "Second figure of the combination") with {
-                Parameters = ParameterText.Fields<ShapePrimitive, ShapePrimitiveParameter, InvalidGenerator>(PrimitiveText.Text),
+                Parameters = ParameterText.Fields<ShapePrimitive, ShapePrimitiveParameter, InvalidGenerator>(ShapeText.Text),
             },
             operation: ParameterText.Choice<ShapeOperation, InvalidGenerator>(
                 "Operation", "Combination of the first shape with the second", "None",
