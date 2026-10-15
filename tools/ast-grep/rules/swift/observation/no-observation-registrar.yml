@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-observation-registrar
+language: swiftlang
+severity: error
+rule:
+    kind: property_declaration
+    any:
+        - has: {kind: type_annotation, has: {field: name, regex: '^(Observation\.)?ObservationRegistrar$'}}
+        - has: {field: value, kind: call_expression, has: {nthChild: 1, regex: '^(Observation\.)?ObservationRegistrar$'}}
+message: 'Stored `ObservationRegistrar` restates the access and mutation calls the `@Observable` macro writes'
+note: 'Declare the type `@Observable final class` with plain stored properties, the macro expands the registrar, `access`, and `withMutation` for each one'

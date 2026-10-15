@@ -43,7 +43,7 @@ Each conversion is a method on the source type named for the target, and convert
 
 ```csharp
 internal static class Conversions {
-    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TError : Error, IValidationError<TError> =>
+    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TRaw : notnull where TError : Error, IValidationError<TError> =>
         T.Validate(raw, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
     public static Fin<int> Required(Option<int> value) => value.ToFin(new NotFound());
     public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new NotFound());
@@ -65,7 +65,7 @@ internal static class Conversions {
 
 ## [02]-[OPERATIONS]
 
-`Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names, `Fin<A>` has no `Filter`, `Seq<A>` has no `Pure`, and LINQ names `Map` as `Select`, `Bind` as `SelectMany`, and `Filter` as `Where`:
+`Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names, `Seq<A>` has no `Pure`, and LINQ names `Map` as `Select`, `Bind` as `SelectMany`, and `Filter` as `Where`:
 
 | [INDEX] | [OPERATION] | [SIGNATURE]                 | [BEHAVIOR]                                                   |
 | :-----: | :---------- | :-------------------------- | :----------------------------------------------------------- |
@@ -105,7 +105,9 @@ internal enum Codes {
     Rejected,
 }
 
-internal sealed record InvalidQuantity() : Expected("quantity out of range", (int)Codes.InvalidQuantity);
+internal sealed record InvalidQuantity() : Expected("quantity out of range", (int)Codes.InvalidQuantity), IValidationError<InvalidQuantity> {
+    public static InvalidQuantity Create(string message) => new();
+}
 internal sealed record NotFound() : Expected("item not found", (int)Codes.NotFound);
 internal sealed record Rejected : Expected {
     public Rejected(Error cause) : base("request rejected", (int)Codes.Rejected, cause) { }
@@ -128,7 +130,6 @@ internal static class Classify {
 - `IsType`, `HasCode`, `Is`, and `Catch` do not descend into `Inner`, only the typed record that wraps a cause stays classifiable
 - `Error` implements `Monoid<Error>`, a custom failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it
 - `&` on operands with one success type collects the successes into `Seq<A>` and accumulates the failures
-- `|` returns the first success and combines the errors only when both fail
 
 Recovery is a function from an error to the same result type, and the overloads select the error by code, by value, or by predicate:
 
@@ -389,7 +390,6 @@ Collection types, their purpose, and their construction:
 - `FoldWhile` and `FoldUntil` read the state and the next element before each step, both predicates receive a `(State, Value)` tuple
 - `FoldWhile` stops when its predicate returns `false`, `FoldUntil` when it returns `true`
 - `FoldM` binds each step through a monad and folds left to right, `FoldBackM` folds right to left, both return `K<M, S>` that `.As()` converts
-- Seedless `Fold()` combines a monoid and returns nested groups in reverse order
 - `Exists` stops at the first match, `ForAll` at the first failure
 
 ```csharp
@@ -407,7 +407,7 @@ internal static class Folds {
 - `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source
 - Indexed `Map` passes the item first and the index second, `Rev` reverses
 - `LanguageExt.List.unfold` runs a state seed until the step returns `None`, the static import binds the simple name `List` to `Prelude.List`
-- `Cons` is written `head.Cons(tail)`, the simple name `Cons` binds to the `LanguageExt.Pretty.Cons<A>` type
+- `Cons` is written `head.Cons(tail)`
 
 Forms the compiler rejects:
 - Comparing a `Zip` result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares `First` and `Second`
@@ -415,7 +415,7 @@ Forms the compiler rejects:
 - `Seq<A>.Empty` in expression context fails (CS0119), the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
 - `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`
 - `SeqExtensions.Choose<A, B>` takes both type arguments and `Seq<A>` has no instance form, `Choose<int>(Parse)` is CS1061
-- `Choose` takes the indexed `Func<int, A, Option<B>>` with the index first, and a two-parameter `delegate` makes the call ambiguous (CS0121)
+- `Choose` takes the indexed `Func<int, A, Option<B>>` with the index first
 - `Choose(x => x > 0 ? x : None)` is CS1660, the conditional has no target type, and `Map<Option<int>>(same).Somes()` compiles
 
 ## [07]-[LENSES_AND_SHARED_STATE]

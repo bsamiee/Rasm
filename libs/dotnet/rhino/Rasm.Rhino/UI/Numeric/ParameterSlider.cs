@@ -27,20 +27,17 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation
     private static readonly MarkStyle Span = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
     private static readonly MarkStyle Tick = new MarkStyle.Stroke(PaintSlot.ControlText, 0.4f, 1f);
     private static readonly MarkStyle Face = new MarkStyle.Fill(PaintSlot.ControlBackground, 1f);
-    private static readonly MarkStyle Lifted = new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 1f);
     private static readonly MarkStyle Focused = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 2f);
 
     private readonly float knob = EtoFonts.SmallFont.LineHeight;
 
     private RectangleF Bar(SizeF size) => new(knob / 2f, (knob - Plots.Inset) / 2f, float.Max(size.Width - knob, 0f), Plots.Inset);
 
-    private static PlotPlane.Cartesian Plane(RectangleF bar) => new(bar, new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
-
     protected override Option<float> Fitted(ParameterSliderState<TValue, TKey> state, float width) => knob + Plots.Inset;
 
     // --- [LAYOUT]
     protected override Seq<PlotMark<Unit>> Layout(ParameterSliderState<TValue, TKey> state, SizeF size, float scale) =>
-        (Plane(Bar(size)), Position(state)) switch {
+        (PlotPlane.Cartesian.Unit(Bar(size)), Position(state)) switch {
             var (plane, position) =>
                 Seq(new PlotMark<Unit>(new MarkShape.Band(new RectangleF(size)), None, Some(new MarkPart<Unit>(unit, 0f))))
                     + Filled(state, plane, position)
@@ -76,7 +73,7 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation
     private TKey Stepped(TKey from, double steps, Keys modifiers, (TKey Low, TKey High) track) =>
         TKey.Clamp(Snaps(modifiers) ? text.Snapped(text.Moved(from, steps)) : text.Moved(from, steps * Scale(modifiers)), track.Low, track.High);
 
-    private double Pointed(SizeF size, PointF point) => Plane(Bar(size)).Value(point).First;
+    private double Pointed(SizeF size, PointF point) => PlotPlane.Cartesian.Unit(Bar(size)).Value(point).First;
 
     // --- [TRANSITIONS]
     protected override ParameterSliderState<TValue, TKey> Received(ParameterSliderState<TValue, TKey> state, Option<TValue> value) => state with { Shown = value };
@@ -93,7 +90,7 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation
 
     protected override Option<Transition<ParameterSliderState<TValue, TKey>, TValue>> Pressed(
         ParameterSliderState<TValue, TKey> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
-        part.Filter(_ => e.Buttons == MouseButtons.Primary).Map(_ => (Knob: Position(state), Pointer: double.Clamp(Pointed(size, e.Location), 0d, 1d)) switch {
+        part.Filter(_ => e.Buttons is MouseButtons.Primary).Map(_ => (Knob: Position(state), Pointer: double.Clamp(Pointed(size, e.Location), 0d, 1d)) switch {
             var press when Math.Abs(press.Pointer - press.Knob) * Bar(size).Width <= DragThreshold =>
                 new Transition<ParameterSliderState<TValue, TKey>, TValue>(state with { Grip = new SliderGrip<TKey>(press.Knob, press.Pointer, Track(state)) }, None),
             var press => new SliderGrip<TKey>(press.Pointer, press.Pointer, Track(state)) switch {
@@ -118,8 +115,8 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation
             Keys.Right or Keys.Up or Keys.Left or Keys.Down =>
                 Stepping(state, (from, track) => Stepped(from, e.Key is Keys.Right or Keys.Up ? 1d : -1d, e.Modifiers, track)),
             Keys.PageUp or Keys.PageDown =>
-                Stepping(state, (from, track) => Keyed(presentation.Position(from, track) + ((e.Key == Keys.PageUp ? 1d : -1d) / TickIntervals), track)),
-            Keys.Home or Keys.End => Stepping(state, (_, track) => e.Key == Keys.Home ? track.Low : track.High),
+                Stepping(state, (from, track) => Keyed(presentation.Position(from, track) + ((e.Key is Keys.PageUp ? 1d : -1d) / TickIntervals), track)),
+            Keys.Home or Keys.End => Stepping(state, (_, track) => e.Key is Keys.Home ? track.Low : track.High),
             _ => None,
         };
 
@@ -137,7 +134,7 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation
 
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ParameterSliderState<TValue, TKey> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
-        Plane(Bar(bounds.Size)) switch {
+        PlotPlane.Cartesian.Unit(Bar(bounds.Size)) switch {
             var plane =>
                 from stops in when(presentation.Stops.IsSome, Plots.Strip(canvas, plane, position => presentation.Fill(presentation.Key(position, Track(state)), limits)
                     .Map(static light => Plots.Encoded(Gamut.StandardRgb, light.AsVector3()))
@@ -150,5 +147,5 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, Presentation
         };
 
     private static MarkStyle Ringed(bool focused, Interaction<Unit> cues) =>
-        focused ? Focused : cues.Hovered.IsSome || cues.Pressed.IsSome ? Lifted : MarkStyle.Ring;
+        focused ? Focused : cues.Hovered.IsSome || cues.Pressed.IsSome ? MarkStyle.Lifted : MarkStyle.Ring;
 }

@@ -39,10 +39,10 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Parallel: Runs and bridges share the settings, cache, and temp folders `mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
-- Files: `<log>`, `<scriptlog>`, and `<macros>` go under `<main>/.artifacts/ghidra/<name>/`
+- Files: `<macros>` goes under `<main>/.artifacts/ghidra/<name>/`
 - Files: Main worktree `<main>` is the line `dirname "$(git rev-parse --path-format=absolute --git-common-dir)"` prints
 - Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`
-- Logs: `<log>` holds one run's messages and its scripts' printed lines, `<scriptlog>` the printed lines alone
+- Logs: `ghidra.log` appends each run's messages and its scripts' printed lines, `ghidra-script.log` the printed lines alone
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`
 - Logs: Log4j size rollover is unreliable with concurrent runs appending to one file
 - Logs: ghidra-cli writes a daily debug log under `~/Library/Application Support/ghidra-cli/`, a folder no setting moves
@@ -60,21 +60,28 @@ Projects saved under `$GHIDRA_PROJECT_DIR`, a binary without one takes an import
 find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {} +
 ```
 
+`<headless>` opens project `<name>` with the scripts bundle and logs:
+
+```bash
+"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -scriptPath ${CLAUDE_SKILL_DIR}/scripts \
+    -log <main>/.artifacts/logs/ghidra.log -scriptlog <main>/.artifacts/logs/ghidra-script.log
+```
+
 Imports:
 - Analysis, stubs, then catalog
 - One architecture of a universal Mach-O as the file the first line imports
 - Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -import <binary> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Stubs.java <stubs> -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+<headless> -import <binary> -postScript Stubs.java <stubs> -postScript Catalog.java <catalog>
 lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
-"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -scriptPath ${CLAUDE_SKILL_DIR}/scripts -postScript Catalog.java <catalog> -log <log> -scriptlog <scriptlog>
+<headless> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -postScript Catalog.java <catalog>
 ```
 
 `<run>` opens the saved program without analysis:
 
 ```bash
-"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$GHIDRA_PROJECT_DIR" <name> -process <file> -noanalysis -scriptPath ${CLAUDE_SKILL_DIR}/scripts -log <log> -scriptlog <scriptlog>
+<headless> -process <file> -noanalysis
 ```
 
 After import:
@@ -110,7 +117,8 @@ Seeds and settings of `Decompile.java` and `CallSites.java`:
 - Seed: `<name>` or `<namespace>::<name>` names functions by plain or qualified name, `re:<regex>` those with a matching plain or qualified name
 - Seed: `str:<needle>` names functions referencing a defined string holding the needle case-insensitively, through a `__cfstring` struct included
 - Seed: `tag:<tag>` names functions with the tag, `re:.` every non-external function
-- Setting: `callers=<depth>` and `callees=<depth>` take 0 or more and default to 0, `timeout=<seconds>` and `payload=<megabytes>` take 1 or more and default to 30 and 50
+- Setting: `callers=<depth>` and `callees=<depth>` take 0 or more and default to 0
+- Setting: `timeout=<seconds>` and `payload=<megabytes>` take 1 or more and default to 30 and 50
 - Setting: `CallSites.java` takes `timeout` and `payload` alone
 - Errors: Seeds matching no function and bad settings print together in one error before the usage text
 - Neighbors: Thunks and stubs among callers stand for their own callers, among callees for the function each reaches
@@ -191,6 +199,7 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 - Decompile: `ParallelDecompiler.decompileFunctions` returns results in completion order, null for a cancelled item, and rethrows a callback exception
 - Decompile: `DecompilerCallback.setTimeout` sets the timeout passed per function, `DecompileOptions.setDefaultTimeout` changes nothing under it
 - Globals: `getGlobalSymbolMap` holds a fraction of the globals a body names, the C markup tokens hold every one
+- Preprocessor: `PreProcessor` takes a `DefineTable` through package-private field `defs` alone, `Headers.java` sets it by reflection
 - Preprocessor: `-D` takes no macro arguments, a prelude through `ReInit` and `Input()` defines a function-like macro
 - Preprocessor: `Define()` ignores a redefinition
 - Preprocessor: `#if <name>` evaluates true for a definition that is no number, an undefined name compares as text and `<name> == 0` evaluates false
@@ -208,4 +217,4 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 ## [06]-[EXTEND]
 
-Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts compile against the install's jars with no `-Xlint:all` warning and hold zero `<project>:lint` findings.
+Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts compile against the install's jars with no `-Xlint:all` warning and hold zero Java checker findings.

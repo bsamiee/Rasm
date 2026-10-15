@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-input-by-hand
+language: swiftlang
+severity: error
+utils:
+    writer-write:
+        kind: call_expression
+        has: {nthChild: 1, regex: '\.standardInputWriter\.write$'}
+    writer-finish:
+        kind: call_expression
+        regex: '\.standardInputWriter\.finish\(\)$'
+rule:
+    kind: lambda_literal
+    all:
+        - inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess\.)?run$'}}
+        - has:
+            kind: statements
+            all:
+                - has: {nthChild: 1, has: {stopBy: end, matches: writer-write, pattern: $WRITE}}
+                - has: {nthChild: 2, has: {stopBy: end, matches: writer-finish}}
+message: '`$WRITE` writes one fixed value to standard input and closes it'
+note: 'Pass the value as `input: .string(_:)`, `.array(_:)`, or `.data(_:)` on the run, Subprocess writes it and closes standard input while the body reads output'

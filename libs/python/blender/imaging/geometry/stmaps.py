@@ -2,8 +2,7 @@
 
 from collections.abc import Callable
 import math
-import sys
-from typing import Annotated, Literal, Self
+from typing import Literal, Self
 
 from expression import Error, Ok, Option
 import msgspec
@@ -12,7 +11,7 @@ import numpy.typing as npt
 import OpenImageIO
 
 from blender.imaging.faults import ImagingBufferFault, ImagingResult, paired
-from blender.imaging.parameters import Choice
+from blender.imaging.parameters import Choice, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -66,9 +65,7 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         coverage = mapped[..., 2] * x[1] * y[1]
         return cls(plane=np.ascontiguousarray(np.stack((x[0], y[0], coverage, coverage), axis=-1), dtype=np.float32), extension=extension)
 
-    def warp(
-        self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)] = 2.0
-    ) -> ImagingResult[npt.NDArray[np.float32]]:
+    def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: Positive = 2.0) -> ImagingResult[npt.NDArray[np.float32]]:
         """Warps with a native OIIO filter of positive full width, returning typed buffer refusals."""
 
         def padding(mode: Extension) -> Literal["constant", "edge", "wrap", "symmetric"]:

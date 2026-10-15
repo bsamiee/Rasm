@@ -10,6 +10,7 @@ using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rhino.UI;
 using Rhino.UI.Controls;
+using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.UI;
 
@@ -40,13 +41,13 @@ public sealed class SectionBody : IDisposable {
     private readonly RowScope enclosing;
     private bool showing;
 
-    private SectionBody(View.Section row, Control content, RowScope scope, RowScope enclosing, Option<IHeaderButtonHandler> header) {
-        (this.row, Content, this.scope, this.enclosing, Header) = (row, content, scope, enclosing, header);
+    private SectionBody(View.Section row, Control content, RowScope scope, RowScope enclosing, Seq<IO<Unit>> clicks) {
+        (this.row, Content, this.scope, this.enclosing, Clicks) = (row, content, scope, enclosing, clicks);
         listeners = new ShownSubscription(Listening);
     }
 
     public Control Content { get; }
-    public Option<IHeaderButtonHandler> Header { get; }
+    public Seq<IO<Unit>> Clicks { get; }
     public bool Hidden => hidden.Value;
     public int Height => hidden.Value ? 0 : (int)Math.Ceiling(Content.GetPreferredSize().Height);
 
@@ -58,16 +59,15 @@ public sealed class SectionBody : IDisposable {
             from hidden in scope.Shown(visible: false)
             let controls = row.Children.Bind(static child => child.Controls)
             from content in ViewOps.Realize(owner, row.Children, scope, owned)
-            from header in history.Traverse(held => Buttons(owner, row, controls, held, scope, owned)).As()
-            from section in DisposalOps.Acquire(IO.lift(() => new SectionBody(
-                row, content, scope, enclosing, header.Map(static held => (IHeaderButtonHandler)held))), static held => IO.lift(held.Dispose), owned)
+            from clicks in history.Map(held => Clicked(owner, row, controls, held, scope, owned)).IfNone(IO.pure(Seq<IO<Unit>>()))
+            from section in DisposalOps.Acquire(IO.lift(() => new SectionBody(row, content, scope, enclosing, clicks)), static held => IO.lift(held.Dispose), owned)
             from visibility in enclosing.OnVisibility(_ => section.Evaluated, owned)
             from evaluated in section.Evaluated
             select section, (_, release) => retain(release));
 
     // --- [EDGES]
     public IO<Unit> Shown(bool visible) => IO.lift(() => showing = visible)
-        .Bind(_ => Callbacks.Each(Seq(listeners.Shown(visible), Evaluated))).Map(static _ => unit);
+        .Bind(_ => Callbacks.Each(Seq(listeners.Shown(visible), Evaluated))).Map(unit);
 
     public IO<Unit> Reread => scope.Changed(RealizedView.Keys(row));
 
@@ -101,16 +101,26 @@ public sealed class SectionBody : IDisposable {
         select unit;
 
     // --- [HEADER]
-    private static IO<HeaderButtons> Buttons(IPlugInViews owner, View.Section row, Seq<ControlRow> controls, HistoryBinding history, RowScope scope, Action<IDisposable> retain) =>
-        row.Presets.Map(listing => MenuButton(GlyphRole.Presets, "Presets", listing(scope), owner, retain)).ToSeq()
-            .Add(MenuButton(GlyphRole.Options, "Values", Listing(owner, controls, history, scope), owner, retain))
-            .TraverseM(static menu => menu).As().Map(menus => new HeaderButtons(
-                menus.Add(new HeaderButton(GlyphRole.Reset, "Reset to defaults", scope.Commit(history.Group, history.Group.Defaults).Map(static _ => unit))),
-                owner, row.Identity));
+    public static Option<IHeaderButtonHandler> Header(View.Section row, IO<Option<SectionBody>> current, IPlugInSink sink) =>
+        Faces(row) switch {
+            { IsEmpty: true } => None,
+            var faces => Some<IHeaderButtonHandler>(new HeaderButtons(faces.Map((face, at) => new HeaderButton(face.Glyph, face.ToolTip,
+                current.Bind(held => IO.lift(held.Bind(body => body.Clicks.At(at)).ToFin(new Missing(nameof(Clicks))))).Bind(static click => click))), sink, row.Identity)),
+        };
 
-    private static IO<HeaderButton> MenuButton(GlyphRole glyph, string toolTip, IO<Seq<MenuPick>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
-        ChoiceRows.Menu(Seq<Seq<MenuEntry>>(), Seq<IO<Unit>>(), Some(listing), sink, retain)
-            .Map(menu => new HeaderButton(glyph, toolTip, IO.lift(() => menu.Show())));
+    private static Seq<(GlyphRole Glyph, string ToolTip)> Faces(View.Section row) =>
+        row.Store.IsSome
+            ? row.Presets.Map(static _ => (Glyph: GlyphRole.Presets, ToolTip: "Presets")).ToSeq() + Seq<(GlyphRole Glyph, string ToolTip)>((GlyphRole.Options, "Values"), (GlyphRole.Reset, "Reset to defaults"))
+            : [];
+
+    private static IO<Seq<IO<Unit>>> Clicked(IPlugInViews owner, View.Section row, Seq<ControlRow> controls, HistoryBinding history, RowScope scope, Action<IDisposable> retain) =>
+        row.Presets.Map(listing => Popped(listing(scope), owner, retain)).ToSeq()
+            .Add(Popped(Listing(owner, controls, history, scope), owner, retain))
+            .Add(IO.pure(scope.Commit(history.Group, history.Group.Defaults).Map(unit)))
+            .TraverseM(static click => click).As();
+
+    private static IO<IO<Unit>> Popped(IO<Seq<MenuPick>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
+        ChoiceRows.Menu(Seq<Seq<MenuEntry>>(), Seq<IO<Unit>>(), Some(listing), sink, retain).Map(static menu => IO.lift(() => menu.Show()));
 
     // --- [VALUES]
     private static IO<Seq<MenuPick>> Listing(IPlugInViews owner, Seq<ControlRow> controls, HistoryBinding history, RowScope scope) =>
@@ -129,7 +139,7 @@ public sealed class SectionBody : IDisposable {
                     Heard(history.Restore(entry.Serial), scope))))).Filter(_ => !held.Done.IsEmpty))
             .Somes();
 
-    private static MenuPick.Item Pick<T>(string caption, IO<T> run) => new(caption, Marked: false, run.Map(static _ => unit));
+    private static MenuPick.Item Pick<T>(string caption, IO<T> run) => new(caption, Marked: false, run.Map(unit));
 
     private static IO<ValueDiff> Heard(IO<ValueDiff> step, RowScope scope) =>
         from diff in step
@@ -152,7 +162,7 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
                 handler => drawable.Paint += handler, handler => drawable.Paint -= handler,
                 Callbacks.Handler<PaintEventArgs>(_ => IO.lift(() => Image(drawable) = Icons.Frame(
                     button.Glyph, IconSlot.SectionHeader.Master, new(drawable.Width, drawable.Height))
-                    .GetFrame(drawable.ParentWindow.LogicalPixelSize, new(drawable.Width, drawable.Height)).Bitmap).Map(static _ => unit),
+                    .GetFrame(drawable.ParentWindow.LogicalPixelSize, new(drawable.Width, drawable.Height)).Bitmap).Map(unit),
                     new CallbackSite(sink, owner, nameof(Drawable.Paint))), retain)
             select drawable).TraverseM(static drawable => drawable).As();
 
@@ -186,7 +196,7 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
                     Callbacks.Handler<PaintEventArgs>(_ => DisposalOps.Replace(owned => {
                         Eto.Drawing.Size pixels = Eto.Drawing.Size.Ceiling((Eto.Drawing.SizeF)drawable.Size * drawable.ParentWindow.LogicalPixelSize);
                         return read(buttonIndex, new(pixels.Width, pixels.Height), owned);
-                    }, (found, release) => Published(drawable, images, found, release)).Map(static _ => unit), site), retain).Run(environment);
+                    }, (found, release) => Published(drawable, images, found, release)).Map(unit), site), retain).Run(environment);
                 controls.Add(drawable);
                 index++;
             }
@@ -266,6 +276,58 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
                     .Bind(DisposalOps.Release).Uninterruptible().Run();
             else
                 base.Dispose(disposing);
+        }
+    }
+}
+
+public sealed class SectionLifetime : IDisposable {
+    // --- [STATE]
+    private readonly EtoCollapsibleSection section;
+    private readonly IPlugInSink sink;
+    private readonly Option<Guid> data;
+    private readonly Func<bool> excluded;
+    private readonly ShownSubscription realized;
+    private readonly ShownSubscription loaded;
+
+    public SectionLifetime(EtoCollapsibleSection section, IPlugInSink sink, Option<Guid> data, Func<bool> excluded, Func<Action<IDisposable>, IO<Unit>> realize) {
+        (this.section, this.sink, this.data, this.excluded) = (section, sink, data, excluded);
+        realized = new ShownSubscription(realize);
+        loaded = new ShownSubscription(Listening);
+    }
+
+    // --- [EDGES]
+    public IO<Unit> Demanded => realized.Shown(shown: true);
+
+    public IO<Unit> Loaded => loaded.Shown(shown: true);
+
+    public IO<Unit> Unloaded => loaded.Shown(shown: false);
+
+    private IO<Unit> Listening(Action<IDisposable> retain) =>
+        Optional(section.Parent as Expander) switch {
+            var expander => IO.lift(() => expander.ForAll(static held => held.Expanded) && !excluded()).Bind(realized.Shown) switch {
+                var evaluated =>
+                    from released in IO.lift(() => retain(realized))
+                    from expansions in expander.Traverse(held => Subscriptions.Attach(
+                        handler => held.ExpandedChanged += handler, handler => held.ExpandedChanged -= handler,
+                        Callbacks.Handler<EventArgs>(_ => evaluated, new CallbackSite(sink, typeof(Expander), nameof(Expander.ExpandedChanged))), retain)).As()
+                    from changes in data.Traverse(type => Subscriptions.Attach(
+                        handler => section.DataChanged += handler, handler => section.DataChanged -= handler,
+                        Callbacks.Handler<NativeDataSourceEventArgs>(args => when(args.DataType == type, evaluated).As(),
+                            new CallbackSite(sink, typeof(EtoCollapsibleSection), nameof(EtoCollapsibleSection.DataChanged))), retain)).As()
+                    from shows in Subscriptions.Attach(
+                        handler => section.Shown += handler, handler => section.Shown -= handler,
+                        Callbacks.Handler<EventArgs>(_ => evaluated, new CallbackSite(sink, typeof(Control), nameof(Control.Shown))), retain)
+                    from current in evaluated
+                    select unit,
+            },
+        };
+
+    // --- [RELEASE]
+    public void Dispose() {
+        try {
+            loaded.Dispose();
+        } finally {
+            realized.Dispose();
         }
     }
 }
@@ -371,8 +433,8 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2, ICollapsibleSe
         content switch {
             RealizedView view => view.Shown(visible),
             SectionHolder stack => Callbacks.Each(toSeq(stack.Sections).Choose(static section => Optional(section as EtoCollapsibleSection2))
-                .Map(section => IO.lift(() => section.HolderVisible(visible)))).Map(static _ => unit),
-            Container container => Callbacks.Each(toSeq(container.Controls).Map(child => Shown(child, visible))).Map(static _ => unit),
+                .Map(section => IO.lift(() => section.HolderVisible(visible)))).Map(unit),
+            Container container => Callbacks.Each(toSeq(container.Controls).Map(child => Shown(child, visible))).Map(unit),
             _ => IO.pure(unit),
         };
 

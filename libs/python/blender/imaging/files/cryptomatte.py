@@ -1,5 +1,6 @@
 """Cryptomatte manifests and rank channels decoded into coverage."""
 
+from copy import replace
 import functools
 import operator
 import re
@@ -41,7 +42,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
 
         def decoded(name: str, manifest: str) -> ImagingResult[Self]:
             ranks = tuple(
-                Layer(part=layer.part, name=layer.name, channels=tuple(folded[key] for key in rgba))
+                replace(layer, channels=tuple(folded[key] for key in rgba))
                 for layer in layers
                 if re.fullmatch(f"{re.escape(name)}[0-9]{{2}}", layer.name) and (folded := {channel.name.casefold(): channel for channel in layer.channels}).keys() >= set(rgba)
             )

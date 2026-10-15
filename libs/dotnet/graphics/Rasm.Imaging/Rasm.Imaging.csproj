@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Foundation for building any imaging app or render pipeline on color-managed scene-linear frames</Description>
+    </PropertyGroup>
+
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="Mono.Unix" />

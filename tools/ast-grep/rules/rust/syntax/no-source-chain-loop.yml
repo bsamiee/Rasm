@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-source-chain-loop
+language: rust
+severity: error
+rule:
+    kind: while_expression
+    all:
+        - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, kind: tuple_struct_pattern, all: [{has: {field: type, regex: '^Some$'}}, {has: {nthChild: 2, kind: identifier, pattern: $CAUSE}}]}}, {has: {field: value, kind: identifier, pattern: $CURRENT}}]}
+        - has:
+            field: body
+            has:
+                stopBy: {kind: closure_expression}
+                kind: assignment_expression
+                all:
+                    - has: {field: left, pattern: $CURRENT}
+                    - has: {field: right, pattern: $CAUSE.source()}
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+message: '`while let` loop walks the error source chain through `$CURRENT` by hand'
+note: 'Render the chain with `Report::new(<error>).pretty(true)` (`#![feature(error_reporter)]`) and iterate it with `<error>.sources()` (`#![feature(error_iter)]`), each yields every cause in order with no cursor variable'

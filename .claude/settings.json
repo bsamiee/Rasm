@@ -56,19 +56,6 @@
                     }
                 ]
             }
-        ],
-        "FileChanged": [
-            {
-                "matcher": "mise.toml|global.json|rust-toolchain.toml",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-                        "timeout": 30,
-                        "statusMessage": "mise-env"
-                    }
-                ]
-            }
         ]
     },
     "enabledPlugins": {

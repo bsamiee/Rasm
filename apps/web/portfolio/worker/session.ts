@@ -1,4 +1,5 @@
 import { D1Client } from '@effect/sql-d1';
+import { user } from '@rasm/hosting/sites.ts';
 import { Effect, Layer, Option } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
@@ -9,12 +10,11 @@ import { ownerUserId, registerOwner } from './database.ts';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const session = Effect.fn('session')(function* (email: string) {
-    const { headers } = yield* HttpServerRequest.HttpServerRequest;
-    return yield* Option.match(Option.fromNullishOr(headers['oai-authenticated-user-id']), {
+    return yield* Option.match(user(yield* HttpServerRequest.HttpServerRequest), {
         onNone: () => Effect.succeed<typeof Session.Type>({ kind: 'visitor', signedIn: false }),
-        onSome: (userId) => {
-            const matches = (id: string): boolean => id === userId;
-            return (headers['oai-authenticated-user-email']?.toLowerCase() === email ? registerOwner({ email, userId }).pipe(Effect.map(matches)) : ownerUserId(email).pipe(Effect.map(Option.exists(matches)))).pipe(
+        onSome: (signedIn) => {
+            const matches = (id: string): boolean => id === signedIn.id;
+            return (Option.exists(signedIn.email, (address) => address.toLowerCase() === email) ? registerOwner({ email, userId: signedIn.id }).pipe(Effect.map(matches)) : ownerUserId(email).pipe(Effect.map(Option.exists(matches)))).pipe(
                 Effect.map((isOwner): typeof Session.Type => (isOwner ? { kind: 'owner' } : { kind: 'visitor', signedIn: true })),
             );
         },
@@ -24,7 +24,7 @@ const authorize = (email: string): Effect.Effect<typeof Session.Type, HttpApiErr
     Effect.filterOrFail(
         session(email),
         (current) => current.kind === 'owner',
-        () => new HttpApiError.Forbidden(),
+        () => HttpApiError.Forbidden.make(),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -39,7 +39,7 @@ const owner = (email: string): Layer.Layer<Owner, never, D1Client.D1Client> =>
                     HttpServerRequest.HttpServerRequest.pipe(
                         Effect.filterOrFail(
                             (request) => request.method === 'GET' || request.headers.origin === new URL(request.originalUrl).origin,
-                            () => new HttpApiError.Forbidden(),
+                            () => HttpApiError.Forbidden.make(),
                         ),
                         Effect.andThen(authorize(email)),
                         Effect.provideService(D1Client.D1Client, sql),

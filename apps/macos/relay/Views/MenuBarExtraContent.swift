@@ -1,4 +1,5 @@
 import AppKit
+import RasmMacOS
 import SwiftUI
 
 // --- [VIEWS] ---------------------------------------------------------------------------
@@ -82,7 +83,7 @@ struct MenuBarExtraContent: View {
         }
         .padding(.vertical, 16)
         .frame(width: 384)
-        .background(PanelToolTips())
+        .background { PanelToolTips() }
         .onAppear { store.setMenuBarExtraVisible(true) }
         .onDisappear { store.setMenuBarExtraVisible(false) }
         .modifier(AccountRemovalAlert(store: store, model: $accountToRemove))
@@ -241,7 +242,7 @@ private struct AccountCard: View {
             case (.none, .signingOut, _), (.none, .removing, _): model.running?.kind.description
             case (.none, _, .signInRequired): "Sign in required"
             case (.none, _, .connected):
-                UsagePresentation.blockedLine(model.availability(at: now), at: now)
+                UsagePresentation.blockedLine(model.usage.usage?.availability(at: now), at: now)
                     ?? UsagePresentation.signInLine(expiring: model.usage.usage?.signInExpiresAt, at: now)
         }
     }

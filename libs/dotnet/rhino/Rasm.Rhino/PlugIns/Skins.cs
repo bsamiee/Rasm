@@ -68,7 +68,7 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
         Callbacks.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(static _ => IO.lift(DismissBootSplash)), CallbackSite.Of(this));
 
     private IO<SkinLoad> Advanced(Func<SkinLoad, SkinLoad> transition) =>
-        from next in IO.lift(() => load.Swap(transition))
+        from next in load.SwapIO(transition)
         from shown in IO.lift(() => {
             _ = atomic(() => splash.Value).Iter(held => {
                 Refresh(next, held.Status, held.Bar);
@@ -107,7 +107,7 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
                         Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
                         splash.Value = Some((held.Window, held.Status, held.Bar, lease));
                         return previous;
-                    }).TraverseM(static previous => Callbacks.Each(Seq(IO.lift(previous.Window.Close), IO.lift(previous.Lease.Dispose)))).As().Map(static _ => unit))
+                    }).TraverseM(static previous => Callbacks.Each(Seq(IO.lift(previous.Window.Close), IO.lift(previous.Lease.Dispose)))).As().Map(unit))
                     .Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As(),
             CallbackSite.Of(this));
 

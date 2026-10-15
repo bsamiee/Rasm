@@ -41,13 +41,17 @@ utils:
             - any:
                 - has: {kind: where_clause, pattern: $WHERE}
                 - all: [{not: {has: {kind: where_clause}}}, {has: {field: type, pattern: $WHERE}}]
+    let-shape:
+        kind: let_declaration
+        has: {field: pattern, pattern: $NAME}
     declaration-shape:
         any:
             - matches: function-shape
             - matches: value-shape
             - matches: impl-shape
+            - matches: let-shape
 rule:
-    kind: 'function_item, function_signature_item, const_item, static_item, impl_item'
+    kind: 'function_item, function_signature_item, const_item, static_item, impl_item, let_declaration'
     all:
         - follows: {stopBy: &run {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: cfg-attribute, pattern: $CFG}
         - matches: declaration-shape
@@ -56,5 +60,5 @@ rule:
             all:
                 - matches: declaration-shape
                 - follows: {stopBy: *run, matches: cfg-attribute, not: {pattern: $CFG}}
-message: '`$NAME` repeats one signature under `$CFG` and another `cfg`'
-note: 'Declare `$NAME` once and gate the statements that differ, a `#[cfg(unix)]` and a `#[cfg(windows)]` `let` binding one name inside the body, `cfg_select!` at a `const` value, or one `impl` holding the gated members, declarations with differing signatures stay apart, and the merge rewrites both declarations so no rewrite states it'
+message: '`$NAME` is declared under `$CFG` and again under another `cfg`'
+note: 'Declare the name once and select the differing part with `cfg_select!`, as `let <name> = cfg_select! { <predicate> => <value>, _ => <value> };` for a binding or a `const` value and as one `cfg_select!` over the differing statements of a body. One `impl` holds gated members. Declarations with differing signatures stay as written'

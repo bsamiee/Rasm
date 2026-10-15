@@ -74,10 +74,10 @@ public abstract class DefinedEffect<TEffect, TState, TParameter, TError> : PostE
     private IO<Unit> Changing(RenderContent.ChangeContexts context, IO<Unit> next) =>
         DisposalOps.Within(() => { BeginChange(context); return unit; },
             _ => next.Bind(_ => IO.lift(Changed)),
-            _ => IO.lift(EndChange).Map(static _ => unit));
+            _ => IO.lift(EndChange).Map(unit));
 
     // --- [UI]
-    private protected abstract Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Section { get; }
+    private protected abstract Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section { get; }
 
     public sealed override void AddUISections(PostEffectUI ui) =>
         Callbacks.Run(DisposalOps.Acquire(
@@ -111,7 +111,7 @@ public abstract class StageEffect<TEffect, TState, TParameter, TError> : Defined
             static doc => EffectStates.Binding<TEffect, TState, TParameter, TError>(doc, TEffect.Row));
 
     // --- [STATE]
-    private readonly Atom<StageFrame> input = Atom<StageFrame>(new StageFrame.Unread());
+    private readonly Atom<StageFrame> input = Atom(StageFrame.Unwatched);
 
     private readonly Derivations derivations = new();
 
@@ -123,7 +123,7 @@ public abstract class StageEffect<TEffect, TState, TParameter, TError> : Defined
         }
     }
 
-    private protected sealed override Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Section => SectionRows.Stage(this, Held, ParameterText.Join<TState, TParameter, TError>(TEffect.Row.Text), TEffect.Row.Looks, input);
+    private protected sealed override Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section => SectionRows.Stage(this, Held, ParameterText.Join<TState, TParameter, TError>(TEffect.Row.Text), TEffect.Row.Looks, input);
 
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TState.Channels(Held.Current));
 

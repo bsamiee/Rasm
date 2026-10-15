@@ -21,6 +21,14 @@ rule:
                             - has: {field: type, kind: 'pointer_type, function_pointer_type'}
                             - regex: '='
                 - has: {field: parameters, has: {kind: parameter, nthChild: 17}}
+                - all:
+                    - has: {field: type, regex: '^void$'}
+                    - has:
+                        field: parameters
+                        all:
+                            - has: {kind: parameter, nthChild: 1, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(object|Object)$'}}}}}
+                            - has: {kind: parameter, nthChild: 2, has: {field: type, matches: {csharp-type-name: {name: {regex: 'EventArgs$'}}}}}
+                            - not: {has: {kind: parameter, nthChild: 3}}
                 - has:
                     field: parameters
                     has:

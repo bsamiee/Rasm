@@ -13,7 +13,7 @@ import numpy.typing as npt
 from scipy.integrate import quad_vec
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.parameters import Case, Position, Presentation, Quantity
+from blender.imaging.parameters import Case, Position, Positive, Presentation, Quantity
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -82,7 +82,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
             return np.array((area,))
 
         area, error = quad_vec(radial_area, 0.0, math.tau, epsabs=epsabs, epsrel=epsrel, points=math.pi / 2.0 - self.rotation + math.tau / self.blades * np.arange(self.blades))
-        return float(area[0]), float(error)
+        return float(area[0]), error
 
     def coverage(self, xedges: npt.NDArray[np.float64], yedges: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Estimates pupil area fractions for Cartesian cells in circumradii."""
@@ -161,11 +161,7 @@ class FieldCurvature(Case, frozen=True, kw_only=True, tag=2):
     title = "Radial"
     center: Annotated[Position, msgspec.Meta(description="Center of the sharp ellipse")] = (0.5, 0.5)
     angle: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Turn of the ellipse from horizontal"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    size: Annotated[
-        tuple[Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)], Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]],
-        msgspec.Meta(description="Positive ellipse half extents along its rotated axes"),
-        Presentation(quantity=Some(Quantity.FRAME_GREATER)),
-    ] = (0.4, 0.4)
+    size: Annotated[tuple[Positive, Positive], msgspec.Meta(description="Positive ellipse half extents along its rotated axes"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (0.4, 0.4)
     feather: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, description="Outward distance where defocus reaches full size"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.2
 
 

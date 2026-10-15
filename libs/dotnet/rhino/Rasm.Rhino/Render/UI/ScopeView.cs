@@ -43,7 +43,7 @@ public sealed partial class WaveformLayout {
     public partial IterableNE<(TraceChannel Channel, RectangleF Column)> Columns(RectangleF plot);
 
     public Fin<ScopePlan> Plan(ScopeFrames frames, RectangleF plot, float scale) =>
-        Plots.Device(ScopeKind.Unit(Columns(plot).Head.Column), scale).Map(extent =>
+        Plots.Device(PlotPlane.Cartesian.Unit(Columns(plot).Head.Column), scale).Map(extent =>
             (ScopePlan)new ScopePlan.Waveform(frames.Frame, new ScopeRequest.Waveform(frames.Gamut, extent), this, frames.MaxCode));
 }
 
@@ -116,18 +116,15 @@ public sealed partial class ScopeKind {
     public static readonly ScopeKind WaveformRgb = new("waveform-rgb", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Overlay.Plan(frames, plot, scale));
     public static readonly ScopeKind Parade = new("parade", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Parade.Plan(frames, plot, scale));
     public static readonly ScopeKind Vectorscope = new("vectorscope", WellShape.Square, static (frames, plot, scale, zoom) =>
-        Plots.Device(Unit(plot), scale).Map(extent => (ScopePlan)new ScopePlan.Vectorscope(frames.Frame, new ScopeRequest.Vectorscope(frames.Gamut, extent, zoom))));
+        Plots.Device(PlotPlane.Cartesian.Unit(plot), scale).Map(extent => (ScopePlan)new ScopePlan.Vectorscope(frames.Frame, new ScopeRequest.Vectorscope(frames.Gamut, extent, zoom))));
     public static readonly ScopeKind Chromaticity = new("chromaticity", WellShape.Diagram, static (frames, plot, scale, _) =>
-        Plots.Device(Unit(ScopeTraces.Chromaticity.Square(plot)), scale).Map(extent => (ScopePlan)new ScopePlan.Chromaticity(
+        Plots.Device(PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot)), scale).Map(extent => (ScopePlan)new ScopePlan.Chromaticity(
             frames.Frame, new ScopeRequest.Chromaticity(frames.Gamut, frames.Encoding, extent), frames.Scene.Map(static scene => scene.Gamut))));
 
     public WellShape Shape { get; }
 
     [UseDelegateFromConstructor]
     public partial Fin<ScopePlan> Plan(ScopeFrames frames, RectangleF plot, float scale, ChromaZoom zoom);
-
-    internal static PlotPlane.Cartesian Unit(RectangleF rectangle) =>
-        new(rectangle, new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
 }
 
 [SmartEnum<string>]
@@ -294,11 +291,11 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 pending = Some(lease);
                 ready.SetResult(unit);
                 return DisposalOps.Release(prior.ToSeq());
-            }).Map(static _ => unit);
+            }).Map(unit);
 
     private IO<Unit> Answered(ScopePlan plan) =>
         from traces in IO.lift(plan.Read)
-        from answered in IO.lift(() => run.SwapMaybe(held => held.Filter(current => current.Requested == plan).Map(current => Some(current with { Shown = Some(traces) }))))
+        from answered in run.SwapMaybeIO(held => held.Filter(current => current.Requested == plan).Map(current => Some(current with { Shown = Some(traces) })))
         select unit;
 
     private IO<Unit> Stopped =>
@@ -401,7 +398,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             new MarkPart<ScopePart>(new ScopePart.Level(handle, plot), Plots.Reach));
 
     private static MarkShape.Polygon Triangle(RectangleF box) =>
-        new([new PointF(box.Left, box.Bottom), new PointF(box.Left + (box.Width / 2f), box.Top), new PointF(box.Right, box.Bottom)]);
+        new([box.BottomLeft, box.MiddleTop, box.BottomRight]);
 
     private static MarkStyle.Fill Lit(ChannelCounts counts, bool shown) =>
         new Vector3(int.Sign(counts.Red), int.Sign(counts.Green), int.Sign(counts.Blue)) switch {
@@ -433,7 +430,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static float LevelX(ScopeViewState state, RectangleF plot, float level) =>
         plot.Left + (Located(state, level) * plot.Width / state.Value.Chosen.Range.Bins);
 
-    private static float Level(LevelsParameter handle, Levels pair) => handle.Map(black: pair.Black, white: pair.Black + float.Exp2(pair.White));
+    private static float Level(LevelsParameter handle, Levels pair) => handle.Map(black: pair.Black, white: pair.Black + pair.White.Scale);
 
     // --- [TRANSITIONS]
     private const float GainStep = 120f * 0.00125f;
@@ -501,7 +498,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             diagram: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None));
 
     protected override Option<Transition<ScopeViewState, ScopeEdit>> KeyPressed(ScopeViewState state, SizeF size, float scale, Option<ScopePart> part, KeyEventArgs e) =>
-        e.Key == Keys.Escape && (state.Selection.IsSome || state.Clips.IsSome)
+        e.Key is Keys.Escape && (state.Selection.IsSome || state.Clips.IsSome)
             ? Some(new Transition<ScopeViewState, ScopeEdit>(state with { Selection = None, Clips = None }, None))
             : None;
 
@@ -653,7 +650,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static Seq<PlotMark<ScopePart>> Graticule(PlotPlane.Cartesian ground, int bins) =>
         Ticks(bins) switch {
             var ticks => Plots.Rules(ground, Orientation.Vertical, ticks.Map(static tick => (float)HistogramAxis.Bin(tick.Level)))
-                .Zip(ticks, static (shape, tick) => new PlotMark<ScopePart>(shape, tick.Level == 1f ? Split : MarkStyle.Grid, None))
+                .Zip(ticks, static (shape, tick) => new PlotMark<ScopePart>(shape, tick.Level is 1f ? Split : MarkStyle.Grid, None))
                 .Concat(Plots.Rules(ground, Orientation.Horizontal, Quarters).Map(static shape => new PlotMark<ScopePart>(shape, MarkStyle.Grid, None))),
         };
 
@@ -701,7 +698,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         toSeq(Range(0, Divisions + 1)).Filter(tenth => (float)tenth / Divisions <= limit);
 
     private static IO<Unit> VectorscopePaint(PlotCanvas canvas, ScopeViewState state, RectangleF plot, ScopeTraces.Vectorscope traces) =>
-        (Axes: new ChromaAxes(traces.Reading.Request.Gamut.Luminance), Peak: Peak(traces.Reading.Bins.Counts), Square: ScopeKind.Unit(plot)) switch {
+        (Axes: new ChromaAxes(traces.Reading.Request.Gamut.Luminance), Peak: Peak(traces.Reading.Bins.Counts), Square: PlotPlane.Cartesian.Unit(plot)) switch {
             var held =>
                 from radius in IO.lift(Reaching(traces.Reading.Request.Zoom.Reach))
                 let polar = new PlotPlane.Polar(plot, new Axis.Periodic(AxisRange.Radians), new Axis.Linear(radius))
@@ -777,7 +774,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             _ => IO.lift(canvas.Graphics.ResetClip));
 
     private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) =>
-        (Square: ScopeKind.Unit(ScopeTraces.Chromaticity.Square(plot)), Ink: Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText)), Peak: Peak(traces.Reading.Bins.Counts),
+        (Square: PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot)), Ink: Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText)), Peak: Peak(traces.Reading.Bins.Counts),
           ScopeTraces.Chromaticity.Fit, Roles: Roles(traces), Side: float.Clamp(plot.Width * WhiteShare, WhiteSide.Least, WhiteSide.Most)) switch {
               var held =>
                   from extent in IO.lift(Plots.Device(held.Square, canvas.Scale))
@@ -796,7 +793,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             .Map(static shape => new PlotMark<ScopePart>(shape, MarkStyle.Grid, None));
 
     private static Seq<AxisLabel> Evens(float limit) =>
-        Tenths(limit).Filter(static tenth => tenth % 2 == 0).Map(static tenth => ((float)tenth / Divisions) switch {
+        Tenths(limit).Filter(static tenth => tenth % 2 is 0).Map(static tenth => ((float)tenth / Divisions) switch {
             var value => new AxisLabel(value, value.ToString("F1", RowText.Culture)),
         });
 

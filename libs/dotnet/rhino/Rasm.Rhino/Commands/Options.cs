@@ -108,7 +108,7 @@ public static class OptionSpec {
         where TRaw : notnull =>
         from store in IO.pure(PlugInSettings.Store(new SettingsNode(command), setting))
         from held in store.Read
-        select Of(setting.Value.Caption, add, held.IfNone(setting.Value.Default), value => store.Write(Some(value)).Map(_ => value).Bind(chosen));
+        select Of(setting.Value.Caption, add, held.IfNone(setting.Value.Default), value => store.Write(Some(value)).Map(value).Bind(chosen));
 }
 
 public static class CommandOptions {

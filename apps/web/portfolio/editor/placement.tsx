@@ -1,4 +1,4 @@
-import { Struct } from 'effect';
+import { Schema, Struct } from 'effect';
 import type { ReactNode } from 'react';
 import { type AssetCollection, ImageAsset, sheets } from '../model/asset.ts';
 import type { Placement } from '../model/placement.ts';
@@ -25,7 +25,7 @@ function PlacementFields({ value, assets, onChange, onHero, onCover }: { value: 
             <span className="wrap-anywhere text-[13px]">{value.asset.name}</span>
             <Field label="Caption" onChange={(caption): void => onChange({ ...value, caption })} value={value.caption} />
             {value.kind === 'pdf' && (
-                <MenuButton label="Sheet" onAction={({ page }): void => onChange({ ...value, page })} options={sheets(value.asset).map((page) => ({ id: String(page.number), label: `${page.number} of ${value.asset.pages.length}${page.label ? ` · ${page.label}` : ''}`, page }))}>
+                <MenuButton label="Sheet" onAction={({ page }): void => onChange({ ...value, page })} options={sheets(value.asset).map((page) => ({ id: String(page.number), label: `${page.number} of ${value.asset.pages.length}${page.label !== undefined && page.label !== '' ? ` · ${page.label}` : ''}`, page }))}>
                     Sheet {value.page.number}
                 </MenuButton>
             )}
@@ -36,10 +36,10 @@ function PlacementFields({ value, assets, onChange, onHero, onCover }: { value: 
                         label="Video poster"
                         onAction={({ asset }): void => onChange({ ...value, poster: asset })}
                         options={Object.values(assets)
-                            .filter((asset) => asset instanceof ImageAsset)
+                            .filter(Schema.is(ImageAsset))
                             .map((asset) => ({ id: asset.id, label: asset.name, asset }))}
                     >
-                        {value.poster ? `Poster: ${value.poster.name}` : 'Choose poster image'}
+                        {value.poster === undefined ? 'Choose poster image' : `Poster: ${value.poster.name}`}
                     </MenuButton>
                     {value.poster && (
                         <button className="button button-ghost self-start" onClick={(): void => onChange(Struct.omit(value, ['poster']))} type="button">
@@ -58,7 +58,7 @@ function PlacementFields({ value, assets, onChange, onHero, onCover }: { value: 
             )}
             <Field label="Accessible description" onChange={(alt): void => onChange({ ...value, alt })} placeholder="What does this image or sheet communicate?" value={value.alt ?? ''} />
             <Field label={value.kind === 'video' ? 'Description / transcript' : 'Detailed description'} multiline={true} onChange={(description): void => onChange({ ...value, description })} value={value.description ?? ''} />
-            {(onHero || onCover) && (
+            {(onHero ?? onCover) && (
                 <div className="actions">
                     {onHero && (
                         <button className="button button-outline" onClick={onHero} type="button">

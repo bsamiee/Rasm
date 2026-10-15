@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-machine-path
+language: rust
+utils:
+    machine-text:
+        kind: 'string_literal, raw_string_literal'
+        regex: '(^[rbc]*#*"|[\s"''=:(,]|file://)(~/|(/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
+    embedding-macro:
+        kind: macro_invocation
+        has: {field: macro, regex: '^((::)?(std|core)::)?(include_str|include_bytes|include)$'}
+    home-layout-segment:
+        kind: 'string_literal, raw_string_literal'
+        any:
+            - regex: '^r?#*"(\.local[\\/]+(share|state)|Library[\\/]+(Application Support|Caches|Preferences)|AppData)([\\/]|"|$)'
+            - all:
+                - regex: '^r?#*"\.(config|cache)([\\/]|")'
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '(?i)home'}}}}
+            - all:
+                - regex: '^r?#*"(share|state|Application Support|Caches|Preferences)"'
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '\.(join|push)\(\s*r?#*"(Library|\.local)"#*\s*\)$'}}}}
+rule:
+    not: {matches: rust-test-scope}
+    any:
+        - kind: 'string_literal, raw_string_literal'
+          matches: machine-text
+        - kind: macro_invocation
+          all:
+            - has: {field: macro, regex: '^((::)?(std|core)::)?(env|option_env)$'}
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(CARGO_MANIFEST_DIR|CARGO_MANIFEST_PATH|CARGO_TARGET_TMPDIR|CARGO_WORKSPACE_DIR|CARGO_HOME|RUSTUP_HOME|OUT_DIR|HOME|USERPROFILE|USER|USERNAME|LOGNAME|PWD|HOSTNAME|TMPDIR)"$'}}
+            - not: {inside: {stopBy: end, matches: embedding-macro}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(join|push)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: home-layout-segment}, not: {has: {nthChild: 2}}}

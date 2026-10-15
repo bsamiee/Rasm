@@ -10,10 +10,13 @@ utils:
     valued-if:
         kind: if_expression
         has: {field: alternative, pattern: $_}
+    selecting-match:
+        kind: match_expression
+        has: {field: body, has: {kind: match_arm}}
     conditional:
         any:
             - matches: valued-if
-            - kind: match_expression
+            - matches: selecting-match
     tail-conditional:
         any:
             - matches: conditional
@@ -68,17 +71,17 @@ utils:
     nested-match-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, any: [{kind: match_expression}, {kind: expression_statement, has: {nthChild: 1, kind: match_expression}}], not: {matches: consuming-tail}}
+            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}], not: {matches: consuming-tail}}
             - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
     nested-value:
         any:
             - matches: conditional
               not: {matches: consuming-match}
             - matches: nested-block
-    let-else-branch:
+    else-branch:
         kind: if_expression
         all:
-            - has: {field: condition, kind: let_condition}
+            - has: {field: condition, not: {kind: let_chain}}
             - has:
                 field: alternative
                 kind: else_clause
@@ -93,10 +96,10 @@ utils:
             - has:
                 field: value
                 any:
-                    - matches: let-else-branch
+                    - matches: else-branch
                     - kind: block
                       all:
-                        - has: {nthChild: 1, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
+                        - has: {nthChild: 1, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
                         - not: {has: {nthChild: 2}}
             - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
             - not:
@@ -116,6 +119,7 @@ utils:
     nesting-branch:
         any:
             - matches: valued-if
+              not: {matches: {rust-repeated-else: {outer: {pattern: $_}, inner: {pattern: $_}, then: {pattern: $_}, fallback: {pattern: $_}}}}
               any:
                 - has: {field: consequence, matches: nested-block}
                 - has: {field: alternative, has: {kind: block, matches: nested-match-block}}
@@ -133,6 +137,7 @@ utils:
                     - inside: {kind: function_item, field: body, has: {field: return_type, pattern: $_}}
                     - inside: {kind: closure_expression, field: body}
 rule:
+    kind: 'if_expression, match_expression'
     matches: nesting-branch
     any:
         - inside: {kind: let_declaration, field: value}
@@ -142,4 +147,4 @@ rule:
         - inside: {kind: closure_expression, field: body}
         - inside: {matches: body-tail}
 message: 'Conditional expression nests a conditional'
-note: 'Select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or a guard on the arm (`<pattern> if <test> =>`), a nested conditional hides the test combination that selects each value, an inner `match` over a call that consumes the outer binding stays nested'
+note: 'Select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`), a nested conditional hides the test combination that selects each value. An inner `match` over a call that consumes the outer binding stays as written. `no-nested-repeated-else` owns an inner `if` repeating the outer `else`, `no-arm-nested-let` an arm holding an `if let`, clippy `collapsible_match` an arm holding an `if` with an `else` repeating the catch-all arm, and `no-infallible-unwrap` an arm-less `match` over an uninhabited value'

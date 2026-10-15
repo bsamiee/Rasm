@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-matrix-product-by-hand
+language: rust
+severity: error
+rule:
+    kind: binary_expression
+    pattern: $PRODUCT
+    all:
+        - any:
+            - pattern: $A[$I][$K] * $B[$K][$J]
+            - pattern: $B[$K][$J] * $A[$I][$K]
+        - inside:
+            stopBy: end
+            any:
+                - kind: for_expression
+                  has: {field: pattern, pattern: $K}
+                - kind: closure_expression
+                  has: {field: parameters, has: {pattern: $K}}
+        - not:
+            any:
+                - pattern: $_[$K][$K] * $_
+                - pattern: $_ * $_[$K][$K]
+                - pattern: $_[$I][$K] * $_[$K][$I]
+                - pattern: $_[$K][$I] * $_[$I][$K]
+message: '`$PRODUCT` multiplies `$A` and `$B` element by element over the shared index `$K`'
+note: 'Hold both operands as matrix values and multiply them: nalgebra `a * b` over `DMatrix` or `SMatrix`, faer `&a * &b` over `Mat`, ndarray `a.dot(&b)` over `Array2`'

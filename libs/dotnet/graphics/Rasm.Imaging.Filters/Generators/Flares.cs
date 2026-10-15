@@ -189,7 +189,7 @@ public sealed record LensFlare(
         state.Source.Locate(context).Match(
             Succ: location => location.Map(source => (PixelPass)new PixelPass.Frame((frame, progress) => Try.lift(() => Fill(state, context, source.Point).Match(
                 Some: fill => state.Layer.Pass(fill(source.Occluder.Match(
-                    Some: occluder => occluder.Visible(source.Point, state.HotspotSize, context.Extent), None: static () => 1f))).Run(frame, progress),
+                    Some: occluder => occluder.Visible(source.Point, state.HotspotSize, context.Extent), None: 1f))).Run(frame, progress),
                 None: static () => Fin.Succ(unit))).Run())),
             Fail: static error => Some<PixelPass>(new PixelPass.Frame((_, _) => Fin.Fail<Unit>(error))));
 
@@ -223,7 +223,7 @@ public sealed record LensFlare(
             let table = element.Colors.Tabulate(context.Working)
             select (Func<(double X, double Y), Vector3>)(q => element.Shape(q) switch { var (tone, weight) => gain.Scale * weight * (table.Sample(tone) switch { var color => color.AsVector3() * color.W }) }),
             .. from gain in state.Ghosts.Active.ToSeq() select (Func<(double X, double Y), Vector3>)(q => gain.Scale * Chain(q))];
-        return terms.Length == 0 ? None : Some<Func<float, Action<Span<Vector4>, long, long>>>(visible => (row, column, line) => {
+        return terms.Length is 0 ? None : Some<Func<float, Action<Span<Vector4>, long, long>>>(visible => (row, column, line) => {
             for (int i = 0; i < row.Length; i++) {
                 (double X, double Y) q = frame.Local((column + i + 0.5d, context.Extent.Height - line - 0.5d)) switch { var (x, y) => (x, -y) };
                 row[i] = new Vector4(visible * terms.Aggregate(Vector3.Zero, (light, term) => light + term(q)), 1f);
@@ -231,10 +231,10 @@ public sealed record LensFlare(
         });
 
         (float, Vector3) Disc((double X, double Y) q) => double.Hypot(q.X - X, q.Y - Y) switch {
-            var r => ((float)(hotspot == 0d ? 0d : double.Min(r / hotspot, 1d)), new Vector3(float.Min(ShapeEdge.Coverage((r - hotspot) * side, edge), (float)(2d * hotspot * side / edge)))),
+            var r => ((float)(hotspot is 0d ? 0d : double.Min(r / hotspot, 1d)), new Vector3(float.Min(ShapeEdge.Coverage((r - hotspot) * side, edge), (float)(2d * hotspot * side / edge)))),
         };
 
-        (float, Vector3) Streaks((double X, double Y) q) => burst == 0d ? (0f, Vector3.Zero) : ((X: q.X - X, Y: q.Y - Y), double.Min(double.Hypot(q.X - X, q.Y - Y) / burst, 1d)) switch {
+        (float, Vector3) Streaks((double X, double Y) q) => burst is 0d ? (0f, Vector3.Zero) : ((X: q.X - X, Y: q.Y - Y), double.Min(double.Hypot(q.X - X, q.Y - Y) / burst, 1d)) switch {
             (var d, < 1d and var u) => ((float)u, new Vector3(MathF.Pow(float.Max(0f, (2f * Noise(d)) - 1f), sharpness) * (float)((1d - u) * (1d - u)))),
             (_, var u) => ((float)u, Vector3.Zero),
         };
@@ -248,7 +248,7 @@ public sealed record LensFlare(
         };
 
         (float, Vector3) Halo((double X, double Y) q) => (double.Hypot(q.X - halo.X, q.Y - halo.Y) - state.RingRadius) switch {
-            var delta => (Easing.Saturate((float)(width == 0d ? (double.Sign(delta) + 1d) / 2d : (delta / width) + 0.5d)), new Vector3(ShapeEdge.Strip(double.Abs(delta) * side, width * side, rim))),
+            var delta => (Easing.Saturate((float)(width is 0d ? (double.Sign(delta) + 1d) / 2d : (delta / width) + 0.5d)), new Vector3(ShapeEdge.Strip(double.Abs(delta) * side, width * side, rim))),
         };
 
         Vector3 Chain((double X, double Y) q) {
@@ -354,7 +354,7 @@ public sealed record LightRays(HighlightKey Key, FlareSource Source, ShortSideLe
         return (row, column, line) => {
             for (int i = 0; i < row.Length; i++) {
                 (double X, double Y) p = (column + i + 0.5d, context.Extent.Height - line - 0.5d);
-                row[i] = new Vector4(tint * (reach == 0d ? Sample(p) : Rays(p, shift(column + i, line))).AsVector3(), 1f);
+                row[i] = new Vector4(tint * (reach is 0d ? Sample(p) : Rays(p, shift(column + i, line))).AsVector3(), 1f);
             }
         };
 
@@ -365,14 +365,14 @@ public sealed record LightRays(HighlightKey Key, FlareSource Source, ShortSideLe
             (double steps, (double X, double Y) step) = (double.Floor(double.Min(reach, distance)), ((source.X - p.X) / distance, (source.Y - p.Y) / distance));
             (Vector4 sum, float total) = (Vector4.Zero, 0f);
             for (long k = 0; k <= (1d - jitter) * steps; k++) {
-                double at = jitter == 1f ? 0d : (k + (double)offset) / (1d - jitter);
+                double at = jitter is 1f ? 0d : (k + (double)offset) / (1d - jitter);
                 (double X, double Y) t = (p.X + (at * step.X), p.Y + (at * step.Y));
                 if (t.X < 0d || t.X > context.Extent.Width || t.Y < 0d || t.Y > context.Extent.Height)
                     break;
                 float fall = (float)(1d - (at / steps));
                 (sum, total) = (sum + (fall * fall * Sample(t)), total + (fall * fall));
             }
-            return total != 0f ? sum / total : Sample(p);
+            return total is not 0f ? sum / total : Sample(p);
         }
     }
 }

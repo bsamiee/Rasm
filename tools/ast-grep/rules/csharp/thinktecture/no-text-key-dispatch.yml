@@ -72,6 +72,7 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Any|Filter|Exists)$'}}
+            - not: {has: {field: function, has: {field: expression, matches: csharp-smart-enum-items}}}
             - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: text-key-comparison}}}}
 rule:
     kind: switch_expression, switch_statement, invocation_expression

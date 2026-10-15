@@ -233,8 +233,7 @@ def flared(shell: Shell[LensFlare]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda signed: math("star_positive", "MAXIMUM", signed, 0.0))
             .bind(lambda positive: math("star_sharp", "POWER", positive, inlet(*star, sharpness)))
         )
-        star_ratio = rho.bind(lambda rho: math("star_ratio", "DIVIDE", rho, inlet(*star, length_starburst)))
-        star_tone = star_ratio.bind(lambda tone: math("star_tone", "MINIMUM", tone, 1.0))
+        star_tone = rho.bind(lambda rho: math("star_ratio", "DIVIDE", rho, inlet(*star, length_starburst))).bind(lambda tone: math("star_tone", "MINIMUM", tone, 1.0))
         star_falloff = (
             rho
             .bind(lambda rho: math("star_remaining", "SUBTRACT", inlet(*star, length_starburst), rho))
@@ -248,8 +247,7 @@ def flared(shell: Shell[LensFlare]) -> BlenderResult[tuple[Fragment, End]]:
         ).bind(lambda rotated: node("bar_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("bar_rotation", "Vector")(rotated)}, {}))
         bar_along = bar_axes.bind(lambda axes: math("bar_along", "ABSOLUTE", ended("bar_axes", "X")(axes)))
         bar_across = bar_axes.bind(lambda axes: math("bar_across", "ABSOLUTE", ended("bar_axes", "Y")(axes)))
-        bar_ratio = bar_along.bind(lambda along: math("bar_ratio", "DIVIDE", along, inlet(*bar, length_anamorphic)))
-        bar_tone = bar_ratio.bind(lambda tone: math("bar_tone", "MINIMUM", tone, 1.0))
+        bar_tone = bar_along.bind(lambda along: math("bar_ratio", "DIVIDE", along, inlet(*bar, length_anamorphic))).bind(lambda tone: math("bar_tone", "MINIMUM", tone, 1.0))
         bar_falloff = (
             bar_along
             .bind(lambda along: math("bar_remaining", "SUBTRACT", inlet(*bar, length_anamorphic), along))
@@ -261,9 +259,9 @@ def flared(shell: Shell[LensFlare]) -> BlenderResult[tuple[Fragment, End]]:
         bar_weight = paired(paired(bar_edge, pixel).bind(lambda parts: coverage("bar_coverage", parts[0], Some(inlet(*bar, thickness)), 0.0, parts[1])), bar_falloff).bind(
             lambda parts: math("bar_weight", "MULTIPLY", *parts)
         )
-        halo_center = paired(axis, center).bind(lambda parts: vector("halo_center", "MULTIPLY_ADD", parts[0], inlet(*halo, magnification_halo), parts[1]))
         halo_delta = (
-            halo_center
+            paired(axis, center)
+            .bind(lambda parts: vector("halo_center", "MULTIPLY_ADD", parts[0], inlet(*halo, magnification_halo), parts[1]))
             .bind(lambda center: vector("halo_offset", "SUBTRACT", frame.point, center))
             .bind(lambda offset: vector("halo_rho", "LENGTH", offset))
             .bind(lambda rho: math("halo_delta", "SUBTRACT", rho, inlet(*halo, radius_halo)))

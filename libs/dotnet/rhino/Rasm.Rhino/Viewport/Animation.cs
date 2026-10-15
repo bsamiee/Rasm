@@ -75,7 +75,7 @@ public sealed record AnimationSettings(AnimationProperties.CaptureTypes CaptureT
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 public static partial class Animations {
     public static IO<Option<AnimationSettings>> Read(RhinoDoc doc) =>
-        use(() => doc.AnimationProperties).Bind(static copy => IO.lift(() => Callbacks.Found(copy.CaptureType != AnimationProperties.CaptureTypes.None, copy).Traverse(Settings).As())).Bracket();
+        use(() => doc.AnimationProperties).Bind(static copy => IO.lift(() => Callbacks.Found(copy.CaptureType is not AnimationProperties.CaptureTypes.None, copy).Traverse(Settings).As())).Bracket();
 
     public static IO<Committed<Unit>> Write(RhinoDoc doc, string name, AnimationSequence sequence) =>
         Commits.Commit(doc, name, new RedrawPolicy.Silent(), use(() => doc.AnimationProperties).Bind(copy => IO.lift(() => {

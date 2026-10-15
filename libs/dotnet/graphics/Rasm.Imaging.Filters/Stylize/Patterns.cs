@@ -485,7 +485,7 @@ internal static class CellGrid {
             NoiseFunctions.Split(ERational.FromEInteger(index).Multiply(extent).Divide(ERational.FromEInteger(cells))) switch {
                 var (pixel, local) =>
                     (Pixel: pixel, Remainder: local.Multiply(ERational.FromEInteger(cells)).ToEIntegerIfExact()) switch {
-                        var at => ERational.FromEInteger(at.Pixel).ToDouble() + 0.5d + (index.Sign >= 0 && index.CompareTo(cells) < 0 && at.Pixel.CompareTo(extent - 1) == 0 ? 0d
+                        var at => ERational.FromEInteger(at.Pixel).ToDouble() + 0.5d + (index.Sign >= 0 && index.CompareTo(cells) < 0 && at.Pixel.CompareTo(extent - 1) is 0 ? 0d
                             : double.Max(0d, ERational.FromEInteger(EInteger.FromInt32(extent).Subtract(cells).Add(at.Remainder)).Divide(extent).ToDouble())),
                     },
             };

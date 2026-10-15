@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-anchored-text-regex
+language: tsx
+severity: error
+utils:
+    affix:
+        kind: regex
+        all:
+            - has:
+                field: pattern
+                pattern: $PATTERN
+                regex: '^(?:\^(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[\dA-Fa-f]{2}|\\u(?:[\dA-CEFa-cef][\dA-Fa-f]{3}|[Dd][0-7][\dA-Fa-f]{2}))+|(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[\dA-Fa-f]{2}|\\u(?:[\dA-CEFa-cef][\dA-Fa-f]{3}|[Dd][0-7][\dA-Fa-f]{2}))+\$)$'
+            - has: {field: flags, not: {regex: '[gimy]'}}
+    relay:
+        kind: lexical_declaration
+        all:
+            - has: {field: kind, regex: '^const$'}
+            - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RE}}, {has: {field: value, matches: affix}}]}
+    source:
+        any:
+            - matches: affix
+            - kind: identifier
+              pattern: $RE
+              inside:
+                kind: program, statement_block
+                stopBy: end
+                has: {any: [{matches: relay}, {kind: export_statement, has: {matches: relay}}]}
+    access:
+        pattern: $$ACCESS
+        regex: '^\??\.$'
+    condition:
+        any:
+            - inside: {field: condition, kind: 'if_statement, while_statement, do_statement, for_statement, ternary_expression'}
+            - inside: {kind: unary_expression, has: {field: operator, regex: '^!$'}}
+            - inside: {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}, matches: condition}
+            - inside: {kind: parenthesized_expression, matches: condition}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?Boolean$', matches: syntax-global-reference}}}
+rule:
+    pattern: $NODE
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(test|exec)$'}}, {has: {field: object, matches: source}}, {has: {matches: access}}]}
+            - has:
+                field: arguments
+                not: {has: {nthChild: 2}}
+                any:
+                    - has: {nthChild: 1, pattern: $RECEIVER, kind: &member 'identifier, this, member_expression, subscript_expression, call_expression, parenthesized_expression, non_null_expression, string, template_string'}
+                    - pattern: $RECEIVER
+                      all: [{has: {nthChild: 1, not: {kind: *member}}}, {not: {has: {kind: spread_element}}}, {not: {has: {regex: '^,$'}}}]
+            - any: [{has: {field: function, has: {field: property, regex: '^test$'}}}, {matches: condition}]
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, pattern: $RECEIVER}}, {has: {matches: access}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: source}}, {not: {has: {nthChild: 2}}}]}
+            - matches: condition
+        - kind: binary_expression
+          all:
+            - has:
+                field: left
+                kind: call_expression
+                all:
+                    - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^search$'}}, {has: {field: object, pattern: $RECEIVER}}, {has: {matches: access}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: 1, matches: source}}, {not: {has: {nthChild: 2}}}]}
+            - any:
+                - all: [{has: {field: operator, regex: '^(!==?|===?|>)$'}}, {has: {field: right, regex: '^-\s*1$'}}]
+                - all: [{has: {field: operator, regex: '^(>=|<)$'}}, {has: {field: right, regex: '^0$'}}]
+                - all:
+                    - has: {field: operator, regex: '^(!==?|===?)$'}
+                    - has: {field: right, regex: '^0$'}
+                    - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: regex_pattern, pattern: $PATTERN, regex: '^\^'}}
+transform:
+    STRIPPED: {replace: {source: $PATTERN, replace: '^\^(.*)$|^(.*)\$$', by: '${1}${2}'}}
+    UNESCAPED: {replace: {source: $STRIPPED, replace: '\\([\^$.*+?()\[\]{}|/])', by: '$1'}}
+    TEXT: {replace: {source: $UNESCAPED, replace: "'", by: "\\'"}}
+    START: {replace: {source: $PATTERN, replace: '^\^.*$', by: startsWith}}
+    METHOD: {replace: {source: $START, replace: '^.*\$$', by: endsWith}}
+    NEGATED: {replace: {source: $NODE, replace: '(?s)^.*\s(?:===?\s*-\s*1|!==?\s*0|<\s*0)$', by: '!'}}
+    NEGATION: {replace: {source: $NEGATED, replace: '(?s)^(?:[^!].*|!.+)$', by: ''}}
+fix: $NEGATION$RECEIVER$ACCESS$METHOD('$TEXT')
+message: '`$NODE` tests a fixed string at one end of the text through a regular expression'
+note: '`<text>.startsWith(<string>)` and `<text>.endsWith(<string>)` compare the string with no compiled pattern or escaped metacharacter'

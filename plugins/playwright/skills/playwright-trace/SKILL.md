@@ -1,6 +1,6 @@
 ---
 name: playwright-trace
-description: "Use when a Playwright trace needs reading from the command line, covering actions, requests, console, errors, snapshots, screenshots, and attachments."
+description: "Use when a Playwright trace needs reading from the command line, covering actions, snapshots, requests, console, and attachments."
 allowed-tools: Bash(playwright:*)
 ---
 
@@ -8,29 +8,14 @@ allowed-tools: Bash(playwright:*)
 
 Read one open trace through `playwright trace` subcommands run from one working directory.
 
-- Source: `playwright test --trace on` writes `<outputDir>/<test>/trace.zip`, `tracing-stop` `$PLAYWRIGHT_MCP_OUTPUT_DIR/traces/trace-<timestamp>.trace`
-- State: `open` extracts a zip or links a `.trace` file under `.playwright-cli/trace/` of the working directory, a fixed path no setting moves
+- Source: a failed test under `trace: 'retain-on-failure'` or any test under `--trace on` leaves `<outputDir>/<test>/trace.zip`, `tracing-stop` a `.trace` in `$PLAYWRIGHT_MCP_OUTPUT_DIR/traces/`
+- State: `open` extracts a zip or links a `.trace` under `.playwright-cli/trace/` of the working directory, a `traceUtils` literal with no setting
 - Lifecycle: `open` prints browser, version, title, duration, viewport, and counts, a second `open` replaces the trace, `close` removes it
 - Clock: action, request, and console rows share one clock of offsets from trace start
 - Identity: `action`, `snapshot`, `screenshot`, `request`, and `attachment` take the number a listing prints, filters keep each number
 - Output: `screenshot`, `attachment`, and `snapshot` write unnamed files under `.playwright-cli/` of the working directory, `close` leaves them
 - Bodies: `request` prints body paths relative to the working directory, a zip's bodies sit in `.playwright-cli/trace/resources/` until `close`
 - CLI traces: `playwright cli` traces hold the CLI's own reads around each command
-
-| [INDEX] | [TASK]                                 | [OPERATION]                                       |
-| :-----: | :------------------------------------- | :------------------------------------------------ |
-|  [01]   | Failed action                          | `actions --errors-only`                           |
-|  [02]   | Action parameters, log, source, phases | `action <action-id>`                              |
-|  [03]   | Test error with call log               | `errors`                                          |
-|  [04]   | Page state at an action                | `snapshot <action-id> --phase after`              |
-|  [05]   | DOM value at an action                 | `snapshot <action-id> -- eval "<expression>"`     |
-|  [06]   | Element value at an action             | `snapshot <action-id> -- eval "<fn>" "<locator>"` |
-|  [07]   | Session on one snapshot                | `snapshot <action-id> --serve`                    |
-|  [08]   | Screencast frame of an action          | `screenshot <action-id> -o`                       |
-|  [09]   | Failed request                         | `requests --failed`                               |
-|  [10]   | Request headers and bodies             | `request <request-id>`                            |
-|  [11]   | Console errors and warnings            | `console --warnings`                              |
-|  [12]   | Attached file                          | `attachment <attachment-id> -o`                   |
 
 ## [01]-[INVESTIGATION]
 
@@ -50,7 +35,10 @@ playwright trace close
 
 ## [02]-[ACTIONS]
 
-`actions` lists the action tree depth first with number, start, title, duration, and `✗` on a failure, the locator or URL on the line below, hooks, fixtures, and steps indented under their parent. `--grep` keeps actions with a title and locator matching a case-insensitive regex, `--errors-only` failed actions. `action` prints one action's start and duration, parameters, return value, error with its call log, timed log, up to five source frames, and the snapshot phases it holds.
+`actions` lists the action tree depth first, hooks, fixtures, and steps indented under their parent:
+- Rows hold number, start, title, duration, and `✗` on a failure, the locator or URL on the line below
+- `--grep` keeps actions with a title and locator matching a case-insensitive regex, `--errors-only` failed actions
+- `action` prints start, duration, parameters, return value, error with call log, timed log, up to five source frames, and snapshot phases
 
 ```bash
 playwright trace actions
@@ -61,7 +49,8 @@ playwright trace action <action-id>
 
 ## [03]-[SNAPSHOTS]
 
-`snapshot` replays an action's DOM snapshot in headless Chromium, target highlighted in the `action` phase, and runs `snapshot`, or `eval` or `screenshot` after `--`:
+`snapshot` replays an action's DOM snapshot in headless Chromium and runs `snapshot`, or `eval` or `screenshot` after `--`:
+- `action` phase highlights the target
 - `--phase` picks `before`, `action`, or `after` among the phases `action` lists, the first phase the action holds without it
 - `eval "<fn>" <target>` takes a CSS selector or a locator string, refs of a printed snapshot belong to that run alone
 - `--filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/<name>` saves the `eval` value as JSON or the `screenshot` image
@@ -77,7 +66,9 @@ playwright trace snapshot <action-id> -- screenshot --filename=$PLAYWRIGHT_MCP_O
 playwright trace screenshot <action-id> -o $PLAYWRIGHT_MCP_OUTPUT_DIR/<name>.jpg
 ```
 
-`--serve` runs in the background, prints `Serving snapshot at http://localhost:<port>`, and serves until its process stops. `playwright cli open` on the URL replies on the loading page, the next `snapshot` reads the action's snapshot with refs for later commands:
+`--serve` runs in the background, prints `Serving snapshot at http://localhost:<port>`, and serves until its process stops:
+- `playwright cli open` on the URL replies on the loading page
+- Next `snapshot` reads the action's snapshot with refs for later commands
 
 ```bash
 playwright trace snapshot <action-id> --phase after --serve
@@ -89,7 +80,8 @@ playwright cli close
 
 ## [04]-[REQUESTS]
 
-`requests` lists each request with number, start, method, status (`ERR` without a response), name, duration, size, and route outcome (`continued`, `fulfilled`, `aborted`, `api`):
+`requests` lists each request's number, start, method, status, name, duration, size, and route outcome (`continued`, `fulfilled`, `aborted`, `api`):
+- Requests without a response hold status `ERR`
 - `--grep` keeps URLs matching a case-insensitive regex, `--method` one method in any case, `--status` one status code
 - `--failed` keeps status 400 and above and `ERR`
 - `request` prints method and URL, status, timing, size, type, route, server, and network error, both header sets, and each body
@@ -106,7 +98,7 @@ playwright trace request <request-id>
 
 ## [05]-[CONSOLE]
 
-`console` lists browser console messages, uncaught page errors, and test stdout and stderr with time, source, level, text, and `<file>:<line>` of a console call:
+`console` lists browser console messages, uncaught page errors, and test stdio with time, source, level, text, and a console call's `<file>:<line>`:
 - `--errors-only` keeps browser errors and stderr, `--warnings` adds browser warnings
 - `--browser` keeps browser rows, `--stdio` stdout and stderr, `--grep` text matching a case-insensitive regex
 - `errors` prints each test error with its `at <file>:<line>:<column>` frame and message with call log, page errors list under `console`
@@ -123,7 +115,9 @@ playwright trace errors
 
 ## [06]-[ATTACHMENTS]
 
-`attachments` lists each attachment with number, name, content type, and action number, a failed test adds `error-context` with the error, its aria snapshot, and the test source. `attachment` writes one by number, `-o` names the file.
+`attachments` lists each attachment's number, name, content type, and action number, `attachment` writes one by number:
+- Failed tests add `error-context` with the error, its aria snapshot, and the test source
+- `attachment -o` names the written file
 
 ```bash
 playwright trace attachments

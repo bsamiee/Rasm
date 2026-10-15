@@ -156,14 +156,12 @@ class Sides(msgspec.Struct, frozen=True, kw_only=True):
                 return cls(plate=beside, clip=beside, rule=Nothing, captions=((name, outer[0], high - inset - text, outer[1]), (cls.after, inner[0], high - inset - text, inner[1])))
             case Mode.VERTICAL:
                 at = frame.x + compare.split * frame.width
-                clip = (
-                    Rect(x=at, y=bounds.y, width=max(right - at, 0.0), height=bounds.height) if compare.swapped else Rect(x=bounds.x, y=bounds.y, width=max(at - bounds.x, 0.0), height=bounds.height)
-                )
+                clip = msgspec.structs.replace(bounds, x=at, width=max(right - at, 0.0)) if compare.swapped else msgspec.structs.replace(bounds, width=max(at - bounds.x, 0.0))
                 captions = ((first, at - inset, high - inset - text, Align.END), (last, at + inset, high - inset - text, Align.START))
                 return cls(plate=plate, clip=clip, rule=Some(((at, low), (at, high))), captions=captions)
             case Mode.HORIZONTAL:
                 at = frame.y + (1.0 - compare.split) * frame.height
-                clip = Rect(x=bounds.x, y=bounds.y, width=bounds.width, height=max(at - bounds.y, 0.0)) if compare.swapped else Rect(x=bounds.x, y=at, width=bounds.width, height=max(top - at, 0.0))
+                clip = msgspec.structs.replace(bounds, height=max(at - bounds.y, 0.0)) if compare.swapped else msgspec.structs.replace(bounds, y=at, height=max(top - at, 0.0))
                 captions = ((first, left + inset, at + inset, Align.START), (last, left + inset, at - inset - text, Align.START))
                 return cls(plate=plate, clip=clip, rule=Some(((left, at), (min(frame.x + frame.width, right), at))), captions=captions)
 
@@ -501,9 +499,9 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
             def point(quad: Quad, frame: Rect) -> npt.NDArray[np.float64]:
                 samples = quad.samples[:, :2] * (frame.width, frame.height) + (frame.x, frame.y)
                 match part:
-                    case int() as index:
+                    case int(index):
                         return samples[index, :]
-                    case tuple() as edge:
+                    case tuple(edge):
                         return samples[list(edge)].mean(axis=0)
                     case Motion.TRANSLATE:
                         return samples.mean(axis=0)
@@ -543,9 +541,9 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                         changed = (pixels - center) @ np.array(((cosine, sine), (-sine, cosine))) + center
                     case Motion.SCALE:
                         changed = (pixels - center) * math.hypot(HANDLE * 2 + delta[0], delta[1]) / (HANDLE * 2) + center
-                    case int() as index if isinstance(self.shape, Free):
+                    case int(index) if isinstance(self.shape, Free):
                         changed = pixels + np.where((np.arange(len(corners)) == index)[:, None], delta, 0.0)
-                    case int() as index:
+                    case int(index):
                         opposite = (index + len(corners) // 2) % len(corners)
                         selected = bounds.map(lambda limits: np.clip(pixels[index] + delta, limits[0], limits[1])).default_value(pixels[index] + delta)
                         if isinstance(self.shape, Aligned) and self.shape.locked:
@@ -558,7 +556,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                         else:
                             low, high = np.minimum(selected, pixels[opposite]), np.maximum(selected, pixels[opposite])
                             changed = np.array(((low[0], high[1]), high, (high[0], low[1]), low))
-                    case tuple() as edge:
+                    case tuple(edge):
                         axis = 1 if edge[0] % 2 == 0 else 0
                         selected = bounds.map(lambda limits: np.clip(pixels[edge[0], axis] + delta[axis], limits[0, axis], limits[1, axis])).default_value(pixels[edge[0], axis] + delta[axis])
                         changed = pixels.copy()

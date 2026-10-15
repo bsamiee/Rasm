@@ -26,6 +26,24 @@ utils:
             - has: {field: operator, regex: '^\+$'}
             - has: {field: right, matches: text}
             - has: {field: left, any: [{matches: text}, {matches: concatenation}]}
+    str-text:
+        any:
+            - matches: python-plain-string
+              not: {has: {stopBy: end, kind: string_start, regex: '^[A-Za-z]*[bB]'}}
+            - kind: parenthesized_expression
+              has: {pattern: $_, matches: str-text}
+    ruff-literal-method:
+        kind: call
+        has: {field: function, kind: attribute, has: {field: object, matches: str-text}}
+        any:
+            - has: {field: function, has: {field: attribute, regex: '^r?split$'}}
+            - all:
+                - has: {field: function, has: {field: attribute, regex: '^join$'}}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {nthChild: 1, kind: 'list, tuple', has: {pattern: $_, not: {kind: comment}}}
+                        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     native-literal-call:
         any:
             - {pattern: str($A), has: {field: arguments, has: {kind: 'string, concatenated_string', not: {matches: python-bytes-literal}}}}
@@ -40,8 +58,9 @@ rule:
         - {matches: concatenation, not: {inside: {kind: binary_operator, matches: concatenation}}}
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{matches: text}, {regex: '^(str|bytes)$'}]}}, {not: {has: {field: attribute, regex: '^(join|split|rsplit)$'}}}]}
+            - has: {field: function, kind: attribute, has: {field: object, any: [{matches: text}, {regex: '^(str|bytes)$'}]}}
             - has: {field: arguments, matches: literal-arguments}
+            - not: {matches: ruff-literal-method}
         - kind: call
           all:
             - has: {field: function, kind: identifier, regex: '^(ascii|bin|bool|bytes|chr|float|format|hex|int|oct|repr|str)$'}
@@ -55,4 +74,4 @@ rule:
             - has: {field: value, kind: 'string, concatenated_string, parenthesized_expression, tuple, list, dictionary', matches: literal}
             - has: {field: subscript, any: [{matches: literal}, {kind: slice, not: {has: {pattern: $_, not: {matches: literal}}}}]}
 message: '`$S` computes a literal from literals'
-note: 'Use one literal holding the result, a reader sees the value without evaluating code'
+note: 'Use one literal holding the result, a reader sees the value without evaluating code. Ruff SIM905 reports `split` over a `str` literal and FLY002 `join` of a filled list or tuple, UP018 a type call over its own literal'

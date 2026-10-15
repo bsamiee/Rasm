@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-entry-key-type
+language: swiftlang
+severity: error
+rule:
+    kind: inheritance_specifier
+    pattern: $KEY
+    regex: '^(SwiftUI\.)?(EnvironmentKey|FocusedValueKey|TransactionKey|ContainerValueKey)$'
+message: '`$KEY` conformance declares a key type and an accessor by hand for one value entry'
+note: 'Declare `@Entry var <name>: <Value> = <default>` in an `EnvironmentValues`, `FocusedValues`, `Transaction`, or `ContainerValues` extension, an optional `<Value>?` without a default for `FocusedValues`'

@@ -10,6 +10,10 @@ on:
 permissions:
     security-events: write
 
+defaults:
+    run:
+        shell: bash
+
 jobs:
     analyze:
         strategy:
@@ -36,11 +40,11 @@ jobs:
               with:
                 languages: ${{ matrix.language }}
                 build-mode: ${{ matrix.build-mode }}
-            - run: nx run-many -t build -p tag:language:dotnet --exclude='tag:host:rhino' --skip-nx-cache
+            - run: nx run-many -t build -p tag:language:dotnet --exclude='tag:host:rhino'
               if: matrix.language == 'csharp'
               env:
                 DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
-            - run: nx run-many -t build -p tag:host:macos --configuration ci --skip-nx-cache
+            - run: nx run-many -t build -p tag:host:macos --configuration ci
               if: matrix.language == 'swift'
             - uses: github/codeql-action/analyze@v4
               with:

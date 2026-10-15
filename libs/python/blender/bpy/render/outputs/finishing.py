@@ -162,7 +162,7 @@ def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) 
             for layer in (name.rpartition(".")[0],)
         )
 
-    return rewritten(file.path, file.display, channels, file.compression).map(lambda _: None).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    return rewritten(file.path, file.display, channels, file.compression).map(lambda _: None).map_error(BlenderImagingFault.lifted)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

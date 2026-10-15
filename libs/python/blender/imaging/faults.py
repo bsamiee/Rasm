@@ -1,6 +1,8 @@
 """Imaging failures and accumulation of independent results."""
 
 from collections.abc import Iterable
+from itertools import chain
+from pathlib import Path
 import struct
 from typing import TYPE_CHECKING
 
@@ -86,16 +88,24 @@ class ImagingLutFault(Refusal[PyOpenColorIO.Transform | PyOpenColorIO.Baker | st
     """Lookup source or operation its provider refused."""
 
 
-class ImagingReadFault(Refusal[str, str | msgspec.DecodeError | OSError], frozen=True, kw_only=True):
+class ImagingReadFault(Refusal[str | Path, str | msgspec.DecodeError | OSError], frozen=True, kw_only=True):
     """File source its reader refused."""
 
 
-class ImagingWriteFault(Refusal[str, str | OSError | ValueError | OverflowError | struct.error], frozen=True, kw_only=True):
+class ImagingWriteFault(Refusal[str | Path, str | OSError | ValueError | OverflowError | struct.error], frozen=True, kw_only=True):
     """Image destination its writer refused."""
 
 
-class ImagingBufferFault(Refusal[OpenImageIO.ImageBuf, str], frozen=True, kw_only=True):
+class ImagingBufferFault(msgspec.Struct, frozen=True, kw_only=True):
     """Image buffer operation its provider refused."""
+
+    request: OpenImageIO.ImageBuf
+    error: str
+
+    @classmethod
+    def checked(cls, image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
+        """Answers the buffer, or its provider's refusal when the buffer holds an error."""
+        return Error((cls(request=image, error=image.geterror()),)) if image.has_error else Ok(image)
 
 
 class ImagingMismatchFault(msgspec.Struct, frozen=True, kw_only=True):
@@ -191,7 +201,7 @@ class ImagingRepresentationFault(Refusal[msgspec.Struct, TypeError | OverflowErr
 def accumulated[T, F](results: Iterable[Result[T, Faults[F]]]) -> Result[tuple[T, ...], Faults[F]]:
     """Combines independent results, retaining every failure in input order."""
     block: Block[Result[T, Faults[F]]] = Block.of_seq(results)
-    faults: tuple[F, ...] = tuple(fault for group in block.choose(lambda result: result.swap().to_option()) for fault in group)
+    faults: tuple[F, ...] = tuple(chain.from_iterable(block.choose(lambda result: result.swap().to_option())))
     return Error((faults[0], *faults[1:])) if faults else Ok(tuple(block.choose(lambda result: result.to_option())))
 
 

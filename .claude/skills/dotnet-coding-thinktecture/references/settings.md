@@ -18,7 +18,7 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 |  [10]   | `ConstructorAccessModifier`              | `Private`     | Constructor accessibility                                     |
 |  [11]   | `CreateFactoryMethodName`                | `Create`      | Factory name, `CreateCore` follows the rename                 |
 |  [12]   | `TryCreateFactoryMethodName`             | `TryCreate`   | Factory name                                                  |
-|  [13]   | `NullInFactoryMethodsYieldsNull`         | `false`       | Class factories return `null` for `null` input                |
+|  [13]   | `NullInFactoryMethodsYieldsNull`         | `false`       | Reference-key class factories return `null` for `null`        |
 |  [14]   | `EmptyStringInFactoryMethodsYieldsNull`  | `false`       | Blank `string` keys and `null` yield `null`, 109 on a struct  |
 |  [15]   | `AllowDefaultStructs`                    | `false`       | Accepts `default` and emits `public static readonly T Empty`  |
 |  [16]   | `DefaultInstancePropertyName`            | `Empty`       | Name of that default instance                                 |
@@ -49,7 +49,7 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 |  [03]   | `Skip*` settings              | `false`                | `SkipToString`, or `SkipEqualityComparison` for equality members      |
 |  [04]   | `ConstructorAccessModifier`   | `Public`               | Constructors and factory methods, never the operators                 |
 |  [05]   | Conversion settings           | `Implicit`, `Explicit` | `ConversionFromValue`, `ConversionToValue`, `None` disables one       |
-|  [06]   | `T1IsNullableReferenceType`   | `false`                | Types the member as `string?` and allows `null`                       |
+|  [06]   | `T1IsNullableReferenceType`   | `false`                | Types a reference member as `T1?` and allows `null`                   |
 |  [07]   | `T1IsStateless`               | `false`                | Stores only the discriminator for that member                         |
 |  [08]   | `ValueMember*` settings       | `Public`, `Value`      | Accessibility and name of the raw accessor                            |
 |  [09]   | Backing field settings        | `false`, none          | `UseSingleBackingField` boxes, `SingleBackingFieldType` types it      |
@@ -86,4 +86,5 @@ Project-level MSBuild properties have the prefix `ThinktectureRuntimeExtensions_
 - `LogFilePathMustBeUnique` at `false` collects every compiler process in one file, `true` names a file per process with a UTC timestamp and a guid
 - Generator skips the annotation file when `JetBrains.Annotations.dll` is referenced, `GenerateJetBrainsAnnotations` needs no value
 - Generated `Switch` and `Map` delegate parameters carry `[JetBrains.Annotations.InstantHandle]` whichever source supplies the attribute
-- `Counter` detects regeneration, every emitted file starts with `// COUNTER: <n>`, and it is off before generated files are compared or committed
+- `Counter` detects regeneration, every emitted file except `Thinktecture.Annotations.g.cs` opens with `// COUNTER: <n>` padded to 8 characters
+- `Counter` is off before generated files are compared or committed

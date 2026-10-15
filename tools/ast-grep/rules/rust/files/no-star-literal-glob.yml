@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-star-literal-glob
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    matches: rust-star-literal-glob
+message: '`$CALL` matches a glob pattern by cutting it at `*` by hand'
+note: 'Compile the pattern once at its owner with `globset::Glob::new(<pattern>)?.compile_matcher()` and test paths with `is_match`, or add each `Glob` to one `globset::GlobSetBuilder` and `build()` it, globset matches `*`, `**`, `?`, classes, and `{a,b}` alternation that a hand split drops'

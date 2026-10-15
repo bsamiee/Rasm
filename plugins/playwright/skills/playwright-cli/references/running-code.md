@@ -1,9 +1,15 @@
 # [RUNNING_CODE]
 
-`run-code` runs one function expression that receives `page`, for page and context operations the CLI commands lack. Evaluation wraps the function in `(...)` inside a VM context, `import`, `export`, `require`, and `import()` fail and `console` output goes nowhere. Beside `page` and the JavaScript built-ins, the function sees these globals alone, `process` and `performance` undefined:
+`run-code` runs one function expression that receives `page`, for page and context operations the CLI commands lack.
+
+Evaluation wraps the function in `(...)` inside a VM context, `import`, `export`, `require`, and `import()` fail, `console` output goes nowhere.
+
+Beside `page` and the JavaScript built-ins, the function sees these globals alone, `process` and `performance` undefined:
 - `setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`, `setImmediate`, `clearImmediate`, `queueMicrotask`
 - `URL`, `URLSearchParams`, `TextEncoder`, `TextDecoder`, `AbortController`, `AbortSignal`
 - `fetch`, `Headers`, `Request`, `Response`, `FormData`, `Blob`, `Buffer`, `crypto`, `atob`, `btoa`, `structuredClone`
+
+`page.getByRef('<ref>')` locates the element a ref of the last `snapshot` names.
 
 Results, errors, and code files take these forms:
 - Return values print as JSON under `### Result`, a string in quotes, `undefined` prints no result, `--raw` prints the JSON alone
@@ -15,12 +21,19 @@ playwright cli run-code "async page => {
     return { title: await page.title(), url: page.url() };
 }"
 
+playwright cli run-code "async page => {
+    await page.getByRef('e5').click();
+    return page.getByRef('e5').textContent();
+}"
+
 playwright cli run-code --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/script.js
 ```
 
 ## [01]-[PERMISSIONS]
 
-Plugin `cli.config.json` grants every context permission, `setGeolocation` and clipboard calls run without a grant. `clearPermissions` returns every permission to `prompt`, `grantPermissions` grants the listed permissions on `origin` and denies the rest there.
+`.playwright/cli.config.json` grants every context permission, `setGeolocation` and clipboard calls run without a grant:
+- `clearPermissions` returns every permission to `prompt`
+- `grantPermissions` grants the listed permissions on `origin` and denies the rest there
 
 ```bash
 playwright cli run-code "async page => {
@@ -38,7 +51,8 @@ playwright cli run-code "async page => {
 
 ## [02]-[WAITS]
 
-Action replies wait for the requests an action starts within the 500 ms `timeouts.settle` window and for the load of a navigation it starts, a later page state takes one of these waits.
+Action replies wait for the requests an action starts within the 500 ms `timeouts.settle` window and for a navigation's load:
+- Later page states take a `run-code` wait
 
 ```bash
 playwright cli run-code "async page => {

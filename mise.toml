@@ -4,7 +4,6 @@ prereleases                         = true
 minimum_release_age                 = "0s"
 registry_floating                   = true
 idiomatic_version_file_enable_tools = ["dotnet", "rust"]
-dotnet.isolated                     = true
 dotnet.cli_telemetry_optout         = true
 python.uv_venv_auto                 = "create|source"
 
@@ -13,24 +12,32 @@ python.uv_venv_auto                 = "create|source"
 rhino_mcp_port   = "7406"
 blender_mcp_port = "7407"
 atelier_port     = "7409"
+log_dir          = "{{config_root}}/.artifacts/logs"
+installs         = "{{ xdg_data_home }}/mise/installs"
 
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
 _.path                       = "./node_modules/.bin"
 DOTNET_NOLOGO                = "1"
-DOTNET_CLI_ENABLEAOT         = "false"
 DOTNET_ROLL_FORWARD          = "Major"
-DOTNET_CLI_HOME              = "{{config_root}}/.cache/dotnet"
 MSBUILDDISABLENODEREUSE      = "1"
-NUGET_HTTP_CACHE_PATH        = "{{config_root}}/.cache/nuget/http-cache"
-UV_CACHE_DIR                 = "{{config_root}}/.cache/uv"
 PYTHONPYCACHEPREFIX          = "{{config_root}}/.cache/pycache"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
+SKBUILD_CMAKE_DEFINE         = "PYARROW_CPP_HOME={{ vars.installs }}/conda-libarrow-all/latest"
+HDF5_DIR                     = "{{ vars.installs }}/conda-hdf5/latest"
+PYICU_INCLUDES               = "{{ vars.installs }}/conda-icu/latest/include"
+PYICU_LFLAGS                 = "-L{{ vars.installs }}/conda-icu/latest/lib:-Wl,-rpath,{{ vars.installs }}/conda-icu/latest/lib"
+OpenMP_ROOT                  = "{{ vars.installs }}/conda-llvm-openmp/latest"
+PDAL_ROOT                    = "{{ vars.installs }}/conda-libpdal-core/latest"
+CARGO_LLVM_COV_DENY_WARNINGS = "1"
+RUSTUP_TOOLCHAIN             = false
+INSTA_PENDING_DIR            = "{{config_root}}/.artifacts/insta"
+TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
 NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
 NX_DEFAULT_OUTPUT_STYLE      = "static-failures-only"
-WRANGLER_LOG_PATH            = "{{config_root}}/.cache/wrangler/logs"
-MINIFLARE_REGISTRY_PATH      = "{{config_root}}/.cache/wrangler/registry"
-PLAYWRIGHT_MCP_CONFIG        = "{{config_root}}/plugins/playwright/cli.config.json"
+MINIFLARE_REGISTRY_PATH      = "{{config_root}}/.cache/cloudflare/registry"
+CLOUDFLARE_REGISTRY_PATH     = "{{config_root}}/.cache/cloudflare/registry"
+PLAYWRIGHT_MCP_CONFIG        = "{{config_root}}/.playwright/cli.config.json"
 PLAYWRIGHT_MCP_OUTPUT_DIR    = "{{config_root}}/.artifacts/playwright"
 RHINO_MCP_URL                = "http://127.0.0.1:{{ vars.rhino_mcp_port }}/"
 BLENDER_PATH                 = "/Applications/Blender.app/Contents/MacOS/Blender"
@@ -43,24 +50,34 @@ GHIDRA_PROJECT_DIR           = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projec
 GHIDRA_JAVA_OPTIONS          = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
 GHIDRA_HEADLESS_MAXMEM       = "{% if os() == 'macos' %}{{ (exec(command='/usr/sbin/sysctl -n hw.memsize') | int / 1073741824 / 4) | int }}G{% endif %}"
 
+# --- [TOOL_ALIAS] -----------------------------------------------------------------------
+[tool_alias]
+blender-mcp = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"
+
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]
-python                       = "3.15.0rc3"
+python                       = "3.15.0"
 java                         = "latest"
 node                         = "latest"
 pnpm                         = "latest"
 uv                           = "latest"
-"pypi:pip"                   = "latest"
+"conda:libarrow-all"         = "25"
+"conda:hdf5"                 = "2.2.0"
+"conda:icu"                  = "78"
+"conda:llvm-openmp"          = "latest"
+"conda:libpdal-core"         = "2.10"
 cargo-binstall               = "latest"
 "cargo:cargo-nextest"        = "latest"
 "cargo:cargo-llvm-cov"       = "latest"
-"cargo:cargo-shear"          = "latest"
 "cargo:cargo-edit"           = "latest"
 "cargo:cargo-dylint"         = "latest"
+"cargo:cargo-insta"          = "latest"
+"cargo:cargo-modules"        = "latest"
 git-lfs                      = "latest"
 actionlint                   = "latest"
 shellcheck                   = "latest"
 yamlfmt                      = "latest"
+tombi                        = "latest"
 google-java-format           = "latest"
 swiftlint                    = { version = "latest", os = ["macos"] }
 ripgrep                      = "latest"
@@ -80,21 +97,28 @@ imagemagick                  = "latest"
 "pypi:ast-grep/ast-grep-mcp" = "latest"
 "pypi:tavily-cli"            = "latest"
 "pypi:mcp-for-blender"       = "latest"
+blender-mcp                  = "v1"
 "github:sharkdp/hyperfine"   = "latest"
 "github:akiselev/ghidra-cli" = "latest"
 "github:pmd/pmd"             = { version = "7.28.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
 "http:xcode-build-server"    = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
 
+# --- [HOOKS] ----------------------------------------------------------------------------
+[hooks]
+postinstall = """
+rustc_src="$("{{ mise_bin }}" exec -- rustc --print sysroot)/lib/rustlib/rustc-src/rust"
+cp "$rustc_src/Cargo.lock" "$rustc_src/compiler/rustc/Cargo.lock"
+"""
+
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 [bootstrap.macos.launchd.agents]
-roslyn-codelens     = { program = "{{ mise_bin }}", args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx", "--http", "--port", "7401"], working_directory = "{{config_root}}", keep_alive = true }
-nuget               = { program = "{{ mise_bin }}", args = ["exec", "--", "mcp-bridge", "--port", "7402", "--", "dotnet", "dnx", "NuGet.Mcp.Server"], environment = { RUST_LOG = "info,rmcp=warn" }, working_directory = "{{config_root}}", keep_alive = true }
-binlog              = { program = "{{ mise_bin }}", args = ["exec", "--", "mcp-bridge", "--port", "7403", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"], environment = { RUST_LOG = "info,rmcp=warn" }, working_directory = "{{config_root}}", keep_alive = true }
-ast-grep            = { program = "{{ mise_bin }}", args = ["exec", "--", "mcp-bridge", "--port", "7404", "--", "ast-grep-server", "--config", "sgconfig.yml"], environment = { AST_GREP_PATH = "ast-grep --custom-languages allow", RUST_LOG = "info,rmcp=warn" }, working_directory = "{{config_root}}", keep_alive = true }
-rhino-mcp-platform  = { program = "{{ mise_bin }}", args = ["exec", "--", "mcp-bridge", "--port", "{{ vars.rhino_mcp_port }}", "--hide", "run_python", "--hide", "g1_*", "--", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"], environment = { RHINO_MCP_DEFAULT_VERSION = "9", RUST_LOG = "info,rmcp=warn" }, working_directory = "{{config_root}}", keep_alive = true }
-blender             = { program = "{{ mise_bin }}", args = ["exec", "--", "mcp-bridge", "--port", "{{ vars.blender_mcp_port }}", "--hide", "*_for_cli", "--", "uvx", "--from", "git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp", "blender-mcp"], environment = { BLENDER_MCP_PORT = "9877", RUST_LOG = "info,rmcp=warn" }, working_directory = "{{config_root}}", keep_alive = true }
-mcp-for-blender     = { program = "{{ mise_bin }}", args = ["exec", "--", "mcp-bridge", "--port", "7408", "--", "mcp-for-blender"], environment = { BLENDER_MCP_DISABLE_TELEMETRY = "true", RUST_LOG = "info,rmcp=warn" }, working_directory = "{{config_root}}", keep_alive = true }
-atelier             = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/atelier/main.ts"], working_directory = "{{config_root}}", keep_alive = true }
-argus               = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true }
-playwright          = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "mcp", "--host", "127.0.0.1", "--port", "7411", "--user-data-dir", "{{ env.HOME }}/Library/Caches/ms-playwright-mcp/mcp-chromium", "--shared-browser-context", "--caps=config,network,pdf,storage,testing,vision,devtools"], working_directory = "{{config_root}}", keep_alive = true }
-playwright-test     = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "run-test-mcp-server", "--headless", "--host", "127.0.0.1", "--port", "7412"], working_directory = "{{config_root}}", keep_alive = true }
+roslyn-codelens    = { program = "{{ mise_bin }}", args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx", "--http", "--port", "7401"], working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.roslyn-codelens.log", stderr_path = "{{ vars.log_dir }}/dev.mise.roslyn-codelens.log" }
+nuget              = { program = "{{ mise_bin }}", args = ["exec", "--", "rasm-mcp-bridge", "--port", "7402", "--", "dotnet", "dnx", "NuGet.Mcp.Server"], working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.nuget.log", stderr_path = "{{ vars.log_dir }}/dev.mise.nuget.log" }
+binlog             = { program = "{{ mise_bin }}", args = ["exec", "--", "rasm-mcp-bridge", "--port", "7403", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"], environment = { XDG_CACHE_HOME = "{{config_root}}/.cache" }, working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.binlog.log", stderr_path = "{{ vars.log_dir }}/dev.mise.binlog.log" }
+ast-grep           = { program = "{{ mise_bin }}", args = ["exec", "--", "rasm-mcp-bridge", "--port", "7404", "--", "ast-grep-server", "--config", "sgconfig.yml"], environment = { AST_GREP_PATH = "ast-grep --custom-languages allow" }, working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.ast-grep.log", stderr_path = "{{ vars.log_dir }}/dev.mise.ast-grep.log" }
+rhino-mcp-platform = { program = "{{ mise_bin }}", args = ["exec", "--", "rasm-mcp-bridge", "--port", "{{ vars.rhino_mcp_port }}", "--hide", "run_python", "--hide", "g1_*", "--", "{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"], environment = { RHINO_MCP_DEFAULT_VERSION = "9" }, working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.rhino-mcp-platform.log", stderr_path = "{{ vars.log_dir }}/dev.mise.rhino-mcp-platform.log" }
+blender            = { program = "{{ mise_bin }}", args = ["exec", "--", "rasm-mcp-bridge", "--port", "{{ vars.blender_mcp_port }}", "--hide", "*_for_cli", "--", "blender-mcp"], environment = { BLENDER_MCP_PORT = "9877" }, working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.blender.log", stderr_path = "{{ vars.log_dir }}/dev.mise.blender.log" }
+mcp-for-blender    = { program = "{{ mise_bin }}", args = ["exec", "--", "rasm-mcp-bridge", "--port", "7408", "--", "mcp-for-blender"], environment = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.mcp-for-blender.log", stderr_path = "{{ vars.log_dir }}/dev.mise.mcp-for-blender.log" }
+atelier            = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "apps/creative-cloud/atelier/main.ts", "--port", "{{ vars.atelier_port }}"], working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.atelier.log", stderr_path = "{{ vars.log_dir }}/dev.mise.atelier.log" }
+argus              = { program = "{{ mise_bin }}", args = ["exec", "--", "node", "plugins/argus/main.ts", "--port", "7410"], working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.argus.log", stderr_path = "{{ vars.log_dir }}/dev.mise.argus.log" }
+playwright-test    = { program = "{{ mise_bin }}", args = ["exec", "--", "playwright", "run-test-mcp-server", "--headless", "-c", "{{config_root}}/tests/typescript/e2e/playwright.config.ts", "--host", "127.0.0.1", "--port", "7412"], working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.playwright-test.log", stderr_path = "{{ vars.log_dir }}/dev.mise.playwright-test.log" }

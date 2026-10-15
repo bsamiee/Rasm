@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trait-alias-by-hand
+language: rust
+severity: error
+utils:
+    named-trait:
+        any:
+            - pattern: $NAME
+            - kind: generic_type
+              has: {field: type, pattern: $NAME}
+    blanket-impl:
+        kind: impl_item
+        all:
+            - has: {field: body, regex: '^\{\s*\}$'}
+            - has: {field: trait, matches: named-trait}
+            - has: {field: type, kind: type_identifier, pattern: $T}
+            - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $T}}}
+rule:
+    kind: trait_item
+    all:
+        - not: {regex: '^(pub(\s*\([^)]*\))?\s+)?unsafe\b'}
+        - has: {field: bounds, pattern: $_}
+        - has: {field: body, regex: '^\{\s*\}$'}
+        - has: {field: name, pattern: $NAME}
+        - inside:
+            kind: source_file
+            stopBy: end
+            all:
+                - has: {stopBy: end, matches: blanket-impl}
+                - not: {has: {stopBy: end, kind: dynamic_type, has: {field: trait, matches: named-trait}}}
+message: 'Trait `$NAME` with an empty body and an empty blanket impl names a set of bounds'
+note: 'Write `trait <name> = <bound> + <bound>;` (`#![feature(trait_alias)]`), the alias names the bounds without a trait and impl pair. A trait used as `dyn` stays as written'

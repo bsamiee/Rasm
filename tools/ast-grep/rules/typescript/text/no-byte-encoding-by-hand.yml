@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-byte-encoding-by-hand
+language: tsx
+severity: error
+ignores: ['plugins/function-hooks/**']
+utils:
+    byte-string:
+        any:
+            - kind: member_expression
+              regex: '^String\.from(CharCode|CodePoint)$'
+            - kind: call_expression
+              has: {field: function, regex: '^unescape$'}
+    holds-byte-string:
+        any:
+            - matches: byte-string
+            - has: {stopBy: end, matches: byte-string}
+    radix:
+        kind: 'number, identifier, member_expression'
+        regex: '^(16|0x10|[A-Za-z_$][\w$.]*)$'
+    hex-digits:
+        kind: call_expression
+        pattern: $OP
+        all:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^toString$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: radix}}, {not: {has: {nthChild: 2}}}]}
+    hex-pair:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^padStart$'}}, {has: {field: object, matches: hex-digits}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, regex: '^2$'}}, {has: {nthChild: 2, regex: '^[''"`]0[''"`]$'}}, {not: {has: {nthChild: 3}}}]}
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^slice$'}
+                        - has: {field: object, regex: '^\(?\s*([''"]0+[''"]|`0)', has: {stopBy: end, matches: hex-digits}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, regex: '^-2$'}}, {not: {has: {nthChild: 2}}}]}
+            - kind: binary_expression
+              all:
+                - has: {field: right, matches: hex-digits}
+                - has: {field: left, has: {stopBy: end, kind: ternary_expression, has: {kind: string, regex: '^[''"]0[''"]$'}}}
+    joining-callback:
+        kind: arrow_function, function_expression
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                inside:
+                    kind: member_expression
+                    field: object
+                    all:
+                        - has: {field: property, regex: '^join$'}
+                        - inside: {kind: call_expression, field: function, has: {field: arguments, regex: '^\(\s*(''''|""|``)\s*\)$'}}
+rule:
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?btoa$', matches: syntax-global-reference}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    any:
+                        - matches: holds-byte-string
+                        - kind: identifier
+                          pattern: $S
+                          inside:
+                            stopBy: end
+                            kind: 'statement_block, program'
+                            has:
+                                stopBy: end
+                                any:
+                                    - kind: variable_declarator
+                                      all: [{has: {field: name, pattern: $S}}, {has: {field: value, matches: holds-byte-string}}]
+                                    - kind: augmented_assignment_expression
+                                      all: [{has: {field: left, pattern: $S}}, {has: {field: right, matches: holds-byte-string}}]
+        - kind: call_expression
+          all:
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?atob$', matches: syntax-global-reference}
+            - any:
+                - inside:
+                    stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement'}
+                    kind: 'call_expression, new_expression'
+                    has: {stopBy: end, kind: property_identifier, regex: '^(charCodeAt|codePointAt)$'}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^escape$'}}}
+                - inside:
+                    kind: variable_declarator
+                    has: {field: name, pattern: $S}
+                    inside:
+                        stopBy: end
+                        kind: 'statement_block, program'
+                        has:
+                            stopBy: end
+                            kind: member_expression
+                            all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: '^(charCodeAt|codePointAt)$'}}]
+        - matches: hex-pair
+          any:
+            - inside: {field: body, matches: joining-callback}
+            - inside: {kind: return_statement, inside: {kind: statement_block, inside: {field: body, matches: joining-callback}}}
+            - inside:
+                kind: augmented_assignment_expression
+                field: right
+                all:
+                    - has: {field: operator, regex: '^\+=$'}
+                    - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
+        - kind: call_expression
+          all:
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: syntax-global-reference}
+            - has: {field: arguments, all: [{has: {nthChild: 2, matches: radix}}, {not: {has: {nthChild: 3}}}]}
+            - any:
+                - has:
+                    field: arguments
+                    has:
+                        nthChild: 1
+                        any: [{pattern: '$_S.slice($I, $I + 2)'}, {pattern: '$_S.substring($I, $I + 2)'}, {pattern: '$_S.substr($_I, 2)'}]
+                - inside:
+                    stopBy: *boundary
+                    kind: 'arrow_function, function_expression'
+                    inside:
+                        kind: arguments
+                        inside:
+                            kind: 'call_expression, new_expression'
+                            has: {stopBy: end, kind: regex_pattern, regex: '^(\.\{1,2\}|\.\{2\}|\.\.|\[[^\]]+\]\{(1,)?2\})$'}
+transform:
+    BASE64: {replace: {source: $OP, replace: '^((globalThis|window|self)\.)?btoa$', by: '`Base64.encode(<bytes or text>)`'}}
+    FROM_BASE64: {replace: {source: $BASE64, replace: '^((globalThis|window|self)\.)?atob$', by: '`Base64.decode(<text>)`'}}
+    HEX: {replace: {source: $FROM_BASE64, replace: '(?s)^.*\btoString\(.*$', by: '`Hex.encode(<bytes>)`'}}
+    METHOD: {replace: {source: $HEX, replace: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', by: '`Hex.decode(<text>)`'}}
+message: '`$OP` converts between bytes and text by hand, $METHOD converts in one call'
+note: '`effect/encoding` `Base64`, `Base64Url`, and `Hex` `encode` take bytes or UTF-8 text, and their `decode` and `decodeString` return a `Result` failing with `EncodingError` on malformed input, which replaces the `+`, `/`, and `=` rewrites and the `unescape` and `escape` UTF-8 round trip'

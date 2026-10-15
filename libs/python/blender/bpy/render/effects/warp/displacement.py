@@ -12,7 +12,7 @@ import PyOpenColorIO
 
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderImagingFault, BlenderResult
-from blender.bpy.nodes.graphs import End, Fragment
+from blender.bpy.nodes.graphs import End
 from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Coverage, entry_input, precise, Shell
 from blender.bpy.render.effects.tone.exposure import exposure
 from blender.bpy.render.effects.viewers import inspection
@@ -90,13 +90,13 @@ def prepared(
         }
 
     return paired(
-        paired(luma(config), mapping).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+        paired(luma(config), mapping).map_error(BlenderImagingFault.lifted),
         entry_input(identity, entry, exposure.gain.key).map(lambda value: float(value.value)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     ).bind(
         lambda values: (
             record
             .applied(source, bounds, extent, reference_frame=scene.frame_current_final, luminance=values[0][0].astype(np.float64), gain=values[1], mapping=values[0][1], precision=precision)
-            .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            .map_error(BlenderImagingFault.lifted)
             .map(published)
         )
     )
@@ -107,7 +107,7 @@ def prepared(
 
 displacement: CompositorEffect[Displacement] = CompositorEffect(
     record=Displacement,
-    graph=lambda shell: Ok((Fragment(), shell.source)),
+    graph=Shell.passed,
     coverage=Coverage.RESULT,
     requested=Some(precise),
     preparation=Some(prepared),

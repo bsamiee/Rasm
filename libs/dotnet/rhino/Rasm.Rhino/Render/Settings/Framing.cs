@@ -57,21 +57,6 @@ public sealed record SafeFrameState(
     public static IO<SafeFrameState> Write(RenderSettingsScope scope, SafeFrameState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
 
-    public static ParameterText Text(SafeFrameParameter parameter) =>
-        parameter.Map(
-            enabled: ParameterText.Of("Show in active view", "Draws the safe frame in the active view"),
-            perspectiveOnly: ParameterText.Of("Perspective views only", "Draws the safe frame in perspective views alone"),
-            fieldsOn: ParameterText.Of("Show 4x3 field grid", "Draws the 4 by 3 field grid"),
-            liveFrameOn: ParameterText.Of("Live area", "Draws the live area the rendering covers"),
-            actionFrameOn: ParameterText.Of("Action area", "Draws the action safe area"),
-            actionFrameLinked: ParameterText.Of("Action area linked", "Scales the action area alike on both axes"),
-            actionFrameXScale: ParameterText.Of("Action frame X", "Action area width as a share of the frame"),
-            actionFrameYScale: ParameterText.Of("Action frame Y", "Action area height as a share of the frame"),
-            titleFrameOn: ParameterText.Of("Title area", "Draws the title safe area"),
-            titleFrameLinked: ParameterText.Of("Title area linked", "Scales the title area alike on both axes"),
-            titleFrameXScale: ParameterText.Of("Title frame X", "Title area width as a share of the frame"),
-            titleFrameYScale: ParameterText.Of("Title frame Y", "Title area height as a share of the frame"));
-
     public static RowRules Rules(RowSource<SafeFrameState> source, SafeFrameParameter parameter) =>
         RowRule.When(source, static state => state.Enabled, SafeFrameParameter.Enabled) switch {
             var on => (on & RowRule.When(source, static state => state.ActionFrameOn, SafeFrameParameter.ActionFrameOn),
@@ -103,29 +88,43 @@ public sealed record SafeFrameState(
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SafeFrameParameter : IStateParameter<SafeFrameState> {
+public sealed partial class SafeFrameParameter : IRowParameter<SafeFrameState> {
     public static readonly SafeFrameParameter Enabled = new("on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })));
+        Lens<SafeFrameState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
+        ParameterText.Of("Show in active view", "Draws the safe frame in the active view"));
     public static readonly SafeFrameParameter PerspectiveOnly = new("perspective-only", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.PerspectiveOnly, static on => state => state with { PerspectiveOnly = on })));
+        Lens<SafeFrameState, bool>.New(static state => state.PerspectiveOnly, static on => state => state with { PerspectiveOnly = on })),
+        ParameterText.Of("Perspective views only", "Draws the safe frame in perspective views alone"));
     public static readonly SafeFrameParameter FieldsOn = new("field-display-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.FieldsOn, static on => state => state with { FieldsOn = on })));
+        Lens<SafeFrameState, bool>.New(static state => state.FieldsOn, static on => state => state with { FieldsOn = on })),
+        ParameterText.Of("Show 4x3 field grid", "Draws the 4 by 3 field grid"));
     public static readonly SafeFrameParameter LiveFrameOn = new("live-frame-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.LiveFrameOn, static on => state => state with { LiveFrameOn = on })));
+        Lens<SafeFrameState, bool>.New(static state => state.LiveFrameOn, static on => state => state with { LiveFrameOn = on })),
+        ParameterText.Of("Live area", "Draws the live area the rendering covers"));
     public static readonly SafeFrameParameter ActionFrameOn = new("action-frame-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.ActionFrameOn, static on => state => state with { ActionFrameOn = on })));
+        Lens<SafeFrameState, bool>.New(static state => state.ActionFrameOn, static on => state => state with { ActionFrameOn = on })),
+        ParameterText.Of("Action area", "Draws the action safe area"));
     public static readonly SafeFrameParameter ActionFrameLinked = new("action-frame-link", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.ActionFrameLinked, static linked => state => state with { ActionFrameLinked = linked })));
-    public static readonly SafeFrameParameter ActionFrameXScale = new("action-frame-x-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameXScale, static scale => state => state with { ActionFrameXScale = scale }), FrameFraction.Presentation));
-    public static readonly SafeFrameParameter ActionFrameYScale = new("action-frame-y-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameYScale, static scale => state => state with { ActionFrameYScale = scale }), FrameFraction.Presentation));
+        Lens<SafeFrameState, bool>.New(static state => state.ActionFrameLinked, static linked => state => state with { ActionFrameLinked = linked })),
+        ParameterText.Of("Action area linked", "Scales the action area alike on both axes"));
+    public static readonly SafeFrameParameter ActionFrameXScale = new("action-frame-x-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameXScale, static scale => state => state with { ActionFrameXScale = scale }), FrameFraction.Presentation),
+        ParameterText.Of("Action frame X", "Action area width as a share of the frame"));
+    public static readonly SafeFrameParameter ActionFrameYScale = new("action-frame-y-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameYScale, static scale => state => state with { ActionFrameYScale = scale }), FrameFraction.Presentation),
+        ParameterText.Of("Action frame Y", "Action area height as a share of the frame"));
     public static readonly SafeFrameParameter TitleFrameOn = new("title-frame-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.TitleFrameOn, static on => state => state with { TitleFrameOn = on })));
+        Lens<SafeFrameState, bool>.New(static state => state.TitleFrameOn, static on => state => state with { TitleFrameOn = on })),
+        ParameterText.Of("Title area", "Draws the title safe area"));
     public static readonly SafeFrameParameter TitleFrameLinked = new("title-frame-link", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.TitleFrameLinked, static linked => state => state with { TitleFrameLinked = linked })));
-    public static readonly SafeFrameParameter TitleFrameXScale = new("title-frame-x-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameXScale, static scale => state => state with { TitleFrameXScale = scale }), FrameFraction.Presentation));
-    public static readonly SafeFrameParameter TitleFrameYScale = new("title-frame-y-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameYScale, static scale => state => state with { TitleFrameYScale = scale }), FrameFraction.Presentation));
+        Lens<SafeFrameState, bool>.New(static state => state.TitleFrameLinked, static linked => state => state with { TitleFrameLinked = linked })),
+        ParameterText.Of("Title area linked", "Scales the title area alike on both axes"));
+    public static readonly SafeFrameParameter TitleFrameXScale = new("title-frame-x-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameXScale, static scale => state => state with { TitleFrameXScale = scale }), FrameFraction.Presentation),
+        ParameterText.Of("Title frame X", "Title area width as a share of the frame"));
+    public static readonly SafeFrameParameter TitleFrameYScale = new("title-frame-y-scale", StateParameter.Bounded<SafeFrameState, FrameFraction, double, InvalidRhinoValue>(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameYScale, static scale => state => state with { TitleFrameYScale = scale }), FrameFraction.Presentation),
+        ParameterText.Of("Title frame Y", "Title area height as a share of the frame"));
 
     public StateParameter<SafeFrameState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 [Union]

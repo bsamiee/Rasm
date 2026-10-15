@@ -30,7 +30,7 @@ public static class SurfaceEvaluation {
         from curvature in Copies.Owned(
             () => surface.CurvatureAt(sampled.X, sampled.Y),
             static answer => Missing.Unless(answer, nameof(Surface.CurvatureAt)).Bind(static value => InvalidAnswer.Unless(value.IsSet, value, nameof(Surface.CurvatureAt))),
-            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer })), retain)
+            static answer => DisposalOps.Release(Conversions.Rows([answer])), retain)
         select curvature;
 
     // --- [CURVES]

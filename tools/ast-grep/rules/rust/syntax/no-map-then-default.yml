@@ -2,27 +2,17 @@
 id: no-map-then-default
 language: rust
 severity: error
-utils:
-    default-value:
-        any:
-            - kind: 'call_expression, scoped_identifier'
-              regex: '^(\w+::)*([A-Z]\w*(::<[^>]*>)?::default|(String|Vec|VecDeque|BTreeMap|BTreeSet|HashMap|HashSet|BinaryHeap|LinkedList|OsString|PathBuf)::new)(\(\))?$'
-            - kind: macro_invocation
-              regex: '^vec!\s*(\(\s*\)|\[\s*\]|\{\s*\})$'
-            - kind: closure_expression
-              all:
-                - has: {field: parameters, regex: '^\|\s*(_\w*)?\s*\|$'}
-                - has: {field: body, matches: default-value}
 rule:
     kind: call_expression
     all:
         - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
         - any:
-            - pattern: $O.map($F).unwrap_or_default()
             - pattern: $O.map_or($D, $F)
             - pattern: $O.map_or_else($D, $F)
+        - not: {matches: rust-retested-default}
 constraints:
-    D: {matches: default-value}
+    O: {not: {matches: rust-dropped-error}}
+    D: {matches: rust-default-value}
 fix: $O.map_or_default($F)
-message: '`$O` maps its value and falls back to the default in two calls'
-note: 'Call `<option or result>.map_or_default(<fn>)` (`Option` and `Result`, Rust 1.98), which returns `Default::default()` for `None` or `Err`, a literal fallback (`0`, `""`, `false`) states its value and stays as written'
+message: '`$O` maps its value and spells the default fallback by hand'
+note: 'Call `<option or result>.map_or_default(<fn>)`, the method returns `Default::default()` for `None` or `Err`. A literal fallback (`0`, `false`) states its value and stays as written. `no-sentinel-placeholder-rust` owns an empty-text literal fallback and a result the block compares to the default, and `no-try-default-rust` owns a receiver that drops its error through `.ok()`'

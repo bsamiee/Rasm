@@ -9,12 +9,12 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import struct_at
+from blender.bpy.data.rna.descriptors import Native, struct_at
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, pointed
-from blender.bpy.ui.layout.rows import acquired, alerted, Line, located, Member, Owner, Property, realized, refused, ResolvedMember, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import acquired, alerted, Line, located, Member, Property, realized, refused, ResolvedMember, RowContent, RowDraw
 from blender.imaging.faults import accumulated, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -216,7 +216,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                     return flags, bpy.types.UI_UL_list.sort_items_by_name(items, listed.label) if ui.use_filter_sort_alpha else []  # ty: ignore[invalid-return-type]
 
         filtered = {"filter_items": filter_items} if self.where.is_some() or listed.order.is_some() else {}
-        return type(listed.name, (bpy.types.UIList,), {"bl_idname": listed.name, "draw_item": draw_item, **filtered})
+        return type(listed.name, (bpy.types.UIList,), {"bl_idname": listed.name, "draw_item": draw_item} | filtered)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Retains the native selection property and deferred list class lifetime."""
@@ -234,8 +234,8 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 return Error(refused(active.descriptor.path, type(pointer.fixed_type).__name__, (type(collection.descriptor.prop.fixed_type).__name__,)))
 
             def selected(owner: "bpy.types.bpy_struct[object]") -> int:
-                items = located(collection, owner, bpy.context).map(lambda pair: getattr(*pair))
-                pointer = located(active, owner, bpy.context).map(lambda pair: getattr(*pair))
+                items = located(collection, owner, bpy.context).starmap(getattr)
+                pointer = located(active, owner, bpy.context).starmap(getattr)
                 return next((index for members in items.to_list() for index, item in enumerate(members) for held in pointer.to_list() if item == held), -1)
 
             def written(owner: "bpy.types.bpy_struct[object]", index: int) -> None:
@@ -287,7 +287,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def keyed(struct: Owner) -> str:
+def keyed(struct: Native) -> str:
     """Key an ID holds across renames, its `session_uid`, a named struct's name, and a nameless struct's address for the session."""
     if isinstance(struct, bpy.types.bpy_prop_collection):
         return keyed(struct.data)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collect-into-try-container
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $R.collect::<Result<$C, _>>()
+            - pattern: $R.collect::<Option<$C>>()
+        - not: {matches: rust-owned-span}
+        - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
+constraints:
+    R: {not: {kind: 'identifier, self, field_expression'}}
+fix: $R.try_collect::<$C>()
+message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
+note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`), `try_collect` short-circuits on the first `Err` or `None` and derives the wrapper from the item type. A named iterator stays as written, `try_collect` borrows its receiver mutably. An error type the turbofish names stays as written, the type fixes the target of `?` conversions in the items. A file importing `Itertools` keeps `collect`, `Itertools::try_collect` shadows the `core` method and `clippy.toml` bans it'

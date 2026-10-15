@@ -92,7 +92,7 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
             .Map(next => new Transition<GradingWheelState, WheelOffset>(state with { Offset = Some(next) }, Some<Edit<WheelOffset>>(new Edit<WheelOffset>.Step(next))));
 
     protected override Option<Transition<GradingWheelState, WheelOffset>> Pressed(GradingWheelState state, SizeF size, float scale, Option<WheelPart> part, MouseEventArgs e) =>
-        state.Offset.Filter(_ => e.Buttons == MouseButtons.Primary).Map(held =>
+        state.Offset.Filter(_ => e.Buttons is MouseButtons.Primary).Map(held =>
             part.Exists(static key => key == WheelPart.Puck)
                 ? new Transition<GradingWheelState, WheelOffset>(state with { Target = Some(Spot(held.Hue, held.Strength)) }, None)
                 : Moved(state, held, Target(Plane(size), e.Location), e.Modifiers, size));

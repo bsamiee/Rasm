@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unsafe-temporary-allocation
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    has:
+        nthChild: 1
+        any:
+            - {kind: simple_identifier, regex: '^withUnsafeTemporaryAllocation$'}
+            - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^withUnsafeTemporaryAllocation$'}}}
+message: '`$CALL` hands its closure an unsafe pointer to the temporary buffer'
+note: '`withTemporaryAllocation(of:capacity:)` hands the closure an `inout OutputSpan<T>` and `withTemporaryAllocation(byteCount:alignment:)` an `inout OutputRawSpan`, each bounds-checked and initialized by `append`, the closure body moves from pointer writes to span appends'

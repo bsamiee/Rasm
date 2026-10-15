@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-synthesized-hash-by-hand
+language: swiftlang
+severity: error
+utils:
+    combined:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: target, kind: simple_identifier, pattern: $H}}, {has: {field: suffix, has: {field: suffix, regex: '^combine$'}}}]}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    all:
+                        - not: {has: {kind: value_argument, nthChild: 2}}
+                        - has: {kind: value_argument, has: {field: value, any: [{kind: simple_identifier}, {kind: navigation_expression, has: {field: target, kind: self_expression}}]}}
+    hashing:
+        kind: function_declaration
+        all:
+            - has: {field: name, regex: '^hash$'}
+            - has: {kind: parameter, all: [{has: {field: external_name, regex: '^into$'}}, {has: {field: name, kind: simple_identifier, pattern: $H}}]}
+    stored:
+        kind: property_declaration
+        all:
+            - not: {has: {kind: modifiers, has: {regex: '^(static|class)$'}}}
+            - not: {has: {field: computed_value, kind: computed_property}}
+            - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^struct$'}}, {has: {field: name, pattern: $T}}]}}
+    member-of-owner:
+        inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^(struct|extension)$'}}, {has: {field: name, pattern: $T}}]}}
+rule:
+    matches: hashing
+    all:
+        - matches: member-of-owner
+        - has: {field: body, has: {kind: statements, has: {nthChild: 1, matches: combined}, not: {has: {not: {matches: combined}}}}}
+        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: stored}}
+        - not:
+            inside:
+                kind: source_file
+                stopBy: end
+                any:
+                    - has: {stopBy: end, kind: function_declaration, matches: member-of-owner, has: {field: name, regex: '^==$'}}
+                    - has:
+                        stopBy: end
+                        matches: stored
+                        any:
+                            - has: {kind: modifiers, has: {kind: 'attribute, property_behavior_modifier'}}
+                            - all:
+                                - has: {field: name, has: {field: bound_identifier, pattern: $P}}
+                                - not:
+                                    inside:
+                                        kind: source_file
+                                        stopBy: end
+                                        has:
+                                            stopBy: end
+                                            matches: hashing
+                                            all:
+                                                - matches: member-of-owner
+                                                - has: {field: body, has: {stopBy: end, kind: call_expression, any: [{pattern: '$H.combine($P)'}, {pattern: '$H.combine(self.$P)'}]}}
+message: '`hash(into:)` of `$T` combines every stored property, the hash the compiler synthesizes'
+note: 'Delete `hash(into:)` and keep the `Hashable` conformance, the compiler hashes every stored property of a struct whose properties are `Hashable`'

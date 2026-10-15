@@ -427,84 +427,83 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 `Seq`, `Arr`, `HashMap`, and `Set` are the immutable collections:
 
-| [INDEX] | [MEMBER]                                                           | [KIND]     | [DESCRIPTION]                             |
-| :-----: | :----------------------------------------------------------------- | :--------- | :---------------------------------------- |
-|  [01]   | `Prelude.Seq(A, A)`                                                | `static`   | Ordered-sequence construction             |
-|  [02]   | `Prelude.toSeq(IEnumerable<A>)`                                    | `static`   | Construction from `IEnumerable<A>`        |
-|  [03]   | `Seq.Map(Func<A,B>)`                                               | `instance` | Element projection                        |
-|  [04]   | `Seq.Map(Func<A,int,B>)`                                           | `instance` | Indexed `(value, index)` projection       |
-|  [05]   | `LanguageExt.Seq.map(Seq<A>, Func<int,A,B>)`                       | `static`   | Indexed `(index, value)` overload         |
-|  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                         | `instance` | Monadic expansion                         |
-|  [07]   | `Seq.Filter(Func<A,bool>)`                                         | `instance` | Predicate narrowing                       |
-|  [08]   | `Seq.Partition(Func<A,bool>)`                                      | `instance` | One-pass two-way split                    |
-|  [09]   | `Seq.Exists(Func<A,bool>)`                                         | `instance` | Any-member predicate test                 |
-|  [10]   | `Seq.ForAll(Func<A,bool>)`                                         | `instance` | Every-member predicate test               |
-|  [11]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                          | `static`   | One-pass filter-map                       |
-|  [12]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                      | `static`   | Indexed one-pass filter-map               |
-|  [13]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                           | `static`   | Projected pairwise join                   |
-|  [14]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                               | `static`   | Running-state projection                  |
-|  [15]   | `Seq.Head`                                                         | `property` | `Option<A>` first read                    |
-|  [16]   | `Seq.Last`                                                         | `property` | `Option<A>` final read                    |
-|  [17]   | `Seq.Tail`                                                         | `property` | All but the first member                  |
-|  [18]   | `Seq.Init`                                                         | `property` | All but the final member                  |
-|  [19]   | `Seq.Tails`                                                        | `property` | Every suffix                              |
-|  [20]   | `Seq.Inits`                                                        | `property` | Every prefix                              |
-|  [21]   | `Seq.Add(A)`                                                       | `instance` | Append one member                         |
-|  [22]   | `Seq.Concat(Seq<A>)`                                               | `instance` | Cross-collection join                     |
-|  [23]   | `Seq.Intersperse(A)`                                               | `instance` | Separator insertion                       |
-|  [24]   | `Seq.Strict()`                                                     | `instance` | Force a lazily-built sequence             |
-|  [25]   | `Seq.AsSpan()`                                                     | `instance` | Zero-copy contiguous read                 |
-|  [26]   | `Seq.AsIterable()`                                                 | `instance` | Lazy-view lift                            |
-|  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                     | `instance` | Applicative shape inversion               |
-|  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                    | `instance` | Short-circuiting shape inversion          |
-|  [29]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                          | `fold`     | Type-generic state fold                   |
-|  [30]   | `FoldableExtensions.FoldM` / `FoldBackM(S, Func<S,A,K<M,S>>)`      | `fold`     | Monadic fold, head-to-tail / tail-to-head |
-|  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)`   | `fold`     | Predicate-bounded fold                    |
-|  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                            | `fold`     | Monoidal aggregation                      |
-|  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                            | `static`   | `Option`-shaped search                    |
-|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                         | `static`   | Every match as a `Seq`                    |
-|  [35]   | `Arr.create(A[])`                                                  | `static`   | Immutable-array construction              |
-|  [36]   | `Arr.createRange(IEnumerable<A>)`                                  | `static`   | Construction from `IEnumerable<A>`        |
-|  [37]   | `HashMap.Find(K)`                                                  | `instance` | `Option<V>` lookup                        |
-|  [38]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                              | `instance` | Matched lookup fold                       |
-|  [39]   | `HashMap.FindOrAdd(K, Func<V>)`                                    | `instance` | Lookup with insert-on-miss                |
-|  [40]   | `HashMap.Add(K, V)`                                                | `instance` | Persistent insert                         |
-|  [41]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                       | `instance` | Persistent matched upsert                 |
-|  [42]   | `HashMap.AddOrUpdate(K, Func<V,V>, V)`                             | `instance` | Matched upsert, value fills the miss      |
-|  [43]   | `HashMap.SetItem(K, V)`                                            | `instance` | Persistent replace                        |
-|  [44]   | `HashMap.Remove(K)`                                                | `instance` | Persistent delete                         |
-|  [45]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`          | `instance` | Merge with a collision rule               |
-|  [46]   | `HashMap.ContainsKey(K)`                                           | `instance` | Total key membership                      |
-|  [47]   | `HashMap.ToTrackingHashMap()`                                      | `instance` | Change-logged map lift                    |
-|  [48]   | `HashMap.AddOrUpdate(K, V)`                                        | `instance` | Persistent unconditional upsert           |
-|  [49]   | `HashMap.AsIterable()`                                             | `instance` | `(K Key, V Value)` pair sequence          |
-|  [50]   | `Set.Add(A)`                                                       | `instance` | Persistent set insertion                  |
-|  [51]   | `Set.TryAdd(A)`                                                    | `instance` | Insertion tolerating a duplicate          |
-|  [52]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                    | `static`   | Lazy sync lift                            |
-|  [53]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`               | `static`   | Lazy async lift                           |
-|  [54]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                            | `static`   | Construction from a `ReadOnlySpan<A>`     |
-|  [55]   | `LanguageExt.List.unfold(S, Func<S,Option<(A,S)>>)`                | `static`   | State-seeded lazy generation              |
-|  [56]   | `Prelude.toSet(IEnumerable<A>)`                                    | `static`   | Ordered set from `IEnumerable<A>`         |
-|  [57]   | `Set(IEnumerable<A>)`                                              | `ctor`     | Ordered-set construction                  |
-|  [58]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                            | `static`   | Hashed map from pairs                     |
-|  [59]   | `FoldableExtensions.Iter(Action<A>)`                               | `static`   | Side-effecting element iteration          |
-|  [60]   | `Seq.Skip(int)`                                                    | `instance` | Drop a leading run                        |
-|  [61]   | `Seq.Take(int)`                                                    | `instance` | Keep a leading run                        |
-|  [62]   | `Seq.Count`                                                        | `property` | Materialized member count                 |
-|  [63]   | `SeqExtensions.Rev(Seq<A>)`                                        | `static`   | Reversed sequence                         |
-|  [64]   | `Seq.TakeWhile(Func<A,bool>)`                                      | `instance` | Predicate-bounded leading run             |
-|  [65]   | `Seq.TakeWhile(Func<A,int,bool>)`                                  | `instance` | Indexed predicate-bounded run             |
-|  [66]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | `fold`     | Monadic predicate-bounded fold            |
-|  [67]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | `fold`     | Monadic fold to a stop condition          |
-|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | `fold`     | Argument-flipped module form              |
-|  [69]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`   | `fold`     | Pure fold to a stop condition             |
-|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | `fold`     | Right-to-left bounded forms               |
-|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | `fold`     | Folder itself decides the stop            |
-|  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | `fold`     | Bounded monoidal aggregation, nested      |
-|  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | `fold`     | One pass over `K<T, K<U, A>>`             |
+| [INDEX] | [MEMBER]                                                               | [KIND]     | [DESCRIPTION]                             |
+| :-----: | :--------------------------------------------------------------------- | :--------- | :---------------------------------------- |
+|  [01]   | `Prelude.Seq(A, A)`                                                    | `static`   | Ordered-sequence construction             |
+|  [02]   | `Prelude.toSeq(IEnumerable<A>)`                                        | `static`   | Construction from `IEnumerable<A>`        |
+|  [03]   | `Seq.Map(Func<A,B>)`                                                   | `instance` | Element projection                        |
+|  [04]   | `Seq.Map(Func<A,int,B>)`                                               | `instance` | Indexed `(value, index)` projection       |
+|  [05]   | `LanguageExt.Seq.map(Seq<A>, Func<int,A,B>)`                           | `static`   | Indexed `(index, value)` overload         |
+|  [06]   | `Seq.Bind(Func<A,Seq<B>>)`                                             | `instance` | Monadic expansion                         |
+|  [07]   | `Seq.Filter(Func<A,bool>)`                                             | `instance` | Predicate narrowing                       |
+|  [08]   | `Seq.Partition(Func<A,bool>)`                                          | `instance` | One-pass two-way split                    |
+|  [09]   | `Seq.Exists(Func<A,bool>)`                                             | `instance` | Any-member predicate test                 |
+|  [10]   | `Seq.ForAll(Func<A,bool>)`                                             | `instance` | Every-member predicate test               |
+|  [11]   | `SeqExtensions.Choose(Func<A,Option<B>>)`                              | `static`   | One-pass filter-map                       |
+|  [12]   | `SeqExtensions.Choose(Func<int,A,Option<B>>)`                          | `static`   | Indexed one-pass filter-map               |
+|  [13]   | `SeqExtensions.Zip(Seq<B>, Func<A,B,C>)`                               | `static`   | Projected pairwise join                   |
+|  [14]   | `SeqExtensions.Scan(S, Func<S,A,S>)`                                   | `static`   | Running-state projection                  |
+|  [15]   | `Seq.Head`                                                             | `property` | `Option<A>` first read                    |
+|  [16]   | `Seq.Last`                                                             | `property` | `Option<A>` final read                    |
+|  [17]   | `Seq.Tail`                                                             | `property` | All but the first member                  |
+|  [18]   | `Seq.Init`                                                             | `property` | All but the final member                  |
+|  [19]   | `Seq.Tails`                                                            | `property` | Every suffix                              |
+|  [20]   | `Seq.Inits`                                                            | `property` | Every prefix                              |
+|  [21]   | `Seq.Add(A)`                                                           | `instance` | Append one member                         |
+|  [22]   | `Seq.Concat(Seq<A>)`                                                   | `instance` | Cross-collection join                     |
+|  [23]   | `Seq.Intersperse(A)`                                                   | `instance` | Separator insertion                       |
+|  [24]   | `Seq.Strict()`                                                         | `instance` | Force a lazily-built sequence             |
+|  [25]   | `Seq.AsSpan()`                                                         | `instance` | Zero-copy contiguous read                 |
+|  [26]   | `Seq.AsIterable()`                                                     | `instance` | Lazy-view lift                            |
+|  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                         | `instance` | Applicative shape inversion               |
+|  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                        | `instance` | Short-circuiting shape inversion          |
+|  [29]   | `FoldableExtensions.Fold(S, Func<S,A,S>)`                              | `fold`     | Type-generic state fold                   |
+|  [30]   | `FoldableExtensions.FoldM` / `FoldBackM(S, Func<S,A,K<M,S>>)`          | `fold`     | Monadic fold, head-to-tail / tail-to-head |
+|  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)`       | `fold`     | Predicate-bounded fold                    |
+|  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                                | `fold`     | Monoidal aggregation                      |
+|  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                                | `static`   | `Option`-shaped search                    |
+|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                             | `static`   | Every match as a `Seq`                    |
+|  [35]   | `Arr.create(A[])`                                                      | `static`   | Immutable-array construction              |
+|  [36]   | `Arr.createRange(IEnumerable<A>)`                                      | `static`   | Construction from `IEnumerable<A>`        |
+|  [37]   | `HashMap.Find(K)`                                                      | `instance` | `Option<V>` lookup                        |
+|  [38]   | `HashMap.Find(K, Func<V,R>, Func<R>)`                                  | `instance` | Matched lookup fold                       |
+|  [39]   | `HashMap.FindOrAdd(K, Func<V>)`                                        | `instance` | Lookup with insert-on-miss                |
+|  [40]   | `HashMap.Add(K, V)`                                                    | `instance` | Persistent insert                         |
+|  [41]   | `HashMap.AddOrUpdate(K, Func<V,V>, Func<V>)`                           | `instance` | Persistent matched upsert                 |
+|  [42]   | `HashMap.AddOrUpdate(K, Func<V,V>, V)`                                 | `instance` | Matched upsert, value fills the miss      |
+|  [43]   | `HashMap.SetItem(K, V)`                                                | `instance` | Persistent replace                        |
+|  [44]   | `HashMap.Remove(K)`                                                    | `instance` | Persistent delete                         |
+|  [45]   | `HashMap.Union(IEnumerable<(K,V)>, WhenMatched<K,V,V,V>)`              | `instance` | Merge with a collision rule               |
+|  [46]   | `HashMap.ContainsKey(K)`                                               | `instance` | Total key membership                      |
+|  [47]   | `HashMap.ToTrackingHashMap()`                                          | `instance` | Change-logged map lift                    |
+|  [48]   | `HashMap.AddOrUpdate(K, V)`                                            | `instance` | Persistent unconditional upsert           |
+|  [49]   | `HashMap.AsIterable()`                                                 | `instance` | `(K Key, V Value)` pair sequence          |
+|  [50]   | `Set.Add(A)`                                                           | `instance` | Persistent set insertion                  |
+|  [51]   | `Set.TryAdd(A)`                                                        | `instance` | Insertion tolerating a duplicate          |
+|  [52]   | `IterableExtensions.AsIterable(IEnumerable<A>)`                        | `static`   | Lazy sync lift                            |
+|  [53]   | `IterableExtensions.AsIterable(IAsyncEnumerable<A>)`                   | `static`   | Lazy async lift                           |
+|  [54]   | `Iterable<A>.FromSpan(ReadOnlySpan<A>)`                                | `static`   | Construction from a `ReadOnlySpan<A>`     |
+|  [55]   | `LanguageExt.List.unfold(S, Func<S,Option<(A,S)>>)`                    | `static`   | State-seeded lazy generation              |
+|  [56]   | `Prelude.toSet(IEnumerable<A>)`                                        | `static`   | Ordered set from `IEnumerable<A>`         |
+|  [57]   | `Set(IEnumerable<A>)`                                                  | `ctor`     | Ordered-set construction                  |
+|  [58]   | `Prelude.toHashMap(IEnumerable<(K,V)>)`                                | `static`   | Hashed map from pairs                     |
+|  [59]   | `FoldableExtensions.Iter(Action<A>)`                                   | `static`   | Side-effecting element iteration          |
+|  [60]   | `Seq.Skip(int)`                                                        | `instance` | Drop a leading run                        |
+|  [61]   | `Seq.Take(int)`                                                        | `instance` | Keep a leading run                        |
+|  [62]   | `Seq.Count`                                                            | `property` | Materialized member count                 |
+|  [63]   | `SeqExtensions.Rev(Seq<A>)`                                            | `static`   | Reversed sequence                         |
+|  [64]   | `Seq.TakeWhile(Func<A,bool>)`                                          | `instance` | Predicate-bounded leading run             |
+|  [65]   | `Seq.TakeWhile(Func<A,int,bool>)`                                      | `instance` | Indexed predicate-bounded run             |
+|  [66]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<(S,A),bool>)` | `fold`     | Monadic predicate-bounded fold            |
+|  [67]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<(S,A),bool>)` | `fold`     | Monadic fold to a stop condition          |
+|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                               | `fold`     | Argument-flipped module form              |
+|  [69]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`       | `fold`     | Pure fold to a stop condition             |
+|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`                   | `fold`     | Right-to-left bounded forms               |
+|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`            | `fold`     | Folder itself decides the stop            |
+|  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`                   | `fold`     | Bounded monoidal aggregation, nested      |
+|  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`               | `fold`     | One pass over `K<T, K<U, A>>`             |
 
-- Monadic `FoldWhileM` and `FoldUntilM` take `Func<A, bool>` over the element alone
-- State-reading stop conditions fold pure and lift afterwards, or pass the condition into the effect
+- Monadic `FoldWhileM` and `FoldUntilM` take the `Func<(S State, A Value), bool>` predicate of the pure forms
 - `foldWhileM` is the module form with the arguments reordered to `(f, pred, state, ta)`
 - `FoldMaybe` holds its stop in the folder, a `None` step ends the traversal with the last committed state, `FoldBackMaybe` walks right-to-left
 - `FoldT`, `FoldWhileT`, and `FoldUntilT` fold one pass over a nested `K<T, K<U, A>>` without flattening first
@@ -642,7 +641,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [35]   | `Lose(Func<A,Void>)` / `Route(Func<A,Either<B,C>>, K, K)`             | `static`   | `Decidable` absurd and branch                   |
 |  [36]   | `Fold(Func<A,Func<S,S>>, S, K<Supertype,A>)`                          | `static`   | `Foldable` fold, forwarded to the `Subtype`     |
 
-- `Transform` and `CoTransform` are the only required members
+- `Deriving.Foldable` leaves `FoldStep` and `FoldStepBack` required on the wrapper beside `Transform` and `CoTransform`
 - `Deriving.Alternative` composes the `Choice` and `Applicative` derivations, the wrapper implements `Empty` (`CS0535` otherwise)
 - `Supertype` heads every parameter list, `Deriving.Readable<Supertype, Env, Subtype>` places `Subtype` last
 - `Deriving.Stateful<Supertype, Subtype, S>`, `Deriving.Writable<Supertype, Subtype, W>`, and `Deriving.MonadT<Supertype, Subtype, M>` place it second

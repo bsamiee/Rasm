@@ -1,0 +1,20 @@
+{
+    "name": "@rasm/hosting",
+    "private": true,
+    "description": "Foundation for web apps served from an edge Worker: server-rendered pages with schema-encoded hydration data, OpenAI Sites sign-in, R2 object storage, and HTTP API boundaries",
+    "type": "module",
+    "exports": {
+        "./*": "./*"
+    },
+    "dependencies": {
+        "effect": "catalog:",
+        "partial-content": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:"
+    }
+}

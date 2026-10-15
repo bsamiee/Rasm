@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-chain-root
-language: swift
+language: swiftlang
 arguments: [root]
 rule:
     kind: 'simple_identifier, call_expression, navigation_expression'

@@ -17,7 +17,7 @@ from blender.bpy.commands.operators import Done, Empty, InvokePopup, Operator, O
 from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.animation import Animation, Keys
-from blender.bpy.data.rna.descriptors import Descriptor, root_in, written
+from blender.bpy.data.rna.descriptors import Descriptor, Native, root_in, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity
@@ -27,7 +27,7 @@ from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned
 from blender.bpy.scene.worlds import EnvironmentNode, Follower, followers, WorldEnvironment
 from blender.bpy.settings.attachments import Attached, Attachment, reconciling
 from blender.bpy.settings.properties import Choices
-from blender.bpy.ui.layout.rows import Line, Member, OperatorButton, Owner, RowDraw
+from blender.bpy.ui.layout.rows import Line, Member, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case, Gated, Presentation, Quantity
@@ -115,12 +115,10 @@ class SolarCaption(Line, frozen=True, kw_only=True):
                     case Polar.NIGHT:
                         return (f"Solar noon {day.noon:%H:%M}", "Polar night", sun)
 
-            return paired(
-                SolarDay.of(site, start.date, zone).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)), positions(msgspec.structs.replace(setup, timing=Moment(start=start)), zone)
-            ).map(text)
+            return paired(SolarDay.of(site, start.date, zone).map_error(BlenderRenderingFault.lifted), positions(msgspec.structs.replace(setup, timing=Moment(start=start)), zone)).map(text)
 
         def draw(attached: Attached[SunSetup]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: Owner, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, holder: Native, context: bpy.types.Context) -> None:
                 for text in root_in(bpy.types.Scene, context).bind(identity.reports.reported(lambda scene: attached.read(scene).bind(lines))).default_value(()):
                     layout.label(text=text)
 
@@ -264,7 +262,7 @@ def positions(setup: SunSetup, zone: zoneinfo.ZoneInfo) -> BlenderResult[SunPosi
         calendar
         .map(lambda sequence: SunPosition.at(setup.site, np.array([moment.timestamp() for moment in sequence], dtype=np.float64)))
         .map(lambda position: position.apparent() if setup.refraction else position)
-        .map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+        .map_error(BlenderRenderingFault.lifted)
     )
 
 

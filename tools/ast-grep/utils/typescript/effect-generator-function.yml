@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-generator-function
+language: tsx
+rule:
+    kind: generator_function
+    inside:
+        kind: arguments
+        inside:
+            kind: call_expression
+            has:
+                field: function
+                any:
+                    - matches: effect-effect-member
+                      has: {field: property, regex: '^(gen|fn|fnUntraced)$'}
+                    - kind: call_expression
+                      has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(fn|fnUntraced)$'}}

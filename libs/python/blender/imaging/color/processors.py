@@ -4,7 +4,7 @@ from collections.abc import Callable
 from functools import reduce
 from typing import Annotated, override, Protocol, runtime_checkable, Self
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, identity, Nothing, Ok, Option, Some
 from expression.collections import Block
 import msgspec
 import numpy as np
@@ -55,32 +55,36 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
 
         def discovered(name: str) -> ImagingResult[Option[tuple[Self, PyOpenColorIO.Processor]]]:
             candidate = cls(display=display, view=name)
-            operation = Option.of_optional(
-                next(
-                    (
-                        PyOpenColorIO.GroupTransform([source], direction=direction)
-                        for native in Option.of_optional(config.getViewTransform(config.getDisplayViewTransformName(display, name))).to_list()
-                        if native.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE and not config.getDisplayViewLooks(display, name)
-                        for space in candidate.colorspace(config).to_list()
-                        if space.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY and not space.isData()
-                        for side, direction in (
-                            (PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_FORWARD),
-                            (PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_INVERSE),
-                        )
-                        for source in Option.of_optional(native.getTransform(side)).to_list()
-                    ),
-                    None,
+            return (
+                Option
+                .of_optional(
+                    next(
+                        (
+                            PyOpenColorIO.GroupTransform([source], direction=direction)
+                            for native in Option.of_optional(config.getViewTransform(config.getDisplayViewTransformName(display, name))).to_list()
+                            if native.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE and not config.getDisplayViewLooks(display, name)
+                            for space in candidate.colorspace(config).to_list()
+                            if space.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY and not space.isData()
+                            for side, direction in (
+                                (PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_FORWARD),
+                                (PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_INVERSE),
+                            )
+                            for source in Option.of_optional(native.getTransform(side)).to_list()
+                        ),
+                        None,
+                    )
                 )
+                .map(
+                    lambda request: paired(
+                        _lifted(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()),
+                        processor(config, PyOpenColorIO.DisplayViewTransform(src=PyOpenColorIO.ROLE_SCENE_LINEAR, display=display, view=name)),
+                    ).map(lambda built: Some((candidate, built[1])) if all(isinstance(op, PyOpenColorIO.MatrixTransform) for op in built[0]) else Nothing)
+                )
+                .default_value(Ok(Nothing))
             )
-            return operation.map(
-                lambda request: paired(
-                    _lifted(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()),
-                    processor(config, PyOpenColorIO.DisplayViewTransform(src=PyOpenColorIO.ROLE_SCENE_LINEAR, display=display, view=name)),
-                ).map(lambda built: Some((candidate, built[1])) if all(isinstance(op, PyOpenColorIO.MatrixTransform) for op in built[0]) else Nothing)
-            ).default_with(lambda: Ok(Nothing))
 
         return accumulated(map(discovered, view.map(lambda name: (name,)).default_with(lambda: tuple(config.getViews(display))))).map(
-            lambda candidates: Block.of_seq(candidates).choose(lambda found: found).try_head()
+            lambda candidates: Block.of_seq(candidates).choose(identity).try_head()
         )
 
     def colorspace(self, config: PyOpenColorIO.Config) -> Option[PyOpenColorIO.ColorSpace]:

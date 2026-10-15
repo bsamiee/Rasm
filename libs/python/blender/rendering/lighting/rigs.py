@@ -13,13 +13,13 @@ import PyOpenColorIO
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import applied, processor
-from blender.imaging.faults import accumulated, ImagingFaults, paired
-from blender.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Rgb, Stops
-from blender.rendering.faults import RenderingArithmeticFault, RenderingFaults, RenderingImagingFault, RenderingResult, RenderingSizeFault
+from blender.imaging.faults import accumulated, paired
+from blender.imaging.geometry.panoramas import Elevation, Turn
+from blender.imaging.parameters import Case, Choice, Finite, Gated, NonNegative, Positive, Presentation, Quantity, Rgb, Stops
+from blender.rendering.faults import RenderingArithmeticFault, RenderingImagingFault, RenderingResult, RenderingSizeFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Radius = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 type Emitter = Point | Spot | Disk | Sun
 type Layout = Arranged | Matched
 
@@ -68,8 +68,8 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
 
     role: Role = Role.KEY
     emitter: Emitter = Disk()
-    azimuth: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    elevation: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    azimuth: Turn = 0.0
+    elevation: Elevation = 0.0
     stops: Annotated[Finite, msgspec.Meta(description="Irradiance at the target in stops from the rig's key irradiance")] = 0.0
     size: Annotated[float, msgspec.Meta(ge=0.0, le=math.pi, description="Angular diameter at the target center"), Presentation(quantity=Some(Quantity.ANGLE))] = 2.0 * math.asin(0.2)
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
@@ -167,8 +167,8 @@ class Placement(msgspec.Struct, frozen=True, kw_only=True):
     """Light at its target distance and delivered irradiance."""
 
     light: Light
-    reach: Radius
-    irradiance: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
+    reach: Positive
+    irradiance: NonNegative
 
     @property
     def location(self) -> tuple[float, float, float]:
@@ -201,13 +201,13 @@ class Background(msgspec.Struct, frozen=True, kw_only=True):
     """Uniform world radiance a rig sets."""
 
     color: Rgb[Finite]
-    strength: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
+    strength: NonNegative
 
 
 class Placements(msgspec.Struct, frozen=True, kw_only=True):
     """Lights placed about a target sphere with their world."""
 
-    radius: Radius
+    radius: Positive
     distance: Annotated[float, msgspec.Meta(gt=1.0, le=sys.float_info.max)]
     lights: tuple[Placement, ...]
     background: Option[Background]
@@ -232,7 +232,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             case Matched() as matched:
                 return reading.map(lambda found: matched.arranged(found).map(Some)).default_value(Ok(Nothing))
 
-    def placements(self, config: PyOpenColorIO.Config, radius: Radius, reading: Option[LightingReading]) -> RenderingResult[Option[Placements]]:
+    def placements(self, config: PyOpenColorIO.Config, radius: Positive, reading: Option[LightingReading]) -> RenderingResult[Option[Placements]]:
         """Prepares final light and world colors, then places the admitted target rig."""
         blend = min(self.color_strength, 1.0)
         luma = MATRIX_sRGB_TO_XYZ[1].tolist()
@@ -279,11 +279,10 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
                 lambda found: Some(Placements(radius=radius, distance=self.distance, lights=found[0], background=found[1]))
             )
 
-        def refused(faults: ImagingFaults) -> RenderingFaults:
-            return (RenderingImagingFault(faults=faults),)
-
         return self.arranged(reading).bind(
-            lambda arranged: arranged.map(lambda layout: processor(config, transform).map_error(refused).bind(lambda built: placed(layout, built.getDefaultCPUProcessor()))).default_value(Ok(Nothing))
+            lambda arranged: arranged.map(
+                lambda layout: processor(config, transform).map_error(RenderingImagingFault.lifted).bind(lambda built: placed(layout, built.getDefaultCPUProcessor()))
+            ).default_value(Ok(Nothing))
         )
 
 
@@ -409,4 +408,4 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> float:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Radius", "Rig", "Role", "Spot", "Sun", "rig_catalog"]
+__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Rig", "Role", "Spot", "Sun", "rig_catalog"]

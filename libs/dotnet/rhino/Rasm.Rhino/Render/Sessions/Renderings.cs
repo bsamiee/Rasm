@@ -108,7 +108,7 @@ public sealed record Rendering(string FileName, Instant Saved, PixelExtent Exten
         if (read != lead.Length || !Ascii.Equals(lead[..start], RimagePart.Start.Key) || BinaryPrimitives.ReadInt32LittleEndian(lead[start..]) != Version)
             return new MalformedRendering(fileName, RimagePart.Start);
         int length = BinaryPrimitives.ReadInt32LittleEndian(lead[^sizeof(int)..]);
-        if (length < 0 || length % sizeof(char) != 0 || length > System.Array.MaxLength - sizeof(char) - RimagePart.Body.Key.Length
+        if (length < 0 || length % sizeof(char) is not 0 || length > System.Array.MaxLength - sizeof(char) - RimagePart.Body.Key.Length
             || (long)length + sizeof(char) + RimagePart.Body.Key.Length > file.Length - lead.Length)
             return new MalformedRendering(fileName, RimagePart.Start);
         byte[] header = new byte[length + sizeof(char) + RimagePart.Body.Key.Length];
@@ -304,11 +304,15 @@ public sealed class RenderHistory {
             select applied);
 
     private static Seq<EffectRequest> Requests(Seq<EffectEntry> entries, Seq<Guid> chain) =>
-        entries.Choose(entry => entry.Switch(
-                chain,
-                listed: static (running, listed) => Some<EffectRequest>(new EffectRequest.Listing(listed with { On = running.Exists(id => id == listed.Id) })),
-                selectable: static (running, selectable) => running.Exists(id => id == selectable.Id) ? Some<EffectRequest>(new EffectRequest.Selecting(selectable)) : None))
-            .Add(new EffectRequest.Ordering(chain.Choose(id => entries.Find(entry => entry.Id == id && entry.Switch(listed: static _ => true, selectable: static _ => false)))));
+        toHashSet(chain) switch {
+            var live => entries.Choose(entry => entry.Switch(
+                live,
+                listed: static (running, listed) => Some<EffectRequest>(new EffectRequest.Listing(listed with { On = running.Contains(listed.Id) })),
+                selectable: static (running, selectable) => running.Contains(selectable.Id) ? Some<EffectRequest>(new EffectRequest.Selecting(selectable)) : None))
+                .Add(new EffectRequest.Ordering(chain.Choose(toHashMap(entries
+                    .Filter(static entry => entry.Switch(listed: static _ => true, selectable: static _ => false))
+                    .Map(static entry => (entry.Id, entry))).Find))),
+        };
 
     // --- [EVENTS]
     public static HostEvent<Unit> Changed { get; } = new(
@@ -342,7 +346,7 @@ public sealed class RenderHistory {
         select unit;
 
     private IO<Unit> Forked(IO<Unit> work, string member) =>
-        DisposalOps.Fork(work.Catch(error => IO.lift(() => plugIn.Report(error, typeof(RenderHistory), member))).As(), retain).Map(static _ => unit);
+        DisposalOps.Fork(work.Catch(error => IO.lift(() => plugIn.Report(error, typeof(RenderHistory), member))).As(), retain).Map(unit);
 
     // --- [FILES]
     private IO<Unit> Scanned(string folder) =>
@@ -475,7 +479,7 @@ public sealed class RenderHistory {
             rendering.Saved.InZone(BclDateTimeZone.FromTimeZoneInfo(((IPlugInViews)scope.Sink).Clock.LocalTimeZone)).LocalDateTime.ToString("g", RowText.Culture));
 
     private static Func<RowScope, IO<Unit>> Headed(IO<Seq<Rendering>> selection, Func<RowScope, Rendering, IO<Unit>> act) =>
-        scope => selection.Bind(chosen => chosen.Head.Traverse(rendering => act(scope, rendering)).As()).Map(static _ => unit);
+        scope => selection.Bind(chosen => chosen.Head.Traverse(rendering => act(scope, rendering)).As()).Map(unit);
 
     private static CommandRow.Run Restoring(IO<Seq<Rendering>> selection, RenderingPart part) =>
         part.Map(settings: RowText.Localize("Render Settings").Local, grading: RowText.Localize("Grading").Local) switch {

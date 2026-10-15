@@ -4,8 +4,10 @@ Recordings capture the page between `video-start` and `video-stop` as a VP9 WebM
 
 ## [01]-[RECORDING]
 
-`video-start` records every open page to a file path, without one to `$PLAYWRIGHT_MCP_OUTPUT_DIR/video-<timestamp>.webm`, `video-stop` prints one file per page, a second page as `<name>-1.webm`:
-- `--size=<width>x<height>` sets the frame size, the page scales to fit and gray fills the rest, without it the frame fits 800x800 at the viewport's aspect
+`video-start` records every open page to a file path, without one to `$PLAYWRIGHT_MCP_OUTPUT_DIR/video-<timestamp>.webm`:
+- `video-stop` prints one file per page, a second page as `<name>-1.webm`
+- `--size=<width>x<height>` sets the frame size, the page scales to fit and gray fills the rest
+- Frames without `--size` fit 800x800 at the viewport's aspect
 - `--fps=<rate>` sets the frame rate, 25 without it
 - `--cursor` draws a cursor that moves to each action point and paces actions by 800ms
 - `video-chapter <title>` blocks while the current tab shows a chapter card with `--description` for `--duration` milliseconds, 2000 without it
@@ -25,12 +27,14 @@ playwright cli close
 
 ## [02]-[ACTIONS]
 
-`video-show-actions` decorates each later action with a title naming the action and its locator, a cursor, and when styled a point marker and a target highlight, until `video-hide-actions`:
+`video-show-actions` decorates each later action until `video-hide-actions`:
+- Decorations are a title naming the action and its locator, a cursor, and when styled a point marker and a target highlight
 - `--duration=<ms>` paces actions and fades each decoration over that time, 500 without it
 - `--position` places the title at `top-left`, `top`, `top-right`, `bottom-left`, `bottom`, or `bottom-right`, `top-right` without it
 - `--point-style` sizes and colors the zero-sized marker centered on the action point
 - `--highlight-style` styles the box over the target element, `outline` keeps the box at the element's bounds
 - `--title-style` styles the title, `display: none` keeps the cursor without a title
+- `--cursor none` drops the cursor, `pointer` draws it without the option
 
 ```bash
 playwright cli open https://example.com
@@ -47,9 +51,10 @@ playwright cli close
 
 ## [03]-[SCRIPTS]
 
-Scripted recordings through `run-code --filename` pace typing with `pressSequentially`, wait between steps, and annotate the page through `page.screencast`:
+Scripted recordings through `run-code --filename` pace typing with `pressSequentially`, wait between steps, and annotate through `page.screencast`:
 - `start({ path, size, fps })` begins the recording, `stop()` writes the file
-- `showActions({ cursor, duration, position, style: { point, highlight, title } })` takes the `video-show-actions` options, `cursor: 'none'` drops the cursor, `hideActions()` ends them
+- `showActions({ cursor, duration, position, style: { point, highlight, title } })` takes the `video-show-actions` options, `hideActions()` ends them
+- `cursor: 'none'` drops the cursor
 - `showChapter(title, { description, duration })` blocks while a chapter card shows for its duration, 2000ms without one
 - `showOverlay(html, { duration })` draws HTML over the page for its duration, without one until `dispose()` on the returned value
 - `hideOverlays()` and `showOverlays()` hide and restore every overlay

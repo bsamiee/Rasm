@@ -114,7 +114,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
         except (OSError, msgspec.DecodeError) as error:
-            return Error((BlenderReadFault(request=str(manifest), error=error),))
+            return Error((BlenderReadFault(request=manifest, error=error),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

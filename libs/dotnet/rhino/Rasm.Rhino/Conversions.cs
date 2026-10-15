@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Render;
@@ -189,6 +190,34 @@ public static class Conversions {
 
     public static Swatch Rgb(Color color) => (Swatch)Color.FromArgb(byte.MinValue, color).ToArgb();
 
+    public static string Hex(Swatch swatch) => $"#{(int)swatch:X6}";
+
     [UserMapping]
     public static Color Opaque(Swatch swatch) => Color.FromArgb(byte.MaxValue, Color.FromArgb(swatch));
+
+    [UserMapping]
+    public static double Degrees(NorthAngle north) => north;
+}
+
+internal static class Patches {
+    [UserMapping(Default = true)]
+    public static int Patched(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static double Patched(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static bool Patched(Option<bool> value, [MappingTargetOriginalValue] bool original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Guid Patched(Option<Guid> value, [MappingTargetOriginalValue] Guid original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Color Patched(Option<Color> value, [MappingTargetOriginalValue] Color original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Point3d Patched(Option<Point3d> value, [MappingTargetOriginalValue] Point3d original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Plane Patched(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
 }

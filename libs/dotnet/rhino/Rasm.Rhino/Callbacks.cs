@@ -28,7 +28,7 @@ public static class Callbacks {
         effect.Match(Some: run => Answer(run, failed, site), None: absent);
 
     public static bool Succeeded(IO<Unit> effect, CallbackSite site) =>
-        Answer(effect.Map(static _ => true), static () => false, site);
+        Answer(effect.Map(value: true), static () => false, site);
 
     public static bool Succeeded(Option<IO<Unit>> effect, Func<bool> absent, CallbackSite site) =>
         effect.Match(Some: run => Succeeded(run, site), None: absent);
@@ -50,7 +50,7 @@ public static class Callbacks {
         CapturedOptional(host).Bind(answer => IO.lift(() => answer.ToFin(new Missing(member))));
 
     public static IO<Option<T>> CapturedOptional<T>(Func<Action<Fin<T>>, IO<Unit>> host) =>
-        from answer in IO.lift(static () => Atom(Option<Fin<T>>.None))
+        from answer in atomIO(Option<Fin<T>>.None)
         from _ in host(value => answer.Swap(_ => Some(value)))
         from value in answer.Value.Traverse(static result => IO.lift(() => result)).As()
         select value;
@@ -78,8 +78,10 @@ public static class Callbacks {
         Try.lift(call).Run().BindFail(error => error.HasException<TException>() ? new Refused(member) : error);
 
     // --- [THREADS]
-    public static IO<T> OnUiThread<T>(this IO<T> effect) =>
-        IO.lift(static () => RhinoApp.InvokeRequired).Bind(remote => remote ? effect.Post() : effect);
+    extension<T>(IO<T> effect) {
+        public IO<T> OnUiThread() =>
+            IO.lift(static () => RhinoApp.InvokeRequired).Bind(remote => remote ? effect.Post() : effect);
+    }
 
     // --- [LOOKUPS]
     public static Validation<Error, Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, string member, IEqualityComparer<TKey>? comparer = null) where TKey : notnull =>

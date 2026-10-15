@@ -247,7 +247,7 @@ public static class AgX {
         LutTables.Between(working, LogSpace.AgXLog.Gamut).Map<Action<Span<Vector4>>>(static step => step.Apply)
         + look.Match(
             Some: static chosen => LogSpace.AgXLog.Into.Map<Action<Span<Vector4>>>(static step => step.Apply) + chosen.Steps + LogSpace.AgXLog.Back.Map<Action<Span<Vector4>>>(static step => step.Apply),
-            None: static () => Seq<Action<Span<Vector4>>>())
+            None: Seq<Action<Span<Vector4>>>())
         + Seq(new LutTable.Log(LogSpace.AgXLog.Allocation).Apply);
 
     private static (string Cube, ColorEncoding Signal) Output(Display display) =>

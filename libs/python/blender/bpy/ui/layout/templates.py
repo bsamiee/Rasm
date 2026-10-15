@@ -9,9 +9,10 @@ from msgspec.structs import FieldInfo, fields
 
 from blender.bpy.commands.calls import ShelfPopup
 from blender.bpy.commands.keymaps import Keymap
+from blender.bpy.data.rna.descriptors import Native
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.faults import BlenderResult
-from blender.bpy.ui.layout.rows import Binding, bound, colored, fits, gridded, iconed, Line, located, Owner, realized, refused, Resolved, RowDraw
+from blender.bpy.ui.layout.rows import Binding, bound, colored, fits, gridded, iconed, Line, located, realized, refused, Resolved, RowDraw
 from blender.bpy.ui.resources.icons import Glyph
 from blender.imaging.faults import accumulated
 from blender.imaging.parameters import Choice, Rgb
@@ -113,7 +114,7 @@ class Preview(Line, frozen=True, kw_only=True):
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
         """Acquires the ID binding without creating or writing a preview during drawing."""
 
-        def place(layout: bpy.types.UILayout, owner: Owner, key: str, _context: bpy.types.Context) -> None:
+        def place(layout: bpy.types.UILayout, owner: Native, key: str, _context: bpy.types.Context) -> None:
             match getattr(owner, key):
                 case bpy.types.Material() | bpy.types.Texture() | bpy.types.World() | bpy.types.Light() | bpy.types.FreestyleLineStyle() as shaded:
                     layout.template_preview(shaded, show_buttons=self.show_buttons, parent=self.parent.to_optional(), slot=self.slot.to_optional(), preview_id=self.preview_id)
@@ -151,7 +152,7 @@ class ImageFormat(Line, frozen=True, kw_only=True):
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
         """Acquires the image format pointer and composes its format and views blocks."""
 
-        def place(layout: bpy.types.UILayout, owner: Owner, key: str, context: bpy.types.Context) -> None:
+        def place(layout: bpy.types.UILayout, owner: Native, key: str, context: bpy.types.Context) -> None:
             settings = getattr(owner, key)
             layout.template_image_settings(settings, color_management=self.color_management)
             if Option.of_optional(context.scene).map(lambda scene: scene.render.use_multiview).default_value(False):
@@ -182,7 +183,7 @@ def templated(
     binding: Binding,
     kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]",
     forms: tuple[type[object], ...],
-    place: Callable[[bpy.types.UILayout, Owner, str, bpy.types.Context], None],
+    place: Callable[[bpy.types.UILayout, Native, str, bpy.types.Context], None],
     *,
     split: bool = True,
 ) -> BlenderResult[RowDraw]:

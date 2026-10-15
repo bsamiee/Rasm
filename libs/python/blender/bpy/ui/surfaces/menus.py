@@ -11,7 +11,7 @@ from msgspec import inspect
 
 from blender.bpy.commands.calls import MenuPopup
 from blender.bpy.commands.operators import answered, Outcome, Stock, Unchanged
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.data.rna.descriptors import Descriptor, root_in
 from blender.bpy.data.rna.snapshots import Applied, Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -113,10 +113,10 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                     def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
                         pie = layout.menu_pie()
                         for draw in draws:
-                            match draw.tag:
-                                case "some":
-                                    draw.some(pie.column(), context, context)
-                                case "none":
+                            match draw:
+                                case Option(tag="some", some=row):
+                                    row(pie.column(), context, context)
+                                case _:
                                     pie.separator()
 
                     return shown
@@ -234,14 +234,7 @@ def registered(
         return type(
             name,
             (bpy.types.Menu,),
-            {
-                "bl_idname": name,
-                "bl_label": title,
-                "bl_description": description,
-                "bl_options": {"SEARCH_ON_KEY_PRESS"} if search else set(),
-                "draw": shown,
-                **condition.map(lambda required: {"poll": classmethod(lambda _cls, context: holds(required, context))}).default_value({}),
-            },
+            {"bl_idname": name, "bl_label": title, "bl_description": description, "bl_options": {"SEARCH_ON_KEY_PRESS"} if search else set(), "draw": shown, **polled(condition)},
         )
 
     with ExitStack() as stack:

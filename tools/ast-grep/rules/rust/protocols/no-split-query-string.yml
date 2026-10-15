@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-query-string
+language: rust
+severity: error
+utils:
+    pair-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(split_once|rsplit_once|splitn|split)$'}}
+            - has: {field: arguments, has: {kind: 'char_literal, string_literal', regex: '^[''"]=[''"]$'}}
+    amp-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^split$'}}
+            - has: {field: arguments, has: {nthChild: 1, kind: 'char_literal, string_literal', regex: '^[''"]&[''"]$'}}
+rule:
+    matches: pair-split
+    pattern: $PAIR
+    any:
+        - inside:
+            kind: closure_expression
+            stopBy: {kind: 'closure_expression, function_item'}
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {stopBy: end, matches: amp-split}}}}
+        - inside:
+            kind: for_expression
+            stopBy: {kind: 'closure_expression, function_item'}
+            has: {field: value, any: [{matches: amp-split}, {has: {stopBy: end, matches: amp-split}}]}
+message: '`$PAIR` splits `&`-joined `key=value` pairs by hand'
+note: 'Read query pairs through `url::Url::query_pairs()` or `url::form_urlencoded::parse(<bytes>)`, each percent-decodes keys and values and reads `+` as a space'

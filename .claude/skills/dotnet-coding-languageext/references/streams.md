@@ -39,11 +39,11 @@ Lifted single values emit and complete at once, lifted enumerables emit their el
 
 ## [02]-[REDUCTION]
 
-`Reduce(seed, f)` folds every value into one `IO<S>`, `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`, and `Fold(f, seed)` is a `Source<S>` over a `foldWhile` transducer with a predicate that never fails, no state reaches downstream, `FoldWhile` and `FoldUntil` yield it when their predicate turns:
+`FoldReduce(seed, f)` folds every value into one `IO<S>`, `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`, and `Fold(f, seed)` is a `Source<S>` over a `foldWhile` transducer with a predicate that never fails, no state reaches downstream, `FoldWhile` and `FoldUntil` yield it when their predicate turns:
 
 ```csharp
 internal static class Reductions {
-    public static IO<int> Sum(Source<int> source) => source.Reduce(0, static (total, item) => total + item);
+    public static IO<int> Sum(Source<int> source) => source.FoldReduce(0, static (total, item) => total + item);
     public static IO<int> UntilLimit(Source<int> source, int limit) =>
         source.ReduceIO(0, (total, item) => item == limit ? Reduced.DoneIO(total + item) : Reduced.ContinueIO(total + item));
 }

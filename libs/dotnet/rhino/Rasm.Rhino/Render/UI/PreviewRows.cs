@@ -57,7 +57,7 @@ public sealed class FramePicker(Option<RowSource<ScopeState>> scope) {
                     : held.After)));
             _ = views.Swap(held => (held.After, held.After.AddOrUpdate(serial, new Shown(view, None))));
             return lease;
-        }), static lease => IO.lift(lease.Dispose), retain).Map(static _ => unit);
+        }), static lease => IO.lift(lease.Dispose), retain).Map(unit);
 
     internal IO<Unit> Picked(uint serial, (double X, double Y) pixel) =>
         from swapped in PreviewRows.Swapped(views, held => held.TrySetItem(serial, static shown => shown with { Pending = None }))
@@ -101,7 +101,7 @@ public static partial class PreviewRows {
             from prior in held.ValueIO
             from editing in prior.Shown.Traverse(static shown => shown.Grid.Editing).As()
             from replaced in editing.Contains(true) || prior.Shown.Exists(shown => shown.Input == context)
-                ? prior.Shown.Traverse(shown => shown.Grid.Refresh(keys)).As().Map(static _ => unit)
+                ? prior.Shown.Traverse(shown => shown.Grid.Refresh(keys)).As().Map(unit)
                 : IO.lift(() => Children(read, rows, input)).Bind(children => Replaced(held, panel, prior, context, children, attached, scope))
             select replaced
         from post in Subscriptions.Idle<Unit, Unit>(_ => refresh)(new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Contextual)), retain)
@@ -115,7 +115,7 @@ public static partial class PreviewRows {
     private static Seq<ControlRow> Children(IO<Option<StageInput>> read, Func<Option<StageInput>, Seq<ControlRow>> rows, Option<StageInput> input) =>
         rows(input.Map(value => value with {
             Read = read.Bind(current => current.Filter(next => next.Context == value.Context && next.Pick == value.Pick)
-                .Traverse(static next => next.Read).As()).Map(static frame => frame.Bind(identity)),
+                .Traverse(static next => next.Read).As()).Map(static frame => frame.Flatten()),
         }));
 
     private static IO<Unit> Replaced(
@@ -130,7 +130,7 @@ public static partial class PreviewRows {
                 Control? priorContent = panel.Content;
                 held.Value = (prior.Shown, prior.Releases.Add(release));
                 return DisposalOps.OnFailure(
-                    IO.lift(() => panel.Content = grid).Map(static _ => unit),
+                    IO.lift(() => panel.Content = grid).Map(unit),
                     IO.lift(() => panel.Content = priorContent)
                         .Bind(_ => IO.lift(() => held.Value = prior))
                         .Bind(_ => DisposalOps.Release(Seq(release))))
@@ -143,7 +143,7 @@ public static partial class PreviewRows {
         new ControlRow.Readout(RowShape.Block, (scope, retain) => Tiled(source, scope, retain), caption, help, rules);
 
     private static IO<RowCells> Tiled(TileSource source, RowScope scope, Action<IDisposable> retain) =>
-        from held in IO.lift(static () => Atom((Before: TileState.Initial, After: TileState.Initial)))
+        from held in atomIO((Before: TileState.Initial, After: TileState.Initial))
         from view in DisposalOps.Acquire(IO.lift(() => new ImageView { Tag = held }), value =>
             IO.lift(() => { value.Image = null; value.Dispose(); })
                 .Bind(_ => Swapped(held, static state => state with { Shown = None, Owned = [] }))
@@ -151,7 +151,7 @@ public static partial class PreviewRows {
         let site = new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Tile))
         from down in Subscriptions.Attach(
                     h => view.MouseDown += h, h => view.MouseDown -= h,
-                    Callbacks.Handler<MouseEventArgs>(e => Swapped(held, state => state with { Press = Callbacks.Found(e.Buttons == MouseButtons.Primary, e.Location) }).Map(static _ => unit), site), retain)
+                    Callbacks.Handler<MouseEventArgs>(e => Swapped(held, state => state with { Press = Callbacks.Found(e.Buttons is MouseButtons.Primary, e.Location) }).Map(static _ => unit), site), retain)
         from move in Subscriptions.Attach(
                     h => view.MouseMove += h, h => view.MouseMove -= h,
                     Callbacks.Handler<MouseEventArgs>(e => Dragged(view, source, held, e), site), retain)
@@ -196,7 +196,7 @@ public static partial class PreviewRows {
             (TileState Before, TileState After) = held.Swap(state =>
                 (state.After, state.After with { Owned = state.After.Owned.Add(release) }));
             return DisposalOps.OnFailure(
-                IO.lift(() => view.Image = staged.Icon).Map(static _ => unit),
+                IO.lift(() => view.Image = staged.Icon).Map(unit),
                 IO.lift(() => view.Image = priorImage)
                     .Bind(_ => Swapped(held, state => state with { Owned = Before.Owned }))
                     .Bind(_ => DisposalOps.Release(Seq(release))))
@@ -228,7 +228,7 @@ public static partial class PreviewRows {
 
     private static IO<Unit> Dragged(ImageView view, TileSource source, Atom<(TileState Before, TileState After)> held, MouseEventArgs e) =>
         from swapped in Swapped(held, state => state with {
-            Press = state.Press.Filter(press => e.Buttons != MouseButtons.Primary || PointF.Distance(press, e.Location) <= ComponentControl.DragThreshold),
+            Press = state.Press.Filter(press => e.Buttons is not MouseButtons.Primary || PointF.Distance(press, e.Location) <= ComponentControl.DragThreshold),
         })
         let icon = swapped.Before.Shown.Filter(_ => swapped.Before.Press.IsSome && swapped.After.Press.IsNone).Map(static shown => shown.Icon)
         from file in icon.Traverse(_ => source.File).As()
@@ -276,7 +276,7 @@ public static partial class PreviewRows {
                 edit => Callbacks.Handler<EditEventArgs<FrameEdit>>(
                     args =>
                         from active in current
-                        from taken in when(active && Owned(args.Edit, take), edit.Take(args.Edit, Into(take, lens)).Map(static _ => unit)).As()
+                        from taken in when(active && Owned(args.Edit, take), edit.Take(args.Edit, Into(take, lens)).Map(unit)).As()
                         select taken,
                     site),
                 held => show(held.Filter(shown).Map(record => (@case, value(lens.Get(record))))),
@@ -306,8 +306,8 @@ public static partial class PreviewRows {
         from initial in linked.Read
         from view in DisposalOps.Acquire(IO.lift(() => new FrameView(scope.Sink, initial, linked)), static view => IO.lift(view.Dispose), retain)
         from readout in DisposalOps.Acquire(IO.lift(static () => new Label { Font = HostTheme.Digits(EtoFonts.SmallFont), TextAlignment = TextAlignment.Right }), static label => IO.lift(label.Dispose), retain)
-        from cells in IO.lift(() => Atom(toList(pane.Targets.Map(static _ => Option<(FrameOverlay Case, FrameEdit Value)>.None))))
-        from ticks in IO.lift(static () => Atom((Before: PaneTick.Initial, After: PaneTick.Initial)))
+        from cells in atomIO(toList(pane.Targets.Map(static _ => Option<(FrameOverlay Case, FrameEdit Value)>.None)))
+        from ticks in atomIO((Before: PaneTick.Initial, After: PaneTick.Initial))
         let site = new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Frame))
         from tools in pane.Tools.Choose(row => Realized(row, scope, retain)).TraverseM(static row => row).As()
         from compare in ButtonRows.Split(view.Compare, view.Modes.Map(static mode => (mode.Command, ((IGlyph)mode.Mode.Glyph, IconSlot.PanelButton.Master))), IconSlot.PanelButton, scope.Sink, retain)
@@ -321,8 +321,8 @@ public static partial class PreviewRows {
             handler => view.UnLoad += handler, handler => view.UnLoad -= handler,
             Callbacks.Handler<EventArgs>(_ => Callbacks.Each(
                 IO.lift(sampling.Stop.Dispose).Cons(pane.Link.ToSeq().Map(link =>
-                    link.Pointer.SwapIO(static _ => None).Bind(_ => ticks.SwapIO(static _ => (PaneTick.Initial, PaneTick.Initial))).Map(static _ => unit))))
-                .Map(static _ => unit), site), retain)
+                    writeIO(link.Pointer, None).Bind(_ => writeIO(ticks, (PaneTick.Initial, PaneTick.Initial))).Map(unit))))
+                .Map(unit), site), retain)
         from leading in ButtonRows.Strip(tools.Map(static cell => cell.Value), Seq<Control>(compare, swap), None, retain)
         from trailing in ButtonRows.Strip(actions.Map(static button => (Control)button), [], None, retain)
         from spacing in IO.lift(static () => RhinoLayout.Spacing(RhinoLayout.SpacingType.Table))
@@ -340,7 +340,7 @@ public static partial class PreviewRows {
         }), static body => IO.lift(body.Dispose), retain)
         select new RowCells(
             body, None, None, None, [], [], new RowHelp(None, None),
-            (targets + tools.Map(static cell => cell.Show)).TraverseM(static show => show).As().Map(static _ => unit),
+            (targets + tools.Map(static cell => cell.Show)).TraverseM(static show => show).As().Map(unit),
             None, None);
 
     private static Option<IO<RowCells>> Realized(ControlRow row, RowScope scope, Action<IDisposable> retain) =>
@@ -356,7 +356,7 @@ public static partial class PreviewRows {
         int index, FrameView view, RowScope scope, CallbackSite site, Atom<Lst<Option<(FrameOverlay Case, FrameEdit Value)>>> cells, Action<IDisposable> retain) =>
         target(
             view, scope, site,
-            shown => cells.SwapIO(held => held.SetItem(index, shown)).Map(static _ => unit),
+            shown => cells.SwapIO(held => held.SetItem(index, shown)).Map(unit),
             cells.ValueIO.Map(held => toSeq(held).Map(static (shown, at) => (Shown: shown, At: at)).Find(static cell => cell.Shown.IsSome).Exists(cell => cell.At == index)), retain);
 
     private static IO<Unit> Picking(FramePicker picker, uint serial, FrameView view, CallbackSite site, Action<IDisposable> retain) =>
@@ -386,10 +386,10 @@ public static partial class PreviewRows {
             toSeq(shown).Somes().Head))
         from pointed in when(
             tick.After.Hovered != tick.Before.Hovered,
-            link.Match(Some: held => held.Pointer.SwapIO(_ => tick.After.Hovered).Map(static _ => unit), None: static () => IO.pure(unit))).As()
+            link.Match(Some: held => held.Pointer.SwapIO(_ => tick.After.Hovered).Map(unit), None: static () => IO.pure(unit))).As()
         from zoomed in when(
             tick.After.Zoom != tick.Before.Zoom,
-            IO.lift(() => readout.Text = tick.After.Zoom.Match(Some: static held => ((float)held).ToString("P0", RowText.Culture), None: static () => "")).Map(static _ => unit)).As()
+            IO.lift(() => readout.Text = tick.After.Zoom.Match(Some: static held => ((float)held).ToString("P0", RowText.Culture), None: static () => "")).Map(unit)).As()
         from overlaid in when(
             tick.After.Overlay != tick.Before.Overlay,
             view.Overlay(tick.After.Overlay.Map(static held => held.Case))

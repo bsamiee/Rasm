@@ -39,29 +39,6 @@ utils:
         all:
             - has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$', not: {regex: '\bSchema$'}}}}}
             - has: {field: property, matches: effect-dual-operation}
-    string-receiver:
-        inside:
-            matches: syntax-function-boundary
-            stopBy: {matches: syntax-function-boundary}
-            has:
-                field: parameters
-                has:
-                    kind: required_parameter
-                    all:
-                        - has: {field: pattern, pattern: $A}
-                        - has: {field: type, has: {kind: predefined_type, regex: '^string$'}}
-    string-method:
-        any:
-            - regex: |-
-                (?x)^(startsWith|endsWith|trim|trimStart|trimEnd|toUpperCase|toLowerCase|toLocaleUpperCase|toLocaleLowerCase
-                |substring|replace|replaceAll|repeat|padStart|padEnd|normalize|matchAll)$
-            - regex: '^(slice|includes)$'
-              matches: string-receiver
-    dual-string-method:
-        any:
-            - regex: '^split$'
-            - regex: '^concat$'
-              matches: string-receiver
     parameter-1: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $A}}
     parameter-2: {kind: required_parameter, nthChild: 2, has: {field: pattern, kind: identifier, pattern: $B}}
     parameter-3: {kind: required_parameter, nthChild: 3, has: {field: pattern, kind: identifier, pattern: $C}}
@@ -86,20 +63,11 @@ utils:
               all:
                 - has: {field: function, matches: named-callee}
                 - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: inner-callee}}}
-            - kind: member_expression
-              not: {has: {kind: optional_chain}}
-              all: [{has: {field: object, kind: identifier, pattern: $A}}, {has: {field: property, kind: property_identifier}}]
             - kind: identifier
               pattern: $A
             - pattern: '$M.$OP($A, $$$REST)'
               has: {field: function, matches: dual-operation}
               not: {has: {field: arguments, has: {not: {nthChild: 1}, matches: parameter-read}}}
-            - pattern: $A.$METHOD($$$REST)
-              has: {field: function, has: {field: property, matches: string-method}}
-              not: {has: {field: arguments, has: {any: [{matches: parameter-read}, {matches: syntax-function-boundary}]}}}
-            - pattern: $A.$METHOD($_)
-              has: {field: function, has: {field: property, matches: dual-string-method}}
-              not: {has: {field: arguments, has: {matches: parameter-read}}}
     forwarded-2:
         all: [{pattern: $BODY}, {pattern: '$F($A, $B)'}, {has: {field: function, matches: named-callee}}]
     forwarded-3:
@@ -129,4 +97,4 @@ rule:
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
 message: 'Function forwards its parameters unchanged into `$BODY`'
-note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, data-last `<Module>.<operation>(<arguments>)`, `String.<method>(<arguments>)` for a string, `Struct.get(<key>)`, or `Function.identity` in place of the wrapper when `<callee>` takes no more arguments than its caller passes'
+note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, data-last `<Module>.<operation>(<arguments>)`, or `Function.identity` in place of the wrapper when `<callee>` takes no more arguments than its caller passes'

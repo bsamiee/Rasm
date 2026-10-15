@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-text-currency-code
+language: rust
+severity: error
+utils:
+    currency-name:
+        regex: '(?i)(^|_)currency(_code)?$'
+    text:
+        any:
+            - {kind: type_identifier, regex: '^String$'}
+            - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}
+rule:
+    kind: 'field_declaration, parameter, let_declaration'
+    pattern: $DECLARATION
+    all:
+        - any: [{has: {field: name, matches: currency-name}}, {has: {field: pattern, kind: identifier, matches: currency-name}}]
+        - has: {field: type, any: [{matches: text}, {kind: generic_type, has: {field: type_arguments, has: {matches: text}}}]}
+        - not: {inside: {kind: parameters, inside: {matches: rust-fixed-signature}}}
+        - not: {matches: rust-text-decoder}
+message: '`$DECLARATION` holds an ISO 4217 currency code as text'
+note: 'Type the code as `iso_currency::Currency`, `Currency::from_code`, `FromStr`, and the serde impls validate it once at the boundary. `exponent`, `name`, and `symbol` read currency data. Serde writes the same three-letter code on the wire'

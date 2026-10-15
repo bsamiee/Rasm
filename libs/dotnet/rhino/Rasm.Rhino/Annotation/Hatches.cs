@@ -52,29 +52,18 @@ public sealed record HatchDisplay(Seq<Curve> Bounds, Seq<Line> Lines, Option<Bre
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
+[UseStaticMapper(typeof(Patches))]
 internal static partial class HatchMapper {
     // --- [EDITS]
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     internal static partial void Update((Option<int> PatternIndex, Option<double> PatternRotation, Option<double> PatternScale, Option<Point3d> BasePoint, Option<Plane> Plane) edit, Hatch hatch);
-
-    [UserMapping(Default = true)]
-    private static int Index(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static double Scalar(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static Point3d Point(Option<Point3d> value, [MappingTargetOriginalValue] Point3d original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static Plane Frame(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
 
     // --- [READS]
     [MapPropertyFromSource(nameof(HatchState.Gradient), Use = nameof(Gradient))]
     internal static partial HatchState ToState(Hatch hatch, HatchScale patternScale);
 
     private static Option<ColorGradient> Gradient(Hatch hatch) =>
-        Some(hatch.GetGradientFill()).Filter(static fill => fill.GradientType != GradientType.None);
+        Some(hatch.GetGradientFill()).Filter(static fill => fill.GradientType is not GradientType.None);
 }
 
 public static class Hatches {
@@ -96,7 +85,7 @@ public static class Hatches {
 
     // --- [EDITS]
     public static IO<Unit> Revise(RhinoDoc doc, Guid id, Seq<HatchEdit> edits) =>
-        RhinoObjects.ReplaceGeometry(doc, id, (Hatch copy) => edits.TraverseM(edit => edit.Apply(doc, copy)).As().Map(static _ => unit));
+        RhinoObjects.ReplaceGeometry(doc, id, (Hatch copy) => edits.TraverseM(edit => edit.Apply(doc, copy)).As().Map(unit));
 
     // --- [READS]
     public static IO<HatchState> State(Hatch hatch) =>

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-arity-overload
+language: swiftlang
+utils:
+    last-type-parameter:
+        kind: type_parameter
+        nthChild: {position: 1, reverse: true, ofRule: {kind: type_parameter}}
+    last-parameter:
+        kind: parameter
+        nthChild: {position: 1, reverse: true, ofRule: {kind: parameter}}
+    arity-shape:
+        all:
+            - has: {kind: type_parameters, not: {has: {kind: type_parameter, regex: '^(each|let)\b'}}}
+            - not: {has: {kind: parameter, not: {has: {kind: user_type, regex: '^[A-Z]\w*$'}}}}
+    arity-sibling:
+        kind: 'function_declaration, init_declaration'
+        all:
+            - has: {field: name, pattern: $$NAME}
+            - matches: arity-shape
+            - has: {kind: type_parameters, has: {matches: last-type-parameter, has: {nthChild: 1, pattern: $OTHER, not: {pattern: $LAST}}}}
+            - has: {matches: last-parameter, has: {kind: user_type, has: {kind: type_identifier, pattern: $OTHER}}}
+rule:
+    kind: 'function_declaration, init_declaration'
+    all:
+        - has: {field: name, pattern: $$NAME}
+        - matches: arity-shape
+        - has: {kind: type_parameters, has: {matches: last-type-parameter, has: {nthChild: 1, pattern: $LAST}}}
+        - has: {matches: last-parameter, has: {kind: user_type, has: {kind: type_identifier, pattern: $LAST}}}
+        - any:
+            - follows: {stopBy: end, matches: arity-sibling}
+            - precedes: {stopBy: end, matches: arity-sibling}

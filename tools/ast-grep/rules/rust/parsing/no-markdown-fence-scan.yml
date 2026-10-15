@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-markdown-fence-scan
+language: rust
+severity: error
+rule:
+    kind: 'call_expression, binary_expression, string_literal'
+    pattern: $SCAN
+    matches: rust-markdown-fence-scan
+message: '`$SCAN` finds Markdown code fences by line text'
+note: 'Parse with `comrak::parse_document(&comrak::Arena::new(), text, &comrak::Options::default())` and read language and body from `info` and `literal` of each `comrak::nodes::NodeValue::CodeBlock` node, a line test or a match arm misreads indented, nested, and longer fences'

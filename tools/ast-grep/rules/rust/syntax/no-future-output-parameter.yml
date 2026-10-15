@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-future-output-parameter
+language: rust
+severity: error
+utils:
+    future-only:
+        kind: trait_bounds
+        all:
+            - has:
+                nthChild: 1
+                kind: generic_type
+                all:
+                    - has: {field: type, regex: '^((::)?(std|core)::future::)?Future$'}
+                    - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_binding, has: {field: name, regex: '^Output$'}}}, {not: {has: {nthChild: 2}}}]}
+            - not: {has: {nthChild: 2}}
+    exempt-site:
+        any:
+            - inside: {kind: function_type, field: return_type, has: {field: trait, regex: '^(Fn|FnMut|FnOnce)$'}}
+            - inside: {kind: where_predicate, field: left, has: {field: bounds, matches: future-only}}
+            - inside: {kind: type_parameter, field: name, any: [{not: {has: {field: bounds, pattern: $_}}}, {has: {field: bounds, matches: future-only}}]}
+rule:
+    kind: 'where_predicate, type_parameter'
+    all:
+        - has: {field: bounds, matches: future-only, pattern: $BOUND}
+        - any:
+            - has: {field: left, kind: type_identifier, pattern: $FUT}
+            - has: {field: name, kind: type_identifier, pattern: $FUT}
+        - inside:
+            stopBy: end
+            kind: function_item
+            all:
+                - has: {stopBy: end, kind: function_type, all: [{has: {field: trait, regex: '^(Fn|FnMut|FnOnce)$'}}, {has: {field: return_type, pattern: $FUT}}]}
+                - not: {has: {stopBy: end, kind: type_identifier, pattern: $FUT, not: {matches: exempt-site}}}
+message: '`$FUT` names the future a closure bound returns'
+note: 'Bound the closure as `AsyncFn(<arguments>) -> <output>` (`AsyncFnMut`, `AsyncFnOnce`) and drop the future parameter. A future with another bound (`Send`, `''static`) stays as written'

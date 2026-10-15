@@ -79,6 +79,8 @@ public abstract partial record PlotPlane {
     public abstract (float First, float Second) Value(PointF point);
 
     public sealed record Cartesian(RectangleF Plot, Axis X, Axis Y) : PlotPlane(Plot) {
+        public static Cartesian Unit(RectangleF plot) => new(plot, new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
+
         public override PointF Point(float first, float second) =>
             new(Plot.Left + (X.Unit(first) * Plot.Width), Plot.Bottom - (Y.Unit(second) * Plot.Height));
 
@@ -142,6 +144,7 @@ public abstract partial record MarkStyle {
     public static MarkStyle Label { get; } = new Fill(PaintSlot.ControlText, 0.7f);
     public static MarkStyle Selection { get; } = new Fill(PaintSlot.Highlight, 0.39f);
     public static MarkStyle Ring { get; } = new Stroke(PaintSlot.ControlText, 0.7f, 1f);
+    public static MarkStyle Lifted { get; } = new Stroke(PaintSlot.ControlText, 1f, 1f);
 
     public sealed record Fill(MarkColor Paint, float Alpha) : MarkStyle(Paint, Alpha);
     public sealed record Stroke(MarkColor Paint, float Alpha, float Width) : MarkStyle(Paint, Alpha);
@@ -236,25 +239,25 @@ public sealed partial class LabelSide {
     public Orientation Along { get; }
     public bool Far { get; }
 
-    public float Position(PointF point) => Along == Orientation.Horizontal ? point.X : point.Y;
-    public float Span(SizeF size) => Along == Orientation.Horizontal ? size.Width : size.Height;
+    public float Position(PointF point) => Along is Orientation.Horizontal ? point.X : point.Y;
+    public float Span(SizeF size) => Along is Orientation.Horizontal ? size.Width : size.Height;
 
     public PointF Tick(PlotPlane.Cartesian plane, float value) =>
         (plane.Point(value, value), Edge(plane.Plot)) switch {
-            var (at, edge) => Along == Orientation.Horizontal ? new(at.X, edge) : new(edge, at.Y),
+            var (at, edge) => Along is Orientation.Horizontal ? new(at.X, edge) : new(edge, at.Y),
         };
 
     public RectangleF Box(RectangleF plot, PointF tick, SizeF size) =>
         Position(tick) switch {
             var place => (place - ((place - Position(plot.Location)) / Span(plot.Size) * Span(size)), Edge(plot) - (Far ? Cross(size) : 0f)) switch {
-                var (along, across) => Along == Orientation.Horizontal ? new(along, across, size.Width, size.Height) : new(across, along, size.Width, size.Height),
+                var (along, across) => Along is Orientation.Horizontal ? new(along, across, size.Width, size.Height) : new(across, along, size.Width, size.Height),
             },
         };
 
-    private float Cross(SizeF size) => Along == Orientation.Horizontal ? size.Height : size.Width;
+    private float Cross(SizeF size) => Along is Orientation.Horizontal ? size.Height : size.Width;
 
     private float Edge(RectangleF plot) =>
-        Along == Orientation.Horizontal ? (Far ? plot.Bottom : plot.Top) : (Far ? plot.Right : plot.Left);
+        Along is Orientation.Horizontal ? (Far ? plot.Bottom : plot.Top) : (Far ? plot.Right : plot.Left);
 }
 
 public sealed record PlotCanvas {
@@ -284,14 +287,14 @@ public static class Plots {
 
     public static Option<float> Nice(float least) =>
         float.IsFinite(least) && least > 0f
-            ? MathF.Pow(10f, MathF.Floor(MathF.Log10(least))) switch {
+            ? float.Exp10(MathF.Floor(MathF.Log10(least))) switch {
                 var decade => Seq(1f, 2f, 5f, 10f).Map(step => step * decade).Find(step => step >= least),
             }
             : None;
 
     public static Seq<MarkShape> Rules(PlotPlane.Cartesian plane, Orientation across, Seq<float> values) =>
         values.Map(MarkShape (value) => plane.Point(value, value) switch {
-            var at when across == Orientation.Vertical => new MarkShape.Rule(new(at.X, plane.Plot.Top), new(at.X, plane.Plot.Bottom)),
+            var at when across is Orientation.Vertical => new MarkShape.Rule(new(at.X, plane.Plot.Top), new(at.X, plane.Plot.Bottom)),
             var at => new MarkShape.Rule(new(plane.Plot.Left, at.Y), new(plane.Plot.Right, at.Y)),
         });
 
@@ -299,7 +302,7 @@ public static class Plots {
         new MarkShape.Polyline([.. Columns(plane, scale, function)]);
 
     public static MarkShape Area(PlotPlane.Cartesian plane, float scale, Func<float, float> function) =>
-        new MarkShape.Polygon([.. Columns(plane, scale, function), new(plane.Plot.Right, plane.Plot.Bottom), new(plane.Plot.Left, plane.Plot.Bottom)]);
+        new MarkShape.Polygon([.. Columns(plane, scale, function), plane.Plot.BottomRight, plane.Plot.BottomLeft]);
 
     private static Seq<PointF> Columns(PlotPlane.Cartesian plane, float scale, Func<float, float> function) =>
         toSeq(Range(0, (int)MathF.Ceiling(plane.Plot.Width * scale)))
@@ -387,7 +390,7 @@ public static class Plots {
     private static Seq<(PointF Tick, SizeF Size, string Text)> Shown(LabelSide side, Seq<(PointF Tick, SizeF Size, string Text)> labels) =>
         toSeq(Range(1, labels.Count))
             .Filter(stride => stride < labels.Count && Nice(stride).Exists(step => step == stride))
-            .Map(stride => labels.Map(static (label, index) => (Label: label, Index: index)).Filter(held => held.Index % stride == 0).Map(static held => held.Label))
+            .Map(stride => labels.Map(static (label, index) => (Label: label, Index: index)).Filter(held => held.Index % stride is 0).Map(static held => held.Label))
             .Find(kept => kept.Zip(kept.Tail).ForAll(pair =>
                 MathF.Abs(side.Position(pair.Second.Tick) - side.Position(pair.First.Tick)) >= (side.Span(pair.First.Size) + side.Span(pair.Second.Size)) / 2f))
             .IfNone(() => labels.Take(1));

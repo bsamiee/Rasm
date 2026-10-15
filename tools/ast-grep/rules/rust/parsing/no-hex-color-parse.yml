@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hex-color-parse
+language: rust
+severity: error
+utils:
+    hex-radix:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '::from_str_radix$'}
+            - has: {field: arguments, has: {nthChild: 2, regex: '^16$'}}
+            - has: {field: arguments, has: {nthChild: 1, any: [{pattern: $HEX}, {has: {stopBy: end, pattern: $HEX}}]}}
+rule:
+    kind: call_expression
+    pattern: $STRIP
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(strip_prefix|trim_start_matches)$'}}
+        - has: {field: arguments, has: {nthChild: 1, regex: '^(''#''|"#")$'}, not: {has: {nthChild: 2}}}
+        - inside:
+            kind: 'let_declaration, let_condition'
+            stopBy: {kind: 'let_declaration, let_condition, block, function_item'}
+            has: {field: pattern, any: [{kind: identifier, pattern: $HEX}, {has: {stopBy: end, kind: identifier, pattern: $HEX, not: {regex: '^(Some|Ok)$'}}}]}
+        - inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has: {field: body, has: {stopBy: {kind: function_item}, matches: hex-radix}}
+message: '`$STRIP` strips `#` from a hex color that `from_str_radix` decodes by hand'
+note: 'Call `color::parse_color(text)?` to read a `color::DynamicColor` from every CSS form (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, named, functional), and convert with `.to_alpha_color::<color::Srgb>()` and `.to_rgba8()` where channels are needed'

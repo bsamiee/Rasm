@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-this-parameter
+language: csharp
+severity: error
+rule:
+    kind: parameter
+    pattern: $RECEIVER
+    has: {kind: modifier, regex: '^this$'}
+message: '`$RECEIVER` declares an extension method through a `this` parameter'
+note: 'Declare the member inside one `extension(<receiver>)` block per receiver, type parameters and constraints the receiver names move onto the block, the call form stays'

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-earth-radius-literal
+language: rust
+severity: error
+rule:
+    kind: float_literal
+    pattern: $RADIUS
+    matches: rust-earth-radius
+message: '`$RADIUS` restates an Earth radius or ellipsoid constant'
+note: 'Measure through `geo::Distance`, `geo::Haversine.distance(a, b)` on the GRS80 mean sphere or `geo::Geodesic.distance(a, b)` on the WGS84 ellipsoid, and project through `proj::Proj`'

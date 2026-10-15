@@ -36,7 +36,7 @@ from blender.bpy.render.outputs.formats import Kind, OutputFormat
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.paths import Pathed
 from blender.bpy.render.sessions import execution
-from blender.bpy.render.view_layers.passes import synced
+from blender.bpy.render.view_layers.passes import ItemKind, synced
 from blender.bpy.scene.cameras import framed
 from blender.bpy.scene.worlds import Backdrop, Environment, FlatColor, Hdri, studio, studios, swapped, world_graph, WorldEnvironment
 from blender.imaging.chain import Effect
@@ -552,12 +552,12 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         files: list[Path] = []
 
         def removed() -> BlenderResult[None]:
-            return accumulated(catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(file), error=error),)) for file in files).map(
+            return accumulated(catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=file, error=error),)) for file in files).map(
                 lambda _: None
             )
 
         def declared(scene: bpy.types.Scene, value: Option[str]) -> BlenderResult[dict[str, Path]]:
-            sources: tuple[tuple[str, Literal["RGBA", "FLOAT"], End], ...] = (
+            sources: tuple[tuple[str, ItemKind, End], ...] = (
                 ("image", "RGBA", End(node="raster", socket="Color")),
                 *(("value", "FLOAT", End(node="passes", socket=name)) for name in value.to_list()),
                 *(("coverage", "FLOAT", End(node="passes", socket="Alpha")) for _ in value.to_list()),

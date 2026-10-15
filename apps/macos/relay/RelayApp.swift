@@ -1,7 +1,8 @@
 import AppKit
-import OSLog
 import Observation
+import RasmMacOS
 import SwiftUI
+import os
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -48,18 +49,16 @@ struct RelayApp: App {
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var store: AccountStore?
     @ObservationIgnored private var launch: Task<Void, Never>?
-    @ObservationIgnored private let logger: Logger = Logger(subsystem: "app.rasm.relay", category: "Launch")
 
     func applicationDidFinishLaunching(_: Notification) {
         launch = Task(name: "Launch Relay") { [self] in
-            let process: [String: String] = ProcessInfo.processInfo.environment
             let environment: [String: String]
-            switch await LoginShell.exports(over: process) {
+            switch await LoginShell.environment() {
                 case .success(let exported): environment = exported
                 case .failure(.run(.cancelled)): return
                 case .failure(let error):
-                    logger.error("Login shell exports: \(String(describing: error), privacy: .public)")
-                    environment = process
+                    Logger(subsystem: Bundle.identity, category: "Launch").error("Login shell environment: \(String(describing: error), privacy: .public)")
+                    environment = LoginShell.initialEnvironment
             }
             let launched: AccountStore = AccountStore(environment: environment)
             store = launched

@@ -1,209 +1,330 @@
-use std::{error::Error, io, net::Ipv4Addr, num::NonZero, sync::Arc};
+#![feature(error_reporter)]
 
-use axum::{Router, body::Body, http::Request};
-use nonempty_collections::NEVec;
+use core::{error::Error, future::Future, net::SocketAddr, pin::pin};
+use std::{backtrace::Backtrace, borrow::Cow, collections::HashMap, error::Report, io, process::ExitCode, sync::{Arc, LazyLock}};
+
+use axum::{
+    Router,
+    body::Body,
+    extract::Request,
+    http::{Method, request::Parts},
+    middleware::{self, Next},
+};
+use clap::{Args, CommandFactory as _, FromArgMatches as _, Parser, error::ErrorKind};
+use futures::{FutureExt as _, Stream, StreamExt as _, TryStreamExt as _, future, stream};
+use opentelemetry::{KeyValue, global, metrics::Histogram, propagation::TextMapPropagator as _, trace::TracerProvider as _};
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
+use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, OTEL_EXPORTER_OTLP_ENDPOINT, SpanExporter, WithExportConfig as _};
+use opentelemetry_sdk::{error::OTelSdkError, logs::SdkLoggerProvider, metrics::SdkMeterProvider, propagation::TraceContextPropagator, trace::SdkTracerProvider};
+use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE, SERVICE_NAME, SERVICE_VERSION};
 use rmcp::{
-    ClientCacheConfig, ClientHandler, ClientLifecycleMode, ErrorData, Peer, RoleClient, ServerHandler, Service, ServiceError,
-    model::{ClientConfig, ClientResult, GetExtensions as _, ProtocolVersion, ServerNotification, ServerPeerInfo, ServerRequest, SubscriptionFilter},
-    service::{ClientInitializeError, DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY, NotificationContext, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
+    ErrorData, Peer, RoleServer, ServerHandler,
+    model::{
+        ConstString as _, Implementation, PromptListChangedNotification, ProtocolVersion, ResourceListChangedNotification, ServerNotification, SubscriptionsListenRequestMethod,
+        ToolListChangedNotification,
+    },
+    service::{RequestContext, SubscriptionContext, SubscriptionSendError},
     transport::{
-        IntoTransport, StreamableHttpServerConfig, StreamableHttpService,
-        common::http_header::{HEADER_MCP_METHOD, HEADER_MCP_PROTOCOL_VERSION},
-        streamable_http_server::session::local::LocalSessionManager,
+        common::http_header::{HEADER_MCP_METHOD, HEADER_SESSION_ID},
+        streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager},
     },
 };
-#[cfg(unix)]
-use tokio::signal::unix::{SignalKind, signal};
-#[cfg(windows)]
-use tokio::signal::windows::{ctrl_c, ctrl_close};
-use tokio::{net::TcpListener, sync::broadcast};
-use tokio_util::{
-    sync::CancellationToken,
-    task::{AbortOnDropHandle, TaskTracker},
+use tokio::{
+    net::TcpListener,
+    signal::unix::{SignalKind, signal},
+    sync::watch,
+    time::Instant,
 };
-use tower_http::trace::TraceLayer;
-use tracing_subscriber::{
-    EnvFilter,
-    filter::{FromEnvError, LevelFilter},
-    fmt,
-    layer::SubscriberExt as _,
-    util::{SubscriberInitExt as _, TryInitError},
-};
+use tokio_stream::wrappers::WatchStream;
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tracing::{Instrument as _, field::Empty};
+use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
+use tracing_subscriber::{EnvFilter, filter::Directive, fmt::time::SystemTime, layer::SubscriberExt as _, util::SubscriberInitExt as _};
+use url::Url;
 use validated::Validated;
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+pub trait Endpoint: Send + Sync + Sized + 'static {
+    type Error: Error + Send + Sync + 'static;
+
+    fn session(&self, stopping: &CancellationToken) -> impl ServerHandler + use<Self>;
+
+    fn serve(self: Arc<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send {
+        async move {
+            stopping.cancelled().await;
+            Ok(())
+        }
+    }
+}
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+pub const PROTOCOL_VERSIONS: &[ProtocolVersion] = &[ProtocolVersion::V_2025_06_18, ProtocolVersion::V_2025_11_25, ProtocolVersion::V_2026_07_28];
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Args, Clone, Debug)]
+struct Options {
+    #[arg(long, env = "MCP_LISTEN", help = "Socket address the Streamable HTTP endpoint binds")]
+    listen: SocketAddr,
+    #[arg(
+        long = "log",
+        env = EnvFilter::DEFAULT_ENV,
+        value_delimiter = ',',
+        default_values = ["info", "rmcp=warn", "rmcp::service=error", "opentelemetry=warn"],
+        help = "Tracing filter directives"
+    )]
+    filter: Vec<Directive>,
+    #[arg(long = "otlp-endpoint", env = OTEL_EXPORTER_OTLP_ENDPOINT, help = "OTLP/HTTP base endpoint receiving traces, metrics, and logs, absent for no export")]
+    export: Option<Url>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Target<'name> {
+    Tool(&'name str),
+    Prompt(&'name str),
+    Resource(&'name str),
+}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error)]
-pub enum ClientError {
-    #[error("MCP lifecycle failed")]
-    Lifecycle(#[source] Box<ClientInitializeError>),
-    #[error("cannot subscribe to server notifications")]
-    Subscribe(#[source] ServiceError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum HostError {
+enum Failed<S, X> {
+    #[error("cannot build the OTLP exporters")]
+    Export(#[source] ExporterBuildError),
+    #[error("cannot flush telemetry")]
+    Flush(#[source] OTelSdkError),
+    #[error("cannot start the async runtime")]
+    Runtime(#[source] io::Error),
     #[error("cannot listen for shutdown signals")]
-    Signal(NEVec<io::Error>),
-    #[error("cannot bind {}:{port}", Ipv4Addr::LOCALHOST)]
-    Bind { port: NonZero<u16>, source: io::Error },
+    Signal(#[source] io::Error),
+    #[error("cannot bind {0}")]
+    Bind(SocketAddr, #[source] io::Error),
+    #[error("cannot start the endpoint")]
+    Start(#[source] S),
+    #[error("endpoint ended")]
+    Ended(#[source] X),
     #[error("HTTP server failed")]
     Serve(#[source] io::Error),
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum TelemetryError {
-    #[error("{} holds an invalid filter", EnvFilter::DEFAULT_ENV)]
-    Filter(#[from] FromEnvError),
-    #[error("cannot install the global tracing subscriber")]
-    Install(#[from] TryInitError),
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-struct Handler<H> {
-    inner: H,
-    notifications: broadcast::Sender<ServerNotification>,
-}
-
-impl<H: ClientHandler> Service<RoleClient> for Handler<H> {
-    fn handle_request(&self, request: ServerRequest, context: RequestContext<RoleClient>) -> impl Future<Output = Result<ClientResult, ErrorData>> + Send + '_ {
-        self.inner.handle_request(request, context)
-    }
-
-    fn handle_notification(&self, notification: ServerNotification, context: NotificationContext<RoleClient>) -> impl Future<Output = Result<(), ErrorData>> + Send + '_ {
-        let mut published = notification.clone();
-        *published.extensions_mut() = context.extensions.clone();
-        publish(&self.notifications, published);
-        self.inner.handle_notification(notification, context)
-    }
-
-    fn get_info(&self) -> ClientConfig { ClientHandler::get_info(&self.inner) }
-}
-
-#[derive(Clone, Debug)]
-pub struct Client {
-    peer: Peer<RoleClient>,
-    info: Arc<ServerPeerInfo>,
-    notifications: broadcast::Sender<ServerNotification>,
-    _waiting: Arc<AbortOnDropHandle<()>>,
-    tracker: TaskTracker,
-    stop: CancellationToken,
-}
-
-impl Client {
-    // --- [LIFECYCLE]
-    pub async fn connect<H, T, E, A>(handler: H, transport: T, cache: ClientCacheConfig) -> Result<Self, ClientError>
-    where
-        H: ClientHandler,
-        T: IntoTransport<RoleClient, E, A>,
-        E: Error + Send + Sync + 'static,
-    {
-        let notifications = broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY);
-        let stop = CancellationToken::new();
-        let lifecycle = ClientLifecycleMode::Auto { preferred_versions: ProtocolVersion::KNOWN_VERSIONS.iter().rev().cloned().collect(), legacy_version: None };
-        let service = serve_client_with_lifecycle_and_ct(Handler { inner: handler, notifications: notifications.clone() }, transport, lifecycle, stop.clone())
-            .await
-            .map_err(|error| ClientError::Lifecycle(Box::new(error)))?;
-        let peer = service.peer().clone();
-        let info = peer.peer_info().ok_or_else(|| ClientError::Lifecycle(Box::new(ClientInitializeError::ExpectedInitResult(None))))?;
-        peer.set_response_cache_config(cache).await;
-        let tracker = TaskTracker::new();
-        let waiting = AbortOnDropHandle::new(tracker.spawn(async move {
-            if let Err(error) = service.waiting().await {
-                tracing::error!(%error, "session task failed");
-            }
-        }));
-        tracker.close();
-        Ok(Self { peer, info, notifications, _waiting: Arc::new(waiting), tracker, stop })
-    }
-
-    pub async fn ended(&self) { self.tracker.wait().await; }
-
-    pub async fn stop(&self) {
-        self.stop.cancel();
-        self.ended().await;
-    }
-
-    // --- [READS]
-    #[must_use]
-    pub const fn peer(&self) -> &Peer<RoleClient> { &self.peer }
-
-    #[must_use]
-    pub fn info(&self) -> &ServerPeerInfo { &self.info }
-
-    #[must_use]
-    pub fn notifications(&self) -> broadcast::Receiver<ServerNotification> { self.notifications.subscribe() }
-
-    // --- [SUBSCRIPTIONS]
-    pub async fn subscribe(&self, filter: SubscriptionFilter) -> Result<AbortOnDropHandle<()>, ClientError> {
-        let mut subscription = self.peer.listen(filter).await.map_err(ClientError::Subscribe)?;
-        let (peer, notifications) = (self.peer.clone(), self.notifications.clone());
-        Ok(AbortOnDropHandle::new(tokio::spawn(async move {
-            loop {
-                match (subscription.next().await, subscription.end()) {
-                    (Ok(Some(notification)), _) => publish(&notifications, notification),
-                    (Ok(None), Some(SubscriptionEnd::Lagged { capacity: _ })) => match peer.listen(subscription.acknowledged().clone()).await {
-                        Ok(reopened) => subscription = reopened,
-                        Err(error) => break tracing::warn!(%error, "subscription reopen failed"),
-                    },
-                    (Ok(None), end) => break tracing::debug!(?end, "subscription ended"),
-                    (Err(error), _) => break tracing::warn!(%error, "subscription failed"),
-                }
-            }
-        })))
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn publish(notifications: &broadcast::Sender<ServerNotification>, notification: ServerNotification) {
-    let receivers = notifications.send(notification).unwrap_or_default();
-    tracing::trace!(receivers, "notification published");
+pub async fn observe<T, F, C>(method: &str, target: Option<Target<'_>>, context: &RequestContext<RoleServer>, failed: C, call: F) -> Result<T, ErrorData>
+where
+    F: Future<Output = Result<T, ErrorData>>,
+    C: FnOnce(&T) -> bool,
+{
+    static DURATION: LazyLock<Histogram<f64>> = LazyLock::new(|| global::meter(env!("CARGO_PKG_NAME")).f64_histogram("mcp.server.operation.duration").with_unit("s").build());
+    let (tool, prompt, resource) = match target {
+        Some(Target::Tool(name)) => (Some(name), None, None),
+        Some(Target::Prompt(name)) => (None, Some(name), None),
+        Some(Target::Resource(uri)) => (None, None, Some(uri)),
+        None => (None, None, None),
+    };
+    let span = tracing::info_span!(
+        "request",
+        otel.name = tool.or(prompt).or(resource).map_or_else(|| method.to_owned(), |name| format!("{method} {name}")),
+        otel.kind = "server",
+        mcp.method.name = method,
+        gen_ai.tool.name = tool,
+        gen_ai.prompt.name = prompt,
+        mcp.resource.uri = resource,
+        mcp.protocol.version = context.protocol_version().as_ref().map(ProtocolVersion::as_str),
+        mcp.session.id = context.extensions.get::<Parts>().and_then(|parts| parts.headers.get(HEADER_SESSION_ID)).and_then(|value| value.to_str().ok()),
+        { JSONRPC_REQUEST_ID } = %context.id,
+        { ERROR_TYPE } = Empty,
+        { RPC_RESPONSE_STATUS_CODE } = Empty,
+    );
+    if let Some(parent) = context.meta.get_traceparent() {
+        let carrier = [("traceparent", Some(parent)), ("tracestate", context.meta.get_tracestate())]
+            .into_iter()
+            .filter_map(|(key, value)| value.map(|value| (key.to_owned(), value.to_owned())))
+            .collect::<HashMap<_, _>>();
+        match span.set_parent(TraceContextPropagator::new().extract(&carrier)) {
+            Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted) => {}
+        }
+    }
+    let started = Instant::now();
+    let result = call.instrument(span.clone()).await;
+    let elapsed = started.elapsed().as_secs_f64();
+    let error_type = match &result {
+        Ok(value) => failed(value).then_some(Cow::Borrowed("tool_error")),
+        Err(error) => Some(Cow::Owned(error.code.0.to_string())),
+    };
+    span.in_scope(|| {
+        error_type.iter().for_each(|kind| {
+            span.record(ERROR_TYPE, kind.as_ref());
+        });
+        match &result {
+            Ok(_) => tracing::info!(elapsed, "request completed"),
+            Err(error) => {
+                span.record(RPC_RESPONSE_STATUS_CODE, error.code.0);
+                tracing::warn!(elapsed, { EXCEPTION_MESSAGE } = %error.message, "request failed");
+            }
+        }
+    });
+    DURATION.record(elapsed, &[KeyValue::new("mcp.method.name", method.to_owned())].into_iter().chain(error_type.map(|kind| KeyValue::new(ERROR_TYPE, kind))).collect::<Vec<_>>());
+    result
+}
+
+pub fn changes<T, P, R>(tools: watch::Receiver<T>, prompts: watch::Receiver<P>, resources: watch::Receiver<R>) -> impl Stream<Item = ServerNotification> + Send + 'static
+where
+    T: Clone + Send + Sync + 'static,
+    P: Clone + Send + Sync + 'static,
+    R: Clone + Send + Sync + 'static,
+{
+    stream::select(
+        WatchStream::from_changes(tools).map(|_| ServerNotification::ToolListChangedNotification(ToolListChangedNotification::default())),
+        stream::select(
+            WatchStream::from_changes(prompts).map(|_| ServerNotification::PromptListChangedNotification(PromptListChangedNotification::default())),
+            WatchStream::from_changes(resources).map(|_| ServerNotification::ResourceListChangedNotification(ResourceListChangedNotification::default())),
+        ),
+    )
+}
+
+pub async fn relay<S>(peer: Peer<RoleServer>, notifications: S)
+where S: Stream<Item = ServerNotification> + Send {
+    if let Err(error) = notifications.map(Ok).try_for_each(|notification| peer.send_notification(notification)).await {
+        tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "session closed");
+    }
+}
+
+pub async fn listen<S>(context: &SubscriptionContext, notifications: S, stopping: &CancellationToken) -> Result<(), ErrorData>
+where S: Stream<Item = ServerNotification> + Send {
+    let ended = future::select(pin!(stopping.cancelled()), pin!(context.cancelled()));
+    let sent = notifications
+        .take_until(ended)
+        .map(Ok)
+        .try_for_each(|notification| async move {
+            match context.sink().send(notification).await {
+                Err(SubscriptionSendError::NotificationNotAccepted(_)) => Ok(()),
+                sent => sent,
+            }
+        })
+        .await;
+    match sent {
+        Ok(()) | Err(SubscriptionSendError::SubscriptionClosed) => Ok(()),
+        Err(error) => Err(ErrorData::internal_error(Report::new(error).to_string(), None)),
+    }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-// --- [HOST]
-pub async fn serve_loopback<S, F>(factory: F, port: NonZero<u16>, config: StreamableHttpServerConfig) -> Result<(), HostError>
+pub fn run<A, F, E, B>(build: F) -> ExitCode
 where
-    S: ServerHandler,
-    F: Fn() -> Result<S, io::Error> + Send + Sync + 'static,
+    A: Parser,
+    F: AsyncFnOnce(A, Implementation) -> Result<E, B>,
+    E: Endpoint,
+    B: Error + Send + Sync + 'static,
 {
-    #[cfg(unix)]
-    let (interrupt, terminate) = (signal(SignalKind::interrupt()), signal(SignalKind::terminate()));
-    #[cfg(windows)]
-    let (interrupt, terminate) = (ctrl_c(), ctrl_close());
-    let (mut interrupt, mut terminate) = Validated::from(interrupt).map2(terminate.into(), |interrupt, terminate| (interrupt, terminate)).ok().map_err(HostError::Signal)?;
-    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port.get())).await.map_err(|source| HostError::Bind { port, source })?;
-    let shutdown = config.cancellation_token.clone();
-    let service = StreamableHttpService::new(factory, LocalSessionManager::default().into(), config);
-    let router = Router::new().route_service("/", service).layer(TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-        let header = |name| request.headers().get(name).and_then(|value| value.to_str().ok());
-        tracing::info_span!(
-            "request",
-            http.request.method = %request.method(),
-            mcp.method.name = header(HEADER_MCP_METHOD),
-            mcp.protocol.version = header(HEADER_MCP_PROTOCOL_VERSION)
-        )
-    }));
-    tracing::info!(%port, "listening");
-    axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
-            tokio::select! {
-                _ = interrupt.recv() => {}
-                _ = terminate.recv() => {}
-                () = shutdown.cancelled() => {}
-            }
-            tracing::info!("shutting down");
-            shutdown.cancel();
+    type Exporters = (SdkTracerProvider, SdkLoggerProvider, SdkMeterProvider);
+    fn install<S, X>(options: &Options, identity: &Implementation) -> Result<Option<Exporters>, Failed<S, X>> {
+        let mut json = json_subscriber::JsonLayer::stderr();
+        json.with_timer("timestamp", SystemTime).with_level("level").with_target("target").with_top_level_flattened_span_list().with_flattened_event();
+        json.add_static_field(SERVICE_NAME, identity.name.clone().into());
+        json.add_static_field(SERVICE_VERSION, identity.version.clone().into());
+        let exporters = options
+            .export
+            .as_ref()
+            .map(|endpoint| {
+                let signal = |path: &str| format!("{}/v1/{path}", endpoint.as_str().trim_end_matches('/'));
+                let resource = opentelemetry_sdk::Resource::builder().with_service_name(identity.name.clone()).with_attribute(KeyValue::new(SERVICE_VERSION, identity.version.clone())).build();
+                Ok::<Exporters, ExporterBuildError>((
+                    SdkTracerProvider::builder().with_resource(resource.clone()).with_batch_exporter(SpanExporter::builder().with_http().with_endpoint(signal("traces")).build()?).build(),
+                    SdkLoggerProvider::builder().with_resource(resource.clone()).with_batch_exporter(LogExporter::builder().with_http().with_endpoint(signal("logs")).build()?).build(),
+                    SdkMeterProvider::builder().with_resource(resource).with_periodic_exporter(MetricExporter::builder().with_http().with_endpoint(signal("metrics")).build()?).build(),
+                ))
+            })
+            .transpose();
+        let installed = exporters.as_ref().ok().and_then(Option::as_ref);
+        installed.iter().for_each(|(_, _, metrics)| global::set_meter_provider(metrics.clone()));
+        tracing_subscriber::registry()
+            .with(options.filter.iter().cloned().fold(EnvFilter::default(), EnvFilter::add_directive))
+            .with(json)
+            .with(installed.map(|(traces, _, _)| tracing_opentelemetry::layer().with_tracer(traces.tracer(identity.name.clone()))))
+            .with(installed.map(|(_, logs, _)| OpenTelemetryTracingBridge::new(logs)))
+            .init();
+        std::panic::set_hook(Box::new(|panic| tracing::error!({ EXCEPTION_MESSAGE } = %panic, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked")));
+        exporters.map_err(Failed::Export)
+    }
+    async fn host<E, B, G>(options: Options, build: G) -> Result<Validated<(), Failed<B, E::Error>>, Failed<B, E::Error>>
+    where
+        E: Endpoint,
+        G: Future<Output = Result<E, B>>,
+    {
+        let listener = TcpListener::bind(options.listen).await.map_err(|error| Failed::Bind(options.listen, error))?;
+        tracing::info!(listen = %options.listen, "listening");
+        let endpoint = Arc::new(build.await.map_err(Failed::Start)?);
+        let (draining, stopping, sessions) = (CancellationToken::new(), CancellationToken::new(), CancellationToken::new());
+        let (requests, streams) = (TaskTracker::new(), TaskTracker::new());
+        let config = StreamableHttpServerConfig::default().with_json_response(true).with_cancellation_token(sessions.clone()).enforce_origin_validation();
+        let (factory, scope) = (Arc::clone(&endpoint), stopping.clone());
+        let service = StreamableHttpService::new(move || Ok(factory.session(&scope)), Arc::new(LocalSessionManager::default()), config);
+        let (tracked, listened) = (requests.clone(), streams.clone());
+        let router = Router::new().route_service("/", service).layer(middleware::from_fn(move |request: Request, next: Next| {
+            let token = (request.method() == Method::POST)
+                .then(|| if request.headers().get(HEADER_MCP_METHOD).is_some_and(|method| method == SubscriptionsListenRequestMethod::VALUE) { listened.token() } else { tracked.token() });
+            next.run(request).map(|response| {
+                response.map(|body| match token {
+                    Some(token) => Body::from_stream(stream::unfold((body.into_data_stream(), token), |(mut data, token)| async move { data.next().await.map(|chunk| (chunk, (data, token))) })),
+                    None => body,
+                })
+            })
+        }));
+        let mut server = pin!(axum::serve(listener, router).with_graceful_shutdown(draining.clone().cancelled_owned()).into_future());
+        let mut lifetime = pin!(Arc::clone(&endpoint).serve(stopping.clone()));
+        let (mut interrupt, mut terminate, mut hangup) = (
+            signal(SignalKind::interrupt()).map_err(Failed::Signal)?,
+            signal(SignalKind::terminate()).map_err(Failed::Signal)?,
+            signal(SignalKind::hangup()).map_err(Failed::Signal)?,
+        );
+        let ended = tokio::select! {
+            biased;
+            _ = interrupt.recv() => None,
+            _ = terminate.recv() => None,
+            _ = hangup.recv() => None,
+            ended = &mut lifetime => Some(ended),
+            served = &mut server => return Ok(served.map_err(Failed::Serve).into()),
+        };
+        tracing::info!("shutting down");
+        draining.cancel();
+        requests.close();
+        requests.wait().await;
+        stopping.cancel();
+        let ended = match ended {
+            Some(ended) => ended,
+            None => lifetime.await,
+        };
+        streams.close();
+        streams.wait().await;
+        sessions.cancel();
+        let served = server.await;
+        Ok(Validated::from(ended.map_err(Failed::Ended)).map2(served.map_err(Failed::Serve).into(), |(), ()| ()))
+    }
+    let command = Options::augment_args(A::command());
+    let matches = command.clone().get_matches();
+    let (options, app, identity) = match (Options::from_arg_matches(&matches), A::from_arg_matches(&matches), command.get_version()) {
+        (Ok(options), Ok(app), Some(version)) => {
+            let identity = Implementation::new(command.get_name(), version);
+            (options, app, command.get_about().map_or(identity.clone(), |about| identity.with_description(about.to_string())))
+        }
+        (Err(error), _, _) | (_, Err(error), _) => error.exit(),
+        (Ok(_), Ok(_), None) => command.clone().error(ErrorKind::MissingRequiredArgument, "binary states no version, derive its Parser with #[command(version)]").exit(),
+    };
+    let outcome = install::<B, E::Error>(&options, &identity)
+        .map(|exporters| {
+            let hosted = tokio::runtime::Runtime::new().map_err(Failed::Runtime).and_then(|runtime| runtime.block_on(host(options, build(app, identity)))).unwrap_or_else(Validated::fail);
+            let flushed = exporters.into_iter().flat_map(|(traces, logs, metrics)| [traces.shutdown(), logs.shutdown(), metrics.shutdown()]).map(|flush| flush.map_err(Failed::Flush)).collect::<Validated<(), _>>();
+            hosted.map2(flushed, |(), ()| ())
         })
-        .await
-        .map_err(HostError::Serve)
-}
-
-// --- [TELEMETRY]
-pub fn install_tracing() -> Result<(), TelemetryError> {
-    let filter = EnvFilter::builder().with_default_directive(LevelFilter::INFO.into()).from_env()?;
-    Ok(tracing_subscriber::registry().with(fmt::layer().with_writer(io::stderr)).with(filter).try_init()?)
+        .unwrap_or_else(Validated::fail);
+    match outcome.ok() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(errors) => {
+            errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "server failed"));
+            ExitCode::FAILURE
+        }
+    }
 }

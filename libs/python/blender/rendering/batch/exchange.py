@@ -51,7 +51,7 @@ def requested(client: httpx2.Client, method: HTTPMethod, path: str, body: Option
     match body.to_optional():
         case msgspec.Struct() as content:
             return client.build_request(method, path, content=msgspec.json.encode(content), headers={"Content-Type": "application/json"})
-        case bytes() as content:
+        case bytes(content):
             return client.build_request(method, path, content=content, headers={"Content-Type": "application/octet-stream"})
         case None:
             return client.build_request(method, path)
@@ -76,9 +76,7 @@ def sent(client: httpx2.Client, request: httpx2.Request) -> RenderingResult[byte
 def exchange[T](client: httpx2.Client, request: httpx2.Request, reply: type[T]) -> RenderingResult[T]:
     """Sends a request and decodes its JSON reply."""
     return sent(client, request).bind(
-        lambda content: catch(lambda: msgspec.json.decode(content, type=reply), exception=msgspec.DecodeError)().map_error(
-            lambda _: (RenderingSendFault(request=str(request.url), error=Cause.UNREADABLE),)
-        )
+        lambda content: catch(lambda: msgspec.json.decode(content, type=reply), exception=msgspec.DecodeError)().map_error(lambda _: (RenderingSendFault(request=request.url, error=Cause.UNREADABLE),))
     )
 
 

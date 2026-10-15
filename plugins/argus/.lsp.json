@@ -1,7 +1,7 @@
 {
     "typescript": {
-        "command": "${CLAUDE_PROJECT_DIR}/node_modules/.bin/tsc",
-        "args": [ "--lsp", "--stdio" ],
+        "command": "mise",
+        "args": [ "exec", "--", "tsc", "--lsp", "--stdio" ],
         "extensionToLanguage": {
             ".ts": "typescript",
             ".tsx": "typescriptreact",
@@ -12,27 +12,31 @@
             ".mjs": "javascript",
             ".cjs": "javascript"
         },
-        "diagnostics": false
+        "diagnostics": false,
+        "settings": { "js/ts": { "tsserver": { "automaticTypeAcquisition": { "enabled": false } } } }
     },
     "python": {
-        "command": "${CLAUDE_PROJECT_DIR}/.venv/bin/ty",
-        "args": [ "server" ],
+        "command": "mise",
+        "args": [ "exec", "--", "ty", "server" ],
         "extensionToLanguage": { ".py": "python", ".pyi": "python" },
         "diagnostics": false
     },
     "rust": {
-        "command": "rust-analyzer",
+        "command": "mise",
+        "args": [ "exec", "--", "rust-analyzer" ],
         "extensionToLanguage": { ".rs": "rust" },
         "diagnostics": false,
         "initializationOptions": { "check": { "command": "clippy" }, "rustc": { "source": "discover" } }
     },
     "swift": {
         "command": "sourcekit-lsp",
+        "args": [ "--scratch-path", "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index" ],
         "extensionToLanguage": { ".swift": "swift" },
         "diagnostics": false
     },
     "java": {
         "command": "jdtls",
+        "args": [ "-data", "${CLAUDE_PROJECT_DIR}/.cache/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${CLAUDE_PROJECT_DIR}/.cache/jdtls/configuration" ],
         "extensionToLanguage": { ".java": "java" },
         "diagnostics": false,
         "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",
@@ -56,11 +60,14 @@
         "command": "yaml-language-server",
         "args": [ "--stdio" ],
         "extensionToLanguage": { ".yaml": "yaml", ".yml": "yaml" },
-        "diagnostics": false
+        "diagnostics": false,
+        "settings": {
+            "yaml": { "schemas": { "https://www.schemastore.org/github-action.json": ".github/actions/*/action.{yml,yaml}" } }
+        }
     },
     "toml": {
-        "command": "taplo",
-        "args": [ "lsp", "stdio" ],
+        "command": "mise",
+        "args": [ "exec", "--", "tombi", "lsp" ],
         "extensionToLanguage": { ".toml": "toml" },
         "diagnostics": false
     },

@@ -5,10 +5,10 @@ from collections.abc import Mapping
 from typing import Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, struct_at, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at, Value
 from blender.bpy.faults import BlenderResult
 from blender.imaging.faults import accumulated
 
@@ -30,9 +30,7 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
 
     def applied(self, area: bpy.types.Area) -> BlenderResult[Option[Self]]:
         """Returns prior state, waits for absent holders, or rolls back a refused write."""
-        completed: deque[tuple[bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]], Descriptor[bpy.types.Property], Value | bpy.types.bpy_struct[object]]] = (
-            deque()
-        )
+        completed: deque[tuple[Native, Descriptor[bpy.types.Property], Value | bpy.types.bpy_struct[object]]] = deque()
         try:
             for setting, value in self.values:
                 owner = (
@@ -42,17 +40,13 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
                     .filter(lambda struct: isinstance(struct, setting.root))
                     .bind(lambda struct: struct_at(struct, setting.owner))
                 )
-                match owner.tag:
-                    case "none":
+                match owner.map(lambda held: (held, setting.write(held, value))):
+                    case Option(tag="none"):
                         return accumulated(descriptor.write(held, prior) for held, descriptor, prior in completed).map(lambda _: Nothing)
-                    case "some":
-                        held = owner.some
-                answer = setting.write(held, value)
-                match answer.tag:
-                    case "ok":
-                        completed.extendleft((held, setting, value) for value in answer.ok.to_list())
-                    case "error":
-                        return accumulated((Error(answer.error), *(descriptor.write(held, prior) for held, descriptor, prior in completed))).map(lambda _: Nothing)
+                    case Option(some=(_, Result(tag="error", error=faults))):
+                        return accumulated((Error(faults), *(descriptor.write(held, prior) for held, descriptor, prior in completed))).map(lambda _: Nothing)
+                    case Option(some=(written, Result(ok=prior))):
+                        completed.extendleft((written, setting, value) for value in prior.to_list())
             return Ok(Some(msgspec.structs.replace(self, values=tuple((setting, prior) for _, setting, prior in completed))))
         finally:
             if completed:

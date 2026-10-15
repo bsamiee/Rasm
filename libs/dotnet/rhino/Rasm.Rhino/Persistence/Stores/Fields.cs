@@ -81,7 +81,7 @@ public static class FieldTexts {
             static entries => Recalled(typeof(TRecord).ToString(), toSeq(TRecord.Parameters), path => IO.pure(entries.Find(path)), TRecord.Default));
 
     public static FieldCodec<TValue> Variant<TValue>() where TValue : class =>
-        new(static value => StateCase<TValue>.Items.Single(item => item.Holds(value)) switch {
+        new(static value => StateCase<TValue>.Items.First(item => item.Holds(value)) switch {
             var item => item.Accept(CodecCases<TValue>.Instance).Under(item.Key).Capture(value)
                 .Add(Seq(StateCases.SelectionKey), item.Key),
         }, static entries =>
@@ -99,7 +99,7 @@ public static class FieldTexts {
     public static (Func<TKey, string> Shown, Func<TKey, string> Entry) Number<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
         where TKey : struct, System.Numerics.INumber<TKey> {
         ScalarDisplay display = Quantities.Scalar(presentation, bounds);
-        string digits = display.Decimals == 0 ? "0" : $"0.{new string('0', display.Decimals)}";
+        string digits = display.Decimals is 0 ? "0" : $"0.{new string('0', display.Decimals)}";
         string format = presentation.Soft.IfNone(bounds).Low < TKey.Zero ? $"+{digits};-{digits};{digits}" : digits;
         Func<TKey, CultureInfo, string> number = (key, culture) => display.Shown(double.CreateChecked(key)).ToString(format, culture);
         return (
@@ -153,12 +153,12 @@ public static class FieldTexts {
             [OptionalField(lens, StoredText.Capture<TValue, string>, StoredText.Recall<TValue, string, TError>)];
 
         public Seq<FieldText<TRecord>> Variant<TValue>(Lens<TRecord, TValue> lens) where TValue : class =>
-            [new([StateCases.SelectionKey], record => Some(StateCase<TValue>.Items.Single(item => item.Holds(lens.Get(record))).Key),
+            [new([StateCases.SelectionKey], record => Some(StateCase<TValue>.Items.First(item => item.Holds(lens.Get(record))).Key),
                 text => StateCase<TValue>.Items.Find(item => string.Equals(item.Key, text, StringComparison.Ordinal))
                     .ToFin(new UnreadText(text, typeof(TValue)))
                     .Map(item => IO.pure<Func<TRecord, TRecord>>(record => item.Holds(lens.Get(record)) ? record : lens.Set(item.Default, record)))) {
                 Kind = Kind,
-                Taken = (from, into) => StateCase<TValue>.Items.Single(item => item.Holds(lens.Get(from))) switch {
+                Taken = (from, into) => StateCase<TValue>.Items.First(item => item.Holds(lens.Get(from))) switch {
                     var item => item.Holds(lens.Get(into)) ? into : lens.Set(item.Default, into),
                 },
                 Children = from item in StateCase<TValue>.Items
@@ -243,18 +243,16 @@ public static class FieldTexts {
         private static Func<string, string> Numbered<TValue, TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
             where TKey : struct, System.Numerics.INumber<TKey> =>
             Number(presentation, bounds).Shown switch {
-                var number => text => StoredText.Recall(text, create).Map(value => number(key(value))).IfFail(_ => text),
+                var number => text => StoredText.Recall(text, create).Map(value => number(key(value))).IfFail(text),
             };
 
         private static string Hex(string text) =>
-            StoredText.Recall<Swatch, int, InvalidPixelValue>(text).Map(Coded).IfFail(_ => text);
+            StoredText.Recall<Swatch, int, InvalidPixelValue>(text).Map(Conversions.Hex).IfFail(text);
 
         private static string Listed<TValue, TError>(string text)
             where TValue : IObjectFactory<TValue, string, TError>, IConvertible<Seq<Swatch>>
             where TError : Error, IValidationError<TError> =>
-            StoredText.Recall<TValue, string, TError>(text).Map(static value => string.Join(' ', value.ToValue().Map(Coded))).IfFail(_ => text);
-
-        private static string Coded(Swatch swatch) => $"#{(int)swatch:X6}";
+            StoredText.Recall<TValue, string, TError>(text).Map(static value => string.Join(' ', value.ToValue().Map(Conversions.Hex))).IfFail(text);
 
         private sealed class Cases<TValue> : IStateCaseVisitor<TValue, Seq<FieldText<TValue>>> where TValue : class {
             public static readonly Cases<TValue> Instance = new();

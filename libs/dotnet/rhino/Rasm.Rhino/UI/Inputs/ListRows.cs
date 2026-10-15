@@ -148,7 +148,7 @@ public static class ListRows {
             })
             from emphasis in IO.lift(static () => SystemFonts.Bold(SystemFonts.Label().Size))
             from list in IO.lift(static () => Atom(new ListState<TItem>(Seq<RowItem<TItem>>(), [], Seq<(RowItem<TItem> Node, TItem Row)>())))
-            from keep in IO.lift(static () => Atom<Func<TItem, bool>>(static _ => true))
+            from keep in atomIO<Func<TItem, bool>>(static _ => true)
             from columns in Columns(row, grid, scope.Sink, owned)
             from commands in Commanded(row.Pair, row.Commands(IO.lift(() => Chosen(Folded(row, list.Value.Nodes).Visible, toHashSet(grid.SelectedRows)).Map(static node => node.Row))), scope, owned)
             from selection in Selection(grid, list, row, scope, owned)
@@ -160,7 +160,7 @@ public static class ListRows {
             let brackets = Seq((items.Keys, items.Shown), (selection.Keys, selection.Shown)) + expanded.ToSeq() + current.ToSeq()
             from gestures in Gestures(grid, list, row, emphasis, commands.Keys, scope, owned)
             from paired in Paired(grid, commands.Pair, owned)
-            from content in Searched(paired, row.Search, row.Wording, kept => keep.SwapIO(_ => kept).Bind(_ => items.Shown), scope, owned)
+            from content in Searched(paired, row.Search, row.Wording, kept => writeIO(keep, kept).Bind(_ => items.Shown), scope, owned)
             from listened in Listened(brackets + content.Brackets, scope, owned)
             select new RowCells(content.Control, None, None, None, [], [], new RowHelp(None, None),
                 Callbacks.Each((brackets + content.Brackets).Map(static bracket => bracket.Shown)).Bind(_ => commands.Refresh),
@@ -281,7 +281,7 @@ public static class ListRows {
                 edit => Callbacks.Handler<GridViewCellEventArgs>(
                     args => from found in IO.lift(() => Resolved(row, list.Value.Nodes, args.Item))
                             from stored in scope.Read(row.Items.Source)
-                            from committed in found.Match(Some: node => edit.Commit(Replaced(row.Key, row.Branches, stored, node.Row)).Map(static _ => unit), None: static () => IO.pure(unit))
+                            from committed in found.Match(Some: node => edit.Commit(Replaced(row.Key, row.Branches, stored, node.Row)).Map(unit), None: static () => IO.pure(unit))
                             select unit,
                     new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.CellEdited))),
                 agreed => Fill(grid, list, keep, row, reselect, agreed.ToSeq().Flatten()),
@@ -330,7 +330,7 @@ public static class ListRows {
                      entry.Column.Stretches && toSeq(row.Columns).Skip(entry.Index + 1).ForAll(static later => !later.Stretches));
                 grid.Columns.Add(column);
             })
-            select unit).As().Map(static _ => unit);
+            select unit).As().Map(unit);
 
     // --- [EDITS]
     private static Seq<TItem> Replaced<TItem, TKey>(Func<TItem, TKey> key, Option<ListBranches<TItem, TKey>> branches, Seq<TItem> items, TItem edited)
@@ -421,7 +421,7 @@ public static class ListRows {
                 Callbacks.Handler<TreeGridViewItemEventArgs>(_ =>
                     from head in IO.lift(() => Chosen(Folded(row, list.Value.Nodes).Visible, toHashSet(grid.SelectedRows)).Head)
                     from ran in head.Match(Some: node => activate(node.Row), None: static () => IO.pure(unit))
-                    select ran, new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.Activated))), retain)).ToSeq()).Map(static _ => unit);
+                    select ran, new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.Activated))), retain)).ToSeq()).Map(unit);
 
     private static IO<Unit> Pressed<TItem, TKey>(
         TreeGridView grid, Atom<ListState<TItem>> list, ListRow<TItem, TKey> row, Seq<(Command Command, Action Run)> keys, KeyEventArgs args)
@@ -451,7 +451,7 @@ public static class ListRows {
     private static IO<Unit> Pointed<TItem, TKey>(TreeGridView grid, Atom<ListState<TItem>> list, ListRow<TItem, TKey> row, MouseEventArgs args)
         where TItem : notnull
         where TKey : notnull =>
-        when(args.Buttons == MouseButtons.Alternate,
+        when(args.Buttons is MouseButtons.Alternate,
             from pressed in IO.lift(() => (grid.GetCellAt(args.Location).Item, Rows: toHashSet(grid.SelectedRows)))
             from found in IO.lift(() => Folded(row, list.Value.Nodes).Visible
                 .Choose((index, node) => Callbacks.Found(ReferenceEquals(node, pressed.Item) && !pressed.Rows.Contains(index), index))
@@ -476,13 +476,13 @@ public static class ListRows {
             from placed in ButtonRows.AddRemove(add.Commands, remove.Commands, retain)
             select (Control: (Control)placed,
                 Keys: Seq((Command: add.Commands, Run: add.Commands.Execute), (Command: remove.Commands, Run: (Action)remove.Commands.Execute)),
-                Refresh: Callbacks.Each(Seq(add.Refresh, remove.Refresh)).Map(static _ => unit))).As()
+                Refresh: Callbacks.Each(Seq(add.Refresh, remove.Refresh)).Map(unit))).As()
         from realized in commands.TraverseM(command => Projected(command, scope, retain)).As()
         let menu = CommandRow.Menu(Seq(realized.Map(static command => command.Realized)))
         select (paired.Map(static held => held.Control),
             (paired.Map(static held => held.Keys.Map(static key => key.Command)).ToSeq() + menu.Groups).Map(static cluster => cluster.Map<MenuEntry>(static command => new MenuEntry.Item(command))),
             paired.ToSeq().Bind(static held => held.Keys) + realized.Bind(static command => command.Keys),
-            Callbacks.Each(paired.Map(static held => held.Refresh).ToSeq().Add(menu.Joined.Refresh)).Map(static _ => unit));
+            Callbacks.Each(paired.Map(static held => held.Refresh).ToSeq().Add(menu.Joined.Refresh)).Map(unit));
 
     private static IO<(Realized<Seq<Command>> Realized, Seq<(Command Command, Action Run)> Keys)> Projected(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
         command.Switch((Scope: scope, Retain: retain),
@@ -538,7 +538,7 @@ public static class ListRows {
         source.Values(scope).Paths().Map(path => new EntryKey(source.Owner, path));
 
     private static IO<Unit> Listened(Seq<(Seq<EntryKey> Keys, IO<Unit> Shown)> brackets, RowScope scope, Action<IDisposable> retain) =>
-        scope.Listen(changed => Callbacks.Each(brackets.Filter(bracket => bracket.Keys.Exists(key => changed.Exists(held => held == key))).Map(static bracket => bracket.Shown)).Map(static _ => unit), retain);
+        scope.Listen(changed => Callbacks.Each(brackets.Filter(bracket => bracket.Keys.Exists(key => changed.Exists(held => held == key))).Map(static bracket => bracket.Shown)).Map(unit), retain);
 
     // --- [LAYOUT]
     private const string Layouts = "thumbnail-browser";
@@ -661,7 +661,7 @@ public static class ListRows {
         where TItem : notnull
         where TKey : notnull =>
         Mapped(change, value => Into(row, value))
-            .Match(Some: mapped => edit.Take(mapped, static (into, latest) => into(latest)).Map(static _ => unit), None: static () => IO.pure(unit));
+            .Match(Some: mapped => edit.Take(mapped, static (into, latest) => into(latest)).Map(unit), None: static () => IO.pure(unit));
 
     private static Option<Func<Seq<TItem>, Fin<Seq<TItem>>>> Into<TItem, TKey>(BrowserRow<TItem, TKey> row, BrowserEdit<TItem, TKey> value)
         where TItem : notnull

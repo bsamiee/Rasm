@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-mutable-binding
-language: swift
+language: swiftlang
 severity: error
 utils:
     head:
@@ -46,7 +46,7 @@ rule:
                         - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
                         - any:
                             - all:
-                                - has: {field: value, kind: call_expression, not: {matches: empty-value}}
+                                - has: {field: value, any: [{kind: call_expression, not: {matches: empty-value}}, {kind: 'simple_identifier, navigation_expression'}]}
                                 - not:
                                     precedes:
                                         stopBy: end

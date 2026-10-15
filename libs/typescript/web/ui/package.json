@@ -1,0 +1,18 @@
+{
+    "name": "@rasm/ui",
+    "private": true,
+    "description": "Foundation for web app interfaces over React Aria: reorderable lists, page-wide dialog state, and focus after render",
+    "type": "module",
+    "exports": {
+        "./*": "./*"
+    },
+    "dependencies": {
+        "effect": "catalog:",
+        "lucide-react": "catalog:",
+        "react": "catalog:",
+        "react-aria-components": "catalog:"
+    },
+    "devDependencies": {
+        "@types/react": "catalog:"
+    }
+}

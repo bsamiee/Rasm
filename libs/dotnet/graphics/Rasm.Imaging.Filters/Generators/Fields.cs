@@ -6,6 +6,7 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
+using SixLabors.ImageSharp.PixelFormats;
 using TorchSharp;
 using UnitsNet;
 using UnitsNet.Units;
@@ -13,7 +14,7 @@ using UnitsNet.Units;
 namespace Rasm.Imaging.Filters.Generators;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
-file static class Tracks {
+internal static class Tracks {
     public static Presentation<float> Extent { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.01f, 2f), Scale = TrackScale.Log };
     public static Presentation<float> Rate { get; } = Frequency.Presentation with { Soft = (-4f, 4f) };
     public static Presentation<float> Share { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
@@ -84,7 +85,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : ISta
                 for (int i = 0; i < row.Length; i++)
                     (weights.Span[i], layer.Span[i]) = (layer.Span[i].W, new Vector4(layer.Span[i].AsVector3() * gain, 1f));
                 if (mode == BlendingMode.Mix)
-                    mode.Composite(row, layer.Span, weights.Span, AlphaRepresentation.Unassociated);
+                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated);
                 else {
                     mode.Mixed(row, layer.Span, weights.Span);
                     layer.Span.CopyTo(row);

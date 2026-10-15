@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-combine-view-wrapper
+language: swiftlang
+severity: error
+rule:
+    pattern: $SITE
+    any:
+        - kind: attribute
+          regex: '^@(SwiftUI\.)?(StateObject|ObservedObject|EnvironmentObject)$'
+        - kind: call_expression
+          has: {nthChild: 1, regex: '^(SwiftUI\.)?(StateObject|ObservedObject)(\.init)?$'}
+        - kind: call_expression
+          has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.environmentObject$'}}
+message: '`$SITE` holds or injects an `ObservableObject` through a Combine-era SwiftUI wrapper'
+note: 'Hold an `@Observable` model as `@State` (`State(wrappedValue:)`) for `@StateObject`, `@Bindable` for `@ObservedObject` read through bindings and a plain property otherwise, `@Environment(<Model>.self)` for `@EnvironmentObject`, and inject it with `.environment(<model>)`'

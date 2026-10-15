@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-derivative-by-hand
+language: rust
+severity: error
+utils:
+    two:
+        kind: 'float_literal, integer_literal'
+        regex: '^2(\.0*)?(_?f(32|64))?$'
+    doubled-step:
+        any:
+            - kind: parenthesized_expression
+              has:
+                kind: binary_expression
+                all:
+                    - has: {field: operator, regex: '^\*$'}
+                    - any:
+                        - all: [{has: {field: left, matches: two}}, {has: {field: right, pattern: $H}}]
+                        - all: [{has: {field: left, pattern: $H}}, {has: {field: right, matches: two}}]
+            - kind: parenthesized_expression
+              has: {kind: binary_expression, pattern: $H + $H}
+rule:
+    kind: binary_expression
+    pattern: $SLOPE
+    all:
+        - any:
+            - all:
+                - pattern: ($F($X + $H) - $F($X - $H)) / $STEP
+                - has: {field: right, matches: doubled-step}
+            - all:
+                - pattern: ($F($X + $H) - $F($X - $H)) / $HALF / $H
+                - has: {field: left, has: {field: right, matches: two}}
+            - pattern: ($F($X + $H) - $F($X)) / $H
+            - pattern: ($F($X) - $F($X - $H)) / $H
+        - not: {matches: rust-test-scope}
+message: '`$SLOPE` approximates the derivative of `$F` at `$X` by a finite difference'
+note: 'Differentiate exactly through num-dual, `num_dual::first_derivative(<f>, <x>)` returns `(value, derivative)` with `<f>` generic over `DualNum<f64>`. `gradient` and `hessian` cover several variables. Dual numbers remove the step size with its truncation and cancellation error'

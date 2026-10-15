@@ -79,7 +79,7 @@ public static partial class Drawings {
                 () => HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token),
                 nameof(HiddenLineDrawing.Compute)),
             answer => answer.Bind(computed => Optional(computed).ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(HiddenLineDrawing.Compute)))),
-            static answer => answer.Match(Succ: static drawing => DisposalOps.Release(Conversions.Rows(new[] { drawing })), Fail: static _ => IO.pure(unit)), retain)
+            static answer => answer.Match(Succ: static drawing => DisposalOps.Release(Conversions.Rows([drawing])), Fail: static _ => IO.pure(unit)), retain)
         select drawing;
 
     private static IO<LineDrawing> Drawn(HiddenLineDrawing drawing, bool rejoin, Action<IDisposable> retain) =>
@@ -109,7 +109,7 @@ public static partial class Drawings {
     private static partial DrawnPoint ToDrawnPoint(HiddenLineDrawingPoint point);
 
     private static Option<int> SectionCutIndex(HiddenLineDrawingObjectCurve parent) =>
-        Callbacks.Found(parent.SilhouetteType == SilhouetteType.SectionCut, parent.ClippingPlaneIndex);
+        Callbacks.Found(parent.SilhouetteType is SilhouetteType.SectionCut, parent.ClippingPlaneIndex);
 
     private static Option<object> Tag(HiddenLineDrawingObject? source) =>
         Optional(source).Bind(static found => Optional(found.Tag));

@@ -51,7 +51,7 @@ from blender.imaging.geometry.homography import Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import StMap
 from blender.imaging.hashing import content_hash
-from blender.imaging.parameters import Case, Choice, ColorSpace, Gated, Rgb
+from blender.imaging.parameters import Case, Choice, ColorSpace, Rgb
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -179,22 +179,14 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
                 case "RENDER_RESULT":
                     return self.stack.forming(self.identity, scene, config, Enabled.RENDER).map(
                         lambda chain: chain.map(
-                            lambda transform: (
-                                lambda values: (
-                                    processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                                )
-                            )
+                            lambda transform: lambda values: processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values)).map_error(BlenderImagingFault.lifted)
                         )
                     )
                 case _ if image.use_view_as_render:
                     return (
                         Option
                         .of_optional(scene.view_settings)
-                        .map(
-                            lambda view: Some(
-                                lambda values: viewed(scene).form(config, values, exposure=view.exposure, gamma=view.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                            )
-                        )
+                        .map(lambda view: Some(lambda values: viewed(scene).form(config, values, exposure=view.exposure, gamma=view.gamma).map_error(BlenderImagingFault.lifted)))
                         .to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),))
                     )
                 case _:
@@ -204,9 +196,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
                         .map(
                             lambda display: Some(
                                 lambda values: (
-                                    DisplayView(display=display.display_device, view=config.getDefaultView(display.display_device))
-                                    .form(config, values)
-                                    .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                                    DisplayView(display=display.display_device, view=config.getDefaultView(display.display_device)).form(config, values).map_error(BlenderImagingFault.lifted)
                                 )
                             )
                         )
@@ -214,7 +204,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
                     )
 
         def patched(scene: bpy.types.Scene, config: PyOpenColorIO.Config, image: bpy.types.Image, record: ChartImage, opacity: float) -> BlenderResult[Option[tuple[Handle[bpy.types.Image], Drawn]]]:
-            references = ChartReference.of(record.placement.chart).values(config).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            references = ChartReference.of(record.placement.chart).values(config).map_error(BlenderImagingFault.lifted)
 
             def drawn(form: Callable[[npt.NDArray[np.float32]], BlenderResult[npt.NDArray[np.float32]]], corners: npt.NDArray[np.float32]) -> BlenderResult[Drawn]:
                 return Result[tuple[Rgb[float], ...], BlenderFaults].bind(
@@ -371,7 +361,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             context = call.context
 
             def kept(image: bpy.types.Image, record: ChartImage, chart: Attached[ChartImage], plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
-                means: BlenderResult[Option[tuple[Rgb[float], ...]]] = record.placement.means(plane).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                means: BlenderResult[Option[tuple[Rgb[float], ...]]] = record.placement.means(plane).map_error(BlenderImagingFault.lifted)
                 return (
                     Result[Option[tuple[Rgb[float], ...]], BlenderFaults]
                     .bind(means, lambda found: found.to_result_with(lambda: unplaced(image)))
@@ -456,12 +446,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 key = content_hash(PanoramaView, view, arrays=(plane,))
 
                 def warped() -> BlenderResult[npt.NDArray[np.float32]]:
-                    return (
-                        StMap
-                        .bake(width, height, view.to_panorama, view.source.extension, source_size=(plane.shape[1], plane.shape[0]))
-                        .warp(plane)
-                        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                    )
+                    return StMap.bake(width, height, view.to_panorama, view.source.extension, source_size=(plane.shape[1], plane.shape[0])).warp(plane).map_error(BlenderImagingFault.lifted)
 
                 return (
                     generated(views, identity, f"{image.name} View", key, lambda: warped().map(Some), Tag(space=Some(PyOpenColorIO.ROLE_SCENE_LINEAR)), of=Some(image))
@@ -488,7 +473,8 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(
                     lambda found: paired(
                         found[2].write(
-                            found[0], msgspec.structs.replace(found[1], placement=msgspec.structs.replace(found[1].placement, panorama=Gated(enabled=False, value=found[1].placement.panorama.value)))
+                            found[0],
+                            msgspec.structs.replace(found[1], placement=msgspec.structs.replace(found[1].placement, panorama=msgspec.structs.replace(found[1].placement.panorama, enabled=False))),
                         ),
                         editor(call.context).bind(lambda space: written(space, "image", found[0])),
                     )
@@ -580,7 +566,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 description="Bake the forward and inverse calibration into LUT files",
                 form=Baking,
                 run=exporting,
-                invoke=Some(Save[Baking](extensions=Baking.extensions, destinations=Some(lambda path, _record: tuple(export_paths(path).values())))),
+                invoke=Some(Save[Baking](extensions=Baking.extensions, destinations=Some(lambda path, _record: export_paths(path)))),
                 seed=Some(Baking.seeded),
                 undo=False,
             ),
@@ -590,7 +576,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 description="Write the forward and inverse calibration matrices into transform files",
                 form=Writing,
                 run=exporting,
-                invoke=Some(Save[Writing](extensions=Writing.extensions, destinations=Some(lambda path, _record: tuple(export_paths(path).values())))),
+                invoke=Some(Save[Writing](extensions=Writing.extensions, destinations=Some(lambda path, _record: export_paths(path)))),
                 seed=Some(Writing.seeded),
                 undo=False,
             ),
@@ -838,7 +824,7 @@ def planed(context: bpy.types.Context, image: bpy.types.Image, config: PyOpenCol
             processor(config, PyOpenColorIO.ColorSpaceTransform(src=found.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
             .map(lambda built: applied(built.getDefaultCPUProcessor(), np.ascontiguousarray(found.pixels)))
             .map(lambda plane: plane if plane.shape[2] == 4 else np.concatenate((plane, np.ones((*plane.shape[:2], 1), np.float32)), axis=-1))
-            .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            .map_error(BlenderImagingFault.lifted)
         )
 
     match image.type:
@@ -872,14 +858,15 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
     def aimed(source: ChartImage) -> BlenderResult[tuple[Rgb[float], ...]]:
         match chosen.target:
             case Reference(space=space):
-                return ChartReference.of(source.placement.chart).values(config, space).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                return ChartReference.of(source.placement.chart).values(config, space).map_error(BlenderImagingFault.lifted)
             case Sampled(image=image):
-                return held(image, Pairing.TARGET).bind(
-                    lambda pair: (
-                        samples(pair)
-                        if pair[1].placement.chart is source.placement.chart
-                        else Error((BlenderUnmetFault(requirement=Mismatched(source=source.placement.chart, target=pair[1].placement.chart)),))
+                return (
+                    held(image, Pairing.TARGET)
+                    .filter_with(
+                        lambda pair: pair[1].placement.chart is source.placement.chart,
+                        lambda pair: (BlenderUnmetFault(requirement=Mismatched(source=source.placement.chart, target=pair[1].placement.chart)),),
                     )
+                    .bind(samples)
                 )
 
     def fitted(image: bpy.types.Image, record: ChartImage, source: tuple[Rgb[float], ...], goal: tuple[Rgb[float], ...]) -> BlenderResult[tuple[Calibration, CalibrationFit[Calibration]]]:
@@ -894,7 +881,7 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
                     calibration, first, last, source_space, destination_space = fit.inverse, goal[neutral], source[neutral], target_space, PyOpenColorIO.ROLE_SCENE_LINEAR
 
             normalized: BlenderResult[Option[Calibration]] = (
-                calibration.normalized(first, last, config, source_space=source_space, target_space=destination_space).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                calibration.normalized(first, last, config, source_space=source_space, target_space=destination_space).map_error(BlenderImagingFault.lifted)
                 if chosen.charting.normalized
                 else Ok(Some(calibration))
             )
@@ -902,15 +889,15 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
                 lambda selected: selected if chosen.gain else msgspec.structs.replace(selected, gained=selected.matrix, exposure=0.0)
             )
 
-        fit: BlenderResult[CalibrationFit[Calibration]] = Calibration.fit(tuple(zip(source, goal, strict=False))).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        fit: BlenderResult[CalibrationFit[Calibration]] = Calibration.fit(tuple(zip(source, goal, strict=False))).map_error(BlenderImagingFault.lifted)
         return Result[CalibrationFit[Calibration], BlenderFaults].bind(fit, lambda fit: chosen_side(fit).map(lambda selected: (selected, fit)))
 
     return held(chosen.source, Pairing.SOURCE).bind(lambda pair: paired(samples(pair), aimed(pair[1])).bind(lambda rows: fitted(*pair, *rows)))
 
 
-def export_paths(path: Path) -> dict[Direction, Path]:
+def export_paths(path: Path) -> tuple[Path, ...]:
     """Names both calibration outputs from the browser's selected base path."""
-    return {side: path.with_stem(f"{path.stem}_{side.label}") for side in Direction}
+    return tuple(path.with_stem(f"{path.stem}_{side.label}") for side in Direction)
 
 
 def exported(output: LutOutput, calibration: Calibration, paths: tuple[Path, ...], *, direction: Direction, clamped: bool) -> BlenderResult[tuple[str, ...]]:
@@ -925,7 +912,7 @@ def exported(output: LutOutput, calibration: Calibration, paths: tuple[Path, ...
             )
             for side, destination in zip(Direction, paths)
         },
-    ).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    ).map_error(BlenderImagingFault.lifted)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

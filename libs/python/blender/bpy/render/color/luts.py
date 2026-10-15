@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Annotated, ClassVar, Protocol, Self
+from typing import Annotated, ClassVar, override, Protocol, Self
 
 import bpy
 from expression import Error, Ok, Option, Result, Some
@@ -61,7 +61,7 @@ class Forming(Protocol):
         """Returns owned entries of the stage or record type in stack order."""
         ...
 
-    def pointwise(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bpy.types.SceneCompositorEffect]:
+    def pointwise(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bpy.types.SceneCompositorEffect]:
         """Admits a pointwise entry or returns its spatial dependency."""
         ...
 
@@ -85,9 +85,9 @@ def _formats(provider: Callable[[], tuple[LutFormat, ...]]) -> Choices:
     return Choices(lambda _identity, _owner, _context: ((row.name, f"{row.name} (.{row.extension})", "") for row in provider()))
 
 
-bakeable = _formats(lambda: LutFormat.of(PyOpenColorIO.Baker.getFormats()))
-writable = _formats(lambda: LutFormat.of(PyOpenColorIO.GroupTransform.GetWriteFormats()))
-matrices = _formats(lambda: tuple(row for row in LutFormat.of(PyOpenColorIO.GroupTransform.GetWriteFormats()) if row in LutFormat.of(PyOpenColorIO.Baker.getFormats())))
+bakeable = _formats(LutFormat.bakeable)
+writable = _formats(LutFormat.writable)
+matrices = _formats(LutFormat.matrices)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -118,28 +118,29 @@ class Formatted(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the offered format's native extension."""
         return (f".{self.offered().extension}",)
 
+    def output(self) -> BlenderResult[LutOutput]:
+        """Returns an exact writer for the admitted native format."""
+        return self.chosen().map(lambda row: Exact(format=row))
+
 
 class Baking(Formatted, frozen=True, kw_only=True):
     """Native bake format and its sampled lattice."""
 
-    formats = staticmethod(lambda: LutFormat.of(PyOpenColorIO.Baker.getFormats()))
+    formats = staticmethod(LutFormat.bakeable)
     format: Annotated[str, msgspec.Meta(title="Format"), bakeable]
     lattice: Lattice = Lattice()
 
+    @override
     def output(self) -> BlenderResult[LutOutput]:
         """Keeps exact native operators when the format also supports direct writes."""
-        return self.chosen().map(lambda row: Exact(format=row) if row in LutFormat.of(PyOpenColorIO.GroupTransform.GetWriteFormats()) else Bake(format=row, lattice=self.lattice))
+        return self.chosen().map(lambda row: Exact(format=row) if row in LutFormat.writable() else Bake(format=row, lattice=self.lattice))
 
 
 class Writing(Formatted, frozen=True, kw_only=True):
     """Exact transform output in a native matrix-capable format."""
 
-    formats = staticmethod(lambda: tuple(row for row in LutFormat.of(PyOpenColorIO.GroupTransform.GetWriteFormats()) if row in LutFormat.of(PyOpenColorIO.Baker.getFormats())))
+    formats = staticmethod(LutFormat.matrices)
     format: Annotated[str, msgspec.Meta(title="Format"), matrices]
-
-    def output(self) -> BlenderResult[LutOutput]:
-        """Returns an exact writer for the admitted native format."""
-        return self.chosen().map(lambda row: Exact(format=row))
 
 
 class ToneView(msgspec.Struct, frozen=True, kw_only=True):
@@ -164,7 +165,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
 
     def toned(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], lattice: Lattice) -> BlenderResult[PyOpenColorIO.GroupTransform]:
         """Samples every RGB channel over the lattice's declared native domain."""
-        samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples().map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples().map_error(BlenderImagingFault.lifted)
         return Result[npt.NDArray[np.float32], BlenderFaults].bind(samples, lambda plane: self.sampling.sampled(identity, scene, entries, plane)).map(lattice.transform)
 
     def formed(self, call: Call[Baking]) -> BlenderResult[Done]:
@@ -184,8 +185,8 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
         return (
             paired(self.stack.config(), call.record.output())
             .bind(lambda pair: source(*pair).map(lambda built: (pair[1], built)))
-            .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
-            .map(lambda paths: Done(notes=tuple(("INFO", f"Wrote {path}") for path in paths)))
+            .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}).map_error(BlenderImagingFault.lifted))
+            .map(Done.wrote)
         )
 
     def viewed(self, call: Call[ToneView]) -> BlenderResult[Done]:
@@ -197,7 +198,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
             next((entry for entry in self.stack.entries(call.identity, scene, Stage.TONE) if entry.name == record.entry), None)
         ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=record.entry),))
         return (
-            paired(self.stack.config(), Result[bpy.types.SceneCompositorEffect, BlenderFaults].bind(entry, lambda item: self.stack.pointwise(call.identity, item)))
+            paired(self.stack.config(), Result[bpy.types.SceneCompositorEffect, BlenderFaults].bind(entry, lambda item: self.stack.pointwise(call.identity, scene, item)))
             .bind(
                 lambda pair: self.toned(call.identity, scene, (pair[1],), record.lattice).map(
                     lambda table: Formation.of(record.view, record.description, table, pair[0].getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName())
@@ -239,32 +240,29 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                     return Error((BlenderAbsentFault(owner=repr(strip), key="colorspace_settings"),))
 
         def rendered(scene: bpy.types.Scene, config: PyOpenColorIO.Config, folder: Path) -> BlenderResult[ImageFile[np.float32]]:
-            samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples().map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples().map_error(BlenderImagingFault.lifted)
             return (
                 Result[npt.NDArray[np.float32], BlenderFaults]
-                .bind(
-                    samples,
-                    lambda plane: ImageFile(pixels=plane, colorspace=space).write(str(folder / "nodes.exr"), Storage(), {}, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-                )
+                .bind(samples, lambda plane: ImageFile(pixels=plane, colorspace=space).write(str(folder / "nodes.exr"), Storage(), {}, config).map_error(BlenderImagingFault.lifted))
                 .bind(lambda nodes: arranged(scene, nodes, folder / "look"))
                 .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "animation": True}))
-                .bind(lambda _: read_file(scene.render.frame_path(frame=1), config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+                .bind(lambda _: read_file(scene.render.frame_path(frame=1), config).map_error(BlenderImagingFault.lifted))
             )
 
         def tabled(config: PyOpenColorIO.Config, look: ImageFile[np.float32]) -> BlenderResult[PyOpenColorIO.GroupTransform]:
             return (
                 processor(config, PyOpenColorIO.ColorSpaceTransform(src=look.colorspace, dst=space))
                 .map(lambda built: lattice.transform(applied(built.getDefaultCPUProcessor(), np.ascontiguousarray(look.pixels[..., :3]))))
-                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                .map_error(BlenderImagingFault.lifted)
             )
 
         with self.staged(call.identity) as made, TemporaryDirectory(dir=bpy.app.tempdir) as folder:
-            config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), (space,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), (space,)).map_error(BlenderImagingFault.lifted)
             return (
                 paired(paired(made, config), call.record.output())
                 .bind(lambda parts: rendered(*parts[0], Path(folder)).bind(lambda look: tabled(parts[0][1], look)).map(lambda built: (parts[1], built)))
-                .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
-                .map(lambda paths: Done(notes=tuple(("INFO", f"Wrote {path}") for path in paths)))
+                .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}).map_error(BlenderImagingFault.lifted))
+                .map(Done.wrote)
             )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:

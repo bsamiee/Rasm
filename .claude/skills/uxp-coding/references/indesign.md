@@ -163,13 +163,13 @@ const written = (target: { readonly constructorName: string }, values: object): 
 
 ## [04]-[TRANSACTIONS]
 
-Throws inside a step roll back every change in every document and record no undo entry. A plug-in's top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` can lose its hand-off: main thread waits for a callback that never runs, plug-in thread blocks on a fence, and InDesign hangs until killed. ExtendScript source-text `doScript` calls and calls nested inside a callback never hung. Each kind of work takes one form:
+Throws inside a step roll back every change in every document and record no undo entry. A plug-in's top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` can lose its hand-off: main thread waits for a callback that never runs, plug-in thread blocks on a fence, and InDesign hangs until killed. ExtendScript source-text `doScript` calls and calls nested inside a callback never hung. Peer calls a plug-in serves during an ExtendScript `$.sleep` enter a nested function `doScript`, and open menus, dialogs, and drags hold it before its callback runs. Each kind of work takes one form:
 
 | [INDEX] | [WORK]                 | [FORM]                                                                |
 | :-----: | :--------------------- | :-------------------------------------------------------------------- |
 |  [01]   | Read                   | DOM call, or ExtendScript source text through `doScript`              |
 |  [02]   | Write with no UXP code | ExtendScript source text under `ENTIRE_SCRIPT` around a function step |
-|  [03]   | Write running UXP code | One top-level function `doScript`, its transaction                    |
+|  [03]   | Write running UXP code | Function `doScript` nested in an ExtendScript `$.sleep` call          |
 |  [04]   | Savepoint inside write | Function `doScript` nested in that transaction                        |
 |  [05]   | Rolled-back read       | ExtendScript source text around a throwing function `doScript`        |
 
@@ -197,17 +197,14 @@ const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, pre
         Array.forEach(Array.difference(app.documents.everyItem().id, opened), (id) => app.documents.itemByID(id).close(SaveOptions.NO)),
     );
     yield* Effect.catch(
-        Effect.try({
-            try: () => app.doScript(run, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, step),
-            catch: (cause) => new StepError({ step, reason: { _tag: 'Refused', cause } }),
-        }),
+        entered(() => app.doScript(run, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, step)),
         (error) => Effect.andThen(Deferred.fail(outcome, error), close),
     );
     return yield* Deferred.await(outcome);
 });
 ```
 
-`transacted` returns the body's value, or its typed failure with every change rolled back. Under `preview` the body's value returns and the interruption rolls the document back with no undo step: a dry run, a rendered preview, or a host refusal reported as data. `Deferred.fail` completes `outcome` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Bodies run on the caller's services, which a bare `Effect.runSync` drops, and an async body fails `StepError`. `transacted` refuses with `Modal` before its `doScript` while `app.modalState` reads true.
+`entered` runs its step inside a peer call the plug-in serves during an ExtendScript `$.sleep`, a host refusal failing `Refused`. `transacted` returns the body's value, or its typed failure with every change rolled back. Under `preview` the body's value returns and the interruption rolls the document back with no undo step: a dry run, a rendered preview, or a host refusal reported as data. `Deferred.fail` completes `outcome` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Bodies run on the caller's services, which a bare `Effect.runSync` drops, and an async body fails `StepError`. `transacted` refuses with `Modal` before its `doScript` while `app.modalState` reads true.
 
 - Nested `doScript` calls are savepoints inside their outer step
 - Rollback restores documents and app-wide find, change, and export preferences, and leaves `app.scriptPreferences` and files on disk
@@ -365,7 +362,7 @@ const rendered = Effect.fn('rendered')(function* (
 - Native writes take any absolute path except a file directly in `/tmp`
 
 Regions export from a scratch document that matches what InDesign draws:
-1. `app.documents.add(false, undefined, { documentPreferences: { pageWidth, pageHeight, facingPages: false } })` sizes a page with a layer per source layer
+1. `app.documents.add(false)` opens a windowless document, sized through `documentPreferences.properties`, with a layer per source layer
 2. Master items come first: pages in descending index, each page's `masterPageItems` reversed and deduplicated by `id`
 3. Copies keep their spread-center offset, and `duplicate(layer, by)` of a master item takes `by` as its page's `extent` corner less its master page's
 4. Shown top-level spread items follow back to front, each `duplicate` going to `layers.item(item.itemLayer.index)`
@@ -450,7 +447,7 @@ const grep = ({ source, flags, ignoreCase, multiline }: RegExp): Result.Result<s
 
 | [INDEX] | [JAVASCRIPT]                  | [GREP_READS]                              | [GREP_FORM]                              |
 | :-----: | :---------------------------- | :---------------------------------------- | :--------------------------------------- |
-|  [01]   | `\uXXXX`, surrogate pairs     | Case fold and digits, pairs match nothing | `\x{XXXX}`, `\x{1F600}`                  |
+|  [01]   | `\uXXXX`, surrogate pairs     | `\u` as uppercase, pairs match nothing    | `\x{XXXX}`, `\x{1F600}`                  |
 |  [02]   | `\p{L}`, `\p{N}`, `\p{P}`     | Lowercase alone, nothing, nothing         | `\p{Letter}`, `\p{Number}`               |
 |  [03]   | `\p{Script=X}`, `[a-z\p{Lu}]` | Nothing, property as literal characters   | Class of code points                     |
 |  [04]   | `^`, `$` inside alternation   | Anchor binds every alternative            | Lookaround per branch                    |

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-char-lexer
+language: rust
+severity: error
+utils:
+    advance:
+        kind: call_expression
+        has:
+            field: function
+            kind: field_expression
+            all:
+                - has: {field: field, regex: '^(next|peek|next_if|next_if_eq|nth|by_ref)$'}
+                - has: {field: value, pattern: $IT}
+    pull:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(next|peek)$'}}
+            - has: {field: function, kind: field_expression, has: {field: value, pattern: $IT}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    char-arm:
+        kind: match_arm
+        has: {field: pattern, has: {stopBy: end, kind: char_literal}}
+rule:
+    any:
+        - kind: while_expression
+          all:
+            - has: {field: condition, kind: let_condition, has: {field: value, matches: pull}}
+            - has:
+                field: body
+                has:
+                    stopBy: {kind: 'closure_expression, function_item'}
+                    kind: match_expression
+                    all:
+                        - has: {field: value, any: [{kind: identifier, pattern: $CHAR}, {kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $CHAR}}]}
+                        - has: {field: body, has: {matches: char-arm}}
+            - has: {field: condition, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $CHAR}}}
+            - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: advance}}
+        - kind: loop_expression
+          has:
+            field: body
+            has:
+                stopBy: {kind: 'closure_expression, function_item'}
+                kind: match_expression
+                all:
+                    - has: {field: value, matches: pull}
+                    - has: {field: body, has: {matches: char-arm}}
+                    - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: advance}}
+message: 'Loop pulls characters from `$IT` and branches on each literal by hand'
+note: 'Write the grammar as `winnow` parsers (`winnow::token::{any, one_of, take_while, take_until}`, `winnow::combinator::{alt, delimited, repeat}`) run through `Parser::parse` over a `&str` stream, or as `chumsky` parsers where errors recover and accumulate. A loop advancing the iterator inside its arms restates the parser stream'

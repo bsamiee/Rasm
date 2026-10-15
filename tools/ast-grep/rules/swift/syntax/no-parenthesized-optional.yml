@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parenthesized-optional
+language: swiftlang
+severity: error
+rule:
+    kind: tuple_type
+    all:
+        - inside: {kind: optional_type, field: wrapped}
+        - has:
+            kind: tuple_type_item
+            all:
+                - not: {has: {field: name, pattern: $_}}
+                - has:
+                    field: element
+                    kind: 'opaque_type, existential_type'
+                    pattern: $TYPE
+                    not: {has: {kind: protocol_composition_type}}
+        - not: {has: {kind: tuple_type_item, nthChild: {position: 2, ofRule: {kind: tuple_type_item}}}}
+fix: $TYPE
+message: '`($TYPE)` parenthesizes the type its optional wraps'
+note: 'Write `some <Protocol>?` and `any <Protocol>?`, which bind `?` to the whole opaque or existential type, a composition `(any <A> & <B>)?` keeps its parentheses'

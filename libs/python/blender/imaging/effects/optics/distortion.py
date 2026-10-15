@@ -13,7 +13,7 @@ import numpy.typing as npt
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.effects.optics.defocus import Aperture
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Choice, GraphForm, Presentation, Quantity, Rgb
+from blender.imaging.parameters import Choice, Finite, GraphForm, Positive, Presentation, Quantity, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -31,9 +31,9 @@ class Direction(Choice):
 class Radial(msgspec.Struct, frozen=True, kw_only=True):
     """Radial distortion and zoom normalized by the displayed frame's greater side."""
 
-    distortion: Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max)]
-    scale: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
-    aspect: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
+    distortion: Finite
+    scale: Positive
+    aspect: Positive
 
     @property
     def extent(self) -> npt.NDArray[np.float64]:
@@ -88,7 +88,7 @@ class Distortion(Effect, frozen=True, kw_only=True, tag=25):
     direction: Annotated[Direction, msgspec.Meta(description="Distort a rectilinear image or undistort a lens image")] = Direction.DISTORT
     extension: Annotated[Extension, msgspec.Meta(description="Sampling past the frame edge on both axes")] = Extension.CLIP
 
-    def mapping(self, aspect: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+    def mapping(self, aspect: Positive) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
         """Returns the selected mapping at the displayed width over height."""
         smaller = min(aspect, 1.0) / max(aspect, 1.0)
         reach = 1.0 + smaller**2 if self.fit and self.distortion > 0.0 else 1.0

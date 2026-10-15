@@ -85,7 +85,7 @@ public static class EventKind {
         static (deliver, site, retain) => DisposalOps.Acquire(
             own =>
                 from attached in Seq(LiveNewDocument, LiveEndOpenDocument).TraverseM(row => row.Inline(deliver, site.Sink, own)).As()
-                from opened in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false)))
+                from opened in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments()))
                 from delivered in Callbacks.Each(opened.Map(doc => IO.pure(doc.RuntimeSerialNumber).Bind(deliver)))
                 select unit,
             (_, release) => retain(release)));
@@ -110,7 +110,7 @@ public static class EventKind {
         typeof(RhinoDoc),
         nameof(TransformObjects),
         static (deliver, site, retain) => DisposalOps.Acquire(own =>
-            from held in IO.lift(static () => Atom((Pending: HashMap<uint, TransformedObjects>(), Taken: Option<TransformedObjects>.None)))
+            from held in atomIO((Pending: HashMap<uint, TransformedObjects>(), Taken: Option<TransformedObjects>.None))
             from before in BeforeTransformObjects.Inline(
                         args =>
                             from raised in IO.lift(() => (Id: args.TransformEventId, Objects: TransformedObjects.Of(args)))
@@ -202,7 +202,7 @@ public static class EventKind {
         typeof(DisplayPipeline),
         nameof(DisplayPipeline.ViewportProjectionChanged),
         static (deliver, site, retain) =>
-            from counters in IO.lift(static () => Atom((Counters: HashMap<Guid, uint>(), Repeat: false)))
+            from counters in atomIO((Counters: HashMap<Guid, uint>(), Repeat: false))
             from attached in ProjectionRaised.Inline(
                 args =>
                     from raised in IO.lift(() => (Viewport: args.Viewport.Id, Counter: args.Viewport.ChangeCounter))

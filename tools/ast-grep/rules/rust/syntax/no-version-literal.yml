@@ -2,7 +2,6 @@
 id: no-version-literal
 language: rust
 severity: error
-ignores: ['**/build.rs', '**/tests/**', '**/benches/**']
 utils:
     version-name:
         regex: '(?i)(^|_)(version|user_agent|useragent)$'

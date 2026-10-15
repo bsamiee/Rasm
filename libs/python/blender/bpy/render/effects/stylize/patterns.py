@@ -319,8 +319,8 @@ def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[F
                 lambda ink: node("ink_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ink}, {})
             )
             black = peak.bind(lambda peak: math("black_ink", "SUBTRACT", 1.0, peak))
-            tones = separations.map(lambda axes: ((cyan, ended("ink_axes", "X")(axes)), (magenta, (axes, End(node="ink_axes", socket="Y"))), (yellow, (axes, End(node="ink_axes", socket="Z"))))).bind(
-                lambda colors: black.map(lambda black: (*colors, (key_process, black)))
+            tones = separations.map(lambda axes: ((cyan, ended("ink_axes", "X")(axes)), (magenta, (axes, End(node="ink_axes", socket="Y"))), (yellow, (axes, End(node="ink_axes", socket="Z"))))).map2(
+                black, lambda colors, black: (*colors, (key_process, black))
             )
             process = tones.bind(
                 lambda tones: accumulated(

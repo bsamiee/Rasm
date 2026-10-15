@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-hex-by-byte
+language: rust
+rule:
+    kind: macro_invocation
+    all:
+        - has: {field: macro, regex: '^((::)?(std|alloc|core)::)?(format|write|writeln)$'}
+        - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\{\w*:02[xX]\}"$'}}
+        - inside:
+            stopBy: {kind: 'function_item, closure_expression, for_expression'}
+            any:
+                - kind: for_expression
+                - kind: closure_expression
+                  inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(map|fold|for_each|try_fold|try_for_each|flat_map|filter_map|scan)$'}}}}

@@ -11,7 +11,7 @@ from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels
+from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels, shorter
 from blender.bpy.nodes.graphs import End, ended, Fragment, Generated, math, mixed, node, Operand, switched, vector
 from blender.bpy.render.effects.stack import CompositorEffect, Shell
 from blender.bpy.render.effects.viewers import inspection
@@ -56,12 +56,7 @@ def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
         if not shell.record.dirt.enabled:
             return Ok(Nothing)
         return shell.context.map(
-            lambda context: (
-                specks
-                .field(context[1].size[::-1])
-                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                .map(lambda coverage: Some(np.broadcast_to(coverage[..., None], (*coverage.shape, 3))))
-            )
+            lambda context: specks.field(context[1].size[::-1]).map_error(BlenderImagingFault.lifted).map(lambda coverage: Some(np.broadcast_to(coverage[..., None], (*coverage.shape, 3))))
         ).default_with(lambda: Error((BlenderAbsentFault(owner=repr(specks), key="consuming_image_context"),)))
 
     field = node(
@@ -72,11 +67,7 @@ def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
         scatter_field, size_field, dirt = Bloom.__struct_fields__
         strength, _ = Dirt.__struct_fields__
         _, value = Gated.__struct_fields__
-        smaller = (
-            node("dimensions", bpy.types.CompositorNodeImageInfo, {"Image": shell.source}, {})
-            .bind(lambda info: node("sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("dimensions", "Dimensions")(info)}, {}))
-            .bind(lambda sides: math("smaller", "MINIMUM", ended("sides", "X")(sides), End(node="sides", socket="Y")))
-        )
+        smaller = node("dimensions", bpy.types.CompositorNodeImageInfo, {"Image": shell.source}, {}).bind(lambda info: shorter("smaller", ended("dimensions", "Dimensions")(info)))
         size = paired(pixels("span", frame, shell.socket(size_field)), smaller).bind(lambda spans: math("size", "DIVIDE", *spans))
         mean = size.bind(
             lambda size: node(
@@ -128,11 +119,7 @@ def glared(shell: Shell[Glare]) -> BlenderResult[tuple[Fragment, End]]:
             return Ok(Nothing)
         return operation.map(
             lambda compute: shell.context.map(
-                lambda context: (
-                    compute(shell.config, context[0], context[1].size[::-1], context[1].pixel_aspect_x / context[1].pixel_aspect_y)
-                    .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                    .map(Some)
-                )
+                lambda context: compute(shell.config, context[0], context[1].size[::-1], context[1].pixel_aspect_x / context[1].pixel_aspect_y).map_error(BlenderImagingFault.lifted).map(Some)
             ).default_with(lambda: Error((BlenderAbsentFault(owner=repr(pupil), key="consuming_image_context"),)))
         ).default_value(Ok(Nothing))
 

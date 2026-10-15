@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-repeated-else
+language: rust
+arguments: [outer, inner, then, fallback]
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment, empty_statement, label'}
+rule:
+    kind: if_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - has: {field: condition, matches: outer}
+        - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE, matches: fallback}}
+        - has:
+            field: consequence
+            all:
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                - has:
+                    nthChild: {position: 1, ofRule: {matches: slot}}
+                    any:
+                        - kind: if_expression
+                          all:
+                            - has: {field: condition, matches: inner}
+                            - has: {field: consequence, matches: then}
+                            - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE}}
+                        - kind: expression_statement
+                          has:
+                            kind: if_expression
+                            all:
+                                - has: {field: condition, matches: inner}
+                                - has: {field: consequence, matches: then}
+                                - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE}}

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-observation-ignored-read-by-observed
-language: swift
+language: swiftlang
 severity: error
 utils:
     ignored: {kind: attribute, regex: '^@ObservationIgnored$'}

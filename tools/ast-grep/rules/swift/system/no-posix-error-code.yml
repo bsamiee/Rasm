@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-posix-error-code
+language: swiftlang
+severity: error
+utils:
+    posix-code-annotation:
+        kind: type_annotation
+        regex: '^:\s*(Foundation\.)?POSIXErrorCode\??$'
+rule:
+    kind: call_expression
+    pattern: $SITE
+    all:
+        - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^rawValue$'}}}}
+        - any:
+            - has: {nthChild: 1, regex: '^(Foundation\.)?POSIXErrorCode(\.init)?$'}
+            - all:
+                - has: {nthChild: 1, regex: '^\.init$'}
+                - any:
+                    - inside: {kind: property_declaration, field: value, has: {matches: posix-code-annotation}}
+                    - inside: {kind: 'if_statement, guard_statement', has: {matches: posix-code-annotation}}
+message: '`$SITE` maps a raw code through `POSIXErrorCode`, which yields `nil` for a code it does not name'
+note: 'Throw `Errno(rawValue:)` from System, it holds every raw code and matches by case (`.noSuchFileOrDirectory`)'

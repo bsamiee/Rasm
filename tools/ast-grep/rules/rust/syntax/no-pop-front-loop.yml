@@ -44,4 +44,4 @@ constraints:
     N: {kind: 'identifier, field_expression, integer_literal, scoped_identifier'}
 fix: $D.retain_back($N);
 message: '`$D` drops its front elements one at a time down to `$N`'
-note: 'Call `<deque>.retain_back(<len>)` (`VecDeque`, Rust 1.99), which keeps the last `<len>` elements and does nothing when the deque is already that short, a `>=` loop keeps one element fewer and runs forever at zero, a `drain` whose receiver no type names and a `LinkedList` receiver stay as written'
+note: 'Call `<deque>.retain_back(<len>)`, the method keeps the last `<len>` elements and does nothing when the deque is already that short. A `>=` loop keeps one element fewer and runs forever at zero. A `drain` whose receiver no type names and a `LinkedList` receiver stay as written'

@@ -8,11 +8,9 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ToolbarState(Guid Id, Option<string> Name);
-
 public sealed record ToolbarGroupState(Guid Id, Option<string> Name, bool Visible, bool IsDocked);
 
-public sealed record ToolbarFileState(Guid Id, Option<string> Name, string Path, Seq<ToolbarGroupState> Groups, Seq<ToolbarState> Toolbars);
+public sealed record ToolbarFileState(Guid Id, Option<string> Name, string Path, Seq<ToolbarGroupState> Groups, Seq<NamedId> Toolbars);
 
 [Union]
 public abstract partial record MenuItemRow {
@@ -53,12 +51,12 @@ internal static partial class ToolbarMapper {
 
     internal static partial ToolbarGroupState ToState(ToolbarGroup group);
 
-    internal static partial ToolbarState ToState(Toolbar toolbar);
+    internal static partial NamedId ToState(Toolbar toolbar);
 
     private static Seq<ToolbarGroupState> Groups(ToolbarFile file) =>
         Conversions.Rows(toSeq(Range(0, file.GroupCount)).Map(file.GetGroup)).Map(ToState).Strict();
 
-    private static Seq<ToolbarState> Toolbars(ToolbarFile file) =>
+    private static Seq<NamedId> Toolbars(ToolbarFile file) =>
         Conversions.Rows(toSeq(Range(0, file.ToolbarCount)).Map(file.GetToolbar)).Map(ToState).Strict();
 }
 
@@ -86,7 +84,7 @@ public static class Toolbars {
             from refreshed in IO.lift(static () => RefreshToolbars(owner: null))
             select unit)
         .As()
-        .Map(static _ => unit);
+        .Map(unit);
 
     private static Fin<Unit> Placed(HostCommand command, object toolbar, Option<(object Item, int Index)> existing) {
         object text = LocaleTextFromString(owner: null, command.EnglishName);

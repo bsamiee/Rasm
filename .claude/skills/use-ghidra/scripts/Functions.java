@@ -16,12 +16,14 @@ import util.CollectionUtils;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,10 +52,14 @@ final class Functions {
     }
 
     static Function target(Function function) {
-        return isStub(function)
+        return target(function, new HashSet<>());
+    }
+
+    private static Function target(Function function, Set<Function> seen) {
+        return isStub(function) && seen.add(function)
                 ? function.getCalledFunctions(TaskMonitor.DUMMY).stream()
                         .min(BY_ENTRY)
-                        .map(Functions::target)
+                        .map(callee -> target(callee, seen))
                         .orElse(function)
                 : thunked(function);
     }
@@ -66,12 +72,18 @@ final class Functions {
     }
 
     static Stream<Function> callers(Function function, TaskMonitor monitor) {
+        return callers(function, monitor, new HashSet<>());
+    }
+
+    private static Stream<Function> callers(
+            Function function, TaskMonitor monitor, Set<Function> seen) {
         return Stream.concat(Stream.of(function), thunks(function))
+                .filter(seen::add)
                 .flatMap(each -> each.getCallingFunctions(monitor).stream())
                 .flatMap(
                         caller ->
                                 caller.isThunk() || isStub(caller)
-                                        ? callers(caller, monitor)
+                                        ? callers(caller, monitor, seen)
                                         : Stream.of(caller))
                 .distinct();
     }

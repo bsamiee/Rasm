@@ -15,7 +15,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, root_in, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderResult
-from blender.bpy.scene.collections import entry, founded, joined, parted
+from blender.bpy.scene.collections import entry, founded, joined, Member as Linkable, parted
 from blender.bpy.scene.lights.emitters import focused
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout import rows
@@ -157,7 +157,7 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
 
 
 def linked(
-    emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[bpy.types.Object | bpy.types.Collection, ...], state: str, owner: bpy.types.Object, identity: Identity
+    emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[Linkable, ...], state: str, owner: bpy.types.Object, identity: Identity
 ) -> BlenderResult[bpy.types.Collection]:
     """Joins members into an emitter's link set at one state.
 

@@ -109,21 +109,11 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                     plane = allocation.bind(rendered)
             finally:
                 restoration = prior.map(lambda state: state.applied(located.area)).default_value(Ok(Nothing))
-            completed = paired(plane, restoration)
-            match completed.tag:
-                case "ok":
-                    pixels, _ = completed.ok
-                    return Ok(pixels)
-                case "error":
-                    return Error(completed.error)
+            return paired(plane, restoration).map(lambda pair: pair[0])
 
-        prepared = paired(located.region(), EditorState.of(bpy.types.SpaceView3D, {"overlay.show_overlays": False, "show_gizmo": False}))
-        match prepared.tag:
-            case "ok":
-                region, state = prepared.ok
-                return state.applied(located.area).bind(lambda prior: restored(region, prior))
-            case "error":
-                return Error(prepared.error)
+        return paired(located.region(), EditorState.of(bpy.types.SpaceView3D, {"overlay.show_overlays": False, "show_gizmo": False})).bind(
+            lambda pair: pair[1].applied(located.area).bind(lambda prior: restored(pair[0], prior))
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

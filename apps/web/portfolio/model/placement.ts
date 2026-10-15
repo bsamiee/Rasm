@@ -61,7 +61,7 @@ const Composition = Schema.Struct({ id: Id, items: Schema.Union([Schema.Tuple([P
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('portfolio/Assets') {}
+class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('architectural-portfolio/model/placement/Assets') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

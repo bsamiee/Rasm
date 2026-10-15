@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-exists-check-before-file-operation-swift
-language: swift
+language: swiftlang
 severity: error
 utils:
     subject-path:
@@ -18,7 +18,7 @@ utils:
     existence:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^fileExists$'}}}
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^(fileExists|isExecutableFile)$'}}}
             - matches: first-argument
     exists-check:
         any:
@@ -31,7 +31,7 @@ utils:
     absent-check:
         matches: existence
         regex: '^!'
-    operation:
+    file-operation:
         kind: call_expression
         all:
             - has:
@@ -50,11 +50,36 @@ utils:
                         all:
                             - has: {field: name, regex: '^(at|atPath|contentsOf|contentsOfFile|forReadingFrom|forReadingAtPath)$'}
                             - has: {field: value, matches: subject-path}
+    executable-path:
+        regex: '^((Subprocess\.)?Executable)?\.path\('
+        has: {stopBy: end, kind: value_argument, has: {field: value, matches: subject-path}}
+    spawn:
+        kind: call_expression
+        has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                any:
+                    - has: {kind: value_argument, all: [{has: {field: name, regex: '^executable$'}}, {has: {field: value, matches: executable-path}}]}
+                    - all:
+                        - inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^((Subprocess\.)?run|(Subprocess\.)?Configuration(\.init)?)$'}}}
+                        - has: {kind: value_argument, nthChild: 1, has: {field: value, matches: executable-path}}
+    operation:
+        any:
+            - matches: file-operation
+            - matches: spawn
     exit-body:
         matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
 rule:
     pattern: $SITE
     any:
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, matches: exists-check}
+            - inside:
+                stopBy: end
+                kind: 'function_declaration, init_declaration'
+                has: {stopBy: end, matches: spawn}
         - kind: ternary_expression
           all:
             - has: {field: condition, matches: exists-check}
@@ -77,5 +102,5 @@ rule:
           all:
             - has: {kind: where_clause, has: {matches: exists-check}}
             - has: {kind: statements, has: {matches: operation, stopBy: end}}
-message: '`$SITE` checks that `$SUBJECT` exists before an operation that reports a missing file itself, and races the filesystem'
-note: 'Run the operation unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`'
+message: '`$SITE` checks that `$SUBJECT` exists or is executable before an operation that reports a missing file itself, and races the filesystem'
+note: 'Run the operation unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`, a spawn reports a missing executable as `SubprocessError.Code.executableNotFound`'

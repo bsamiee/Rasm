@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-wkt-text
+language: rust
+severity: error
+utils:
+    parsed:
+        any:
+            - inside: {field: value, kind: field_expression, has: {field: field, regex: '^parse$'}}
+            - inside:
+                kind: arguments
+                inside: {kind: call_expression, has: {field: function, regex: '(^|::|\.)(from_str|from_wkt|try_from_wkt_str|parse)$'}}
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $TEXT
+    regex: '^r?#*"(SRID=[^;"]*;)?(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION|TRIANGLE|TIN|POLYHEDRALSURFACE)( ?(Z|M|ZM))? ?(\(|EMPTY\b)'
+    all:
+        - not: {matches: parsed}
+        - not: {matches: rust-test-scope}
+message: '`$TEXT` spells WKT by hand'
+note: 'Hold the shape as a `geo::Geometry<f64>` and call `to_wkt()` from `geozero::ToWkt`. `to_ewkt(Some(srid))` adds the SRID prefix'

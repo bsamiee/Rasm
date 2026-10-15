@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-pointer-forwarding-impl
+language: rust
+severity: error
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment'}
+    forwarded-call:
+        kind: call_expression
+        all:
+            - any:
+                - pattern: (**self).$M($$$ARGS)
+                - pattern: (*self).$M($$$ARGS)
+                - pattern: $T::$M($$$ARGS)
+            - has: {field: arguments, not: {has: {pattern: $_, not: {kind: 'identifier, self'}}}}
+    forwarding-statement:
+        any:
+            - matches: forwarded-call
+            - kind: 'await_expression, expression_statement, return_expression'
+              has: {nthChild: 1, matches: forwarding-statement}
+    forwarder:
+        kind: function_item
+        all:
+            - has: {field: name, pattern: $M}
+            - has:
+                field: body
+                all:
+                    - has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: forwarding-statement}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+    pointer:
+        any:
+            - kind: reference_type
+              has: {field: type, kind: type_identifier, pattern: $T}
+            - kind: generic_type
+              all:
+                - has: {field: type, regex: '^((::)?(std|alloc)::(boxed|sync|rc)::)?(Box|Arc|Rc)$'}
+                - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_identifier, pattern: $T}}, {not: {has: {nthChild: 2}}}]}
+rule:
+    kind: impl_item
+    all:
+        - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $T}}}
+        - has: {field: trait, pattern: $TR}
+        - has: {field: type, matches: pointer, pattern: $POINTER}
+        - has: {field: body, all: [{has: {kind: function_item}}, {not: {has: {kind: function_item, not: {matches: forwarder}}}}]}
+message: '`impl $TR for $POINTER` forwards every method to the pointee'
+note: 'Put `#[auto_impl::auto_impl(&, &mut, Box, Arc, Rc)]` (pointer kinds the impls cover) on the trait and delete each forwarding impl, auto_impl generates an impl for every listed pointer from the trait declaration'

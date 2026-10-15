@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import RasmMacOS
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -86,7 +87,7 @@ nonisolated struct ClaudeTokenResponse: Decodable, Sendable {
                 known: ClaudeOAuthToken.Attributes(
                     accessToken: accessToken,
                     refreshToken: refreshToken ?? posted,
-                    scopes: scope.map { scope in scope.split(separator: " ").map(String.init) } ?? token.scopes,
+                    scopes: scope?.split(separator: " ").map(String.init) ?? token.scopes,
                     expiresAt: Self.milliseconds(now.addingTimeInterval(expiresIn)),
                     refreshTokenExpiresAt: refreshTokenExpiresIn.map { interval in
                         Self.milliseconds(now.addingTimeInterval(interval))
@@ -271,8 +272,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [ACCOUNT_FILE]
     func identity() -> Result<AccountIdentity?, ClaudeFailure> {
         readAccount().flatMap { account in
-            account.map { account in account.known.identity(plan: nil).map(Optional.some) }
-                ?? .success(nil)
+            account?.known.identity(plan: nil).map(Optional.some) ?? .success(nil)
         }
     }
 
@@ -291,7 +291,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     private var existingConfigFile: URL {
-        FileManager.default.fileExists(atPath: directoryConfigFile.path)
+        FileManager.default.fileExists(atPath: directoryConfigFile.path(percentEncoded: false))
             ? directoryConfigFile : configFile
     }
 

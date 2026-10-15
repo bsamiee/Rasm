@@ -7,17 +7,12 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
+using SixLabors.ImageSharp.PixelFormats;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Grade;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public enum AlphaRepresentation {
-    None,
-    Associated,
-    Unassociated,
-}
-
 internal interface IBlendKernel {
     public static abstract Vector256<double> Apply(Vector256<double> a, Vector256<double> b);
 }
@@ -41,7 +36,7 @@ public readonly partial struct Mix : IMinMaxValue<Mix> {
 public sealed partial class MatteChannel {
     public static readonly MatteChannel Lightness = new("lightness", static (row, luminance, weights) => {
         for (int x = 0; x < row.Length; x++)
-            weights[x] = row[x].W == 0f ? 0f : (float)double.Clamp(((luminance.X * row[x].X) + (luminance.Y * row[x].Y) + (luminance.Z * row[x].Z)) * row[x].W, 0d, 1d);
+            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(((luminance.X * row[x].X) + (luminance.Y * row[x].Y) + (luminance.Z * row[x].Z)) * row[x].W, 0d, 1d);
     });
     public static readonly MatteChannel Alpha = new("alpha", static (row, _, weights) => {
         for (int x = 0; x < row.Length; x++)
@@ -99,7 +94,7 @@ file readonly struct DodgeKernel : IBlendKernel {
     public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) =>
         (Vector256<double>.One - b) switch {
             var t => Vector256.ConditionalSelect(
-                Vector256.Equals(a, Vector256<double>.Zero),
+                Vector256.IsZero(a),
                 a,
                 Vector256.ConditionalSelect(Vector256.LessThanOrEqual(t, Vector256<double>.Zero), Vector256<double>.One, Vector256.Min(a / t, Vector256<double>.One))),
         };
@@ -135,7 +130,7 @@ file readonly struct SubtractKernel : IBlendKernel {
 }
 
 file readonly struct DivideKernel : IBlendKernel {
-    public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) => Vector256.ConditionalSelect(Vector256.Equals(b, Vector256<double>.Zero), a, a / b);
+    public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) => Vector256.ConditionalSelect(Vector256.IsZero(b), a, a / b);
 }
 
 file readonly struct HueKernel : IBlendKernel {
@@ -206,46 +201,46 @@ public abstract partial class BlendingMode {
 
     public uint BlendModeKey { get; }
 
-    public abstract void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, AlphaRepresentation representation, AlphaRepresentation sourceRepresentation = AlphaRepresentation.Unassociated);
+    public abstract void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated);
 
     public abstract void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights);
 
     private sealed class Mode<TKernel> : BlendingMode where TKernel : IBlendKernel {
         public Mode(string key, ReadOnlySpan<byte> code) : base(key, BinaryPrimitives.ReadUInt32BigEndian(code)) { }
 
-        public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, AlphaRepresentation representation, AlphaRepresentation sourceRepresentation = AlphaRepresentation.Unassociated) {
+        public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
             for (int x = 0; x < backdrop.Length; x++) {
-                if (weights[x] == 0f || (sourceRepresentation == AlphaRepresentation.Unassociated && layer[x].W == 0f) || (sourceRepresentation == AlphaRepresentation.Associated && layer[x] == Vector4.Zero))
+                if (weights[x] is 0f || (sourceRepresentation is PixelAlphaRepresentation.Unassociated && layer[x].W is 0f) || (sourceRepresentation is PixelAlphaRepresentation.Associated && layer[x] == Vector4.Zero))
                     continue;
-                double sourceAlpha = sourceRepresentation == AlphaRepresentation.None ? 1d : layer[x].W;
+                double sourceAlpha = sourceRepresentation is PixelAlphaRepresentation.None ? 1d : layer[x].W;
                 double covered = weights[x] * sourceAlpha;
                 Vector4 under = backdrop[x];
                 Vector256<double> source = Vector256.Create(layer[x].X, layer[x].Y, layer[x].Z, 0d);
-                double alpha = representation == AlphaRepresentation.None ? 1d : under.W;
+                double alpha = representation is PixelAlphaRepresentation.None ? 1d : under.W;
                 Vector256<double> color = Vector256.Create(under.X, under.Y, under.Z, 0d);
-                Vector256<double> associated = representation == AlphaRepresentation.Associated || alpha == 1d ? color
-                    : alpha == 0d ? Vector256<double>.Zero : alpha * color;
-                color = representation == AlphaRepresentation.Associated && alpha is not (0d or 1d) ? color / alpha : color;
-                Vector256<double> straight = sourceRepresentation == AlphaRepresentation.Associated && sourceAlpha != 0d ? source / sourceAlpha : source;
-                Vector256<double> blended = alpha == 0d || this == Mix ? straight
-                    : alpha == 1d ? TKernel.Apply(color, straight)
+                Vector256<double> associated = representation is PixelAlphaRepresentation.Associated || alpha is 1d ? color
+                    : alpha is 0d ? Vector256<double>.Zero : alpha * color;
+                color = representation is PixelAlphaRepresentation.Associated && alpha is not (0d or 1d) ? color / alpha : color;
+                Vector256<double> straight = sourceRepresentation is PixelAlphaRepresentation.Associated && sourceAlpha is not 0d ? source / sourceAlpha : source;
+                Vector256<double> blended = alpha is 0d || this == Mix ? straight
+                    : alpha is 1d ? TKernel.Apply(color, straight)
                     : Vector256.Lerp(straight, TKernel.Apply(color, straight), Vector256.Create(alpha));
-                double outputAlpha = covered == 1d || alpha == 1d ? 1d : alpha == 0d ? covered : covered + ((1d - covered) * alpha);
-                Vector256<double> output = sourceAlpha == 0d ? associated + (weights[x] * source)
-                    : covered == 1d ? blended : (covered * blended) + ((1d - covered) * associated);
-                output = representation == AlphaRepresentation.Unassociated && outputAlpha is not (0d or 1d) ? output / outputAlpha : output;
+                double outputAlpha = covered is 1d || alpha is 1d ? 1d : alpha is 0d ? covered : covered + ((1d - covered) * alpha);
+                Vector256<double> output = sourceAlpha is 0d ? associated + (weights[x] * source)
+                    : covered is 1d ? blended : (covered * blended) + ((1d - covered) * associated);
+                output = representation is PixelAlphaRepresentation.Unassociated && outputAlpha is not (0d or 1d) ? output / outputAlpha : output;
                 backdrop[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], (float)outputAlpha);
             }
         }
 
         public override void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights) {
             for (int x = 0; x < graded.Length; x++) {
-                if (weights[x] == 0f)
+                if (weights[x] is 0f)
                     graded[x] = input[x];
                 else {
                     Vector256<double> original = Vector256.Create(input[x].X, input[x].Y, input[x].Z, 0d);
                     Vector256<double> applied = TKernel.Apply(original, Vector256.Create(graded[x].X, graded[x].Y, graded[x].Z, 0d));
-                    Vector256<double> output = weights[x] == 1f ? applied : Vector256.Lerp(original, applied, Vector256.Create((double)weights[x]));
+                    Vector256<double> output = weights[x] is 1f ? applied : Vector256.Lerp(original, applied, Vector256.Create((double)weights[x]));
                     graded[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], input[x].W);
                 }
             }
@@ -310,16 +305,16 @@ file readonly record struct Blending(BlendingMode Mode, float Amount, Seq<Mask> 
     }
 }
 
-file readonly struct LayerAction(Memory2D<Vector4> rows, Memory2D<Vector4> layer, Blending blending, PixelFrame frame, AlphaRepresentation representation) : IAction {
+file readonly struct LayerAction(Memory2D<Vector4> rows, Memory2D<Vector4> layer, Blending blending, PixelFrame frame, PixelAlphaRepresentation representation) : IAction {
     public void Invoke(int i) {
         Span<Vector4> row = rows.Span.GetRowSpan(i);
         using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
-        if (representation == AlphaRepresentation.Unassociated || blending.Masks.IsEmpty)
+        if (representation is PixelAlphaRepresentation.Unassociated || blending.Masks.IsEmpty)
             blending.Weigh(row, frame.Origin.X, frame.Line(i), weights.Span);
         else {
             using SpanOwner<Vector4> input = SpanOwner<Vector4>.Allocate(row.Length);
             for (int x = 0; x < row.Length; x++)
-                input.Span[x] = representation == AlphaRepresentation.None ? new Vector4(row[x].AsVector3(), 1f)
+                input.Span[x] = representation is PixelAlphaRepresentation.None ? new Vector4(row[x].AsVector3(), 1f)
                     : row[x].W is 0f or 1f ? row[x] : new Vector4(row[x].AsVector3() / row[x].W, row[x].W);
             blending.Weigh(input.Span, frame.Origin.X, frame.Line(i), weights.Span);
         }
@@ -356,7 +351,7 @@ public static class Blend {
                     });
                 }));
 
-    public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, Mix opacity, Seq<Mask> masks, AlphaRepresentation representation) =>
+    public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, Mix opacity, Seq<Mask> masks, PixelAlphaRepresentation representation) =>
         opacity == Mix.MinValue ? @base.Copy() : new(@base.Origin, @base.Size, @base.Extent, block => {
             @base.Block.CopyTo(block);
             ParallelHelper.For(0, @base.Size.Height, new LayerAction(

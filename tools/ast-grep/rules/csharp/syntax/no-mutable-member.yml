@@ -11,6 +11,10 @@ utils:
         has:
             kind: variable_declaration
             not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+    writable-collection-property:
+        kind: property_declaration
+        matches: csharp-visible-member
+        has: {field: type, any: [{matches: csharp-writable-collection}, {kind: nullable_type, has: {field: type, matches: csharp-writable-collection}}]}
 rule:
     any:
         - kind: accessor_declaration
@@ -32,6 +36,7 @@ rule:
                     not:
                         any:
                             - has: {kind: modifier, regex: '^(override|static)$'}
+                            - matches: writable-collection-property
                             - has: {kind: explicit_interface_specifier}
                             - all:
                                 - kind: property_declaration
@@ -43,17 +48,20 @@ rule:
           pattern: $FIELD
           all:
             - not: {has: {kind: modifier, regex: '^(readonly|const|required)$'}}
+            - not: {matches: csharp-visible-member}
             - matches: record-owner
         - kind: field_declaration
           pattern: $FIELD
           all:
             - has: {kind: modifier, regex: '^(public|internal|protected)$'}
             - not: {has: {kind: modifier, regex: '^(readonly|const|required|private|static)$'}}
+            - not: {matches: csharp-visible-member}
             - inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}}
         - kind: field_declaration
           pattern: $REQUIRED
           all:
             - has: {kind: modifier, regex: '^required$'}
+            - not: {matches: csharp-visible-member}
             - matches: single-declarator
             - matches: member-owner
         - kind: record_declaration

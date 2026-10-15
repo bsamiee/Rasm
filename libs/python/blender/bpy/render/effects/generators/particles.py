@@ -13,12 +13,11 @@ import PyOpenColorIO
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.changes import stored
-from blender.bpy.nodes.graphs import Fragment
 from blender.bpy.nodes.trees import created
-from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Coverage, precise, Shell, Shutter, shutter
+from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Coverage, precise, Shell, Shutter, shuttered
 from blender.imaging.effects.generators.noise import Estimate, Gradient, Precision, spectrum
 from blender.imaging.effects.generators.particles import Particles
-from blender.imaging.faults import accumulated, ImagingResult, paired
+from blender.imaging.faults import accumulated, ImagingResult
 from blender.imaging.parameters import Ramp
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -74,17 +73,17 @@ def prepared(
                     precision=precision,
                     spectrum=lambda request, tones: spectrum(request, tones, config=config, gradient=gradient),
                 )
-                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                .map_error(BlenderImagingFault.lifted)
                 .map(lambda estimate: (record, {Shell.image: estimate}))
             )
 
         native = ramped(bpy.data.node_groups.new(record.title, "ShaderNodeTree")) if ramps else Ok({})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        return paired(native, shutter.of.some(identity, scene, record)).bind(lambda parts: integrated(*parts))
+        return native.bind(lambda held: integrated(held, shuttered(scene)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-particles = CompositorEffect(record=Particles, graph=lambda shell: Ok((Fragment(), shell.source)), coverage=Coverage.RESULT, requested=Some(precise), preparation=Some(prepared))
+particles = CompositorEffect(record=Particles, graph=Shell.passed, coverage=Coverage.RESULT, requested=Some(precise), preparation=Some(prepared))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

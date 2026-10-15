@@ -129,7 +129,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
                 static copied => IO.lift(copied.Dispose), owned)).As()
         select (usage, copy);
 
-    private IO<Unit> Signal => wake.TraverseM(static signal => signal).As().Map(static _ => unit);
+    private IO<Unit> Signal => wake.TraverseM(static signal => signal).As().Map(unit);
 
     protected override void Dispose(bool isDisposing) =>
         atomicIO(() => {
@@ -139,7 +139,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         }).Bind(current => Callbacks.Each(Seq(
             IO.lift(() => base.Dispose(isDisposing)),
             DisposalOps.Release(current.ToSeq().Bind(static held => held.Pending.Owned + held.Collecting.Owned)))))
-            .Map(static _ => unit)
+            .Map(unit)
             .Uninterruptible().Run();
 
     private sealed record SceneFeed((SceneBatch Batch, Seq<IDisposable> Owned) Collecting, (SceneBatch Batch, Seq<IDisposable> Owned) Pending) {
@@ -179,11 +179,11 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     protected override void ApplyLightChanges(List<NativeQueue.Light> lightChanges) =>
         Collect(owned => DisposalOps.Within(() => Optional(GetQueueView()),
-            view => toSeq(lightChanges).TraverseM(light => light.ChangeType == NativeQueue.Light.Event.Deleted
+            view => toSeq(lightChanges).TraverseM(light => light.ChangeType is NativeQueue.Light.Event.Deleted
                 ? IO.pure((light.Id, Option<SceneLight>.None))
                 : DisposalOps.Within(() => light.Data,
                     data =>
-                        from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem == CoordinateSystem.Camera)
+                        from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem is CoordinateSystem.Camera)
                             .Iter(held => ConvertCameraBasedLightToWorld(this, light, held)))
                         from copy in Copies.Duplicate(data, owned)
                         select (light.Id, Some(SceneMapper.ToLight(light, copy))),
@@ -267,7 +267,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
                     return Fin.Succ(unit);
                 },
                 None: static () => Fin.Fail<Unit>(Errors.Cancelled))).ThrowIfFail())
-            .Map(static _ => unit), member);
+            .Map(unit), member);
 
     private void Answer(IO<Unit> effect, [CallerMemberName] string member = "") =>
         Callbacks.Run(effect, new CallbackSite(sink, GetType(), member));

@@ -24,4 +24,4 @@ constraints:
     P: {not: {matches: component-binding}}
 fix: $P.is_empty()
 message: '`$P.as_os_str().is_empty()` tests emptiness through the `OsStr` view'
-note: 'Call `<path>.is_empty()` (`Path`, Rust 1.98, reached through deref from `PathBuf`, and `OsStr::is_empty` from `OsString`), a `Component` value keeps `as_os_str()` since it has no `is_empty`, the rule refuses one a type, a `for` over `components()`, or a closure over `components()` names'
+note: 'Call `<path>.is_empty()`, `Path::is_empty` reaches a `PathBuf` through deref and `OsStr::is_empty` an `OsString`. A `Component` value keeps `as_os_str()` since it has no `is_empty`, the rule refuses one a type, a `for` over `components()`, or a closure over `components()` names'

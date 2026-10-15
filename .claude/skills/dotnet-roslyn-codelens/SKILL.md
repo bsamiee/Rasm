@@ -1,6 +1,6 @@
 ---
 name: dotnet-roslyn-codelens
-description: "Use when reading, navigating, diagnosing, or refactoring a C#, .csproj, or solution file through Roslyn in place of grep, Read, and dotnet build."
+description: "Use when reading, diagnosing, or refactoring C# through Roslyn, covering tool choice, trust, change workflow, envelopes, and errors."
 ---
 
 # [DOTNET_ROSLYN_CODELENS]
@@ -93,6 +93,7 @@ Before `Read` on a `.cs` file, the wanted view decides:
 |  [64]   | `mcp__roslyn-codelens__get_operators`              | "What operators does this type define?"                                         |
 |  [65]   | `mcp__roslyn-codelens__get_call_graph`             | "Transitive callers or callees, depth-bounded"                                  |
 |  [66]   | `mcp__roslyn-codelens__get_file_overview`          | "What types are in this file?"                                                  |
+|  [67]   | `mcp__roslyn-codelens__generate_test_skeleton`     | "Scaffold a test class for this type or method"                                 |
 
 ## [03]-[TOOL_REFERENCE]
 
@@ -269,7 +270,7 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
     - Defaults are 300 lines, 15 members, 10 fields, 5 incoming namespaces, and 5 outgoing namespaces, each configurable
 - `mcp__roslyn-codelens__find_circular_dependencies` — cycles in the project graph or the namespace graph
 - `mcp__roslyn-codelens__check_architecture` — layering rules supplied inline, `scope` selects `namespace` (default) or `project`
-  - `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the expected violation
+    - `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the expected violation
     - `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest
     - Edges come from resolved symbols
     - `allowOnly` evaluates solution-internal, non-generated targets alone, edges to framework namespaces and generator output stay unchecked unless `forbid` names them
@@ -339,7 +340,7 @@ Solutions named on the server's command line load with the first one active. Wit
 12. `mcp__roslyn-codelens__apply_code_action` — the chosen fix or refactoring
 13. `mcp__roslyn-codelens__find_unused_symbols` — dead code to delete
 
-Name concrete types, interfaces, and call sites: "`IUserService` implementations: `UserService`, `CachedUserService`, `AdminUserService`".
+Name concrete types, interfaces, and call sites: "`<Interface>` implementations: `<TypeA>`, `<TypeB>`".
 
 ## [05]-[RESPONSE_ENVELOPE]
 

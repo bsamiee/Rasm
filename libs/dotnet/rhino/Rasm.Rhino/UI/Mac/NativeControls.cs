@@ -23,7 +23,6 @@ public static class NativeControls {
 
     private static readonly Seq<nint> EventSelectors = Seq(Selector.GetHandle("scrollWheel:"), Selector.GetHandle("pressureChangeWithEvent:"));
     private static readonly ConditionalWeakTable<NSView, EventResponder> EventViews = [];
-    private static Seq<NativeEvent> EventCallbacks = [];
 
     public static IO<Unit> Events(Control control, Func<NSView, NSEvent, IO<bool>> receive, IPlugInSink sink, Action<IDisposable> retain) =>
         Lifetime(control, owned =>
@@ -66,7 +65,7 @@ public static class NativeControls {
 
         internal Fin<EventResponder> Attach(NSView view) =>
             Subclass(parent, EventSelectors.Map(selector => (selector, (Delegate)receive))).Map(subclass => {
-                EventCallbacks = EventCallbacks.Add(receive);
+                _ = GCHandle.Alloc(receive);
                 EventViews.Add(view, this);
                 _ = SafeNativeMethods.object_setClass(view.Handle, subclass);
                 return this;
@@ -167,9 +166,9 @@ public static class NativeControls {
                 owned(lease);
             })
             from pointer in DisposalOps.Acquire(IO.lift(static () => new Disposal<Unit>(unit, static _ => IO.lift(static () =>
-                Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: true) == 0,
+                Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: true) is 0,
                     nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition))).Run())), static lease => IO.lift(lease.Dispose), lease => {
-                        _ = Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: false) == 0,
+                        _ = Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: false) is 0,
                             nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)).ThrowIfFail();
                         owned(lease);
                     })
@@ -191,7 +190,7 @@ public static class NativeControls {
             from key in IO.lift(() => Missing.Unless(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
             from result in IO.lift(() => {
                 KeyEventArgs escape = key.ToEtoKeyEventArgs();
-                bool escaped = escape.Key == Keys.Escape;
+                bool escaped = escape.Key is Keys.Escape;
                 if (escaped)
                     handler.OnKeyDown(escape);
                 return Runtime.RetainAndAutoreleaseNSObject(escaped && escape.Handled ? null : key);
@@ -211,7 +210,7 @@ public static class NativeControls {
             };
             if (handler.Widget is ProgressBar)
                 handler.Widget.Height = (int)Math.Ceiling(handler.GetAlignmentSizeForSize(native.FittingSize).Height);
-            _ = grid.Caption(handler.Widget).Iter(label => native.AccessibilityTitleUIElement = label.GetContainerView());
+            _ = grid.Caption(handler.Widget).Iter(caption => native.AccessibilityLabel = caption);
         });
 
     private static NSControlSize SizeOf(Control control) =>

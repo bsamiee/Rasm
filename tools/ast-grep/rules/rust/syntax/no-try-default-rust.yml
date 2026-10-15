@@ -5,15 +5,6 @@ severity: error
 utils:
     no-arguments:
         has: {field: arguments, not: {has: {pattern: $_}}}
-    logged:
-        kind: call_expression
-        has: {field: function, kind: field_expression, has: {field: field, regex: '^inspect_err$'}}
-    ok-call:
-        kind: call_expression
-        all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^ok$'}}
-            - matches: no-arguments
-            - not: {has: {field: function, kind: field_expression, has: {field: value, matches: logged}}}
     ok-pattern:
         kind: tuple_struct_pattern
         has: {field: type, regex: '^(\w+::)*Ok$'}
@@ -47,7 +38,7 @@ utils:
             - kind: closure_expression
               all:
                 - has: {field: parameters, has: {kind: identifier, pattern: $ITEM}}
-                - has: {field: body, matches: ok-call}
+                - has: {field: body, matches: rust-dropped-error}
     result-source:
         any:
             - kind: call_expression
@@ -70,42 +61,44 @@ utils:
                 - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
 rule:
     pattern: $SITE
-    any:
-        - kind: try_expression
-          has: {matches: ok-call}
-        - kind: call_expression
-          has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(unwrap_or|unwrap_or_else|unwrap_or_default|map|map_or|map_or_else|map_or_default|and_then|and|flatten|filter|zip|xor|or|or_else|ok_or|ok_or_else|is_some|is_none|is_some_and|is_none_or|unwrap|expect|iter|into_iter|as_ref|as_deref|as_mut|cloned|copied|take)$'}}, {has: {field: value, matches: ok-call}}]}
-        - all: [{matches: ok-call}, {any: [{matches: tail}, {matches: returned}]}]
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter_map|flat_map)$'}}
-            - has: {field: arguments, has: {matches: ok-function}}
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_ok|is_err)$'}}, {has: {field: value, matches: result-source}}]}
-            - matches: no-arguments
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_ok|is_err)$'}}, {has: {field: value, kind: identifier, pattern: $R}}]}
-            - matches: no-arguments
-            - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {kind: let_declaration, all: [{has: {field: pattern, kind: identifier, pattern: $R}}, {has: {field: value, matches: result-source}}]}}
-            - not: {inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, matches: bound-elsewhere}}}
-        - kind: if_expression
-          all:
-            - has: {field: condition, any: [{matches: ok-condition}, {kind: let_chain, has: {matches: ok-condition}}]}
-            - not: {has: {field: alternative, pattern: $_}}
-        - kind: if_expression
-          all:
-            - has: {field: condition, kind: let_condition, has: {field: pattern, matches: err-pattern}}
-            - has: {field: consequence, matches: empty-body}
-            - not: {has: {field: alternative, pattern: $_}}
-        - kind: match_arm
-          all:
-            - has: {field: pattern, has: {matches: discarded-error}, not: {has: {field: condition, pattern: $_}}}
-            - has: {field: value, any: [{matches: empty-body}, {matches: leaving-body}]}
-        - kind: let_declaration
-          all:
-            - has: {field: pattern, matches: ok-pattern}
-            - has: {field: alternative, pattern: $_}
+    all:
+        - any:
+            - kind: try_expression
+              has: {matches: rust-dropped-error}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(unwrap_or|unwrap_or_else|unwrap_or_default|map|map_or|map_or_else|map_or_default|and_then|and|flatten|filter|zip|xor|or|or_else|ok_or|ok_or_else|is_some|is_none|is_some_and|is_none_or|unwrap|expect|iter|into_iter|as_ref|as_deref|as_mut|cloned|copied|take)$'}}, {has: {field: value, matches: rust-dropped-error}}]}
+            - all: [{matches: rust-dropped-error}, {any: [{matches: tail}, {matches: returned}]}]
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter_map|flat_map)$'}}
+                - has: {field: arguments, has: {matches: ok-function}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_ok|is_err)$'}}, {has: {field: value, matches: result-source}}]}
+                - matches: no-arguments
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_ok|is_err)$'}}, {has: {field: value, kind: identifier, pattern: $R}}]}
+                - matches: no-arguments
+                - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {kind: let_declaration, all: [{has: {field: pattern, kind: identifier, pattern: $R}}, {has: {field: value, matches: result-source}}]}}
+                - not: {inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, matches: bound-elsewhere}}}
+            - kind: if_expression
+              all:
+                - has: {field: condition, any: [{matches: ok-condition}, {kind: let_chain, has: {matches: ok-condition}}]}
+                - not: {has: {field: alternative, pattern: $_}}
+            - kind: if_expression
+              all:
+                - has: {field: condition, kind: let_condition, has: {field: pattern, matches: err-pattern}}
+                - has: {field: consequence, matches: empty-body}
+                - not: {has: {field: alternative, pattern: $_}}
+            - kind: match_arm
+              all:
+                - has: {field: pattern, has: {matches: discarded-error}, not: {has: {field: condition, pattern: $_}}}
+                - has: {field: value, any: [{matches: empty-body}, {matches: leaving-body}]}
+            - kind: let_declaration
+              all:
+                - has: {field: pattern, matches: ok-pattern}
+                - has: {field: alternative, pattern: $_}
+        - not: {any: [{matches: rust-owned-span}, {matches: rust-domain-span}]}
 message: '`$SITE` turns a failure into absence, a flag, or nothing and drops its reason'
-note: 'Keep the `Result` and propagate it with `?`, map the error into the caller''s variant with `map_err`, or recover through a closure that reads the error, a function that cannot produce a value returns the reason it cannot, a result `inspect_err` hands to a log first stays as written, clippy `manual_unwrap_or_default`, `map_err_ignore`, and `unused_result_ok` report a `Result` resolved to a default'
+note: 'Keep the `Result` and propagate it with `?`, map the error into the caller''s variant with `map_err`, or recover through a closure that reads the error, a function that cannot produce a value returns the reason it cannot. A result `inspect_err` hands to a log first stays as written. Clippy `manual_unwrap_or_default`, `map_err_ignore`, and `unused_result_ok` report a `Result` resolved to a default.'

@@ -2,24 +2,11 @@
 id: no-formatted-event-value
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 utils:
-    log-macro:
-        kind: macro_invocation
-        has: {field: macro, regex: '^(::)?(tracing::)?((trace|debug|info|warn|error)(_span)?|event|span)$'}
-    event-macro:
-        kind: macro_invocation
-        has: {field: macro, regex: '^(::)?(tracing::)?(trace|debug|info|warn|error|event)$'}
     instrument-fields:
         kind: token_tree
         follows: {kind: identifier, regex: '^fields$'}
         inside: {kind: token_tree, inside: {kind: attribute, has: {nthChild: 1, regex: '^(::)?(tracing::)?instrument$'}}}
-    format-string:
-        kind: 'string_literal, raw_string_literal'
-        regex: '(^|[^{])(\{\{)*\{(\w+)?(:[^{}]*)?\}'
-        follows: {stopBy: &token {not: {kind: 'line_comment, block_comment'}}, regex: '^[(,]$'}
-        not: {precedes: {regex: '^=$'}}
-        inside: {kind: token_tree, inside: {matches: event-macro}}
     rendering-call:
         kind: identifier
         any:
@@ -27,18 +14,9 @@ utils:
             - all:
                 - regex: '^to_string$'
                 - follows: {regex: '^\.$'}
-                - precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: {stopBy: *token, regex: '^(,|\)|\})$'}}
-    rendered:
-        any: [{matches: format-string}, {matches: rendering-call}]
+                - precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^(,|\)|\})$'}}
 rule:
-    any:
-        - matches: log-macro
-          has:
-            kind: token_tree
-            any:
-                - has: {matches: rendered, pattern: $FORMAT}
-                - has: {kind: token_tree, regex: '^\{', follows: {stopBy: *token, regex: '^[(,]$'}, has: {matches: rendered, pattern: $FORMAT}}
-        - kind: attribute_item
-          has: {kind: attribute, has: {field: arguments, has: {matches: instrument-fields, has: {matches: rendering-call, pattern: $FORMAT}}}}
-message: '`$FORMAT` renders a value to text before the event or span records it'
-note: 'Record each value as its own field (`<name> = %<value>`, `<name> = ?<value>`, or the `%<value>` and `?<value>` shorthands) before a constant message, tracing formats a field only when a subscriber records it and subscribers filter and export fields by name, field names and the constant message are the author''s and take no template'
+    kind: attribute_item
+    has: {kind: attribute, has: {field: arguments, has: {matches: instrument-fields, has: {matches: rendering-call, pattern: $FORMAT}}}}
+message: '`$FORMAT` renders a value to text before the `#[instrument]` span records it'
+note: 'Record each value as its own field (`<name> = %<value>`, `<name> = ?<value>`), tracing formats a field only when a subscriber records it. The `formatted_event` dylint owns the events and spans tracing macros build'

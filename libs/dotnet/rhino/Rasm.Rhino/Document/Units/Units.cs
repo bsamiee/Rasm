@@ -84,7 +84,7 @@ public sealed partial class DistanceDisplay {
     // --- [NOTATION]
     public Length Resolution(LengthUnit spaceUnit) =>
         Mode switch {
-            DistanceDisplayMode.Decimal => Quantities.From(double.Pow(10, -Precision), spaceUnit),
+            DistanceDisplayMode.Decimal => Quantities.From(double.Exp10(-Precision), spaceUnit),
             DistanceDisplayMode.Fractional or DistanceDisplayMode.FeetInches => Length.FromInches(QuantityValue.FromTerms(BigInteger.One, BigInteger.One << Precision)),
         };
 
@@ -114,7 +114,7 @@ public static class Quantities {
         Func<double, double> shown = Across(units);
         Func<double, double> key = Across(units.Map(static pair => (pair.To, pair.From)));
         double increment = presentation.Step.Map(static declared => double.CreateChecked(declared))
-            .IfNone(() => double.Max(double.Epsilon, key(double.Pow(10, double.Truncate(Span(presentation.Soft.IfNone(bounds)).Log10(EContext.Binary64.WithUnlimitedExponents()).ToDouble()) - 2))));
+            .IfNone(() => double.Max(double.Epsilon, key(double.Exp10(double.Truncate(Span(presentation.Soft.IfNone(bounds)).Log10(EContext.Binary64.WithUnlimitedExponents()).ToDouble()) - 2))));
         double step = TKey.IsInteger(TKey.CreateSaturating(0.5)) ? double.Max(1, increment) : increment;
         int decimals = presentation.Decimals.IfNone(() => int.Max(0, (int)double.Ceiling(-double.Log10(shown(step)))));
         return new(
@@ -131,7 +131,7 @@ public static class Quantities {
 
         static Func<double, double> Across(Option<(UnitInfo From, UnitInfo To)> units) =>
             units.Match(
-                Some: static pair => (Func<double, double>)(value => UnitConverter.Default.ConvertValue(value, pair.From.UnitKey, pair.To.UnitKey)),
+                Some: static pair => (Func<double, double>)(value => UnitConverter.Convert(value, pair.From.UnitKey, pair.To.UnitKey)),
                 None: static () => static value => value);
     }
 }

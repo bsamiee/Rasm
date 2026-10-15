@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-included-golden-assert
+language: rust
+severity: error
+utils:
+    include:
+        kind: identifier
+        regex: '^include_(str|bytes)$'
+        precedes: {regex: '^!$'}
+    golden-item:
+        kind: 'const_item, static_item'
+        all:
+            - has: {field: name, pattern: $GOLDEN}
+            - has: {field: value, kind: macro_invocation, has: {field: macro, regex: '^((::)?(std|core)::)?include_(str|bytes)$'}}
+rule:
+    kind: macro_invocation
+    pattern: $ASSERT
+    all:
+        - has: {field: macro, regex: '^((::)?(std|core|pretty_assertions)::)?assert_eq$'}
+        - has:
+            kind: token_tree
+            any:
+                - has: {matches: include}
+                - has:
+                    kind: identifier
+                    regex: '^[A-Z][A-Z0-9_]*$'
+                    all:
+                        - pattern: $GOLDEN
+                        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: golden-item}}
+message: '`$ASSERT` compares output to a golden file the test includes'
+note: 'Write `insta::assert_snapshot!(<output>)` for text or `insta::assert_binary_snapshot!("<name>.<ext>", <bytes>)` for bytes, insta stores the expected value under `snapshots/` and reviews changes through `cargo insta review`. A golden file kept by hand drifts from the output with no diff to accept'

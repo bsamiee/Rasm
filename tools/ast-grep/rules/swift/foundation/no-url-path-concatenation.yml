@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-url-path-concatenation
+language: swiftlang
+severity: error
+utils:
+    url-path:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^path$'}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^percentEncoded$'}}}}
+    labeled:
+        kind: value_argument
+        has: {field: name, regex: '^(filePath|string|atPath)$'}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    has:
+        kind: call_suffix
+        has:
+            kind: value_arguments
+            has:
+                matches: labeled
+                any:
+                    - all:
+                        - has: {field: name, regex: '^filePath$'}
+                        - has: {field: value, kind: additive_expression, has: {field: lhs, stopBy: end, matches: url-path}}
+                    - all:
+                        - has: {field: name, regex: '^string$'}
+                        - has: {field: value, any: [{kind: line_string_literal, regex: '^"file://'}, {kind: additive_expression, has: {field: lhs, stopBy: end, kind: line_string_literal, regex: '^"file://'}}]}
+                    - all:
+                        - has: {field: name, regex: '^atPath$'}
+                        - has: {field: value, matches: url-path}
+                        - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '\bcontentsOfDirectory$'}}}}
+message: '`$SITE` builds a file location from path text in place of the URL members that join components'
+note: 'Call `<directory>.appending(path: <name>)`, `appendingPathExtension(<extension>)`, or `deletingLastPathComponent().appending(path: <name> + <suffix>)` on the URL, `URL(filePath:)` for a path string, and `contentsOfDirectory(at:includingPropertiesForKeys:)` for a listing, text joins double a trailing slash, move a suffix inside a directory URL, and cut a `file://` path at `#` or `?`'

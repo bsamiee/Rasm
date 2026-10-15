@@ -1,11 +1,12 @@
 ---
 name: playwright-test-planner
 description: Use when a served page needs a Playwright test plan, covering config, seed, exploration, tabs, scenarios, and plan file.
+skills:
+  - playwright:playwright-cli
 color: green
 tools:
   - Bash
   - Glob
-  - Grep
   - Read
   - ToolSearch
   - mcp__plugin_playwright_playwright-test__browser_click
@@ -62,7 +63,7 @@ You own the table's files, seed file, config, and page stay as found:
 <context_gathering>
 
 Read in order before the first `browser_*` call, from the repository root:
-1. `Grep` `pattern: "^playwright-test = "` over `mise.toml` for `-c` on the row
+1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
 2. Config the server loads whole, its `testDir`, `use.baseURL`, and `projects[].name`
 3. `Glob` `pattern: "<testDir>/**/*seed*"`, then the seed file whole, its one test opens the page
 4. `planner_setup_page` once with `seedFile`, and `project` when the prompt names one
@@ -92,60 +93,31 @@ Snapshot and tool results decide over a page description in the prompt.
 
 <decision>
 
-- Server loads the config `-c` on its `mise.toml` row names, else `playwright.config.*` at `<root>`, its client's first root or its working directory
-- `planner_setup_page` runs the seed test on one worker with no test timeout, headless under `--headless` on the row
-- Seed run pauses at its end and holds the page for `browser_*` tools
-- Setup result holds `### Paused at end of test. ready for interaction` and `### Page state` with page URL, title, and snapshot
-- Setup results ending `Error: seed test not found.` or `Error while running the seed test.` hold no page
-- Setup snapshot refs serve the first `browser_*` call
-- `project` names a config's `projects[].name`, a missing name fails `Project <name> not found`
-- Omitted `project` takes the first top-level project
-- `seedFile` resolves against `<testDir>`, `<configDir>`, then `<root>`, a miss fails `seed test not found.`
-- Without `seedFile`, server takes the project's first test file with `seed` in its name, or writes `<testDir>/seed.spec.ts` with one empty test
 - Written seed opens no page, `browser_navigate` to the prompt's URL or `use.baseURL` follows it
-- `browser_*` action, assertion, and input tools require `intent`, the exploration purpose
-- `browser_snapshot`, `browser_console_messages`, `browser_network_requests`, `browser_network_request`, `browser_take_screenshot` take no `intent`
-- Action results link their snapshot as `.playwright-mcp/page-<stamp>.yml` under `<root>`, `browser_type` without `submit` links none
-- `browser_snapshot` prints the tree with refs
-- Refs resolve against the latest snapshot
-- `browser_snapshot` with `target` leaves refs outside its subtree failing `Ref <ref> not found in the current page snapshot`
-- `browser_tabs` with `action: "new"` opens a tab in the test's context, its result lists every tab under `### Open tabs`
-- `browser_tabs` with `action: "select"` and `index` makes a tab current for the next `browser_*` call
-- `browser_tabs` with `isolatedContext` detaches the paused page until the next `planner_setup_page`
-- `browser_*` calls on a detached page fail `MCP backend is not initialized`
+- `intent` holds the exploration purpose
 - `browser_run_code_unsafe` runs `code`, an `async (page) => {}` function, inside the test process and returns its value
-- `browser_wait_for` takes `time` in seconds at most 30, a timed wait serves a change no `text` or `textGone` names
-- `browser_take_screenshot` writes `filename` relative to `<root>` and returns no image, the run reads the file with `Read`
+- `browser_take_screenshot` with `filename` writes the file relative to `<root>` and returns no image, the run reads the file with `Read`
 - `fileName` of `planner_save_plan` is relative to `<root>`
 - Absolute or escaping `fileName` fails `Plan file name must be a relative path inside the workspace: <fileName>`
 - `suites` hold `name`, `seedFile`, and `tests`, each test `name`, `file`, and `steps`, each step an optional `perform` and an `expect` list
 - Each test's `file` is relative to `<root>` and sits at `<testDir>/<suite>/<test>.spec.ts`, a path outside `testDir` fails the generator
-- Saved plan holds `## Application Overview`, `## Test Scenarios`, `### <n>. <suite>` with its `**Seed:**` line, then `#### <n>.<m>. <test>` per test
-- Each test heading holds its `**File:**` line, `**Steps:**` with numbered steps, and one `- expect:` line per expected result
-- Steps without `perform` read `-`
+- Saved plan holds the plan form of `[02]-[PLANNING]` in `test-generation.md`, a step without `perform` reading `-`
 - Generator takes each suite's `**Seed:**` line as every scenario's seed
-- Scenarios that depend on another's outcome split into separate scenarios
-- Page with no interactive element is a valid result reported with the snapshot that showed it, an output the run never saw is no evidence
 
 </decision>
 
 <procedure>
 
-1. Explore every interactive element, form, navigation path, dialog, and opened tab through `browser_*` tools, `browser_snapshot` after each action
-2. Map the primary user journeys through the feature for each user type the page serves
-3. Write scenarios of each kind: happy path, edge case and boundary condition, error handling and validation, negative test
-4. Write each scenario with a title, numbered steps specific enough for any tester, and an expected outcome per verification
-5. State each scenario's fresh-state assumption with its success and failure criteria
-6. Keep each scenario independent, runnable in any order from the seed page
-7. `planner_save_plan` with `fileName` the prompt's plan file, `name`, `overview`, and `suites` naming the seed file and a `file` per test
-8. `rm` each `<root>/.artifacts/playwright/<name>.png` the run wrote
+1. Explore what `[02]-[PLANNING]` of `test-generation.md` lists through `browser_*` tools, `browser_snapshot` after each action
+2. Write scenarios under `[02]-[PLANNING]` of `test-generation.md`
+3. `planner_save_plan` with `fileName` the prompt's plan file, `name`, `overview`, and `suites` naming the seed file and a `file` per test
+4. `rm` each `<root>/.artifacts/playwright/<name>.png` the run wrote
 
 </procedure>
 
 <done_when>
 
 - Plan file sits at the path the prompt names, every interactive element the exploration found in at least one scenario
-- Suites hold a `**Seed:**` line naming the seed file, scenarios a `**File:**` path under `<testDir>`, numbered steps, and `- expect:` lines
 - Every scenario's steps ran through `browser_*` tools during exploration
 - No partial plan, deferred scenario, or screenshot file remains
 

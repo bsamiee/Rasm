@@ -30,21 +30,21 @@ public sealed partial class SetName {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SetMembership {
-    public static readonly SetMembership Member = new("member", syncs: true, renders: true);
-    public static readonly SetMembership Locked = new("locked", syncs: false, renders: true);
-    public static readonly SetMembership Excluded = new("excluded", syncs: false, renders: false);
+    public static readonly SetMembership Member = new("member", label: "Member", hint: "Takes syncs and writes across sets, and renders", syncs: true, renders: true);
+    public static readonly SetMembership Locked = new("locked", label: "Locked", hint: "Keeps its values through syncs and writes across sets, and renders", syncs: false, renders: true);
+    public static readonly SetMembership Excluded = new("excluded", label: "Excluded", hint: "Keeps its values through syncs and writes across sets, and stays out of the render queue", syncs: false, renders: false);
+
+    private string Label { get; }
+
+    private string Hint { get; }
 
     public bool Syncs { get; }
 
     public bool Renders { get; }
 
-    public string Caption => RowText.Localize(Map(member: "Member", locked: "Locked", excluded: "Excluded")).Local;
+    public string Caption => RowText.Localize(Label).Local;
 
-    public string Help =>
-        RowText.Localize(Map(
-            member: "Takes syncs and writes across sets, and renders",
-            locked: "Keeps its values through syncs and writes across sets, and renders",
-            excluded: "Keeps its values through syncs and writes across sets, and stays out of the render queue")).Local;
+    public string Help => RowText.Localize(Hint).Local;
 }
 
 [SmartEnum<string>]
@@ -313,7 +313,7 @@ public sealed record RenderSets(Func<RhinoDoc, IO<HistoryBinding>> Settings, Fun
 
     // --- [SNAPSHOTS]
     public SnapshotState<RhinoDoc> Snapshot =>
-        new SnapshotState<RhinoDoc, SetBook>(SetBook.TypeCode, SetBook.Codec, Book, (doc, book) => Booked(doc, (_, _) => book).Map(static _ => unit));
+        new SnapshotState<RhinoDoc, SetBook>(SetBook.TypeCode, SetBook.Codec, Book, (doc, book) => Booked(doc, (_, _) => book).Map(unit));
 
     public static PlugInSlot<RenderSets> Current { get; } = new();
 

@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from enum import auto, Enum
+from itertools import chain
 from typing import Literal, Protocol, TYPE_CHECKING
 
 import bpy
@@ -149,7 +150,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
             PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()).acquisitions(identity),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             *(followed(refresh) for refresh in self.refreshes),
         )
-        return accumulated(followers).map(lambda rows: (((Band.RESOURCES, Programs()), (Band.DRAW_HANDLERS, cleared()), *(pair for row in rows for pair in row)), drew))
+        return accumulated(followers).map(lambda rows: (((Band.RESOURCES, Programs()), (Band.DRAW_HANDLERS, cleared()), *chain.from_iterable(rows)), drew))
 
 
 class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):

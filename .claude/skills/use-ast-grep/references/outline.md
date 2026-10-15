@@ -12,6 +12,8 @@
 - `<file> --match '^<symbol>$' --view expanded` expands one symbol
 - `<producer> | ast-grep outline --custom-languages allow --stdin -l <lang>` outlines piped code
 - `<path> --json=stream | rg '^\{' | jq -c '<filter>'` post-processes entries
+- Files of a language with no extractor print `nothing found` at exit 0
+- `nx run rasm:outline` sets `NO_COLOR=1`, a forwarded `--color never` fails its option schema
 
 ## [02]-[EXTRACTORS]
 

@@ -134,13 +134,13 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
             def view_update(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
                 """Translates the viewport update result at its native callback boundary."""
-                return updated(context, depsgraph).default_value(None)
+                return updated(context, depsgraph).to_optional()
 
             def view_draw(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
                 """Draws under the scene's display transform and releases its shader binding."""
                 engine.bind_display_space_shader(depsgraph.scene)
                 try:
-                    return drawn(context, depsgraph).default_value(None)
+                    return drawn(context, depsgraph).to_optional()
                 finally:
                     engine.unbind_display_space_shader()
 
@@ -153,11 +153,12 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                     return
                 try:
                     passes = result.layers[0].passes
-                    if (answer := body(Baking(engine=engine, depsgraph=depsgraph, target=target, kind=pass_type, filter=pass_filter, result=result))).is_error():
-                        for _, text in rendered(answer.error):
-                            engine.report({"ERROR"}, text)
-                    else:
-                        passes[self.combined.name].rect.foreach_set(answer.ok[::-1].ravel())  # type: ignore[arg-type]
+                    match body(Baking(engine=engine, depsgraph=depsgraph, target=target, kind=pass_type, filter=pass_filter, result=result)):
+                        case Result(tag="error", error=faults):
+                            for _, text in rendered(faults):
+                                engine.report({"ERROR"}, text)
+                        case Result(ok=plane):
+                            passes[self.combined.name].rect.foreach_set(plane[::-1].ravel())  # type: ignore[arg-type]
                 finally:
                     engine.end_result(result, cancel=engine.test_break())
 
@@ -226,22 +227,23 @@ def written(shot: Shot, tiles: Iterable[BlenderResult[Tile]]) -> BlenderResult[i
     for answer in tiles:
         if shot.engine.test_break():
             break
-        if answer.is_error():
-            return Error(answer.error)
-        tile = answer.ok
-        height, width = tile.planes[0][1].shape[:2]
-        if (result := shot.engine.begin_result(tile.x, tile.y, width, height, layer=shot.layer.name, view=tile.view.default_value(""))) is None:
-            continue
-        try:
-            for pass_, plane in tile.planes:
-                result.layers[0].passes[pass_.name].rect.foreach_set(plane[-result.resolution_y :, : result.resolution_x][::-1].ravel())  # type: ignore[arg-type]
-            for field, value in tile.stamps:
-                result.stamp_data_add_field(field, value)
-            area += result.resolution_x * result.resolution_y
-            count += 1
-        finally:
-            shot.engine.end_result(result, cancel=shot.engine.test_break())
-        shot.engine.update_progress(area / (shot.engine.resolution_x * shot.engine.resolution_y))
+        match answer:
+            case Result(tag="error", error=faults):
+                return Error(faults)
+            case Result(ok=tile):
+                height, width = tile.planes[0][1].shape[:2]
+                if (result := shot.engine.begin_result(tile.x, tile.y, width, height, layer=shot.layer.name, view=tile.view.default_value(""))) is None:
+                    continue
+                try:
+                    for pass_, plane in tile.planes:
+                        result.layers[0].passes[pass_.name].rect.foreach_set(plane[-result.resolution_y :, : result.resolution_x][::-1].ravel())  # type: ignore[arg-type]
+                    for field, value in tile.stamps:
+                        result.stamp_data_add_field(field, value)
+                    area += result.resolution_x * result.resolution_y
+                    count += 1
+                finally:
+                    shot.engine.end_result(result, cancel=shot.engine.test_break())
+                shot.engine.update_progress(area / (shot.engine.resolution_x * shot.engine.resolution_y))
     return Ok(count)
 
 

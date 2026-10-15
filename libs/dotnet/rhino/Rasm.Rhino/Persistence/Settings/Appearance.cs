@@ -237,7 +237,7 @@ public static class Appearance {
     public static ValueStore<T> Member<T>(Func<AppearanceSettingsState, T> project, Action<T> set, Func<T, T, bool> same) where T : notnull =>
         ValueStore.Defaulted(
             IO.lift(() => project(AppearanceSettings.GetCurrentState())),
-            IO.lift(() => project(AppearanceSettings.GetDefaultState(HostUtils.RunningInDarkMode))),
+            IO.lift(() => project(AppearanceSettings.GetDefaultState())),
             value => IO.lift(() => set(value)),
             same,
             Applied.Live,
@@ -257,7 +257,7 @@ public static class Appearance {
 
     public static IO<Unit> SetPaint(PaintColor slot, Option<Color> color) =>
         from writable in Accessors.Scoped(nameof(Accessors.GetPaintColorHook), IO.lift(() => ThemedPaintColor.Unless(Accessors.GetPaintColorHook(owner: null, slot) is null, slot)))
-        from written in IO.lift(() => AppearanceSettings.SetPaintColor(slot, color.IfNone(() => AppearanceSettings.DefaultPaintColor(slot, HostUtils.RunningInDarkMode)), forceUiUpdate: false))
+        from written in IO.lift(() => AppearanceSettings.SetPaintColor(slot, color.IfNone(() => AppearanceSettings.DefaultPaintColor(slot, HostUtils.RunningInDarkMode))))
         from saved in Applied.IdleSave.Drain.Traverse(static drain => drain).As()
         select unit;
 
@@ -433,7 +433,7 @@ public static class Appearance {
         select ((stack - chrome - addend) / pitch * pitch) + addend;
 
     public static IO<Unit> IconCategory(int stripHeight, int glyph, int row) =>
-        from even in IO.lift(OddPadding.Unless((row - glyph) % 2 == 0, row, glyph))
+        from even in IO.lift(OddPadding.Unless((row - glyph) % 2 is 0, row, glyph))
         from inset in Accessors.Scoped(nameof(Accessors.ItemPadding), IO.lift(static () => Accessors.ItemPadding(owner: null).Height))
         let tab = stripHeight - (2 * inset)
         from committed in ValueStore.Commit(Seq(

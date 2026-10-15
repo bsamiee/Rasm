@@ -11,7 +11,6 @@ from msgspec import inspect
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, InvokePopup, Operator, Outcome, Own, Unchanged
-from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna.conditions import AllOf, check, Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity, Key
@@ -245,7 +244,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
             def graph_field(value: msgspec.Struct, path: KeyPath, key: Key, field: msgspec.structs.FieldInfo, shape: inspect.Type) -> tuple[BlenderResult[None], ...]:
                 title = next((meta.title for meta in markers(field.type, msgspec.Meta) if meta.title is not None), field.name.replace("_", " ").title())
                 match reached(value, path):
-                    case str() as space if GraphForm.COLOR_SPACE in markers(field.type, GraphForm):
+                    case str(space) if GraphForm.COLOR_SPACE in markers(field.type, GraphForm):
                         line = layout.row(align=True)
                         button(line, self.colorspace, SpaceField(name=entry.name, field=key, space=space), title)
                         return (locked(line, entry, paths[key], context),)
@@ -288,7 +287,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
             layout: bpy.types.UILayout, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, row: Placeable, record: Entry[Effect], context: bpy.types.Context
         ) -> BlenderResult[None]:
             native = tuple(scene.compositor_effects)
-            formed = tuple(stack.entries(identity, scene, DisplayView))
+            formed = stack.entries(identity, scene, DisplayView)
             if row.record.stage.domain is Domain.DISPLAY and (not formed or native.index(entry) < native.index(formed[0])):
                 layout.label(text="Requires a formation before display effects", icon="STATUS_ERROR_FILLED")
 
@@ -297,7 +296,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     return (
                         DisplayView
                         .for_encoding(config, view.display, Some(view.view))
-                        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                        .map_error(BlenderImagingFault.lifted)
                         .map(lambda encoded: layout.label(text="Requires an encoding-only formation", icon="STATUS_ERROR_FILLED") if encoded.is_none() else None)
                     )
                 if (
@@ -324,7 +323,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                             ),
                         )
                     if row.is_none():
-                        pinned = next((pinned for pinned in stack.pinned if Mark.read(identity, group).filter(lambda mark: mark.key == pinned.ownership.key).is_some()), None)
+                        pinned = next((pinned for pinned in stack.pinned if pinned.ownership.marked(identity, group).is_some()), None)
                         gates: BlenderResult[dict[Key, Condition]] = pinned.conditions.map(lambda conditions: conditions(identity, entry)).default_value(Ok({})) if pinned is not None else Ok({})
                         alerted(
                             layout,

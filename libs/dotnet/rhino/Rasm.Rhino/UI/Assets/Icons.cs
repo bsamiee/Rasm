@@ -52,6 +52,7 @@ public sealed partial class IconSlot {
     private const int RowMaster = 16;
     private const int HeaderMaster = 20;
     private const int ToolbarMaster = 24;
+    private const float ButtonCell = 22f / 16f;
 
     public static readonly IconSlot PanelTab = new(RowMaster, static () => Accessors.Scoped(nameof(Accessors.TabIconSize), IO.lift(static () => Accessors.TabIconSize(owner: null))));
     public static readonly IconSlot PanelButton = new(RowMaster, static () => Accessors.Scoped(nameof(Accessors.Get), IO.lift(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)))));
@@ -71,6 +72,8 @@ public sealed partial class IconSlot {
 
     [UseDelegateFromConstructor]
     public partial IO<int> Size();
+
+    public IO<int> Cell() => Size().Map(static size => (int)MathF.Ceiling(size * ButtonCell));
 
     private static IconSlot Drawn(int master) => new(master, () => IO.pure(master));
 }
@@ -199,7 +202,7 @@ public static class Icons {
 
     private static readonly Func<Assembly, ResourceImages<Bitmap>> IconBitmaps = memoUnsafe<Assembly, ResourceImages<Bitmap>>(static assembly =>
         new(assembly, (resource, pixels) => Try.lift(() => {
-            using Icon icon = new(NativeAssets.Get(assembly).SystemDrawing.Icons.Get(resource), pixels);
+            using Icon icon = new(assembly.SystemDrawingAssets().Icons.Get(resource), pixels);
             return icon.ToBitmap();
         }).Run(), static bitmap => bitmap.Size));
 
@@ -219,7 +222,7 @@ public static class Icons {
         IO.lift(() => {
             Assembly assembly = plugIn.GetType().Assembly;
             return toSeq(assembly.GetCustomAttributes<PlugInDescriptionAttribute>())
-                .Find(static description => description.DescriptionType == DescriptionType.Icon)
+                .Find(static description => description.DescriptionType is DescriptionType.Icon)
                 .Map(description => read((NativeAssets.Get(assembly), IconBitmaps(assembly)), description.Value));
         });
 }

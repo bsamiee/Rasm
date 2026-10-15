@@ -18,7 +18,7 @@ Observables push notifications to an observer under the protocol `OnNext* (OnCom
 Stream programs have layers, the separation keeps the dataflow composable and shows where effects run and resources are managed:
 1. Acquire sources by adapting callbacks, tasks, collections, or external producers into observables
 2. Describe the dataflow by transforming and combining streams with operators, with no side effect in the layer
-3. Run effects at the boundary, observers on final streams hold output, persistence, and diagnostics, `Source<A>.Reduce` returns the host's `IO<S>`
+3. Run effects at the boundary, observers on final streams hold output, persistence, and diagnostics, `Source<A>.FoldReduce` returns the host's `IO<S>`
 
 ## [03]-[CREATION]
 
@@ -34,7 +34,7 @@ Operators produce new observables in place of handling individual events imperat
 |  [02]   | `SelectMany`    | Maps each value to an observable or task, then flattens the inner values        | Query `from`                         |
 |  [03]   | `Where`         | Retains values satisfying a predicate                                           | `Filter`                             |
 |  [04]   | `Take`, `Skip`  | Retains the first count or timespan of values, or discards an initial portion   | `Take`, `Skip`                       |
-|  [05]   | `First`         | Reduces the stream to its first value                                           | `Take(1).Last()` on `SourceT<IO, A>` |
+|  [05]   | `First`         | Reduces the stream to its first value                                           | `Take(1).Last()`                     |
 |  [06]   | `Concat`        | Emits the first stream, then subscribes to the second after the first completes | `Combine`                            |
 |  [07]   | `StartWith`     | Prefixes a stream with initial values                                           | `pure` then `Combine`                |
 |  [08]   | `Merge`         | Interleaves values from streams as they arrive                                  | `Source.merge`                       |
@@ -51,7 +51,7 @@ internal static class Branches {
         (source.Filter(predicate), source.Filter(value => !predicate(value)));
     public static IO<int> Rejoined(Source<int> source) {
         (Source<int> passed, Source<int> failed) = source.Partition(static item => item > 1);
-        return Source.merge(passed.Map(static item => item * 10), failed).Reduce(0, static (sum, item) => sum + item);
+        return Source.merge(passed.Map(static item => item * 10), failed).FoldReduce(0, static (sum, item) => sum + item);
     }
 }
 ```
@@ -72,7 +72,7 @@ internal static class Failures {
                 Succ: static rate => rate.ToString(CultureInfo.InvariantCulture),
                 Fail: static error => error.Message)));
     public static IO<(Seq<decimal> Rates, Seq<Error> Errors)> Partitioned(HashMap<string, decimal> table, Source<string> codes) =>
-        Outcomes(table, codes).Reduce(
+        Outcomes(table, codes).FoldReduce(
             (Rates: Seq<decimal>(), Errors: Seq<Error>()),
             static (state, outcome) => outcome.Match(
                 Succ: rate => (state.Rates.Add(rate), state.Errors),
@@ -104,7 +104,7 @@ internal static class Backpressure {
 }
 ```
 
-`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `Reduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Zip` against `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative:
+`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Zip` against `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative:
 
 ```csharp
 internal sealed record Entry(Guid Key, decimal Amount);
@@ -112,7 +112,7 @@ internal sealed record Entry(Guid Key, decimal Amount);
 internal static class Ledger {
     public static IO<Seq<Guid>> Crossed(Source<Entry> entries) =>
         entries
-            .Reduce(HashMap<Guid, Seq<decimal>>(), static (ledger, entry) =>
+            .FoldReduce(HashMap<Guid, Seq<decimal>>(), static (ledger, entry) =>
                 ledger.AddOrUpdate(entry.Key, amounts => amounts.Add(entry.Amount), Seq(entry.Amount)))
             .Map(static ledger => toSeq(ledger.Filter(WentNegative).Keys));
     private static bool WentNegative(Seq<decimal> amounts) {
@@ -153,7 +153,7 @@ Agents and actors share exclusive ownership, inboxes, sequential processing, and
 
 ## [08]-[REPLIES]
 
-Fire-and-forget `Post` supports a unidirectional flow but does not compose like a value-returning function, a message holds a per-request reply conduit the agent posts to after processing, and the caller lifts the reply source into `SourceT<IO, A>` and reads the reply with `Take(1).Last()`, `Source<A>` itself reduces and has no `Last`:
+Fire-and-forget `Post` supports a unidirectional flow but does not compose like a value-returning function, a message holds a per-request reply conduit the agent posts to after processing, and the caller reads the reply with `Take(1).Last()` on its source:
 
 ```csharp
 internal sealed record Increment(int Amount, Conduit<int, int> Replies);
@@ -168,7 +168,7 @@ internal sealed class Counter(Conduit<Increment, Increment> inbox) {
         Conduit<int, int> replies = Conduit.make(Buffer<int>.Unbounded);
         return
             from _ in inbox.Post(new Increment(amount, replies))
-            from reply in SourceT.lift<IO, int>(replies.Source).Take(1).Last().As()
+            from reply in replies.Source.Take(1).Last()
             select reply;
     }
 }
@@ -204,7 +204,7 @@ internal sealed record EntityProcess(Conduit<Debit, Debit> Inbox, ForkIO<Snapsho
         Conduit<Fin<Snapshot>, Fin<Snapshot>> replies = Conduit.make(Buffer<Fin<Snapshot>>.Unbounded);
         return
             from _ in Inbox.Post(new Debit(amount, replies))
-            from reply in SourceT.lift<IO, Fin<Snapshot>>(replies.Source).Take(1).Last().As()
+            from reply in replies.Source.Take(1).Last()
             from next in IO.lift(reply)
             select next;
     }

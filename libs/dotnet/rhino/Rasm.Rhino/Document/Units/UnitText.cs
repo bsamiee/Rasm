@@ -44,6 +44,6 @@ public static class UnitText {
             StringParserSettings? results = null;
             AngleUnitSystem parsed = AngleUnitSystem.None;
             int count = StringParser.ParseAngleExpession(text, 0, -1, settings, AngleUnitSystem.Radians, out double radians, ref results, ref parsed);
-            return count != 0 && count == text.Length ? radians : new UnparsedText(typeof(StringParser), nameof(StringParser.ParseAngleExpession), text);
+            return count is not 0 && count == text.Length ? radians : new UnparsedText(typeof(StringParser), nameof(StringParser.ParseAngleExpession), text);
         });
 }

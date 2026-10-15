@@ -3,7 +3,7 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { ActionsRepositoryPermissions, ActionsSecret, type ActionsSecretArgs, DependabotSecret, type DependabotSecretArgs, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
 import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs, ServiceToken, type ServiceTokenArgs } from '@pulumiverse/doppler';
-import { Array, Config, Effect, Equal, FileSystem, Path, Record, Redacted, Schema, Stdio, Struct } from 'effect';
+import { Array, Config, Effect, Equal, FileSystem, Formatter, Path, Record, Redacted, Schema, Stdio, Struct } from 'effect';
 import { parse } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -17,7 +17,23 @@ const _Actions = Schema.Struct({
     ),
     actions: Schema.Array(Schema.Struct({ runs: Schema.Struct({ steps: _Steps }) })),
 });
+const _Operation = Schema.Literals(['up', 'refresh']);
 const _Secrets = Config.all((['DOPPLER_TOKEN', 'GITHUB_TOKEN', 'PULUMI_ACCESS_TOKEN', 'SIXLABORSLICENSEKEY'] as const).map((name) => Config.map(Config.Redacted(name), (value) => ({ name, value }))));
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+const _Reason = Schema.TaggedUnion({
+    Unselected: { cause: Schema.Defect() },
+    Failed: { operation: _Operation, cause: Schema.Defect() },
+});
+class InfraError extends Schema.TaggedError<InfraError, { readonly brand: unique symbol }>()('InfraError', { reason: _Reason }) {
+    override get message(): string {
+        return _Reason.match(this.reason, {
+            Unselected: ({ cause }) => `cannot create or select the Pulumi stack: ${Formatter.format(cause)}`,
+            Failed: ({ operation, cause }) => `pulumi ${operation} failed: ${Formatter.format(cause)}`,
+        });
+    }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -70,7 +86,7 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
 
 const infra = Effect.fn('infra')(function* () {
     const [fs, path, stdio, home, secrets] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Stdio.Stdio, Config.String('PULUMI_HOME'), _Secrets]);
-    const [operation] = yield* stdio.args.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([Schema.Literals(['up', 'refresh'])]))));
+    const [operation] = yield* stdio.args.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([_Operation]))));
     const workDir = path.join(home, 'work');
     yield* fs.makeDirectory(workDir, { recursive: true });
     const github = path.join(import.meta.dirname, '..', '.github');
@@ -84,14 +100,14 @@ const infra = Effect.fn('infra')(function* () {
         ),
         { concurrency: 'unbounded' },
     ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(_Actions)));
-    const stack = { stackName: 'rasm', projectName: 'rasm-infra', program: async () => _program(actions, secrets) } as const satisfies InlineProgramArgs;
-    yield* Effect.tryPromise(async (signal) =>
-        (await LocalWorkspace.createOrSelectStack(stack, { workDir }))[operation]({
-            onOutput: (text) => stdout.write(text),
-            onError: (text) => stderr.write(text),
-            signal,
-        }),
-    );
+    const stack = yield* Effect.tryPromise({
+        try: () => LocalWorkspace.createOrSelectStack({ stackName: 'rasm', projectName: 'rasm-infra', program: () => Promise.resolve(_program(actions, secrets)) } satisfies InlineProgramArgs, { workDir }),
+        catch: (cause) => InfraError.make({ reason: { _tag: 'Unselected', cause } }),
+    });
+    yield* Effect.tryPromise({
+        try: (signal) => stack[operation]({ onOutput: (text) => stdout.write(text), onError: (text) => stderr.write(text), signal }),
+        catch: (cause) => InfraError.make({ reason: { _tag: 'Failed', operation, cause } }),
+    });
 });
 
 infra().pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

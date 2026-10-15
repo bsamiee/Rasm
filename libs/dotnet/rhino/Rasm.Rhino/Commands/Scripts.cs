@@ -48,7 +48,9 @@ public static class Scripts {
     // --- [RHINOCODE]
     public static IO<Unit> RunFile(RhinoDoc doc, string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from ran in Documents.RunScript(doc, $"_-ScriptEditor _Run \"{existing}\"", echo: false, display: None)
+        from ran in Documents.RunScript(doc, $"""
+            _-ScriptEditor _Run "{existing}"
+            """, echo: false, display: None)
         select ran;
 
     // --- [NODES]

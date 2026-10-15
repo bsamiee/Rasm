@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-scaled-seconds-millis
+language: rust
+severity: error
+rule:
+    kind: binary_expression
+    all:
+        - has: {field: operator, regex: '^\*$'}
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $D.$SECS() * $THOUSAND
+            - pattern: $THOUSAND * $D.$SECS()
+constraints:
+    SECS: {regex: '^as_secs_f(32|64)$'}
+    THOUSAND: {regex: '^(1_?000(\.0*)?|1(\.0*)?e3)(_?f(32|64))?$'}
+transform:
+    MILLIS: {replace: {source: $SECS, replace: '^as_secs_', by: 'as_millis_'}}
+fix: $D.$MILLIS()
+message: '`$D` scales its seconds by a thousand to read milliseconds'
+note: 'Call `<duration>.as_millis_f64()` or `as_millis_f32()` (`#![feature(duration_millis_float)]`), each reads whole seconds and nanoseconds into milliseconds'

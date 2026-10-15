@@ -32,13 +32,9 @@ final class AccountModel {
     var isConnected: Bool { authentication == .connected }
     var canSelect: Bool { isConnected && !isBusy && !isSelected }
 
-    func availability(at now: Date) -> Availability? {
-        usage.usage.map { usage in usage.availability(at: now) }
-    }
-
     func canStartSession(at now: Date) -> Bool {
         isConnected && usage.isCurrent && (running?.kind == nil || running?.kind == .refreshing)
-            && availability(at: now) == .ready
+            && usage.usage?.availability(at: now) == .ready
     }
 
     var usageReadAfter: Date? {

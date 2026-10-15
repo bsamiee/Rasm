@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-byte-hash-by-hand
+language: rust
+severity: error
+rule:
+    kind: integer_literal
+    pattern: $CONSTANT
+    matches: rust-byte-hash-constant
+message: '`$CONSTANT` seeds or steps an FNV or djb2 hash written by hand'
+note: 'Hash the bytes with `xxhash_rust::xxh3::xxh3_64(<bytes>)`, or feed them to `xxhash_rust::xxh3::Xxh3Default` through `Hasher::write`, XXH3 mixes wide stripes where FNV and djb2 multiply once per byte'

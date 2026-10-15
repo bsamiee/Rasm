@@ -28,6 +28,16 @@ utils:
         all:
             - has: {field: pattern, kind: match_pattern, regex: '^_$'}
             - has: {field: value, pattern: $X}
+    arm-binding:
+        kind: identifier
+        pattern: $BOUND
+        inside: {kind: match_arm, stopBy: end, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $BOUND, not: {inside: {kind: tuple_struct_pattern, field: type}}}}}
+    binding-test:
+        kind: if_expression
+        all:
+            - has: {field: condition, kind: let_condition, has: {field: value, any: [{matches: arm-binding}, {kind: 'unary_expression, reference_expression', has: {matches: arm-binding}}]}}
+            - not: {has: {field: consequence, has: {stopBy: end, kind: identifier, pattern: $BOUND}}}
+            - not: {has: {field: alternative, has: {stopBy: end, kind: identifier, pattern: $BOUND}}}
 rule:
     kind: match_arm
     all:
@@ -42,6 +52,7 @@ rule:
                     - has: {nthChild: 1, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
                     - not: {has: {nthChild: 2}}
         - precedes: {matches: fallback}
+        - not: {has: {field: value, any: [{matches: binding-test}, {has: {stopBy: end, matches: binding-test}}]}}
         - not:
             has:
                 field: value
@@ -60,4 +71,4 @@ transform:
     COMMA: {replace: {source: $A, replace: '^[\s\S]+$', by: ','}}
 fix: '$P if $COND => $A$AB$COMMA'
 message: 'Arm `$P` nests an `if let` whose `else` repeats the catch-all arm'
-note: 'Move the `let` into the arm guard (`<pattern> if let <binding> = <value> => <body>`, Rust 1.95), the failed guard falls through to the catch-all arm the `else` repeated'
+note: 'Move the `let` into an arm guard (`<pattern> if let <binding> = <value> => <body>`), a failed guard falls through to the catch-all arm the `else` repeated. Clippy `collapsible_match` owns an `if let` over an arm binding no branch reads and nests its pattern into the arm pattern'

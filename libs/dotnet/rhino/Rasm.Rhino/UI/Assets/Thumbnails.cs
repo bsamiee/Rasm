@@ -113,7 +113,7 @@ public sealed class DefinitionThumbnails : IDisposable {
             Seq<Func<Action<IDisposable>, IO<Unit>>>(
                 keep => DisposalOps.Acquire(
                     IO.lift(() => new Disposal<IO<Unit>>(close, static effect => effect.Run())),
-                    static lease => IO.lift(lease.Dispose), keep).Map(static _ => unit),
+                    static lease => IO.lift(lease.Dispose), keep).Map(unit),
                 keep => EventKind.InstanceDefinitionTableEvent.Inline(args => Changed(release, args), sink, keep),
                 keep => Releasing(EventKind.CloseDocument, release, sink, keep),
                 keep => Releasing(EventKind.WorksessionFileChanged, release, sink, keep)),
@@ -146,7 +146,7 @@ public sealed class DefinitionThumbnails : IDisposable {
     // --- [RELEASE]
     private static IO<Unit> Changed(Func<Func<Key, bool>, IO<Unit>> release, InstanceDefinitionTableEventArgs args) =>
         IO.lift(() => args.EventType).Bind(kind => when(
-            kind != InstanceDefinitionTableEventType.Sorted,
+            kind is not InstanceDefinitionTableEventType.Sorted,
             from touched in IO.lift(() => (
                 Document: EventKind.InstanceDefinitionTableEvent.DocumentSerial(args),
                 Definitions: toHashSet(args.InstanceDefinitionIndex.Cons(Conversions.Rows(args.NewState.GetContainers()).Map(static container => container.Index)))))
@@ -255,7 +255,7 @@ public static class Thumbnails {
             canvas.Graphics.FillRectangle(board.Light, bounds);
             _ = (from column in toSeq(Range(0, (int)MathF.Ceiling(bounds.Width / square)))
                  from row in toSeq(Range(0, (int)MathF.Ceiling(bounds.Height / square)))
-                 where (column + row) % 2 == 1
+                 where (column + row) % 2 is 1
                  select RectangleF.Intersect(new RectangleF(bounds.X + (column * square), bounds.Y + (row * square), square, square), bounds))
                 .Iter(cell => canvas.Graphics.FillRectangle(board.Dark, cell));
         });

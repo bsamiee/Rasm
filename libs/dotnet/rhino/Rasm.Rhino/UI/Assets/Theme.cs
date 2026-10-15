@@ -99,7 +99,7 @@ public static class HostTheme {
                 let exchange = fun((Option<Option<IDisposable>> next) => atomicIO(() => {
                     Option<Option<IDisposable>> prior = mounted.Value;
                     mounted.Value = prior.Bind(_ => next);
-                    return prior.Bind(static current => current);
+                    return prior.Flatten();
                 }).Bind(static prior => IO.lift(() => prior.Iter(static lease => lease.Dispose()))).Uninterruptible())
                 let mount = DisposalOps.Replace(windowOwned =>
                     IO.lift(() => Optional(control.ParentWindow)).Bind(window => window.Traverse(parent =>
@@ -107,7 +107,7 @@ public static class HostTheme {
                             handler => parent.LogicalPixelSizeChanged += handler,
                             handler => parent.LogicalPixelSizeChanged -= handler,
                             nameof(Window.LogicalPixelSizeChanged))
-                        .Choose(static _ => Some(unit)).Inline(deliver, site.Sink, windowOwned)).As()).Map(static _ => unit),
+                        .Choose(static _ => Some(unit)).Inline(deliver, site.Sink, windowOwned)).As()).Map(unit),
                     (_, lease) => {
                         Option<IDisposable> prior = atomic(() => mounted.Value.Match(
                             Some: current => {

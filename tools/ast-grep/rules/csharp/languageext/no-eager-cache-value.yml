@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-eager-cache-value
+language: csharp
+severity: error
+utils:
+    computed:
+        kind: argument
+        has: {kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, array_creation_expression, with_expression, await_expression', pattern: $VALUE}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $METHOD}}, {has: {field: expression, pattern: $MAP}}]}
+        - any:
+            - all:
+                - has: {field: function, has: {field: name, regex: '^FindOr(Maybe)?Add$'}}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+                - has: {field: arguments, has: {matches: computed, any: [{has: {field: name, regex: '^value$'}}, {nthChild: 2, not: {has: {field: name, kind: identifier}}}]}}
+            - all:
+                - has: {field: function, has: {field: name, regex: '^AddOrUpdate$'}}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+                - has: {field: arguments, has: {matches: computed, any: [{has: {field: name, regex: '^None$'}}, {nthChild: 3, not: {has: {field: name, kind: identifier}}}]}}
+message: '`$MAP.$METHOD` computes `$VALUE` on every call, a hit discards it'
+note: 'Pass the factory overload, `static () => <value>` as the added value of `FindOrAdd` or the `None` of `AddOrUpdate`, a `Func<Option<V>>` for `FindOrMaybeAdd`, so the value is computed on a miss alone'

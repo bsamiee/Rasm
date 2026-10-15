@@ -25,33 +25,26 @@ Categories a package member decides need package source beside code, searches fi
 ## [03]-[FIX]
 
 Rewrites edit only selections where the fix keeps behavior, other forms violating the rule stay findings, an invalid rule is deleted unweakened:
-- `ast-grep scan --custom-languages allow --no-ignore hidden --filter '^(<ids>)$' --globs '<globs>' --json=stream . > <state>.jsonl` records the before or after state
 - `<ids>` joins with `|` the id of each rule the round edits, places, or collapses and of each caller of a util it edits
-- `jq -r '[.ruleId, .file, (.range.start.line + 1 | tostring)] | join(":")' <state>.jsonl | sort > <state>.keys` writes each state's keys
+- `<globs>` joins in one brace glob the round language's extensions, `sgconfig.yml` `languageGlobs`, and each host injecting it
+- `<state>` is `before` or `after` under the run's private directory, `<excludes>` the `--globs '!<glob>'` flags of `lint:ast-grep`
 - Rows grouped by `ruleId` count each rule, `comm -3` over both `<state>.keys` files lists gained and lost rows
 - Counts locate unnecessary structure and justify no deletion of a domain invariant or hiding of complexity in another file
 - Resolve warnings from scoped checkers before deriving a rule
 
-`<globs>` is the row of the round's language, injection hosts included:
+Scans record a state, `jq` reads its scan lines into keys and per-rule counts:
 
-| [INDEX] | [LANGUAGE]   | [GLOBS]                                                  |
-| :-----: | :----------- | :------------------------------------------------------- |
-|  [01]   | `bash`       | `{*.sh,*.yml,*.yaml}`                                    |
-|  [02]   | `csharp`     | `*.cs`                                                   |
-|  [03]   | `java`       | `*.java`                                                 |
-|  [04]   | `javascript` | `*.{js,jsx,mjs,cjs}`                                     |
-|  [05]   | `python`     | `*.py`                                                   |
-|  [06]   | `sql`        | `{*.sql,*.ts,*.tsx}`                                     |
-|  [07]   | `swift`      | `*.swift`                                                |
-|  [08]   | `tsx`        | `*.{ts,tsx}`                                             |
-|  [09]   | `xml`        | `{*.xml,*.csproj,*.props,*.targets,*.slnx,NuGet.config}` |
-|  [10]   | `yaml`       | `*.{yml,yaml}`                                           |
+```bash
+nx run rasm:lint:ast-grep --output-style=static -- --filter '^(<ids>)$' --globs '<globs>' --json=stream > <state>.jsonl
+jq -rR 'fromjson? | [.ruleId, .file, (.range.start.line + 1 | tostring)] | join(":")' <state>.jsonl | sort > <state>.keys
+jq -rR 'fromjson? | .ruleId' <state>.jsonl | sort | uniq -c
+```
 
 Placed rules hold single-thread user CPU within twice `no-parse-error-<language>` over `<globs>`, `<rule ids>` the `<ids>` joined by `,`:
 
 ```bash
 hyperfine -N -i -r 3 -L id 'no-parse-error-<language>,<rule ids>' --export-json <state>-cost.json \
-    "ast-grep scan -j 1 --custom-languages allow --no-ignore hidden --filter '^{id}$' --globs '<globs>' --json=stream ."
+    "ast-grep scan -j 1 --custom-languages allow --no-ignore hidden --filter '^{id}$' --globs '<globs>' <excludes> --json=stream ."
 jq -r '.results[] | [.parameters.id, .user] | @tsv' <state>-cost.json
 ```
 

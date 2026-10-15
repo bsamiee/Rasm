@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-entity-escape
+language: rust
+utils:
+    entity:
+        kind: string_literal
+        regex: '^"&(amp|lt|gt|quot|apos|#[0-9]+|#x[0-9A-Fa-f]+);"$'
+    entity-replace:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(replace|replacen)$'}}
+            - has: {field: arguments, has: {matches: entity}}
+rule:
+    any:
+        - matches: entity-replace
+          not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: entity-replace}}}
+        - kind: match_expression
+          has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, has: {stopBy: end, kind: char_literal}}}, {has: {field: value, any: [{matches: entity}, {has: {stopBy: end, matches: entity}}]}}]}}

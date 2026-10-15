@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-utf8-int-parse
+language: rust
+utils:
+    decode:
+        kind: call_expression
+        has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?str::from_utf8$'}
+rule:
+    kind: call_expression
+    all:
+        - pattern: $TEXT.parse::<$T>()
+        - any:
+            - pattern: $DECODED.ok()?.parse::<$T>()
+            - pattern: $DECODED?.parse::<$T>()
+            - pattern: $DECODED.unwrap().parse::<$T>()
+            - pattern: $DECODED.expect($_).parse::<$T>()
+constraints:
+    T: {regex: '^((::)?(std|core)::num::)?([iu](8|16|32|64|128|size)|NonZero(<[iu](8|16|32|64|128|size)>|[IU](8|16|32|64|128|size)))$'}
+    DECODED: {matches: decode}

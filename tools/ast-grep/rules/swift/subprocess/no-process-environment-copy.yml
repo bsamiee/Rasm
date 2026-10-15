@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-process-environment-copy
+language: swiftlang
+severity: error
+utils:
+    process-environment:
+        kind: navigation_expression
+        regex: '^((Foundation\.)?ProcessInfo\.processInfo)\.environment$'
+    reshaped:
+        kind: call_expression
+        has: {nthChild: 1, regex: '\.(hasPrefix|hasSuffix|starts|lowercased|uppercased|replacing|trimmingCharacters|mapValues|compactMapValues)$'}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    all:
+        - has: {nthChild: 1, regex: '^((Subprocess\.)?Environment)?\.custom$'}
+        - any:
+            - has: {stopBy: end, matches: process-environment}
+            - has:
+                stopBy: end
+                kind: simple_identifier
+                pattern: $COPY
+                inside:
+                    stopBy: end
+                    kind: statements
+                    has:
+                        kind: property_declaration
+                        all:
+                            - has: {field: name, has: {field: bound_identifier, pattern: $COPY}}
+                            - has: {stopBy: end, matches: process-environment}
+                            - not: {has: {stopBy: end, matches: reshaped}}
+        - not: {has: {stopBy: end, matches: reshaped}}
+message: '`$SITE` copies the environment of this process into a custom environment'
+note: 'Pass `Environment.inherit`, with `updating(_:)` for overrides and removals (a `nil` value removes a key), the child then reads the environment at spawn and no dictionary copy or key conversion runs'

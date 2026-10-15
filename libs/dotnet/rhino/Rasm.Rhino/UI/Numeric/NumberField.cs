@@ -191,10 +191,10 @@ public sealed class NumberField<TValue, TKey> : NumberField
     protected override void OnMouseDown(MouseEventArgs e) {
         Run(Current.Bind(held => held.Switch(
             (Field: this, Args: e),
-            resting: static (s, resting) => resting.Shown.Filter(_ => s.Args.Buttons == MouseButtons.Primary && !s.Field.HasFocus)
+            resting: static (s, resting) => resting.Shown.Filter(_ => s.Args.Buttons is MouseButtons.Primary && !s.Field.HasFocus)
                 .Match(Some: shown => s.Field.Pressing(shown, s.Args), None: static () => IO.pure(unit)),
             pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (s, _) => when(s.Args.Buttons == MouseButtons.Alternate, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
+            scrubbing: static (s, _) => when(s.Args.Buttons is MouseButtons.Alternate, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
             editing: static (_, _) => IO.pure(unit))));
         if (e.Handled) return;
 
@@ -246,7 +246,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
             (Field: this, Args: e),
             resting: static (_, _) => IO.pure(unit),
             pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (s, _) => when(s.Args.Key == Keys.Escape, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
+            scrubbing: static (s, _) => when(s.Args.Key is Keys.Escape, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
             editing: static (s, editing) => s.Args.Key switch {
                 Keys.Up => Claimed(() => s.Args.Handled = true, s.Field.Stepping(editing, 1, s.Args.Modifiers).IfNone(IO.pure(unit))),
                 Keys.Down => Claimed(() => s.Args.Handled = true, s.Field.Stepping(editing, -1, s.Args.Modifiers).IfNone(IO.pure(unit))),

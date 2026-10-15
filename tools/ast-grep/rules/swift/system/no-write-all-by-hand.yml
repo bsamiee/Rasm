@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-write-all-by-hand
+language: swiftlang
+severity: error
+rule:
+    kind: while_statement
+    pattern: $SITE
+    all:
+        - has: {field: condition, regex: '^\w+\s*<\s*[\w.]+\.count$', has: {nthChild: 1, kind: simple_identifier, pattern: $WRITTEN}}
+        - has:
+            kind: statements
+            all:
+                - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: navigation_expression, regex: '\.write$'}}
+                - has: {stopBy: end, kind: assignment, regex: '\+=', has: {field: target, pattern: $WRITTEN}}
+message: '`$SITE` repeats `write` until every byte of the buffer is written'
+note: 'Call `writeAll(_:)` on the `FileDescriptor`, it loops over short writes and retries an interrupted call'

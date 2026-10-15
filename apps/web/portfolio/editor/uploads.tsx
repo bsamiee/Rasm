@@ -1,13 +1,13 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { useUppyEvent, useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Match, Option, Struct } from 'effect';
+import { Match, Option, Schema, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { type ReactNode, useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
 import { byteSize, entryTitle } from '../media/display.ts';
-import { type AssetCollection, uploadLimit } from '../model/asset.ts';
+import { type AssetCollection, PdfAsset, uploadLimit } from '../model/asset.ts';
 import type { Entry } from '../model/document.ts';
 import { ConfirmDialog, MenuButton, RequestAlert, SelectField } from './controls.tsx';
 import { discardRequest, pendingRequest } from './services.ts';
@@ -26,7 +26,7 @@ function Uploads({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const [discarded, discard] = useAtom(discardRequest);
     useUppyEvent(uploader, 'complete', refreshRecovery);
     useUppyEvent(uploader, 'file-removed', (file): void => {
-        if (file.meta.prepared && !file.progress.uploadComplete) {
+        if (file.meta.prepared !== undefined && file.progress.uploadComplete !== true) {
             refreshRecovery();
         }
     });
@@ -39,13 +39,12 @@ function Uploads({ assets, entries, onChoose }: { assets: typeof AssetCollection
         ...entries.map((entry) => ({ id: entry.id, label: `${entryTitle(entry)} · ${entry.kind}`, target: { kind: 'entry', id: entry.id } satisfies Destination })),
     ];
     const documents = files.flatMap((file) => {
-        const asset = file.meta.prepared && assets[file.meta.prepared.asset.id];
+        const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
         const entry = entries.find((item) => file.meta.destination.kind === 'entry' && item.id === file.meta.destination.id);
-        return file.progress.uploadComplete && asset?.mime === 'application/pdf' && entry ? [{ id: file.id, label: `${asset.name} · ${entryTitle(entry)}`, entryId: entry.id, assetId: asset.id }] : [];
+        return file.progress.uploadComplete === true && Schema.is(PdfAsset)(asset) && entry !== undefined ? [{ id: file.id, label: `${asset.name} · ${entryTitle(entry)}`, entryId: entry.id, assetId: asset.id }] : [];
     });
     const selectedFile = files.find((file) => file.id === selected);
-    const editable = selectedFile && !selectedFile.progress.uploadStarted && !selectedFile.meta.prepared && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id));
-    const queuedUploads = new Set(files.flatMap((file) => (file.meta.prepared && !file.progress.uploadComplete ? [file.meta.prepared.asset.id] : [])));
+    const queuedUploads = new Set(files.flatMap((file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? [file.meta.prepared.asset.id] : [])));
     return (
         <>
             <SelectField label="Destination for new files" onChange={(option): void => setTarget(option.target)} options={options} value={target.kind === 'entry' ? target.id : target.kind} />
@@ -57,19 +56,20 @@ function Uploads({ assets, entries, onChoose }: { assets: typeof AssetCollection
             {selectedFile && (
                 <div className="min-w-0">
                     <p className="hint wrap-anywhere mb-2">{selectedFile.name}</p>
-                    {editable ? (
+                    {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <SelectField
                             label="File destination"
                             onChange={(option): void => {
                                 uploader.setFileMeta(selectedFile.id, { destination: option.target });
                                 refreshFiles();
                             }}
-                            options={options.filter((option) => option.target.kind !== 'hero' || !files.some((item) => item.id !== selectedFile.id && item.meta.destination.kind === 'hero' && !item.progress.uploadComplete))}
+                            options={options.filter((option) => option.target.kind !== 'hero' || !files.some((item) => item.id !== selectedFile.id && item.meta.destination.kind === 'hero' && item.progress.uploadComplete !== true))}
                             value={selectedFile.meta.destination.kind === 'entry' ? selectedFile.meta.destination.id : selectedFile.meta.destination.kind}
                         />
                     ) : (
                         <p className="hint">
-                            Destination: {options.find((option) => option.id === (selectedFile.meta.destination.kind === 'entry' ? selectedFile.meta.destination.id : selectedFile.meta.destination.kind))?.label ?? 'Removed entry'} · {selectedFile.progress.uploadComplete ? 'Uploaded' : 'Fixed after processing starts'}
+                            Destination: {options.find((option) => option.id === (selectedFile.meta.destination.kind === 'entry' ? selectedFile.meta.destination.id : selectedFile.meta.destination.kind))?.label ?? 'Removed entry'} ·{' '}
+                            {selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Fixed after processing starts'}
                         </p>
                     )}
                 </div>

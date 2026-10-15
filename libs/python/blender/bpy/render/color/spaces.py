@@ -61,7 +61,7 @@ class FilmView(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def formation(self) -> BlenderResult[Formation]:
         """Developed native formation or its complete imaging failures."""
-        return self.film.transform().map(lambda transform: Formation.of(self.name, self.description, transform, self.film.space)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        return self.film.transform().map(lambda transform: Formation.of(self.name, self.description, transform, self.film.space)).map_error(BlenderImagingFault.lifted)
 
 
 class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
@@ -79,11 +79,11 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def base(self) -> BlenderResult[PyOpenColorIO.Config]:
         """Bundled base configuration independent of a user installation."""
-        return opened(ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return opened(ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))), ()).map_error(BlenderImagingFault.lifted)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def staged(self, stage: Path) -> BlenderResult[PyOpenColorIO.Config]:
         """Stages the full build in the caller's resource scope."""
-        return paired(self.base, self.merged).bind(lambda pair: pair[1].staged(pair[0], stage).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+        return paired(self.base, self.merged).bind(lambda pair: pair[1].staged(pair[0], stage).map_error(BlenderImagingFault.lifted))
 
     def extended(self, formation: Formation) -> Self:
         """Returns an installation containing an additional formation."""
@@ -91,9 +91,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
 
     def written(self) -> BlenderResult[Path]:
         """Installs the complete configuration for Blender's next start."""
-        return paired(self.base, self.merged).bind(
-            lambda pair: pair[1].installed(pair[0], Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-        )
+        return paired(self.base, self.merged).bind(lambda pair: pair[1].installed(pair[0], Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))).map_error(BlenderImagingFault.lifted))
 
     def installed(self, _call: Call[Empty]) -> BlenderResult[Done]:
         """Installs the build and reports its next-start activation."""
@@ -143,7 +141,7 @@ def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
         admitted(PyOpenColorIO.GetCurrentConfig(), (source, record.space))
         .bind(lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=record.space)))
         .map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
-        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        .map_error(BlenderImagingFault.lifted)
     )
     return (
         Result[PyOpenColorIO.CPUProcessor, BlenderFaults]
@@ -198,7 +196,7 @@ def _converter(key: Key, name: str, body: Callable[[End, End, End], BlenderResul
         node("split", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=INPUTS, socket=COLOR_INPUT.key)}, {"mode": "RGB"})
         .bind(
             lambda split: body(*(End(node="split", socket=socket) for socket in sockets)).bind(
-                lambda channels: node("join", bpy.types.CompositorNodeCombineColor, {**dict(zip(sockets, channels)), "Alpha": ended("split", "Alpha")(split)}, {"mode": "RGB"})
+                lambda channels: node("join", bpy.types.CompositorNodeCombineColor, dict(zip(sockets, channels)) | {"Alpha": ended("split", "Alpha")(split)}, {"mode": "RGB"})
             )
         )
         .bind(lambda joined: NodeGroup.built(key, name, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: ended("join", "Image")(joined)}))

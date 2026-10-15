@@ -12,7 +12,7 @@ const Dimensions = Schema.Struct({ width: extent, height: extent });
 const Page = Schema.Struct({ ...Dimensions.fields, label: Schema.optionalKey(Schema.String) });
 const Sheet = Schema.Struct({ ...Page.fields, number: Schema.Int.check(Schema.isGreaterThan(0)) });
 const file = { id: Id, name: Schema.NonEmptyString, size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: uploadLimit })) };
-class ImageAsset extends Schema.Class<ImageAsset>('ImageAsset')({
+class ImageAsset extends Schema.Class<ImageAsset, { readonly brand: unique symbol }>('ImageAsset')({
     ...file,
     mime: Schema.Literals(['image/jpeg', 'image/png', 'image/webp', 'image/avif']),
     ...Dimensions.fields,
@@ -20,8 +20,8 @@ class ImageAsset extends Schema.Class<ImageAsset>('ImageAsset')({
         Schema.NonEmptyArray(Schema.Struct({ width: Schema.Int.check(Schema.isGreaterThan(0)), size: file.size, mime: Schema.Literals(['image/jpeg', 'image/png']) })).check(Schema.makeFilter((items) => new Set(items.map(({ width }) => width)).size === items.length, { expected: 'unique rendition widths' })),
     ),
 }) {}
-class VideoAsset extends Schema.Class<VideoAsset>('VideoAsset')({ ...file, mime: Schema.Literals(['video/mp4', 'video/webm']), ...Dimensions.fields }) {}
-class PdfAsset extends Schema.Class<PdfAsset>('PdfAsset')({ ...file, mime: Schema.Literals(['application/pdf']), pages: Schema.NonEmptyArray(Page) }) {}
+class VideoAsset extends Schema.Class<VideoAsset, { readonly brand: unique symbol }>('VideoAsset')({ ...file, mime: Schema.Literals(['video/mp4', 'video/webm']), ...Dimensions.fields }) {}
+class PdfAsset extends Schema.Class<PdfAsset, { readonly brand: unique symbol }>('PdfAsset')({ ...file, mime: Schema.Literals(['application/pdf']), pages: Schema.NonEmptyArray(Page) }) {}
 const Asset = Schema.Union([ImageAsset, VideoAsset, PdfAsset]);
 const AssetCollection = Schema.Record(Schema.String, Asset);
 const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals);

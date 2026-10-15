@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-success-call
-language: swift
+language: swiftlang
 rule:
     kind: call_expression
     has:

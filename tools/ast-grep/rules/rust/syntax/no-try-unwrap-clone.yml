@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-unwrap-clone
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: '$P::try_unwrap($X).unwrap_or_else(|$Y| (*$Y).clone())'
+            - pattern: '$P::try_unwrap($X).unwrap_or_else(|$Y| $Y.as_ref().clone())'
+            - pattern: '$P::try_unwrap($X).unwrap_or_else(|$Y| $T::clone(&*$Y))'
+            - pattern: '$P::try_unwrap($X).unwrap_or_else(|$Y| $T::clone($Y.as_ref()))'
+constraints:
+    P: {regex: '^((::)?(std|alloc)::(rc|sync)::)?(Rc|Arc)$'}
+fix: $P::unwrap_or_clone($X)
+message: '`$P::try_unwrap($X)` falls back to a clone of the shared value by hand'
+note: 'Call `<Rc or Arc>::unwrap_or_clone(<pointer>)` (Rust 1.76), which moves the value out of the last reference and clones it otherwise'

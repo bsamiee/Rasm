@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bridged-string-search
+language: swiftlang
+severity: error
+utils:
+    scope:
+        kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body'
+    needle:
+        kind: value_argument
+        nthChild: 1
+        has: {field: name, regex: '^of$'}
+    literal-needle:
+        kind: value_argument
+        nthChild: 1
+        has: {field: value, kind: line_string_literal, has: {field: text, kind: line_str_text}, not: {has: {kind: interpolated_expression}}}
+    searched:
+        kind: value_arguments
+        all:
+            - has: {matches: needle}
+            - not: {has: {kind: value_argument, nthChild: 2}}
+    replaced:
+        kind: value_arguments
+        all:
+            - has: {matches: needle}
+            - has: {kind: value_argument, nthChild: 2, has: {field: name, regex: '^with$'}}
+            - not: {has: {kind: value_argument, nthChild: 3}}
+    search-call:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, regex: '(^|\.)range$'}
+            - has: {kind: call_suffix, has: {matches: searched}}
+    replace-call:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, regex: '(^|\.)replacingOccurrences$'}
+            - has: {kind: call_suffix, has: {matches: replaced}}
+    string-extension:
+        kind: class_declaration
+        all:
+            - has: {field: declaration_kind, regex: '^extension$'}
+            - has: {field: name, regex: '^((Swift|Foundation)\.)?(String|Substring|StringProtocol|Data)$'}
+    bridged-binding:
+        kind: 'property_declaration, parameter'
+        regex: '\b(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))\b'
+        has: {stopBy: end, kind: simple_identifier, pattern: $R}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    all:
+        - any:
+            - matches: search-call
+            - matches: replace-call
+        - has:
+            nthChild: 1
+            any:
+                - kind: navigation_expression
+                  has: {field: target, pattern: $R, not: {any: [{kind: self_expression}, {regex: '\b(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))\b'}]}}
+                - any: [{kind: simple_identifier}, {kind: navigation_expression, has: {field: target, kind: self_expression}}]
+                  inside: {stopBy: end, matches: string-extension}
+        - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: bridged-binding}}}
+rewriters:
+    - id: first-range
+      rule:
+        matches: search-call
+        all:
+            - has: {nthChild: 1, pattern: $F}
+            - has: {kind: call_suffix, has: {kind: value_arguments, pattern: $ARGS, has: {matches: literal-needle}}}
+      transform:
+        NAME: {replace: {source: $F, replace: 'range$', by: firstRange}}
+      fix: $NAME$ARGS
+    - id: native-replacing
+      rule:
+        matches: replace-call
+        all:
+            - has: {nthChild: 1, pattern: $F}
+            - has: {kind: call_suffix, has: {kind: value_arguments, pattern: $ARGS, has: {matches: literal-needle}}}
+      transform:
+        NAME: {replace: {source: $F, replace: 'replacingOccurrences$', by: replacing}}
+        UNLABELED: {replace: {source: $ARGS, replace: '^\(\s*of:\s*', by: '('}}
+      fix: $NAME$UNLABELED
+transform:
+    NATIVE: {rewrite: {source: $SITE, rewriters: [first-range, native-replacing]}}
+fix: $NATIVE
+message: '`$SITE` searches through the bridged `NSString` member in place of the Swift collection algorithm'
+note: 'Call `firstRange(of: <needle>)` for `range(of:)` and `replacing(<needle>, with: <replacement>)` for `replacingOccurrences(of:with:)`, the fix rewrites a non-empty literal needle, a needle that can be empty takes a guard since `firstRange(of: "")` returns an empty range and `replacing("", with:)` inserts between characters where the bridged members find nothing, and a `Substring` receiver of `replacing` yields `Substring`'

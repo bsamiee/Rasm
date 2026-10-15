@@ -12,6 +12,7 @@ tests/
 │   ├── conftest.py         # Package registration for public-API coverage
 │   └── support/            # Reusable Python test support and the pytest runtime plugin
 └── typescript/
+    ├── e2e/                # Playwright suite over served web apps
     └── support/            # Reusable TypeScript test support and the Vitest setup file
 ```
 
@@ -30,18 +31,20 @@ Classify each test by scope, technique, and execution mode, and apply every clas
 | :-----: | :-------- | :------------- | :------------------------------------- | :--------------------------------------------------------------------------------- |
 |  [01]   | Scope     | Unit           | Behavior with controlled collaborators | Default `test` run per language                                                    |
 |  [02]   | Scope     | Integration    | Real components or external boundary   | Python `network` marker                                                            |
-|  [03]   | Technique | Property-based | Generated examples exercise invariants | `TestAssertions.ForAll`, Hypothesis `@given`, `it.effect.prop`, `#[property_test]` |
-|  [04]   | Mode      | Benchmark      | Timing outside functional test session | `benchmark` fixture, Vitest `*.bench.ts` file, Criterion `[[bench]]` target        |
+|  [03]   | Scope     | End-to-end     | Served app driven through a browser    | Playwright `e2e` target                                                            |
+|  [04]   | Technique | Property-based | Generated examples exercise invariants | `TestAssertions.ForAll`, Hypothesis `@given`, `it.effect.prop`, `#[property_test]` |
+|  [05]   | Mode      | Benchmark      | Timing outside functional test session | `benchmark` fixture, Vitest `*.bench.ts` file, Criterion `[[bench]]` target        |
 
 Python `@property_test(subject)` records public-API coverage.
 
 ## [03]-[EXPECTED_BEHAVIOR]
 
-Every test asserts observable behavior against evidence independent of the implementation under test: closed-form calculations, invariants, metamorphic relations, reference models, fixtures, runtime observations, and documented external contracts.
+Every test asserts observable behavior against evidence independent of the implementation under test.
 
 [REQUIREMENTS]:
 - Compilers, import checks, and type checkers verify symbols exist, runtime tests assert behavior
-- Expected values come from an independent calculation, observation, or documented contract
+- Expected values come from a closed-form calculation, invariant, metamorphic relation, reference model, fixture, observation, or documented contract
+- Expected output text is an inline snapshot in the module that produces it, never a loose `.stderr`, `.snap`, or golden file
 - Structural assertions on values the test constructs assert nothing the code computes, pair them with a behavioral assertion or delete them
 - Boundary tests supply invalid raw input through supported entry points, tests inside the boundary build every state through construction
 - Parameterized and property-based tests cover input classes and invariants
@@ -51,4 +54,4 @@ Treat a failing test as evidence until triage identifies a production defect, an
 
 ## [04]-[OWNERS]
 
-Use README.md for the owner of every test dependency version, target, tool configuration, and output location.
+Use root `README.md` for test dependency, target, tool, and output owners.

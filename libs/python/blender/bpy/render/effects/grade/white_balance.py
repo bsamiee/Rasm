@@ -32,14 +32,14 @@ def balanced(shell: Shell[WhiteBalance]) -> BlenderResult[tuple[Fragment, End]]:
 
 def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
     """Sets the source white from the covered mean of the entering region, naming an undo step where the white changed."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
     def solved(config: PyOpenColorIO.Config, held: Entry[WhiteBalance]) -> BlenderResult[Option[str]]:
         found: BlenderResult[Option[White]] = (
             samples_of(config, file.pixels)
             .map(lambda samples: samples.color[samples.covered])
             .bind(lambda covered: White.of(config, Rgb(**dict(zip(Rgb.__struct_fields__, map(float, covered.mean(axis=0, dtype=np.float64)))))) if covered.size else Ok(Nothing))
-            .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            .map_error(BlenderImagingFault.lifted)
         )
         selected: BlenderResult[White] = Result[Option[White], BlenderFaults].bind(found, lambda white: white.to_result_with(lambda: (BlenderUnmetFault(requirement=Unread(entry=entry.name)),)))
         return (

@@ -11,7 +11,7 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderRenderingFault, BlenderResult
 from blender.bpy.nodes import coordinates
-from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels
+from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels, shorter
 from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, masked, math, menu, mixed, nested, node, NodeGroup, Operand, summed, switched, vector
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.effects.optics.defocus import iris
@@ -91,14 +91,13 @@ def radial() -> BlenderResult[NodeGroup]:
 
     def mapped(offset: Operand, unit: Operand, strength: Operand) -> BlenderResult[NodeGroup]:
         lens_radius = vector("lens_radial", "SCALE", offset, strength).bind(lambda radial: length("lens_radius", radial))
-        rect_radial = (
+        rectified_map = (
             math("rect_strength", "MULTIPLY", strength, scale)
             .bind(lambda strength: math("rect_diameter", "MULTIPLY", strength, 2.0))
             .bind(lambda strength: vector("rect_radial", "SCALE", offset, strength))
+            .bind(lambda radial: paired(length("rect_radius", radial), vector("rect_hypotenuse_vector", "ADD", radial, (0.0, 0.0, 1.0)).bind(lambda value: length("rect_hypotenuse", value))))
+            .bind(lambda parts: negative.bind(lambda negative: rectified(unit, *parts, negative)))
         )
-        rectified_map = rect_radial.bind(
-            lambda radial: paired(length("rect_radius", radial), vector("rect_hypotenuse_vector", "ADD", radial, (0.0, 0.0, 1.0)).bind(lambda value: length("rect_hypotenuse", value)))
-        ).bind(lambda parts: negative.bind(lambda negative: rectified(unit, *parts, negative)))
         inverted_map = paired(lens_radius, negative).bind(lambda parts: inverted(unit, *parts))
         return paired(rectified_map, inverted_map).bind(
             lambda maps: NodeGroup.built(
@@ -152,9 +151,9 @@ def sampled(key: Key, source: Operand, frame: FrameSpace, extension: tuple[Fragm
         .bind(lambda channels: node(f"{key}_coverage", bpy.types.ShaderNodeCombineXYZ, {"X": 1.0, "Y": 1.0, "Z": ended(f"{key}_channels", "Z")(channels)}, {}))
         .map(ended(f"{key}_coverage", "Vector"))
     )
-    coordinate = paired(coordinates.sampled(f"{key}_data", frame, position), coverage).bind(lambda parts: vector(f"{key}_covered", "MULTIPLY", *parts))
     return (
-        coordinate
+        paired(coordinates.sampled(f"{key}_data", frame, position), coverage)
+        .bind(lambda parts: vector(f"{key}_covered", "MULTIPLY", *parts))
         .bind(
             lambda position: (
                 vector(f"{key}_wrap", "WRAP", position, (1.0, 1.0, 1.0), (-1.0, -1.0, -1.0))
@@ -180,11 +179,7 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
     coefficient = shell.socket(distortion_field)
 
     def built(lens: NodeGroup, frame: FrameSpace, extension: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-        corner = (
-            node("sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {})
-            .bind(lambda sides: math("smaller", "MINIMUM", ended("sides", "X")(sides), End(node="sides", socket="Y")))
-            .bind(lambda smaller: math("corner", "MULTIPLY", smaller, smaller))
-        )
+        corner = shorter("smaller", frame.extent).bind(lambda smaller: math("corner", "MULTIPLY", smaller, smaller))
         fitted = (
             compared("positive", "GREATER_THAN", coefficient, 0.0)
             .bind(lambda positive: node("fitted", bpy.types.FunctionNodeBooleanMath, {"Boolean": shell.socket(fit), "Boolean_001": positive}, {"operation": "AND"}))
@@ -246,7 +241,7 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
         channels = accumulated(split.bind(lambda split: gathered(frame, bokeh, split, channel, ratio) if ratio > 0.0 else Ok(ended("split", channel)(split))) for channel, ratio in ratios.items())
         return (
             paired(channels, split)
-            .bind(lambda parts: node("combined", bpy.types.CompositorNodeCombineColor, {**dict(zip(ratios, parts[0])), "Alpha": ended("split", "Alpha")(parts[1])}, {"mode": "RGB"}))
+            .bind(lambda parts: node("combined", bpy.types.CompositorNodeCombineColor, dict(zip(ratios, parts[0])) | {"Alpha": ended("split", "Alpha")(parts[1])}, {"mode": "RGB"}))
             .map(ended("combined", "Image"))
         )
 
@@ -263,9 +258,9 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
             )
             return paired(color, alpha)
 
-        waves = accumulated(waved(index, *wave) for index, wave in enumerate(shell.record.spectrum)).map(lambda waves: tuple(zip(*waves)))
         lateral = (
-            waves
+            accumulated(waved(index, *wave) for index, wave in enumerate(shell.record.spectrum))
+            .map(lambda waves: tuple(zip(*waves)))
             .bind(lambda channels: paired(summed("color_sum", channels[0], kind="VECTOR"), summed("alpha_sum", channels[1], kind="FLOAT")))
             .bind(lambda sums: node("lateral", bpy.types.CompositorNodeSetAlpha, {"Image": sums[0], "Alpha": sums[1], "Type": "Replace Alpha"}, {}))
             .map(ended("lateral", "Image"))
@@ -297,19 +292,19 @@ def exported(call: Call[Named]) -> BlenderResult[Done]:
             return (
                 ImageFile(pixels=plane, colorspace=PyOpenColorIO.ROLE_DATA)
                 .write(str(call.paths[0]), Storage(), {}, config)
-                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                .map_error(BlenderImagingFault.lifted)
                 .map(lambda path: Done(notes=(("INFO", path),)))
             )
 
         def sized(bounds: Descriptor[bpy.types.IntProperty]) -> BlenderResult[Done]:
-            ready: BlenderResult[tuple[Framing, tuple[int, int]]] = framing.rendered((bounds.prop.hard_min, bounds.prop.hard_max)).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+            ready: BlenderResult[tuple[Framing, tuple[int, int]]] = framing.rendered((bounds.prop.hard_min, bounds.prop.hard_max)).map_error(BlenderRenderingFault.lifted)
             return Result[tuple[Framing, tuple[int, int]], BlenderFaults].bind(ready, baked)
 
         return Descriptor.resolve(bpy.types.RenderSettings, "resolution_x", bpy.types.IntProperty).bind(sized)
 
     def ready(scene: bpy.types.Scene) -> BlenderResult[Done]:
         entry = distortion.named(call.identity, scene, call.record.name).bind(lambda held: distortion.read(call.identity, held))
-        config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
         framing = FrameSize().bound(call.identity).bind(lambda framed: framed.read(scene, Some(Whole())))
         return Result[tuple[tuple[PyOpenColorIO.Config, Entry[Distortion]], Framing], BlenderFaults].bind(
             paired(paired(config, entry), framing), lambda parts: written(parts[0][0], parts[0][1].effect, parts[1])

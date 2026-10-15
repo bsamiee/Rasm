@@ -2,9 +2,6 @@
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
         "typeRoots": [ ".claude-plugin/types" ],
-        "types": [ "claude-code", "claude-code-tools" ],
-        "jsx": "react",
-        "jsxFactory": "h",
-        "jsxFragmentFactory": "Fragment"
+        "types": [ "claude-code", "claude-code-tools" ]
     }
 }

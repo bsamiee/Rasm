@@ -10,7 +10,7 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
 from blender.imaging.hashing import ContentHash
-from blender.imaging.parameters import Choice, Presentation, Quantity
+from blender.imaging.parameters import Choice, NonNegative, Presentation, Quantity
 from blender.rendering.batch.queue import load, RenderQueue
 from blender.rendering.faults import RenderingReadFault, RenderingResult
 
@@ -53,7 +53,7 @@ class StageMark(msgspec.Struct, frozen=True, kw_only=True):
 
     part: Annotated[int, msgspec.Meta(ge=0)]
     item: int
-    seconds: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
+    seconds: NonNegative
     peak: Annotated[int, msgspec.Meta(ge=0)] | None = None
 
 
@@ -111,7 +111,7 @@ def observed(path: Path) -> RenderingResult[Option[tuple[Progress, datetime.date
     except FileNotFoundError:
         return Ok(Nothing)
     except OSError as error:
-        return Error((RenderingReadFault(request=str(path), error=error),))
+        return Error((RenderingReadFault(request=path, error=error),))
     return load(path, Progress).map(lambda progress: Some((progress, beat)))
 
 

@@ -114,7 +114,7 @@ public static class CanvasLayout {
                 Constraint.Make(element.Second, RelationalOperator.LessThanOrEqual, element.First.Maximum, Strength.Required),
                 Constraint.LessEqual(element.Second - element.First.Ideal, spread, Strength.Required),
                 Constraint.LessEqual(element.First.Ideal - element.Second, spread, Strength.Required)))
-            .Add(Constraint.Equal(new Expression(sizes.Map(static size => new Term(size)).ToArray()), target, Strength.Strong))
+            .Add(Constraint.Equal(new Expression([.. sizes.Map(static size => new Term(size))]), target, Strength.Strong))
             .Add(Constraint.Equal(spread, 0d, Strength.Medium))
             .Iter(solver.AddConstraint);
         solver.Solve();
@@ -179,17 +179,17 @@ public static class CanvasLayout {
         return rows.Choose(a => Optional(rows.Filter(b => Precedence(b).CompareTo(Precedence(a)) > 0 && Adjacent(a.Object.Attributes.AggregateBounds, b.Object.Attributes.AggregateBounds)).MinBy(Precedence)).Map(b => (a, b)));
 
         (double Key, int Order) Precedence(Footprint row) =>
-            axis == Orientation.Horizontal ? (ranks[row.Object.InstanceId], row.Order) : (row.Object.Attributes.AggregateBounds.MiddleY, row.Order);
+            axis is Orientation.Horizontal ? (ranks[row.Object.InstanceId], row.Order) : (row.Object.Attributes.AggregateBounds.MiddleY, row.Order);
 
-        bool Adjacent(RectangleF a, RectangleF b) => axis == Orientation.Horizontal
+        bool Adjacent(RectangleF a, RectangleF b) => axis is Orientation.Horizontal
             ? a.Top <= b.Bottom && b.Top <= a.Bottom && (a.Right < b.Left || b.Right < a.Left)
             : a.Left <= b.Right && b.Left <= a.Right;
     }
 
     private static HashMap<Guid, float> Solved(Arrangement request, Seq<Footprint> rows, Seq<(Footprint A, Footprint B)> along, Seq<(Footprint A, Footprint B)> across, Seq<WireLevel> wires, Orientation axis) {
-        Func<PointF, float> coordinate = axis == Orientation.Horizontal ? static point => point.X : static point => point.Y;
-        Func<RectangleF, float> low = axis == Orientation.Horizontal ? static box => box.Left : static box => box.Top;
-        Func<RectangleF, float> high = axis == Orientation.Horizontal ? static box => box.Right : static box => box.Bottom;
+        Func<PointF, float> coordinate = axis is Orientation.Horizontal ? static point => point.X : static point => point.Y;
+        Func<RectangleF, float> low = axis is Orientation.Horizontal ? static box => box.Left : static box => box.Top;
+        Func<RectangleF, float> high = axis is Orientation.Horizontal ? static box => box.Right : static box => box.Bottom;
         HashMap<Guid, Variable> pivots = toHashMap(rows.Map(static row => (row.Object.InstanceId, new Variable())));
         Seq<(SnappingRule Rule, Orientation Axis, Func<RectangleF, float> Edge)> rules = Seq<(SnappingRule, Orientation, Func<RectangleF, float>)>(
             (SnappingRule.AlignLeftEdges, Orientation.Horizontal, static box => box.Left),
@@ -202,14 +202,14 @@ public static class CanvasLayout {
             from rule in toSeq(rules.Filter(rule => rule.Axis == axis && request.Settings.Rules.HasFlag(rule.Rule))
                 .OrderBy(rule => Math.Abs(rule.Edge(pair.A.Object.Attributes.AggregateBounds) - rule.Edge(pair.B.Object.Attributes.AggregateBounds))).Take(1))
             select (pair.A, pair.B, rule.Edge);
-        Option<int> gap = axis == Orientation.Horizontal
+        Option<int> gap = axis is Orientation.Horizontal
             ? Callbacks.Found(request.Settings.SpaceHorizontalGaps, request.Settings.HorizontalGapSize)
             : Callbacks.Found(request.Settings.SpaceVerticalGaps, request.Settings.VerticalGapSize);
         Seq<(Footprint A, Footprint B, Footprint C)> spread = request.Distributions.Filter(run => run.Axis == axis)
             .Map(run => run.Objects.Choose(id => rows.Find(row => row.Object.InstanceId == id)))
             .Bind(static run => run.Zip(run.Tail).Zip(run.Tail.Tail))
             .Map(static triple => (triple.First.First, triple.First.Second, triple.Second));
-        Seq<WireLevel> levelled = axis == Orientation.Vertical && request.Settings.AlignWires ? wires : Seq<WireLevel>();
+        Seq<WireLevel> levelled = axis is Orientation.Vertical && request.Settings.AlignWires ? wires : Seq<WireLevel>();
         Seq<(Guid A, Guid B)> links = along.Map(static pair => (pair.A.Object.InstanceId, pair.B.Object.InstanceId))
             .Concat(aligned.Map(static pair => (pair.A.Object.InstanceId, pair.B.Object.InstanceId)))
             .Concat(spread.Bind(static triple => Seq((triple.A.Object.InstanceId, triple.B.Object.InstanceId), (triple.B.Object.InstanceId, triple.C.Object.InstanceId))))

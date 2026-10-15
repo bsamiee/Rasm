@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-visited-worklist-traversal
+language: rust
+severity: error
+utils:
+    tested:
+        any:
+            - inside: {field: condition, kind: if_expression}
+            - inside: {kind: unary_expression, inside: {field: condition, kind: if_expression}}
+    adjacency-read:
+        any:
+            - kind: index_expression
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: field, regex: '^(neighbors|neighbors_directed|neighbors_undirected|edges|edges_directed|get)$'}}
+rule:
+    kind: call_expression
+    all:
+        - any:
+            - pattern: $V.insert($$$)
+            - pattern: $V.contains($$$)
+        - matches: tested
+        - inside:
+            kind: 'while_expression, loop_expression'
+            stopBy: {kind: 'closure_expression, function_item'}
+            all:
+                - has: {stopBy: end, kind: call_expression, pattern: $V.insert($$$)}
+                - has: {stopBy: end, kind: call_expression, pattern: $W.$POP()}
+                - has:
+                    stopBy: end
+                    kind: call_expression
+                    pattern: $W.$ADD($$$)
+                    any:
+                        - has: {field: arguments, has: {stopBy: end, matches: adjacency-read}}
+                        - inside:
+                            kind: for_expression
+                            stopBy: {kind: 'while_expression, loop_expression, closure_expression'}
+                            has: {field: value, any: [{matches: adjacency-read}, {has: {stopBy: end, matches: adjacency-read}}]}
+constraints:
+    POP: {regex: '^(pop|pop_back|pop_front)$'}
+    ADD: {regex: '^(push|push_back|push_front|extend)$'}
+message: '`$W` walks an adjacency structure by hand with `$V` marking visited nodes'
+note: 'Hold the graph as a `petgraph::graphmap::DiGraphMap` or `petgraph::Graph` and traverse with `petgraph::visit::Dfs::new(&graph, start)` or `petgraph::visit::Bfs::new(&graph, start)` through `petgraph::visit::Walker` `.iter(&graph)`. `petgraph::algo::has_path_connecting` answers reachability'

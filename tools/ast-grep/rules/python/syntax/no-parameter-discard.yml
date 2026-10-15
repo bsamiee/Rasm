@@ -77,4 +77,4 @@ fix:
     expandStart: {matches: removable-predecessor}
     expandEnd: {matches: removable-successor}
 message: 'Body discards parameter `$P`'
-note: 'Delete the parameter from the signature and every caller, decorate an overriding method with `@typing.override`, or name a parameter a host callback signature fixes `_<name>`, a discard keeps an unused parameter and silences ruff `ARG` rules. A discard alone in its block, beside a multiline string, or sharing a line with its neighbor takes a manual deletion'
+note: 'Delete the parameter from the signature and every caller, decorate an overriding method with `@typing.override`, or name a parameter a host callback signature fixes `_<name>`, a discard keeps an unused parameter. A discard alone in its block, beside a multiline string, or sharing a line with its neighbor takes a manual deletion'

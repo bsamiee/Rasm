@@ -8,7 +8,7 @@ from expression import Some
 import msgspec
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Ramp, Rgb
+from blender.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Ramp, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -86,11 +86,9 @@ class WorldWidth(Case, frozen=True, kw_only=True, tag=2):
 class Outer(msgspec.Struct, frozen=True, kw_only=True):
     """Lines at occluding surfaces and object boundaries, drawn above inner lines."""
 
-    depth: Annotated[
-        Gated[Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]],
-        msgspec.Meta(title="Depth Gap", description="Least relative gap, 1 - near/far, at an occluding surface"),
-        Presentation(soft=Some((0.0, 0.25))),
-    ] = Gated(enabled=True, value=0.05)
+    depth: Annotated[Gated[Unit], msgspec.Meta(title="Depth Gap", description="Least relative gap, 1 - near/far, at an occluding surface"), Presentation(soft=Some((0.0, 0.25)))] = Gated(
+        enabled=True, value=0.05
+    )
     objects: Annotated[bool, msgspec.Meta(title="Object Changes", description="Lines at object boundaries")] = False
     ink: Annotated[Rgb[Finite], msgspec.Meta(title="Ink", description="Display color of outer lines")] = Rgb(red=0.0, green=0.0, blue=0.0)
     width: Annotated[Widths, msgspec.Meta(title="Width", description="Width of outer lines")] = FrameWidth()
@@ -106,11 +104,9 @@ class Inner(msgspec.Struct, frozen=True, kw_only=True):
         Presentation(quantity=Some(Quantity.ANGLE)),
     ] = Gated(enabled=True, value=math.pi - math.radians(134.4))
     materials: Annotated[bool, msgspec.Meta(title="Material Changes", description="Lines at material boundaries")] = False
-    contrast: Annotated[
-        Gated[Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]],
-        msgspec.Meta(title="Contrast", description="Least luminance-weighted display-color change, 1 from black to white"),
-        Presentation(soft=Some((0.0, 0.5))),
-    ] = Gated(enabled=False, value=0.1)
+    contrast: Annotated[Gated[Unit], msgspec.Meta(title="Contrast", description="Least luminance-weighted display-color change, 1 from black to white"), Presentation(soft=Some((0.0, 0.5)))] = Gated(
+        enabled=False, value=0.1
+    )
     ink: Annotated[Rgb[Finite], msgspec.Meta(title="Ink", description="Display color of inner lines")] = Rgb(red=0.0, green=0.0, blue=0.0)
     width: Annotated[Widths, msgspec.Meta(title="Width", description="Width of inner lines")] = FrameWidth(size=1 / 1280)
 

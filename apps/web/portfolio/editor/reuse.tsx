@@ -1,13 +1,13 @@
-import { BrowserCrypto } from '@effect/platform-browser';
-import { Array, Effect, Option, Record, Struct } from 'effect';
+import { Array, Effect, Option, Record, Schema, Struct } from 'effect';
 import { Check } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CheckboxButton, CheckboxField } from 'react-aria-components';
 import { placementLabel } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
-import type { AssetCollection } from '../model/asset.ts';
+import { type AssetCollection, PdfAsset } from '../model/asset.ts';
 import { type Composition, createComposition, placementsFor } from '../model/placement.ts';
 import { MenuButton } from './controls.tsx';
+import { identifier } from './services.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ function ReuseFile({
     const source = Option.flatMap(sourceId, (id) => Record.get(assets, id));
     const sheets = Option.match(source, { onNone: () => [], onSome: (asset) => placementsFor(asset, true) });
     const order = new Map(selected.map((index, position) => [index, position]));
-    const pdf = Option.exists(source, (asset) => asset.mime === 'application/pdf');
+    const pdf = Option.exists(source, Schema.is(PdfAsset));
     const chosen = pdf ? Array.getSomes(selected.map((index) => Array.get(sheets, index))) : sheets;
     return (
         <div className="flex min-w-0 flex-col gap-4">
@@ -52,8 +52,7 @@ function ReuseFile({
                     className="button button-outline"
                     disabled={chosen.length === 0}
                     onClick={(): void => {
-                        const crypto = Effect.runSync(BrowserCrypto.WebCrypto);
-                        onAdd(chosen.map((placement) => createComposition(crypto.randomUUID(), placement)));
+                        onAdd(chosen.map((placement) => createComposition(Effect.runSync(identifier), placement)));
                         onSource(Option.none());
                         onSelect([]);
                     }}
@@ -74,6 +73,7 @@ function ReuseFile({
                     </div>
                     {sheets.map((placement, index) => {
                         const position = order.get(index);
+                        const label = placement.kind === 'pdf' ? (placement.page.label ?? '') : placementLabel(placement);
                         return (
                             <div className="min-w-0 bg-background p-3" key={placementLabel(placement)}>
                                 <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
@@ -83,7 +83,7 @@ function ReuseFile({
                                             <Check className="size-3.5 opacity-0 group-selected:opacity-100" />
                                         </span>
                                         <span className="wrap-anywhere min-w-0 text-sm">
-                                            {placement.kind === 'pdf' ? placement.page.label || `Sheet ${index + 1}` : placementLabel(placement)}
+                                            {label === '' ? `Sheet ${index + 1}` : label}
                                             {position !== undefined && <span className="block text-muted text-xs">Order {position + 1}</span>}
                                         </span>
                                     </CheckboxButton>

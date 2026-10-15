@@ -1,11 +1,11 @@
 import { useAtom } from '@effect/atom-react';
+import { dialogOpen } from '@rasm/ui/dialogs.ts';
 import { Expand, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ComponentProps, type CSSProperties, lazy, type ReactElement, Suspense, useId, useRef } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
 import type { Placement } from '../model/placement.ts';
-import { dialogOpen } from '../site/navigation.ts';
 import { mediaRatio, mediaUrl, numeral, placementTitle } from './display.ts';
 import { Media } from './element.tsx';
 import { MediaFailure, MediaLoading } from './status.tsx';

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-forwarded-member
-language: swift
+language: swiftlang
 utils:
     member-read:
         any:

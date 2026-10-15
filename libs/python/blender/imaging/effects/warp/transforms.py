@@ -13,11 +13,9 @@ from blender.imaging.effects.generators.noise import Octaves
 from blender.imaging.geometry.homography import Quad
 from blender.imaging.geometry.panoramas import Elevation, PanoramaView, Rectilinear, Turn
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Seed
+from blender.imaging.parameters import Finite, Gated, GraphForm, Motion, NonNegative, Position, Presentation, Quantity, Seed
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Amplitude = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -37,12 +35,12 @@ class Tilt(msgspec.Struct, frozen=True, kw_only=True):
 class Shake(msgspec.Struct, frozen=True, kw_only=True):
     """Seeded camera motion on position, rotation, and scale over time."""
 
-    position: Annotated[tuple[_Amplitude, _Amplitude], msgspec.Meta(description="Peak offset along each frame axis"), Presentation(soft=Some((0.0, 0.1)), quantity=Some(Quantity.FRAME_GREATER))] = (
+    position: Annotated[tuple[NonNegative, NonNegative], msgspec.Meta(description="Peak offset along each frame axis"), Presentation(soft=Some((0.0, 0.1)), quantity=Some(Quantity.FRAME_GREATER))] = (
         0.01,
         0.01,
     )
-    rotation: Annotated[_Amplitude, msgspec.Meta(description="Peak turn about the frame center"), Presentation(soft=Some((0.0, math.pi / 18.0)), quantity=Some(Quantity.ANGLE))] = math.radians(5.0)
-    scale: Annotated[_Amplitude, msgspec.Meta(description="Peak zoom in stops"), Presentation(soft=Some((0.0, 1.0)))] = math.log2(1.1)
+    rotation: Annotated[NonNegative, msgspec.Meta(description="Peak turn about the frame center"), Presentation(soft=Some((0.0, math.pi / 18.0)), quantity=Some(Quantity.ANGLE))] = math.radians(5.0)
+    scale: Annotated[NonNegative, msgspec.Meta(description="Peak zoom in stops"), Presentation(soft=Some((0.0, 1.0)))] = math.log2(1.1)
     motion: Annotated[Motion, msgspec.Meta(description="Reference clock rate and hold, advancing continuously within exposure")] = Motion(speed=1.0 / 24.0)
     octaves: Annotated[Octaves, msgspec.Meta(description="Fractal detail of the motion")] = Octaves()
     seed: Annotated[Seed, msgspec.Meta(description="Noise variant the motion reads")] = 0

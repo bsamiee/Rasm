@@ -17,7 +17,7 @@ from blender.imaging.faults import paired
 from blender.rendering.batch.processes import ran
 from blender.rendering.batch.progress import Progress
 from blender.rendering.batch.supervision import stop
-from blender.rendering.faults import Call, RenderingResult, RenderingRunFault, RenderingSystemFault
+from blender.rendering.faults import Call, RenderingFaults, RenderingResult, RenderingRunFault, RenderingSystemFault
 
 if sys.platform == "win32":
     from ctypes import get_last_error, WinDLL, WinError, wintypes  # ty: ignore[possibly-missing-import]
@@ -69,19 +69,22 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
             else ("systemd-inhibit", "--what=idle:sleep", "--mode=block", f"--who={Path(sys.executable).name}", "--why=Rendering a queue", "tail", f"--pid={pid}", "-f", "/dev/null")
         )
 
+        def refused(error: OSError | int) -> RenderingFaults:
+            return (RenderingRunFault(request=argv, error=error),)
+
         def scoped(holder: subprocess.Popen[bytes]) -> RenderingResult[T]:
             try:
                 answer = operation()
             finally:
-                terminated: RenderingResult[None] = catch(holder.terminate, exception=OSError)().map_error(lambda error: (RenderingRunFault(request=argv, error=error),))
-                waited: RenderingResult[int] = catch(holder.wait, exception=OSError)().map_error(lambda error: (RenderingRunFault(request=argv, error=error),))
-                released = paired(terminated, waited).bind(lambda pair: Ok(None) if pair[1] in {0, -signal.SIGTERM} else Error((RenderingRunFault(request=argv, error=pair[1]),)))
+                terminated: RenderingResult[None] = catch(holder.terminate, exception=OSError)().map_error(refused)
+                waited: RenderingResult[int] = catch(holder.wait, exception=OSError)().map_error(refused)
+                released = paired(terminated, waited).bind(lambda pair: Ok(None) if pair[1] in {0, -signal.SIGTERM} else Error(refused(pair[1])))
             return paired(answer, released).bind(lambda _: answer)
 
         try:
             holder = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         except OSError as error:
-            return Error((RenderingRunFault(request=argv, error=error),))
+            return Error(refused(error))
         return scoped(holder)
 
 

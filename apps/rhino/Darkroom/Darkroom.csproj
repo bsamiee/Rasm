@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetExt>.rhp</TargetExt>
-        <Description>Image formation, output, and render management</Description>
+        <Description>Image formation, effects, review, and render queue for Rhino renders</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">

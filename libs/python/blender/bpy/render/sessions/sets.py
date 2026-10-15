@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator, Hashable
 from contextlib import contextmanager, ExitStack
 from functools import partial
-from itertools import starmap
+from itertools import chain, starmap
 from typing import Annotated, ClassVar
 
 import bpy
@@ -18,7 +18,7 @@ from blender.bpy.commands.operators import Acquired, answered, Call, Confirm, Do
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import named
 from blender.bpy.data.rna.conditions import Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, struct_at, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at, Value
 from blender.bpy.data.rna.snapshots import Applied, NativeValue, Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -28,12 +28,12 @@ from blender.bpy.render.effects.stack import Configured, EffectName, EffectStack
 from blender.bpy.render.previews.scenes import Chain, PreviewEngine
 from blender.bpy.render.previews.tiles import Tiles
 from blender.bpy.render.view_layers import passes
-from blender.bpy.settings.attachments import Attached, Attachment, Host, Stored
+from blender.bpy.settings.attachments import Attached, Attachment, endpoints, Host, Stored
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.texts import TextRecord
 from blender.bpy.ui.layout.browser import Browser
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import Matrix, Member, OperatorButton, Owner, Property, Pulldown, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import Matrix, Member, OperatorButton, Property, Pulldown, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import Drawn, hosted, Listing, Single
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.surfaces.menus import Captured, Dropdown, Menu, PresetMenu
@@ -175,7 +175,7 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
                                 )
                             )
                         )
-                    )().default_value(None)
+                    )().to_optional()
 
             return SetupLocks.bound(identity).map(lambda store: partial(shown, store))
 
@@ -220,7 +220,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the active scene's marked source, or the active scene itself."""
         match context.scene:
             case bpy.types.Scene() as scene:
-                match Mark.read(self.identity, scene).filter(lambda mark: mark.key == RenderSet.ownership.key).bind(lambda mark: mark.of).to_optional():
+                match RenderSet.ownership.marked(self.identity, scene).bind(lambda mark: mark.of).to_optional():
                     case bpy.types.Scene() as source:
                         return Ok(source)
                     case _:
@@ -377,7 +377,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             ),
         ).map(
             lambda values: (
-                Setup(scene=values[0][0], layers={name: pair[0] for name, pair in values[1]}, effects=recipe.effects),
+                msgspec.structs.replace(recipe, scene=values[0][0], layers={name: pair[0] for name, pair in values[1]}),
                 Setup(
                     scene=values[0][1],
                     layers=current.layers | {name: pair[1] for name, pair in values[1]},
@@ -498,7 +498,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                         selected = self.locks.read(scene).map(lambda held: held.default_with(SetupLocks).layers.get(layer, frozenset()))
                     case _:
                         return
-                identity.reports.reported(lambda: selected.map(lambda locks: draws[descriptor.path in locks](layout, holder, context)))().default_value(None)
+                identity.reports.reported(lambda: selected.map(lambda locks: draws[descriptor.path in locks](layout, holder, context)))().to_optional()
 
             return accumulated(
                 OperatorButton(target=Own(command=command, values=SetupLock(path=descriptor.path)), text=Some(""), icon=Some("LOCKED" if locked else "UNLOCKED"), emboss=False)
@@ -572,9 +572,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
             accumulated(Descriptor.resolve(category.root, path, bpy.types.Property) for path in category.paths).map(lambda found: (category, found)) for category in self.categories
         )
         samples = accumulated(Descriptor.resolve(bpy.types.Scene, ".".join(engine.value), bpy.types.IntProperty).map(lambda descriptor: (engine.name, descriptor)) for engine in PreviewEngine)
-        recovery = identity.name(Name.ATTACHMENT, "render_set_sync").map(
-            lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
-        )
+        recovery = identity.name(Name.ATTACHMENT, "render_set_sync").map(endpoints)
         return paired(paired(stores, paired(selections, samples)), recovery).map(
             lambda joined: Members(
                 identity=identity,
@@ -710,7 +708,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
     def composed(self, members: Members, commands: tuple[Operator[Empty] | Operator[Converting], ...]) -> BlenderResult[Single]:
         """Builds native member lists and one divergence matrix per category."""
 
-        def curves(layout: bpy.types.UILayout, owner: Owner, key: str) -> None:
+        def curves(layout: bpy.types.UILayout, owner: Native, key: str) -> None:
             if isinstance(owner, bpy.types.ColorManagedViewSettings):
                 if owner.use_curve_mapping:
                     layout.template_curve_mapping(owner, key, type="COLOR", levels=True)
@@ -998,7 +996,7 @@ def unsynced(members: Members, context: bpy.types.Context) -> BlenderResult[tupl
             .map(lambda outcomes: tuple(applied for outcome in outcomes for applied in outcome.to_list()))
         )
 
-    return accumulated(map(reverted, dict.fromkeys(category.root for category, _ in members.categories))).map(lambda groups: tuple(applied for group in groups for applied in group))
+    return accumulated(map(reverted, dict.fromkeys(category.root for category, _ in members.categories))).map(lambda groups: tuple(chain.from_iterable(groups)))
 
 
 def mirrored(members: Members, edited: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[str]]:
@@ -1093,8 +1091,12 @@ def converted(members: Members, form: Form, context: bpy.types.Context) -> Blend
 
                 return paired(Snapshot.capture(layer), members.samples_of(scene, layer)).bind(sampled)
 
-            prepared = accumulated(starmap(placed, planned)).bind(lambda targets: passes.synced(source, members.identity).bind(lambda _: accumulated(starmap(filled, targets))))
-            return prepared.or_else_with(refused).bind(lambda names: committed(names, tuple(copies)))
+            return (
+                accumulated(starmap(placed, planned))
+                .bind(lambda targets: passes.synced(source, members.identity).bind(lambda _: accumulated(starmap(filled, targets))))
+                .or_else_with(refused)
+                .bind(lambda names: committed(names, tuple(copies)))
+            )
 
         def copied(source: bpy.types.Scene) -> BlenderResult[tuple[str, ...]]:
             def each(name: str) -> BlenderResult[str]:

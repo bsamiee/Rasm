@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-observation-ignored-let
+language: swiftlang
+severity: error
+rule:
+    kind: attribute
+    regex: '^@(Observation\.)?ObservationIgnored$'
+    inside:
+        kind: modifiers
+        inside: {kind: property_declaration, has: {kind: value_binding_pattern, has: {field: mutability, regex: '^let$'}}}
+fix: ''
+message: '`@ObservationIgnored` marks a `let` the `@Observable` macro never tracks'
+note: 'Delete the attribute, `@Observable` tracks stored `var` properties alone and expands nothing for a `let`'

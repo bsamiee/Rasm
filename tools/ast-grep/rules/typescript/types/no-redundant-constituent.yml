@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-redundant-constituent
+language: tsx
+severity: error
+utils:
+    primitive:
+        kind: predefined_type
+        pattern: $WIDE
+    literal:
+        kind: literal_type, template_literal_type
+        pattern: $NARROW
+rule:
+    kind: union_type
+    pattern: $UNION
+    not: {inside: {kind: union_type}}
+    any:
+        - has: {stopBy: &member {not: {kind: union_type}}, kind: predefined_type, regex: '^(unknown|any|never)$', pattern: $WIDE}
+        - all:
+            - has: {stopBy: *member, matches: primitive, regex: '^string$'}
+            - has: {stopBy: *member, matches: literal, any: [{kind: template_literal_type}, {has: {kind: string}}]}
+        - all:
+            - has: {stopBy: *member, matches: primitive, regex: '^number$'}
+            - has: {stopBy: *member, matches: literal, has: {any: [{kind: number, not: {regex: 'n$'}}, {kind: unary_expression, has: {kind: number, not: {regex: 'n$'}}}]}}
+        - all:
+            - has: {stopBy: *member, matches: primitive, regex: '^bigint$'}
+            - has: {stopBy: *member, matches: literal, has: {any: [{kind: number, regex: 'n$'}, {kind: unary_expression, has: {kind: number, regex: 'n$'}}]}}
+        - all:
+            - has: {stopBy: *member, matches: primitive, regex: '^boolean$'}
+            - has: {stopBy: *member, matches: literal, has: {kind: 'true, false'}}
+message: '`$UNION` holds a constituent redundant beside `$WIDE`'
+note: 'Drop the constituent the wider one includes, `unknown` and `any` absorb every member and `never` adds none; a literal kept beside its primitive for editor completion is `string & {}` in place of `string`'

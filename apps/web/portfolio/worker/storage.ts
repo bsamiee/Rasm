@@ -1,10 +1,11 @@
 import { D1Client } from '@effect/sql-d1';
+import { unavailable } from '@rasm/hosting/http.ts';
 import { Effect, flow, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';
 import { findAll, findOne } from 'effect/sql/SqlSchema';
 import { PendingUpload } from '../model/api.ts';
 import type { Asset } from '../model/asset.ts';
-import { portfolioReferences, unavailable } from './database.ts';
+import { portfolioReferences } from './database.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -13,11 +14,13 @@ const beginUpload = Effect.fn('beginUpload')(
     function* (asset: typeof Asset.Type, attemptId: string, keys: readonly string[]) {
         const sql = yield* D1Client.D1Client;
         const { id, ...metadata } = asset;
-        const attempt = JSON.stringify({ id: attemptId, discard: false, objects: keys.map((key) => ({ key })) });
+        const json = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+        const attempt = yield* json({ id: attemptId, discard: false, objects: keys.map((key) => ({ key })) });
+        const body = yield* json(metadata);
         return yield* findOne({
             Request: Schema.Void,
             Result: Schema.Struct({ objectKey: Schema.OptionFromNullOr(Schema.String) }),
-            execute: () => sql`INSERT INTO assets(id,body) VALUES (${id},json_set(${JSON.stringify(metadata)}, '$.uploads', json_array(json(${attempt}))))
+            execute: () => sql`INSERT INTO assets(id,body) VALUES (${id},json_set(${body}, '$.uploads', json_array(json(${attempt}))))
                 ON CONFLICT(id) DO UPDATE SET body = CASE WHEN assets.body ->> '$.objectKey' IS NULL
                     THEN json_insert(assets.body, '$.uploads[#]', json(${attempt})) ELSE assets.body END
                 WHERE json_remove(assets.body,'$.uploads','$.objectKey','$.removing') = json_remove(excluded.body,'$.uploads')
@@ -25,7 +28,7 @@ const beginUpload = Effect.fn('beginUpload')(
                 RETURNING body ->> '$.objectKey' AS object_key`,
         })(undefined).pipe(Effect.map(({ objectKey }) => objectKey));
     },
-    Effect.catchTag('NoSuchElementError', () => Effect.fail(new HttpApiError.Conflict())),
+    Effect.catchTag('NoSuchElementError', () => Effect.fail(HttpApiError.Conflict.make())),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 const attachUpload = flow(
@@ -45,7 +48,7 @@ const attachUpload = flow(
             ),
     }),
     Effect.asVoid,
-    Effect.catchTag('NoSuchElementError', () => Effect.fail(new HttpApiError.Conflict())),
+    Effect.catchTag('NoSuchElementError', () => Effect.fail(HttpApiError.Conflict.make())),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 const completeUpload = flow(
@@ -63,7 +66,7 @@ const completeUpload = flow(
             ),
     }),
     Effect.asVoid,
-    Effect.catchTag('NoSuchElementError', () => Effect.fail(new HttpApiError.Conflict())),
+    Effect.catchTag('NoSuchElementError', () => Effect.fail(HttpApiError.Conflict.make())),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 
@@ -99,7 +102,7 @@ const releaseUploads = Effect.fn('releaseUploads')(
         })(undefined).pipe(
             Effect.filterOrFail(
                 ({ conflict }) => !conflict,
-                () => new HttpApiError.Conflict(),
+                () => HttpApiError.Conflict.make(),
             ),
             Effect.map(({ objects }) => objects),
         );

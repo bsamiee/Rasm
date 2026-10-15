@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-addr-of-macro
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    all:
+        - has: {field: macro, regex: '^((::)?(std|core)::)?(ptr::)?addr_of(_mut)?$', pattern: $MACRO}
+        - has: {kind: token_tree, pattern: $ARGS}
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - all: [{pattern: $RECEIVER}, {inside: {kind: field_expression, field: value}}]
+            - kind: macro_invocation
+transform:
+    MUTABILITY: {replace: {source: $MACRO, replace: '^[\s\S]*addr_of_mut$', by: 'mut'}}
+    KEYWORD: {replace: {source: $MUTABILITY, replace: '^[\s\S]*addr_of$', by: 'const'}}
+    PLACE: {substring: {source: $ARGS, startChar: 1, endChar: -1}}
+    OPEN: {replace: {source: $RECEIVER, replace: '^[\s\S]+$', by: '('}}
+    CLOSE: {replace: {source: $RECEIVER, replace: '^[\s\S]+$', by: ')'}}
+fix: $OPEN&raw $KEYWORD $PLACE$CLOSE
+message: '`$MACRO!` takes a raw pointer through a macro'
+note: 'Write `&raw const <place>` or `&raw mut <place>`, the raw borrow operator `addr_of` macros expand to, in parentheses as a method receiver'

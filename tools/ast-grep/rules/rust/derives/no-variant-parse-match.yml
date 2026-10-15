@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-variant-parse-match
+language: rust
+severity: error
+rule:
+    kind: match_expression
+    matches: rust-variant-parse-match
+message: 'Match decodes text into enum variants through a literal arm per variant'
+note: 'Derive `strum::EnumString` on `<enum>` with `#[strum(serialize = "<text>")]` per variant (one per alternative literal, `#[strum(ascii_case_insensitive)]` for a lowercased subject) and keep the crate error through `#[strum(parse_err_ty = <Error>, parse_err_fn = <fn>)]`, the derive parses the table the variants declare and implements `FromStr` and `TryFrom<&str>`, `.ok()` gives the `Option` a decoder returning `Some` built by hand and `#[strum(default)]` keeps a fallback variant'

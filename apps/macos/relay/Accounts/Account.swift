@@ -1,5 +1,6 @@
 import DeveloperToolsSupport
 import Foundation
+import RasmMacOS
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -116,13 +117,13 @@ nonisolated struct AccountIdentity: Equatable, Sendable {
         let canonicalID: String = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
         let canonicalEmail: String = email.trimmingCharacters(in: .whitespacesAndNewlines)
         let checkedID: Result<String, AggregateError<IdentityError>> =
-            canonicalID.isEmpty ? .failure(AggregateError(first: .missingAccountID, remaining: [])) : .success(canonicalID)
+            canonicalID.isEmpty ? .failure(AggregateError(first: .missingAccountID)) : .success(canonicalID)
         let checkedEmail: Result<String, AggregateError<IdentityError>> =
-            canonicalEmail.isEmpty ? .failure(AggregateError(first: .missingEmail, remaining: [])) : .success(canonicalEmail)
+            canonicalEmail.isEmpty ? .failure(AggregateError(first: .missingEmail)) : .success(canonicalEmail)
         let checkedOrganization: Result<String?, AggregateError<IdentityError>> =
             switch organizationID?.trimmingCharacters(in: .whitespacesAndNewlines) {
                 case .none: .success(nil)
-                case .some(let value) where value.isEmpty: .failure(AggregateError(first: .emptyOrganizationID, remaining: []))
+                case .some(let value) where value.isEmpty: .failure(AggregateError(first: .emptyOrganizationID))
                 case .some(let value): .success(value)
             }
         return combine(checkedID, checkedEmail, checkedOrganization).map { id, email, organization in

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hex-by-byte
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    pattern: $FORMAT
+    matches: rust-hex-by-byte
+message: '`$FORMAT` renders hex text one byte at a time'
+note: 'Encode the whole buffer with `data_encoding::HEXLOWER.encode(<bytes>)` or `HEXUPPER.encode(<bytes>)` to write the same digits in one pass. Clippy `format_collect` points the map form at the per-byte `write!` fold this rule reports'

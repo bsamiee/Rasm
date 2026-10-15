@@ -59,7 +59,8 @@ MSBuild properties in `Directory.Build.props` configure every mapper of a projec
 ```
 
 - Allowlist omits every conversion that parses, formats, casts, or constructs
-- Direct assignment and object-member mapping have no bit and stay available, every disabled conversion falls through to object-member mapping
+- Direct assignment of identical types and object-member mapping have no bit, every disabled conversion falls through to object-member mapping
+- Assignable types that differ need `ImplicitCast`, without it a derived member maps as a new base instance and drops derived members
 - `string`, enum, and primitive targets have no mappable members and report `RMG007` as a member and `RMG008` as a mapping method
 - Composite targets map their members and report `RMG013`, `RMG066`, or nothing
 - `MappingConversionType.None` clears `Enumerable` and `Dictionary`
@@ -106,7 +107,7 @@ Mapping form decides who owns the target while its members are written:
 Mapperly object factories allocate or select the target and expose no typed failure channel:
 - Factory is pure, deterministic, and synchronous, returns a non-void type, and takes zero parameters or one
 - Factory can be generic with or without constraints, the first factory with a matching signature wins
-- Nullable results fall back to a public parameterless construction or throw `NullReferenceException`
+- Nullable results fall back to an accessible parameterless construction or throw `NullReferenceException`
 - Thinktecture `[ObjectFactory<T>]` declares a validating conversion to and from one other type, unrelated to Mapperly object factories
 
 Member and constructor visibility stays at `AllAccessible`:
@@ -297,6 +298,7 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`, `Require
 |  [16]   | `IncludedConstructors`               | `AllAccessible` | Constructor accessibility      |
 |  [17]   | `PreferParameterlessConstructors`    | `true`          | Constructor order              |
 |  [18]   | `AutoUserMappings`                   | `true`          | Discovery by signature         |
+|  [19]   | `QueryableProjectionNullHandling`    | `NullSafe`      | Null checks in projections     |
 
 - `AllowNullPropertyAssignment` at `false` turns an existing-target mapping into a merge, `required` init properties ignore the null options
 - `StackCloningStrategy` decides the element order whenever a new-instance mapping builds a `Stack<T>` through `Stack<T>(IEnumerable<T>)`
@@ -305,7 +307,7 @@ Settable properties of `MapperAttribute` and `MapperDefaultsAttribute`, `Require
 Mapperly resolves a flattening (`Item.Owner.Id` to `ItemDto.OwnerId`) from PascalCase names:
 - Unflattening needs `MapPropertyAttribute`, and Mapperly ignores indexed members
 - `MapNestedPropertiesAttribute` brings every member under one path into scope as if the source declared them
-- Immediate source members outrank nested ones, automatic flattening outranks both
+- Immediate source members outrank automatic flattening, which outranks nested members
 - Nested paths that reach the same target member have no defined order, `MapPropertyAttribute` names the mapping
 - Members are instance properties and fields, a property spelled like a method (`GetItems`) included
 - `MapPropertyAttribute` resolves a name mismatch while domain and DTO members keep their names
@@ -388,7 +390,8 @@ internal enum ExternalState { Active, Completed, Cancelled, Draft }
 - `None = 0` disables every automatic conversion, `All = ~None` enables every one, the unset value is `Default = All & ~ExplicitCast`
 - Explicit cast operators convert nothing until the mapper names `All` or adds the bit
 - Generator tries the conversions in one fixed order and the first enabled match wins
-- Step 1 is direct assignment, applied when the source type is assignable to the target type and `UseDeepCloning` is `false`
+- `Use` mappings, nullable-source constructors (`Constructor`), nullable sources, derived types, and `object` targets (`ExplicitCast`) precede step 1
+- Step 1 is direct assignment of identical types, nullability included, limited to immutable types under `UseDeepCloning`
 - Step 17 creates a new target instance and maps its members
 
 | [INDEX] | [MEMBER]               | [BIT]     | [STEP] | [CONDITION]                                                  |
@@ -405,7 +408,7 @@ internal enum ExternalState { Active, Completed, Cancelled, Draft }
 |  [10]   | `DateTimeToTimeOnly`   | `1 << 9`  |   16   | `DateTime` to `TimeOnly` through `FromDateTime`              |
 |  [11]   | `Queryable`            | `1 << 10` |   2    | Both are `IQueryable<T>`, expression-tree element mapping    |
 |  [12]   | `Enumerable`           | `1 << 11` |   6    | Both are `IEnumerable<T>`, maps each element                 |
-|  [13]   | `Dictionary`           | `1 << 12` |   3    | Both are `IDictionary` or `IReadOnlyDictionary`              |
+|  [13]   | `Dictionary`           | `1 << 12` |   3    | Source of `KeyValuePair`, target a dictionary type           |
 |  [14]   | `Span`                 | `1 << 13` |   4    | Either is `Span<T>` or `ReadOnlySpan<T>`                     |
 |  [15]   | `Memory`               | `1 << 14` |   5    | Either is `Memory<T>` or `ReadOnlyMemory<T>`                 |
 |  [16]   | `Tuple`                | `1 << 15` |   17   | Target is a `ValueTuple` or a tuple expression               |
@@ -416,7 +419,9 @@ internal enum ExternalState { Active, Completed, Cancelled, Draft }
 
 - `StaticConvertMethods` finds a static `ToTTarget` on the source type
 - `StaticConvertMethods` finds `Create`, `CreateFrom`, `CreateFromTSource`, and `FromTSource` in any casing on the target type
-- Array-typed sources add the `From<TElement>Array` and `CreateFrom<TElement>Array` spellings
+- Array sources replace those names with `CreateFrom<TElement>Array` and `From<TElement>Array`
+- Keyword element types (`int[]`) add `CreateFrom<kw>Array`, `From<kw>Array`, `FromArray`, `CreateFromArray`, `CreateFrom`, and `Create`
+- Nullable targets skip the static-method step
 - Static-method list matches the generated `Create(TKey)` of a value object, the generic `Validated` crossing sits on no target type and matches no listed name
 - `Tuple` emits a tuple expression outside a queryable projection and `ValueTuple` inside one
 - `Enumerable` and `Dictionary` bits cover arrays and every constructible collection target

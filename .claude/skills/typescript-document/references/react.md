@@ -26,12 +26,12 @@ Components take no `@typeParam`, the props interface declares the generic.
 
 ## [03]-[HOOKS]
 
-Hooks from `@effect-atom/atom-react` (`useAtomValue`, `useAtom`) return the atom value. Atoms made from an `Effect` hold `Result.Result<A, E>` from `@effect-atom/atom`: a union of `Initial`, `Success` (`value`), and `Failure` (`cause: Cause<E>`, `previousSuccess`) tagged by `_tag`, with a `waiting` flag on every case. `@returns` names the `A` and each `E`:
+Hooks from `@effect/atom-react` (`useAtomValue`, `useAtom`) return the atom value. Atoms made from an `Effect` hold `AsyncResult.AsyncResult<A, E>` from `effect/reactivity`: a union of `Initial`, `Success` (`value`), and `Failure` (`cause: Cause<E>`, `previousSuccess`) tagged by `_tag`, with a `waiting` flag on every case. `@returns` names the `A` and each `E`:
 
 ```ts
 /**
  * Subscribes to the invoice list of the active account
  *
- * @returns `Result` of the invoices, or `InvoiceFetchError` when the API rejects the account
+ * @returns `AsyncResult` of the invoices, or `InvoiceFetchError` when the API rejects the account
  */
 ```

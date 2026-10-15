@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-column-layout-by-hand
+language: rust
+severity: error
+utils:
+    measured:
+        kind: call_expression
+        all:
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(len|count|width)$'}}
+    width-format:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+            - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}, regex: '\{[^{}]*:[^{}.$]*\w\$'}}
+rule:
+    kind: call_expression
+    pattern: $WIDTH
+    any:
+        - all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^max$'}}, {has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, matches: measured}}}}]}}]}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+        - all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 2
+                    kind: closure_expression
+                    has:
+                        field: body
+                        kind: call_expression
+                        all:
+                            - has: {field: function, kind: field_expression, has: {field: field, regex: '^max$'}}
+                            - has: {field: arguments, has: {nthChild: 1, matches: measured}}
+    inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: {kind: function_item}, matches: width-format}}
+message: '`$WIDTH` measures a column that a width format pads by hand'
+note: 'Add the rows to a `comfy_table::Table` and print it, the table measures each cell by display width and pads every column where `{:<width$}` pads by char count'

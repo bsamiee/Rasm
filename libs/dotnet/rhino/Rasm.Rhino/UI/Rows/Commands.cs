@@ -48,7 +48,7 @@ public abstract partial record CommandRow {
             var realized => (groups.Map(static @group => @group.Bind(static held => held.Commands)),
                              new Realized<Seq<Command>>(
                                  realized.Bind(static held => held.Commands),
-                                 Callbacks.Each(realized.Map(static held => held.Refresh)).Map(static _ => unit))),
+                                 Callbacks.Each(realized.Map(static held => held.Refresh)).Map(unit))),
         };
 
     private protected IO<Realized<TCommand>> Commanded<TCommand>(RowScope scope, TCommand command, Func<IO<Unit>> deliver, IO<Unit> refresh, Action<IDisposable> retain)
@@ -72,13 +72,13 @@ public abstract partial record CommandRow {
                         () => EnvIO.New(token: lifetime.Token),
                         environment => IO.liftVAsync(() => IO.lift(deliver).Bind(static effect => effect).RunAsync(environment)),
                         static environment => Callbacks.Each(Seq(IO.lift(environment.DisposeResources), IO.lift(environment.DisposeNonResources)))
-                            .Map(static _ => unit)).RunSafeAsync().ConfigureAwait(continueOnCapturedContext: true),
+                            .Map(unit)).RunSafeAsync().ConfigureAwait(continueOnCapturedContext: true),
                     new(scope.Sink, typeof(Command), Face.Name)), AsyncRelayCommandOptions.AllowConcurrentExecutions);
                 retain(lease);
             })
         select new Realized<TCommand>(
             command,
-            Callbacks.Each(Seq(RowRules.Holds(Enabled, scope).Bind(enabled => IO.lift(() => { command.Enabled = enabled; })), refresh)).Map(static _ => unit));
+            Callbacks.Each(Seq(RowRules.Holds(Enabled, scope).Bind(enabled => IO.lift(() => { command.Enabled = enabled; })), refresh)).Map(unit));
 
     public sealed record Run(CommandFace Face, Option<RowRule> Enabled, Func<RowScope, IO<Unit>> Execute) : CommandRow(Face, Enabled) {
         public IO<Realized<Command>> Realize(RowScope scope, Action<IDisposable> retain) =>
@@ -113,6 +113,6 @@ public abstract partial record CommandRow {
                 select made.Add((member.Commands, row.Face, member.Refresh))).As()
                 .Map(static members => new Realized<Seq<(RadioCommand Command, CommandFace Face)>>(
                     members.Map(static member => (member.Command, member.Face)),
-                    Callbacks.Each(members.Map(static member => member.Refresh)).Map(static _ => unit)));
+                    Callbacks.Each(members.Map(static member => member.Refresh)).Map(unit)));
     }
 }

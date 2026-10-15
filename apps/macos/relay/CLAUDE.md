@@ -8,18 +8,15 @@ Views call `AccountStore`, the store calls one client actor per provider, and cl
 
 ```text
 apps/macos/relay/
-├── Accounts/            # Store, account model, domain types, usage availability, accounts.json codec, error accumulation
-├── Providers/           # Claude and Codex clients and protocols, Keychain, Claude Code locks, process runner
+├── Accounts/            # Store, account model, domain types, usage availability, accounts.json codec
+├── Providers/           # Claude and Codex clients and protocols, Claude Code locks
 ├── Resources/           # Asset catalog of provider and menu bar symbols, Icon Composer app icon
 ├── Views/               # Menu bar panel, Settings window, gauges, text formats
-├── Activation.swift     # Bring the app to front
 ├── FileLocations.swift  # Resolved paths, once after the login shell
-├── FileWatch.swift      # Directory and file observation
-├── LoginItem.swift      # Launch-at-login registration
-├── LoginShell.swift     # Login shell environment overlay
-└── RelayApp.swift       # Entry point
+└── RelayApp.swift       # Entry point, login shell environment
 ```
 
+- `RasmMacOS` at `libs/swift/macos` supplies application, file, process, and value code
 - `AccountStore` owns every trigger (launch, wake, network, file watch, schedule, user action) and every `AccountModel` state change
 - `ProviderClient` methods of `ClaudeClient` and `CodexClient` return `ProviderError` over `ClaudeFailure` or `CodexFailure`
 - `requiresSignIn` failures mark an account signed out, every other failure keeps it connected with an issue on its card
@@ -60,10 +57,7 @@ Claude stores are config directories with an account file and a login Keychain i
 - Active Claude account is `oauthAccount` of the shared account file
 - Store with a token and no `oauthAccount` stays connected, `/api/oauth/profile` supplies its `oauthAccount`
 - Item service is `Claude Code-credentials`, suffixed `-<first 8 hex of SHA-256>` of the NFC config directory path when one is set
-- `Keychain` reads, writes, and deletes every item through `/usr/bin/security`, the one application each item's ACL lists
-- `security` exiting with `errSecItemNotFound` is a missing item, with `errSecInteractionNotAllowed` a locked keychain
-- `waitid` reports the low 24 bits of an `OSStatus` a child exits with, `Keychain` masks each `errSec` code to 24 bits
-- Item writes send hex on `security -i` stdin, never argv, a command over the 4095 bytes one line holds writes nothing and fails as too large
+- Item ACLs list `/usr/bin/security` alone, `RasmMacOS` `Keychain` reads, writes, and deletes items through it
 - Item writes replace `claudeAiOauth` alone and keep `mcpOAuth`, the user's MCP server logins
 - Item with a blank `accessToken` or `refreshToken` reads as signed out, Claude Code's sign-out write blanks both with `expiresAt` 0
 - Every `claude` child takes `processEnvironment`, which drops `excludedEnvironmentVariables` and points at the child's store
@@ -102,7 +96,7 @@ Relay refreshes Claude tokens as a peer of Claude Code, under the same lock pair
 - Selected account's home is `CODEX_HOME`, else `~/.codex`
 - Identity is `id_token` claims of `auth.json`, a usage response for another workspace fails as `identityChanged`
 - Notifications a later wait claims belong in `retainedNotifications`
-- Switch reads effective configuration through `config/read`, requiring `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
+- Switch requires `config/read` to return `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
 - Switch stops affected servers before reading credential bytes with identity, and rejects outgoing identity changes
 - Finished switch quits and reopens a running desktop app
 
@@ -128,14 +122,14 @@ Session start reads usage and sends one greeting while `AccountUsage.availabilit
 - Schedule ticks every 180 s while the panel is open, else every 5, 15, or 30 minutes by time since it opened
 - Reset and `retryAfter` wakes respect the account's next permitted read, resets observed by a later usage snapshot schedule nothing
 - Each refresh re-reads a signed-out inactive account's private store without network and reconnects it on a stored credential
-- File observation delivers current state after registration and survives directory removal and recreation
+- `RasmMacOS` `FileWatch` reports store file changes and refresh lock removal
 
 ## [09]-[PROCESSES]
 
-`ProcessRun` starts every child through `Subprocess.run` in its own session, teardown sends SIGTERM to its group and SIGKILL 2 s later:
+Children run through `RasmMacOS` `ProcessRun`:
 - Every child runs under a deadline except `codex app-server`, which puts one on each request
-- Stream children are read and written inside the `run` body closure
-- `$SHELL -lc` runs once at launch and overlays `LoginShell.variables` on the launch environment, a failed run keeps the launch environment
+- Launch environment reaches no child, `open` from a shell adds the shell's variables
+- Children take what one `RasmMacOS` `LoginShell` run at launch exports, or its login(1) variables on failure
 - `FileLocations` resolves once, after the login shell
 - Each account runs one operation at a time
 - Quit cancels every operation, waits 5 s at most, then saves accounts
@@ -143,7 +137,7 @@ Session start reads usage and sends one greeting while `AccountUsage.availabilit
 ## [10]-[INTERFACE]
 
 Panel and Settings use system controls, semantic colors, and fonts:
-- Panel opens Settings by dismissing itself, `openWindow`, then `Activation.bringToFront` through `NSWorkspace.openApplication`
+- Panel opens Settings by dismissing itself, `openWindow`, then `RasmMacOS` `Activation.bringToFront`
 - Sign-in sheet state and task belong to `AccountStore`, closing Settings mid-login cancels nothing
-- Login item registers the running bundle through `SMAppService.mainApp`, its status reloads on panel open, pane appearance, and activation
+- `RasmMacOS` `LoginItem` status reloads on panel open, pane appearance, and activation
 - Provider failures log under subsystem `app.rasm.relay` with the account id public and the email private, failure cases hold no token

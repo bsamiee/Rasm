@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-repeated-else
+language: rust
+severity: error
+rule:
+    kind: if_expression
+    matches:
+        rust-repeated-else:
+            outer: {any: [{kind: binary_expression, has: {field: operator, regex: '^\|\|$'}, pattern: $AOR}, {pattern: $A}]}
+            inner: {any: [{kind: binary_expression, has: {field: operator, regex: '^\|\|$'}, pattern: $BOR}, {pattern: $B}]}
+            then: {pattern: $X}
+            fallback: {pattern: $E}
+transform:
+    AW: {replace: {source: $AOR, replace: '^([\s\S]+)$', by: '($1)'}}
+    BW: {replace: {source: $BOR, replace: '^([\s\S]+)$', by: '($1)'}}
+fix: 'if $A$AW && $B$BW $X else $E'
+message: 'Nested `if` repeats the outer `else` block'
+note: 'Join the conditions in one let chain, `if <outer> && <inner> { <body> } else { <fallback> }` (edition 2024), the fallback runs when either condition fails. Clippy `collapsible_if` reports the form without `else` alone'

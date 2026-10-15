@@ -36,6 +36,12 @@ class Tree[V](msgspec.Struct, frozen=True, kw_only=True):
     roots: tuple[str, ...]
     owners: dict[str, Owner[V]]
 
+    @classmethod
+    def joined(cls, trees: Iterable["Tree[V]"]) -> Self:
+        """Returns one tree holding each tree's roots and owners in order."""
+        held = tuple(trees)
+        return cls(roots=tuple(key for tree in held for key in tree.roots), owners={key: value for tree in held for key, value in tree.owners.items()})
+
     def children(self, parent: Option[str]) -> tuple[str, ...]:
         """Returns ordered child keys under a parent or the roots for Nothing."""
         return parent.map(lambda key: self.owners[key].children).default_value(self.roots)
@@ -103,13 +109,13 @@ def diff[V](before: Tree[V], after: Tree[V]) -> tuple[Edit[V], ...]:
 
 def merge[V](state: Tree[V], edits: Iterable[Edit[V]]) -> Tree[V]:
     """Returns the tree reached by edits drawn against the state."""
-    values = {key: dict(owner.values) for key, owner in state.owners.items()}
+    values = {key: owner.values for key, owner in state.owners.items()}
     lifted: set[str] = set()
     entering: list[tuple[Place, str]] = []
     for edit in edits:
         match edit:
             case Inserted(key=key, place=place, values=inserted):
-                values[key] = dict(inserted)
+                values[key] = inserted
                 entering.append((place, key))
             case Deleted(key=key):
                 del values[key]

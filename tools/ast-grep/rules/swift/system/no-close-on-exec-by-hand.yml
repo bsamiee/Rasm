@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-close-on-exec-by-hand
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    pattern: $SITE
+    any:
+        - all:
+            - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)\.)?fcntl$'}
+            - has: {stopBy: end, kind: simple_identifier, regex: '^F_SETFD$'}
+            - has: {stopBy: end, kind: simple_identifier, regex: '^FD_CLOEXEC$'}
+        - all:
+            - has: {nthChild: 1, regex: '^(((System|SystemPackage)\.)?FileDescriptor)?\.pipe$'}
+            - has: {kind: call_suffix, regex: '^\(\)$'}
+message: '`$SITE` creates a descriptor without close-on-exec or sets the flag afterward'
+note: 'Create the pair with `FileDescriptor.pipe(options: .closeOnExec)`, the flag is set atomically so no child spawned outside Subprocess inherits the descriptor, and `posix_spawn_file_actions_addinherit_np` still passes it to a child that needs it'

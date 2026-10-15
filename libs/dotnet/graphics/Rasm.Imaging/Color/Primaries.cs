@@ -179,7 +179,7 @@ public sealed partial class TransferCurve {
     public static readonly TransferCurve AcesCc = new("acescc", static (row, _) => PerLane(row, RgbModels.Acescc.FromLinear), static (row, _) => PerLane(row, RgbModels.Acescc.ToLinear));
 
     private static readonly (Vector256<double> Weights, double Gamma, double SceneFloor, double DisplayFloor) HlgSystem =
-        (Gamut.Rec2020.Luminance, 1.2d + (0.42d * double.Log10((double)Nits.HlgPeak / 1_000d))) switch {
+        (Gamut.Rec2020.Luminance, 1.2d + (0.42d * double.Log10(Nits.HlgPeak / 1_000d))) switch {
             var ((x, y, z), gamma) => (Vector256.Create(x, y, z, 0d), gamma, double.Pow(1e-4d, 1d / gamma) / 3d, 1e-4d / double.Pow(3d, gamma)),
         };
 

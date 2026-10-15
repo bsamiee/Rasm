@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-recompiled-regex
+language: java
+severity: error
+utils:
+    evaluation:
+        kind: method_declaration, constructor_declaration, compact_constructor_declaration, lambda_expression, class_body
+    static-final:
+        kind: field_declaration
+        has: {kind: modifiers, all: [{has: {regex: '^static$'}}, {has: {regex: '^final$'}}]}
+rule:
+    matches: java-regex-compile
+    has: {field: name, pattern: $METHOD}
+    not:
+        inside:
+            stopBy: {matches: evaluation}
+            any:
+                - matches: static-final
+                - kind: static_initializer, enum_constant, constant_declaration
+message: '`$METHOD` compiles its constant regex on every evaluation'
+note: 'Compile the regex once into a `static final Pattern` and use its `matcher`, `asPredicate`, or `splitAsStream`; a regex with no metacharacter is `String.replace`'

@@ -1,4 +1,6 @@
 import Foundation
+import RasmMacOS
+import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -30,7 +32,7 @@ nonisolated enum CodexProtocol {
         let method: Method
     }
 
-    struct ErrorObject: Codable, Error, Sendable {
+    struct ErrorObject: Codable, Error {
         let code: Int
         let message: String
     }
@@ -347,7 +349,7 @@ nonisolated enum CodexProtocol {
             }
         return kind.map { kind in
             UsageAmount.make(percent: window.usedPercent)
-                .mapError { _ in AggregateError(first: "\(kind.name) usage percentage", remaining: []) }
+                .mapError { _ in AggregateError(first: "\(kind.name) usage percentage") }
                 .map { amount in
                     QuotaWindow(kind: kind, used: amount, resetsAt: window.resetsAt, rejected: reached && amount.isExhausted)
                 }
@@ -388,7 +390,7 @@ nonisolated enum CodexProtocol {
         await connection.request(
             EffectiveConfig.self,
             .configRead,
-            params: ConfigReadParams(includeLayers: false, cwd: workingDirectory.path),
+            params: ConfigReadParams(includeLayers: false, cwd: FilePath(workingDirectory.path(percentEncoded: false)).string),
         )
         .map { effective in greetingOverrides(effective.config) }
         .bind { overrides in
@@ -398,7 +400,7 @@ nonisolated enum CodexProtocol {
                 params: ThreadStartParams(
                     model: greetingModelName,
                     modelProvider: "openai",
-                    cwd: workingDirectory.path,
+                    cwd: FilePath(workingDirectory.path(percentEncoded: false)).string,
                     approvalPolicy: "never",
                     sandbox: "read-only",
                     runtimeWorkspaceRoots: [],
@@ -542,12 +544,12 @@ nonisolated enum CodexAuthFile {
                 .flatMap { claims -> Result<(String, String, String, String?), CodexFailure> in
                     let workspace: Result<String, AggregateError<String>> =
                         (claims.auth?.chatgptAccountID ?? tokens.accountID)
-                        .map(Result.success) ?? .failure(AggregateError(first: "workspace identifier", remaining: []))
+                        .map(Result.success) ?? .failure(AggregateError(first: "workspace identifier"))
                     let user: Result<String, AggregateError<String>> =
                         (claims.auth?.chatgptUserID ?? claims.auth?.userID)
-                        .map(Result.success) ?? .failure(AggregateError(first: "user identifier", remaining: []))
+                        .map(Result.success) ?? .failure(AggregateError(first: "user identifier"))
                     let email: Result<String, AggregateError<String>> =
-                        claims.email.map(Result.success) ?? .failure(AggregateError(first: "account email", remaining: []))
+                        claims.email.map(Result.success) ?? .failure(AggregateError(first: "account email"))
                     return combine(user, workspace, email)
                         .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
                         .map { user, workspace, email in (user, workspace, email, claims.auth?.chatgptPlanType) }

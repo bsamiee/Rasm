@@ -57,7 +57,7 @@ class SceneHandler(msgspec.Struct, frozen=True, kw_only=True):
 
         def entry(scene: bpy.types.Scene) -> None:
             """Reports the body for saved scenes and other extensions' scenes."""
-            return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene).default_value(None)  # type: ignore[operator]
+            return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene).to_optional()  # type: ignore[operator]
 
         return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
 
@@ -81,7 +81,7 @@ class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
 
         def entry(scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> None:
             """Reports the body with the native scene and dependency graph."""
-            return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene, depsgraph).default_value(None)  # type: ignore[operator]
+            return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene, depsgraph).to_optional()  # type: ignore[operator]
 
         return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
 
@@ -105,7 +105,7 @@ class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
 
         def entry(path: str, _: None) -> None:
             """Lifts the native startup-file path into absence at the boundary, Blender passing `None` after it."""
-            return body(Option.of_optional(path or None).map(Path)).default_value(None)
+            return body(Option.of_optional(path or None).map(Path)).to_optional()
 
         return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
 
@@ -155,7 +155,7 @@ class ImportHandler(msgspec.Struct, frozen=True, kw_only=True):
 
         def entry(context: bpy.types.BlendImportContext) -> None:
             """Reports the import body and answers the native callback result."""
-            return body(context).default_value(None)
+            return body(context).to_optional()
 
         return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
 

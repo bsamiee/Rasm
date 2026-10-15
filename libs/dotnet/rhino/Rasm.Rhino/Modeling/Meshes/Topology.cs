@@ -45,6 +45,7 @@ internal static partial class MeshTopologyMapper {
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     [MapNestedProperties(nameof(MeshSplit.Self.Options))]
+    [MapperIgnoreTarget(nameof(MeshSplitOptions.OpenCutEnds), Justification = "The split writes its open cut ends into the options it runs with")]
     internal static partial MeshSplitOptions Split((MeshSplitOptions Options, double Tolerance, CancellationToken CancellationToken, IProgress<double>? ProgressReporter) source);
 }
 
@@ -75,21 +76,27 @@ public static class MeshTopology {
             static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain);
 
     // --- [SPLITS]
-    public static IO<Option<Seq<Mesh>>> Split(Mesh mesh, MeshSplit method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
+    public static IO<(Option<Seq<Mesh>> Meshes, Option<Seq<Point3d>> OpenCutEnds)> Split(Mesh mesh, MeshSplit method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         from token in cancelToken
         from split in Copies.Owned(
             () => method.Switch(
                 (Mesh: mesh, Tolerances: tolerances, Token: token, Progress: progress.ValueUnsafe()),
-                byMeshes: static (state, of) => (Meshes: state.Mesh.Split(of.Meshes, MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress))), Member: nameof(Mesh.Split)),
-                self: static (state, of) => (Meshes: state.Mesh.SelfSplit(MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress))), Member: nameof(Mesh.SelfSplit)),
-                non2Manifolds: static (state, _) => (Meshes: state.Mesh.SplitNon2Manifolds(textLog: null, state.Token, state.Progress), Member: nameof(Mesh.SplitNon2Manifolds)),
-                byProjectedPolylines: static (state, of) => (Meshes: state.Mesh.SplitWithProjectedPolylines(of.Curves, state.Tolerances.Absolute, textLog: null, state.Token, state.Progress), Member: nameof(Mesh.SplitWithProjectedPolylines))),
-            made => made.Meshes switch {
+                byMeshes: static (state, of) => MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress)) switch {
+                    var options => (Meshes: state.Mesh.Split(of.Meshes, options), OpenCutEnds: Optional(options.OpenCutEnds), Member: nameof(Mesh.Split)),
+                },
+                self: static (state, of) => MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress)) switch {
+                    var options => (Meshes: state.Mesh.SelfSplit(options), OpenCutEnds: Optional(options.OpenCutEnds), Member: nameof(Mesh.SelfSplit)),
+                },
+                non2Manifolds: static (state, _) => (Meshes: state.Mesh.SplitNon2Manifolds(textLog: null, state.Token, state.Progress), OpenCutEnds: Option<Point3d[]>.None, Member: nameof(Mesh.SplitNon2Manifolds)),
+                byProjectedPolylines: static (state, of) => (
+                    Meshes: state.Mesh.SplitWithProjectedPolylines(of.Curves, state.Tolerances.Absolute, textLog: null, state.Token, state.Progress), OpenCutEnds: Option<Point3d[]>.None,
+                    Member: nameof(Mesh.SplitWithProjectedPolylines))),
+            made => (made.Meshes switch {
                 null when token.IsCancellationRequested => Fin.Fail<Option<Seq<Mesh>>>(Errors.Cancelled),
                 null when method is MeshSplit.Self or MeshSplit.Non2Manifolds => Option<Seq<Mesh>>.None,
                 null => new Missing(made.Member),
                 var meshes => Measurements.Valid([.. meshes], made.Member).Map(Some),
-            },
+            }).Map(meshes => (Meshes: meshes, OpenCutEnds: made.OpenCutEnds.Map(static ends => toSeq(ends)))),
             static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain)
         select split;
 

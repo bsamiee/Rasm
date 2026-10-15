@@ -73,9 +73,9 @@ def encoded(master: Path) -> bytes:
         pen = Rings()
         skia_path(shape.as_path().remove_overlaps().as_cmd_seq(), "nonzero").transform(*transform).draw(pen)
         contours: list[BaseGeometry] = [shapely.Polygon(ring) for ring in pen.rings]
-        region = reduce(BaseGeometry.symmetric_difference, contours)
+        region = reduce(BaseGeometry.symmetric_difference, contours).intersection(shapely.box(-1, -1, 1, 1))
         triangles = shapely.get_coordinates(shapely.orient_polygons(shapely.get_parts(shapely.constrained_delaunay_triangles(region)))).reshape(-1, 4, 2)[:, :3]
-        corners = np.clip(np.rint((triangles + 1) / 2 * size), 0, size).astype(np.int64)
+        corners = np.rint((triangles + 1) / 2 * size).astype(np.int64)
         (first, second, third) = corners.transpose(1, 0, 2)
         kept = corners[(first[:, 0] - second[:, 0]) * (second[:, 1] - third[:, 1]) + (first[:, 1] - second[:, 1]) * (third[:, 0] - second[:, 0]) > 0]
         return rgba * kept.shape[0] * 3, kept.astype(np.uint8)

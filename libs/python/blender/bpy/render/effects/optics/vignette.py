@@ -7,7 +7,7 @@ from expression import Some
 
 from blender.bpy.data.rna.conditions import AllOf, Condition
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.coordinates import framed
+from blender.bpy.nodes.coordinates import framed, lensed
 from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, math, menu, mixed, nested, node, NodeGroup, switched, vector
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.effects.compositing import masks
@@ -24,12 +24,7 @@ from blender.imaging.faults import accumulated, paired
 def chief_ray() -> BlenderResult[NodeGroup]:
     """Returns the frame camera's chief-ray cosine, including sensor fit and shift."""
     pixel = framed("coordinates", End(node=INPUTS, socket="image"), 1.0).map(lambda frame: frame.fraction)
-    inverse = (
-        node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {})
-        .bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": ended("camera", "Active Camera")(camera)}, {}))
-        .bind(lambda lens: node("unprojection", bpy.types.FunctionNodeInvertMatrix, {"Matrix": ended("lens", "Projection Matrix")(lens)}, {}))
-        .map(ended("unprojection", "Matrix"))
-    )
+    inverse = lensed().bind(lambda lens: node("unprojection", bpy.types.FunctionNodeInvertMatrix, {"Matrix": ended("lens", "Projection Matrix")(lens)}, {})).map(ended("unprojection", "Matrix"))
     return (
         paired(pixel, inverse)
         .bind(

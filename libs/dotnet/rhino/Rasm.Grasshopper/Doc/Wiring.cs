@@ -37,28 +37,28 @@ public static class Wiring {
             .Apply((_, _) => Connections.ReplaceSource(oldSource, newSource, target, undo))
             .As()
             .ToFin())
-        .Map(static _ => unit);
+        .Map(unit);
 
     public static IO<Unit> ReplaceTarget(IParameter source, IParameter oldTarget, IParameter newTarget, ActionList undo) =>
         IO.lift(() => (Existing(source, oldTarget).ToValidation(), Created(source, newTarget).ToValidation())
             .Apply((_, _) => Connections.ReplaceTarget(source, oldTarget, newTarget, undo))
             .As()
             .ToFin())
-        .Map(static _ => unit);
+        .Map(unit);
 
     public static IO<Unit> SwapSources(IParameter sourceA, IParameter sourceB, IParameter targetA, IParameter targetB, ActionList undo) =>
         IO.lift(() => (Existing(sourceA, targetA).ToValidation(), Existing(sourceB, targetB).ToValidation(), Created(sourceA, targetB).ToValidation(), Created(sourceB, targetA).ToValidation())
             .Apply((_, _, _, _) => Connections.SwapSources(sourceA, sourceB, targetA, targetB, undo))
             .As()
             .ToFin())
-        .Map(static _ => unit);
+        .Map(unit);
 
     public static IO<Unit> CutOutMiddleMan(IParameter left, IParameter middle, IParameter right, ActionList undo) =>
         IO.lift(() => (Existing(left, middle).ToValidation(), Existing(middle, right).ToValidation(), Created(left, right).ToValidation())
             .Apply((_, _, _) => Connections.CutOutMiddleMan(left, middle, right, undo))
             .As()
             .ToFin())
-        .Map(static _ => unit);
+        .Map(unit);
 
     // --- [OBJECTS]
     public static IO<(Shout Shout, Listen Listen)> SplitWire(IParameter source, IParameter target, Option<string> name, PointF location, ActionList actions) =>
@@ -71,7 +71,7 @@ public static class Wiring {
 
     public static IO<HashMap<Guid, Guid>> Absorb(ObjectList objects, ObjectList other, bool reinstateInputs, bool reinstateOutputs, ActionList actions) =>
         objects == other
-            ? IO.lift(() => objects.Absorb(other, reinstateInputs, reinstateOutputs, actions)).Map(static _ => HashMap<Guid, Guid>())
+            ? IO.lift(() => objects.Absorb(other, reinstateInputs, reinstateOutputs, actions)).Map(HashMap<Guid, Guid>())
             : from ids in IO.lift(other.ChangeAllIds)
               from _ in IO.lift(() => objects.Absorb(other, reinstateInputs, reinstateOutputs, actions))
               select toHashMap(ids.Select(static pair => (pair.Key, pair.Value)));

@@ -6,7 +6,7 @@ from functools import reduce
 from itertools import starmap
 import math
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -27,7 +27,7 @@ from blender.bpy.extension.registration import Acquisition, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
 from blender.imaging.color.processors import applied, DisplayView, processor, unassociated
 from blender.imaging.effects.quantization import codes
-from blender.imaging.faults import accumulated, Faults, ImagingBufferFault, ImagingFaults, ImagingResult, ImagingWriteFault, paired
+from blender.imaging.faults import accumulated, Faults, ImagingBufferFault, ImagingResult, ImagingWriteFault, paired
 from blender.imaging.files.images import Depth, Format, ImageFile, published, read_file, Storage
 from blender.imaging.hashing import content_hash, ContentHash
 from blender.imaging.parameters import Case
@@ -183,12 +183,7 @@ def produced(image: bpy.types.Image, production: Option[Production]) -> None:
 
 def production(image: bpy.types.Image) -> BlenderResult[Production]:
     """Returns completed production facts for the displayed native slot."""
-    return (
-        Option
-        .of_optional(productions.held.get(Productions.key(image)))
-        .bind(lambda found: found)
-        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="completed image formation and encoding"),))
-    )
+    return productions.held.get(Productions.key(image), Nothing).to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="completed image formation and encoding"),))
 
 
 def loaded(path: str, tag: Tag) -> BlenderResult[bpy.types.Image]:
@@ -294,9 +289,7 @@ def generated(
 
             return tag.applied(image).bind(lambda _: filled(image, values)).bind(packed)
 
-    return ownership.made(
-        identity, lambda: plane().bind(lambda values: values.map(lambda values: built(values).map(Some)).default_with(lambda: Ok(Nothing))), of=of, content=Some(content), optional=True
-    )
+    return ownership.made(identity, lambda: plane().bind(lambda values: values.map(lambda values: built(values).map(Some)).default_value(Ok(Nothing))), of=of, content=Some(content), optional=True)
 
 
 def _associated(image: bpy.types.Image) -> bool:
@@ -309,9 +302,6 @@ def _associated(image: bpy.types.Image) -> bool:
 
 def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, config: PyOpenColorIO.Config) -> BlenderResult[Option[str]]:
     """Publishes a linear-light proxy beside the original and switches the native image."""
-
-    def imaged(faults: ImagingFaults) -> BlenderFaults:
-        return (BlenderImagingFault(faults=faults),)
 
     def resampled(file: ImageFile[np.float32], width: int, height: int) -> ImagingResult[npt.NDArray[np.float32]]:
         def linear(values: npt.NDArray[np.float32], direction: PyOpenColorIO.TransformDirection) -> ImagingResult[npt.NDArray[np.float32]]:
@@ -332,7 +322,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
 
     def kept(key: str, source: str, row: Format, file: ImageFile[np.float32], width: int, height: int) -> BlenderResult[str]:
         origin = Path(source)
-        path, depth = str(origin.with_name(f"{origin.stem}.{width}x{height}{origin.suffix}")), row.depths[-1] if image.is_float else Depth.UINT8
+        path, depth = str(origin.with_stem(f"{origin.stem}.{width}x{height}")), row.depths[-1] if image.is_float else Depth.UINT8
 
         def stored(values: npt.NDArray[np.float32]) -> ImagingResult[str]:
             match depth:
@@ -350,11 +340,11 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
                 return Error((BlenderEditFault(request=key, error=error),))
             return Ok(path)
 
-        return resampled(file, width, height).bind(stored).map_error(imaged).bind(lambda _: marked()).bind(lambda _: written(image, "filepath", path).map(lambda _: path))
+        return resampled(file, width, height).bind(stored).map_error(BlenderImagingFault.lifted).bind(lambda _: marked()).bind(lambda _: written(image, "filepath", path).map(lambda _: path))
 
     def sourced(key: str) -> BlenderResult[Option[str]]:
         match image.get(key):
-            case str() as stored:
+            case str(stored):
                 source = stored
             case _:
                 source = bpy.path.abspath(image.filepath, library=image.library)
@@ -365,8 +355,8 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
             .map(
                 lambda row: (
                     read_file(source, config)
-                    .map_error(imaged)
-                    .bind(lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: kept(key, source, row, file, *size).map(Some)).default_with(lambda: Ok(Nothing)))
+                    .map_error(BlenderImagingFault.lifted)
+                    .bind(lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: kept(key, source, row, file, *size).map(Some)).default_value(Ok(Nothing)))
                 )
             )
             .default_with(lambda: Error((BlenderAbsentFault(owner="output_format_list", key=suffix),)))
@@ -387,7 +377,7 @@ def restored(image: bpy.types.Image, identity: Identity) -> BlenderResult[None]:
             return Ok(None)
 
         match image.get(key):
-            case str() as source:
+            case str(source):
                 return written(image, "filepath", source).bind(lambda _: cleared())
             case _:
                 return Ok(None)
@@ -395,21 +385,12 @@ def restored(image: bpy.types.Image, identity: Identity) -> BlenderResult[None]:
     return identity.name(Name.ATTACHMENT, "proxy").bind(back)
 
 
-# --- [RENDER_RESULT]
+# --- [BUILT]
 
 
-def render_result() -> BlenderResult[bpy.types.Image]:
-    """Returns the native Render Result, or its absence before a render."""
-    return Option.of_optional(next((image for image in bpy.data.images if image.type == "RENDER_RESULT"), None)).to_result_with(
-        lambda: (BlenderAbsentFault(owner=type(bpy.data.images).__name__, key="RENDER_RESULT"),)
-    )
-
-
-def viewer_image() -> BlenderResult[bpy.types.Image]:
-    """Returns the shared compositor Viewer, whose completion pixels must be read before deferral."""
-    return Option.of_optional(next((image for image in bpy.data.images if image.type == "COMPOSITING"), None)).to_result_with(
-        lambda: (BlenderAbsentFault(owner=type(bpy.data.images).__name__, key="COMPOSITING"),)
-    )
+def built(kind: Literal["RENDER_RESULT", "COMPOSITING"]) -> BlenderResult[bpy.types.Image]:
+    """Returns the native image Blender generates of one kind, the Render Result or the shared compositor Viewer whose completion pixels must be read before deferral, or its absence before Blender builds it."""
+    return Option.of_optional(next((image for image in bpy.data.images if image.type == kind), None)).to_result_with(lambda: (BlenderAbsentFault(owner=type(bpy.data.images).__name__, key=kind),))
 
 
 def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
@@ -441,7 +422,7 @@ def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
         return paired(save, restore).map(lambda pair: pair[0])
 
     direct = tuple(Descriptor(root=bpy.types.ImageFormatSettings, owner="", prop=prop) for prop in Snapshot.members(settings.bl_rna) if not isinstance(prop, bpy.types.PointerProperty))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    return render_result().bind(lambda image: Snapshot.capture(settings, Some(direct)).bind(lambda capture: exported(image, capture)))
+    return built("RENDER_RESULT").bind(lambda image: Snapshot.capture(settings, Some(direct)).bind(lambda capture: exported(image, capture)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -455,6 +436,7 @@ __all__ = [
     "ResultRead",
     "Scaled",
     "Tag",
+    "built",
     "filled",
     "fingerprinted",
     "generated",
@@ -466,8 +448,6 @@ __all__ = [
     "productions",
     "proxied",
     "read",
-    "render_result",
     "restored",
     "saved",
-    "viewer_image",
 ]

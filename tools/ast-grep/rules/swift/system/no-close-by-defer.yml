@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-close-by-defer
+language: swiftlang
+severity: error
+utils:
+    descriptor-binding:
+        any:
+            - kind: property_declaration
+              all:
+                - has: {field: name, has: {field: bound_identifier, pattern: $DESCRIPTOR}}
+                - has: {kind: type_annotation, regex: '^:\s*((System|SystemPackage)\.)?FileDescriptor$'}
+            - kind: parameter
+              all:
+                - has: {field: name, pattern: $DESCRIPTOR}
+                - has: {kind: user_type, regex: '^((System|SystemPackage)\.)?FileDescriptor$'}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    all:
+        - has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}
+        - has: {stopBy: end, kind: navigation_expression, regex: '^\w+\.close$', has: {field: target, pattern: $DESCRIPTOR}}
+        - inside:
+            kind: 'function_declaration, lambda_literal'
+            stopBy: {kind: 'function_declaration, lambda_literal'}
+            all:
+                - not: {has: {stopBy: {kind: 'function_declaration, lambda_literal'}, kind: await_expression}}
+                - has: {stopBy: end, matches: descriptor-binding}
+message: '`$SITE` closes `$DESCRIPTOR` from a `defer` around a synchronous body'
+note: 'Run the body through `<descriptor>.closeAfter { ... }`, it closes the descriptor on both paths and throws a close failure that `try?` discards'

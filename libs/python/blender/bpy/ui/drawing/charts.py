@@ -14,7 +14,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.data.ids import images
-from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderImagingFault, BlenderResult
 from blender.bpy.ui.drawing.canvas import Align, Canvas, Rect
 from blender.bpy.ui.resources.textures import uploaded
 from blender.bpy.ui.resources.theme import Color, Metrics
@@ -22,7 +22,7 @@ from blender.imaging.analysis.scopes import Bands, Chromaticity, chromaticity_of
 from blender.imaging.chain import GREY
 from blender.imaging.color import observer
 from blender.imaging.color.processors import applied, DisplayView, processor
-from blender.imaging.faults import ImagingFaults, paired
+from blender.imaging.faults import paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     lambda file: (
                         processor(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
                         .map(lambda built: applied(built.getDefaultCPUProcessor(), np.repeat(file.pixels, 3, axis=-1) if file.pixels.shape[-1] == 1 else file.pixels))
-                        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                        .map_error(BlenderImagingFault.lifted)
                     )
                 )
             case np.ndarray() as plane:
@@ -185,7 +185,7 @@ class Outline(msgspec.Struct, frozen=True, kw_only=True):
             for batch, color in ((geometry.grid, Well.grid), (geometry.majors, Well.major), *((ticks, Well.major) for ticks in geometry.ticks.to_list())):
                 shader.uniform_float("color", color)
                 batch.draw(shader)
-            with canvas.clipped(Rect(x=x + plot.x, y=y + plot.y, width=plot.width, height=plot.height)):
+            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)):
                 gpu.state.blend_set("ADDITIVE")
                 stroke = canvas.lines(Well.stroke)
                 for batch, color in geometry.traces:
@@ -275,7 +275,7 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 frame
                 .plane(config)
-                .bind(lambda plane: chromaticity_of(config, plane, frame.view, (round(plot.width), round(plot.height))).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+                .bind(lambda plane: chromaticity_of(config, plane, frame.view, (round(plot.width), round(plot.height))).map_error(BlenderImagingFault.lifted))
                 .map(lambda reading: GamutPlot.of(metrics, reading, config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(), frame.view.colorspace(config)))
             )
 
@@ -289,7 +289,7 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.matrix.translate((x, y))
             geometry.well.under(canvas)
-            with canvas.clipped(Rect(x=x + plot.x, y=y + plot.y, width=plot.width, height=plot.height)):
+            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)):
                 shader = canvas.lines(1.0)
                 for batch, color in (
                     (geometry.grid, Well.grid),
@@ -351,14 +351,10 @@ class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
 
         def keyed(view: DisplayView) -> BlenderResult[Option[KeyPlot]]:
             """Builds the key only when the selected view has constant bands."""
-
-            def imaged(faults: ImagingFaults) -> BlenderFaults:
-                return (BlenderImagingFault(faults=faults),)
-
             return (
                 Bands
                 .of(config, msgspec.structs.replace(view, display=config.getDefaultDisplay()))
-                .map_error(imaged)
+                .map_error(BlenderImagingFault.lifted)
                 .bind(lambda bands: bands.map(lambda held: KeyPlot.of(metrics, held).map(Some)).default_value(Ok(Nothing)))
             )
 
@@ -402,8 +398,7 @@ def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: 
             )
 
         return paired(
-            frame.plane(config).bind(lambda plane: histogram_of(config, plane).map_error(lambda faults: (BlenderImagingFault(faults=faults),))),
-            Bands.of(config, frame.view).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+            frame.plane(config).bind(lambda plane: histogram_of(config, plane).map_error(BlenderImagingFault.lifted)), Bands.of(config, frame.view).map_error(BlenderImagingFault.lifted)
         ).map(plotted)
 
     return source().bind(lambda frame: frame.map(lambda held: traced(held).map(Some)).default_value(Ok(Nothing)))

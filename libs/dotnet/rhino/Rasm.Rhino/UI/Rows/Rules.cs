@@ -42,7 +42,7 @@ public sealed record RowRules(Option<RowRule> Enabled, Option<RowRule> Visible) 
 public static class RuleIndex {
     public static HashMap<EntryKey, Seq<T>> Of<T>(Seq<(Seq<EntryKey> Reads, T Target)> rows) =>
         rows.Fold(HashMap<EntryKey, Seq<T>>(), static (index, row) =>
-            row.Reads.Fold(index, (held, key) => held.AddOrUpdate(key, targets => targets.Add(row.Target), Seq(row.Target))));
+            row.Reads.Fold(index, (held, key) => held.AddOrUpdate(key, targets => targets.Add(row.Target), () => Seq(row.Target))));
 
     public static Seq<T> Affected<T>(HashMap<EntryKey, Seq<T>> index, Seq<EntryKey> changed) =>
         changed.Bind(key => index.Find(key).IfNone(Seq<T>())).Distinct();

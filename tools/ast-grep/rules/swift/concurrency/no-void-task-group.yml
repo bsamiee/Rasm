@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-void-task-group
+language: swiftlang
+severity: error
+utils:
+    void-group-head:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: simple_identifier, regex: '^with(Throwing)?TaskGroup$', pattern: $SCOPE}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    has:
+                        kind: value_argument
+                        nthChild: 1
+                        all:
+                            - has: {field: name, regex: '^of$'}
+                            - has: {field: value, regex: '^(Void|\(\))\.self$'}
+rule:
+    kind: call_expression
+    pattern: $GROUP
+    all:
+        - any:
+            - matches: void-group-head
+            - has: {nthChild: 1, kind: await_expression, has: {field: expr, matches: void-group-head}}
+            - has: {nthChild: 1, kind: try_expression, has: {field: expr, kind: await_expression, has: {field: expr, matches: void-group-head}}}
+        - has:
+            kind: call_suffix
+            has:
+                kind: lambda_literal
+                all:
+                    - has: {field: type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
+                    - not:
+                        has:
+                            stopBy: end
+                            kind: simple_identifier
+                            pattern: $G
+                            not:
+                                any:
+                                    - inside: {kind: lambda_parameter}
+                                    - inside: {kind: navigation_suffix}
+                                    - inside:
+                                        kind: navigation_expression
+                                        has:
+                                            field: suffix
+                                            regex: '^\.(addTask|addTaskUnlessCancelled|addImmediateTask|addImmediateTaskUnlessCancelled|cancelAll|isCancelled|isEmpty)$'
+transform:
+    LABELED:
+        replace:
+            source: $GROUP
+            replace: '^((?:try\s+)?await\s+)?with(Throwing)?TaskGroup\(\s*of:\s*(?:Void|\(\))\.self\s*,\s*'
+            by: '${1}with${2}DiscardingTaskGroup('
+    DISCARDING:
+        replace:
+            source: $LABELED
+            replace: '^((?:try\s+)?await\s+)?with(Throwing)?TaskGroup\(\s*of:\s*(?:Void|\(\))\.self\s*\)\s*'
+            by: '${1}with${2}DiscardingTaskGroup '
+message: '`$SCOPE(of: Void.self)` keeps each finished child in a group its body never iterates'
+note: 'Call `withDiscardingTaskGroup` or `withThrowingDiscardingTaskGroup`, which release each child as it finishes, the throwing form rethrowing the first child error a non-iterated throwing group discards'
+fix: $DISCARDING

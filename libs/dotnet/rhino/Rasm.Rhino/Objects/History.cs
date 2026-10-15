@@ -3,7 +3,6 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Algorithms.Search;
-using QuikGraph.Algorithms.TopologicalSort;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Commands;
@@ -124,7 +123,7 @@ public static class Histories {
         select reach.VerticesColors.Keys.ToBidirectionalGraph(vertex => links(vertex).ToSeq().Bind(static found => found.Children).Map(child => new SEquatableEdge<Guid>(vertex, child)), allowParallelEdges: false).ToArrayBidirectionalGraph();
 
     extension(IBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> graph) {
-        public Seq<Guid> UpdateOrder => toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)).Bind(static component => toSeq(component.Vertices)).Strict();
+        public Seq<Guid> UpdateOrder => toSeq(graph.SourceFirstBidirectionalTopologicalSort()).Bind(static component => toSeq(component.Vertices)).Strict();
 
         public Seq<Seq<Guid>> CycleGroups => toSeq(graph.Vertices).Filter(static component => component.EdgeCount > 0).Map(static component => toSeq(component.Vertices).Strict()).Strict();
     }

@@ -323,6 +323,10 @@ class Shell[R: Effect](msgspec.Struct, frozen=True, kw_only=True):
         """Names an output of the row's single Render Layers node."""
         return End(node="render", socket=socket)
 
+    def passed(self) -> BlenderResult[tuple[Fragment, End]]:
+        """Passes the source through with no nodes, the graph of an effect its preparation renders."""
+        return Ok((Fragment(), self.source))
+
     def case[C: Case](self, kind: type[C], *parts: Key | int | type[Case]) -> Option[C]:
         """Returns the requested active or retained case instance."""
         return Option.of_optional(next((value for value in self.cases[parts] if isinstance(value, kind)), None))
@@ -411,7 +415,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
                 lambda prepare: (
                     inputs(identity, entry, (Shell.frame,), CameraFrame)
                     .bind(lambda frame: prepare(identity, scene, typed.effect, config, image, precision, frame, entry))
-                    .map(lambda value: (Entry(effect=value[0], blend=typed.blend), value[1]))
+                    .map(lambda value: (msgspec.structs.replace(typed, effect=value[0]), value[1]))
                 )
             ).default_value(Ok((typed, {})))
         )
@@ -440,7 +444,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         )
 
     def _configured(self, record: R) -> BlenderResult[PyOpenColorIO.Config]:
-        return admitted(PyOpenColorIO.GetCurrentConfig(), (record.space,) if isinstance(record, Spaced) else ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        return admitted(PyOpenColorIO.GetCurrentConfig(), (record.space,) if isinstance(record, Spaced) else ()).map_error(BlenderImagingFault.lifted)
 
     def ownership(self, record: Entry[Effect]) -> Ownership[bpy.types.NodeTree]:
         """Selects per-entry storage only for graph fields or blend masks."""
@@ -454,8 +458,9 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         """Reads graph stores and native sockets, then applies record-specific acceptance."""
 
         def decoded(graphs: Mapping[Key, object]) -> BlenderResult[Entry[R]]:
-            record = inputs(identity, entry, (), self.record, graphs)
-            accepted = record.bind(lambda value: self.admitted.map(lambda accept: accept(value).map_error(lambda faults: (BlenderImagingFault(faults=faults),))).default_value(Ok(value)))
+            accepted = inputs(identity, entry, (), self.record, graphs).bind(
+                lambda value: self.admitted.map(lambda accept: accept(value).map_error(BlenderImagingFault.lifted)).default_value(Ok(value))
+            )
             return paired(accepted, Ok(Blend()) if self.record is DisplayView else inputs(identity, entry, (Shell.blend,), Blend, graphs)).map(lambda pair: Entry(effect=pair[0], blend=pair[1]))
 
         records = (
@@ -489,11 +494,10 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         prepared: bool = False,
     ) -> BlenderResult[Option[PassRequest]]:
         reading = source.default_value(scene)
-        condition = paired(
+        return paired(
             self.condition.map(lambda condition: check(condition(record), bpy.context, Some(reading))).default_value(Ok(None)),
             self.native_admitted.map(lambda accept: accept(identity, reading, entry, record, context)).default_value(Ok(None)) if prepared or not self.staged or record.pointwise else Ok(None),
-        )
-        return condition.bind(
+        ).bind(
             lambda _: self.requested.map(
                 lambda request: paired(request(record, scene.view_layers[0].name), Descriptor.resolve(bpy.types.Scene, "render.compositor_precision", bpy.types.EnumProperty)).bind(
                     lambda pair: required(scene, bpy.context, (pair[0],), pair[1]).map(lambda _: Some(pair[0]))
@@ -585,25 +589,34 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
                     )
                     return self.graph(shell).bind(lambda made: Fragment.merged((fragment, made[0])).map(lambda joined: (joined, made[1])))
 
-                incoming = space.map(
-                    lambda name: (
-                        converted("space_in", config, PyOpenColorIO.ROLE_SCENE_LINEAR, name, entering)
-                        if self.straight
-                        else pointwise("space_in_scope", entering, lambda color: converted("space_in", config, PyOpenColorIO.ROLE_SCENE_LINEAR, name, color))
-                    )
-                ).default_with(lambda: Ok(entering if isinstance(entering, tuple) else (Fragment(), entering)))
-                return incoming.bind(body).bind(
-                    lambda made: space.map(
+                return (
+                    space
+                    .map(
                         lambda name: (
-                            converted("space_out", config, name, PyOpenColorIO.ROLE_SCENE_LINEAR, made)
+                            converted("space_in", config, PyOpenColorIO.ROLE_SCENE_LINEAR, name, entering)
                             if self.straight
-                            else pointwise("space_out_scope", made, lambda color: converted("space_out", config, name, PyOpenColorIO.ROLE_SCENE_LINEAR, color))
+                            else pointwise("space_in_scope", entering, lambda color: converted("space_in", config, PyOpenColorIO.ROLE_SCENE_LINEAR, name, color))
                         )
-                    ).default_value(Ok(made))
+                    )
+                    .default_with(lambda: Ok(entering if isinstance(entering, tuple) else (Fragment(), entering)))
+                    .bind(body)
+                    .bind(
+                        lambda made: space.map(
+                            lambda name: (
+                                converted("space_out", config, name, PyOpenColorIO.ROLE_SCENE_LINEAR, made)
+                                if self.straight
+                                else pointwise("space_out_scope", made, lambda color: converted("space_out", config, name, PyOpenColorIO.ROLE_SCENE_LINEAR, color))
+                            )
+                        ).default_value(Ok(made))
+                    )
                 )
 
-            entering = Fragment.merged(value[0] for value in images.values()).map(lambda joined: (joined, images.get(Shell.image, (Fragment(), original))[1]))
-            body = entering.bind(lambda held: pointwise("color", held, operation) if self.straight else operation(held))
+            body = (
+                Fragment
+                .merged(value[0] for value in images.values())
+                .map(lambda joined: (joined, images.get(Shell.image, (Fragment(), original))[1]))
+                .bind(lambda held: pointwise("color", held, operation) if self.straight else operation(held))
+            )
             render = (
                 request
                 .filter(lambda request: bool(request.flags))
@@ -845,7 +858,7 @@ class EffectStack[E: Effect = Effect]:
                 if isinstance(value, str)
             )
         )
-        return admitted(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        return admitted(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(BlenderImagingFault.lifted)
 
     def offering(self, kind: type[Effect]) -> BlenderResult[Placeable[E | DisplayView]]:
         """Finds the row of an exact native effect type."""
@@ -857,9 +870,9 @@ class EffectStack[E: Effect = Effect]:
         """Returns owned entries selected by their processing stage or exact record."""
         return tuple(held.entry for held in self.held(identity, scene) for row in held.row.to_list() if row.record.stage is selection or row.record is selection)
 
-    def stages(self, identity: Identity, scene: bpy.types.Scene, enabled: Enabled = Enabled.RENDER) -> tuple[StackEntry[E | DisplayView], ...]:
-        """Enabled entering-image preparation boundaries in native entry order."""
-        return tuple(held for held in self.held(identity, scene) if enabled.descriptor.read(held.entry) is True and held.row.filter(lambda row: row.staged).is_some())
+    def stages(self, identity: Identity, scene: bpy.types.Scene, enabled: Enabled = Enabled.RENDER) -> tuple[tuple[bpy.types.SceneCompositorEffect, Placeable[E | DisplayView]], ...]:
+        """Enabled entering-image preparation boundaries with their staged rows in native entry order."""
+        return tuple((held.entry, row) for held in self.held(identity, scene) if enabled.descriptor.read(held.entry) is True for row in held.row.filter(lambda row: row.staged).to_list())
 
     def held(self, identity: Identity, scene: bpy.types.Scene) -> tuple[StackEntry[E | DisplayView], ...]:
         """Reads one mark per native entry and retains unowned user entries."""
@@ -928,19 +941,20 @@ class EffectStack[E: Effect = Effect]:
                         retired = tuple(
                             dict.fromkeys(type(value.record.effect) for value in current.values() if not any(type(record.record.effect) is type(value.record.effect) for record in desired.values()))
                         )
-                        releasing = accumulated(
-                            self
-                            .offering(kind)
-                            .bind(lambda row: self.release(identity, scene, row))
-                            .bind(
-                                lambda _: (
-                                    self._displayed(scene, next(value.record.effect for value in current.values() if isinstance(value.record.effect, DisplayView))) if kind is DisplayView else Ok(None)
-                                )
-                            )
-                            for kind in retired
-                        )
                         return (
-                            releasing
+                            accumulated(
+                                self
+                                .offering(kind)
+                                .bind(lambda row: self.release(identity, scene, row))
+                                .bind(
+                                    lambda _: (
+                                        self._displayed(scene, next(value.record.effect for value in current.values() if isinstance(value.record.effect, DisplayView)))
+                                        if kind is DisplayView
+                                        else Ok(None)
+                                    )
+                                )
+                                for kind in retired
+                            )
                             .bind(lambda _: accumulated(self.hold(identity, scene, row) for _, row in written_entries))
                             .bind(lambda _: accumulated(relocated(scene, entry, index) for index, entry in enumerate(target) if entry in owned))
                             .bind(lambda _: initial.map(lambda view: self.placed(identity, scene, formation, Entry(effect=view), context=context).map(lambda _: None)).default_value(Ok(None)))
@@ -1022,7 +1036,7 @@ class EffectStack[E: Effect = Effect]:
             return (
                 Option
                 .of_optional(next(iter(entries(identity, scene, type(effect))), None))
-                .map(lambda entry: row.read(identity, entry).bind(lambda prior: row.write(identity, scene, entry, Entry(effect=effect, blend=prior.blend), context=context)).map(lambda _: entry))
+                .map(lambda entry: row.read(identity, entry).bind(lambda prior: row.write(identity, scene, entry, msgspec.structs.replace(prior, effect=effect), context=context)).map(lambda _: entry))
                 .default_with(lambda: self.placed(identity, scene, row, Entry(effect=effect), context=context))
             )
 
@@ -1217,9 +1231,15 @@ class EffectStack[E: Effect = Effect]:
 
         return editable(scene).bind(refreshed)
 
-    def pointwise(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bpy.types.SceneCompositorEffect]:
+    def pointwise(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bpy.types.SceneCompositorEffect]:
         """Admits an owned entry whose current effect has a pointwise operation."""
-        return self.found(identity, entry.id_data, entry.name).bind(lambda held: held.row.some.read(identity, entry)).bind(lambda record: local_entry(entry, record))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return (
+            self
+            .found(identity, scene, entry.name)
+            .bind(lambda found: found.row.to_result_with(lambda: (BlenderAbsentFault(owner=repr(found.entry), key=entry.name),)))
+            .bind(lambda row: row.read(identity, entry))
+            .bind(lambda record: local_entry(entry, record))
+        )
 
     def forming(self, identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config, enabled: Enabled) -> BlenderResult[Option[PyOpenColorIO.Transform]]:
         """Combines complete imaging results once, retaining absence for native sampling."""
@@ -1227,7 +1247,7 @@ class EffectStack[E: Effect = Effect]:
         def transformed(entry: bpy.types.SceneCompositorEffect, record: Entry[Effect]) -> BlenderResult[Option[PyOpenColorIO.Transform]]:
             blend: BlenderResult[None] = Ok(None) if record.blend == Blend() else Error((BlenderChoiceFault(path=entry.name, identifier=repr(record.blend), accepted=(repr(Blend()),)),))
             return paired(local_entry(entry, record), blend).bind(
-                lambda _: (bracketed(record.effect, config) if isinstance(record.effect, Spaced) else record.effect.transform(config)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                lambda _: (bracketed(record.effect, config) if isinstance(record.effect, Spaced) else record.effect.transform(config)).map_error(BlenderImagingFault.lifted)
             )
 
         operations = accumulated(
@@ -1237,9 +1257,7 @@ class EffectStack[E: Effect = Effect]:
             for held in self.held(identity, scene)
             if enabled.descriptor.read(held.entry) is True
         )
-        closing = (
-            viewed(scene).transform(config).map(lambda operation: (operation,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),)) if not entries(identity, scene, DisplayView) else Ok(())
-        )
+        closing = viewed(scene).transform(config).map(lambda operation: (operation,)).map_error(BlenderImagingFault.lifted) if not entries(identity, scene, DisplayView) else Ok(())
         return (
             paired(operations, closing)
             .map(lambda pair: (*pair[0], *pair[1]))
@@ -1779,31 +1797,31 @@ def inputs[T: msgspec.Struct](
 
     def read(at: KeyPath, field: msgspec.structs.FieldInfo, shape: native.Type, annotation: object) -> BlenderResult[object]:
         key = item_key(*at)
-        match shape:
-            case _ if key in graphs and (
+        match shape, baseline:
+            case _, _ if key in graphs and (
                 markers(field.type, GraphForm)
                 or not isinstance(shape, native.VarTupleType)
                 or (isinstance(shape.item_type, native.StructType) and (typing.get_origin(shape.item_type.cls) or shape.item_type.cls) is Knot)
             ):
                 return Ok(graphs[key])
-            case _ if baseline.is_some() and not any(path[: len(at)] == at for path in graph_paths):
-                return Ok(msgspec.to_builtins(reached(baseline.some, at[len(prefix) :])))
-            case native.StructType(cls=kind, fields=(_, value)) if (typing.get_origin(kind) or kind) is Gated:
+            case _, Option(tag="some", some=held) if not any(path[: len(at)] == at for path in graph_paths):
+                return Ok(msgspec.to_builtins(reached(held, at[len(prefix) :])))
+            case native.StructType(cls=kind, fields=(_, value)), _ if (typing.get_origin(kind) or kind) is Gated:
                 enabled_field, value_field = Gated.__struct_fields__
                 _, declared = msgspec.structs.fields(kind)
                 selected_annotation = annotation if markers(annotation, Presentation) else declared.type
                 enabled = baseline.map(lambda held: Ok(reached(held, (*at[len(prefix) :], enabled_field)))).default_with(lambda: socket(at))
                 return paired(enabled, read((*at, value.name), declared, bare(value.type), selected_annotation)).map(lambda pair: {enabled_field: pair[0], value_field: pair[1]})
-            case native.StructType(cls=kind) if (typing.get_origin(kind) or kind) is Rgb:
+            case native.StructType(cls=kind), _ if (typing.get_origin(kind) or kind) is Rgb:
                 return entry_input(identity, entry, key).map(lambda value: value.value[:3])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            case native.StructType(cls=kind):
+            case native.StructType(cls=kind), _:
                 return lowered(kind, at)
-            case native.UnionType(types=cases):
+            case native.UnionType(types=cases), Option(tag="some", some=held):
+                selected_type = type(reached(held, at[len(prefix) :]))
+                selected_kind, selected_shape = next((case.cls, case) for case in cases if isinstance(case, native.StructType) and issubclass(case.cls, Case) and case.cls is selected_type)
+                return lowered(selected_kind, (*at, selected_kind)).map(lambda values: values | ({selected_shape.tag_field: selected_shape.tag} if selected_shape.tag_field is not None else {}))
+            case native.UnionType(types=cases), _:
                 alternatives: tuple[tuple[type[Case], native.StructType], ...] = tuple((case.cls, case) for case in cases if isinstance(case, native.StructType) and issubclass(case.cls, Case))
-                if baseline.is_some():
-                    selected_type = type(reached(baseline.some, at[len(prefix) :]))
-                    selected_kind, selected_shape = next((kind, case) for kind, case in alternatives if kind is selected_type)
-                    return lowered(selected_kind, (*at, selected_kind)).map(lambda values: values | ({selected_shape.tag_field: selected_shape.tag} if selected_shape.tag_field is not None else {}))
 
                 def selected(label: object) -> BlenderResult[object]:
                     chosen: BlenderResult[tuple[type[Case], native.StructType]] = Option.of_optional(next((case for case in alternatives if case[0].title == label), None)).to_result_with(
@@ -1814,24 +1832,24 @@ def inputs[T: msgspec.Struct](
                     )
 
                 return socket(at).bind(selected)
-            case native.EnumType(cls=choices):
+            case native.EnumType(cls=choices), _:
                 members = tuple((choice.label if isinstance(choice, Choice) else choice.name, choice.value) for choice in choices)
                 return socket(at).bind(
                     lambda label: Option.of_optional(next((value for title, value in members if title == label), None)).to_result_with(
                         lambda: (BlenderChoiceFault(path=key, identifier=str(label), accepted=tuple(title for title, _ in members)),)
                     )
                 )
-            case native.SetType(item_type=native.EnumType(cls=choices)) | native.FrozenSetType(item_type=native.EnumType(cls=choices)):
+            case native.SetType(item_type=native.EnumType(cls=choices)) | native.FrozenSetType(item_type=native.EnumType(cls=choices)), _:
                 return accumulated(socket((*at, choice.name)).map(lambda selected: (choice, selected)) for choice in choices).map(
                     lambda values: tuple(choice.value for choice, selected in values if selected is True)
                 )
-            case native.FloatType():
+            case native.FloatType(), _:
                 return socket(at).bind(lambda value: Unit.of(annotation, shape).restored(value, shape))
-            case native.TupleType() if vector(shape):
+            case native.TupleType(), _ if vector(shape):
                 return socket(at).bind(lambda value: Unit.of(annotation, shape).restored(value, shape))
-            case native.TupleType():
+            case native.TupleType(), _:
                 return accumulated(read((*at, index), component, bare(native.type_info(component.type)), component.type) for index, component in enumerate(RecordGroup.components(field), 1))
-            case native.VarTupleType(item_type=native.StructType() as item):
+            case native.VarTupleType(item_type=native.StructType() as item), _:
                 match graphs.get(key):
                     case tuple() | list() as collection:
                         return accumulated(lowered(item.cls, (*at, index)) for index in range(1, len(collection) + 1))
@@ -2141,7 +2159,7 @@ def followed(identity: Identity) -> BlenderResult[None]:
         return (
             written(display.display_settings, "display_device", scene.display_settings.display_device)  # type: ignore[arg-type, union-attr]  # ty: ignore[invalid-argument-type, unresolved-attribute]
             .bind(lambda _: formation.read(identity, entry, edited=False))
-            .bind(lambda record: formation.write(identity, scene, entry, Entry(effect=viewed(display), blend=record.blend)))
+            .bind(lambda record: formation.write(identity, scene, entry, msgspec.structs.replace(record, effect=viewed(display))))
         )
 
     return accumulated(
@@ -2156,11 +2174,16 @@ def followed(identity: Identity) -> BlenderResult[None]:
     ).map(lambda _: None)
 
 
+def shuttered(scene: bpy.types.Scene) -> Shutter:
+    """Reads the native shutter length and its opening."""
+    return Shutter(length=scene.render.motion_blur_shutter, opening=ShutterPosition[scene.render.motion_blur_position].value)
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 shutter = Derived[Effect, Shutter](
     record=Shutter,
-    of=Some(lambda _identity, scene, _record: Ok(Shutter(length=scene.render.motion_blur_shutter, opening=ShutterPosition[scene.render.motion_blur_position].value))),
+    of=Some(lambda _identity, scene, _record: Ok(shuttered(scene))),
     reads=tuple((bpy.types.RenderSettings, bpy.types.RenderSettings.bl_rna.properties[name]) for name in ("motion_blur_shutter", "motion_blur_position")),
 )
 formation = CompositorEffect(
@@ -2230,6 +2253,7 @@ __all__ = [
     "render_inputs",
     "rows",
     "shutter",
+    "shuttered",
     "stored_graphs",
     "viewed",
 ]

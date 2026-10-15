@@ -154,7 +154,7 @@ public static class Contents {
 
     public static IO<Seq<Guid>> Purge(RhinoDoc doc, RenderContentKind kinds) =>
         Rows(doc, kinds).Bind(rows => Callbacks.Each(rows
-            .Filter(static content => content.UseCount() == 0 && !content.IsDefaultInstance && !content.IsHiddenByAutoDelete)
+            .Filter(static content => content.UseCount() is 0 && !content.IsDefaultInstance && !content.IsHiddenByAutoDelete)
             .Map(content => DisposalOps.Within<IDisposable, Guid>(retain => Detach(doc, content, retain).Map(static detached => detached.Id), DisposalOps.Release))));
 
     // --- [CHANGES]
@@ -165,7 +165,7 @@ public static class Contents {
         DisposalOps.Within(fun(() => doc.RenderMaterials.BeginChange(cc)), _ => body, _ => IO.lift(doc.RenderMaterials.EndChange));
 
     public static IO<Unit> Apply(RhinoDoc doc, RenderContent target, RenderContent.ChangeContexts cc, Seq<ContentEdit> edits) =>
-        WithinContentChange(target, cc, edits.TraverseM(edit => Edited(doc, target, cc, edit)).As().Map(static _ => unit));
+        WithinContentChange(target, cc, edits.TraverseM(edit => Edited(doc, target, cc, edit)).As().Map(unit));
 
     private static IO<Unit> Edited(RhinoDoc doc, RenderContent target, RenderContent.ChangeContexts cc, ContentEdit edit) =>
         edit.Switch(
@@ -209,7 +209,7 @@ public static class Contents {
     public static IO<uint> Hash(RenderContent content, CrcRenderHashFlags flags, Seq<string> excluded, Option<LinearWorkflow> workflow) =>
         IO.lift(() => (workflow.Case, string.Join(';', excluded)) switch {
             (LinearWorkflow linear, var names) => content.RenderHashExclude(flags | CrcRenderHashFlags.ExcludeLinearWorkflow, names, linear),
-            (_, "") when flags == CrcRenderHashFlags.Normal => content.RenderHash,
+            (_, "") when flags is CrcRenderHashFlags.Normal => content.RenderHash,
             (_, var names) => content.RenderHashExclude(flags, names),
         });
 

@@ -2,7 +2,6 @@ using Grasshopper2.Doc;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
-using QuikGraph.Algorithms.TopologicalSort;
 using QuikGraph.Graphviz;
 using QuikGraph.Graphviz.Dot;
 using Rasm.Rhino;
@@ -43,7 +42,7 @@ public sealed record WireGraph {
 
     public HashMap<Guid, int> Ranks() {
         IMutableBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> condensed = Condensed;
-        return toSeq(condensed.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward))
+        return toSeq(condensed.SourceFirstBidirectionalTopologicalSort())
             .Fold(HashMap<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, int>(), (ranks, component) =>
                 ranks.Add(component, toSeq(condensed.InEdges(component)).Fold(0, (rank, edge) => int.Max(rank, ranks[edge.Source] + 1))))
             .AsIterable()

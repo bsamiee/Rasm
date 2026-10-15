@@ -1,4 +1,5 @@
 import AppKit
+import RasmMacOS
 import ServiceManagement
 import SwiftUI
 

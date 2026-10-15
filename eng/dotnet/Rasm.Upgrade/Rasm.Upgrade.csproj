@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Description>Upgrades each Directory.Packages.props central package version to newest NuGet release compatible with repository target framework, prereleases included</Description>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
 

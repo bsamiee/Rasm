@@ -17,6 +17,20 @@ utils:
     arity-two:
         kind: argument_list
         all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]
+    compared-arguments:
+        matches: arity-two
+        has: {kind: argument, nthChild: 2, regex: '^((global::)?System\.)?StringComparison\.\w+$'}
+    compared-index:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^IndexOf$'}}
+            - has: {field: arguments, matches: compared-arguments}
+    contains-form:
+        kind: binary_expression
+        any:
+            - all: [{has: {field: left, matches: compared-index}}, {has: {field: operator, regex: '^>=$'}}, {has: {field: right, matches: zero}}]
+            - all: [{has: {field: left, matches: compared-index}}, {has: {field: operator, regex: '^[=!]=$'}}, {has: {field: right, matches: minus-one}}]
+            - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^[=!]=$'}}, {has: {field: right, matches: compared-index}}]
     search:
         kind: invocation_expression
         all:
@@ -40,14 +54,17 @@ utils:
                     - has: {field: function, all: [{has: {field: name, regex: '^(Last)?IndexOf$'}}, {not: {has: {field: expression, matches: array-type}}}]}
                     - has:
                         field: arguments
-                        matches: arity-one
-                        not: {has: {kind: argument, has: {kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'}}}
+                        any:
+                            - matches: arity-one
+                              not: {has: {kind: argument, has: {kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'}}}
+                            - matches: compared-arguments
                 - all:
                     - has: {field: function, has: {field: name, regex: '^Find(Last)?Index$'}}
                     - any:
                         - all: [{has: {field: function, has: {field: expression, matches: array-type}}}, {has: {field: arguments, matches: arity-two}}]
                         - all: [{has: {field: function, not: {has: {field: expression, matches: array-type}}}}, {has: {field: arguments, matches: arity-one}}]
     comparison:
+        not: {matches: contains-form}
         any:
             - kind: binary_expression
               any:

@@ -59,42 +59,15 @@ Context decides what code can hold across time:
 
 Each difference from a browser or Node has one owner:
 
-| [INDEX] | [DIFFERENCE]                                  | [HOSTS]  | [OWNER]         | [FORM]                                      |
-| :-----: | :-------------------------------------------- | :------- | :-------------- | :------------------------------------------ |
-|  [01]   | Global constructed at load (`TextEncoder`)    | InDesign | Boundary module | Package implementation assigned before load |
-|  [02]   | Member of another type (`hrtime.bigint`)      | InDesign | Boundary module | `Clock` layer converting the member         |
-|  [03]   | Absent global or module (`Worker`, `node:*`)  | Every    | Bundle          | Dependencies reading one stay out           |
-|  [04]   | Module typed as Node's (`fs`, `path`)         | Every    | Read site       | Value decoded where read                    |
-|  [05]   | Feature with a missing part (`Response.body`) | Every    | Call site       | Whole-body read, flag on whole pattern      |
+| [INDEX] | [DIFFERENCE]                                  | [HOSTS]  | [OWNER]             | [FORM]                                      |
+| :-----: | :-------------------------------------------- | :------- | :------------------ | :------------------------------------------ |
+|  [01]   | Global constructed at load (`TextEncoder`)    | InDesign | `@rasm/uxp/runtime` | Package implementation assigned before load |
+|  [02]   | Member of another type (`hrtime.bigint`)      | InDesign | `@rasm/uxp/runtime` | `Clock` layer over `performance.now()`      |
+|  [03]   | Absent global or module (`Worker`, `node:*`)  | Every    | Bundle              | Dependencies reading one stay out           |
+|  [04]   | Module typed as Node's (`fs`, `path`)         | Every    | Read site           | Value decoded where read                    |
+|  [05]   | Feature with a missing part (`Response.body`) | Every    | Call site           | Whole-body read, flag on whole pattern      |
 
-One boundary module, each entry file's first import, assigns the encoding globals and converts `hrtime.bigint`:
-
-```ts
-import { TextDecoder, TextEncoder } from '@exodus/bytes/encoding-lite.js';
-import { Clock, clockWith } from 'effect/Clock';
-import { type Duration, toNanosUnsafe } from 'effect/Duration';
-import { succeed, sync } from 'effect/Effect';
-import { effect } from 'effect/Layer';
-
-Object.assign(globalThis, { TextDecoder, TextEncoder });
-
-const HostClock = effect(Clock)(
-    clockWith((base) => {
-        const monotonicTimeNanosUnsafe = (): bigint => BigInt(process.hrtime.bigint());
-        const origin = toNanosUnsafe(base.currentTimeMillisUnsafe()) - monotonicTimeNanosUnsafe();
-        const currentTimeNanosUnsafe = (): bigint => origin + monotonicTimeNanosUnsafe();
-        return succeed({
-            currentTimeMillisUnsafe: () => base.currentTimeMillisUnsafe(),
-            currentTimeMillis: base.currentTimeMillis,
-            currentTimeNanosUnsafe,
-            currentTimeNanos: sync(currentTimeNanosUnsafe),
-            monotonicTimeNanosUnsafe,
-            monotonicTimeNanos: sync(monotonicTimeNanosUnsafe),
-            sleep: (duration: Duration) => base.sleep(duration),
-        });
-    }),
-);
-```
+`@rasm/uxp/runtime` assigns the encoding globals at import and exports `HostClock`, and each entry file imports it first.
 
 Imports evaluate before module bodies, and Effect's `Clock`, `Duration`, `Effect`, and `Layer` modules construct no encoder at load where the barrel does. Effect's default clock reads `process.hrtime.bigint`, a `number` in InDesign, at each span start, span end, and log inside a span, and throws "Cannot mix BigInt and other types". Every runtime and `run*` call in every host provides `HostClock`, and a `run*With` inside a host callback passes the caller's services on.
 

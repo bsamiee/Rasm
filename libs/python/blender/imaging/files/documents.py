@@ -1,10 +1,9 @@
 """Layered documents written as a TIFF carrying Photoshop layer data."""
 
-import pathlib
 import struct
 from typing import BinaryIO
 
-from expression import Error, Nothing, Ok, Option
+from expression import Nothing, Option
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -15,7 +14,7 @@ import tifffile
 
 from blender.imaging.compositing.blending import BlendMode
 from blender.imaging.faults import ImagingFaults, ImagingResult, ImagingWriteFault, paired
-from blender.imaging.files.images import profile, published
+from blender.imaging.files.images import profile, published, streamed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -130,38 +129,30 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
 
-        def refused(error: OSError | ValueError | OverflowError | struct.error) -> ImagingFaults:
+        def refused(error: struct.error) -> ImagingFaults:
             return (ImagingWriteFault(request=path, error=error),)
 
         def encode(stage: str, tag: tuple[int, int, int, bytes, bool], icc: Option[bytes]) -> ImagingResult[None]:
-            def into(output: BinaryIO) -> ImagingResult[None]:
-                try:
-                    tifffile.imwrite(
-                        output,
-                        self.composite,
-                        photometric=tifffile.PHOTOMETRIC.RGB,
-                        planarconfig=tifffile.PLANARCONFIG.CONTIG,
-                        extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
-                        compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
-                        predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
-                        iccprofile=icc.to_optional(),
-                        resolution=(self.density * 0.0254, self.density * 0.0254),
-                        resolutionunit=tifffile.RESUNIT.INCH,
-                        byteorder=source.byteorder,
-                        metadata=None,
-                        software=False,
-                        bigtiff=False,
-                        extratags=[tag],
-                    )
-                except (OSError, ValueError, OverflowError, struct.error) as error:
-                    written = Error(refused(error))
-                else:
-                    written = Ok(None)
-                finally:
-                    closed = catch(output.close, exception=OSError)().map_error(refused)
-                return paired(written, closed).map(lambda _: None)
+            def tiff(output: BinaryIO) -> None:
+                tifffile.imwrite(
+                    output,
+                    self.composite,
+                    photometric=tifffile.PHOTOMETRIC.RGB,
+                    planarconfig=tifffile.PLANARCONFIG.CONTIG,
+                    extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
+                    compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
+                    predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
+                    iccprofile=icc.to_optional(),
+                    resolution=(self.density * 0.0254, self.density * 0.0254),
+                    resolutionunit=tifffile.RESUNIT.INCH,
+                    byteorder=source.byteorder,
+                    metadata=None,
+                    software=False,
+                    bigtiff=False,
+                    extratags=[tag],
+                )
 
-            return catch(lambda: pathlib.Path(stage).open("wb"), exception=OSError)().map_error(refused).bind(into)
+            return streamed(path, stage, tiff)
 
         tagged = catch(lambda: source.tifftag(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS), exception=struct.error)().map_error(refused)
         return paired(tagged, profile(config, self.colorspace)).bind(lambda pair: published(path, lambda stage: encode(stage, *pair)))

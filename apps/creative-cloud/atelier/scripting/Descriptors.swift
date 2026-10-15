@@ -1,5 +1,6 @@
 import Carbon.OpenScripting
 import Foundation
+import RasmMacOS
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -48,34 +49,30 @@ extension ScriptingDictionary {
         let skipWarnings: [(String, [String: Descriptor])] =
             classes.contains { term in term.code == FourCharCode(cApplication) && term.members.contains { member in member.name == "skip warnings" } }
             ? [("set", ["direct": .record(["want": .text("'prop'"), "form": .text("'prop'"), "seld": .text("skip warnings")]), "to": .boolean(true)])] : []
-        return collect(
-            (skipWarnings + [(command, arguments)]).map { command, arguments in
-                let wanted: Set<String> = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { [want, "specifier"] } else { [] }
-                func fit(_ parameters: [Term]) -> Int {
-                    let direct: Bool = parameters.contains { parameter in parameter.name == "direct" && !parameter.types.isDisjoint(with: wanted) }
-                    return (Set(arguments.keys).isSubset(of: parameters.map(\.name)) ? 2 : 0) + (direct ? 1 : 0)
-                }
-                return commands.filter { declaration in declaration.name == command }.max { left, right in fit(left.parameters) < fit(right.parameters) }.map { declaration in
-                    let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
-                        eventClass: declaration.eventClass,
-                        eventID: declaration.eventID,
-                        targetDescriptor: target,
-                        returnID: AEReturnID(kAutoGenerateReturnID),
-                        transactionID: AETransactionID(kAnyTransactionID),
-                    )
-                    event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
-                    return encode(arguments, in: [declaration.parameters], into: event).map { event in (event: event, result: declaration.result) }
-                } ?? .failure(AggregateError(.absentCommand(name: command)))
+        return traverse(skipWarnings + [(command, arguments)]) { command, arguments in
+            let wanted: Set<String> = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { [want, "specifier"] } else { [] }
+            func fit(_ parameters: [Term]) -> Int {
+                let direct: Bool = parameters.contains { parameter in parameter.name == "direct" && !parameter.types.isDisjoint(with: wanted) }
+                return (Set(arguments.keys).isSubset(of: parameters.map(\.name)) ? 2 : 0) + (direct ? 1 : 0)
             }
-        )
+            return commands.filter { declaration in declaration.name == command }.max { left, right in fit(left.parameters) < fit(right.parameters) }.map { declaration in
+                let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
+                    eventClass: declaration.eventClass,
+                    eventID: declaration.eventID,
+                    targetDescriptor: target,
+                    returnID: AEReturnID(kAutoGenerateReturnID),
+                    transactionID: AETransactionID(kAnyTransactionID),
+                )
+                event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
+                return encode(arguments, in: [declaration.parameters], into: event).map { event in (event: event, result: declaration.result) }
+            } ?? .failure(AggregateError(first: .absentCommand(name: command)))
+        }
     }
 
     func encode(_ fields: [String: Descriptor], in scopes: [[Term]], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<Failure>> {
-        collect(
-            fields.sorted { left, right in left.key < right.key }.map { key, value in
-                Self.resolve(key, in: scopes).flatMap { term in encode(value, as: term.types).map { encoded in (term.code, encoded) } }
-            }
-        )
+        traverse(fields.sorted { left, right in left.key < right.key }) { key, value in
+            Self.resolve(key, in: scopes).flatMap { term in encode(value, as: term.types).map { encoded in (term.code, encoded) } }
+        }
         .map { items in put(items, into: descriptor) }
     }
 
@@ -101,7 +98,7 @@ extension ScriptingDictionary {
                         }
                 }
             case .list(let items):
-                collect(items.map { item in encode(item, as: types) }).map { descriptors in
+                traverse(items) { item in encode(item, as: types) }.map { descriptors in
                     descriptors.reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: list.numberOfItems + 1) }
                 }
             case .record(let fields):
@@ -122,18 +119,18 @@ extension ScriptingDictionary {
                     Self.resolve(name, in: scope(container)).map { term in NSAppleEventDescriptor(typeCode: term.code) }
                 case (FourCharCode(formAbsolutePosition), .text(let ordinal)):
                     Self.code(ordinal).flatMap { code in NSAppleEventDescriptor(descriptorType: DescType(typeAbsoluteOrdinal), data: NSAppleEventDescriptor(enumCode: code).data) }
-                        .map(Result.success) ?? .failure(AggregateError(.unknownTerm(name: ordinal)))
+                        .map(Result.success) ?? .failure(AggregateError(first: .unknownTerm(name: ordinal)))
                 case (_, let seld):
                     encode(seld ?? .null, as: ["integer"])
             }
         let keywords: [(AEKeyword, Result<NSAppleEventDescriptor, AggregateError<Failure>>)] = [
             (AEKeyword(keyAEDesiredClass), encode(want, as: ["type"])),
-            (AEKeyword(keyAEKeyForm), code.map { code in .success(NSAppleEventDescriptor(enumCode: code)) } ?? .failure(AggregateError(.unknownTerm(name: form)))),
+            (AEKeyword(keyAEKeyForm), code.map { code in .success(NSAppleEventDescriptor(enumCode: code)) } ?? .failure(AggregateError(first: .unknownTerm(name: form)))),
             (AEKeyword(keyAEKeyData), key),
             (AEKeyword(keyAEContainer), encode(fields["from"] ?? .null, as: [])),
         ]
-        return collect(keywords.map { keyword, result in result.map { descriptor in (keyword, descriptor) } }).flatMap { items in
-            put(items, into: .record()).coerce(toDescriptorType: DescType(typeObjectSpecifier)).map(Result.success) ?? .failure(AggregateError(.unspecified))
+        return traverse(keywords) { keyword, result in result.map { descriptor in (keyword, descriptor) } }.flatMap { items in
+            put(items, into: .record()).coerce(toDescriptorType: DescType(typeObjectSpecifier)).map(Result.success) ?? .failure(AggregateError(first: .unspecified))
         }
     }
 

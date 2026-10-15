@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-angle-conversion-by-hand
+language: rust
+severity: error
+rule:
+    kind: binary_expression
+    pattern: $CONVERSION
+    matches:
+        rust-angle-conversion:
+            receiver: {pattern: $X}
+            denominator: {pattern: $DEN}
+            degrees: {pattern: $DEGREES}
+            radians: {pattern: $RADIANS}
+rewriters:
+    - id: plain-receiver
+      rule:
+        kind: 'identifier, field_expression, call_expression, index_expression, parenthesized_expression, scoped_identifier, float_literal, integer_literal, macro_invocation, try_expression, self'
+        pattern: $R
+      fix: $R
+    - id: grouped-receiver
+      rule:
+        kind: 'binary_expression, type_cast_expression, unary_expression, reference_expression'
+        pattern: $R
+      fix: ($R)
+transform:
+    RECEIVER:
+        rewrite: {source: $X, rewriters: [plain-receiver, grouped-receiver]}
+    TOWARD:
+        replace: {source: $DEN, replace: '^.*(PI|TAU)$', by: to_degrees}
+    METHOD:
+        replace: {source: $TOWARD, replace: '^[^t].*$', by: to_radians}
+    DEGREES_NAME:
+        replace: {source: $DEGREES, replace: '^[\s\S]+$', by: to_degrees}
+    RADIANS_NAME:
+        replace: {source: $RADIANS, replace: '^[\s\S]+$', by: to_radians}
+fix: $RECEIVER.$METHOD$DEGREES_NAME$RADIANS_NAME()
+message: '`$CONVERSION` converts an angle between degrees and radians by hand'
+note: 'Call `to_radians` or `to_degrees` of `f32` and `f64`, the method names the conversion and folds the constant once. Factors `57.295..` and `0.017453..` take the same call. Clippy `suboptimal_flops` owns `<value> * 180 / PI` and `<value> * PI / 180`'

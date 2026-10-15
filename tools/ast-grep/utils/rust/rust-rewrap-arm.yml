@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-rewrap-arm
+language: rust
+arguments: [variant, wrapper]
+rule:
+    kind: match_arm
+    all:
+        - has:
+            field: pattern
+            kind: match_pattern
+            all:
+                - not: {has: {field: condition, pattern: $_}}
+                - has:
+                    kind: tuple_struct_pattern
+                    all:
+                        - has: {field: type, matches: variant}
+                        - has: {nthChild: 2, kind: identifier, pattern: $VALUE}
+                        - not: {has: {nthChild: 3}}
+        - has:
+            field: value
+            kind: call_expression
+            all:
+                - has: {field: function, matches: wrapper}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}

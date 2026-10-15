@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-base64url-by-replacing
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    any:
+        - pattern: '$DATA.base64EncodedString().replacing("+", with: "-")'
+        - pattern: '$DATA.base64EncodedString().replacing("/", with: "_")'
+message: '`$DATA` encodes the standard base64 alphabet and rewrites it to the URL alphabet by text replacement'
+note: 'Call `<data>.base64EncodedString(options: [.base64URLAlphabet, .omitPaddingCharacter])`, which writes `-` and `_` and drops `=` padding in one pass'

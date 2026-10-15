@@ -21,13 +21,14 @@ from msgspec import inspect
 from blender.bpy.commands import operators
 from blender.bpy.commands.calls import called
 from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.descriptors import Native
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, Host, Slot
 from blender.bpy.settings.history import ValueHistory
-from blender.bpy.settings.presets import copied, pasted, Preset, PresetName
+from blender.bpy.settings.presets import copied, pasted, Preset, PresetName, removed
 from blender.bpy.settings.properties import RecordGroup
 from blender.bpy.ui.layout.lists import keyed
 from blender.bpy.ui.layout.rows import (
@@ -40,7 +41,6 @@ from blender.bpy.ui.layout.rows import (
     Member,
     operated,
     OperatorButton,
-    Owner,
     placed,
     Popover,
     Property,
@@ -232,7 +232,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
         def available(name: PresetName) -> BlenderResult[PresetName]:
             normalized = AddPresetBase.as_filename(name).casefold()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            return Error((BlenderCollisionFault(request=name, error=str(self.preset.folder(identity))),)) if any(key.casefold() == normalized for key in self.preset.listed(identity)) else Ok(name)
+            return Error((BlenderCollisionFault(request=name, error=self.preset.folder(identity)),)) if any(key.casefold() == normalized for key in self.preset.listed(identity)) else Ok(name)
 
         def neighbour(call: operators.Call[operators.Empty], step: int) -> BlenderResult[operators.Outcome]:
             if not (values := tuple(read(value) for value in self.preset.listed(identity).values())):
@@ -276,7 +276,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
                     return replace.invocation(identity).bind(prompted)
                 case (_, _):
-                    return Error((BlenderCollisionFault(request=call.record.name, error=str(self.preset.folder(identity))),))
+                    return Error((BlenderCollisionFault(request=call.record.name, error=self.preset.folder(identity)),))
                 case None:
                     return (
                         self
@@ -294,7 +294,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             delete=Verb.DELETE.row(
                 stem,
                 Selected,
-                lambda call: accumulated(self.preset.found(identity, item.stem).bind(lambda stored: user(stored, item.stem)).bind(self.preset.removed) for item in call.record.items).map(
+                lambda call: accumulated(self.preset.found(identity, item.stem).bind(lambda stored: user(stored, item.stem)).bind(removed) for item in call.record.items).map(
                     lambda _: operators.Done()
                 ),
                 invoke=Some(
@@ -317,7 +317,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 lambda call: accumulated(
                     self.preset.found(identity, item.stem).bind(lambda stored: self.preset.exported(stored, path) if isinstance(stored, Path) else self.preset.written(path, stored))
                     for item, path in zip(call.record.items, call.paths)
-                ).map(lambda paths: operators.Done(notes=tuple(("INFO", f"Wrote {path}") for path in paths))),
+                ).map(operators.Done.wrote),
                 invoke=Some(operators.Save[Selected](extensions=json, destinations=Some(destinations))),
             ),
             replace=replace,
@@ -449,6 +449,9 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         stem = self.attachment.key
         vacant = operators.Unchanged(reason="History holds no entry there")
 
+        def settled[V](change: Option[V]) -> operators.Outcome:
+            return change.map(lambda _: operators.Done()).default_value(vacant)
+
         def managed(context: bpy.types.Context) -> BlenderResult[bpy.types.WindowManager]:
             return Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
 
@@ -466,11 +469,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def stepped(context: bpy.types.Context, offset: int) -> BlenderResult[operators.Outcome]:
-            return (
-                paired(hosted(attached.name, context), retained())
-                .bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1]))
-                .map(lambda change: change.map(lambda _: operators.Done()).default_value(vacant))
-            )
+            return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(settled)
 
         def scoped(context: bpy.types.Context, host: Host) -> BlenderResult[Option[operators.Done]]:
             return (
@@ -496,13 +495,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         }
         picked = {
             Verb.RESTORE: Verb.RESTORE.row(stem, Picked, lambda call: stepped(call.context, call.record.offset)),
-            Verb.FORGET: Verb.FORGET.row(
-                stem,
-                Picked,
-                lambda call: (
-                    hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(lambda change: change.map(lambda _: operators.Done()).default_value(vacant))
-                ),
-            ),
+            Verb.FORGET: Verb.FORGET.row(stem, Picked, lambda call: hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(settled)),
         }
         lock = Verb.LOCK.row(stem, Locked, lambda call: hosted(attached.name, call.context).map(lambda host: attached.toggled(host, call.record.field)).map(lambda _: operators.Done()))
         listing = self.presets.map(
@@ -670,12 +663,12 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         holder: "bpy.types.bpy_struct[object]",
         host: Option[Host],
         context: bpy.types.Context,
-        opened: Option[tuple[Owner, str]],
+        opened: Option[tuple[Native, str]],
         *,
         active: bool = True,
     ) -> Option[bpy.types.UILayout]:
         """Draws a layout panel's header and answers its body while open."""
-        header, body = opened.map(lambda pair: layout.panel_prop(*pair)).default_with(lambda: layout.panel(idname, default_closed=True))
+        header, body = opened.starmap(layout.panel_prop).default_with(lambda: layout.panel(idname, default_closed=True))
         header.active = header.active and active
         header.context_pointer_set(self.name, holder)
         self.head(header, holder, context)

@@ -157,7 +157,7 @@ public static class NamedStates {
     private static IO<Unit> SaveLayerState(RhinoDoc doc, NamedState.LayerState state) =>
         from scope in Scope(doc, state.Viewport)
         from restorable in IO.lift(state.Edits.Bind(static modify => modify.Edits)
-            .Traverse(edit => UnrestorableEdit.Unless(edit.Restores != RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope), edit.Member).ToValidation()).As().ToFin())
+            .Traverse(edit => UnrestorableEdit.Unless(edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope), edit.Member).ToValidation()).As().ToFin())
         let edited = from changed in state.Edits.TraverseM(modify => Layers.Apply(doc, modify)).As()
                      from saved in Saved(doc, state.Name, scope)
                      select saved
@@ -170,7 +170,7 @@ public static class NamedStates {
                 answer => IO.lift(() => answer).Bind(_ => edited),
                 answer => answer.Match(
                     Succ: held => Callbacks.Each(Seq(Restored(doc, held, RestoreLayerProperties.All, scope),
-                        IO.lift(() => Refused.Unless(doc.NamedLayerStates.Delete(held), nameof(NamedLayerStateTable.Delete))))).Map(static _ => unit),
+                        IO.lift(() => Refused.Unless(doc.NamedLayerStates.Delete(held), nameof(NamedLayerStateTable.Delete))))).Map(unit),
                     Fail: static _ => IO.pure(unit)))
         select result;
 
@@ -238,16 +238,17 @@ public static class NamedStates {
 
     public static Fin<Seq<NamedChange>> Plan(Seq<(NamedTable Table, string Key)> held, Seq<NamedState> desired, LanguageExt.HashSet<NamedTable> prune) =>
         from addresses in Fin.Succ(desired.Map(static state => state.Address))
-        from unique in toSeq(addresses.GroupBy(static address => address.Table))
-            .Traverse(static states => Callbacks.Unique(toSeq(states).Choose(static state => state.Key), identity, nameof(Plan), states.Key.Comparer)).As().ToFin()
-        select held.Filter(entry => prune.Contains(entry.Table) && !addresses.Exists(address =>
-                address.Table == entry.Table && address.Key.Exists(key => entry.Table.Comparer.Equals(key, entry.Key))))
+        from kept in toSeq(addresses.GroupBy(static address => address.Table))
+            .Traverse(static states => Callbacks.Unique(toSeq(states).Choose(static state => state.Key), identity, nameof(Plan), states.Key.Comparer)
+                .Map(keys => (states.Key, keys.ToHashSet(states.Key.Comparer)))).As().ToFin()
+        let byTable = toHashMap(kept)
+        select held.Filter(entry => prune.Contains(entry.Table) && !byTable.Find(entry.Table).Exists(keys => keys.Contains(entry.Key)))
             .Map<NamedChange>(static entry => new NamedChange.Delete(entry.Table, entry.Key)) + desired.Map<NamedChange>(static state => new NamedChange.Save(state));
 
     public static IO<Committed<Unit>> Apply(RhinoDoc doc, string name, Seq<NamedChange> changes) =>
         changes.Partition(static change => change.Switch(save: static save => save.State.Address.Table.Scripted, delete: static delete => delete.Table.Scripted)) switch {
             var (scripted, recorded) =>
-                from committed in Commits.Commit(doc, name, new RedrawPolicy.Silent(), recorded.TraverseM(change => Run(doc, change)).As().Map(static _ => unit))
+                from committed in Commits.Commit(doc, name, new RedrawPolicy.Silent(), recorded.TraverseM(change => Run(doc, change)).As().Map(unit))
                 from ran in scripted.TraverseM(change => Run(doc, change)).As()
                 select committed,
         };

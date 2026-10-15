@@ -73,7 +73,7 @@ public abstract partial record TimingCurve {
             Decayed(Remaining(double.Tau * (elapsed / Response), Damping, double.Sqrt((Damping - 1d) * (Damping + 1d))), Rest);
 
         private static double Remaining(double phase, double damping, double root) =>
-            root == 0d
+            root is 0d
                 ? (1d + phase) * double.Exp(-phase)
                 : (-2d * root * phase) switch {
                     var gap => 0.5d * double.Exp(-phase / (damping + root)) * (1d + double.Exp(gap) - (damping / root * double.ExpM1(gap))),
@@ -138,7 +138,7 @@ internal sealed record Pacing(
 
     private IO<Unit> Close(IO<Unit> release) =>
         Course.SwapIO(static course => course with { Phase = new Phase.Stopped() })
-            .Bind(_ => Callbacks.Each(Seq(release, Ticks.Complete()))).Map(static _ => unit).Uninterruptible();
+            .Bind(_ => Callbacks.Each(Seq(release, Ticks.Complete()))).Map(unit).Uninterruptible();
 }
 
 public sealed class MotionHandle {
@@ -170,7 +170,7 @@ public sealed class MotionHandle {
                 (elapsed, source) => {
                     _ = state.Course.Swap(course => course.Resumed(paused, elapsed, source));
                     return IO.pure(unit);
-                }).Map(static _ => unit),
+                }).Map(unit),
             stopped: static (_, _) => IO.fail<Unit>(new MotionEnded())));
 
     public IO<Unit> Retarget(CameraPose goal) =>
@@ -194,7 +194,7 @@ public static class Motions {
         (ticks, retain) => Copies.Owned(
             () => new UITimer((_, _) => ticks.Post(FrameTick.Next).Run()) { Interval = ((Duration)period).TotalSeconds },
             static timer => IO.lift(timer.Start),
-            static timer => Callbacks.Each(Seq(IO.lift(timer.Stop), IO.lift(timer.Dispose))).Map(static _ => unit), retain);
+            static timer => Callbacks.Each(Seq(IO.lift(timer.Stop), IO.lift(timer.Dispose))).Map(unit), retain);
 
     private static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Turns(FrameTick tick) =>
         (ticks, retain) => Subscriptions.Attach<EventHandler>(

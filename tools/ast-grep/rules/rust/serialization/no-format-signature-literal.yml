@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-format-signature-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, array_expression'
+    pattern: $SIGNATURE
+    matches: rust-format-signature
+message: '`$SIGNATURE` spells the signature bytes of a file format or byte order mark'
+note: 'Detect the format with `file_format::FileFormat::from_bytes(<bytes>)`, read or write it through its catalog crate (`image`, `zip`, `flate2`, `zstd`, `lopdf`), and take a byte order mark from `encoding_rs::Encoding::for_bom(<bytes>)`, each owner holds the signature beside the parse it gates'

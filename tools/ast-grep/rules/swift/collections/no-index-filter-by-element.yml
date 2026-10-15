@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-index-filter-by-element
+language: swiftlang
+severity: error
+utils:
+    element-read:
+        kind: simple_identifier
+        pattern: $I
+        inside:
+            kind: value_argument
+            inside:
+                kind: value_arguments
+                regex: '^\['
+                inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, pattern: $C}}}
+    element-test:
+        kind: statements
+        all:
+            - has: {stopBy: end, matches: element-read}
+            - not: {has: {stopBy: end, kind: simple_identifier, pattern: $I, not: {matches: element-read}}}
+    test-closure:
+        kind: lambda_literal
+        any:
+            - has:
+                field: type
+                has:
+                    kind: lambda_function_type_parameters
+                    all:
+                        - has: {kind: lambda_parameter, has: {field: name, pattern: $I}}
+                        - not: {has: {kind: lambda_parameter, nthChild: 2}}
+            - all:
+                - not: {has: {field: type, kind: lambda_function_type}}
+                - has: {kind: statements, has: {stopBy: {kind: lambda_literal}, kind: simple_identifier, regex: '^\$0$', pattern: $I}}
+        has: {kind: statements, matches: element-test}
+rule:
+    kind: call_expression
+    pattern: $FILTER
+    all:
+        - has:
+            nthChild: 1
+            kind: navigation_expression
+            all:
+                - has: {field: suffix, has: {field: suffix, regex: '^filter$'}}
+                - has: {field: target, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, regex: '^indices$'}}}, {has: {field: target, pattern: $C}}]}
+        - has:
+            kind: call_suffix
+            any:
+                - has: {kind: lambda_literal, matches: test-closure}
+                - has: {kind: value_arguments, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: test-closure}}}
+message: '`$FILTER` walks indices to test the element at each one'
+note: '`<collection>.indices(where: <element test>)` returns the passing indices as a `RangeSet`, `<collection>[<range set>]` reads their elements, and `removeSubranges` and `moveSubranges` take it whole. Consumers of the index array move to the `RangeSet` or its `ranges`'

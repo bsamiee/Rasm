@@ -6,38 +6,46 @@ runs:
     steps:
         - uses: maxim-lobanov/setup-xcode@v1.7.0
           if: runner.os == 'macOS'
+        - uses: actions/cache@v6
+          if: runner.os == 'Linux'
+          with:
+            path: ~/.rustup/toolchains
+            key: rustup-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
         - uses: jdx/mise-action@v5.1.1
           with:
             auto_update: true
             minimum_release_age: 0s
         - uses: actions/cache@v6
           with:
-            path: .cache/nuget/packages
+            path: ~/.nuget/packages
             key: nuget-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', 'Directory.Build.targets', 'NuGet.config', '**/*.csproj') }}
         - uses: actions/cache@v6
           if: runner.os == 'Linux'
           with:
-            path: .cache/uv
+            path: ~/.cache/uv
             key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock') }}
+        - id: pnpm
+          run: printf 'store=%s\ncache=%s\n' "$(pnpm store path)" "$(pnpm cache path)" >> "$GITHUB_OUTPUT"
+          shell: bash
         - uses: actions/cache@v6
           with:
             path: |
-                .cache/pnpm/store
-                .cache/pnpm/cache
+                ${{ steps.pnpm.outputs.store }}
+                ${{ steps.pnpm.outputs.cache }}
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-        - uses: actions/cache@v6
+        - uses: Swatinem/rust-cache@v2.9.2
           if: runner.os == 'Linux'
           with:
-            path: |
-                ~/.cargo/registry/index
-                ~/.cargo/registry/cache
-                ~/.cargo/git/db
-            key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+            workspaces: . -> .cache/rust/build
+        - id: dylint
+          if: runner.os == 'Linux'
+          run: printf 'version=%s\n' "$(cargo dylint --version)" >> "$GITHUB_OUTPUT"
+          shell: bash
         - uses: actions/cache@v6
           if: runner.os == 'Linux'
           with:
             path: ~/.dylint_drivers
-            key: dylint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
+            key: dylint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.dylint.outputs.version }}
         - run: pnpm install
           shell: bash
         - run: uv sync --locked --no-default-groups --group dev

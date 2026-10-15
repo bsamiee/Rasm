@@ -6,7 +6,7 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 
 ```text
 Rasm/
-├── apps/                     # One directory per host application
+├── apps/                     # Products, one directory per host
 │   ├── blender/
 │   ├── creative-cloud/
 │   ├── macos/
@@ -16,6 +16,7 @@ Rasm/
 │   ├── dotnet/
 │   ├── python/
 │   ├── rust/
+│   ├── swift/
 │   └── typescript/
 ├── tests/                    # Shared test support per language and suites outside libs/
 ├── eng/
@@ -23,11 +24,13 @@ Rasm/
 │   ├── python/
 │   └── typescript/
 ├── infra/                    # Pulumi program declaring repository resources
+├── docs/                     # Research sheets, ignored under docs/research
 ├── tools/
 │   ├── ast-grep/             # Outlines, rules, and utilities per language
-│   ├── bridge/               # mcp-bridge binary serving each launchd agent's stdio MCP server over Streamable HTTP
-│   ├── dylint/               # Rust lint libraries, one crate per lint
-│   └── nx/                   # Nx plugin inferring a project from each project file
+│   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
+│   ├── dylint/               # Dylint library of Rust lints with example fixtures
+│   ├── nx/                   # Nx plugin inferring a project from each project file
+│   └── refurb/               # Refurb checks for Python standards that need mypy's types
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
@@ -38,8 +41,9 @@ Rasm/
 ├── Directory.Packages.props  # .NET central package versions
 ├── Directory.Build.props     # .NET build defaults and project classification by tree position
 ├── Directory.Build.targets   # .NET items, host package references, and build targets
+├── Directory.Build.rsp       # MSBuild switches every build under the root reads
 ├── Workspace.slnx            # .NET solution
-├── NuGet.config              # NuGet source and package folder
+├── NuGet.config              # NuGet source
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits at project level
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
@@ -48,22 +52,25 @@ Rasm/
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
-├── rust-toolchain.toml       # Rust toolchain channel and components rustup and mise read
+├── rust-toolchain.toml       # Rust toolchain channel and components
 ├── rustfmt.toml              # Rust format rules
 ├── clippy.toml               # Clippy lint options Cargo.toml lint tables lack
-├── Cargo.toml                # Rust workspace members, dependency catalog, lints, and profiles
+├── Cargo.toml                # Rust workspace and dependency catalog
 ├── .editorconfig             # Editor settings and .NET analyzer severity
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
+├── .gitignore                # Generated, secret, and machine-local paths
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
 ├── .lldbinit                 # LLDB MCP server start every Xcode scheme's Run loads
 ├── .yamllint.yaml, .yamlfmt  # YAML lint and format
-├── .cargo/                   # Cargo build directories, warning policy, compiler flags, and unstable Cargo flags
+├── .cargo/                   # Build settings every Cargo command reads
+├── .config/                  # Configuration of tools that search .config/
+├── .playwright/              # Playwright CLI workspace and browser options every CLI session reads
 ├── .github/                  # Continuous integration and repository workflows
-├── .claude/                  # Agent harness knowledge and settings
-├── .mcp.json                 # Agent harness MCP servers
-├── .codex/                   # Codex harness knowledge and settings
-├── .vscode/                  # Editor settings and recommended extensions
+├── .claude/                  # Claude Code knowledge and settings
+├── .mcp.json                 # Claude Code MCP servers
+├── .codex/                   # Codex knowledge and settings
+├── .vscode/                  # VS Code settings and recommended extensions
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
 ```
@@ -87,7 +94,7 @@ flowchart LR
         catalog_rust["Cargo.toml [workspace.dependencies]"] --> lock_rust["Cargo.lock"]
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
         catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
-        catalog_swift[".xcodeproj package requirements"] --> lock_swift["Package.resolved"]
+        catalog_swift[".xcodeproj and Package.swift package requirements"] --> lock_swift["Package.resolved"]
     end
 
     subgraph taskgraph ["Task graph"]
@@ -100,7 +107,7 @@ flowchart LR
     subgraph commands ["Commands"]
         direction TB
         lint["nx run rasm:lint"] --> checkers["One cached target per portable checker"]
-        format_tree["nx run rasm:format"] --> writers["Every portable writer, then .NET fixes"]
+        format_tree["nx run rasm:format"] --> writers["Every portable writer and .NET fixes"]
         check_all["nx run-many -t check"] --> project_check["Build, typecheck, test, or lint per project"]
         check_affected["nx affected -t check"] --> project_check
         ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner"]
@@ -112,26 +119,29 @@ flowchart LR
 ## [03]-[TASKS]
 
 - Targets call one tool, arguments on the command, configuration in the tool's own file
-- `nx run rasm:check` runs every `lint:<checker>` and `typecheck:<checker>` root target, `nx run rasm:lint:<checker>` one checker
-- `nx run rasm:<target> -- <paths>` runs a Ruff, ast-grep, Biome, ty, or mypy target over named paths
+- `nx run rasm:check` runs every `lint:<tool>` and `typecheck:<tool>` root target, `nx run rasm:lint:<tool>` one checker
+- `nx run rasm:<target> -- <paths>` runs a root target over named paths when its tool takes paths in place of a default file set
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build
-- `--skip-nx-cache` runs a build in place of an Nx cache replay
 - `nx run <project>:install` builds or packs a project, then installs its product into its host
 - `nx run <project>:pack` writes a project's product as the package its host installs
-- `nx run rasm:upgrade` moves catalogs, Swift package locks, the Rust nightly date, and tool binaries to newest builds
+- `nx run rasm:upgrade` moves catalogs, locks, the Rust toolchain, and tool binaries to newest builds, then restarts every launchd agent onto them
 - `nx run rasm:clean` removes declared outputs and tool residue, prunes unused installations and caches, and recovers stale macOS processes
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
-- `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- Workspace plugin names each project's tags and targets by project file, Python edges by import, and Rust edges by catalog path row, `@nx/dotnet` and `@nx/vitest` infer theirs
+- `nx run rasm:outline -- <path>` lists a path's declarations
+- Workspace plugin derives each project's tags, targets, and edges from its project file, and Python edges from imports
+- `@nx/dotnet` infers .NET targets and project reference edges, `@nx/vitest` and `@nx/playwright` infer test targets
 - File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
 - `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
 - `nx run rasm:format:files -- <paths>` runs each portable writer over the named paths it formats
 - Project `vite.config.ts` infers `build` and continuous `serve` for the Vite development server, both run from that project
 - Project `uxp.config.ts` configures inferred Vite `build` and infers `install` into each host the manifest names
+- Project `cloudflare.config.ts` adds the Cloudflare Build Output under `.cloudflare/output` to inferred Vite `build` outputs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its skill states why not
+- Caches shared with projects outside the repository sit where Parametric Forge or the tool's default puts them
+- Logs sit flat in `.artifacts/logs/` as one `<producer>.log` per launchd label or tool name, each moved there through its producer's setting
 
 ## [04]-[OWNERS]
 
@@ -149,12 +159,13 @@ flowchart LR
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
 |  [11]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                                         |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
-|  [13]   | Swift package version          | `.xcodeproj` package requirement                                                                     |
+|  [13]   | Swift package version          | `.xcodeproj` or `Package.swift` package requirement                                                  |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
-|  [17]   | MCP tool a skill replaces      | `mcp-bridge --hide <glob>` on server's `mise.toml` launchd agent row                                 |
-|  [18]   | Python runtime version         | Nested `requires-python` at the root of the folder holding host code                                 |
+|  [17]   | MCP tool a skill replaces      | `rasm-mcp-bridge --hide <glob>` on server's `mise.toml` launchd agent row                            |
+|  [18]   | Python runtime version         | `mise.toml` `python` row, nested `pyproject.toml` `requires-python` in a host folder for its host    |
+|  [19]   | Native library an sdist links  | `mise.toml` `conda:` row, its series keyed in the package's `[tool.uv.extra-build-variables]` row    |
 
 - Tool rows name a release where `latest` resolves a development build
 - Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
@@ -163,16 +174,14 @@ flowchart LR
 ## [05]-[QUALITY]
 
 - Failing checks are fixed in the code or the rule, severity stays as configured
-- .NET: `dotnet build` and `dotnet format --verify-no-changes` at zero findings
-- .NET `format` applies whitespace, style, and analyzer fixes
-- Python: `ruff`, `ty`, and `mypy` at zero findings
-- TypeScript: `biome check` at zero findings, `tsc` under strict options
-- Rust: `cargo clippy`, `cargo dylint`, `cargo fmt --check`, and `cargo shear` at zero findings
-- Swift: warnings as errors, strict memory safety, every supported upcoming feature, `swift-format lint --strict` and `swiftlint lint` at zero findings
-- Java: `google-java-format --aosp` and `pmd check` at zero findings
-- Checker decisions: PMD `AvoidAccessibilityAlteration` skips `use-ghidra` `Headers.run`, Ghidra's `PreProcessor` takes a `DefineTable` through package-private field `defs` alone
-- Tree: `yamllint`, `yamlfmt -lint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
-- Writers: `ruff format`, Biome, yamlfmt, rustfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format`
+- .NET: compiler, analyzers, BuildCheck, and `dotnet format` at zero findings
+- Python: Ruff, ty, mypy, refurb, and deptry at zero findings
+- TypeScript: Biome and `tsc` with `@effect/tsgo` at zero findings
+- Rust: Clippy, rustfmt, Dylint, and cargo-modules at zero findings
+- Swift: compiler, swift-format, and SwiftLint at zero findings
+- Java: google-java-format and PMD at zero findings
+- TOML: Tombi at zero findings
+- Tree: yamllint, yamlfmt, actionlint with ShellCheck over workflow run steps, ast-grep rule families, and PMD CPD at zero findings
 
 ## [06]-[STRUCTURE]
 
@@ -181,17 +190,17 @@ flowchart LR
 - Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
 - Product assets sit in the folder their build reads: `Assets/` for .NET, `Resources/` for Xcode, `icons/` for Blender, `public/` for Vite
 - Libraries group under `libs/<language>/<group>/` by domain or by host
-- Rust library crates sit at `libs/rust/<crate>/`, named for their domain with no prefix
+- Rust library crates sit at `libs/rust/<domain>/`
+- Swift libraries are one local package per group at `libs/swift/<group>/`
+- TypeScript libraries are packages at `libs/typescript/<group>/<package>/`
 - Host groups hold every project built against the host's API
-- Task graph takes the host list from the `apps/<host>/` folders and tags a project by the host name in its path, .NET build takes Rhino hosts from the `rhino/` path folder
+- Task graph takes the host list from `apps/<host>/` folders and tags a project by the host name in its path
+- .NET build takes Rhino hosts from the `rhino/` path folder
 - Python packages build into one `rasm` wheel
 - First-party Python imports use `from <import root>.<module> import <member>` for private Blender extension relocation
 - `Grasshopper2` package references add Grasshopper 2 global usings
 - Installed Rhino supplies host assemblies at runtime, build output holds none
-- Project files define projects, never `project.json`
-- Project files are `.csproj`, `.cs` files opening with `#!`, `package.json` with `tsconfig.json`, `py.typed`, `blender_manifest.toml`, member `Cargo.toml`, and `.xcodeproj`
+- Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`
-- `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Projects hold no `src/` directory and no folder with one file, folders group by domain per language
-- Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder
 - Schema libraries apply the delta from owning types to the live database, with no migration file or history table

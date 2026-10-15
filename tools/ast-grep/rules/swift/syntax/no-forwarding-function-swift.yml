@@ -1,20 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-swift
-language: swift
+language: swiftlang
 severity: error
 utils:
-    function-reference:
-        any:
-            - kind: simple_identifier
-            - matches: swift-implicit-member
-            - kind: navigation_expression
-              all:
-                - has: {field: target, any: [{kind: 'self_expression, super_expression'}, {matches: function-reference}]}
-                - not: {has: {regex: '^[?!]$'}}
-    named-callee:
-        nthChild: 1
-        pattern: $F
-        matches: function-reference
     declared-callee:
         nthChild: 1
         pattern: $F
@@ -22,28 +10,10 @@ utils:
             - {kind: simple_identifier, pattern: $FN}
             - {kind: navigation_expression, matches: swift-member-reference, has: {field: suffix, has: {field: suffix, pattern: $FN}}}
             - {matches: swift-implicit-member, has: {field: target, pattern: $FN}}
-    parenthesized-arguments:
-        kind: value_arguments
-        pattern: $ARGS
-        has: {regex: '^\($'}
     call-arguments:
         kind: value_arguments
         pattern: $ARGS
         has: {regex: '^[(\[]$'}
-    forwarding-call:
-        kind: call_expression
-        all:
-            - has: {matches: named-callee}
-            - has: {kind: call_suffix, has: {matches: parenthesized-arguments}, not: {has: {kind: lambda_literal}}}
-    forwarding-statement:
-        any:
-            - matches: forwarding-call
-            - kind: 'try_expression, await_expression, control_transfer_statement'
-              has: {matches: forwarding-statement}
-    forwarding-body:
-        all:
-            - matches: {swift-single-statement: {first: {kind: 'call_expression, try_expression, await_expression, control_transfer_statement'}}}
-            - has: {nthChild: 1, matches: forwarding-statement}
     declared-call:
         kind: call_expression
         all:
@@ -90,39 +60,6 @@ utils:
         all:
             - has: {nthChild: 1, kind: simple_identifier, regex: '^[A-Z]'}
             - has: {stopBy: end, matches: fixed-argument, has: {field: value, kind: 'simple_identifier, navigation_expression'}}
-    parameter-1:
-        kind: lambda_parameter
-        nthChild: {position: 1, ofRule: {kind: lambda_parameter}}
-        has: {field: name, kind: simple_identifier, pattern: $A}
-    parameter-2:
-        kind: lambda_parameter
-        nthChild: {position: 2, ofRule: {kind: lambda_parameter}}
-        has: {field: name, kind: simple_identifier, pattern: $B}
-    parameter-3:
-        kind: lambda_parameter
-        nthChild: {position: 3, ofRule: {kind: lambda_parameter}}
-        has: {field: name, kind: simple_identifier, pattern: $C}
-    argument-1: {kind: value_argument, nthChild: 1, has: {field: value, kind: simple_identifier, pattern: $A}}
-    argument-2: {kind: value_argument, nthChild: 2, has: {field: value, kind: simple_identifier, pattern: $B}}
-    argument-3: {kind: value_argument, nthChild: 3, has: {field: value, kind: simple_identifier, pattern: $C}}
-    anonymous-1: {kind: value_argument, nthChild: 1, has: {field: value, kind: simple_identifier, regex: '^\$0$'}}
-    anonymous-2: {kind: value_argument, nthChild: 2, has: {field: value, kind: simple_identifier, regex: '^\$1$'}}
-    anonymous-3: {kind: value_argument, nthChild: 3, has: {field: value, kind: simple_identifier, regex: '^\$2$'}}
-    arguments-1: {kind: value_arguments, has: {matches: argument-1}, not: {has: {nthChild: 2}}}
-    arguments-2: {kind: value_arguments, all: [{has: {matches: argument-1}}, {has: {matches: argument-2}}], not: {has: {nthChild: 3}}}
-    arguments-3: {kind: value_arguments, all: [{has: {matches: argument-1}}, {has: {matches: argument-2}}, {has: {matches: argument-3}}], not: {has: {nthChild: 4}}}
-    anonymous-arguments-1: {kind: value_arguments, has: {matches: anonymous-1}, not: {has: {nthChild: 2}}}
-    anonymous-arguments-2: {kind: value_arguments, all: [{has: {matches: anonymous-1}}, {has: {matches: anonymous-2}}], not: {has: {nthChild: 3}}}
-    anonymous-arguments-3: {kind: value_arguments, all: [{has: {matches: anonymous-1}}, {has: {matches: anonymous-2}}, {has: {matches: anonymous-3}}], not: {has: {nthChild: 4}}}
-    pointer-scope:
-        kind: call_expression
-        any:
-            - has:
-                kind: navigation_expression
-                all:
-                    - has: {field: target, kind: 'simple_identifier, navigation_expression', not: {has: {kind: call_suffix, stopBy: end}}}
-                    - has: {field: suffix, regex: '^\.withCString$'}
-            - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Pointer$'}
     forwarded-read:
         kind: statements
         matches: swift-forwarded-member
@@ -206,12 +143,6 @@ utils:
                 all:
                     - has: {field: result, matches: constant-result}
                     - has: {field: target, matches: assigned-field}
-    forwarded-1: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-1}}}
-    forwarded-2: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-2}}}
-    forwarded-3: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-3}}}
-    anonymous-forwarded-1: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-1}}}
-    anonymous-forwarded-2: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-2}}}
-    anonymous-forwarded-3: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-3}}}
 rule:
     not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}}
     any:
@@ -238,21 +169,5 @@ rule:
             - any:
                 - has: {field: body, has: {matches: forwarded-read}}
                 - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: forwarded-read}}, {has: {kind: computed_getter, has: {matches: forwarded-read}}}]}
-        - kind: lambda_literal
-          all:
-            - any:
-                - all:
-                    - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {matches: parameter-1}, not: {has: {nthChild: 2}}}}
-                    - matches: forwarded-1
-                - all:
-                    - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}], not: {has: {nthChild: 3}}}}
-                    - matches: forwarded-2
-                - all:
-                    - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}], not: {has: {nthChild: 4}}}}
-                    - matches: forwarded-3
-                - all:
-                    - not: {has: {kind: lambda_function_type}}
-                    - any: [{matches: anonymous-forwarded-1}, {matches: anonymous-forwarded-2}, {matches: anonymous-forwarded-3}]
-            - not: {inside: {kind: call_suffix, inside: {matches: pointer-scope}}}
-message: 'Declaration or closure passes its parameters and fixed values unchanged to `$F`'
-note: 'Call `<callee>` with fixed arguments and fields at each use or pass it as a value (`f`, `obj.m`, `m(label:)`, `Type.init`, `Result.success`, `(label: f)` for a trailing closure on a labeled parameter), keep a sibling initializer taking each field as sole initializer, read `<value>.<member>` in place of a parameterless function or subscript, and move a conformance it satisfies to the forwarded type'
+message: 'Declaration passes its parameters and fixed values unchanged to `$F`'
+note: 'Call `<callee>` with fixed arguments and fields at each use, keep a sibling initializer taking each field as sole initializer, read `<value>.<member>` in place of a parameterless function or subscript, and move a conformance it satisfies to the forwarded type'

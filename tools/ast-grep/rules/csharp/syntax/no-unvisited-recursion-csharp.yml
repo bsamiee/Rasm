@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unvisited-recursion-csharp
+language: csharp
+severity: error
+utils:
+    recursion:
+        kind: invocation_expression
+        has:
+            field: function
+            any:
+                - {kind: identifier, pattern: $NAME}
+                - {kind: generic_name, has: {kind: identifier, pattern: $NAME}}
+                - kind: member_access_expression
+                  all:
+                    - has: {field: name, any: [{pattern: $NAME}, {kind: generic_name, has: {kind: identifier, pattern: $NAME}}]}
+                    - has: {field: expression, any: [{regex: '^this$'}, {kind: identifier, regex: '^[a-z_]'}]}
+    carries:
+        any:
+            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $NEXT}}
+            - all:
+                - not: {has: {field: function, kind: member_access_expression, has: {field: expression, not: {regex: '^this$'}}}}
+                - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $NEXT}}
+rule:
+    kind: 'method_declaration, local_function_statement'
+    all:
+        - has: {field: name, pattern: $NAME}
+        - any:
+            - has:
+                field: body
+                has:
+                    stopBy: {kind: 'method_declaration, local_function_statement'}
+                    all:
+                        - matches: recursion
+                        - any:
+                            - inside:
+                                kind: foreach_statement
+                                field: body
+                                stopBy: {kind: 'method_declaration, local_function_statement'}
+                                all:
+                                    - has: {field: right, matches: &successors {csharp-graph-successor: {node: {kind: identifier, pattern: $NODE, inside: {kind: 'method_declaration, local_function_statement', stopBy: {kind: 'method_declaration, local_function_statement'}, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NODE}}}}}}}}
+                                    - has: {field: left, kind: identifier, pattern: $NEXT}
+                            - inside:
+                                kind: 'lambda_expression, anonymous_method_expression'
+                                stopBy: {kind: 'method_declaration, local_function_statement'}
+                                all:
+                                    - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: *successors}}}}}
+                                    - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $NEXT}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $NEXT}}}]}
+                        - matches: carries
+            - has:
+                field: body
+                has:
+                    stopBy: {kind: 'method_declaration, local_function_statement'}
+                    kind: argument
+                    has: {any: [{kind: identifier, pattern: $NAME}, {kind: generic_name, has: {kind: identifier, pattern: $NAME}}]}
+                    inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: *successors}}}}
+            - has:
+                field: body
+                has:
+                    stopBy: {kind: 'method_declaration, local_function_statement'}
+                    kind: query_expression
+                    all:
+                        - has: {kind: from_clause, has: {matches: *successors}}
+                        - has: {stopBy: end, matches: recursion}
+        - not: {has: {field: body, has: {stopBy: {kind: 'method_declaration, local_function_statement'}, matches: csharp-membership-test}}}
+message: '`$NAME` recurses into `$NODE` once per path, no membership test guards it'
+note: 'Hold the graph in a QuikGraph `AdjacencyGraph` and walk it with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`, which visit each vertex once. A node reached through several parents is otherwise walked once per path, and a cycle recurses until the stack overflows'

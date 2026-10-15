@@ -10,7 +10,7 @@ namespace Rasm.Rhino.UI.Rows;
 public static class Transfer {
     // --- [CLIPBOARD]
     public static IO<Unit> Copy(ValueSet values) =>
-        IO.lift(() => Clipboard.Instance.Text = values.Text()).Map(static _ => unit);
+        IO.lift(() => Clipboard.Instance.Text = values.Text()).Map(unit);
 
     public static IO<Unit> Copy(BindingGroup bound, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
         scope.Shown(bound).Bind(values => Copy(values.Scoped(keys)));

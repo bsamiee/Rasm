@@ -118,12 +118,12 @@ public static class ViewCaptures {
         from edited in IO.lift(() => edit(capture))
         from bitmap in Copies.Owned(() => capture.CaptureToBitmap(view),
                 static bitmap => Missing.Unless(bitmap, nameof(ViewCapture.CaptureToBitmap)),
-                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap })), retain)
+                static bitmap => DisposalOps.Release(Conversions.Rows([bitmap])), retain)
         select bitmap;
 
     public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid modeId, Option<Size> pixels, Func<DisplayPipelineAttributes, Fin<Unit>> edit, Action<IDisposable> retain) =>
         Viewports.WithMode(modeId, mode => IO.lift(() => edit(mode.DisplayAttributes)).Bind(_ =>
             Copies.Owned(() => pixels.Match(Some: size => view.CaptureToBitmap(size, mode), None: () => view.CaptureToBitmap(mode)),
                 static bitmap => Missing.Unless(bitmap, nameof(RhinoView.CaptureToBitmap)),
-                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap })), retain)));
+                static bitmap => DisposalOps.Release(Conversions.Rows([bitmap])), retain)));
 }

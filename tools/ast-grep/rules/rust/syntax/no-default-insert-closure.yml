@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-default-insert-closure
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - pattern: $O.get_or_insert_with($D)
+constraints:
+    D: {matches: rust-default-value}
+fix: $O.get_or_insert_default()
+message: '`$O` inserts the default value through a constructor argument'
+note: 'Call `<option>.get_or_insert_default()`, the method inserts `Default::default()` into an empty option and returns the held value'

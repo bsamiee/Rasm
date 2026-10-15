@@ -114,7 +114,7 @@ public readonly partial struct ViewWindow {
     public double Width { get; }
     public double Height { get; }
 
-    public static ViewWindow Centered(FieldOfView field, PixelExtent extent) => Centered(2d * double.Tan((double)field / 2d), extent);
+    public static ViewWindow Centered(FieldOfView field, PixelExtent extent) => Centered(2d * double.Tan(field / 2d), extent);
     public static ViewWindow Centered(SweepAngle sweep, PixelExtent extent) => Centered((double)sweep, extent);
 
     public ViewWindow Raised(float height) => new(CenterX, CenterY + height, Width, Height);
@@ -345,6 +345,8 @@ public sealed partial class WrapMode {
         var period => double.Abs(((point % period) + (offset % period)) % period) switch { var turn => (double.Min(turn, period - turn), 1d) },
     });
 
+    public bool Tiles => Map(black: false, clamp: false, periodic: true, mirror: true);
+
     [UseDelegateFromConstructor]
     public partial (double Point, double Weight) Fold(double point, int size, double offset);
 
@@ -431,7 +433,7 @@ public abstract partial record Projection {
         private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) =>
             Some((
                 ((double.Atan2(ray.X, -ray.Z) / double.Tau) + 0.5d) * Extent.Width,
-                (0.5d - (double.Atan2(ray.Y, double.Hypot(ray.X, ray.Z)) / double.Pi)) * Extent.Height));
+                (0.5d - double.Atan2Pi(ray.Y, double.Hypot(ray.X, ray.Z))) * Extent.Height));
     }
 
     public sealed record Cylindrical(PixelExtent Extent, ViewWindow Window) : Projection(Extent) {
@@ -452,13 +454,13 @@ public abstract partial record Projection {
     }
 
     public sealed record Fisheye(PixelExtent Extent, SweepAngle Sweep) : Projection(Extent) {
-        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, (double)Sweep / 2d, (double)Sweep / Circle, static (radius, scale) => radius * scale);
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, (double)Sweep / 2d, (double)Sweep / Circle, static (angle, scale) => angle / scale);
+        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, Sweep / 2d, Sweep / Circle, static (radius, scale) => radius * scale);
+        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, Sweep / 2d, Sweep / Circle, static (angle, scale) => angle / scale);
     }
 
     public sealed record Equisolid(PixelExtent Extent, SweepAngle Sweep, FullTurnRadius FullTurn) : Projection(Extent) {
-        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, (double)Sweep / 2d, Circle * (double)FullTurn / 2d, SolidAngle);
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, (double)Sweep / 2d, Circle * (double)FullTurn / 2d, SolidRadius);
+        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, Sweep / 2d, Circle * FullTurn / 2d, SolidAngle);
+        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, Sweep / 2d, Circle * FullTurn / 2d, SolidRadius);
     }
 
     public sealed record MirrorBall(PixelExtent Extent) : Projection(Extent) {
@@ -469,7 +471,7 @@ public abstract partial record Projection {
     public sealed record Stereographic(PixelExtent Extent, SweepAngle Sweep) : Projection(Extent) {
         private protected override Option<Vector3> Direction((double X, double Y) point) =>
             from centered in Some(Centered(point))
-            let inverse = 1d / (2d * double.Tan((double)Sweep / 4d))
+            let inverse = 1d / (2d * double.Tan(Sweep / 4d))
             let magnitude = double.Max(inverse, double.Max(double.Abs(centered.X), double.Abs(centered.Y)))
             let local = (X: centered.X / magnitude, Y: centered.Y / magnitude, Z: inverse / magnitude)
             let planar = (local.X * local.X) + (local.Y * local.Y)
@@ -482,7 +484,7 @@ public abstract partial record Projection {
             where planar > 0d || ray.Z < 0f
             let length = double.Hypot(planar, ray.Z)
             let radius = ray.Z > 0f ? (length + ray.Z) / planar : planar / (length - ray.Z)
-            let reach = radius / (2d * double.Tan((double)Sweep / 4d))
+            let reach = radius / (2d * double.Tan(Sweep / 4d))
             let azimuth = double.SinCos(double.Atan2(ray.Y, ray.X))
             select Uncentered((azimuth.Cos * reach, azimuth.Sin * reach));
     }
@@ -493,8 +495,8 @@ public abstract partial record Projection {
         private protected override Option<Vector3> Direction((double X, double Y) point) =>
             from centered in Some(Centered(point))
             let distance = (double)Distance
-            let factor = 2d * double.Sin((double)Field / 2d) / (distance + double.Cos((double)Field / 2d))
-            from cos in distance == 0d
+            let factor = 2d * double.Sin(Field / 2d) / (distance + double.Cos(Field / 2d))
+            from cos in distance is 0d
                 ? Some(1d / factor / double.Hypot(centered.X, 1d / factor))
                 : (from u in Some(double.Abs(centered.X * factor))
                    let delta = double.FusedMultiplyAdd(-distance, u, 1d)
@@ -502,16 +504,16 @@ public abstract partial record Projection {
                    let t = distance * u
                    let remainder = delta * (1d + t)
                    select remainder / (double.Sqrt(remainder + (u * u)) + (u * t)))
-            let vertical = centered.Y * (cos / (((1d - (double)Compression) * cos) + (double)Compression))
-            let depth = distance == 0d ? -1d / factor : -cos / (factor * (distance + cos))
+            let vertical = centered.Y * (cos / (((1d - Compression) * cos) + Compression))
+            let depth = distance is 0d ? -1d / factor : -cos / (factor * (distance + cos))
             let scale = double.Max(double.Abs(centered.X), double.Max(double.Abs(vertical), double.Abs(depth)))
             select Vector3.Normalize(new Vector3((float)(centered.X / scale), (float)(vertical / scale), (float)(depth / scale)));
 
         private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) =>
             double.Hypot(ray.X, ray.Z) switch {
-                var radius when -ray.Z > 0f => (double.SinCos((double)Field / 2d), -ray.Z / radius) switch {
-                    var (edge, cos) => (((double)Distance + edge.Cos) / ((double)Distance + cos) / (2d * edge.Sin)) switch {
-                        var gain => Some(Uncentered((ray.X / radius * gain, ray.Y / radius * (1d - (double)Compression + ((double)Compression / cos)) * gain))),
+                var radius when -ray.Z > 0f => (double.SinCos(Field / 2d), -ray.Z / radius) switch {
+                    var (edge, cos) => ((Distance + edge.Cos) / (Distance + cos) / (2d * edge.Sin)) switch {
+                        var gain => Some(Uncentered((ray.X / radius * gain, ray.Y / radius * (1d - Compression + (Compression / cos)) * gain))),
                     },
                 },
                 _ => None,

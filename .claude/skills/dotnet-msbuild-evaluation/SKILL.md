@@ -33,7 +33,7 @@ MSBuild evaluates a project in passes, each pass reads what the earlier passes p
 
 Each repository file reads what the imports before it assigned:
 - `Directory.Build.props` reads no project-body value and none from `Microsoft.NET.Sdk.props` onward
-- `TargetFramework`, `OutputType`, `Configuration`, and `NETCoreSdkVersion` are empty in `Directory.Build.props` unless a global property sets them
+- `TargetFramework`, `OutputType`, and `Configuration` are empty in `Directory.Build.props` unless a global property sets them
 - `Directory.Build.targets` reads the project body, the SDK output paths, and every package `.targets` file
 - `IsPackable`, `IsTestProject`, and `EnableDefaultItems` hold a value the project or an earlier file assigned
 - Inner builds and a `-p:TargetFramework=` caller supply `TargetFramework` as a global property, the outer build leaves it empty in every file
@@ -41,7 +41,7 @@ Each repository file reads what the imports before it assigned:
 
 Import rules:
 - MSBuild imports one file path at most once, a repeated import warns `MSB4011` and is ignored
-- Wildcard imports sort by ordinal string comparison, `010-a.props` before `100-b.props` before `20-c.props`, fixed-width prefixes keep order
+- Wildcard imports sort by case-insensitive ordinal comparison, `010-a` before `100-b` before `20-c`, fixed-width prefixes keep order
 - Import paths evaluating to empty fail `MSB4020`
 - `Microsoft.Common.props` imports `$(CustomBeforeDirectoryBuildProps)` and `$(CustomAfterDirectoryBuildProps)` around `Directory.Build.props`
 - `Microsoft.Common.targets` imports `$(CustomBeforeDirectoryBuildTargets)` and `$(CustomAfterDirectoryBuildTargets)` around `Directory.Build.targets`
@@ -54,7 +54,7 @@ Files outside the chain:
 - `global.json` selects the SDK, `rollForward: disable` requires an exact match of the listed version
 - `dotnet` muxer searches for `global.json` upward from the current directory, the SDK resolver from the solution or else the project directory
 - Solution builds, `.slnx` included, evaluate a generated project importing `Directory.Solution.props` first and `Directory.Solution.targets` last
-- Generated solution projects import no `Directory.Build.*` file and pass no property of their own to the projects they build
+- Generated solution projects import no `Directory.Build.*` file and pass no `Directory.Solution.props` property to the projects they build
 - `$(MSBuildProjectFullPath).user` imports when it exists, after the project body and before `Directory.Build.targets`, in inner and outer builds
 - Nearest `Directory.Build.rsp` above the project or solution directory holds default switches, one per line, for every command-line build
 - `-noAutoResponse` on the command line skips `Directory.Build.rsp`, inside it fails `MSB1027`, a `dotnet` switch inside it fails `MSB1001`
@@ -150,7 +150,7 @@ Item elements perform one operation each, in order of appearance across every im
 
 - Inside a target, `Update` applies its metadata to every item of the type, `Condition="'%(Identity)' == 'name'"` on an item element selects one item
 - Outside a target, an item condition reads properties and `@(Item)` lists, `%(Custom)` fails `MSB4191` and `%(Filename)` fails `MSB4190`
-- Transform `@(Item->'%(Meta)')` is the one `%()` form an evaluation-time item, condition, or property accepts
+- Transform `@(Item->'%(Meta)')` is the one `%()` form an evaluation-time condition or property accepts, item metadata reads its own item
 - `ItemDefinitionGroup` sets default metadata for a type, an item's own metadata wins, `@(Item)` in a definition fails `MSB4164`
 - `Include` paths in an imported file resolve against the project directory, a `$(MSBuildThisFileDirectory)` prefix resolves beside the importing file
 - Every item has metadata `FullPath`, `RootDir`, `Filename`, `Extension`, `RelativeDir`, `RecursiveDir`, `Identity`, and `DefiningProjectDirectory`

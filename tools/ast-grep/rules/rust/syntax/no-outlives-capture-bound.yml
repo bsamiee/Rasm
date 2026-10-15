@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-outlives-capture-bound
+language: rust
+severity: error
+utils:
+    own-lifetime:
+        kind: lifetime
+        any:
+            - regex: "^'_$"
+            - inside:
+                stopBy: end
+                kind: 'function_item, function_signature_item'
+                has: {field: type_parameters, has: {kind: lifetime_parameter, has: {field: name, pattern: $L}}}
+rule:
+    kind: bounded_type
+    all:
+        - has: {kind: abstract_type}
+        - inside: {stopBy: end, kind: 'function_item, function_signature_item', field: return_type}
+        - any:
+            - has: {kind: lifetime, pattern: $L, matches: own-lifetime}
+            - has: {kind: generic_type, regex: '^(\w+::)*Captures<', pattern: $L}
+message: 'Returned `impl Trait` restates its capture of `$L`'
+note: 'Drop the bound, a returned `impl Trait` in edition 2024 captures every in-scope generic and lifetime. Write `+ use<..>` for a narrower capture set. An outlives bound changing which hidden types compile stays as written'

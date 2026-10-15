@@ -88,10 +88,14 @@ rule:
           has: {matches: undefined-result, pattern: $VALUE}
           inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
           not: {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}
+        - kind: return_statement
+          pattern: $VALUE
+          inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
+          not: {any: [{has: {pattern: $_}}, {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}]}
         - kind: arrow_function
           all:
             - has: {field: body, matches: undefined-result, pattern: $VALUE}
             - has: {field: return_type, matches: value-annotation}
             - not: {matches: host-contract}
-message: 'Function returns `$VALUE` for an absent value'
+message: 'Function returns absence through `$VALUE`'
 note: 'Return an `Option`, built with `Option.fromNullishOr` or `Option.liftPredicate` at the boundary, the consumer then unwraps absence by type'

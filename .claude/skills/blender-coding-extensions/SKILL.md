@@ -251,7 +251,8 @@ Code changes reach a session through an upgrade install or a `disable` and `enab
 - GUI quits run `exit_pre` handlers, then a save of dirty preferences, then every `unregister()`
 - Code sets `is_dirty = True` after a write it keeps
 - Background exits skip the save, and background runs save through `bpy.ops.wm.save_userpref()` alone
-- Session rows (`filepaths.asset_libraries.new()` setting `is_dirty`) enter another `ExitStack` a persistent `exit_pre` handler closes before the save
+- `exit_pre` writes to `filepaths.asset_libraries` hang Blender while a remote listing job runs
+- `filepaths.asset_libraries.new()` rows set `is_dirty` and save at quit, the next registration taking the saved row and `unregister()` removing it
 
 Properties keep identifier and type across versions, and a rename or type change takes a new identifier that `register()` fills after the preferences class registers:
 
@@ -353,7 +354,8 @@ Wheels of enabled extensions alone install into one shared `<extensions>/.local/
 - Versions rank by major, minor, and patch, then the tail as text, `1.10` reading as `1.0.10` below `1.9.0` and `1.0.0rc1` outranking `1.0.0`
 - First imports of a session hold until restart, a later install or disable rewriting files while `sys.modules` keeps the imported version
 - Enabled-set changes (checkbox, `default_set=True` calls, uninstall, failed enables) resync the folder at once, distributions falling back or leaving
-- Installed `dist-info` folders never extract again, and a rebuilt wheel takes a new version
+- Syncs extract a wheel whose `<name>-<version>.dist-info` folder is absent, a wheel rebuilt at that version keeping the first extraction
+- First extractions stay until an enabled-set change leaves no enabled extension listing the wheel, an upgrade install keeping them
 - Wheels for another platform skip at enable, and the import in `register()` raises `ModuleNotFoundError`
 - Wheels for another CPython minor version mark the extension incompatible, and `abi3` wheels of an older CPython load
 - Wheels for macOS match by architecture or `universal2`, whatever OS version their tag names

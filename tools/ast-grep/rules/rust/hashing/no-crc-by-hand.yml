@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-crc-by-hand
+language: rust
+severity: error
+rule:
+    kind: integer_literal
+    pattern: $POLY
+    regex: |-
+        (?xi)^(?:0x[0_]*(?:
+            e_*d_*b_*8_*8_*3_*2_*0
+            |4_*c_*1_*1_*d_*b_*7
+            |8_*2_*f_*6_*3_*b_*7_*8
+            |1_*e_*d_*c_*6_*f_*4_*1
+            |c_*9_*6_*c_*5_*7_*9_*5_*d_*7_*8_*7_*0_*f_*4_*2
+            |4_*2_*f_*0_*e_*1_*e_*b_*a_*9_*e_*a_*3_*6_*9_*3
+            |a_*d_*9_*3_*d_*2_*3_*5_*9_*4_*c_*9_*3_*6_*5_*9
+            |9_*a_*6_*c_*9_*3_*2_*9_*a_*c_*4_*b_*c_*9_*b_*5
+        )
+            |3_*9_*8_*8_*2_*9_*2_*3_*8_*4
+            |7_*9_*7_*6_*4_*9_*1_*9
+            |2_*1_*9_*7_*1_*7_*5_*1_*6_*0
+            |5_*1_*7_*7_*6_*2_*8_*8_*1
+            |1_*4_*5_*1_*4_*0_*7_*2_*0_*0_*0_*1_*8_*5_*9_*6_*2_*3_*0_*6
+            |4_*8_*2_*3_*6_*0_*3_*6_*0_*3_*1_*9_*8_*0_*6_*4_*2_*7_*5
+            |1_*2_*5_*0_*7_*5_*7_*1_*7_*1_*7_*7_*0_*9_*3_*1_*3_*6_*2_*5
+            |1_*1_*1_*2_*7_*4_*3_*0_*5_*8_*6_*5_*1_*9_*2_*4_*3_*1_*8_*9
+        )(?:_*[ui](?:32|64|128))?$
+transform:
+    KEY: {replace: {source: $POLY, replace: '_|[ui](32|64|128)$', by: ''}}
+    ISO: {replace: {source: $KEY, replace: '(?i)^(0xedb88320|3988292384)$', by: '`Crc32IsoHdlc` or `Crc32Jamcrc`'}}
+    MSB: {replace: {source: $ISO, replace: '(?i)^(0x0*4c11db7|79764919)$', by: '`Crc32Bzip2`, `Crc32Mpeg2`, or `Crc32Cksum`'}}
+    ISCSI: {replace: {source: $MSB, replace: '(?i)^(0x(82f63b78|1edc6f41)|2197175160|517762881)$', by: '`Crc32Iscsi`'}}
+    XZ: {replace: {source: $ISCSI, replace: '(?i)^(0xc96c5795d7870f42|14514072000185962306)$', by: '`Crc64Xz`'}}
+    ECMA: {replace: {source: $XZ, replace: '(?i)^(0x42f0e1eba9ea3693|4823603603198064275)$', by: '`Crc64Ecma182` or `Crc64We`'}}
+    ALGORITHM: {replace: {source: $ECMA, replace: '(?i)^(0x(ad93d23594c93659|9a6c9329ac4bc9b5)|12507571717709313625|11127430586519243189)$', by: '`Crc64Nvme`'}}
+message: '`$POLY` is a hand-written CRC polynomial that `crc_fast::CrcAlgorithm` names as $ALGORITHM'
+note: 'Call `crc_fast::checksum(CrcAlgorithm::<algorithm>, <bytes>)`, or feed chunks to `crc_fast::Digest::new(CrcAlgorithm::<algorithm>)`, the variant fixes the polynomial, reflection, initial value, and final xor a hand loop restates'

@@ -130,23 +130,17 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Returns the position with NOAA atmospheric refraction added to elevation."""
         degrees = np.degrees(self.elevation)
         band = np.digitize(degrees, (-0.575, 5.0, 85.0), right=True)
-        return msgspec.structs.replace(
-            self,
-            elevation=self.elevation
-            + np.radians(
-                np.piecewise(
-                    degrees,
-                    [band == index for index in range(3)],
-                    [
-                        lambda e: -20.774 / np.tan(np.radians(e)),
-                        lambda e: 1735.0 + e * (-518.2 + e * (103.4 + e * (-12.79 + e * 0.711))),
-                        lambda e: (cot := 1.0 / np.tan(np.radians(e))) * (58.1 + cot**2 * (-0.07 + cot**2 * 0.000086)),
-                        0.0,
-                    ],
-                )
-                / 3600.0
-            ),
+        arcseconds = np.piecewise(
+            degrees,
+            [band == index for index in range(3)],
+            [
+                lambda e: -20.774 / np.tan(np.radians(e)),
+                lambda e: 1735.0 + e * (-518.2 + e * (103.4 + e * (-12.79 + e * 0.711))),
+                lambda e: (cot := 1.0 / np.tan(np.radians(e))) * (58.1 + cot**2 * (-0.07 + cot**2 * 0.000086)),
+                0.0,
+            ],
         )
+        return msgspec.structs.replace(self, elevation=self.elevation + np.radians(arcseconds / 3600.0))
 
 
 class Daylight(msgspec.Struct, frozen=True, kw_only=True):

@@ -1,4 +1,5 @@
 import Foundation
+import RasmMacOS
 import Subprocess
 import Synchronization
 
@@ -14,8 +15,8 @@ actor CodexConnection {
 
     private struct NotificationWaiter: Sendable {
         let id: UUID
-        let matches: @Sendable (Data) -> Bool
-        let continuation: CheckedContinuation<Result<Data, CodexFailure>, Never>
+        let accept: @Sendable (Data) -> (@Sendable () -> Void)?
+        let fail: @Sendable (CodexFailure) -> Void
     }
 
     private struct Registry: Sendable {
@@ -58,9 +59,7 @@ actor CodexConnection {
                 capabilities: CodexProtocol.InitializeParams.Capabilities(experimentalApi: true),
             ),
         ).bind { result in
-            serverVersion = result.userAgent.flatMap { agent in
-                agent.firstMatch(of: /^[^\/]+\/(\S+)/).map { match in String(match.1) }
-            }
+            serverVersion = result.userAgent?.firstMatch(of: #/^[^/]+/(\S+)/#).map { match in String(match.1) }
             return await write(CodexProtocol.Notification(method: .initialized))
         }
     }
@@ -165,39 +164,36 @@ actor CodexConnection {
         _ method: CodexProtocol.Method,
         matching predicate: @escaping @Sendable (Value) -> Bool,
     ) async -> Result<Value, CodexFailure> {
-        let params: @Sendable (Data) -> Value? = { line in
-            Self.decode(CodexProtocol.ParamsField<Value>.self, line)?.params
+        let matched: @Sendable (Data) -> Value? = { line in
+            Self.decode(CodexProtocol.ParamsField<Value>.self, line).map(\.params).flatMap { value in predicate(value) ? value : nil }
         }
-        let matches: @Sendable (Data) -> Bool = { line in params(line).map(predicate) ?? false }
         return await ready.bind { _ in
-            if let index: Int = notifications[method]?.firstIndex(where: matches),
-                let line: Data = notifications[method]?.remove(at: index)
+            if let retained: (index: Int, value: Value) = notifications[method]?.enumerated().lazy
+                .compactMap({ index, line in matched(line).map { value in (index, value) } }).first
             {
-                .success(line)
-            } else {
-                await notification(method, matching: matches, waiter: UUID())
+                notifications[method]?.remove(at: retained.index)
+                return .success(retained.value)
             }
-        }
-        .flatMap { line in
-            params(line).map(Result.success) ?? .failure(.invalidResponse(field: "\(method.rawValue) notification"))
+            return await notification(method, matching: matched, waiter: UUID())
         }
     }
 
-    private func notification(
+    private func notification<Value: Sendable>(
         _ method: CodexProtocol.Method,
-        matching predicate: @escaping @Sendable (Data) -> Bool,
+        matching matched: @escaping @Sendable (Data) -> Value?,
         waiter id: UUID,
-    ) async -> Result<Data, CodexFailure> {
+    ) async -> Result<Value, CodexFailure> {
         await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                let immediate: Result<Data, CodexFailure>? = registry.withLock { state in
-                    Self.register(
-                        NotificationWaiter(id: id, matches: predicate, continuation: continuation),
-                        for: method,
-                        in: &state,
-                    )
-                }
-                if let immediate { continuation.resume(returning: immediate) }
+            await withCheckedContinuation { (continuation: CheckedContinuation<Result<Value, CodexFailure>, Never>) in
+                let waiter: NotificationWaiter = NotificationWaiter(
+                    id: id,
+                    accept: { line -> (@Sendable () -> Void)? in
+                        matched(line).map { value -> @Sendable () -> Void in { continuation.resume(returning: .success(value)) } }
+                    },
+                    fail: { failure in continuation.resume(returning: .failure(failure)) },
+                )
+                let refusal: CodexFailure? = registry.withLock { state in Self.register(waiter, for: method, in: &state) }
+                if let refusal { continuation.resume(returning: .failure(refusal)) }
             }
         } onCancel: {
             Self.cancelWaiter(id, method: method, in: self.registry)
@@ -208,9 +204,9 @@ actor CodexConnection {
         _ waiter: NotificationWaiter,
         for method: CodexProtocol.Method,
         in state: inout Registry,
-    ) -> Result<Data, CodexFailure>? {
-        if let failure: CodexFailure = state.terminalFailure { return .failure(failure) }
-        guard !Task.isCancelled else { return .failure(.cancelled) }
+    ) -> CodexFailure? {
+        if let failure: CodexFailure = state.terminalFailure { return failure }
+        guard !Task.isCancelled else { return .cancelled }
         state.waiters[method, default: []].append(waiter)
         return nil
     }
@@ -224,7 +220,7 @@ actor CodexConnection {
             state.waiters[method]?.firstIndex(where: { waiter in waiter.id == id })
                 .flatMap { index in state.waiters[method]?.remove(at: index) }
         }
-        waiter?.continuation.resume(returning: .failure(.cancelled))
+        waiter?.fail(.cancelled)
     }
 
     // --- [TRANSPORT]
@@ -261,7 +257,7 @@ actor CodexConnection {
             continuation.resume(returning: .failure(failure))
         }
         for waiter: NotificationWaiter in pending.waiters {
-            waiter.continuation.resume(returning: .failure(failure))
+            waiter.fail(failure)
         }
     }
 
@@ -271,11 +267,11 @@ actor CodexConnection {
         return try? decoder.decode(type, from: line)
     }
 
-    private func write(_ value: some Encodable & Sendable) async -> Result<Void, CodexFailure> {
+    private func write(_ value: some Encodable) async -> Result<Void, CodexFailure> {
         await Result { try JSONEncoder().encode(value) + [UInt8(ascii: "\n")] }
             .mapError { _ in CodexFailure.invalidResponse(field: "request") }
             .bind { line in
-                await Result { _ = try await execution.standardInputWriter.write(line.bytes) }
+                await Result { () async throws(SubprocessError) in _ = try await execution.standardInputWriter.write(line.bytes) }
                     .mapError { error in CodexFailure(process: ProcessRun.failure(error)) }
             }
     }
@@ -321,13 +317,17 @@ actor CodexConnection {
                     updatesContinuation.yield(updated.params)
                 }
             case .notification(let method):
-                let waiter: NotificationWaiter? = registry.withLock { state in
-                    state.waiters[method]?.firstIndex(where: { waiter in waiter.matches(line) })
-                        .flatMap { index in state.waiters[method]?.remove(at: index) }
+                let delivery: (@Sendable () -> Void)? = registry.withLock { state in
+                    state.waiters[method]?.enumerated().lazy
+                        .compactMap { index, waiter in waiter.accept(line).map { resume in (index, resume) } }.first
+                        .map { index, resume in
+                            state.waiters[method]?.remove(at: index)
+                            return resume
+                        }
                 }
                 let retainedNotifications: Set<CodexProtocol.Method> = [.accountLoginCompleted, .turnCompleted]
-                if let waiter {
-                    waiter.continuation.resume(returning: .success(line))
+                if let delivery {
+                    delivery()
                 } else if retainedNotifications.contains(method) {
                     notifications[method, default: []].append(line)
                 }

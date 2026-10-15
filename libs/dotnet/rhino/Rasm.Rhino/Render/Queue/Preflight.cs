@@ -49,7 +49,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
     // --- [READS]
     private static Seq<Error> Entered(RhinoDoc doc, Seq<string> snapshots, QueueEntry<Unit> entry, int index, Fin<OverscanFrame> rendered) =>
         (Held(doc, snapshots, entry.Source) ? Seq<Error>() : Seq<Error>(new SourceViewMissing(index, entry.Source.RenderSource)))
-        + (entry.Overscan == Overscan.Off || entry.Source.RenderSource == RenderSettings.RenderingSources.ActiveViewport
+        + (entry.Overscan == Overscan.Off || entry.Source.RenderSource is RenderSettings.RenderingSources.ActiveViewport
             ? Seq<Error>()
             : Seq<Error>(new OverscanSourceRefused(index, entry.Source.RenderSource)))
         + Seq(rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(entry.Moment).As().Map(static _ => unit))
@@ -145,7 +145,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
                     RhinoApp.IsSafeModeEnabled,
                     SupportOptions.AutoSaveRenderings(),
                     Callbacks.Found(Command.InCommand(), RhinoApp.CommandPrompt),
-                    Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false))
+                    Conversions.Rows(RhinoDoc.OpenDocuments())
                         .Filter(static open => open.Modified && Conversions.Present(open.Path).IsNone)
                         .Map(static open => open.RuntimeSerialNumber)
                         .Strict()),

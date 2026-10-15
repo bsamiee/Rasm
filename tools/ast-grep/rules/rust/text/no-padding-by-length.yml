@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-padding-by-length
+language: rust
+severity: error
+utils:
+    fill:
+        pattern: $FILL
+        any:
+            - {kind: string_literal, regex: '^"([^"\\]|\\.)"$'}
+            - kind: char_literal
+    length:
+        kind: call_expression
+        all:
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has:
+                field: function
+                kind: field_expression
+                any:
+                    - has: {field: field, regex: '^len$'}
+                    - all:
+                        - has: {field: field, regex: '^count$'}
+                        - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^chars$'}}}
+    shortfall:
+        any:
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^-$'}}, {has: {field: right, matches: length}}]
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(saturating_sub|checked_sub|wrapping_sub|abs_diff)$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: length}}
+            - kind: 'parenthesized_expression, try_expression'
+              has: {matches: shortfall}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(unwrap|expect|unwrap_or|unwrap_or_default)$'}}, {has: {field: value, matches: shortfall}}]}
+    relayed:
+        kind: identifier
+        pattern: $GAP
+        inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has: {stopBy: {kind: function_item}, kind: let_declaration, all: [{has: {field: pattern, pattern: $GAP}}, {has: {field: value, matches: shortfall}}]}
+    count:
+        any: [{matches: shortfall}, {matches: relayed}]
+    token-count:
+        any:
+            - regex: '(-|(saturating_sub|checked_sub|wrapping_sub|abs_diff)\s*\()\s*[\w.\[\]&*]+\s*\.\s*(len|chars\s*\(\s*\)\s*\.\s*count)\s*\(\s*\)'
+            - regex: '^\(\s*\w+\s*\)$'
+              has: {matches: relayed}
+rule:
+    any:
+        - kind: call_expression
+          any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^repeat$'}}, {has: {field: value, matches: fill}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: count}}
+            - all:
+                - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat_n$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: fill}}, {has: {nthChild: 2, matches: count}}]}
+            - all:
+                - has:
+                    field: function
+                    kind: field_expression
+                    all:
+                        - has: {field: field, regex: '^take$'}
+                        - has:
+                            field: value
+                            kind: call_expression
+                            all:
+                                - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$'}
+                                - has: {field: arguments, has: {nthChild: 1, matches: fill}}
+                - has: {field: arguments, has: {nthChild: 1, matches: count}}
+        - kind: token_tree
+          all:
+            - matches: token-count
+            - follows: {kind: identifier, regex: '^repeat$', follows: {regex: '^\.$', follows: {matches: fill}}}
+message: '`$FILL` repeats to pad text by a byte or char count where the display width decides the column'
+note: 'Subtract `<text>.width()` of `unicode_width::UnicodeWidthStr`, wide CJK and emoji chars take two columns and combining marks none. A byte or char count misaligns every column after those chars'

@@ -18,7 +18,6 @@ public sealed class AngleDial<TValue, TKey>(IPlugInSink sink, NumberText<TKey> t
     private const double AngleSnap = Math.Tau / 72d;
     private static readonly Axis.Periodic AngleAxis = new(AxisRange.Radians);
     private static readonly Axis.Linear RadiusAxis = new(AxisRange.Unit);
-    private static readonly MarkStyle Lifted = new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 1f);
     private static readonly MarkStyle Needle = new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 2f);
 
     private static PlotPlane.Polar Plane(SizeF size) => new(new RectangleF(size), AngleAxis, RadiusAxis);
@@ -63,7 +62,7 @@ public sealed class AngleDial<TValue, TKey>(IPlugInSink sink, NumberText<TKey> t
         });
 
     protected override Option<Transition<AngleDialState<TValue>, TValue>> Pressed(AngleDialState<TValue> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
-        part.Filter(_ => e.Buttons == MouseButtons.Primary).Map(_ => Pointed(Plane(size), e.Location) switch {
+        part.Filter(_ => e.Buttons is MouseButtons.Primary).Map(_ => Pointed(Plane(size), e.Location) switch {
             var held => Crossed(state, Some(held), Placed(held, e.Modifiers), static next => new Edit<TValue>.Preview(next)),
         });
 
@@ -95,5 +94,5 @@ public sealed class AngleDial<TValue, TKey>(IPlugInSink sink, NumberText<TKey> t
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, AngleDialState<TValue> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
         Plots.Paint(canvas, marks.Map(mark =>
-            mark.Part.IsSome && (interaction.Hovered.IsSome || interaction.Pressed.IsSome || canvas.Focused) ? mark with { Style = Lifted } : mark));
+            mark.Part.IsSome && (interaction.Hovered.IsSome || interaction.Pressed.IsSome || canvas.Focused) ? mark with { Style = MarkStyle.Lifted } : mark));
 }

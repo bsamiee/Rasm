@@ -5,7 +5,7 @@ from enum import auto, Enum
 from itertools import pairwise, product
 from pathlib import PurePath
 import typing
-from typing import Annotated, ClassVar, Generic, Literal, overload, Protocol, runtime_checkable, TypeVar
+from typing import Annotated, ClassVar, Generic, Literal, overload, Protocol, runtime_checkable
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -15,7 +15,7 @@ from msgspec import inspect
 from blender.bpy.commands import keymaps, operators
 from blender.bpy.commands.calls import Operation
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import Descriptor, root_in
+from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, root_in
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, Registrable
@@ -24,7 +24,7 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFa
 from blender.bpy.settings.shapes import vector
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Gated, Rgb
+from blender.imaging.parameters import Gated, Rgb, Unit
 
 if typing.TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -32,16 +32,15 @@ if typing.TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-P_co = TypeVar("P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
 
 type RowDraw = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context], None]
 type SurfaceDraw = Callable[[bpy.types.UILayout, bpy.types.Context], None]
-type Owner = bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]
 type Reach = Callable[[bpy.types.Context], Option[bpy.types.bpy_struct[object]]]
 type Binding = Member | Across | ResolvedMember | msgspec.structs.FieldInfo
 type Resolved = ResolvedMember | msgspec.structs.FieldInfo
 type Opener = operators.Command | Operation
-type Template = Callable[[bpy.types.UILayout, Owner, str, bpy.types.bpy_struct[object], bpy.types.Context], None]
+type Filter = Literal["ALL", "AVAILABLE"]
+type Template = Callable[[bpy.types.UILayout, Native, str, bpy.types.bpy_struct[object], bpy.types.Context], None]
 
 
 @runtime_checkable
@@ -132,7 +131,7 @@ class DataBlocks(msgspec.Struct, frozen=True, kw_only=True):
     new: Option[Opener] = Nothing
     open: Option[Opener] = Nothing
     unlink: Option[Opener] = Nothing
-    filter: Literal["ALL", "AVAILABLE"] = "ALL"
+    filter: Filter = "ALL"
 
 
 class Items(msgspec.Struct, frozen=True, kw_only=True):
@@ -148,7 +147,7 @@ class Work(msgspec.Struct, frozen=True, kw_only=True):
     """Running work's text and the fraction of its items done."""
 
     text: str
-    done: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
+    done: Unit
 
 
 class Branch[L: "bpy.types.bpy_struct[object]", C: "bpy.types.bpy_struct[object]"](msgspec.Struct, frozen=True, kw_only=True):
@@ -190,7 +189,7 @@ class Property(Line, frozen=True, kw_only=True):
         forms = (inspect.BoolType, inspect.IntType, inspect.FloatType, inspect.StrType, Enum, inspect.TupleType, inspect.FrozenSetType, bpy.types.ID, Rgb, Gated)
         shape = inspect.type_info(self.target.type) if isinstance(self.target, msgspec.structs.FieldInfo) else self.target
 
-        def valued(layout: bpy.types.UILayout, owner: Owner, key: str, kind: object, label: Option[str], index: int = -1) -> None:
+        def valued(layout: bpy.types.UILayout, owner: Native, key: str, kind: object, label: Option[str], index: int = -1) -> None:
             while isinstance(kind, inspect.Metadata):
                 kind = kind.type
             prop = owner.bl_rna.properties[key]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -295,10 +294,10 @@ class Selector(Line, frozen=True, kw_only=True):
         def opened(opener: Option[Opener]) -> BlenderResult[str]:
             return opener.map(named).default_value(Ok(""))
 
-        def blocks(chosen: Literal["ALL", "AVAILABLE"], ids: tuple[str, ...]) -> Template:
+        def blocks(chosen: Filter, ids: tuple[str, ...]) -> Template:
             new, open_, unlink = ids
 
-            def shown(line: bpy.types.UILayout, owner: Owner, key: str, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
+            def shown(line: bpy.types.UILayout, owner: Native, key: str, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
                 match self.preview.to_list():
                     case [PreviewGrid(rows=rows, cols=cols)]:
                         line.template_ID_preview(owner, key, new=new, open=open_, unlink=unlink, filter=chosen, rows=rows, cols=cols)
@@ -310,7 +309,7 @@ class Selector(Line, frozen=True, kw_only=True):
         def searched(parts: tuple[Resolved, tuple[str, ...]]) -> Template:
             collection, (new, unlink) = parts
 
-            def shown(line: bpy.types.UILayout, owner: Owner, key: str, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            def shown(line: bpy.types.UILayout, owner: Native, key: str, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for items, listed in located(collection, holder, context).to_list():
                     match self.preview.to_list():
                         case [PreviewGrid(rows=rows, cols=cols)]:
@@ -349,7 +348,7 @@ class Matrix(Line, frozen=True, kw_only=True):
 
     scope: Scoped
     settings: tuple[str, ...]
-    compound: "tuple[tuple[type[bpy.types.bpy_struct[object]], Callable[[bpy.types.UILayout, Owner, str], None]], ...]" = ()
+    compound: "tuple[tuple[type[bpy.types.bpy_struct[object]], Callable[[bpy.types.UILayout, Native, str], None]], ...]" = ()
     action: Option[tuple[Registrable, Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
@@ -362,7 +361,7 @@ class Matrix(Line, frozen=True, kw_only=True):
             action = self.action.map(lambda policy: (policy[0], lambda at: policy[1](at, setting)))
             template = Option.of_optional(next((place for kind, place in self.compound if isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, kind)), None))
 
-            def composed(place: Callable[[bpy.types.UILayout, Owner, str], None], action: Option[RowDraw]) -> RowDraw:
+            def composed(place: Callable[[bpy.types.UILayout, Native, str], None], action: Option[RowDraw]) -> RowDraw:
                 def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                     for owner, key in located(ResolvedMember(descriptor=setting), holder, context).to_list():
                         for draw in action.to_list():
@@ -701,7 +700,7 @@ def colored(held: Resolved) -> BlenderResult[Resolved]:
     return fits(held, (), (Rgb,))
 
 
-def located(held: Resolved, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[tuple[Owner, str]]:
+def located(held: Resolved, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[tuple[Native, str]]:
     """Locates the holder-compatible, explicit, or contextual property owner."""
     match held:
         case ResolvedMember(descriptor=descriptor, reach=reach):
@@ -907,7 +906,6 @@ __all__ = [
     "Member",
     "Opener",
     "OperatorButton",
-    "Owner",
     "Popover",
     "PreviewGrid",
     "Progress",

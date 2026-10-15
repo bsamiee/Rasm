@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-replace-all-by-hand
+language: tsx
+severity: error
+utils:
+    string-module:
+        matches: {effect-module: {name: {regex: '^String$'}}}
+    array-module:
+        matches: {effect-module: {name: {regex: '^Array$'}}}
+    fixed-regex:
+        kind: regex
+        all:
+            - has: {field: flags, all: [{regex: 'g'}, {regex: '^[dgmsuv]+$'}]}
+            - has: {field: pattern, regex: '^(?:[^\\^$.*+?()\[\]{}|/]|\\[\\^$.*+?()\[\]{}|/nrtfv])+$'}
+    separator:
+        kind: string
+        has: {kind: 'string_fragment, escape_sequence'}
+    plain-text:
+        kind: string
+        not: {has: {kind: escape_sequence, regex: '^\\[ux]'}}
+    native-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^split$'}}, {not: {has: {field: object, matches: string-module}}}]}
+            - has: {field: function, pattern: $SF}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: separator, pattern: $A}}, {not: {has: {nthChild: 2}}}]}
+    module-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^split$'}}, {has: {field: object, matches: string-module}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $S}}, {has: {nthChild: 2, matches: separator, pattern: $A}}, {not: {has: {nthChild: 3}}}]}
+    piped-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^split$'}}, {has: {field: object, matches: string-module}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: separator}}, {not: {has: {nthChild: 2}}}]}
+    piped-join:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, matches: array-module}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+    joined-split:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, any: [{matches: native-split}, {matches: module-split}]}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $T}}, {not: {has: {nthChild: 2}}}]}
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, matches: array-module}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, any: [{matches: native-split}, {matches: module-split}]}}, {has: {nthChild: 2, pattern: $T}}, {not: {has: {nthChild: 3}}}]}
+rule:
+    kind: call_expression
+    any:
+        - pattern: $FIXABLE
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(replace|replaceAll)$'}}, {not: {has: {field: object, matches: string-module}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: fixed-regex}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+        - matches: joined-split
+          any:
+            - {pattern: $FIXABLE, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: plain-text}}}
+            - pattern: $KEPT
+        - all:
+            - matches: piped-split
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(pipe|flow|compose)$'}}}
+            - precedes: {stopBy: {not: {regex: '^,$'}}, matches: piped-join}
+            - any:
+                - {pattern: $PIPED, precedes: {stopBy: {not: {regex: '^,$'}}, has: {field: arguments, has: {nthChild: 1, matches: plain-text, pattern: $PT}}}}
+                - pattern: $KEPT
+rewriters:
+    - id: regex-apostrophe
+      rule:
+        kind: call_expression
+        all:
+            - has: {field: function, pattern: $F}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: regex, has: {field: pattern, pattern: $P, regex: "'", not: {regex: '"'}}}}, {has: {nthChild: 2, pattern: $R}}]}
+      transform:
+        FN: {replace: {source: $F, replace: 'replace(?:All)?$', by: replaceAll}}
+        UNESCAPED: {replace: {source: $P, replace: '(\\[\\nrtfv])|\\(.)', by: '${1}${2}'}}
+      fix: $FN("$UNESCAPED", $R)
+    - id: regex
+      rule:
+        kind: call_expression
+        all:
+            - has: {field: function, pattern: $F}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: regex, has: {field: pattern, pattern: $P}}}, {has: {nthChild: 2, pattern: $R}}]}
+      transform:
+        FN: {replace: {source: $F, replace: 'replace(?:All)?$', by: replaceAll}}
+        UNESCAPED: {replace: {source: $P, replace: '(\\[\\nrtfv])|\\(.)', by: '${1}${2}'}}
+        LITERAL: {replace: {source: $UNESCAPED, replace: "'", by: "\\'"}}
+      fix: $FN('$LITERAL', $R)
+    - id: native
+      rule:
+        matches: joined-split
+        has: {stopBy: end, matches: native-split}
+      transform:
+        FN: {replace: {source: $SF, replace: 'split$', by: replaceAll}}
+        TEXT: {replace: {source: $T, replace: '\$', by: '$$$$'}}
+      fix: $FN($A, $TEXT)
+    - id: module-primary
+      rule:
+        matches: joined-split
+        has: {stopBy: end, matches: module-split, has: {field: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, call_expression, subscript_expression, parenthesized_expression, string, template_string, this, non_null_expression'}}}
+      transform:
+        TEXT: {replace: {source: $T, replace: '\$', by: '$$$$'}}
+      fix: $S.replaceAll($A, $TEXT)
+    - id: module
+      rule: {matches: joined-split}
+      transform:
+        TEXT: {replace: {source: $T, replace: '\$', by: '$$$$'}}
+      fix: ($S).replaceAll($A, $TEXT)
+transform:
+    FIXED: rewrite($FIXABLE, rewriters=[regex-apostrophe, regex, native, module-primary, module])
+    PIPED_HEAD: {replace: {source: $PIPED, replace: '^((?s:.*?))\bsplit\(((?s:.*))\)$', by: '${1}replaceAll(${2}, '}}
+    PIPED_TEXT: {replace: {source: $PT, replace: '\$', by: '$$$$'}}
+    PIPED_CLOSE: {replace: {source: $PIPED, replace: '^(?s:.+)$', by: ')'}}
+fix:
+    template: $FIXED$KEPT$PIPED_HEAD$PIPED_TEXT$PIPED_CLOSE
+    expandEnd:
+        stopBy: {not: {regex: '^,$'}}
+        matches: piped-join
+        follows: {stopBy: {not: {regex: '^,$'}}, matches: piped-split}
+        has: {field: arguments, has: {nthChild: 1, matches: plain-text}}
+message: '`$FIXABLE$KEPT$PIPED` replaces one fixed string through a regex or an array'
+note: '`<text>.replaceAll(<search>, <replacement>)` replaces every occurrence of a string, the fix keeps the `$` patterns a fixed-string `g` regex reads and doubles each `$` of a string `join` text that `split(<search>).join(<text>)` inserts as is, a computed `join` text stays unfixed since `replaceAll` reads its `$` patterns'

@@ -282,7 +282,7 @@ def decoded[T](path: Path, form: type[T]) -> BlenderResult[T]:
     try:
         value = msgspec.json.decode(path.read_bytes(), type=form, strict=True)
     except (msgspec.DecodeError, OSError) as error:
-        return Error((BlenderReadFault(request=str(path), error=error),))
+        return Error((BlenderReadFault(request=path, error=error),))
     return Ok(value)
 
 
@@ -305,7 +305,7 @@ def kept(identity: Identity, before: History[str], after: History[str]) -> Blend
             for file in files(identity, key):
                 file.unlink(missing_ok=True)
 
-    published: BlenderResult[None] = catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(path), error=error),))
+    published: BlenderResult[None] = catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=path, error=error),))
     return Result[None, BlenderFaults].bind(published, lambda _: accumulated(Previews(identity=identity).dropped(key.hex()) for key in dropped).map(lambda _: None))
 
 
@@ -316,11 +316,11 @@ def composite(path: Path) -> BlenderResult[npt.NDArray[np.float32]]:
     def selected(file: Multilayer) -> BlenderResult[npt.NDArray[np.float32]]:
         match Block.of_seq(file.layers).filter(lambda layer: layer.name.rpartition(".")[2] in {name, ""}).try_head():
             case Option(tag="some", some=layer):
-                return file.plane(layer, layer.channels).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                return file.plane(layer, layer.channels).map_error(BlenderImagingFault.lifted)
             case Option():
                 return Error((BlenderAbsentFault(owner=str(path), key=name),))
 
-    file: BlenderResult[Multilayer] = Multilayer.read(str(path)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    file: BlenderResult[Multilayer] = Multilayer.read(str(path)).map_error(BlenderImagingFault.lifted)
     return Result[Multilayer, BlenderFaults].bind(file, selected)
 
 
@@ -331,10 +331,10 @@ def tiled(identity: Identity, key: ContentHash, scale: float, plane: Option[npt.
         def resized(found: npt.NDArray[np.float32]) -> BlenderResult[npt.NDArray[np.float32]]:
             def pixels(buffer: OpenImageIO.ImageBuf) -> BlenderResult[npt.NDArray[np.float32]]:
                 return (
-                    Error((BlenderImagingFault(faults=(ImagingReadFault(request=str(files(identity, key)[0]), error=buffer.geterror()),)),))
+                    Error((BlenderImagingFault(faults=(ImagingReadFault(request=files(identity, key)[0], error=buffer.geterror()),)),))
                     if buffer.has_error
                     else Option.of_optional(buffer.get_pixels(OpenImageIO.FLOAT)).to_result_with(
-                        lambda: (BlenderImagingFault(faults=(ImagingReadFault(request=str(files(identity, key)[0]), error=buffer.geterror()),)),)
+                        lambda: (BlenderImagingFault(faults=(ImagingReadFault(request=files(identity, key)[0], error=buffer.geterror()),)),)
                     )
                 )
 
@@ -374,7 +374,7 @@ def recorded(identity: Identity, settings: Callable[[Identity], BlenderResult[Re
 
         if added is history:
             return Ok(None)
-        copied_frame: BlenderResult[None] = catch(copied, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(frame), error=error),))
+        copied_frame: BlenderResult[None] = catch(copied, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=frame, error=error),))
         return (
             Result[None, BlenderFaults]
             .bind(copied_frame, lambda _: kept(identity, history, added))
@@ -470,7 +470,7 @@ def compared(identity: Identity, context: bpy.types.Context) -> BlenderResult[Co
         chosen(identity, context)
         .bind(lambda pair: beneath(pair[0]).map(lambda below: (pair[1], below)))
         .bind(lambda entries: paired(composite(files(identity, entries[0].key)[0]), composite(files(identity, entries[1].key)[0])))
-        .bind(lambda planes: comparison_of(planes[0], planes[1], Domain.DISPLAY, data_range=1.0).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+        .bind(lambda planes: comparison_of(planes[0], planes[1], Domain.DISPLAY, data_range=1.0).map_error(BlenderImagingFault.lifted))
     )
 
 

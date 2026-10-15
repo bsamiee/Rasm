@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-dot-product-by-hand
+language: rust
+severity: error
+rule:
+    kind: 'binary_expression, call_expression'
+    pattern: $DOT
+    any:
+        - pattern: $A.x * $B.x + $A.y * $B.y + $A.z * $B.z + $A.w * $B.w
+        - pattern: $A.x * $B.x + $A.y * $B.y + $A.z * $B.z
+          not: {inside: {pattern: $_ + $A.w * $B.w}}
+        - pattern: $A.x * $B.x + $A.y * $B.y
+          not: {inside: {pattern: $_ + $A.z * $B.z}}
+        - pattern: $A.x.powi(2) + $A.y.powi(2) + $A.z.powi(2)
+        - pattern: $A.x.powi(2) + $A.y.powi(2)
+          not: {inside: {pattern: $_ + $A.z.powi(2)}}
+        - pattern: $A.x.hypot($A.y)
+message: '`$DOT` spells a dot product, squared length, or length of `$A` component by component'
+note: 'Hold the components in a catalog vector type and call its method: glam `Vec2`/`Vec3`/`DVec3` (`dot`, `length_squared`, `length`), nalgebra `Vector3` (`dot`, `norm_squared`, `norm`), or kurbo `Vec2` (`dot`, `hypot2`, `hypot`). Clippy `imprecise_flops` rewrites `(x * x + y * y).sqrt()` into `x.hypot(y)` and keeps the components'

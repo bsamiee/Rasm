@@ -21,15 +21,14 @@ rule:
                 - any:
                     - regex: '^\(\s*[A-Za-z_]\w*\s*,\s*"[^"{}\\]*(\\[^{}][^"{}\\]*)*"\s*,?\s*\)$'
                       has: {kind: string_literal, pattern: $TEXT}
-                    - regex: '^\(\s*[A-Za-z_]\w*\s*,\s*"\{\}"\s*,\s*"[^"\\]*(\\.[^"\\]*)*"\s*,?\s*\)$'
-                      has: {kind: string_literal, nthChild: {position: 2, ofRule: {kind: string_literal}}, pattern: $TEXT}
                     - regex: '^\(\s*[A-Za-z_]\w*\s*,?\s*\)$'
                       inside: {kind: macro_invocation, has: {field: macro, regex: 'writeln$'}}
         - matches: formatter-parameter
+        - not: {matches: rust-domain-span}
 transform:
     LINE: {replace: {source: $MACRO, replace: '^((std|core)::)?write(ln)?$', by: '$3'}}
     NEWLINE: {replace: {source: $LINE, replace: '^ln$', by: '\n'}}
     BODY: {replace: {source: $TEXT, replace: '^"([\s\S]*)"$', by: '$1'}}
 fix: '$F.write_str("$BODY$NEWLINE")'
 message: '`$MACRO!` formats a literal with no arguments into `$F`'
-note: 'Call `<formatter>.write_str("<text>")`, which writes the same bytes without building `fmt::Arguments`, a literal passed through `{}` and a bare `writeln!` are the same write'
+note: 'Call `<formatter>.write_str("<text>")`, the method writes the same bytes without building `fmt::Arguments`. A `writeln!(<formatter>)` with no text is the same write of `"\n"`. Clippy `write_literal` inlines a literal passed through `{}` into the format string, and this rule reports the result'

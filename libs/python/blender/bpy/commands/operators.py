@@ -4,12 +4,13 @@ from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
 from enum import auto, Enum
+from itertools import chain
 from pathlib import Path
-from typing import override, Protocol, TYPE_CHECKING
+from typing import override, Protocol, Self, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -64,6 +65,11 @@ class Done(msgspec.Struct, frozen=True, kw_only=True):
 
     notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()
     skipped: Option[BlenderFaults] = Nothing
+
+    @classmethod
+    def wrote(cls, paths: Iterable[str | Path]) -> Self:
+        """Reports each written path."""
+        return cls(notes=tuple(("INFO", f"Wrote {path}") for path in paths))
 
 
 class Unchanged(msgspec.Struct, frozen=True, kw_only=True):
@@ -247,7 +253,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 grouping: Option[str] = Nothing
             case False:
                 grouping = Nothing
-            case str() as label:
+            case str(label):
                 flags |= frozenset["rna_enums.OperatorTypeFlagItems"]({"UNDO_GROUPED"})
                 grouping = Some(label)
 
@@ -355,7 +361,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
                 opening = confirming
             case Suppressible() as suppressed:
-                members["__annotations__"] = {**made, "suppress": bpy.props.BoolProperty(name="Don't ask again", options={"SKIP_SAVE"})}
+                members["__annotations__"] = made | {"suppress": bpy.props.BoolProperty(name="Don't ask again", options={"SKIP_SAVE"})}
 
                 def asking(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
                     for layout in Option.of_optional(operator.layout).to_list():
@@ -409,14 +415,16 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
             case Open(extensions=extensions) | Save(extensions=extensions) as browser:
 
                 def formats(properties: bpy.types.OperatorProperties) -> tuple[str, ...]:
-                    if (record := (binding.read(properties))).is_error():
-                        raise RuntimeError(" ".join(text for _, text in rendered(record.error)))
-                    return extensions(record.ok)
+                    match binding.read(properties):
+                        case Result(tag="error", error=faults):
+                            raise RuntimeError(" ".join(text for _, text in rendered(faults)))
+                        case Result(ok=record):
+                            return extensions(record)
 
                 def filter_glob(properties: bpy.types.OperatorProperties) -> str:
                     return ";".join(f"*{extension}" for extension in formats(properties))
 
-                annotations = {**made, "filter_glob": bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"}, get=filter_glob)}
+                annotations = made | {"filter_glob": bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"}, get=filter_glob)}
                 if isinstance(browser, Open):
                     bases = (ImportHelper, bpy.types.Operator)
                     annotations |= {
@@ -448,16 +456,13 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                                 collisions = catch(lambda: tuple(destination for destination in paths if destination.exists()), exception=OSError)().map_error(
                                     lambda error: (BlenderReadFault(request=repr(paths), error=error),)
                                 )
-                                return managed(context).bind(
-                                    lambda manager: collisions.map(
-                                        lambda existing: (
-                                            manager.invoke_confirm(
-                                                operator, None, title="Replace existing files?", message="\n".join(str(destination) for destination in existing), confirm_text="Replace"
-                                            )
-                                            if existing
-                                            else accepted(operator, context)
-                                        )
-                                    )
+                                return managed(context).map2(
+                                    collisions,
+                                    lambda manager, existing: (
+                                        manager.invoke_confirm(operator, None, title="Replace existing files?", message="\n".join(str(destination) for destination in existing), confirm_text="Replace")
+                                        if existing
+                                        else accepted(operator, context)
+                                    ),
                                 )
 
                             return prepared(operator).bind(confirming).default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
@@ -481,6 +486,9 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                     return noted(operator, (*entries, *interactive.ended(operator, context, cancelled=True).map(lambda _: ()).default_with(rendered)), "CANCELLED")
 
                 def stepped(operator: bpy.types.Operator, context: bpy.types.Context, result: BlenderResult["rna_enums.OperatorReturnItems"]) -> set["rna_enums.OperatorReturnItems"]:
+                    def refused(faults: BlenderFaults) -> set["rna_enums.OperatorReturnItems"]:
+                        return cancelled(operator, context, rendered(faults))
+
                     def returned(outcome: "rna_enums.OperatorReturnItems") -> set["rna_enums.OperatorReturnItems"]:
                         match outcome:
                             case "FINISHED":
@@ -493,28 +501,21 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                                             return finished(
                                                 operator,
                                                 Ok(
-                                                    released
-                                                    .swap()
-                                                    .to_option()
-                                                    .map(lambda faults: msgspec.structs.replace(done, skipped=Some((*(fault for held in skipped.to_list() for fault in held), *faults))))
-                                                    .default_value(done)
+                                                    released.map(lambda _: done).default_with(
+                                                        lambda faults: msgspec.structs.replace(done, skipped=Some((*chain.from_iterable(skipped.to_list()), *faults)))
+                                                    )
                                                 ),
                                             )
                                         case Unchanged():
                                             return finished(operator, interactive.ended(operator, context, cancelled=True).map(lambda _: ran))
 
-                                return (
-                                    prepared(operator)
-                                    .bind(lambda given: performed(operator, context, *given))
-                                    .map(completed)
-                                    .default_with(lambda faults: cancelled(operator, context, rendered(faults)))
-                                )
+                                return prepared(operator).bind(lambda given: performed(operator, context, *given)).map(completed).default_with(refused)
                             case "CANCELLED":
                                 return cancelled(operator, context, ())
                             case _:
                                 return {outcome}
 
-                    return result.map(returned).default_with(lambda faults: cancelled(operator, context, rendered(faults)))
+                    return result.map(returned).default_with(refused)
 
                 def began(
                     operator: bpy.types.Operator, context: bpy.types.Context, manager: bpy.types.WindowManager, event: bpy.types.Event, _record: T

@@ -21,4 +21,4 @@ transform:
     NEXT: {rewrite: {source: $E, rewriters: [current-read]}}
 fix: '$C.update(|current| $NEXT)'
 message: '`$C.set(..)` writes a value computed from `$C.get()`'
-note: 'Call `<cell>.update(|current| <next>)` (`Cell`, Rust 1.88, `LocalKey<Cell<T>>`, Rust 1.99), which reads, computes, and writes in one call, clippy `redundant_closure` then reduces a closure calling one function to `update(<f>)`, a value passing the cell to another call stays as written since `update` reads the cell before that call runs'
+note: 'Call `<cell>.update(|current| <next>)` on a `Cell` or a `LocalKey<Cell<T>>`, the method reads, computes, and writes in one call. Clippy `redundant_closure` reduces a closure calling one function to `update(<f>)`. A value passing the cell to another call stays as written, `update` reads the cell before that call runs. The `unshared_cell` dylint owns a local cell no closure captures and replaces it with `let mut`'

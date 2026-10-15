@@ -9,7 +9,8 @@ const _UXP_MODULE = /^adobe:/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const project = <A extends object>(directory: string, config: A): A & { readonly cacheDir: string } => ({ ...config, cacheDir: join(_ROOT, '.cache', 'vite', relative(_ROOT, directory)) });
+const project = (directory: string, config: UserConfig): UserConfig => ({ ...config, cacheDir: join(_ROOT, '.cache', 'vite', relative(_ROOT, directory)) });
+const web = (directory: string, config: UserConfig): UserConfig => project(directory, { ...config, build: { ...config.build, target: 'esnext' }, server: { ...config.server, strictPort: true } });
 
 const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: object }): UserConfig =>
     project(directory, {
@@ -32,4 +33,4 @@ const uxp = (directory: string, { main, manifest }: { readonly main: string; rea
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { project, uxp };
+export { project, uxp, web };

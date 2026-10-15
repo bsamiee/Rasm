@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-replace-with-empty
+language: rust
+severity: error
+rule:
+    kind: assignment_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $S = $S.replace($P, "")
+            - pattern: '*$S = $S.replace($P, "")'
+fix: $S.remove_matches($P)
+message: '`replace` with an empty replacement rebuilds `$S`'
+note: 'Call `<string>.remove_matches(<pattern>)` (`#![feature(string_remove_matches)]`), `remove_matches` removes every non-overlapping match in place with no second `String`'

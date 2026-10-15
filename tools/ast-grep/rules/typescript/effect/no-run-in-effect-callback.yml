@@ -87,7 +87,11 @@ rule:
             has:
                 stopBy: {not: {kind: 'object, pair'}}
                 matches: callback
-                has: {stopBy: {matches: syntax-function-boundary}, matches: run-invocation, pattern: $RUN}
+                has:
+                    stopBy: {matches: syntax-function-boundary}
+                    matches: run-invocation
+                    pattern: $RUN
+                    not: {inside: {matches: effect-generator-function, stopBy: end}}
 rewriters:
     - id: effect-argument
       rule: {matches: run-call}

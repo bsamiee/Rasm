@@ -158,7 +158,7 @@ internal sealed partial class SplineShape {
 
         static Option<double> Preserved(Interval span, double entry, double exit) =>
             (entry + ((Math.Abs(entry) > Math.Abs(exit) ? 1d - 0.2 : 0.2) * (exit - entry))) switch {
-                var near when near == 0d => None,
+                var near when near is 0d => None,
                 var near => (0.75 * 2d * span.Secant / near) switch {
                     var scale when scale < 1d => Some(scale),
                     _ => None,

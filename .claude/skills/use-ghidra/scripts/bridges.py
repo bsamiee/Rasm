@@ -96,7 +96,7 @@ def commands(event: Session, found: tuple[Bridge, ...], projects: tuple[Path, ..
 def main() -> None:
     """Start each command in its own session, a bridge's save at `ghidra stop` outlasts the hook."""
     event = msgspec.json.decode(sys.stdin.buffer.read(), type=Session)
-    settings = msgspec.convert(dict(os.environ), Settings)
+    settings = msgspec.convert(os.environ, Settings)
     projects = tuple(path.with_suffix("") for path in Path(settings.projects).glob("*.gpr"))
     for command, environ in commands(event, bridges(), projects, os.environ):
         subprocess.Popen(command, env=environ, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)

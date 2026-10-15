@@ -45,6 +45,7 @@ from blender.bpy.render.previews.tiles import fitted, scaled, Tiles
 from blender.bpy.scene.materials import Clay, shaded
 from blender.bpy.scene.worlds import Environment
 from blender.bpy.settings.attachments import Attached, Attachment
+from blender.bpy.settings.presets import removed
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.drawing.canvas import Align, Canvas, Rect, Shadow
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal
@@ -515,7 +516,7 @@ class NodePreview:
                         image = ImageFile(pixels=codes(unassociated(plane), 8) if depth is Depth.UINT8 else codes(unassociated(plane), 16), colorspace=space).write(str(path), Storage(), {}, config)
                     case Depth.HALF | Depth.FLOAT:
                         image = ImageFile(pixels=plane, colorspace=space).write(str(path), Storage(depth=16 if depth is Depth.HALF else 32), {}, config)
-                return image.map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                return image.map_error(BlenderImagingFault.lifted)
 
             return Result[Format, BlenderFaults].bind(chosen, write)
 
@@ -552,7 +553,7 @@ class NodePreview:
                 paired(paired(viewing, active), paired(self.settings(call.identity), self.stack.config()))
                 .bind(lambda parts: chosen(*parts[0][0], parts[0][1], parts[1][0]).bind(lambda render: call.root(bpy.types.Scene).bind(lambda scene: wrote(scene, render, *parts[1]))))
                 .bind(lambda name: loaded(name, Tag()).map(lambda _: name) if call.record.opened else Ok(name))
-                .map(lambda name: Done(notes=(("INFO", f"Wrote {name}"),)))
+                .map(lambda name: Done.wrote((name,)))
             )
 
         self.export = Operator(
@@ -695,7 +696,7 @@ class NodePreview:
 
                 def written_file(content: ContentHash) -> BlenderResult[None]:
                     directory: BlenderResult[None] = catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map_error(
-                        lambda error: (BlenderWriteFault(request=str(folder), error=error),)
+                        lambda error: (BlenderWriteFault(request=folder, error=error),)
                     )
                     return (
                         Result[None, BlenderFaults]
@@ -706,7 +707,7 @@ class NodePreview:
                                 .write(
                                     str(folder / f"{content.hex()}.exr"), Storage(depth=16), number.map(lambda held_value: {name: msgspec.json.encode(held_value).decode()}).default_value({}), config
                                 )
-                                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                                .map_error(BlenderImagingFault.lifted)
                             ),
                         )
                         .bind(lambda _: pruned(folder, limit))
@@ -759,7 +760,7 @@ class NodePreview:
                     lighting=settings.lighting,
                     view=viewed(source),
                     frame=(source.frame_current,) if settings.frames else (),
-                    host=(tuple(bpy.app.version), bpy.app.build_hash),
+                    host=(bpy.app.version, bpy.app.build_hash),
                     config=config.getCacheID(),
                 )
 
@@ -894,13 +895,13 @@ class NodePreview:
             shown = tuple(
                 view for view in views if settings.enabled and view[0].source.kind in settings.trees and not (isinstance(view[3], bpy.types.CompositorNodeTree) and view[1].overlay.show_previews)
             )
-            editors = accumulated(itertools.starmap(viewed_in, shown)).map(lambda parts: tuple(plan for part in parts for plan in part)).bind(scheduled)
+            editors = accumulated(itertools.starmap(viewed_in, shown)).map(lambda parts: tuple(itertools.chain.from_iterable(parts))).bind(scheduled)
             stages = accumulated(
                 stage_job(target, scale)
                 for target, scale in state.stages.items()
                 if isinstance(target.source, CompositorSource) and target.source.scene == Handle.of(scene) and target.source.entry in scene.compositor_effects
             )
-            return paired(editors, stages).map(lambda parts: (*parts[0], *(job for group in parts[1] for job in group)))
+            return paired(editors, stages).map(lambda parts: (*parts[0], *itertools.chain.from_iterable(parts[1])))
 
         scene: BlenderResult[bpy.types.Scene] = Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
         return paired(paired(scene, self.settings(identity)), paired(self.stack.config(), identity.name(Name.ATTACHMENT, PreviewScene.value))).bind(lambda parts: planned(*parts[0], *parts[1]))
@@ -1514,7 +1515,7 @@ def restored(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config,
         return (
             TextureCache(identity=identity)
             .stored(key, image.pixels, limit, kept)
-            .bind(lambda _: catch(lambda: os.utime(path), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(path), error=error),)))
+            .bind(lambda _: catch(lambda: os.utime(path), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=path, error=error),)))
             .map(lambda _: NodePreview.state[identity.package].values.update(numbers))
             .map(lambda _: True)
         )
@@ -1523,7 +1524,7 @@ def restored(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config,
         case Result(tag="error", error=faults) if all(isinstance(fault, ImagingReadFault) for fault in faults):
             return Ok(False)
         case Result(tag="error", error=faults):
-            return Error((BlenderImagingFault(faults=faults),))
+            return Error(BlenderImagingFault.lifted(faults))
         case Result(ok=image):
             return cached(image)
 
@@ -1533,15 +1534,10 @@ def flipped(attached: Attached[NodeSetting], node: bpy.types.Node) -> BlenderRes
     return attached.read(node).bind(lambda held: attached.write(node, msgspec.structs.replace(held, show=not held.show)))
 
 
-def removed(path: Path) -> BlenderResult[None]:
-    """Removes one stored thumbnail, its refusal answering `write`."""
-    return catch(path.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(path), error=error),))
-
-
 def pruned(folder: Path, limit: int) -> BlenderResult[None]:
     """Removes the oldest stored thumbnails past the limit by file time."""
     files: BlenderResult[tuple[Path, ...]] = catch(lambda: tuple(sorted(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime)), exception=OSError)().map_error(
-        lambda error: (BlenderReadFault(request=str(folder), error=error),)
+        lambda error: (BlenderReadFault(request=folder, error=error),)
     )
     return Result[tuple[Path, ...], BlenderFaults].bind(files, lambda files: accumulated(removed(path) for path in files[:-limit])).map(lambda _: None)
 

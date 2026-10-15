@@ -11,7 +11,7 @@ public static class Edits {
         IO.pure(record.Response).Bind(response => Callbacks.Each(Seq(
             when(response.HasFlag(Effects.ExpireLayout) || response.HasFlag(Effects.InvalidateLayout), IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.Invalidate()))).As(),
             when(response.HasFlag(Effects.ExpireSolution) || response.HasFlag(Effects.InvalidateSolution), IO.lift(() => ignore(document.Solution.Start()))).As(),
-            when(response.HasFlag(Effects.ExpireDisplay) || response.HasFlag(Effects.InvalidateDisplay), IO.lift(document.Display.UpdateDisplay)).As()))).Map(static _ => unit);
+            when(response.HasFlag(Effects.ExpireDisplay) || response.HasFlag(Effects.InvalidateDisplay), IO.lift(document.Display.UpdateDisplay)).As()))).Map(unit);
 
     public static IO<A> Commit<A>(Document document, VerbNoun name, AutoSaveReason reason, Func<ActionList, IO<A>> body) =>
         (from environment in envIO
@@ -27,7 +27,7 @@ public static class Edits {
         IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
             Some: held => IO.lift(() => document.Undo.Do(held))
                 .Bind(_ => Callbacks.Each(Seq(IO.lift(() => ignore(document.File.AutoSave(reason))), Respond(document, held))))
-                .Map(static _ => unit),
+                .Map(unit),
             None: static () => IO.pure(unit)));
 
     // --- [CLUSTERS]

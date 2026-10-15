@@ -33,7 +33,7 @@ jobs:
             - run: nx run rasm:check
               env:
                 DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
-            - run: nx affected -t check --exclude='tag:host:macos,tag:host:rhino,tag:host:claude'
+            - run: nx affected -t check --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude'
               env:
                 DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
 

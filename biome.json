@@ -39,6 +39,8 @@
                 "noTopLevelLiterals": "error",
                 "noUnmodifiedLoopCondition": "error",
                 "noUnnecessaryTemplateExpression": "error",
+                "noUnsafeTypeAssertion": "error",
+                "noUselessTypeConversion": "error",
                 "useArraySome": "error",
                 "useBaseline": { "level": "error", "options": { "available": "newly" } },
                 "useConsistentObjectKeys": "error",
@@ -49,13 +51,17 @@
                 "useFlatMathMinMax": "error",
                 "useIframeSandbox": "error",
                 "useImportsFirst": "error",
+                "useIncludes": "error",
                 "useMathMinMax": "error",
                 "useModernMathApis": "error",
                 "useNamedCaptureGroup": "error",
                 "useNamedLayer": "error",
+                "useNullishCoalescing": "error",
                 "useReduceTypeParameter": "error",
+                "useRegexpExec": "error",
                 "useRegexpTest": "error",
                 "useSortedClasses": "error",
+                "useStringStartsEndsWith": "error",
                 "useThisInClassMethods": { "level": "error", "options": { "ignoreOverrideMethods": true } },
                 "useUnicodeRegex": "error",
                 "useValidTestTitle": "error"
@@ -82,10 +88,11 @@
                         "noJsxLiterals": "off",
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
                         "noTernary": "off",
+                        "useConsistentMemberAccessibility": { "level": "error", "options": { "accessibility": "none" } },
                         "useNamingConvention": "off",
                         "useReadonlyClassProperties": { "level": "error", "options": { "checkAllProperties": true } }
                     },
-                    "suspicious": { "noLeakedRender": "off", "noReactSpecificProps": "off", "noShadowRestrictedNames": "off" }
+                    "suspicious": { "noBitwiseOperators": { "level": "error", "options": { "allow": [ "&" ] } }, "noLeakedRender": "off", "noReactSpecificProps": "off", "noShadowRestrictedNames": "off" }
                 }
             }
         },

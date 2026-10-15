@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-spinner-for-control
-language: swift
+language: swiftlang
 severity: error
 utils:
     spinner: {matches: {swift-chain-root: {root: {kind: simple_identifier, regex: '^ProgressView$'}}}}

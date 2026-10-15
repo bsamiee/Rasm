@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untyped-file-attribute
+language: swiftlang
+severity: error
+utils:
+    callee:
+        nthChild: 1
+        kind: navigation_expression
+        has: {field: suffix, has: {field: suffix, pattern: $MEMBER}}
+    resource-key:
+        kind: prefix_expression
+        regex: '^\.(modificationDate|creationDate|extensionHidden|immutable)$'
+    dictionary-key:
+        kind: prefix_expression
+        precedes: {regex: '^:$'}
+    resource-call:
+        kind: call_expression
+        has: {matches: callee, regex: '\.resourceValues$'}
+    resource-values:
+        any:
+            - matches: resource-call
+            - kind: try_expression
+              has: {field: expr, matches: resource-call}
+            - kind: simple_identifier
+              pattern: $VALUES
+              inside:
+                stopBy: end
+                kind: statements
+                has: {kind: property_declaration, all: [{has: {field: name, has: {field: bound_identifier, pattern: $VALUES}}}, {has: {kind: type_annotation, regex: 'URLResourceValues$'}}]}
+rule:
+    pattern: $SITE
+    any:
+        - kind: call_expression
+          all:
+            - has: {matches: callee, regex: '\.setAttributes$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: 1, kind: value_argument, has: {field: value, kind: dictionary_literal, has: {matches: dictionary-key}, not: {has: {matches: dictionary-key, not: {matches: resource-key}}}}}}}
+        - kind: call_expression
+          all:
+            - has: {matches: callee, regex: '\.fileExists$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^isDirectory$'}}}}
+        - kind: navigation_expression
+          all:
+            - has: {field: suffix, has: {field: suffix, regex: '^allValues$'}}
+            - has: {field: target, matches: resource-values}
+message: '`$SITE` reads or writes a file attribute through an untyped key in place of a typed `URLResourceValues` property'
+note: 'Read `try url.resourceValues(forKeys: [<key>]).<property>` (`isDirectory`, `isApplication`, `contentModificationDate`), and write by setting the property on a `var URLResourceValues` passed to `setResourceValues(_:)` (`contentModificationDate`, `creationDate`, `hasHiddenExtension`, `isUserImmutable`), each property carries its type where the dictionaries carry `Any`'

@@ -127,7 +127,7 @@ public static class ChoiceRows {
         ContextMenu menu, Seq<Seq<MenuEntry>> groups, Seq<IO<Unit>> refreshes, Option<IO<Seq<MenuPick>>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
             from site in IO.pure(new CallbackSite(sink, typeof(ContextMenu), nameof(ContextMenu.Opening)))
-            from entries in Entries(groups, site, keep, menu.Items.Count != 0)
+            from entries in Entries(groups, site, keep, menu.Items.Count is not 0)
             from inserted in IO.lift(() => {
                 IDisposable owned = new Disposal<Seq<MenuItem>>(entries, held => Removed(menu.Items, held).Run());
                 keep(owned);
@@ -136,22 +136,16 @@ public static class ChoiceRows {
             from opened in Opened(menu.Items, h => menu.Opening += h, h => menu.Opening -= h, refreshes, listing, site, keep)
             select unit, (_, release) => retain(release));
 
-    public static Func<Option<Label>, Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<Unit>> Context(
+    public static Func<Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<ContextMenu>> Context(
         Control control, Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, IPlugInSink sink) =>
-        (_, groups, refresh, retain) => Attached(control, own, refreshes, groups, refresh, sink, retain);
-
-    public static Func<Option<Label>, Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<Unit>> Labelled(
-        Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, IPlugInSink sink) =>
-        (label, groups, refresh, retain) => label.Match(
-            Some: held => Attached(held, own, refreshes, groups, refresh, sink, retain),
-            None: static () => IO.pure(unit));
-
-    private static IO<Unit> Attached(
-        Control control, Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, Seq<Seq<Command>> groups, IO<Unit> refresh, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(keep =>
-            from menu in Menu(own + groups.Map(static cluster => cluster.Map<MenuEntry>(static command => new MenuEntry.Item(command))), refreshes.Add(refresh), None, sink, keep)
+        (groups, refresh, retain) => DisposalOps.Acquire(keep =>
+            from menu in Labelled(own, refreshes, sink)(groups, refresh, keep)
             from attached in DisposalOps.Change(() => control.ContextMenu, value => control.ContextMenu = value, menu, keep)
-            select unit, (_, release) => retain(release));
+            select menu, (_, release) => retain(release));
+
+    public static Func<Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<ContextMenu>> Labelled(
+        Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, IPlugInSink sink) =>
+        (groups, refresh, retain) => Menu(own + groups.Map(static cluster => cluster.Map<MenuEntry>(static command => new MenuEntry.Item(command))), refreshes.Add(refresh), None, sink, retain);
 
     // --- [SEARCH]
     public static IO<SearchBox> Search(string placeholder, Func<Func<string, bool>, IO<Unit>> filter, IPlugInSink sink, Action<IDisposable> retain) =>
@@ -192,7 +186,7 @@ public static class ChoiceRows {
             IO.lift(() => held.Value.Bind(current => current.Value(popup.SelectedValue))),
             (Func<Seq<ChoiceItem<TModel>>, IO<bool>>)(next => held.ValueIO.Bind(current => current.Match(
                 Some: listing => listing.Rows.Map(static row => row.Item).Equals(next)
-                    ? IO.pure(value: false) : replace(next).Map(static _ => true),
+                    ? IO.pure(value: false) : replace(next).Map(value: true),
                 None: static () => IO.pure(value: false)))));
 
     private static IO<Seq<(ChoiceItem<TModel> Item, ImageListItem Entry)>> Listed<TModel>(
@@ -231,7 +225,7 @@ public static class ChoiceRows {
 
     private static IO<Seq<MenuItem>> Entries(Seq<Seq<MenuEntry>> groups, CallbackSite site, Action<IDisposable> retain, bool preceding = false) =>
         DisposalOps.AcquireAll(groups.Filter(static group => !group.IsEmpty).Map((group, index) =>
-            (preceding || index != 0
+            (preceding || index is not 0
                 ? Seq<Func<Action<IDisposable>, IO<MenuItem>>>(static keep => DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), static held => IO.lift(held.Dispose), keep).Map(static separator => (MenuItem)separator))
                 : Seq<Func<Action<IDisposable>, IO<MenuItem>>>())
             .Concat(group.Map(entry => (Func<Action<IDisposable>, IO<MenuItem>>)(keep => Entry(entry, site, keep))))).Flatten(), DisposalOps.Release, (_, lease) => retain(lease));
@@ -242,7 +236,7 @@ public static class ChoiceRows {
                 DisposalOps.Acquire(IO.lift(() => {
                     MenuItem created = item.Command.CreateMenuItem();
                     return (Item: created, Release: (IDisposable)new Disposal<MenuItem>(created, static held =>
-                        Callbacks.Each(Seq(IO.lift(() => { held.Command = null; }), IO.lift(held.Unbind), IO.lift(held.Dispose))).Map(static _ => unit).Run()));
+                        Callbacks.Each(Seq(IO.lift(() => { held.Command = null; }), IO.lift(held.Unbind), IO.lift(held.Dispose))).Map(unit).Run()));
                 }), static held => IO.lift(held.Release.Dispose), held => at.Retain(held.Release)).Map(static held => held.Item),
             submenu: static (at, submenu) =>
                 from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), static held => IO.lift(held.Dispose), at.Retain)
@@ -286,14 +280,14 @@ public static class ChoiceRows {
         from attached in Subscriptions.Attach(add, remove, Callbacks.Handler<EventArgs>(_ => Callbacks.Each(refreshes + listing.Map(read =>
             clear.Bind(_ => read).Bind(picks => DisposalOps.AcquireAll(
                 picks.Map(pick => (Func<Action<IDisposable>, IO<MenuItem>>)(keep => Pick(pick, site, keep)))
-                    .Concat(!picks.IsEmpty && items.Count != 0
+                    .Concat(!picks.IsEmpty && items.Count is not 0
                         ? Seq<Func<Action<IDisposable>, IO<MenuItem>>>(static keep =>
                             DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), static held => IO.lift(held.Dispose), keep).Map(static separator => (MenuItem)separator))
                         : Seq<Func<Action<IDisposable>, IO<MenuItem>>>())
                     .Map((factory, index) => (Func<Action<IDisposable>, IO<Unit>>)(keep => Placed(items, factory, index, keep))),
                 DisposalOps.Release, (_, lease) => atomic(() =>
                     owned.Held.ToFin(Errors.Cancelled).Map(_ => shown.Value = Seq(lease)).ThrowIfFail())))
-                .Map(static _ => unit)).ToSeq()).Map(static _ => unit), site), retain)
+                .Map(unit)).ToSeq()).Map(static _ => unit), site), retain)
         select unit;
 
     private static IO<Unit> Placed(MenuItemCollection items, Func<Action<IDisposable>, IO<MenuItem>> factory, int index, Action<IDisposable> keep) =>
@@ -303,7 +297,7 @@ public static class ChoiceRows {
         select unit;
 
     private static IO<Unit> Removed(MenuItemCollection items, Seq<MenuItem> held) =>
-        Callbacks.Each(held.Map(entry => IO.lift(() => items.Remove(entry)).Map(static _ => unit))).Map(static _ => unit).Uninterruptible();
+        Callbacks.Each(held.Map(entry => IO.lift(() => items.Remove(entry)).Map(unit))).Map(static _ => unit).Uninterruptible();
 
     private sealed record Listing<TModel>(Seq<(ChoiceItem<TModel> Item, ImageListItem Entry)> Rows, IDisposable Themed) where TModel : notnull {
         public Seq<object> Entries => Rows.Map(static row => (object)row.Entry);

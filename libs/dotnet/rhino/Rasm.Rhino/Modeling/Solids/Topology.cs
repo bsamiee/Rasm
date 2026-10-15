@@ -257,7 +257,7 @@ public static class SolidTopology {
                 (IO.lift(() => Copies.InRange(split.Face.ToSeq(), edited.Copy.Faces.Count, nameof(BrepFaceList.SplitKinkyFace)))
                  >> IO.lift(() => split.Face.Match(
                      Some: face => Refused.Unless(edited.Copy.Faces.SplitKinkyFace(face, edited.Tolerances.Angle), nameof(BrepFaceList.SplitKinkyFace)),
-                     None: () => Refused.Unless(edited.Copy.Faces.SplitKinkyFaces(edited.Tolerances.Angle, compact: false), nameof(BrepFaceList.SplitKinkyFaces)))))
+                     None: () => Refused.Unless(edited.Copy.Faces.SplitKinkyFaces(edited.Tolerances.Angle), nameof(BrepFaceList.SplitKinkyFaces)))))
                     .As().Map(EditResult<int>.CreateCompleted()),
             splitKinkyEdge: static (edited, split) =>
                 (IO.lift(() => IndexOutOfRange.Unless(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitKinkyEdge)))
@@ -292,7 +292,7 @@ public static class SolidTopology {
             removeHoles: static (of, holes) =>
                 (IO.lift(() => Callbacks.Each(toSeq(holes.Loops), (loop, _) =>
                     IndexOutOfRange.Unless(loop, of.Source.Loops.Count, nameof(Brep.RemoveHoles)) switch {
-                        Fin<Unit>.Succ => RefusedElement.Unless(of.Source.Loops[loop].LoopType == BrepLoopType.Inner, nameof(Brep.RemoveHoles), loop),
+                        Fin<Unit>.Succ => RefusedElement.Unless(of.Source.Loops[loop].LoopType is BrepLoopType.Inner, nameof(Brep.RemoveHoles), loop),
                         var failed => failed,
                     }))
                  >> Copies.Acquire(() => of.Source.RemoveHoles(toSeq(holes.Loops).Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop)), of.Tolerances.Absolute), nameof(Brep.RemoveHoles), of.Retain)).As(),
@@ -332,7 +332,7 @@ public static class SolidTopology {
         IO.lift(() => Callbacks.Found(
                 brep.ClosestPoint(testPoint, out Point3d closest, out ComponentIndex component, out double s, out double t, Conversions.Unset(within.Map(static distance => (double)distance)), out Vector3d normal),
                 (Closest: closest, Component: component, S: s, T: t, Normal: normal))
-            .Map(static at => at.Component.ComponentIndexType == ComponentIndexType.BrepEdge
+            .Map(static at => at.Component.ComponentIndexType is ComponentIndexType.BrepEdge
                 ? (BrepPoint)new BrepPoint.OnEdge(at.Closest, at.Component.Index, at.S, at.Normal)
                 : new BrepPoint.OnFace(at.Closest, at.Component.Index, new Point2d(at.S, at.T), at.Normal)));
 

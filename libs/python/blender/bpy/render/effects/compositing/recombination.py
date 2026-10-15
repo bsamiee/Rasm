@@ -166,11 +166,11 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
                     at = f"{key}_{field.name}"
                     return (
                         term(at, source, ("direct", "indirect", "color"), render, offered, lobe).map(
-                            lambda answer: answer.bind(lambda body: filtered(at, body, Some(source), getattr(filters.terms, field.name), Passes)).map(lambda body: (field.name, body))
+                            lambda answer: answer.bind(lambda body: filtered(at, body, Some(source), getattr(filters.terms, field.name), Passes))
                         )
                         if isinstance(source, Family)
-                        else Some(socket(source.socket).bind(lambda body: filtered(at, (Fragment(), body), Nothing, getattr(filters.terms, field.name), Passes)).map(lambda body: (field.name, body)))
-                    )
+                        else Some(socket(source.socket).bind(lambda body: filtered(at, (Fragment(), body), Nothing, getattr(filters.terms, field.name), Passes)))
+                    ).map(lambda answer: answer.map(lambda body: (field.name, body)))
 
                 def summed_lobes(parts: tuple[tuple[str, tuple[Fragment, End]], ...]) -> BlenderResult[tuple[Fragment, End]]:
                     by_name = dict(parts)

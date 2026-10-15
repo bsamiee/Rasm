@@ -50,7 +50,7 @@ public sealed class FrameComparison {
 
     public Verdict Graded(ComparisonBars bars) =>
         bars.Psnr.Graded(level => Psnr >= level)
-            .Max(Nrmse.Match(Some: nrmse => bars.Nrmse.Graded(level => nrmse <= level), None: static () => Verdict.Unmeasured));
+            .Max(Nrmse.Match(Some: nrmse => bars.Nrmse.Graded(level => nrmse <= level), None: Verdict.Unmeasured));
 
     private static FrameComparison Measured(PixelFrame reference, PixelFrame test) {
         using MemoryOwner<Measure> rows = MemoryOwner<Measure>.Allocate(test.Size.Height);

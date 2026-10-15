@@ -2,6 +2,8 @@
 
 Forms and facts per tool an agent step names, run from repository root.
 
+Use `use-ast-grep` for ast-grep forms and exits
+
 ## [01]-[GIT]
 
 - `git diff --name-only --diff-filter=ACMR <commit>` lists changed files on disk, `git ls-files --others --exclude-standard` adds untracked ones
@@ -21,11 +23,9 @@ Forms and facts per tool an agent step names, run from repository root.
 - `fd -e yml . <dir> -x basename {} .yml | paste -sd'|' -` derives an id alternation from file names
 - `rg -n -F '<text>'` exits 1 on an absent spelling, `rg -l -F` lists files for `sd`
 - `rg` refuses look-around without `--pcre2`, `--pcre2` refuses an unknown escape (`\y`)
-- `rg -nU --pcre2 -e '^[ \t]*(#(?!!)|//|<!--|/\*)' -e '^[ \t]*(message|note):' -e '"""[\s\S]*?"""' <files>` extracts comments and rule text
 - `sd -F '<old>' '<new>' <files>` rewrites a fixed string line by line, a find spanning lines takes `-A`, without it `sd` matches nothing and exits 0
 - `sd` takes `--` before a find or replacement opening with `-`, a `$1` capture reads as `${1}` before a word character
 - `jq` and `yq` refuse a JSON file with `//` comments, `Read` reads it
-- `yq -r '[.id, .message] | join(" | ")' <rules>/*.yml` maps a rule family
 - `stat -f '%m %N' <file>` prints the modification time
 - `mktemp -d <dir>/tmp.XXXXXX` makes a private directory under a tree other sessions write
 
@@ -42,10 +42,6 @@ Forms and facts per tool an agent step names, run from repository root.
 
 - `nx affected -t <target> --files=<path>[,<path>]` runs each file's project with its dependents, a plugin file of `nx.json` every project
 - `nx show project <project> --json | jq '.targets|keys'` lists targets, `jq '.targets.<target>.inputs'` the hashed inputs
-- `nx run rasm:outline -- <path> --items structure` maps a file, `--view names`, `signatures`, `expanded`, or `digest` set depth
-- `-l <lang>` outlines a directory of one language, `--json=compact` prints one array
-- `--color never` fails outline target's schema, the target sets `NO_COLOR=1` for its own run
-- Outline maps bundled languages, markdown included, and custom languages `sgconfig.yml` names, and prints `nothing found` for the rest
 
 ## [05]-[PACKAGE_MANAGERS]
 
@@ -62,30 +58,14 @@ Use `dotnet-msbuild-diagnostics` for binlog capture.
 - `fd -e csproj . <scope> -x dotnet msbuild {} -getItem:PackageReference` evaluates a scope in one call
 - `dotnet msbuild <file> -getProperty:MSBuildProjectFile` is the parse check, a broken file answers `MSB4025`
 - `nx run rasm:lint:dotnet-format` is the writer's solution-wide check form
-- `-p:LangVersion=7.3` produces a failing build without a repository edit
-- `Csc` execution count in `mcp__binlog__binlog_expensive_tasks` shows a compile, a duration shows none
 
-## [07]-[AST_GREP]
-
-- `ast-grep scan --custom-languages allow <missing>` prints `ERROR: <path>: No such file or directory` at exit 0
-- `ast-grep run --custom-languages allow -p '<p>' -l <lang> <missing>` exits 1
-- `printf '%s' '<code>' | ast-grep scan --custom-languages allow --inline-rules '<yaml>' --json --stdin` exits 1 on an `error` match, 0 with `[]` on a miss, 8 on a parse error
-- `--stdin` reports every inline rule, `--filter` selects among them
-- Rules below `severity: error` print `warning[<id>]` or `help[<id>]` at exit 0 on a match
-- `ast-grep scan --custom-languages allow --inspect entity <file> 2>&1 >/dev/null | rg '\|<id>:'` lists a registered rule, `--inspect summary` prints `scannedFileCount`
-- `ast-grep scan --custom-languages allow --no-ignore hidden <scope>` reaches hidden trees
-- `ast-grep run --custom-languages allow -p '<old>' -r '<new>' -l tsx -U <dir>` rewrites under one directory
-- `ast-grep scan --custom-languages allow --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c` counts hits per rule in one scan
-- `mcp__ast-grep__find_code_by_rule` with `output_format: text` and `max_results` prints `showing first N of M`, the JSON form goes to a file
-- `hyperfine -N -r 8 '<scan>'` measures one rule
-- `difft --display inline <a> <b>` diffs files with no escape byte under a pipe
-
-## [08]-[CLAUDE]
+## [07]-[CLAUDE]
 
 - `claude plugin validate <dir>` prints `Validation passed` for an agents directory or a plugin
 
-## [09]-[OTHER]
+## [08]-[OTHER]
 
+- `difft --display inline <a> <b>` diffs files with no escape byte under a pipe
 - `gh repo view --json nameWithOwner -q .nameWithOwner` prints the owner pair
 - `mcp__github__actions_list` with `method`, `resource_id`, and `perPage` lists runs and jobs
 - `mcp__github__get_job_logs` with a listed `job_id` and `tail_lines` prints the job's log tail

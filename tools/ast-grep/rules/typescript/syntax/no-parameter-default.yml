@@ -56,6 +56,28 @@ utils:
                                     kind: program
                                     stopBy: end
                                     has: {stopBy: end, kind: type_alias_declaration, all: [{has: {field: name, pattern: $T}}, {has: {field: value, any: [{matches: source-declared-type}, {has: {stopBy: end, matches: source-declared-type}}]}}]}
+    host-typed-parameter:
+        matches: syntax-function-boundary
+        has:
+            field: parameters
+            has:
+                kind: required_parameter
+                all:
+                    - has: {field: pattern, kind: identifier, pattern: $P}
+                    - has:
+                        field: type
+                        has:
+                            stopBy: end
+                            kind: type_identifier
+                            pattern: $H
+                            inside:
+                                kind: program
+                                stopBy: end
+                                has:
+                                    kind: import_statement
+                                    all:
+                                        - has: {field: source, has: {kind: string_fragment, not: {regex: '^[.#]'}}}
+                                        - has: {stopBy: end, kind: import_specifier, any: [{has: {field: alias, pattern: $H}}, {all: [{not: {has: {field: alias, kind: identifier}}}, {has: {field: name, pattern: $H}}]}]}
 rule:
     any:
         - kind: required_parameter
@@ -74,6 +96,7 @@ rule:
             - matches: defaulting
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: parameter-named}
+            - not: {inside: {stopBy: end, matches: host-typed-parameter}}
         - kind: binary_expression
           all:
             - has: {field: left, kind: member_expression, pattern: $READ, has: {field: object, kind: identifier, pattern: $P}}
@@ -81,4 +104,4 @@ rule:
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: source-typed-parameter}
 message: '`$READ` accepts absence and resolves it to `$D`'
-note: 'Declare the parameter or its field required and pass the value at each call, and let `Schema.withDecodingDefaultKey` decode a key absent at the boundary'
+note: 'Declare the parameter or its field required and pass the value at each call, and let `Schema.withDecodingDefaultKey` decode a key absent at the boundary. A parameter typed by a package the file imports holds a host answer, and its default is the boundary conversion'

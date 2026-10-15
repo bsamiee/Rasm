@@ -61,7 +61,7 @@ public static class Showing {
     // --- [WINDOWS]
     public static IO<TWindow> Show<TWindow>(RhinoDoc doc) where TWindow : DefinedWindow, new() =>
         IO.lift(() => toSeq(EtoExtensions.WindowsFromDocument<TWindow>(doc)).Head).Bind(open => open.Match(
-            Some: static found => IO.lift(found.BringToFront).Map(_ => found),
+            Some: static found => IO.lift(found.BringToFront).Map(found),
             None: () => DisposalOps.Acquire(owned =>
                 from window in DisposalOps.Acquire(IO.lift(static () => new TWindow()), static held => IO.lift(held.Dispose), owned)
                 from prepared in Opened(window, doc)
@@ -126,7 +126,7 @@ public static class Showing {
                     applicationStores: static (state, _) => state.Apply,
                     documentStores: static (state, held) => Commits.Commit(state.Doc, state.Name, held.Redraw, state.Apply).Map(static done => done.Value)),
                 None: () => scope.Apply(bindings))
-            select (Value: unit, Suppress: box.Exists(static held => held.Checked == true)), DisposalOps.Release);
+            select (Value: unit, Suppress: box.Exists(static held => held.Checked is true)), DisposalOps.Release);
 
     // --- [PANELS]
     public static IO<TabVisibility> Shown(View.Panel row, RhinoDoc doc) =>
@@ -152,7 +152,7 @@ public static class Showing {
         InitialPlacement(row).Bind(_ => IO.lift(() => Panels.OpenPanel(row.Identity, makeSelectedPanel: true)));
 
     public static IO<Unit> Toggle(View.Panel row, RhinoDoc doc) =>
-        Shown(row, doc).Bind(shown => shown == TabVisibility.Selected
+        Shown(row, doc).Bind(shown => shown is TabVisibility.Selected
             ? Close(row, doc)
             : Open(row));
 
@@ -177,7 +177,7 @@ public static class Showing {
                       from placed in IO.lift(() => Refused.Unless(AddTabPanel(collection, row.Identity.GUID, IndexOf(collection, item) + 1, makeActivePanel: false), nameof(AddTabPanel)))
                       select placed).As()))
             .As()
-            .Map(static _ => unit);
+            .Map(unit);
 
     // --- [PAGES]
     public static IO<Option<Window>> WindowForPage(OptionsDialogPage page) =>
@@ -222,7 +222,7 @@ public static class Showing {
                             doc,
                             new EntryRequest<GetString, string, bool>(field.Caption, site) { Default = text },
                             literal: true,
-                            entered => scope.Commit(bindings, new ValueSet(HashMap((field.Key, entered.Value)))).Map(static _ => false))),
+                            entered => scope.Commit(bindings, new ValueSet(HashMap((field.Key, entered.Value)))).Map(value: false))),
             })
             select ended
         from ended in pass.RepeatUntil(static ended => ended)

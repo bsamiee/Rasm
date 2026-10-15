@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stdin-prompt
+language: rust
+severity: error
+utils:
+    stdin-call:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?(std|tokio)::)?(io::)?stdin$'}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    stdin-value:
+        any:
+            - matches: stdin-call
+            - has: {stopBy: end, matches: stdin-call}
+            - kind: identifier
+              pattern: $IN
+              inside:
+                kind: block
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $IN}}, {has: {field: value, any: [{matches: stdin-call}, {has: {stopBy: end, matches: stdin-call}}]}}]}
+    line-read:
+        kind: call_expression
+        has:
+            field: function
+            kind: field_expression
+            any:
+                - all: [{has: {field: field, regex: '^read_line$'}}, {has: {field: value, matches: stdin-value}}]
+                - all:
+                    - has: {field: field, regex: '^next$'}
+                    - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^lines$'}}, {has: {field: value, matches: stdin-value}}]}}
+    prompt-write:
+        any:
+            - kind: macro_invocation
+              has: {field: macro, regex: '^((::)?std::)?e?print$'}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^((::)?(std|core)::)?write$'}
+                - has: {kind: token_tree, has: {kind: identifier, regex: '^std(out|err)$'}}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^write_all$'}}, {has: {field: value, has: {stopBy: end, kind: identifier, regex: '^std(out|err)$'}}}]}
+    prompt:
+        kind: expression_statement
+        has: {any: [{matches: prompt-write}, {kind: try_expression, has: {matches: prompt-write}}]}
+rule:
+    matches: line-read
+    pattern: $READ
+    any:
+        - follows: {stopBy: end, matches: prompt}
+        - inside: {stopBy: {inside: {kind: block}}, follows: {stopBy: end, matches: prompt}}
+message: '`$READ` reads an answer from stdin after printing a prompt by hand'
+note: 'Ask through `inquire::Text::new(<prompt>).prompt()`, `Confirm::new(<prompt>).prompt()`, or `Select::new(<prompt>, <options>).prompt()`, each renders the prompt, edits the line, validates the answer, and returns a typed value or an `InquireError`'

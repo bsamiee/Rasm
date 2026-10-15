@@ -151,7 +151,7 @@ public sealed class SpriteCache(IPlugInSink sink) : IDisposable {
 public static class Marks {
     // --- [PIPELINE]
     public static IO<Unit> Draw(DisplayPipeline pipeline, Seq<WorldMark> marks) =>
-        marks.TraverseM(mark => Draw(pipeline, mark)).As().Map(static _ => unit);
+        marks.TraverseM(mark => Draw(pipeline, mark)).As().Map(unit);
 
     public static IO<Unit> Draw(Func<Action<IDisposable>, IO<DisplayMaterial>> create, Action<DisplayMaterial> draw) =>
         IO.env.Bind(environment =>
@@ -305,7 +305,7 @@ public static class Marks {
 
     // --- [SPRITES]
     public static IO<Unit> Draw(DisplayPipeline pipeline, SpriteCache sprites, Seq<SpriteMark> marks) =>
-        marks.TraverseM(mark => Draw(pipeline, sprites, mark)).As().Map(static _ => unit);
+        marks.TraverseM(mark => Draw(pipeline, sprites, mark)).As().Map(unit);
 
     private static IO<Unit> Draw(DisplayPipeline pipeline, SpriteCache sprites, SpriteMark mark) =>
         from bitmap in sprites.Get(mark.Source, mark.Blend)

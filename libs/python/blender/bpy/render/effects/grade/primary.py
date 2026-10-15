@@ -108,7 +108,7 @@ def saturated(shell: Shell[Saturation]) -> BlenderResult[tuple[Fragment, End]]:
             vector("saturated", "MULTIPLY_ADD", End(node="chroma", socket="Vector"), gain, End(node="luma")),
         ).map(ended("saturated", "Vector"))
 
-    weights: BlenderResult[tuple[float, ...]] = luma(shell.config).map(lambda values: tuple(float(value) for value in values)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    weights: BlenderResult[tuple[float, ...]] = luma(shell.config).map(lambda values: tuple(float(value) for value in values)).map_error(BlenderImagingFault.lifted)
     return Result[tuple[float, ...], BlenderFaults].bind(weights, built)
 
 

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-self-nearest-scan
+language: rust
+severity: error
+utils:
+    set-iter:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, pattern: $PTS}}]}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    set-iteration:
+        any:
+            - kind: reference_expression
+              has: {field: value, pattern: $PTS}
+            - matches: set-iter
+            - pattern: $PTS
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(min_by|min_by_key)$'}}, {has: {field: value, pattern: $SCAN}}]}
+        - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, regex: '\.(x|y|z)\b|distance_squared|length_squared|hypot|\.sqrt\(\)|powi\(\s*2\s*\)'}}
+        - has: {field: function, has: {field: value, any: [{matches: set-iter}, {has: {stopBy: end, matches: set-iter}}]}}
+        - any:
+            - inside:
+                kind: for_expression
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {field: value, matches: set-iteration}
+            - inside:
+                kind: closure_expression
+                stopBy: {kind: function_item}
+                inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: set-iteration}}}}
+message: '`$SCAN` scans the point set `$PTS` once per point of the same set'
+note: 'Build `kiddo::ImmutableKdTree::new_from_slice(<points>)` once and query each point through `.query(&<point>).nearest_one::<SquaredEuclidean<f64>>().execute()`, or `rstar::RTree::bulk_load` for boxes, each tree answers a query in logarithmic time in place of a scan of every point. `nearest_n` with 2 skips the query point'

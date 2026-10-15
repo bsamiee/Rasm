@@ -17,9 +17,7 @@ public abstract partial record MaterialScope {
     public sealed record ComponentForPlugIn(ComponentIndex ComponentIndex, Guid PlugInId, Option<ObjectAttributes> Attributes) : MaterialScope;
 }
 
-public sealed record MaterialIdentity(Guid Id, Option<string> Name);
-
-public sealed record ResolvedMaterial(Option<(MaterialIdentity Identity, int Index)> Material, Option<MaterialIdentity> RenderMaterial);
+public sealed record ResolvedMaterial(Option<(NamedId Identity, int Index)> Material, Option<NamedId> RenderMaterial);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -44,9 +42,9 @@ public static partial class Materials {
         from resolved in components.TraverseM(component => Resolve(rhinoObject, component).Map(material => (Component: component, Material: material))).As()
         select resolved;
 
-    private static partial MaterialIdentity ToState(Material material);
+    private static partial NamedId ToState(Material material);
 
-    private static partial MaterialIdentity ToState(RenderMaterial material);
+    private static partial NamedId ToState(RenderMaterial material);
 
     // --- [WRITES]
     public static IO<Committed<Unit>> Assign(

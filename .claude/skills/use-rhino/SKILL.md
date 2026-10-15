@@ -48,12 +48,11 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 - Inspect UI, logs and crash reports; resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
 Sessions open on:
-1. `dotnet run "$(git rev-parse --show-toplevel)/.claude/skills/use-rhino/scripts/Instances.cs"` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
-2.a. New work: `spawn_slot` starts a document, skipping the splash and using the default template
+1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
+2.a. New work: an open untitled, unmodified document, else `spawn_slot` starts one without a splash screen on the default template
 2.b. Existing work: `open -g <file>` opens the file in Rhino
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
-- Always open Rhino without a splash screen, and with the default template, if rhino is open and untitled file with no modifications, use that for new work if doing new work
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it
 - Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`

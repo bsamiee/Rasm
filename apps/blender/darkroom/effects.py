@@ -234,7 +234,7 @@ panels = (
         section=Single(
             key="strip_effect",
             title="Strip Effect",
-            rows=(lambda layout, _holder, context: active(context).map(layout.template_compositor_strip_inputs).default_value(None), *(OperatorButton(target=row) for row in strips.operators)),
+            rows=(lambda layout, _holder, context: active(context).map(layout.template_compositor_strip_inputs).to_optional(), *(OperatorButton(target=row) for row in strips.operators)),
         ),
         at=Sidebar(space="SEQUENCE_EDITOR", category=category),
     ),

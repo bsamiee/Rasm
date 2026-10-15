@@ -1,0 +1,17 @@
+{
+    "name": "@rasm/uxp",
+    "private": true,
+    "description": "Foundation for UXP plugins in any Adobe host: encoding globals, a host clock for Effect, and the plugin temporary folder as services",
+    "type": "module",
+    "exports": {
+        "./*": "./*.ts"
+    },
+    "dependencies": {
+        "@exodus/bytes": "catalog:",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:"
+    }
+}

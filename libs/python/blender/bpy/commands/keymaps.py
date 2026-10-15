@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 type Location = tuple[str, rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems]
 type Node = tuple[str, rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems, list[Node]]
 type Target = Placed | CalledPopup
+type ModifierState = Literal[-1, 0, 1]
 
 
 class Button(Enum):
@@ -68,11 +69,11 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
 
     type: "rna_enums.EventTypeItems | Button"
     value: Option["rna_enums.EventValueItems"] = Nothing
-    shift: Literal[-1, 0, 1] = 0
-    ctrl: Literal[-1, 0, 1] = 0
-    alt: Literal[-1, 0, 1] = 0
-    oskey: Literal[-1, 0, 1] = 0
-    hyper: Literal[-1, 0, 1] = 0
+    shift: ModifierState = 0
+    ctrl: ModifierState = 0
+    alt: ModifierState = 0
+    oskey: ModifierState = 0
+    hyper: ModifierState = 0
     key_modifier: "rna_enums.EventTypeItems" = "NONE"
     direction: "rna_enums.EventDirectionItems" = "ANY"
     repeat: bool = False

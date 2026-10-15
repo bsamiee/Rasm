@@ -315,7 +315,7 @@ public static class Layers {
                     select unit,
                     static staged => IO.lift(staged.Dispose)),
             addPath: static (document, add) =>
-                add.Path.Segments.FoldM(Guid.Empty, (parent, name) => Ensured(document, add, parent, name)).As().Map(static _ => unit),
+                add.Path.Segments.FoldM(Guid.Empty, (parent, name) => Ensured(document, add, parent, name)).As().Map(unit),
             modify: static (document, modify) =>
                 from row in Resolve(document, modify.Target)
                 from landed in Landed(document, row, staged => Written(document, staged, modify.Edits))
@@ -356,7 +356,7 @@ public static class Layers {
             setCurrent: static (document, current) =>
                 Called(Resolve(document, current.Target), row => document.Layers.SetCurrentLayerIndex(row.Index, quiet: true), nameof(LayerTable.SetCurrentLayerIndex)),
             forceVisible: static (document, force) =>
-                Resolve(document, force.Target).Bind(row => IO.lift(() => document.Layers.ForceLayerVisible(row.Id))).Map(static _ => unit),
+                Resolve(document, force.Target).Bind(row => IO.lift(() => document.Layers.ForceLayerVisible(row.Id))).Map(unit),
             sortByName: static (document, sort) =>
                 IO.lift(() => document.Layers.SortByLayerName(sort.Ascending)),
             sort: static (document, sort) =>
@@ -396,7 +396,7 @@ public static class Layers {
          static staged => IO.lift(staged.Dispose));
 
     private static IO<Unit> Written(RhinoDoc doc, Layer staged, Seq<LayerEdit> edits) =>
-        edits.TraverseM(edit => edit.Write(doc, staged)).As().Map(static _ => unit);
+        edits.TraverseM(edit => edit.Write(doc, staged)).As().Map(unit);
 
     private static IO<Unit> Called(IO<Layer> resolved, Func<Layer, bool> call, string member) =>
         resolved.Bind(row => IO.lift(() => Refused.Unless(call(row), member)));

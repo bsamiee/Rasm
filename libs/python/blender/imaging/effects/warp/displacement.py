@@ -20,13 +20,9 @@ from blender.imaging.effects.generators.noise import Basis, Cut, Estimate, estim
 from blender.imaging.effects.generators.particles import Population
 from blender.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingResult, paired
 from blender.imaging.geometry.stmaps import Extension, StMap
-from blender.imaging.parameters import Choice, Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Seed
+from blender.imaging.parameters import Choice, Finite, FrameExtent, FrameLength, Gated, GraphForm, Motion, Position, Presentation, Quantity, Seed, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Length = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
-type _Radius = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
-type _Fraction = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 
 
 class Front(Choice):
@@ -90,11 +86,11 @@ class Wave(msgspec.Struct, frozen=True, kw_only=True):
     front: Annotated[Front, msgspec.Meta(description="Shape and displacement direction of the wave fronts"), GraphForm.SETTING] = Front.LINEAR
     count: Annotated[int, msgspec.Meta(ge=1, description="Waves superposed with equal total weight"), GraphForm.SETTING] = 1
     wavelength_variation: Annotated[float, msgspec.Meta(ge=0.0, lt=1.0, description="Share each wavelength shrinks below its maximum")] = 0.0
-    amplitude_variation: Annotated[_Fraction, msgspec.Meta(description="Share each wave's amplitude shrinks below its maximum")] = 0.0
+    amplitude_variation: Annotated[Unit, msgspec.Meta(description="Share each wave's amplitude shrinks below its maximum")] = 0.0
     spread: Annotated[Finite, msgspec.Meta(description="Angular span of the wave directions"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
     axes: Annotated[tuple[Finite, Finite], msgspec.Meta(description="Signed displacement multiplier on each frame axis")] = (1.0, 1.0)
     center: Annotated[Position, msgspec.Meta(description="Center of circular wave fronts")] = (0.5, 0.5)
-    radius: Annotated[_Length, msgspec.Meta(description="Reach of circular wave fronts")] = 0.5
+    radius: Annotated[FrameExtent, msgspec.Meta(description="Reach of circular wave fronts")] = 0.5
     seed: Annotated[Seed, msgspec.Meta(description="Independent wavelength, amplitude, and phase per wave")] = 0
 
 
@@ -118,7 +114,7 @@ class Sphere(msgspec.Struct, frozen=True, kw_only=True):
     center: Annotated[Position, msgspec.Meta(description="Center of the sphere")] = (0.5, 0.5)
     radius: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, description="Radius of the sphere"), Presentation(soft=Some((0.001, 1.0)), quantity=Some(Quantity.FRAME_GREATER))] = 0.15
     amount: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Bulge above zero, pinch below zero")] = 0.1
-    axes: Annotated[tuple[_Fraction, _Fraction], msgspec.Meta(description="Share of the bulge along each axis, (1,0) horizontal and (0,1) vertical")] = (1.0, 1.0)
+    axes: Annotated[tuple[Unit, Unit], msgspec.Meta(description="Share of the bulge along each axis, (1,0) horizontal and (0,1) vertical")] = (1.0, 1.0)
 
 
 class Luma(msgspec.Struct, frozen=True, kw_only=True):
@@ -158,10 +154,10 @@ class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
     ] = 14.6 / 1920.0
     direction: Annotated[Finite, msgspec.Meta(description="Slant of the drops' fall from straight down"), Presentation(soft=Some((-math.pi / 3.0, math.pi / 3.0)), quantity=Some(Quantity.ANGLE))] = 0.0
     motion: Annotated[Motion, msgspec.Meta(description="Clock of the fall, one drop spacing per clock frame")] = Motion(speed=0.01 / (24.0 * drops.spacing))
-    trails: Annotated[_Fraction, msgspec.Meta(description="Height of the receding trail behind each falling drop")] = 0.0
+    trails: Annotated[Unit, msgspec.Meta(description="Height of the receding trail behind each falling drop")] = 0.0
     seed: Annotated[Seed, msgspec.Meta(description="Stable drop population variant")] = 0
     strength: Annotated[Finite, msgspec.Meta(description="Signed refraction through the receding trail height"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.0
-    softness: Annotated[_Radius, msgspec.Meta(description="Blur radius of the receding trail height")] = 0.015
+    softness: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the receding trail height")] = 0.015
 
     def sampled(self, points: npt.NDArray[np.float64], reference_frame: float) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns continuous inversion offsets, coverage, and receding trail height."""
@@ -201,19 +197,19 @@ class Map(msgspec.Struct, frozen=True, kw_only=True):
     source: Annotated[str | None, msgspec.Meta(description="Image file path, absent to read the entering image"), GraphForm.SETTING] = None
     reading: Annotated[MapReading, msgspec.Meta(description="Meaning of the image channels"), GraphForm.SETTING] = MapReading.OFFSETS
     axes: Annotated[Position, msgspec.Meta(description="Signed offset on each frame axis")] = (0.02, 0.02)
-    tile: Annotated[Gated[tuple[_Length, _Length]], msgspec.Meta(description="Repeated map tile dimensions")] = Gated(enabled=False, value=(1.0, 1.0))
+    tile: Annotated[Gated[tuple[FrameExtent, FrameExtent]], msgspec.Meta(description="Repeated map tile dimensions")] = Gated(enabled=False, value=(1.0, 1.0))
     rotation: Annotated[Finite, msgspec.Meta(description="Turn of the map and its displacement axes"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    softness: Annotated[_Radius, msgspec.Meta(description="Blur radius of the luminance height")] = 0.015
+    softness: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the luminance height")] = 0.015
 
 
 class Refraction(msgspec.Struct, frozen=True, kw_only=True):
     """Refraction and blur through a periodic or frosted glass height."""
 
     surface: Annotated[Surface, msgspec.Meta(description="Glass height function"), GraphForm.SETTING] = Surface.FROSTED
-    size: Annotated[_Length, msgspec.Meta(description="Width of the glass cells")] = 0.1
+    size: Annotated[FrameExtent, msgspec.Meta(description="Width of the glass cells")] = 0.1
     strength: Annotated[Finite, msgspec.Meta(description="Signed displacement per unit slope in glass-cell coordinates"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.02
-    softness: Annotated[_Radius, msgspec.Meta(description="Blur radius of the glass height")] = 0.015
-    blur: Annotated[_Radius, msgspec.Meta(description="Blur radius of the refracted image")] = 0.0
+    softness: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the glass height")] = 0.015
+    blur: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the refracted image")] = 0.0
     seed: Annotated[Seed, msgspec.Meta(description="Variant of the frosted height")] = 0
 
 

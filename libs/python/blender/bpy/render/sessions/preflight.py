@@ -146,11 +146,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             """Opens the block's library in a detached native Blender process."""
             match block if isinstance(block, bpy.types.Library) else block.library:
                 case bpy.types.Library() as library:
-                    return (
-                        detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log")
-                        .map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
-                        .map(lambda _: Done())
-                    )
+                    return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log").map_error(BlenderRenderingFault.lifted).map(lambda _: Done())
                 case None:
                     return Error((BlenderAbsentFault(owner=repr(block), key="library"),))
 

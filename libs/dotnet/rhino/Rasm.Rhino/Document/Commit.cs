@@ -31,7 +31,7 @@ public static class Commits {
                 _ => IO.lift(() => state.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false)).Bind(_ => state.Body),
                 prior => Callbacks.Each(Seq(
                     IO.lift(() => state.Document.Views.EnableRedraw(prior, redrawDocument: false, suppressed.RepaintLayers)),
-                    when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())).Map(static _ => unit)));
+                    when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())).Map(unit)));
 
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
         WithinRedraw(doc, redraw,
@@ -41,7 +41,7 @@ public static class Commits {
             let ended = IO.lift(() => begun.Traverse(serial => Refused.Unless(doc.EndUndoRecord(serial), serial, nameof(RhinoDoc.EndUndoRecord))).As()
                 .Map(closed => closed.Filter(serial => doc.GetUndoRecords().Any(entry => entry.SerialNumber == serial))))
             from value in DisposalOps.OnFailure(IO.liftVAsync(() => body.RunAsync(environment)), ended.Bind(kept => when(kept.IsSome,
-                Callbacks.Each(Seq(Step(doc, doc.Undo, nameof(RhinoDoc.Undo)), IO.lift(doc.ClearRedoRecords))).Map(static _ => unit)).As()))
+                Callbacks.Each(Seq(Step(doc, doc.Undo, nameof(RhinoDoc.Undo)), IO.lift(doc.ClearRedoRecords))).Map(unit)).As()))
             from record in ended
             select new Committed<T>(value, record)).Uninterruptible()));
 

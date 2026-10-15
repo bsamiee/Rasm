@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-variant-test-method
+language: rust
+severity: error
+utils:
+    variant-test:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((std|core)::)?matches$'}
+            - has: {kind: token_tree, regex: '^\(\s*\*?\s*self\s*,\s*\w+::\w+\s*(\(\s*(\.\.|_)\s*\)|\{\s*\.\.\s*\})?\s*,?\s*\)$'}
+    test-body:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: variant-test}, {kind: expression_statement, has: {matches: variant-test}}]}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+rule:
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: parameters, regex: '^\(\s*&\s*self\s*\)$'}
+        - has: {field: return_type, regex: '^bool$'}
+        - has: {field: body, matches: test-body}
+        - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
+        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
+message: '`$NAME` tests one variant of `$T` through `matches!`'
+note: 'Derive `derive_more::IsVariant` on `<enum>` and call the generated `is_<variant>()` (the variant name in snake case) at each site, the derive states one test per variant from the declaration'

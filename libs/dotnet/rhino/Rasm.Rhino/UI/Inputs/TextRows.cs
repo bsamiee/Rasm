@@ -193,7 +193,7 @@ public static class TextRows {
         let site = new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.TextControl.TextChanged))
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h,
-            edit => Callbacks.Handler<EventArgs>(_ => preview.Traverse(cross => Previewed(edit, cross, source, entry, scope)).As().Map(static _ => unit), site),
+            edit => Callbacks.Handler<EventArgs>(_ => preview.Traverse(cross => Previewed(edit, cross, source, entry, scope)).As().Map(unit), site),
             value =>
                 from marked in IO.lift(() => entry.Varied.Iter(mark => mark(value.IsNone)))
                 from written in (value.Map(text) | entry.Blank).Traverse(shown => Written(entry.Read, entry.Write, shown)).As()
@@ -267,7 +267,7 @@ public static class TextRows {
     private static IO<Unit> Pressed(Eto.Forms.KeyEventArgs args, HashMap<Eto.Forms.Keys, IO<Unit>> answers) =>
         answers.Find(args.KeyData)
             .Traverse(answer => IO.lift(() => args.Handled = true).Bind(_ => answer)).As()
-            .Map(static _ => unit);
+            .Map(unit);
 
     private static IO<Eto.Forms.Button> Browsed(
         string caption, (FileAction Action, Seq<FileTypeRow> Types) browse, Eto.Forms.TextControl box, Func<string, IO<Unit>> commit, RowScope scope, Action<IDisposable> retain) =>
@@ -300,7 +300,7 @@ public static class TextRows {
                     from picked in HostDialogs.ShowSelectFolderDialog(document, title, Conversions.Present(current))
                     select Some(picked),
                 _ => throw new UnreachableException(nameof(FileAction)),
-            }).Catch(static error => error.Count == 1 && error.Is(Errors.Cancelled), static _ => IO.pure(Option<string>.None)),
+            }).Catch(static error => error.Count is 1 && error.Is(Errors.Cancelled), static _ => IO.pure(Option<string>.None)),
         };
 
     private static IO<(IO<Option<TState>> Read, TState Value)> Watched<TState>(ReadoutSource<TState> source, RowScope scope, Action<IDisposable> retain)

@@ -190,20 +190,21 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .Bind(fields => Validate(standard, fields, out StandardName? name) is null ? Some(name!) : None)
             .ToFin(new MalformedName(standard, text));
 
-    public static Validation<Error, Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) =>
-        ordered.Map(entry => (entry.Sheet, Number: entry.Number.Resequenced(old =>
-                ordered.Map(static other => other.Number).Filter(other => other.Series == entry.Number.Series)
-                    .Map(static other => other.Sequence.Map(static sequence => sequence.Value)).Somes().Distinct() switch {
-                        var sequences => sequences.Fold(old, Math.Min) + sequences.TakeWhile(sequence => sequence != old).Count,
-                    })))
-            switch {
-                var renumbered => renumbered
-                    .Map(static (entry, index) => (entry.Sheet, entry.Number, Index: index))
-                    .Traverse(entry => renumbered.Filter(other => other.Number == entry.Number).Count > 1 || others.Exists(other => other == entry.Number)
-                        ? Fail<Error, (TSheet Sheet, StandardName Number)>(new SheetNumberCollision(entry.Index, entry.Number))
-                        : Success<Error, (TSheet Sheet, StandardName Number)>((entry.Sheet, entry.Number)))
-                    .As(),
-            };
+    public static Validation<Error, Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) {
+        HashMap<(NamingStandard Standard, HashMap<NameField, string> Fields), Seq<int>> bySeries = toHashMap(ordered.GroupBy(static entry => entry.Number.Series)
+            .Select(static series => (series.Key, toSeq(series).Map(static entry => entry.Number.Sequence.Map(static sequence => sequence.Value)).Somes().Distinct().Strict())));
+        Seq<(TSheet Sheet, StandardName Number)> renumbered = ordered.Map(entry => (entry.Sheet, Number: entry.Number.Resequenced(old => bySeries[entry.Number.Series] switch {
+            var sequences => sequences.Fold(old, Math.Min) + sequences.TakeWhile(sequence => sequence != old).Count,
+        })));
+        HashMap<StandardName, int> counts = toHashMap(renumbered.CountBy(static entry => entry.Number).Select(static count => (count.Key, count.Value)));
+        LanguageExt.HashSet<StandardName> taken = toHashSet(others);
+        return renumbered
+            .Map(static (entry, index) => (entry.Sheet, entry.Number, Index: index))
+            .Traverse(entry => counts[entry.Number] > 1 || taken.Contains(entry.Number)
+                ? Fail<Error, (TSheet Sheet, StandardName Number)>(new SheetNumberCollision(entry.Index, entry.Number))
+                : Success<Error, (TSheet Sheet, StandardName Number)>((entry.Sheet, entry.Number)))
+            .As();
+    }
 
     public int CompareTo(StandardName? other) =>
         other is null ? 1

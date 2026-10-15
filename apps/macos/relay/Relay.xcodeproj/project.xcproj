@@ -11,6 +11,7 @@
     ],
   },
   "packages": [
+    { "kind": "local", "path": "../../../libs/swift/macos" },
     {
       "kind": "remote",
       "repository": "https://github.com/swiftlang/swift-subprocess",
@@ -58,6 +59,11 @@
       ],
       "package-product-members": [
         {
+          "package": "macos",
+          "product-name": "RasmMacOS",
+          "build-phase": { "build-phase": "frameworks" },
+        },
+        {
           "package": "swift-subprocess",
           "product-name": "Subprocess",
           "build-phase": { "build-phase": "frameworks" },
@@ -69,8 +75,7 @@
         "ENABLE_HARDENED_RUNTIME": "YES",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSUIElement": "YES",
-        "LM_SKIP_METADATA_EXTRACTION": "YES",
-        "MARKETING_VERSION": "1.0",
+        "MARKETING_VERSION": "1.0.0",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.relay",
         "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
       },

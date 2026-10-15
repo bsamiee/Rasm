@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import RasmMacOS
 import Subprocess
 import System
 import UniformTypeIdentifiers
@@ -38,8 +39,8 @@ struct Application: Encodable {
                 ? Self(url: URL(filePath: url.path(percentEncoded: false), directoryHint: .checkFileSystem).resolvingSymlinksInPath(), runningApplications: NSWorkspace.shared.runningApplications)
                 : nil
         }
-        .mapError { error in AggregateError(.unreadable(error)) }
-        .flatMap { application in application.map(Result.success) ?? .failure(AggregateError(.notApplication(url))) }
+        .mapError { error in AggregateError(first: .unreadable(error)) }
+        .flatMap { application in application.map(Result.success) ?? .failure(AggregateError(first: .notApplication(url))) }
     }
 
     static func all(running: Bool) -> Result<[Self], AggregateError<Failure>> {
@@ -52,13 +53,16 @@ struct Application: Encodable {
                 : try FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
                     try (FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsPackageDescendants, .skipsHiddenFiles])?.allObjects ?? [])
                         .compactMap { entry in entry as? URL }
-                        .filter { url in try url.resourceValues(forKeys: keys).allValues.values.contains { value in value as? Bool == true } }
+                        .filter { url in
+                            let values: URLResourceValues = try url.resourceValues(forKeys: keys)
+                            return values.isApplication == true || values.isSymbolicLink == true
+                        }
                 }
             return try Set(bundles.map { url in url.resolvingSymlinksInPath() })
                 .compactMap { url in try url.resourceValues(forKeys: [.isApplicationKey]).isApplication == true ? Self(url: url, runningApplications: runningApplications) : nil }
                 .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
         }
-        .mapError { error in AggregateError(.unreadable(error)) }
+        .mapError { error in AggregateError(first: .unreadable(error)) }
     }
 
     // --- [EXECUTION]
@@ -68,14 +72,14 @@ struct Application: Encodable {
         return Result { try event.sendEvent(options: [.waitForReply, .neverInteract], timeout: TimeInterval(kNoTimeOut)) }
             .mapError { error in
                 let status: OSStatus = OSStatus((error as NSError).code)
-                return AggregateError(undelivered.contains(status) ? .undelivered(status: status) : .unanswered(status: status))
+                return AggregateError(first: undelivered.contains(status) ? .undelivered(status: status) : .unanswered(status: status))
             }
             .flatMap { reply in
                 switch reply.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {
                     case .some(let status) where undelivered.contains(status):
-                        .failure(AggregateError(.undelivered(status: status)))
+                        .failure(AggregateError(first: .undelivered(status: status)))
                     case .some(let status) where status != noErr:
-                        .failure(AggregateError(.reply(status: status, message: reply.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue)))
+                        .failure(AggregateError(first: .reply(status: status, message: reply.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue)))
                     default:
                         .success(reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)).map { value in dictionary.decode(value, as: types) } ?? .null)
                 }
@@ -85,7 +89,7 @@ struct Application: Encodable {
     func runningApplication() -> Result<NSRunningApplication, AggregateError<Failure>> {
         let instances: [NSRunningApplication] = Self.instances(at: url, among: NSWorkspace.shared.runningApplications)
         guard instances.count == 1, let runningApplication: NSRunningApplication = instances.first else {
-            return .failure(AggregateError(.instances(count: instances.count)))
+            return .failure(AggregateError(first: .instances(count: instances.count)))
         }
         let settled: DispatchSemaphore = DispatchSemaphore(value: 0)
         let observations: [NSKeyValueObservation] = [\NSRunningApplication.isFinishedLaunching, \.isTerminated].map { keyPath in
@@ -94,7 +98,7 @@ struct Application: Encodable {
         withExtendedLifetime(observations) {
             if !(runningApplication.isFinishedLaunching || runningApplication.isTerminated) { settled.wait() }
         }
-        return runningApplication.isTerminated ? .failure(AggregateError(.instances(count: 0))) : .success(runningApplication)
+        return runningApplication.isTerminated ? .failure(AggregateError(first: .instances(count: 0))) : .success(runningApplication)
     }
 
     func execute(_ command: String, arguments: [String: Descriptor]) -> Result<Descriptor, AggregateError<Failure>> {
@@ -162,10 +166,10 @@ struct Window: Encodable {
         switch CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID).flatMap({ rows in unsafe CFPropertyListCreateData(nil, rows, .binaryFormat_v1_0, 0, nil)?.takeRetainedValue() }) {
             case .some(let rows):
                 Result { try PropertyListDecoder().decode([Row].self, from: rows as Data) }
-                    .mapError { error in AggregateError(.unreadable(error)) }
+                    .mapError { error in AggregateError(first: .unreadable(error)) }
                     .map { rows in rows.filter { row in row.owner == application.processIdentifier }.map(\.window) }
             case .none:
-                .failure(AggregateError(.sessionless))
+                .failure(AggregateError(first: .sessionless))
         }
     }
 
@@ -177,30 +181,31 @@ struct Window: Encodable {
     }
 
     static func capture(_ id: Int, into url: URL, longest: Int) async -> Result<Size, AggregateError<Failure>> {
-        var options: PlatformOptions = PlatformOptions()
-        options.createSession = true
-        options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
         let tool: FilePath = "/usr/sbin/screencapture"
-        let captured: Result<Void, AggregateError<Failure>> = await Result {
-            try await Subprocess.run(
-                Configuration(executable: .path(tool), arguments: ["-x", "-o", "-t", "png", "-l", String(id), url.path(percentEncoded: false)], platformOptions: options),
-                output: .discarded,
-                error: .string(limit: Int(BIG_PIPE_SIZE)),
-            )
-        }
-        .mapError { error in AggregateError(.unreadable(error)) }
+        let captured: Result<Void, AggregateError<Failure>> = await ProcessRun.collect(
+            ProcessRun.configuration(
+                executable: .path(tool),
+                arguments: ["-x", "-o", "-t", "png", "-l", String(id), url.path(percentEncoded: false)],
+                environment: ProcessInfo.processInfo.environment,
+                workingDirectory: url.deletingLastPathComponent(),
+            ),
+            deadline: .seconds(30),
+        )
+        .mapError { error in AggregateError(first: .unreadable(error)) }
         .flatMap { result in
             result.terminationStatus.isSuccess
-                ? .success(()) : .failure(AggregateError(.exited(tool: tool, status: result.terminationStatus, message: result.standardError.trimmingCharacters(in: .newlines))))
+                ? .success(())
+                : .failure(AggregateError(first: .exited(tool: tool, status: result.terminationStatus, message: result.standardError.trimmingCharacters(in: .newlines))))
         }
         return captured.flatMap { _ in
             let thumbnail: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: longest, kCGImageSourceCreateThumbnailWithTransform: true]
             guard let source: CGImageSource = CGImageSourceCreateWithURL(url as CFURL, nil), let image: CGImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnail as CFDictionary),
                 let destination: CGImageDestination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
-            else { return .failure(AggregateError(.unreadable(CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])))) }
+            else { return .failure(AggregateError(first: .unreadable(CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])))) }
             CGImageDestinationAddImage(destination, image, nil)
             return CGImageDestinationFinalize(destination)
-                ? .success(Size(width: image.width, height: image.height)) : .failure(AggregateError(.unreadable(CocoaError(.fileWriteUnknown, userInfo: [NSURLErrorKey: url]))))
+                ? .success(Size(width: image.width, height: image.height))
+                : .failure(AggregateError(first: .unreadable(CocoaError(.fileWriteUnknown, userInfo: [NSURLErrorKey: url]))))
         }
     }
 }

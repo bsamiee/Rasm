@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-file-attribute-cast
+language: swiftlang
+severity: error
+rule:
+    kind: as_expression
+    pattern: $SITE
+    all:
+        - has: {field: expr, regex: '\[\s*(FileAttributeKey)?\.(type|size|systemFileNumber|systemNumber|modificationDate|creationDate|posixPermissions|referenceCount|ownerAccountID|groupOwnerAccountID|deviceIdentifier|immutable|appendOnly|extensionHidden)\s*\]$'}
+        - inside:
+            stopBy: end
+            kind: 'function_declaration, init_declaration, computed_property'
+            has: {stopBy: end, kind: simple_identifier, regex: '^attributesOfItem$'}
+message: '`$SITE` casts a `FileAttributeKey` value a typed field holds'
+note: 'Read `FilePath.stat(followTargetSymlink:)` (`type`, `inode`, `size`, `permissions`, `linkCount`, `userID`, `groupID`, `deviceID`, `st_mtim`, `st_birthtim`) or `URL.resourceValues(forKeys:)` (`isDirectory`, `contentModificationDate`, `creationDate`, `fileSize`), each value arrives typed and no cast can fail'

@@ -1,35 +1,37 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name = "rasm"
-version = "0.0.0"
+name            = "rasm"
+version         = "1.0.0"
+description     = "Rasm monorepo's Python libraries in one wheel, one import root per domain or host"
 requires-python = ">=3.13"
+
 dependencies = [
-    "atomicwrites",                                       # Atomic preset moves that preserve occupied destinations
-    "cbor2",                                              # Canonical binary content hashing with unbounded integer support
-    "colour-science",                                     # Authoritative CIE observer datasets
-    "expression",                                         # Results, options, fault unions, and collections of every library package
-    "httpx2",                                             # HTTP for batch render targets and notices
-    "imagecodecs",                                        # JPEG encoding and decoding for compression emulation
-    "matplotlib",                                         # Native colour-science plotting import
-    "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "numpy",                                              # Arrays for image planes, previews, and analysis
-    "opencolorio",                                        # Color processing, config authoring, and LUT baking
-    "openimageio",                                        # Image IO and analysis through the native provider
-    "psdtags",                                            # Photoshop layer records for layered documents
-    "scikit-image",                                       # Structural similarity over image comparison planes
-    "scipy",                                              # Colour algebra, vector quadrature, FFT sizing, and zoom transforms
-    "tenacity",                                           # Batch target retries over configured domain retry policies
-    "tifffile",                                           # Linear Raw DNG and TIFF containers for layered documents
-    "typing-extensions",                                  # Runtime TypeForm schemas on Python 3.13 and later
-    "typing-inspection",                                  # Native annotation metadata and generic type-alias inspection
-    "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
+    "atomicwrites",      # Atomic preset moves that preserve occupied destinations
+    "cbor2",             # Canonical binary content hashing with unbounded integers
+    "colour-science",    # CIE observer datasets
+    "expression",        # Results, options, fault unions, and collections of every library package
+    "httpx2",            # HTTP for batch render targets and notices
+    "imagecodecs",       # JPEG codec for compression emulation
+    "matplotlib",        # colour-science plotting import
+    "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
+    "numpy",             # Arrays for image planes, previews, and analysis
+    "opencolorio",       # Color processing, config authoring, and LUT baking
+    "openimageio",       # Image IO and analysis through the native provider
+    "psdtags",           # Photoshop layer records for layered documents
+    "scikit-image",      # Structural similarity over image comparison planes
+    "scipy",             # Colour algebra, vector quadrature, FFT sizing, and zoom transforms
+    "tenacity",          # Batch target retries over configured domain retry policies
+    "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
+    "typing-extensions", # Runtime TypeForm schemas on interpreters whose `typing` lacks `TypeForm`
+    "typing-inspection", # Annotation metadata and generic type-alias inspection
+    "tzdata",            # IANA time zones for zoneinfo on platforms without a database
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 
 [build-system]
-requires = ["uv_build"]
+requires      = ["uv_build"]
 build-backend = "uv_build"
 
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
@@ -37,398 +39,426 @@ build-backend = "uv_build"
 [dependency-groups]
 workspace = [
     # --- [GENERAL]
-    "anyio",                                              # Structured concurrency over asyncio and trio
-    "apscheduler",                                        # Cron, interval, and date triggers
-    "asttokens",                                          # Source ranges for private Blender extension imports
-    "azure-identity",                                     # DefaultAzureCredential chain for Azure Key Vault secrets
-    "azure-keyvault-secrets",                             # Azure Key Vault secret store
-    "beartype",                                           # Runtime type checks over annotations
-    "cloudpickle",                                        # Kernel and closure transfer across process and subinterpreter boundaries
-    "cryptography",                                       # AES-GCM envelope and key-wrap primitives for per-subject crypto-shredding
-    "cyclopts",                                           # CLI parser from typed signatures
-    "google-cloud-secret-manager",                        # Google Cloud Secret Manager secret store
-    "google-crc32c",                                      # CRC32C integrity check for Google Cloud secret payloads
-    "hvac",                                               # HashiCorp Vault secret store
-    "jinja2",                                             # Report templating for visual and document outputs
-    "keyring",                                            # OS keychain credential store
-    "lark",                                               # Parser generator for the CESQL filter, IDS, and selector grammars
-    "loky",                                               # Reusable process pool with worker restart across process and subinterpreter boundaries
-    "lxml",                                               # XML processing
-    "mcp",                                                # MCP client over streamable HTTP
-    "msgspec[yaml]",                                      # Struct types with JSON, MessagePack, TOML, and YAML codecs
-    "opentelemetry-api",                                  # Trace, metric, and context API
-    "opentelemetry-exporter-otlp-proto-grpc",             # OTLP gRPC exporter beside the proto-http default
-    "opentelemetry-exporter-otlp-proto-http",             # OTLP HTTP exporter, the default transport
-    "opentelemetry-instrumentation-asgi",                 # ASGI middleware that emits server spans and extracts W3C context per Connect request
-    "opentelemetry-instrumentation-asyncio",              # Trace-context propagation across coroutines, to_thread calls, and futures
-    "opentelemetry-instrumentation-dbapi",                # PEP-249 wrap adapter for drivers without a dedicated instrumentor (duckdb, ADBC DBAPI)
-    "opentelemetry-instrumentation-httpx",                # httpx2 client spans with W3C trace context through HTTPX2ClientInstrumentor
-    "opentelemetry-instrumentation-jinja2",               # Jinja template-render spans
-    "opentelemetry-instrumentation-psycopg",              # psycopg 3 DBAPI spans
-    "opentelemetry-instrumentation-sqlite3",              # sqlite3 DBAPI spans
-    "opentelemetry-instrumentation-system-metrics",       # Host and process gauges over psutil
-    "opentelemetry-instrumentation-threading",            # Cross-thread trace-context propagation
-    "opentelemetry-processor-baggage",                    # Baggage-to-span-attribute promotion for the tenant dimension
-    "opentelemetry-resource-detector-containerid",        # container.id resource detector
-    "opentelemetry-sdk",                                  # Tracer, meter, and logger providers with processors and samplers
-    "opentelemetry-semantic-conventions",                 # Schema URL for telemetry
-    "packaging",                                          # Python requirement, version, and wheel filename parsing
-    "pebble",                                             # Worker kill at a terminal deadline and per-worker task recycling
-    "psutil",                                             # Process and host resource readings
-    "pydantic",                                           # Validated models at settings and protocol boundaries
-    "pydantic-settings",                                  # Settings models read from the environment and files
-    "pygments",                                           # Lexer aliases and filename patterns, fence languages in prose.py
-    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",   # AppKit, Foundation, and CoreFoundation bindings for application instances and the main run loop
-    "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
-    "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
-    "regex",                                              # Unicode property classes the standard library regex lacks, emoji and pictograph matching
-    "result",                                             # Selective synchronous and asynchronous error composition
-    "ruamel-yaml",                                        # Round-trip YAML with comments and layout kept
-    "structlog",                                          # Structured logging with processors and typed events
-    "tblib",                                              # Cross-process traceback fidelity for worker exceptions
-    "tomlkit",                                            # Round-trip TOML with comments and layout kept
-    "wasmtime",                                           # In-process WASM guest sandbox for sandboxed workers
-    "watchfiles",                                         # File-change watching over the Rust notify backend
-    "xxhash",                                             # Content identity hashes matching System.IO.Hashing in C#
+    "anyio",                                                                      # Structured concurrency over asyncio and trio
+    "apscheduler",                                                                # Cron, interval, and date triggers
+    "asttokens",                                                                  # Source ranges for private Blender extension imports
+    "azure-identity",                                                             # DefaultAzureCredential chain for Azure Key Vault secrets
+    "azure-keyvault-secrets",                                                     # Azure Key Vault secret store
+    "beartype",                                                                   # Runtime type checks over annotations
+    "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
+    "cryptography",                                                               # AES-GCM envelopes and key wrap for per-subject crypto-shredding
+    "cyclopts",                                                                   # CLI parser from typed signatures
+    "google-cloud-secret-manager",                                                # Google Cloud Secret Manager secret store
+    "google-crc32c",                                                              # CRC32C integrity check for Google Cloud secret payloads
+    "hvac",                                                                       # HashiCorp Vault secret store
+    "jinja2",                                                                     # Report templating for visual and document outputs
+    "keyring",                                                                    # OS keychain credential store
+    "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
+    "loky",                                                                       # Reusable process pool with worker restart
+    "lxml",                                                                       # XML processing
+    "mcp",                                                                        # MCP client over Streamable HTTP
+    "msgspec[yaml]",                                                              # Struct types with JSON, MessagePack, TOML, and YAML codecs
+    "opentelemetry-api",                                                          # Trace, metric, and context API
+    "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
+    "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
+    "opentelemetry-instrumentation-asgi",                                         # ASGI server spans and W3C context extraction per Connect request
+    "opentelemetry-instrumentation-asyncio",                                      # Trace context across coroutines, `to_thread` calls, and futures
+    "opentelemetry-instrumentation-dbapi",                                        # PEP 249 spans for uninstrumented drivers (duckdb, ADBC DBAPI)
+    "opentelemetry-instrumentation-httpx",                                        # `HTTPX2ClientInstrumentor` client spans with W3C trace context
+    "opentelemetry-instrumentation-jinja2",                                       # Jinja template-render spans
+    "opentelemetry-instrumentation-psycopg",                                      # psycopg 3 DBAPI spans
+    "opentelemetry-instrumentation-sqlite3",                                      # sqlite3 DBAPI spans
+    "opentelemetry-instrumentation-system-metrics",                               # Host and process gauges over psutil
+    "opentelemetry-instrumentation-threading",                                    # Cross-thread trace-context propagation
+    "opentelemetry-processor-baggage",                                            # Baggage to span attribute promotion for tenant dimension
+    "opentelemetry-resource-detector-containerid",                                # container.id resource detector
+    "opentelemetry-sdk",                                                          # Tracer, meter, and logger providers with processors and samplers
+    "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
+    "packaging",                                                                  # Python requirement, version, and wheel filename parsing
+    "pebble",                                                                     # Worker kill at a terminal deadline and per-worker task recycling
+    "psutil",                                                                     # Process and host resource readings
+    "pydantic",                                                                   # Validated models at settings and protocol boundaries
+    "pydantic-settings",                                                          # Settings models read from environment and files
+    "pygments",                                                                   # Lexer aliases and filename patterns for clean-prose fence languages
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
+    "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
+    "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
+    "regex",                                                                      # Emoji and pictograph property classes `re` lacks
+    "result",                                                                     # Selective synchronous and asynchronous error composition
+    "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
+    "structlog",                                                                  # Structured logging with processors and typed events
+    "tblib",                                                                      # Cross-process traceback fidelity for worker exceptions
+    "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
+    "wasmtime",                                                                   # In-process WASM guest sandbox for sandboxed workers
+    "watchfiles",                                                                 # File-change watching over Rust notify backend
+    "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
+
     # --- [IO_TRANSPORT]
-    "asyncssh",                                           # SSH and SFTP client for remote workers
-    "brotli",                                             # Compression
-    "cloudevents",                                        # CloudEvents attribute validation and HTTP, Kafka, AMQP, and RabbitMQ bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]", # librdkafka client with Schema Registry Avro, JSON Schema, and Protobuf serdes, no cp315 wheel, the sdist builds against the newest librdkafka machine setup carries
-    "connectrpc",                                         # Connect-Python service ABCs, ASGI applications, and typed clients for Connect, gRPC, and gRPC-Web over HTTP
-    "detools",                                            # Binary-delta engine
-    "fastavro",                                           # Avro codec and .avsc validation
-    "fsspec",                                             # Filesystem resolution shared with UPath and blocking-read offload
-    "hishel[httpx2]",                                     # RFC 9111 HTTP cache over httpx2 transports with a persistent sqlite store
-    "hypercorn",                                          # ASGI server with HTTP/2 and h2c for Connect gRPC and bidirectional streams, TCP and UNIX-socket binds
-    "jsonschema",                                         # Validation of a document against a fetched JSON Schema
-    "lz4",                                                # Compression
-    "nats-py",                                            # NATS Core and JetStream client
-    "obspec-utils",                                       # Multi-store ObjectStoreRegistry companion to obstore
-    "obstore",                                            # Object-store backend
-    "paho-mqtt",                                          # MQTT client for telemetry and edge-device transport
-    "pika",                                               # Blocking AMQP 0-9-1 client run through to_thread
-    "protobuf",                                           # google-protobuf message runtime beneath the Substrait plan IR and the ONNX model IR
-    "protobuf-py",                                        # Buf runtime for generated _pb.py bindings, binary and JSON encoding, and descriptors
-    "protovalidate",                                      # Descriptor rule evaluation at transport and document producer boundaries
-    "py7zr",                                              # 7z archive read and write
-    "python-dateutil",                                    # RFC 3339 isoparse for CloudEvents bindings and format readers
-    "stream-unzip",                                       # Bounded-memory streaming unzip inverse for stream-zip
-    "stream-zip",                                         # Bounded-memory streaming zip with ZIP64 and AES-256
-    "universal-pathlib",                                  # UPath storage_options and protocol resolution over the fsspec registry
-    "zlib-ng",                                            # zlib-ng and gzip-ng accelerated compression beside zstandard, lz4, and brotli
-    "zstandard",                                          # Zstandard compression
+    "asyncssh",                                                                   # SSH and SFTP client for remote workers
+    "brotli",                                                                     # Brotli compression
+    "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
+    "confluent-kafka[avro,json,protobuf,schemaregistry]",                         # Kafka client over librdkafka with Schema Registry serdes, built from sdist against machine librdkafka with no cp315 wheel
+    "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
+    "detools",                                                                    # Binary-delta engine
+    "fastavro",                                                                   # Avro codec and .avsc validation
+    "fsspec",                                                                     # Filesystem resolution shared with UPath and blocking-read offload
+    "hishel[httpx2]",                                                             # RFC 9111 cache over httpx2 transports with a SQLite store
+    "hypercorn",                                                                  # HTTP/2 and h2c ASGI server for gRPC streams on TCP and UNIX binds
+    "jsonschema",                                                                 # Document validation against fetched JSON Schemas
+    "lz4",                                                                        # LZ4 compression
+    "nats-py",                                                                    # NATS Core and JetStream client
+    "obspec-utils",                                                               # Multi-store ObjectStoreRegistry companion to obstore
+    "obstore",                                                                    # Object-store backend
+    "paho-mqtt",                                                                  # MQTT client for telemetry and edge-device transport
+    "pika",                                                                       # Blocking AMQP 0-9-1 client run through to_thread
+    "protobuf",                                                                   # google-protobuf runtime under Substrait and ONNX IR
+    "protobuf-py",                                                                # Buf runtime for generated `_pb.py` codecs and descriptors
+    "protovalidate",                                                              # Descriptor rules checked at transport and document producers
+    "py7zr",                                                                      # 7z archive read and write
+    "python-dateutil",                                                            # RFC 3339 isoparse for CloudEvents bindings and format readers
+    "stream-unzip",                                                               # Bounded-memory streaming unzip inverse for stream-zip
+    "stream-zip",                                                                 # Bounded-memory streaming zip with ZIP64 and AES-256
+    "universal-pathlib",                                                          # UPath storage_options and protocol resolution over fsspec registry
+    "zlib-ng",                                                                    # Accelerated zlib and gzip compression
+    "zstandard",                                                                  # Zstandard compression
+
     # --- [NUMERICS_SOLVERS]
-    "array-api-compat",                                   # Array API standard namespaces over NumPy, CuPy, JAX, Dask, and PyTorch arrays
-    "array-api-extra",                                    # Supplemental array API functions
-    "clarabel",                                           # Clarabel conic solver, a cvxpy backend
-    "cvxpy",                                              # Disciplined convex optimization
-    "diffrax",                                            # JAX differential-equation solvers
-    "equinox",                                            # JAX PyTree modules
-    "findiff",                                            # Finite-difference operators for solvers and sensitivity
-    "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'", # Unstructured mesh generation with physical groups for scikit-fem assembly and the meshio round-trip, no linux aarch64 wheel or sdist
-    "highspy",                                            # HiGHS LP, MIP, and QP solver, a cvxpy backend beside Clarabel and SCS
-    "jax",                                                # XLA accelerator
-    "jaxtyping",                                          # Array and PyTree shape and dtype contracts with beartype, jax-free at import
-    "lineax",                                             # JAX linear solvers
-    "mpmath",                                             # Arbitrary-precision real and complex math
-    "optax",                                              # First-order JAX optimizers for optimistix
-    "optimistix",                                         # JAX nonlinear solvers and adjoint VJP
-    "pint",                                               # Unit registry and quantity arithmetic
-    "python-flint",                                       # Arb interval numerics
-    "pywavelets",                                         # Discrete and continuous wavelet transforms
-    "quadax",                                             # JAX adaptive quadrature
-    "scikit-fem",                                         # FEM assembly
-    "scs",                                                # SCS first-order operator-splitting conic solver beside Clarabel, a cvxpy backend
-    "sectionproperties",                                  # Cross-section property solver
-    "sympy",                                              # Symbolic expressions beside the python-flint and mpmath ground domains
-    "uncertainties",                                      # First-order error propagation with correlated values
+    "array-api-compat",                                                           # Array API standard namespaces over each array library
+    "array-api-extra",                                                            # Supplemental array API functions
+    "clarabel",                                                                   # Clarabel conic solver, a cvxpy backend
+    "cvxpy",                                                                      # Disciplined convex optimization
+    "diffrax",                                                                    # JAX differential-equation solvers
+    "equinox",                                                                    # JAX PyTree modules
+    "findiff",                                                                    # Finite-difference operators for solvers and sensitivity
+    "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'",             # Unstructured meshes with physical groups for scikit-fem and meshio, no linux aarch64 wheel or sdist
+    "highspy",                                                                    # HiGHS LP, MIP, and QP solver, a cvxpy backend
+    "jax",                                                                        # XLA accelerator
+    "jaxtyping",                                                                  # Array and PyTree shape and dtype contracts that import no jax
+    "lineax",                                                                     # JAX linear solvers
+    "mpmath",                                                                     # Arbitrary-precision real and complex math
+    "optax",                                                                      # First-order JAX optimizers for optimistix
+    "optimistix",                                                                 # JAX nonlinear solvers and adjoint VJP
+    "pint",                                                                       # Unit registry and quantity arithmetic
+    "python-flint",                                                               # Arb interval numerics
+    "pywavelets",                                                                 # Discrete and continuous wavelet transforms
+    "quadax",                                                                     # JAX adaptive quadrature
+    "scikit-fem",                                                                 # FEM assembly
+    "scs",                                                                        # SCS operator-splitting conic solver, a cvxpy backend
+    "sectionproperties",                                                          # Cross-section property solver
+    "sympy",                                                                      # Symbolic expressions beside python-flint and mpmath ground domains
+    "uncertainties",                                                              # First-order error propagation with correlated values
+
     # --- [STATISTICS_ML]
-    "arviz",                                              # Bayesian diagnostics
-    "blackjax",                                           # JAX NUTS/HMC samplers
-    "numpyro",                                            # JAX NUTS sampler
-    "nutpie",                                             # Rust NUTS sampler for PyMC
-    "onnx",                                               # Model graph IR
-    "pyDOE3",                                             # Classical DOE design matrices (factorial, Box-Behnken, central-composite, Plackett-Burman, GSD) beside SALib and scipy.qmc
-    "pymc>=5.28.1",                                       # Probabilistic programming, releases before 5.28.1 need arviz<1 and omit the bound
-    "salib",                                              # Global sensitivity analysis
-    "scikit-learn",                                       # Classical ML and ONNX export
-    "skl2onnx",                                           # sklearn-to-ONNX converter
+    "arviz",                                                                      # Bayesian diagnostics
+    "blackjax",                                                                   # JAX NUTS/HMC samplers
+    "numpyro",                                                                    # JAX NUTS sampler
+    "nutpie",                                                                     # Rust NUTS sampler for PyMC
+    "onnx",                                                                       # Model graph IR
+    "pyDOE3",                                                                     # Classical design-of-experiments matrices
+    "pymc>=5.28.1",                                                               # Probabilistic programming, older releases need undeclared arviz<1
+    "salib",                                                                      # Global sensitivity analysis
+    "scikit-learn",                                                               # Classical ML and ONNX export
+    "skl2onnx",                                                                   # sklearn-to-ONNX converter
+
     # --- [DATAFRAMES_QUERY]
-    "cubed",                                              # Bounded-memory distributed arrays
-    "daft",                                               # Distributed and streaming out-of-core query engine
-    "dask",                                               # Out-of-core arrays and dataframes
-    "dataframely",                                        # Polars-native declarative column rules with failure partition reporting
-    "datafusion",                                         # Federation and streaming engine with Substrait plan interchange
-    "duckdb",                                             # Analytical SQL engine
-    "fastexcel",                                          # Rust Arrow Excel reader over calamine
-    "ibis-framework",                                     # Backend-agnostic SQL-expression IR
-    "narwhals",                                           # Dataframe-agnostic API
-    "pandas",                                             # Tabular dataframes
-    "pandera",                                            # Schema and quality-rule contracts
-    "pointblank",                                         # Graded data-quality reports above pass/fail checks
-    "polars",                                             # Dataframe engine
-    "sqlglot",                                            # SQL parser, transpiler, optimizer, and lineage engine
-    "substrait[extensions]",                              # Typed Substrait plan IR with extension registry and validator
+    "cubed",                                                                      # Bounded-memory distributed arrays
+    "daft",                                                                       # Distributed and streaming out-of-core query engine
+    "dask",                                                                       # Out-of-core arrays and dataframes
+    "dataframely",                                                                # Declarative Polars column rules that partition failures
+    "datafusion",                                                                 # Federation and streaming engine with Substrait plan interchange
+    "duckdb",                                                                     # Analytical SQL engine
+    "fastexcel",                                                                  # Rust Arrow Excel reader over calamine
+    "ibis-framework",                                                             # Backend-agnostic SQL-expression IR
+    "narwhals",                                                                   # Dataframe-agnostic API
+    "pandas",                                                                     # Tabular dataframes
+    "pandera",                                                                    # Schema and quality-rule contracts
+    "pointblank",                                                                 # Graded data-quality reports above pass/fail checks
+    "polars",                                                                     # Dataframe engine
+    "sqlglot",                                                                    # SQL parser, transpiler, optimizer, and lineage engine
+    "substrait[extensions]",                                                      # Typed Substrait plan IR with extension registry and validator
+
     # --- [ARROW_LAKEHOUSE]
-    "adbc-driver-flightsql",                              # Arrow Flight SQL distributed remote driver
-    "adbc-driver-manager",                                # ADBC driver manager for Arrow Flight SQL and DuckDB
-    "adbc-driver-postgresql",                             # ADBC PostgreSQL driver for bulk COPY ingest and partitioned Arrow reads
-    "adbc-driver-snowflake",                              # ADBC Snowflake driver for warehouse federation, result-chunk partitioning, and Arrow bulk ingest
-    "adbc-driver-sqlite",                                 # ADBC SQLite driver for local-file federation and in-memory Arrow ingest
-    "arro3-compute",                                      # Arrow compute kernels without pyarrow
-    "arro3-core",                                         # Arrow core bridge
-    "arro3-io",                                           # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
-    "deltalake",                                          # Lakehouse tables
-    "nanoarrow",                                          # Arrow C Data Interface interop
-    "pyarrow<25",                                         # Arrow C++ bridge, no cp315 wheel, the sdist builds against the Arrow C++ 24 machine setup carries
-    "pyiceberg",                                          # Apache Iceberg tables
-    "pylance",                                            # Lance columnar/vector format
+    "adbc-driver-flightsql",                                                      # Arrow Flight SQL distributed remote driver
+    "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
+    "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
+    "adbc-driver-snowflake",                                                      # Snowflake driver for federation, chunked reads, and bulk ingest
+    "adbc-driver-sqlite",                                                         # SQLite driver for local-file federation and Arrow ingest
+    "arro3-compute",                                                              # Arrow compute kernels without pyarrow
+    "arro3-core",                                                                 # Arrow core bridge
+    "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
+    "deltalake",                                                                  # Lakehouse tables
+    "nanoarrow",                                                                  # Arrow C Data Interface interop
+    "pyarrow",                                                                    # Arrow C++ bridge on the mise `conda:libarrow-all` series, daft caps it below 26, the first cp315 wheel release
+    "pyiceberg",                                                                  # Apache Iceberg tables
+    "pylance",                                                                    # Lance columnar/vector format
+
     # --- [ARRAY_STORES]
-    "awkward",                                            # Ragged arrays
-    "flox",                                               # Vectorized and parallel grouped reductions for xarray
-    "h5netcdf",                                           # Pure-h5py netCDF-4 engine
-    "h5py",                                               # HDF5 arrays
-    "icechunk",                                           # Versioned tensor store
-    "netcdf4",                                            # netCDF-4 field IO
-    "numcodecs",                                          # zarr v3 filter and compressor codec registry
-    "virtualizarr",                                       # Virtual Zarr aggregation over archival references
-    "xarray",                                             # Labeled field datasets and DataTree arrays
-    "zarr",                                               # Chunked n-D arrays
+    "awkward",                                                                    # Ragged arrays
+    "flox",                                                                       # Vectorized and parallel grouped reductions for xarray
+    "h5netcdf",                                                                   # Pure-h5py netCDF-4 engine
+    "h5py",                                                                       # HDF5 arrays
+    "icechunk",                                                                   # Versioned tensor store
+    "netcdf4",                                                                    # netCDF-4 field IO
+    "numcodecs",                                                                  # zarr v3 filter and compressor codec registry
+    "virtualizarr",                                                               # Virtual Zarr aggregation over archival references
+    "xarray",                                                                     # Labeled field datasets and DataTree arrays
+    "zarr",                                                                       # Chunked n-D arrays
+
     # --- [GEOSPATIAL]
-    "geoarrow-pyarrow",                                   # GeoArrow ExtensionType registration for pyarrow and geopandas ExtensionDtype interop
-    "geoarrow-rust-compute",                              # GeoRust operations on GeoArrow memory
-    "geoarrow-rust-core",                                 # GeoArrow geometry array memory model under the GeoRust compute kernels
-    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow FlatGeobuf, GeoParquet, shapefile, and GeoJSON IO without GDAL, no sdist, the 0.3 abi3 wheels skip linux aarch64 and 0.4 onward publish per-interpreter wheels without cp315
-    "geopandas",                                          # Geospatial frames
-    "h3ronpy",                                            # Arrow-native H3 cell operations on polars frames
-    "laspy",                                              # LAS and LAZ point-cloud IO
-    "laszip",                                             # Second LAZ backend for laspy.copc
-    "lazrs",                                              # Compressed-COPC LAZ backend for laspy.copc
-    "odc-stac",                                           # Lazy dask cube from STAC items
-    "pdal",                                               # Point-cloud pipeline
-    "planetary-computer",                                 # STAC URL signing for pystac-client and odc.stac
-    "polars-st",                                          # Spatially typed Polars frames for DGGS and spatial operations
-    "pyogrio",                                            # GDAL vector IO
-    "pyproj",                                             # PROJ coordinate transforms
-    "pystac",                                             # STAC item and collection object model
-    "pystac-client",                                      # STAC API search and discovery client
-    "rasterio",                                           # Raster geospatial IO
-    "rioxarray",                                          # rasterio accessor for CF DataArray and COG raster writes
-    "shapely",                                            # Planar operations
-    "stac-geoparquet",                                    # STAC item GeoParquet table interchange
-    "xvec",                                               # Vector data cubes with geometry-indexed xarray dimensions
+    "geoarrow-pyarrow",                                                           # GeoArrow extension types for pyarrow and geopandas
+    "geoarrow-rust-compute",                                                      # GeoRust operations on GeoArrow memory
+    "geoarrow-rust-core",                                                         # GeoArrow geometry array memory model under GeoRust compute kernels
+    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow vector IO without GDAL, no release publishes an sdist or a cp315 linux aarch64 wheel
+    "geopandas",                                                                  # Geospatial frames
+    "h3ronpy",                                                                    # Arrow-native H3 cell operations on polars frames
+    "laspy",                                                                      # LAS and LAZ point-cloud IO
+    "laszip",                                                                     # Second LAZ backend for laspy.copc
+    "lazrs",                                                                      # Compressed-COPC LAZ backend for laspy.copc
+    "odc-stac",                                                                   # Lazy dask cube from STAC items
+    "pdal",                                                                       # Point-cloud pipeline
+    "planetary-computer",                                                         # STAC URL signing for pystac-client and odc.stac
+    "polars-st",                                                                  # Spatially typed Polars frames for DGGS and spatial operations
+    "pyogrio",                                                                    # GDAL vector IO
+    "pyproj",                                                                     # PROJ coordinate transforms
+    "pystac",                                                                     # STAC item and collection object model
+    "pystac-client",                                                              # STAC API search and discovery client
+    "rasterio",                                                                   # Raster geospatial IO
+    "rioxarray",                                                                  # rasterio accessor for CF DataArray and COG raster writes
+    "shapely",                                                                    # Planar operations
+    "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
+    "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
+
     # --- [GEOMETRY_CAD]
-    "compas",                                             # COMPAS geometry, data, and datastructure core
-    "compas_dr",                                          # COMPAS dynamic relaxation form finding
-    "compas_tna",                                         # COMPAS thrust network analysis
-    "manifold3d",                                         # Manifold mesh booleans and offsets
-    "meshio",                                             # Mesh file IO across FEM and CAD formats
-    "rtree",                                              # R-tree spatial index over libspatialindex
-    "small-gicp",                                         # Point-cloud registration
-    "trimesh",                                            # Triangle mesh loading, repair, and queries
+    "compas",                                                                     # COMPAS geometry, data, and datastructure core
+    "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
+    "compas_tna",                                                                 # COMPAS thrust network analysis
+    "manifold3d",                                                                 # Manifold mesh booleans and offsets
+    "meshio",                                                                     # Mesh file IO across FEM and CAD formats
+    "rtree",                                                                      # R-tree spatial index over libspatialindex
+    "small-gicp",                                                                 # Point-cloud registration
+    "trimesh",                                                                    # Triangle mesh loading, repair, and queries
+
     # --- [BIM_ENERGY]
-    "dragonfly-core",                                     # Dragonfly district and urban model object graph
-    "dragonfly-energy",                                   # Dragonfly energy model aggregation and translation
-    "honeybee-core",                                      # HBJSON base object model and validation companion
-    "honeybee-energy",                                    # Honeybee energy model construction and simulation exchange
-    "honeybee-energy-standards",                          # ASHRAE 90.1 and DOE prototype standards library (constructions, programs, schedules by identifier)
-    "honeybee-openstudio; sys_platform != 'win32'",       # Honeybee to OpenStudio and EnergyPlus translation, its exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
-    "honeybee-standards",                                 # Baseline default construction/program/schedule standards for Honeybee energy models
-    "ladybug-comfort",                                    # Comfort-model calculations
-    "ladybug-core",                                       # Ladybug weather, units, analysis-period, and location primitives
-    "ladybug-geometry",                                   # Ladybug planar and solid geometry primitives
-    "lbt-recipes",                                        # Ladybug Tools recipe wrappers and simulation workflows
-    "pollination-handlers",                               # Pollination job handler and recipe execution adapters
-    "pvlib",                                              # Solar position and irradiance calculations
-    "queenbee",                                           # Recipe and workflow schema contract models
+    "dragonfly-core",                                                             # Dragonfly district and urban model object graph
+    "dragonfly-energy",                                                           # Dragonfly energy model aggregation and translation
+    "honeybee-core",                                                              # HBJSON base object model and validation companion
+    "honeybee-energy",                                                            # Honeybee energy model construction and simulation exchange
+    "honeybee-energy-standards",                                                  # ASHRAE 90.1 and DOE prototype standards by identifier
+    "honeybee-openstudio; sys_platform != 'win32'",                               # Honeybee to OpenStudio and EnergyPlus translation, exact openstudio pin publishes no win_amd64 cp315 wheel or sdist
+    "honeybee-standards",                                                         # Baseline construction, program, and schedule sets for Honeybee
+    "ladybug-comfort",                                                            # Comfort-model calculations
+    "ladybug-core",                                                               # Ladybug weather, units, analysis-period, and location primitives
+    "ladybug-geometry",                                                           # Ladybug planar and solid geometry primitives
+    "lbt-recipes",                                                                # Ladybug Tools recipe wrappers and simulation workflows
+    "pollination-handlers",                                                       # Pollination job handler and recipe execution adapters
+    "pvlib",                                                                      # Solar position and irradiance calculations
+    "queenbee",                                                                   # Recipe and workflow schema contract models
+
     # --- [LCA]
-    "bw-processing",                                      # Brightway matrix data preparation
-    "bw2analyzer",                                        # Brightway contribution and comparison analysis after calculation
-    "bw2calc",                                            # Brightway LCA calculation engine
-    "bw2data",                                            # Brightway project, database, and storage layer
-    "bw2io",                                              # Brightway import/export and database ingestion
-    "epdx; sys_platform != 'linux' or platform_machine != 'aarch64'", # EPDx environmental product declaration interchange, no release publishes a linux aarch64 wheel
-    "olca-ipc",                                           # openLCA IPC client for foreground/background LCA interchange
-    "openepd",                                            # OpenEPD declarations and PCR material-impact data
+    "bw-processing",                                                              # Brightway matrix data preparation
+    "bw2analyzer",                                                                # Brightway contribution and comparison analysis after calculation
+    "bw2calc",                                                                    # Brightway LCA calculation engine
+    "bw2data",                                                                    # Brightway project, database, and storage layer
+    "bw2io",                                                                      # Brightway import, export, and database ingestion
+    "epdx; sys_platform != 'linux' or platform_machine != 'aarch64'",             # EPD interchange, no release publishes a linux aarch64 wheel
+    "olca-ipc",                                                                   # openLCA IPC client for foreground and background LCA interchange
+    "openepd",                                                                    # OpenEPD declarations and PCR material-impact data
+
     # --- [PLOTTING_VIZ]
-    "altair",                                             # Declarative Vega-Lite charts
-    "great-tables",                                       # Display tables for documents
-    "vegafusion",                                         # Server-side Vega transform and pre-transform export
-    "vl-convert-python",                                  # Vega and Vega-Lite rendering to SVG, PNG, and PDF
+    "altair",                                                                     # Declarative Vega-Lite charts
+    "great-tables",                                                               # Display tables for documents
+    "vegafusion",                                                                 # Server-side Vega transform and pre-transform export
+    "vl-convert-python",                                                          # Vega and Vega-Lite rendering to SVG, PNG, and PDF
+
     # --- [PDF]
-    "ocrmypdf",                                           # OCR to PDF/A with sidecar text
-    "pdf-oxide",                                          # Rust PDF extract, render, create, and forms (abi3)
-    "pdfimpose",                                          # Press signatures, creep, cuts, and folds
-    "pdfplumber",                                         # Ruled-table extraction over pdfminer.six
-    "pikepdf",                                            # PDF structure edits over qpdf
-    "pyhanko",                                            # PDF digital signing and PAdES
-    "pymupdf",                                            # PDF render, text extraction, and edits over MuPDF
-    "pypdf",                                              # Pure-Python PDF read, merge, and split
-    "pypdfium2",                                          # PDF rasterization over PDFium
-    "reportlab",                                          # Programmatic PDF drawing and layout
-    "typst",                                              # Typst PDF typesetting
-    "weasyprint",                                         # HTML and CSS to PDF
+    "ocrmypdf",                                                                   # OCR to PDF/A with sidecar text
+    "pdf-oxide",                                                                  # Rust PDF extract, render, create, and forms (abi3)
+    "pdfimpose",                                                                  # Press signatures, creep, cuts, and folds
+    "pdfplumber",                                                                 # Ruled-table extraction over pdfminer.six
+    "pikepdf",                                                                    # PDF structure edits over qpdf
+    "pyhanko",                                                                    # PDF digital signing and PAdES
+    "pymupdf",                                                                    # PDF render, text extraction, and edits over MuPDF
+    "pypdf",                                                                      # Pure-Python PDF read, merge, and split
+    "pypdfium2",                                                                  # PDF rasterization over PDFium
+    "reportlab",                                                                  # Programmatic PDF drawing and layout
+    "typst",                                                                      # Typst PDF typesetting
+    "weasyprint",                                                                 # HTML and CSS to PDF
+
     # --- [OFFICE_NOTEBOOKS]
-    "docxtpl",                                            # Template-driven docx authoring
-    "jupytext",                                           # Notebook round-trip text source
-    "msoffcrypto-tool",                                   # ECMA-376 Office decrypt and encrypt
-    "nbclient",                                           # Headless notebook execution client
-    "nbconvert",                                          # Executed-notebook export to HTML and Markdown
-    "odfpy",                                              # ODF write for OpenDocument text, spreadsheet, and presentation trees
-    "openpyxl",                                           # xlsx read and write with styles
-    "papermill",                                          # Parameterized notebook runs
-    "python-calamine",                                    # xlsx, xlsb, xls, and ods reader
-    "python-docx",                                        # docx read and write
-    "python-pptx",                                        # pptx read and write
-    "xlsxwriter",                                         # Streaming write-only xlsx
+    "docxtpl",                                                                    # Template-driven docx authoring
+    "jupytext",                                                                   # Notebook round-trip text source
+    "msoffcrypto-tool",                                                           # ECMA-376 Office decrypt and encrypt
+    "nbclient",                                                                   # Headless notebook execution client
+    "nbconvert",                                                                  # Executed-notebook export to HTML and Markdown
+    "odfpy",                                                                      # OpenDocument text, spreadsheet, and presentation writes
+    "openpyxl",                                                                   # xlsx read and write with styles
+    "papermill",                                                                  # Parameterized notebook runs
+    "python-calamine",                                                            # xlsx, xlsb, xls, and ods reader
+    "python-docx",                                                                # docx read and write
+    "python-pptx",                                                                # pptx read and write
+    "xlsxwriter",                                                                 # Streaming write-only xlsx
+
     # --- [IMAGING_MEDIA]
-    "av",                                                 # PyAV video and audio mux and encode
-    "openexr",                                            # Named-channel, multipart, and tiled EXR documents imagecodecs lacks
-    "pillow",                                             # Image IO and WebP decoding
-    "psd-tools",                                          # PSD read and pixel authoring
-    "pysubs2",                                            # Subtitle parse, convert, retime, and restyle
-    "pyvips",                                             # Fused decode, downscale, ICC, and smartcrop over libvips with HEVC, HEIF, JXL, and EXR
-    "simpleidml",                                         # IDML package mutation and composition
+    "av",                                                                         # PyAV video and audio mux and encode
+    "openexr",                                                                    # Named-channel, multipart, and tiled EXR imagecodecs lacks
+    "pillow",                                                                     # Image IO and WebP decoding
+    "psd-tools",                                                                  # PSD read and pixel authoring
+    "pysubs2",                                                                    # Subtitle parse, convert, retime, and restyle
+    "pyvips",                                                                     # Fused decode, downscale, ICC, and smartcrop over libvips
+    "simpleidml",                                                                 # IDML package mutation and composition
+
     # --- [TYPOGRAPHY_COLOR]
-    "blackrenderer",                                      # COLRv1 color-glyph SVG rasterization
-    "coloraide",                                          # oklch gamut mapping and CVD filters
-    "colour-cxf",                                         # CxF3 spot/spectral color exchange
-    "fonttools",                                          # Font subsetting, instancing, and shaping metadata
-    "opentype-feature-freezer",                           # Freeze OpenType features into the default glyph set
-    "PyICU",                                              # ICU line breaking, bidirectional text, and collation, built from its sdist against machine ICU
-    "pyphen",                                             # Language-aware hyphenation dictionaries
-    "python-bidi",                                        # UAX 9 bidi reorder pass before HarfBuzz shaping
-    "uharfbuzz",                                          # HarfBuzz text-shaping bindings
-    "uniseg",                                             # Unicode line, word, and grapheme segmentation
-    "vharfbuzz",                                          # HarfBuzz shaping QA and buffer-diff
+    "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
+    "coloraide",                                                                  # oklch gamut mapping and CVD filters
+    "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
+    "fonttools",                                                                  # Font subsetting, instancing, and shaping metadata
+    "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
+    "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on machine ICU
+    "pyphen",                                                                     # Language-aware hyphenation dictionaries
+    "python-bidi",                                                                # UAX 9 bidi reorder pass before HarfBuzz shaping
+    "uharfbuzz",                                                                  # HarfBuzz text-shaping bindings
+    "uniseg",                                                                     # Unicode line, word, and grapheme segmentation
+    "vharfbuzz",                                                                  # HarfBuzz shaping QA and buffer-diff
+
     # --- [GRAPHS_VECTOR]
-    "drawpyo",                                            # draw.io export
-    "drawsvg",                                            # Hierarchical named-layer SVG authoring
-    "ezdxf",                                              # DXF read, write, and render
-    "fast-sugiyama",                                      # Sugiyama layered placement
-    "grandalf",                                           # Sugiyama and routed diagram layout until fast-sugiyama covers both
-    "igraph",                                             # Leiden, Louvain, and Infomap community detection
-    "kiwisolver",                                         # Cassowary constraint layout
-    "latex2mathml",                                       # LaTeX-to-MathML front end for ziamath
-    "networkx",                                           # Graph structures and algorithms
-    "picosvg",                                            # SVG geometry normalization and path operations
-    "pyelk",                                              # ELK layered and orthogonal diagram layout with ports and nesting
-    "resvg-py",                                           # In-process SVG-to-PNG rasterization over resvg
-    "rustworkx",                                          # Graph algorithms
-    "schemdraw",                                          # Native-SVG schematic diagrams
-    "skia-pathops",                                       # Vector boolean/offset/stroke-to-outline
-    "svgelements",                                        # SVG geometry, transform, and parse helpers
-    "ziafont",                                            # Font glyph text-to-SVG-path
-    "ziamath",                                            # Math-to-SVG rendering
+    "drawpyo",                                                                    # draw.io export
+    "drawsvg",                                                                    # Hierarchical named-layer SVG authoring
+    "ezdxf",                                                                      # DXF read, write, and render
+    "fast-sugiyama",                                                              # Sugiyama layered placement
+    "grandalf",                                                                   # Sugiyama and routed diagram layout until fast-sugiyama covers both
+    "igraph",                                                                     # Leiden, Louvain, and Infomap community detection
+    "kiwisolver",                                                                 # Cassowary constraint layout
+    "latex2mathml",                                                               # LaTeX-to-MathML front end for ziamath
+    "networkx",                                                                   # Graph structures and algorithms
+    "picosvg",                                                                    # SVG geometry normalization and path operations
+    "pyelk",                                                                      # ELK layered and orthogonal diagram layout with ports and nesting
+    "resvg-py",                                                                   # In-process SVG-to-PNG rasterization over resvg
+    "rustworkx",                                                                  # Graph algorithms
+    "schemdraw",                                                                  # Native-SVG schematic diagrams
+    "skia-pathops",                                                               # Vector booleans, offsets, and stroke outlines
+    "svgelements",                                                                # SVG geometry, transform, and parse helpers
+    "ziafont",                                                                    # Font glyph text-to-SVG-path
+    "ziamath",                                                                    # Math-to-SVG rendering
+
     # --- [CODES_METADATA]
-    "c2pa-python",                                        # Cross-format C2PA content credentials
-    "puremagic",                                          # Pure-Python format sniffer, the default detect path beside libmagic
-    "pyexiftool",                                         # Descriptive metadata read and write over the exiftool binary
-    "python-barcode",                                     # Linear barcode generation beside Segno
-    "python-magic",                                       # libmagic fallback for signatures puremagic lacks
-    "segno",                                              # QR and Micro-QR vector codes
-    "zxing-cpp",                                          # 2D matrix codes encode and decode
+    "c2pa-python",                                                                # Cross-format C2PA content credentials
+    "puremagic",                                                                  # Pure-Python format sniffer, default detection beside libmagic
+    "pyexiftool",                                                                 # Descriptive metadata read and write over exiftool binary
+    "python-barcode",                                                             # Linear barcode generation beside Segno
+    "python-magic",                                                               # libmagic fallback for signatures puremagic lacks
+    "segno",                                                                      # QR and Micro-QR vector codes
+    "zxing-cpp",                                                                  # 2D matrix codes encode and decode
 ]
-dev = [
+dev       = [
     # --- [CHECKERS]
-    "mypy",                                               # Type checker rasm:typecheck runs
-    "pydantic",                                           # Model strategies in test support and the pydantic.mypy plugin
-    "ruff",                                               # Linter and formatter rasm:lint and rasm:format run
-    "ty",                                                 # Type checker rasm:typecheck runs
-    "yamllint",                                           # YAML linter rasm:lint runs
+    "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:lint runs
+    "mypy",                                                                       # Type checker rasm:typecheck runs
+    "pydantic",                                                                   # Model strategies in test support and pydantic.mypy plugin
+    "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
+    "ruff",                                                                       # Linter and formatter rasm:lint and rasm:format run
+    "ty",                                                                         # Type checker rasm:typecheck runs
+    "yamllint",                                                                   # YAML linter rasm:lint runs
+
     # --- [TESTS]
-    "anyio",                                              # Structured concurrency for tools and tests, a required pytest plugin
-    "asyncssh",                                           # SSH server double in the test environment fixture
-    "coverage",                                           # Coverage engine pytest-cov drives, configured by [tool.coverage]
-    "fsspec",                                             # Memory and directory filesystems in the test environment fixture
-    "hypothesis",                                         # Property-based tests, a required pytest plugin
-    "moto[server]",                                       # Threaded AWS server in the test environment fixture
-    "opentelemetry-api",                                  # Tracer access in the test runtime plugin
-    "opentelemetry-sdk",                                  # Tracer provider and span processor in the test runtime plugin
-    "pydantic-core",                                      # Core schema strategies in the test support
-    "pytest",                                             # Test runner of every Python test target
-    "pytest-benchmark",                                   # Benchmark fixture, a required pytest plugin
-    "pytest-cov",                                         # Coverage collection, a required pytest plugin
-    "pytest-randomly",                                    # Random test order and seeds, a required pytest plugin
-    "pytest-socket",                                      # Socket blocking, a required pytest plugin
-    "pytest-timeout",                                     # Per-test timeout, a required pytest plugin
-    "pytest-xdist",                                       # Parallel test workers, a required pytest plugin
-    "s3fs",                                               # S3 filesystem for tests over moto
-    "sniffio",                                            # Asynchronous runtime detection for the test environment fixture
-    "structlog",                                          # Log capture in the test runtime plugin
-    "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
+    "anyio",                                                                      # Structured concurrency in tools, a required pytest plugin
+    "asyncssh",                                                                   # SSH server double in test environment fixture
+    "coverage",                                                                   # Coverage engine pytest-cov drives, configured by [tool.coverage]
+    "fsspec",                                                                     # Memory and directory filesystems in test environment fixture
+    "hypothesis",                                                                 # Property-based tests, a required pytest plugin
+    "moto[server]",                                                               # Threaded AWS server in test environment fixture
+    "opentelemetry-api",                                                          # Tracer access in test runtime plugin
+    "opentelemetry-sdk",                                                          # Tracer provider and span processor in test runtime plugin
+    "pydantic-core",                                                              # Core schema strategies in test support
+    "pytest",                                                                     # Test runner of every Python test target
+    "pytest-benchmark",                                                           # Benchmark fixture, a required pytest plugin
+    "pytest-cov",                                                                 # Coverage collection, a required pytest plugin
+    "pytest-randomly",                                                            # Random test order and seeds, a required pytest plugin
+    "pytest-socket",                                                              # Socket blocking, a required pytest plugin
+    "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
+    "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
+    "s3fs",                                                                       # S3 filesystem for tests over moto
+    "sniffio",                                                                    # Asynchronous runtime detection for test environment fixture
+    "structlog",                                                                  # Log capture in test runtime plugin
+    "trio",                                                                       # AnyIO Trio backend with autojumping clock for test doubles
+
     # --- [SCRIPTS]
-    "asttokens",                                          # Source ranges for private Blender extension imports
-    "coloraide",                                          # SVG tool paint parsing and sRGB gamut fitting
-    "cyclopts",                                           # CLI parser for tool commands
-    "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
-    "fonttools",                                          # Cubic pens for Blender geometry icons
-    "mcp",                                                # Native Blender Lab execution through its public MCP service
-    "msgspec[yaml]",                                      # Structs and JSON, TOML, and YAML codecs for tools, skill scripts, and test support
-    "packaging",                                          # Native wheel filename parsing for Blender extension assembly
-    "picosvg",                                            # SVG geometry normalization for native Blender glyphs
-    "psutil",                                             # Blender executable identity, use-ghidra process lookup, and benchmark readings
-    "result",                                             # Typed error composition for native Blender assembly and installation
-    "shapely",                                            # Filled-region geometry for Blender tool icons
-    "skia-pathops",                                       # Glyph stroke expansion and filled-region unions
-    "tomlkit",                                            # Comment-preserving Blender extension manifest assembly
-    "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
+    "asttokens",                                                                  # Source ranges for private Blender extension imports
+    "coloraide",                                                                  # SVG tool paint parsing and sRGB gamut fitting
+    "cyclopts",                                                                   # CLI parser for tool commands
+    "editorconfig",                                                               # EditorConfig property resolution for clean-prose fence indent sizes
+    "fonttools",                                                                  # Cubic pens for Blender geometry icons
+    "mcp",                                                                        # Blender Lab execution through its public MCP service
+    "msgspec[yaml]",                                                              # Structs and codecs for tools, skill scripts, and test support
+    "packaging",                                                                  # Wheel filename parsing for Blender extension assembly
+    "picosvg",                                                                    # SVG geometry normalization for Blender glyphs
+    "psutil",                                                                     # Blender identity, use-ghidra process lookup, benchmark readings
+    "pygments",                                                                   # Lexer aliases and filename patterns for clean-prose fence languages
+    "regex",                                                                      # DEFINE groups and pictograph property classes `re` lacks for clean-prose
+    "result",                                                                     # Typed error composition for Blender assembly and installation
+    "shapely",                                                                    # Filled-region geometry for Blender tool icons
+    "skia-pathops",                                                               # Glyph stroke expansion and filled-region unions
+    "tomlkit",                                                                    # Comment-preserving Blender extension manifest assembly
+    "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
+
     # --- [STUBS]
-    "brotli-stubs",                                       # Stubs for brotli
-    "fake-bpy-module-latest",                             # Stubs for bpy, bmesh, mathutils, and gpu
-    "pandas-stubs",                                       # Stubs for pandas
-    "scipy-stubs",                                        # Stubs for scipy
-    "types-atomicwrites",                                 # Stubs for atomic preset moves
-    "types-geopandas",                                    # Stubs for geopandas
-    "types-lxml",                                         # Stubs for lxml
-    "types-networkx",                                     # Stubs for networkx
-    "types-opencolorio",                                  # Stubs for PyOpenColorIO
-    "types-openpyxl",                                     # Stubs for openpyxl
-    "types-protobuf",                                     # Stubs for protobuf
-    "types-psutil",                                       # Stubs for psutil
-    "types-pygments",                                     # Stubs for pygments
-    "types-pyphen",                                       # Stubs for pyphen
-    "types-regex",                                        # Stubs for regex
-    "types-reportlab",                                    # Stubs for reportlab
-    "types-shapely",                                      # Stubs for shapely
+    "brotli-stubs",                                                               # Stubs for brotli
+    "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
+    "pandas-stubs",                                                               # Stubs for pandas
+    "scipy-stubs",                                                                # Stubs for scipy
+    "types-atomicwrites",                                                         # Stubs for atomicwrites
+    "types-geopandas",                                                            # Stubs for geopandas
+    "types-lxml",                                                                 # Stubs for lxml
+    "types-networkx",                                                             # Stubs for networkx
+    "types-opencolorio",                                                          # Stubs for PyOpenColorIO
+    "types-openpyxl",                                                             # Stubs for openpyxl
+    "types-protobuf",                                                             # Stubs for protobuf
+    "types-psutil",                                                               # Stubs for psutil
+    "types-pygments",                                                             # Stubs for pygments
+    "types-pyphen",                                                               # Stubs for pyphen
+    "types-regex",                                                                # Stubs for regex
+    "types-reportlab",                                                            # Stubs for reportlab
+    "types-shapely",                                                              # Stubs for shapely
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-default-groups = "all"
-environments = [
+default-groups           = "all"
+environments             = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
-dependency-groups = { workspace = { requires-python = ">=3.15" }, dev = { requires-python = ">=3.15" } }
-prerelease = "allow"
-no-build-package = ["epdx", "numba"]                      # epdx sdist omits project.version, numba before 0.68 publishes no cp315 wheel
-constraint-dependencies = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles into the interpreter host code runs in
-override-dependencies = ["truststore @ git+https://github.com/sethmlarson/truststore.git@8d19b4d3dea6d28003886a5b254f0ce8ce66eeb3"] # httpx2 verifies through truststore, whose released 0.10.4 races concurrent handshakes on one SSL context in wrap_bio, fixed upstream after the release
-extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }, openimageio = { CMAKE_ARGS = "-DLINKSTATIC=OFF" } } # manifold3d needs builtin TBB, OCIO omits command-line apps, OIIO uses native shared codec dependencies with their complete link closure
-extra-build-dependencies = { pyroscope-io = ["cmake"] }   # pyroscope-io build.rs runs cmake, undeclared in the sdist
-build-backend = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
+prerelease               = "allow"
+no-build-package         = ["epdx"]                                                                                                                                                  # Sdist omits `project.version`
+constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
+extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
+build-backend            = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
 
-[tool.uv.sources]
-openimageio = { git = "https://github.com/AcademySoftwareFoundation/OpenImageIO", tag = "v3.1.18.1", marker = "python_full_version >= '3.15'" }
+[tool.uv.extra-build-variables]
+confluent-kafka = { LIBRDKAFKA_VERSION = "2.16.0-RC4" }                                                            # Machine librdkafka it links, its build reads compiler-wide search paths alone, where a `conda:` prefix's zlib and OpenSSL reach every link
+h5py            = { HDF5_VERSION = "2.2.0" }                                                                       # Version of the `conda:hdf5` row, HDF5 refuses a library whose version differs from its headers
+manifold3d      = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }                                                 # Bundled TBB
+opencolorio     = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }                                                         # Library alone, no command-line apps
+pdal            = { PDAL_SERIES = "2.10", CMAKE_ARGS = "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON" }                  # Series of the `conda:libpdal-core` row, whose GDAL carries no Arrow to load a second gflags beside pyarrow's
+pyarrow         = { PYARROW_WITH_GANDIVA = "0" }                                                                   # `conda:libarrow-all` ships Gandiva without the LLVM it needs, the pyarrow version names the Arrow C++ series
+pyicu           = { ICU_VERSION = "78", PYICU_LIBRARIES = "icui18n:icuuc:icudata" }                                # Series of the `conda:icu` row and the libraries PyICU links
+small-gicp      = { CMAKE_ARGS = "-DCMAKE_DISABLE_FIND_PACKAGE_Eigen3=ON -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON" } # Fetches its pinned Eigen, keeps the `conda:llvm-openmp` rpath
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-cache-dir = ".cache/ruff"
-preview = true
+cache-dir      = ".cache/ruff"
+preview        = true
 target-version = "py315"
-line-length = 200
-src = [".", "libs/python"]
-format = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
+line-length    = 200
+src            = [".", "libs/python"]
+format         = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
-select = ["ALL"]
-ignore = [
+select                    = ["ALL"]
+ignore                    = [
     "missing-trailing-comma",
     "too-many-public-methods",
     "too-many-return-statements",
@@ -463,17 +493,36 @@ ignore = [
     "non-empty-init-module",
     "unused-function-argument",
     "unused-lambda-argument",
+    "compare-with-tuple",                                                                                                                                                                                            # PLR1714 reports the form as a set membership PLR6201 accepts
+    "blocking-http-call-in-async-function",                                                                                                                                                                          # banned-api rejects every client it names
+    "blocking-http-call-httpx-in-async-function",                                                                                                                                                                    # banned-api rejects `httpx`
+    "blocking-sleep-in-async-function",                                                                                                                                                                              # banned-api rejects `time.sleep`
+    "request-without-timeout",                                                                                                                                                                                       # banned-api rejects every client it names
+    "no-explicit-stacklevel",                                                                                                                                                                                        # banned-api rejects `warnings.warn`
+    "multiple-starts-ends-with",                                                                                                                                                                                     # refurb FURB102 reports the form on attribute receivers too
+    "repeated-append",                                                                                                                                                                                               # refurb FURB113 reports the form on attribute receivers too
+    "len-test",                                                                                                                                                                                                      # refurb FURB115 reports every sized length test from its type
+    "for-loop-writes",                                                                                                                                                                                               # refurb FURB122 reports the form on `Path.open` handles too
+    "readlines-in-for",                                                                                                                                                                                              # refurb FURB129 reports the form on `Path.open` handles too
+    "delete-full-slice",                                                                                                                                                                                             # refurb FURB131 reports the form on attribute receivers too
+    "check-and-remove-from-set",                                                                                                                                                                                     # refurb FURB132 reports the form on attribute receivers too
+    "for-loop-set-mutations",                                                                                                                                                                                        # refurb FURB142 reports the form on attribute receivers too
+    "slice-copy",                                                                                                                                                                                                    # refurb FURB145 reports the form on attribute receivers too
+    "unnecessary-enumerate",                                                                                                                                                                                         # refurb FURB148 reports the form in comprehensions too
+    "true-false-comparison",                                                                                                                                                                                         # refurb FURB149 reports `is` and `==` on bool-typed operands alone
+    "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 reports the form on attribute receivers too
+    "list-reverse-copy",                                                                                                                                                                                             # refurb FURB187 reports the form on attribute receivers too
 ]
-per-file-ignores = { "tests/**" = ["assert"] }
-flake8-bandit = { check-typed-exception = true }
+per-file-ignores          = { "tests/**" = ["assert"] }
+flake8-bandit             = { check-typed-exception = true }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" } }
-flake8-pytest-style = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
-flake8-type-checking = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
-isort = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
-pycodestyle = { max-line-length = 300 }
-pydocstyle = { convention = "google" }
-pydoclint = { ignore-one-line-docstrings = true }
-pylint = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8 }
+flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
+flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
+isort                     = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
+pycodestyle               = { max-line-length = 300 }
+pydocstyle                = { convention = "google" }
+pydoclint                 = { ignore-one-line-docstrings = true }
+pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8 }
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -499,57 +548,57 @@ require-lazy = [
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"asyncio".msg =                      "Use the anyio member"
-"collections.namedtuple".msg =       "Declare a frozen msgspec.Struct"
-"concurrent.futures".msg =           "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
-"concurrent.interpreters".msg =      "Use anyio.to_interpreter.run_sync"
-"contextlib.suppress".msg =          "Return an expression.Result from the suppressed call"
-"dataclasses.dataclass".msg =        "Declare a frozen msgspec.Struct"
-"dataclasses.make_dataclass".msg =   "Declare a frozen msgspec.Struct"
-"http.client".msg =                  "Use httpx2.Client or httpx2.AsyncClient"
-"httpx".msg =                        "Use httpx2.Client or httpx2.AsyncClient"
-"json.JSONDecoder".msg =             "Use msgspec.json.decode with type="
-"json.JSONEncoder".msg =             "Use msgspec.json.encode"
-"json.decoder.JSONDecoder".msg =     "Use msgspec.json.decode with type="
-"json.dump".msg =                    "Use msgspec.json.encode"
-"json.dumps".msg =                   "Use msgspec.json.encode"
-"json.encoder.JSONEncoder".msg =     "Use msgspec.json.encode"
-"json.load".msg =                    "Use msgspec.json.decode with type="
-"json.loads".msg =                   "Use msgspec.json.decode with type="
-"requests".msg =                     "Use httpx2.Client or httpx2.AsyncClient"
-"time.sleep".msg =                   "Use await anyio.sleep"
-"typing.NamedTuple".msg =            "Declare a frozen msgspec.Struct"
+"asyncio".msg                      = "Use the anyio member"
+"collections.namedtuple".msg       = "Declare a frozen msgspec.Struct"
+"concurrent.futures".msg           = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
+"concurrent.interpreters".msg      = "Use anyio.to_interpreter.run_sync"
+"contextlib.suppress".msg          = "Return an expression.Result from the suppressed call"
+"dataclasses.dataclass".msg        = "Declare a frozen msgspec.Struct"
+"dataclasses.make_dataclass".msg   = "Declare a frozen msgspec.Struct"
+"http.client".msg                  = "Use httpx2.Client or httpx2.AsyncClient"
+"httpx".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
+"json.JSONDecoder".msg             = "Use msgspec.json.decode with type="
+"json.JSONEncoder".msg             = "Use msgspec.json.encode"
+"json.decoder.JSONDecoder".msg     = "Use msgspec.json.decode with type="
+"json.dump".msg                    = "Use msgspec.json.encode"
+"json.dumps".msg                   = "Use msgspec.json.encode"
+"json.encoder.JSONEncoder".msg     = "Use msgspec.json.encode"
+"json.load".msg                    = "Use msgspec.json.decode with type="
+"json.loads".msg                   = "Use msgspec.json.decode with type="
+"requests".msg                     = "Use httpx2.Client or httpx2.AsyncClient"
+"time.sleep".msg                   = "Use await anyio.sleep"
+"typing.NamedTuple".msg            = "Declare a frozen msgspec.Struct"
 "typing_extensions.NamedTuple".msg = "Declare a frozen msgspec.Struct"
 "typing_extensions.deprecated".msg = "Delete the replaced API"
-"urllib.request".msg =               "Use httpx2.Client or httpx2.AsyncClient"
-"urllib3".msg =                      "Use httpx2.Client or httpx2.AsyncClient"
-"warnings.deprecated".msg =          "Delete the replaced API"
-"warnings.warn".msg =                "Return an expression.Result for an expected failure"
-"warnings.warn_explicit".msg =       "Return an expression.Result for an expected failure"
+"urllib.request".msg               = "Use httpx2.Client or httpx2.AsyncClient"
+"urllib3".msg                      = "Use httpx2.Client or httpx2.AsyncClient"
+"warnings.deprecated".msg          = "Delete the replaced API"
+"warnings.warn".msg                = "Return an expression.Result for an expected failure"
+"warnings.warn_explicit".msg       = "Return an expression.Result for an expected failure"
 
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
-analysis = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.**", "Rhino.**", "System.**"] }
-rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
+analysis    = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.**", "Rhino.**", "System.**"] }
+rules       = { all = "error", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-files = [".", ".claude"]
-mypy_path = ["libs/python"]
-cache_dir = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
-strict = true
-pretty = true
-warn_unreachable = true
-explicit_package_bases = true
-exclude_gitignore = true
-disallow_any_explicit = true
+files                   = [".", ".claude"]
+mypy_path               = ["libs/python"]
+cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
+strict                  = true
+pretty                  = true
+warn_unreachable        = true
+explicit_package_bases  = true
+exclude_gitignore       = true
+disallow_any_explicit   = true
 disallow_any_unimported = true
-plugins = ["pydantic.mypy"]
-enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-overrides = [
+plugins                 = ["pydantic.mypy"]
+enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
+overrides               = [
     { module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true },
     { module = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.*", "PyObjCTools", "Rhino", "Rhino.*", "System", "System.*", "fsspec.*", "s3fs"], ignore_missing_imports = true },
 ]
@@ -557,22 +606,101 @@ overrides = [
 # --- [PYDANTIC_MYPY] --------------------------------------------------------------------
 
 [tool.pydantic-mypy]
-init_typed = true
-init_forbid_extra = true
+init_typed                    = true
+init_forbid_extra             = true
 warn_required_dynamic_aliases = true
+
+# --- [REFURB] ---------------------------------------------------------------------------
+
+[tool.refurb]
+enable_all = true
+load       = ["tools.refurb"]
+mypy_args  = ["--cache-dir", ".cache/refurb"]
+disable    = [
+    "FURB101",                                # Ruff runs FURB101
+    "FURB103",                                # Ruff runs FURB103
+    "FURB104",                                # Ruff PTH109 reports the form
+    "FURB105",                                # Ruff runs FURB105
+    "FURB106",                                # `expandtabs` differs from the replacement unless tabs lead the string
+    "FURB107",                                # Rewrites to `contextlib.suppress`, which `banned-api` rejects, Ruff SIM105 and S110 report the swallowed exception
+    "FURB108",                                # Ruff PLR1714 reports the form
+    "FURB109",                                # Rewrites to a tuple membership, which Ruff PLR6201 rejects
+    "FURB110",                                # Ruff runs FURB110
+    "FURB111",                                # Ruff PLW0108 reports the form
+    "FURB112",                                # Ruff C408 reports the form
+    "FURB114",                                # Ruff SIM208 reports the form
+    "FURB116",                                # Ruff runs FURB116
+    "FURB117",                                # Ruff PTH123 reports the form
+    "FURB118",                                # `operator.itemgetter` returns `Any` under typeshed, the lambda keeps its element type
+    "FURB119",                                # Ruff RUF010 reports the form
+    "FURB120",                                # Reads defaults from stubs, `fake-bpy-module` defaults differ from Blender's native behavior
+    "FURB121",                                # Ruff SIM101 reports the form
+    "FURB124",                                # Chaining `x is y is z` compares the outer operands, which mypy comparison-overlap rejects when their types differ
+    "FURB125",                                # Ruff PLR1711 reports the form
+    "FURB126",                                # Dropping a trailing `case _` arm fails mypy exhaustive-match
+    "FURB128",                                # Ruff PLR1712 reports the form
+    "FURB130",                                # Ruff SIM118 reports the form
+    "FURB134",                                # Ruff UP033 reports the form
+    "FURB135",                                # Ruff PERF102 reports the form
+    "FURB136",                                # Ruff runs FURB136
+    "FURB137",                                # Ruff C400, C401, C409, and C419 report the form
+    "FURB138",                                # Ruff PERF401 reports the form
+    "FURB140",                                # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
+    "FURB141",                                # Ruff PTH110 reports the form
+    "FURB144",                                # Ruff PTH107 and PTH108 report the form
+    "FURB146",                                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
+    "FURB147",                                # Ruff PTH118 reports the form, the check also rejects `posixpath.join` on archive and URL paths
+    "FURB150",                                # Ruff PTH102 and PTH103 report the form
+    "FURB151",                                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
+    "FURB152",                                # Ruff runs FURB152
+    "FURB153",                                # Ruff PTH201 reports the form
+    "FURB154",                                # Ruff runs FURB154
+    "FURB155",                                # Ruff PTH116 and PTH202 through PTH205 report the form
+    "FURB156",                                # Ruff runs FURB156
+    "FURB157",                                # Ruff runs FURB157
+    "FURB160",                                # Ruff PLW0127 reports the form
+    "FURB161",                                # Ruff runs FURB161
+    "FURB162",                                # Ruff runs FURB162
+    "FURB163",                                # Ruff runs FURB163
+    "FURB164",                                # Ruff runs FURB164
+    "FURB166",                                # Ruff runs FURB166
+    "FURB167",                                # Ruff runs FURB167
+    "FURB168",                                # Ruff runs FURB168
+    "FURB169",                                # Ruff runs FURB169
+    "FURB171",                                # Ruff runs FURB171
+    "FURB172",                                # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
+    "FURB173",                                # Merged literal `{...} | d` infers its own value type, failing the target parameter's type under mypy
+    "FURB176",                                # Ruff DTZ003 and DTZ004 report the form
+    "FURB177",                                # Ruff runs FURB177
+    "FURB179",                                # Rewrites to `chain.from_iterable`, joining heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` reports `chain(*x)`
+    "FURB180",                                # Ruff runs FURB180
+    "FURB184",                                # Matches names with no type or binding check, chaining drops annotations and reused bindings
+    "FURB188",                                # Ruff runs FURB188
+    "FURB189",                                # Ruff runs FURB189
+    "FURB192",                                # Ruff runs FURB192
+]
+
+# --- [DEPTRY] ---------------------------------------------------------------------------
+
+[tool.deptry]
+experimental_namespace_package = true # Import roots under backend `module-root` are namespace packages holding no top-level module
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["_blendfile_header", "_bpy_internal", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
+DEP002 = ["matplotlib", "tzdata"]                                                                                                                                                                       # `import colour` loads matplotlib its metadata marks optional, zoneinfo reads tzdata data files
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
 [tool.pytest]
-strict = true
-cache_dir = ".cache/pytest"
-testpaths = ["tests/python"]
-pythonpath = ["."]
-python_files = ["test_*.py", "*_test.py", "bench_*.py"]
-python_functions = ["test_*", "bench_*"]
-collect_imported_tests = false
+strict                   = true
+cache_dir                = ".cache/pytest"
+testpaths                = ["tests/python"]
+pythonpath               = ["."]
+python_files             = ["test_*.py", "*_test.py", "bench_*.py"]
+python_functions         = ["test_*", "bench_*"]
+collect_imported_tests   = false
 empty_parameter_set_mark = "fail_at_collect"
-addopts = [
+addopts                  = [
     "-p",
     "tests.python.support.runtime",
     "-p",
@@ -587,9 +715,9 @@ addopts = [
     "--allow-unix-socket",
     "--benchmark-storage=file://.artifacts/python/benchmarks",
 ]
-filterwarnings = ["error"]
-timeout = "30"
-required_plugins = [
+filterwarnings           = ["error"]
+timeout                  = "30"
+required_plugins         = [
     "anyio",
     "hypothesis",
     "pytest-benchmark",
@@ -599,7 +727,7 @@ required_plugins = [
     "pytest-timeout",
     "pytest-xdist",
 ]
-markers = [
+markers                  = [
     "network: tests that need real INET sockets (loopback servers or outbound connections)",
     "property: @property_test registration, record holds its PropertyRecord",
 ]
@@ -607,5 +735,5 @@ markers = [
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage]
-run = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python", "tests/python/support"] }
+run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python", "tests/python/support"] }
 report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"] }

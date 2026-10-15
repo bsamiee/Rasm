@@ -120,7 +120,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
                     try:
                         records.touch()
                     except OSError as error:
-                        return Error((RenderingWriteFault(request=str(records), error=error),))
+                        return Error((RenderingWriteFault(request=records, error=error),))
                 except OSError as error:
                     return Error((RenderingRunFault(request=argv, error=error),))
 
@@ -131,7 +131,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
         return paired(answer, reaped).bind(lambda _: answer)
 
     def crashed(answer: RenderingResult[int]) -> bool:
-        return answer.tag == "ok" and answer.ok not in {0, 1}
+        return answer.map(lambda code: code not in {0, 1}).default_value(False)
 
     def rendered(progress: Progress) -> RenderingResult[None]:
         schedule = target.schedule(queue)
@@ -157,14 +157,13 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
                     .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")).map(lambda _: (code, held)) if code == 0 else Ok((code, held)))
                 )
 
-            attempted = store(records, msgspec.json.encode(admitted, order="deterministic")).bind(launched).bind(confirmed)
-            match attempted.tag:
-                case "error":
-                    return Error(attempted.error)
-                case "ok":
-                    code, progress = attempted.ok
-                    if code != 0:
-                        return Error((RenderingRunFault(request=argv, error=code),))
+            match store(records, msgspec.json.encode(admitted, order="deterministic")).bind(launched).bind(confirmed):
+                case Result(tag="ok", ok=(0, progress)):
+                    continue
+                case Result(tag="ok", ok=(code, _)):
+                    return Error((RenderingRunFault(request=argv, error=code),))
+                case Result(error=faults):
+                    return Error(faults)
 
     def ended(ending: Ending) -> RenderingResult[Progress]:
         return (
@@ -208,7 +207,7 @@ def cleared(queue: RenderQueue, host: Host) -> RenderingResult[None]:
 
     def removed(file: RunFile) -> RenderingResult[None]:
         path = host.path(queue, file)
-        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=str(path), error=error),))
+        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=path, error=error),))
 
     return accumulated(map(removed, (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG))).map(lambda _: None)
 

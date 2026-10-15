@@ -84,10 +84,10 @@ def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand,
     dimensions = basis.dimensions if isinstance(basis, Perlin | Voronoi | White | Gabor) else 3
 
     def coordinates[T](position: T, fourth: T) -> dict[str, T]:
-        return {**({"Vector": position} if dimensions > 1 else {}), **({"W": fourth} if dimensions in {1, 4} else {})}
+        return ({"Vector": position} if dimensions > 1 else {}) | ({"W": fourth} if dimensions in {1, 4} else {})
 
     def textured(position: tuple[Fragment, End], fourth: Operand) -> BlenderResult[tuple[Fragment, End]]:
-        common = {**coordinates(position, fourth), "Scale": 1.0}
+        common = coordinates(position, fourth) | {"Scale": 1.0}
         match basis:
             case Perlin():
                 _, _, _, _, octaves, offset, gain, distortion, _ = Perlin.__struct_fields__

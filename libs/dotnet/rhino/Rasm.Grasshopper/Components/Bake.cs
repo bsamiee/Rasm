@@ -30,7 +30,7 @@ public static class BakeOps {
             from held in IO.lift(() => toSeq(read().Filter(row => scope(row.Key) || desired.ContainsKey(row.Key)).OrderBy(static row => row.Id)).Strict())
             from rows in desired.ToSeq().TraverseM(row => Prepared(row, defaults, retain)).As()
             from plan in IO.lift(() => rows.Map(row => {
-                Option<Guid> previous = held.Find(found => row.Key.CompareTo(found.Key) == 0).Map(static found => found.Id);
+                Option<Guid> previous = held.Find(found => row.Key.CompareTo(found.Key) is 0).Map(static found => found.Id);
                 Guid id = previous.IfNone(Guid.NewGuid);
                 ObjectAttributes attributes = row.Attributes;
                 ArchivableDictionary dictionary = attributes.UserDictionary;
@@ -82,7 +82,7 @@ public static class BakeOps {
                     from modified in IO.lift(() => Refused.Unless(doc.Objects.ModifyAttributes(id, attributes, quiet: true), id, nameof(ObjectTable.ModifyAttributes)))
                     select modified,
                 None: () => TableOps.Add(doc, new GeometryPair(geometry, Some(attributes)), None, reference: false)),
-            stale => TableOps.Apply(doc, new TableOp.Delete(new ObjectTarget.Ids(stale), Quiet: true, IgnoreModes: true)).Map(static _ => unit),
+            stale => TableOps.Apply(doc, new TableOp.Delete(new ObjectTarget.Ids(stale), Quiet: true, IgnoreModes: true)).Map(unit),
             scope,
             desired);
 

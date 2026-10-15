@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-growth-in-endless-loop-csharp
+language: csharp
+severity: error
+utils:
+    scope:
+        kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'
+    endless:
+        any:
+            - {kind: 'while_statement, do_statement', has: {field: condition, regex: '^true$'}}
+            - {kind: for_statement, regex: '^for\s*\(\s*;\s*;\s*\)'}
+            - {kind: while_statement, has: {field: condition, kind: prefix_unary_expression, regex: '^!\s*[\w.]+\.IsCancellationRequested$'}}
+            - {kind: while_statement, has: {field: condition, kind: await_expression, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(WaitForNextTickAsync|WaitToReadAsync)$'}}}}}
+            - {kind: foreach_statement, regex: '^await\s+foreach', has: {field: right, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ReadAllAsync$'}}}}
+        not: {has: {stopBy: {matches: scope}, kind: 'break_statement, return_statement, throw_statement, yield_statement'}}
+    grown:
+        any:
+            - kind: identifier
+            - {kind: member_access_expression, has: {field: expression, regex: '^this$'}}
+    grow-call:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Add|AddRange|AddLast|AddFirst|Enqueue|EnqueueRange|Push|PushRange|Append|AppendLine|AppendJoin|AppendFormat|Insert|InsertRange|Concat|Cons)$'}}
+    grows-held:
+        matches: grow-call
+        has: {field: function, has: {field: expression, pattern: $GROWN}}
+    grow-assign:
+        kind: assignment_expression
+        all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: left, pattern: $GROWN}
+            - has:
+                field: right
+                any:
+                    - matches: grows-held
+                    - {kind: collection_expression, has: {kind: collection_element, has: {kind: spread_element, has: {pattern: $GROWN}}}}
+    swap:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Swap|SwapIO)$'}}, {has: {field: expression, pattern: $GROWN}}]}
+    grow-swap:
+        matches: swap
+        has:
+            field: arguments
+            has:
+                kind: argument
+                has:
+                    kind: lambda_expression
+                    all:
+                        - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $HELD}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $HELD}}}]}
+                        - has: {field: body, matches: grow-call, has: {field: function, has: {field: expression, pattern: $HELD}}}
+    drain:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Clear|Remove|RemoveAt|RemoveAll|RemoveRange|RemoveFirst|RemoveLast|Dequeue|TryDequeue|Pop|TryPop|TryTake|Take|TrimExcess)$'}}
+                - has: {field: function, has: {field: expression, pattern: $GROWN}}
+            - kind: assignment_expression
+              all:
+                - has: {field: left, any: [{pattern: $GROWN}, {kind: member_access_expression, has: {field: expression, pattern: $GROWN}}]}
+                - not: {matches: grow-assign}
+            - all:
+                - matches: swap
+                - not: {matches: grow-swap}
+            - kind: argument
+              all:
+                - has: {kind: modifier, regex: '^ref$'}
+                - has: {pattern: $GROWN}
+    reset:
+        kind: variable_declarator
+        has: {field: name, pattern: $GROWN}
+    declared:
+        kind: parameter, variable_declarator
+        has: {field: name, pattern: $GROWN}
+rule:
+    kind: 'invocation_expression, assignment_expression'
+    all:
+        - any:
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
+                - matches: grow-call
+                - not:
+                    any:
+                        - inside: {kind: lambda_expression, field: body, inside: {kind: argument, inside: {kind: argument_list, inside: {matches: swap}}}}
+                        - inside: {field: right, matches: grow-assign}
+            - all:
+                - has: {field: left, matches: grown, pattern: $GROWN}
+                - matches: grow-assign
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
+                - matches: grow-swap
+        - inside: {stopBy: {matches: scope}, matches: endless, not: {has: {stopBy: end, matches: reset}}}
+        - any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: declared}, not: {has: {stopBy: end, matches: drain}}}
+            - all:
+                - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: declared}}}
+                - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: drain}}}
+message: '`$GROWN` grows each pass of a loop with no exit, nothing removes from it'
+note: 'Bound the collection, drain it per pass, or build it inside the loop body so each pass starts empty'

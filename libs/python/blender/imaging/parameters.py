@@ -78,6 +78,11 @@ type Stops = Annotated[float, msgspec.Meta(ge=STOP_RANGE[0], le=STOP_RANGE[1]), 
 type Seed = Annotated[int, msgspec.Meta(ge=0, le=2**24)]
 type ColorSpace = Annotated[str, msgspec.Meta(min_length=1), GraphForm.COLOR_SPACE]
 type Finite = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max)]
+type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
+type Positive = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
+type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
+type FrameLength = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
+type FrameExtent = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
 type Position = Annotated[tuple[Finite, Finite], Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -128,7 +133,7 @@ class Knot[X: float, Y: float](msgspec.Struct, frozen=True, kw_only=True, array_
 class Stop(msgspec.Struct, frozen=True, kw_only=True):
     """Color at a normalized position along a color band."""
 
-    position: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
+    position: Unit
     color: Rgb
 
 
@@ -168,13 +173,17 @@ __all__ = [
     "ColorMode",
     "ColorSpace",
     "Finite",
+    "FrameExtent",
+    "FrameLength",
     "Gated",
     "GraphForm",
     "HuePath",
     "Interpolation",
     "Knot",
     "Motion",
+    "NonNegative",
     "Position",
+    "Positive",
     "Presentation",
     "Quantity",
     "Ramp",
@@ -182,5 +191,6 @@ __all__ = [
     "Seed",
     "Stop",
     "Stops",
+    "Unit",
     "markers",
 ]

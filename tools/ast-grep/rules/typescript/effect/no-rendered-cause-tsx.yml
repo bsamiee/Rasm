@@ -96,7 +96,13 @@ utils:
                 - has: {kind: 'string, template_string'}
     protocol-error-fields:
         kind: object
-        inside: {kind: arguments, inside: {kind: new_expression, has: {field: 'constructor', matches: syntax-package-reference}}}
+        inside:
+            kind: arguments
+            inside:
+                any:
+                    - {kind: new_expression, has: {field: 'constructor', matches: syntax-package-reference}}
+                    - kind: call_expression
+                      has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: syntax-package-reference}}]}
     text-content-fields:
         kind: object
         inside:

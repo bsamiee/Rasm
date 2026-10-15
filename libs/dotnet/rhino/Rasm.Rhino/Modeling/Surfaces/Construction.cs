@@ -30,7 +30,7 @@ public sealed partial class PointGrid {
     public int VCount => Points.Count / UCount;
 
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Seq<Point3d> points, ref int uCount) =>
-        validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount == 0 ? null : new InvalidRhinoValue();
+        validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0 ? null : new InvalidRhinoValue();
 }
 
 [Union<Cone, Cylinder, Sphere, Torus>(SkipEqualityComparison = true, SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -52,10 +52,10 @@ public static class SurfaceConstruction {
                         ordered.U.Curves, (int)ordered.U.Start, (int)ordered.U.End, ordered.V.Curves, (int)ordered.V.Start, (int)ordered.V.End,
                         network.Tolerances.Absolute, network.Interior, network.Tolerances.Angle, out int error),
                     Error: error)),
-            static Fin<NurbsSurface> (answer) => answer.Error == 0
+            static Fin<NurbsSurface> (answer) => answer.Error is 0
                 ? Missing.Unless(answer.Surface, nameof(NurbsSurface.CreateNetworkSurface)).Bind(static surface => Measurements.Valid(surface, nameof(NurbsSurface.CreateNetworkSurface)))
                 : new NetworkSurfaceFailed((NetworkFailure)answer.Error),
-            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Surface })), retain);
+            static answer => DisposalOps.Release(Conversions.Rows([answer.Surface])), retain);
 
     public static IO<RevSurface> Revolved(RevolveProfile profile, Line axis, Option<(double StartRadians, double EndRadians)> angles, Action<IDisposable> retain) =>
         Copies.Acquire(
@@ -107,7 +107,7 @@ public static class SurfaceConstruction {
             static pair => Refused.Unless(pair.Accepted, pair, nameof(NurbsSurface.MakeCompatible)).Bind(static answer =>
                 (Measurements.Valid(answer.A, nameof(NurbsSurface.MakeCompatible)).ToValidation(), Measurements.Valid(answer.B, nameof(NurbsSurface.MakeCompatible)).ToValidation())
                     .Apply(static (first, second) => (A: first, B: second)).As().ToFin()),
-            static pair => DisposalOps.Release(Conversions.Rows(new[] { pair.A, pair.B })), retain);
+            static pair => DisposalOps.Release(Conversions.Rows([pair.A, pair.B])), retain);
 
     // --- [EDITS]
     public static IO<Surface> VariableOffset(

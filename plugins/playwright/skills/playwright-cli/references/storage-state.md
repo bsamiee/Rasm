@@ -1,10 +1,12 @@
 # [STORAGE_STATE]
 
-Storage commands act on the context of the current tab, reads print plain lines and writes print the Playwright code they ran. State files hold cookies and per-origin storage between sessions.
+Storage commands act on the context of the current tab, reads print plain lines and writes print the Playwright code they ran.
 
 ## [01]-[STATE]
 
-`state-save` writes cookies and each origin's localStorage as JSON, `state-load` replaces cookies and every origin's localStorage, IndexedDB, and OPFS of the open session with a file's contents:
+State files hold cookies and per-origin storage between sessions:
+- `state-save` writes cookies and each origin's localStorage as JSON
+- `state-load` replaces cookies and every origin's localStorage, IndexedDB, and OPFS of the open session with a file's contents
 - `state-save` without a path writes `$PLAYWRIGHT_MCP_OUTPUT_DIR/storage-state-<timestamp>.json`, a relative path resolves against the shell directory
 - `state-load` needs an open session, the page keeps its URL and sessionStorage and reads restored values without a reload
 - `PLAYWRIGHT_MCP_STORAGE_STATE=<file>` on `open` starts an in-memory session from a state file
@@ -75,8 +77,9 @@ Saved file, a session cookie with `expires: -1`, and `indexedDB`, `opfs`, and `c
 - `--domain` defaults to the current page's host and `--path` to `/`, a blank page needs `--domain`
 - `--expires` takes Unix seconds, Chromium caps it at 400 days ahead, a cookie without it ends with the session
 - `--httpOnly` and `--secure` set their flags, `--sameSite` takes `Strict`, `Lax`, or `None`, and `Lax` applies without it
-- `cookie-list --domain` keeps domains containing the text, `--path` paths starting with it
-- `cookie-get` prints the first cookie of that name with its flags, `cookie-delete` removes the name from every domain
+- `cookie-list --domain` keeps that domain and its subdomains ignoring case and a leading dot, `--path` that path and paths below it
+- `cookie-get` prints the first cookie of that name with its flags, `cookie-delete` removes the name from every domain and path
+- `cookie-delete --domain` and `--path` limit the removal to that exact domain or path
 - `run-code` with `clearCookies({ domain })` clears one domain
 
 ```bash
@@ -86,6 +89,7 @@ playwright cli cookie-list
 playwright cli cookie-list --domain=example.com --path=/api
 playwright cli cookie-get session
 playwright cli cookie-delete session
+playwright cli cookie-delete session --domain=example.com --path=/api
 playwright cli cookie-clear
 
 playwright cli run-code "async page => page.context().clearCookies({ domain: 'tracker.example.com' })"
@@ -114,7 +118,8 @@ playwright cli sessionstorage-clear
 
 ## [04]-[INDEXED_DB]
 
-`run-code` reads every origin's IndexedDB stores and records through `storageState`, `eval` lists the current origin's databases and deletes one. A database the page holds open rejects the delete as blocked, and the delete completes once the page navigates away:
+`run-code` reads every origin's IndexedDB stores and records through `storageState`, `eval` lists the current origin's databases and deletes one:
+- Databases the page holds open reject the delete as blocked, the delete completes once the page navigates away
 
 ```bash
 playwright cli --raw run-code "async page => {

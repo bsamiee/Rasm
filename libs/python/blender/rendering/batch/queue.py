@@ -142,7 +142,7 @@ def load[T](path: Path, kind: type[T]) -> RenderingResult[T]:
     try:
         return Ok(msgspec.json.decode(path.read_bytes(), type=kind))
     except (OSError, msgspec.DecodeError) as error:
-        return Error((RenderingReadFault(request=str(path), error=error),))
+        return Error((RenderingReadFault(request=path, error=error),))
 
 
 def store(path: Path, content: bytes) -> RenderingResult[Path]:
@@ -154,7 +154,7 @@ def store(path: Path, content: bytes) -> RenderingResult[Path]:
         staged.write_bytes(content)
         return staged.replace(path)
 
-    return catch(replaced, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=str(path), error=error),))
+    return catch(replaced, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=path, error=error),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

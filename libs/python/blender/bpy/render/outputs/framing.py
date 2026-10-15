@@ -12,7 +12,7 @@ import msgspec
 from blender.bpy.commands.operators import answered, Call, Empty, Operator, Outcome
 from blender.bpy.data.rna.conditions import AllOf, Count, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.snapshots import NativeValue, Snapshot
+from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions
@@ -127,22 +127,22 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 owners = (scene.render, *(camera for camera, _ in cameras))
 
-                def captured() -> BlenderResult[Tree[NativeValue]]:
-                    return accumulated(Snapshot.capture(owner, native=True) for owner in owners).map(
-                        lambda trees: Tree(roots=tuple(key for tree in trees for key in tree.roots), owners={key: value for tree in trees for key, value in tree.owners.items()})
-                    )
-
                 def changed(before: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
                     outcomes = (settings(bigger, scene.render.ppm_base).apply(scene.render), *(snapshot.apply(camera) for camera, snapshot in cameras))
                     final = tuple(Snapshot.capture(owner, native=True) for owner in owners)
                     trees = tuple(tree for answer in final for tree in answer.to_option().to_list())
-                    after = Tree(roots=tuple(key for tree in trees for key in tree.roots), owners={key: value for tree in trees for key, value in tree.owners.items()})
+                    after = Tree.joined(trees)
                     completed = Snapshot.persisted(after).bind(lambda projected: self.held.write(scene, Grown(base=base, before=before, after=projected)))
                     return paired(accumulated(outcome.outcome for outcome in outcomes), paired(accumulated(final), completed)).map(lambda _: result)
 
-                return captured().bind(Snapshot.persisted).bind(lambda before: self.held.write(scene, Growing(base=base, before=before)).bind(lambda _: changed(before)))
+                return (
+                    accumulated(Snapshot.capture(owner, native=True) for owner in owners)
+                    .map(Tree.joined)
+                    .bind(Snapshot.persisted)
+                    .bind(lambda before: self.held.write(scene, Growing(base=base, before=before)).bind(lambda _: changed(before)))
+                )
 
-            admitted: BlenderResult[tuple[Framing, tuple[Side, Side]]] = base.rendered((bounds.hard_min, bounds.hard_max)).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+            admitted: BlenderResult[tuple[Framing, tuple[Side, Side]]] = base.rendered((bounds.hard_min, bounds.hard_max)).map_error(BlenderRenderingFault.lifted)
             return Result[tuple[Framing, tuple[Side, Side]], BlenderFaults].bind(admitted, lambda formed: capacity(scene, formed[1]).bind(lambda _: wrote(formed)))
 
         return self.held.read(scene).bind(lambda held: self.read(scene, Some(Whole()) if held.is_some() else Nothing).bind(lambda base: grow(base, held)))
@@ -153,12 +153,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
         def back(kept: Growing | Grown) -> BlenderResult[None]:
             match kept:
                 case Grown():
-                    return (
-                        paired(Snapshot.decoded(kept.before), Snapshot.decoded(kept.after))
-                        .bind(lambda pair: Snapshot.restore(*pair).outcome)
-                        .bind(lambda _: self.held.removed(scene))
-                        .map(lambda _: None)
-                    )
+                    return Snapshot.reverted(kept.before, kept.after).bind(lambda _: self.held.removed(scene)).map(lambda _: None)
                 case Growing():
                     return Error((BlenderAbsentFault(owner=repr(scene), key=f"{self.held.name}.after"),))
 
@@ -218,13 +213,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
         if (scene := (context.scene)) is None:
             return Nothing
-        return (
-            self
-            .read(scene)
-            .bind(lambda framing: framing.pixels().map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(lambda shown: text(framing, shown)))
-            .map(Some)
-            .default_with(lambda faults: Some("; ".join(message for _, message in rendered(faults))))
-        )
+        return self.read(scene).bind(lambda framing: framing.pixels().map_error(BlenderRenderingFault.lifted).map(lambda shown: text(framing, shown))).map(Some).default_with(summarized)
 
 
 class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
@@ -276,13 +265,7 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
                 safe_broadcast,
                 Append(
                     target=RENDER_PT_format,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    rows=(
-                        Label(
-                            text=lambda context: (
-                                self.bound(identity).map(lambda framed: framed.caption(context)).default_with(lambda faults: Some("; ".join(message for _, message in rendered(faults))))
-                            )
-                        ),
-                    ),
+                    rows=(Label(text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(summarized)),),
                 ),
                 Append(target=RENDER_PT_frame_range, rows=(Label(text=duration),)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 PathHandler(
@@ -325,6 +308,11 @@ def broadcasted(call: Call[Standard]) -> BlenderResult[Outcome]:
     )
 
 
+def summarized(faults: BlenderFaults) -> Option[str]:
+    """Joins the rendered report text of every failure for a label."""
+    return Some("; ".join(message for _, message in rendered(faults)))
+
+
 def duration(context: bpy.types.Context) -> Option[str]:
     """Returns total and preview inclusive-frame durations through native timecode formatting."""
     if (scene := (context.scene)) is None:
@@ -357,4 +345,20 @@ safe_listing = Listing(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FrameSize", "Framed", "Growing", "Grown", "Oversize", "Standard", "Unseen", "broadcasted", "capacity", "duration", "safe_broadcast", "safe_listing", "safe_presets", "settings"]
+__all__ = [
+    "FrameSize",
+    "Framed",
+    "Growing",
+    "Grown",
+    "Oversize",
+    "Standard",
+    "Unseen",
+    "broadcasted",
+    "capacity",
+    "duration",
+    "safe_broadcast",
+    "safe_listing",
+    "safe_presets",
+    "settings",
+    "summarized",
+]

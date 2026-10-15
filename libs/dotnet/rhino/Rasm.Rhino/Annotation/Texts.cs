@@ -141,7 +141,7 @@ public static class Texts {
             annotation.TextHeight,
             annotation.TextRotationRadians,
             Callbacks.Found(annotation.TextIsWrapped, annotation.FormatWidth),
-            annotation.MaskEnabled || annotation.MaskFrame != DimensionStyle.MaskFrame.NoFrame ? Some(TextMapper.Mask(annotation)) : None,
+            annotation.MaskEnabled || annotation.MaskFrame is not DimensionStyle.MaskFrame.NoFrame ? Some(TextMapper.Mask(annotation)) : None,
             annotation.DimensionStyleId,
             DimensionStyles.Overrides(annotation.IsPropertyOverridden),
             annotation.DecimalSeparator,

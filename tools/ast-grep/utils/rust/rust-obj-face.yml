@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-obj-face
+language: rust
+rule:
+    kind: string_literal
+    any:
+        - regex: '^"f "$'
+          inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: string_literal, regex: '^"v "$'}}
+        - regex: '^"f"$'
+          inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: string_literal, regex: '^"v[nt]"$'}}

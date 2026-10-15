@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-strip-fallback
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - pattern: $S.$STRIP($P).unwrap_or($S)
+constraints:
+    STRIP: {regex: '^strip_(prefix|suffix)$'}
+transform:
+    METHOD: {replace: {source: $STRIP, replace: '^strip_', by: 'trim_'}}
+fix: $S.$METHOD($P)
+message: '`$S.$STRIP($P)` falls back to `$S`'
+note: 'Call `<text>.trim_prefix(<pattern>)` or `trim_suffix` (`str` and `[T]`, `Path::trim_prefix`), each returns the receiver unchanged when the affix is absent'

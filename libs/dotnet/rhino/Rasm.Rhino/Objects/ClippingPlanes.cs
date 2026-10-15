@@ -123,15 +123,7 @@ public static class ClippingPlanes {
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
+[UseStaticMapper(typeof(Patches))]
 internal static partial class ClipMapper {
     internal static partial void Update((Option<bool> ParticipationListsEnabled, Option<bool> PlaneDepthEnabled, Option<double> PlaneDepth, Option<Guid> DimensionStyleId) settings, ClippingPlaneSurface surface);
-
-    [UserMapping(Default = true)]
-    private static bool Flag(Option<bool> value, [MappingTargetOriginalValue] bool original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static double Scalar(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static Guid Id(Option<Guid> value, [MappingTargetOriginalValue] Guid original) => value.IfNone(original);
 }

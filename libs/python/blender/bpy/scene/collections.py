@@ -93,7 +93,7 @@ def membership(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
             )
         )
 
-    return tree.members.map(listed).default_with(lambda: Ok(()))
+    return tree.members.map(listed).default_value(Ok(()))
 
 
 def applied(collection: bpy.types.Collection, change: MembershipChange) -> BlenderResult[None]:
@@ -126,7 +126,7 @@ def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
     initial: BlenderResult[None] = Ok(None)
     return membership(tree, collection).bind(
         lambda rows: reduce(lambda done, row: done.bind(lambda _: applied(collection, row)), rows, initial).bind(
-            lambda _: tree.values.map(lambda values: values.apply(collection).outcome.map(lambda _: rows)).default_with(lambda: Ok(rows))
+            lambda _: tree.values.map(lambda values: values.apply(collection).outcome.map(lambda _: rows)).default_value(Ok(rows))
         )
     )
 
@@ -216,7 +216,7 @@ def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bp
     with ExitStack() as rollback:
         made = bpy.data.collections.new(name)
         rollback.callback(bpy.data.batch_remove, ids=(made,))
-        if (result := (named(made, name).bind(lambda block: parent.map(lambda held: joined(held, (block,)).map(lambda _: block)).default_with(lambda: Ok(block))))).is_ok():
+        if (result := (named(made, name).bind(lambda block: parent.map(lambda held: joined(held, (block,)).map(lambda _: block)).default_value(Ok(block))))).is_ok():
             rollback.pop_all()
         return result
 
@@ -227,7 +227,7 @@ def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection
         copied = Option.of_optional(collection.copy())
         for made in copied.to_list():
             rollback.callback(bpy.data.batch_remove, ids=(made,))
-        result = copied.map(lambda made: parent.map(lambda held: joined(held, (made,)).map(lambda _: made)).default_with(lambda: Ok(made))).default_with(
+        result = copied.map(lambda made: parent.map(lambda held: joined(held, (made,)).map(lambda _: made)).default_value(Ok(made))).default_with(
             lambda: Error((BlenderAbsentFault(owner=repr(collection), key="copy"),))
         )
         if result.is_ok():

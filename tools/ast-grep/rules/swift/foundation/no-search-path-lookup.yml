@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-search-path-lookup
+language: swiftlang
+severity: error
+utils:
+    user-directory:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^urls$'}}}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    all:
+                        - has: {nthChild: 1, kind: value_argument, has: {field: value, regex: '^\.(applicationSupport|caches|desktop|document|downloads|library|movies|music|pictures|sharedPublic|trash)Directory$'}}
+                        - has: {nthChild: 2, kind: value_argument, has: {field: value, regex: '^\.userDomainMask$'}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: navigation_expression
+          all:
+            - has: {field: target, matches: user-directory}
+            - has: {field: suffix, any: [{regex: '^\[0\]$'}, {has: {field: suffix, regex: '^first$'}}]}
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, matches: user-directory}
+            - has: {kind: call_suffix, regex: '^\[0\]$'}
+        - kind: navigation_expression
+          has: {field: suffix, has: {field: suffix, regex: '^(homeDirectoryForCurrentUser|temporaryDirectory)$'}}
+          not: {has: {field: target, regex: '^((Foundation\.)?URL)$'}}
+        - kind: call_expression
+          has: {nthChild: 1, kind: simple_identifier, regex: '^(NSHomeDirectory|NSTemporaryDirectory|NSSearchPathForDirectoriesInDomains)$'}
+message: '`$SITE` looks up a user directory through `FileManager` or a Foundation path function in place of the `URL` static property'
+note: 'Read `URL.applicationSupportDirectory`, `URL.cachesDirectory`, `URL.documentsDirectory`, `URL.homeDirectory`, `URL.temporaryDirectory`, and the other `URL` directory properties, each names the current user''s directory as a `URL` without an array index, a `FileManager` instance, or path text'

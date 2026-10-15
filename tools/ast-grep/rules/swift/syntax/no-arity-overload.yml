@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-arity-overload
+language: swiftlang
+severity: error
+rule:
+    kind: 'function_declaration, init_declaration'
+    all:
+        - has: {field: name, pattern: $$NAME}
+        - matches: swift-arity-overload
+message: '`$NAME` repeats one overload per generic parameter count'
+note: 'Declare one overload over a parameter pack, `<each T>` with `_ value: repeat each T`, and read each element through `repeat each value` or `for element in repeat each value`'

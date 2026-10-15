@@ -1,0 +1,25 @@
+{
+    "name": "@rasm/indesign",
+    "private": true,
+    "description": "Foundation for serving InDesign to AI agents: the panel protocol, InDesign's object model read and written from a UXP panel, and the MCP tools an agent server publishes over the link",
+    "type": "module",
+    "exports": {
+        "./*": "./*.ts"
+    },
+    "dependencies": {
+        "@rasm/mcp": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "acorn": "catalog:",
+        "acorn-walk": "catalog:",
+        "effect": "catalog:",
+        "image-size": "catalog:",
+        "magic-string": "catalog:",
+        "regjsparser": "catalog:",
+        "unicode-property-value-aliases": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "indesign-uxp-types": "catalog:"
+    }
+}

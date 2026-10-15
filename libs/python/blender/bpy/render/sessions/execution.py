@@ -27,7 +27,7 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaul
 from blender.bpy.nodes.changes import made
 from blender.bpy.nodes.graphs import End, FileItem, FileItems, Fragment, INPUTS, node
 from blender.bpy.nodes.interface import item_key
-from blender.bpy.render.effects.stack import capturing, EffectStack, entered, formation, Shell, StackEntry, stored_graphs, viewed
+from blender.bpy.render.effects.stack import capturing, EffectStack, entered, formation, Placeable, Shell, StackEntry, stored_graphs, viewed
 from blender.bpy.render.outputs.formats import Kind, OutputFormat
 from blender.bpy.render.outputs.paths import Pathed
 from blender.bpy.render.sessions.engines import Engine, Pass, Tile
@@ -130,7 +130,7 @@ class Execution:
 
         def retained(path: str) -> BlenderResult[None]:
             self.files.add(Path(path))
-            return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), lambda file: self.indexed(file, source, frame))
+            return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path).map_error(BlenderImagingFault.lifted), lambda file: self.indexed(file, source, frame))
 
         return saved(source).bind(retained)
 
@@ -152,7 +152,7 @@ class Execution:
                 raw = values[height - top : height - bottom, left:right] if values.shape[:2] == (height, width) and source.render.use_border else values
                 groups.setdefault((owner, view), []).append((declaration, np.ascontiguousarray(raw)))
 
-            return file.plane(layer, layer.channels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(retained)
+            return file.plane(layer, layer.channels).map_error(BlenderImagingFault.lifted).map(retained)
 
         def retained(_: object) -> None:
             stamps = tuple((key, value) for part in file.parts[:1] for key, value in part.header.items())
@@ -228,12 +228,14 @@ class Execution:
         )
         return Result[npt.NDArray[np.float32], BlenderFaults].bind(pixels, imaged)
 
-    def stage(self, held: StackEntry, path: Path, spec: OpenImageIO.ImageSpec) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
+    def stage(
+        self, entry: bpy.types.SceneCompositorEffect, row: Placeable[Effect | DisplayView], path: Path, spec: OpenImageIO.ImageSpec
+    ) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
         """Prepares each native view from evaluated entry controls and real entering pixels."""
         with bpy.context.temp_override(scene=self.scene):
             graph = bpy.context.evaluated_depsgraph_get()
             evaluated = self.scene.evaluated_get(graph)
-        reading, row = evaluated.compositor_effects[held.entry.name], held.row.value
+        reading = evaluated.compositor_effects[entry.name]
 
         def prepared(file: Multilayer) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
             def view(layer: Layer) -> BlenderResult[tuple[str, Prepared]]:
@@ -249,15 +251,17 @@ class Execution:
                         .map(lambda value: (layer.name, value))
                     )
 
-                return Result[npt.NDArray[np.float32], BlenderFaults].bind(file.plane(layer, layer.channels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), pixels)
+                return Result[npt.NDArray[np.float32], BlenderFaults].bind(file.plane(layer, layer.channels).map_error(BlenderImagingFault.lifted), pixels)
 
-            return accumulated(view(layer) for layer in file.layers).bind(lambda views: self.published(held, reading, views))
+            return accumulated(view(layer) for layer in file.layers).bind(lambda views: self.published(entry, row, reading, views))
 
-        return Result[Multilayer, BlenderFaults].bind(Multilayer.read(str(path)).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), prepared)
+        return Result[Multilayer, BlenderFaults].bind(Multilayer.read(str(path)).map_error(BlenderImagingFault.lifted), prepared)
 
-    def published(self, held: StackEntry, reading: bpy.types.SceneCompositorEffect, views: tuple[tuple[str, Prepared], ...]) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
+    def published(
+        self, entry: bpy.types.SceneCompositorEffect, row: Placeable[Effect | DisplayView], reading: bpy.types.SceneCompositorEffect, views: tuple[tuple[str, Prepared], ...]
+    ) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
         """Builds the job-owned group with blend, effective controls, hidden inputs, and native view routing."""
-        row, effective = held.row.value, views[0][1][0]
+        effective = views[0][1][0]
 
         def selected(key: Key) -> BlenderResult[tuple[Key, tuple[Fragment, End]]]:
             return accumulated(
@@ -277,11 +281,11 @@ class Execution:
         def assigned(group: bpy.types.NodeTree, before: Snapshot) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
             self.scope.callback(bpy.data.node_groups.remove, group)
             return (
-                written(held.entry, "node_group", group)
-                .bind(lambda _: interface(held.entry))
+                written(entry, "node_group", group)
+                .bind(lambda _: interface(entry))
                 .bind(lambda found: before.apply(found).outcome)
                 .bind(lambda _: stored_graphs(self.identity, group, (((), effective.effect, row.record.stage.domain), ((Shell.blend,), effective.blend, row.record.stage.domain))))
-                .bind(lambda _: paired(entered(self.identity, held.entry, (), effective.effect), entered(self.identity, held.entry, (Shell.blend,), effective.blend)))
+                .bind(lambda _: paired(entered(self.identity, entry, (), effective.effect), entered(self.identity, entry, (Shell.blend,), effective.blend)))
                 .map(lambda _: (group, before, effective))
             )
 
@@ -292,7 +296,7 @@ class Execution:
                 .bind(
                     lambda before: (
                         accumulated(selected(key) for key in views[0][1][1])
-                        .bind(lambda images: row.grouped(self.identity, self.scene, effective, self.config, entry=Some(held.entry), prepared=True, images=dict(images)))
+                        .bind(lambda images: row.grouped(self.identity, self.scene, effective, self.config, entry=Some(entry), prepared=True, images=dict(images)))
                         .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
                         .bind(lambda group: made(group, self.identity, of=Some(self.scene)))
                         .bind(lambda group: assigned(group, before))
@@ -321,13 +325,13 @@ class Execution:
 
         def stepped(state: tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]], held: StackEntry) -> tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]]:
             entering, viewer = state
-            space: BlenderResult[Option[str]] = (
-                Ok(Nothing)
-                if held.row.is_none()
-                else entering.bind(lambda _: formation.read(self.identity, held.entry).map(lambda record: record.effect.colorspace(self.config).map(lambda found: found.getName())))
-                if held.row.value.record is DisplayView
-                else entering
-            )
+            space: BlenderResult[Option[str]] = held.row.map(
+                lambda row: (
+                    entering.bind(lambda _: formation.read(self.identity, held.entry).map(lambda record: record.effect.colorspace(self.config).map(lambda found: found.getName())))
+                    if row.record is DisplayView
+                    else entering
+                )
+            ).default_value(Ok(Nothing))
             shown = (
                 routed(tree, link, entering, space)
                 for tree in Option.of_optional(held.entry.node_group).to_list()
@@ -400,7 +404,7 @@ class Execution:
     def removed(self) -> None:
         """Releases capture files and retains filesystem refusals in native reports."""
         for path in self.files:
-            for faults in catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(path), error=error),)).swap().to_option().to_list():
+            for faults in catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=path, error=error),)).swap().to_option().to_list():
                 self.identity.reports.hold(faults)
 
     def frame(
@@ -420,12 +424,12 @@ class Execution:
         self.files.add(path)
         sources = tuple(source for source, _original_engine in engines)
 
-        def prefixed(held: StackEntry, declaration: Fragment) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
+        def prefixed(entry: bpy.types.SceneCompositorEffect, declaration: Fragment) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
             with ExitStack() as capture:
                 for source in sources:
                     capture.enter_context(intermediate(source))
                 isolated = capture.enter_context(self.isolated(sources))
-                leased = capture.enter_context(capturing(self.identity, held.entry, declaration, stop=True))
+                leased = capture.enter_context(capturing(self.identity, entry, declaration, stop=True))
                 return (
                     isolated
                     .bind(lambda _: leased)
@@ -438,14 +442,15 @@ class Execution:
             for source in sources:
                 source.render.engine = engine  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
-        def staged(index: int, held: StackEntry) -> BlenderResult[Staged]:
+        def staged(index: int, held: tuple[bpy.types.SceneCompositorEffect, Placeable[Effect | DisplayView]]) -> BlenderResult[Staged]:
+            entry, row = held
             return (
                 self
                 .output(name, spec, demand=index == 0)
-                .bind(partial(prefixed, held))
+                .bind(partial(prefixed, entry))
                 .bind(lambda _: accumulated(self.captured(source, frame) for source in sources).map(switched) if index == 0 else Ok(None))
-                .bind(lambda _: self.stage(held, path, spec))
-                .map(lambda prepared: (held.entry, *prepared))
+                .bind(lambda _: self.stage(entry, row, path, spec))
+                .map(lambda prepared: (entry, *prepared))
             )
 
         return reduce(
@@ -485,7 +490,7 @@ class Execution:
         frames = tuple(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)) if animation else (scene.frame_current,)
         at, subframe = scene.frame_current, scene.frame_subframe
         sample = 0.0 if animation else subframe
-        original = accumulated(interface(held.entry).bind(Snapshot.capture).map(lambda inputs: (held.entry, held.entry.node_group, inputs)) for held in self.stack.stages(self.identity, scene))
+        original = accumulated(interface(entry).bind(Snapshot.capture).map(lambda inputs: (entry, entry.node_group, inputs)) for entry, _ in self.stack.stages(self.identity, scene))
 
         def completed(engine: str) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
             for source, _original_engine in engines:

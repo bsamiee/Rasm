@@ -87,15 +87,6 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
     public static IO<ImageOutputState> Write(RenderSettingsScope scope, ImageOutputState state) =>
         IO.lift(() => { RenderSettingsMapper.Update(state, scope.Settings); return state; });
 
-    public static ParameterText Text(ImageOutputParameter parameter) =>
-        parameter.Map(
-            useViewportSize: ParameterText.Of("Viewport size", "Renders at the size of the view being rendered, off at the stored width and height"),
-            imageWidth: ParameterText.Of("Width", "Rendered image width in pixels"),
-            imageHeight: ParameterText.Of("Height", "Rendered image height in pixels"),
-            imageDpi: ParameterText.Of("DPI", "Pixels per inch stamped into captured and saved images"),
-            imageUnitSystem: ParameterText.Enumeration<UnitSystem>("Print units", "Unit the print size of the image shows in",
-                static system => Localization.UnitSystemName(system, capitalize: true, singular: false, abbreviate: false)));
-
     public static RowRules Rules(RowSource<ImageOutputState> source, ImageOutputParameter parameter) =>
         new RowRules(Some(RowRule.When(source, static state => !state.UseViewportSize, ImageOutputParameter.UseViewportSize)), None) switch {
             var custom => parameter.Map(useViewportSize: RowRules.Always, imageWidth: custom, imageHeight: custom, imageDpi: RowRules.Always, imageUnitSystem: RowRules.Always),
@@ -106,17 +97,25 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ImageOutputParameter : IStateParameter<ImageOutputState> {
+public sealed partial class ImageOutputParameter : IRowParameter<ImageOutputState> {
     public static readonly ImageOutputParameter UseViewportSize = new("use-viewport-size", new StateParameter<ImageOutputState>.Toggle(
-        Lens<ImageOutputState, bool>.New(static state => state.UseViewportSize, static on => state => state with { UseViewportSize = on })));
-    public static readonly ImageOutputParameter ImageWidth = new("image-width", StateParameter.Bounded<ImageOutputState, PixelDimension, int, InvalidRhinoValue>(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageWidth, static width => state => state with { ImageWidth = width }), PixelDimension.Presentation));
-    public static readonly ImageOutputParameter ImageHeight = new("image-height", StateParameter.Bounded<ImageOutputState, PixelDimension, int, InvalidRhinoValue>(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageHeight, static height => state => state with { ImageHeight = height }), PixelDimension.Presentation));
+        Lens<ImageOutputState, bool>.New(static state => state.UseViewportSize, static on => state => state with { UseViewportSize = on })),
+        ParameterText.Of("Viewport size", "Renders at the size of the view being rendered, off at the stored width and height"));
+    public static readonly ImageOutputParameter ImageWidth = new("image-width", StateParameter.Bounded<ImageOutputState, PixelDimension, int, InvalidRhinoValue>(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageWidth, static width => state => state with { ImageWidth = width }), PixelDimension.Presentation),
+        ParameterText.Of("Width", "Rendered image width in pixels"));
+    public static readonly ImageOutputParameter ImageHeight = new("image-height", StateParameter.Bounded<ImageOutputState, PixelDimension, int, InvalidRhinoValue>(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageHeight, static height => state => state with { ImageHeight = height }), PixelDimension.Presentation),
+        ParameterText.Of("Height", "Rendered image height in pixels"));
     public static readonly ImageOutputParameter ImageDpi = new("image-dpi", StateParameter.Bounded<ImageOutputState, PixelDensity, double, InvalidFileValue>(Lens<ImageOutputState, PixelDensity>.New(static state => state.ImageDpi, static dpi => state => state with { ImageDpi = dpi }),
-    new Presentation<double> { Form = NumberForm.Field, Step = 1d, Decimals = 0 }));
+    new Presentation<double> { Form = NumberForm.Field, Step = 1d, Decimals = 0 }),
+        ParameterText.Of("DPI", "Pixels per inch stamped into captured and saved images"));
     public static readonly ImageOutputParameter ImageUnitSystem = new("image-unit-system", new StateParameter<ImageOutputState>.Enumerated<UnitSystem>(
-        Lens<ImageOutputState, UnitSystem>.New(static state => state.ImageUnitSystem, static system => state => state with { ImageUnitSystem = system })));
+        Lens<ImageOutputState, UnitSystem>.New(static state => state.ImageUnitSystem, static system => state => state with { ImageUnitSystem = system })),
+        ParameterText.Enumeration<UnitSystem>("Print units", "Unit the print size of the image shows in",
+            static system => Localization.UnitSystemName(system, capitalize: true, singular: false, abbreviate: false)));
 
     public StateParameter<ImageOutputState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record RenderSourceState(RenderSettings.RenderingSources RenderSource, Option<string> SpecificViewport, Option<string> NamedView, Option<string> Snapshot)
@@ -137,20 +136,6 @@ public sealed record RenderSourceState(RenderSettings.RenderingSources RenderSou
             Snapshot = state.Snapshot.Bind(Conversions.Present),
         }).Bind(accepted => IO.lift(() => { RenderSettingsMapper.Update(accepted, scope.Settings); return accepted; }));
 
-    public static ParameterText Text(RenderSourceParameter parameter) =>
-        parameter.Map(
-            renderSource: ParameterText.Enumeration<RenderSettings.RenderingSources>("Source", "View the rendering is taken from",
-                static source => source switch {
-                    RenderSettings.RenderingSources.ActiveViewport => "Current Viewport",
-                    RenderSettings.RenderingSources.SpecificViewport => "Specific Viewport",
-                    RenderSettings.RenderingSources.NamedView => "Named View",
-                    RenderSettings.RenderingSources.SnapShot => "Snapshot",
-                    _ => throw new UnreachableException(),
-                }),
-            specificViewport: ParameterText.Of("Name", "Viewport the rendering is taken from"),
-            namedView: ParameterText.Of("Name", "Named view the rendering is taken from"),
-            snapshot: ParameterText.Of("Name", "Snapshot the rendering is taken from"));
-
     public static RowRules Rules(RowSource<RenderSourceState> source, RenderSourceParameter parameter) =>
         parameter.Map(
             renderSource: RowRules.Always,
@@ -166,17 +151,30 @@ public sealed record RenderSourceState(RenderSettings.RenderingSources RenderSou
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RenderSourceParameter : IStateParameter<RenderSourceState> {
+public sealed partial class RenderSourceParameter : IRowParameter<RenderSourceState> {
     public static readonly RenderSourceParameter RenderSource = new("render-source", new StateParameter<RenderSourceState>.Enumerated<RenderSettings.RenderingSources>(
-        Lens<RenderSourceState, RenderSettings.RenderingSources>.New(static state => state.RenderSource, static source => state => state with { RenderSource = source })));
+        Lens<RenderSourceState, RenderSettings.RenderingSources>.New(static state => state.RenderSource, static source => state => state with { RenderSource = source })),
+        ParameterText.Enumeration<RenderSettings.RenderingSources>("Source", "View the rendering is taken from",
+            static source => source switch {
+                RenderSettings.RenderingSources.ActiveViewport => "Current Viewport",
+                RenderSettings.RenderingSources.SpecificViewport => "Specific Viewport",
+                RenderSettings.RenderingSources.NamedView => "Named View",
+                RenderSettings.RenderingSources.SnapShot => "Snapshot",
+                _ => throw new UnreachableException(),
+            }));
     public static readonly RenderSourceParameter SpecificViewport = new("specific-viewport", new StateParameter<RenderSourceState>.OptionalRaw<string>(
-        Lens<RenderSourceState, Option<string>>.New(static state => state.SpecificViewport, static name => state => state with { SpecificViewport = name })));
+        Lens<RenderSourceState, Option<string>>.New(static state => state.SpecificViewport, static name => state => state with { SpecificViewport = name })),
+        ParameterText.Of("Name", "Viewport the rendering is taken from"));
     public static readonly RenderSourceParameter NamedView = new("named-view", new StateParameter<RenderSourceState>.OptionalRaw<string>(
-        Lens<RenderSourceState, Option<string>>.New(static state => state.NamedView, static name => state => state with { NamedView = name })));
+        Lens<RenderSourceState, Option<string>>.New(static state => state.NamedView, static name => state => state with { NamedView = name })),
+        ParameterText.Of("Name", "Named view the rendering is taken from"));
     public static readonly RenderSourceParameter Snapshot = new("snapshot", new StateParameter<RenderSourceState>.OptionalRaw<string>(
-        Lens<RenderSourceState, Option<string>>.New(static state => state.Snapshot, static name => state => state with { Snapshot = name })));
+        Lens<RenderSourceState, Option<string>>.New(static state => state.Snapshot, static name => state => state with { Snapshot = name })),
+        ParameterText.Of("Name", "Snapshot the rendering is taken from"));
 
     public StateParameter<RenderSourceState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record FrameState(
@@ -205,30 +203,6 @@ public sealed record FrameState(
     public static IO<FrameState> Write(RenderSettingsScope scope, FrameState state) =>
         IO.lift(() => { RenderSettingsMapper.Update(state, scope.Settings); return state; });
 
-    public static ParameterText Text(FrameParameter parameter) =>
-        parameter.Map(
-            ambientLight: ParameterText.Of("Ambient light", "Color of the light reaching every surface from no source"),
-            antialias: ParameterText.Enumeration<AntialiasLevel>("Quality", "Antialiasing quality the renderer samples at",
-                static level => level switch {
-                    AntialiasLevel.None => "Low quality",
-                    AntialiasLevel.Draft => "Draft quality",
-                    AntialiasLevel.Good => "Good quality",
-                    AntialiasLevel.High => "Final quality",
-                    _ => throw new UnreachableException(),
-                }),
-            shadowmapLevel: ParameterText.Choice<ShadowmapQuality, InvalidRhinoValue>("Shadow maps", "Shadow map quality the document stores",
-                static quality => quality.Map(off: "None", normal: "Normal", best: "Best")),
-            transparentBackground: ParameterText.Of("Transparent background", "Renders the background transparent under every background style"),
-            renderBackfaces: ParameterText.Of("Render backfaces", "Renders the back faces of surfaces and meshes"),
-            renderPoints: ParameterText.Of("Render points and point cloud", "Draws points and point clouds into the rendering"),
-            renderCurves: ParameterText.Of("Render curves", "Draws curves into the rendering"),
-            renderIsoparams: ParameterText.Of("Render surface edges and isocurves", "Draws surface edges and isocurves into the rendering"),
-            renderMeshEdges: ParameterText.Of("Render mesh edges", "Draws mesh edges into the rendering"),
-            renderAnnotations: ParameterText.Of("Render dimensions and text", "Draws dimensions and text into the rendering"),
-            useHiddenLights: ParameterText.Of("Use lights on layers that are off", "Renders lights on layers that are off"),
-            depthCue: ParameterText.Of("Depth cue", "Depth cue flag the document stores"),
-            flatShade: ParameterText.Of("Flat shade", "Flat shading flag the document stores"));
-
     public static RowRules Rules(RowSource<FrameState> source, FrameParameter parameter) => RowRules.Always;
 }
 
@@ -236,35 +210,58 @@ public sealed record FrameState(
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class FrameParameter : IStateParameter<FrameState> {
+public sealed partial class FrameParameter : IRowParameter<FrameState> {
     public static readonly FrameParameter AmbientLight = new("ambient-light", new StateParameter<FrameState>.Color(
-        Lens<FrameState, Swatch>.New(static state => state.AmbientLight, static color => state => state with { AmbientLight = color })));
+        Lens<FrameState, Swatch>.New(static state => state.AmbientLight, static color => state => state with { AmbientLight = color })),
+        ParameterText.Of("Ambient light", "Color of the light reaching every surface from no source"));
     public static readonly FrameParameter Antialias = new("antialias-level", new StateParameter<FrameState>.Enumerated<AntialiasLevel>(
-        Lens<FrameState, AntialiasLevel>.New(static state => state.AntialiasLevel, static level => state => state with { AntialiasLevel = level })));
+        Lens<FrameState, AntialiasLevel>.New(static state => state.AntialiasLevel, static level => state => state with { AntialiasLevel = level })),
+        ParameterText.Enumeration<AntialiasLevel>("Quality", "Antialiasing quality the renderer samples at",
+            static level => level switch {
+                AntialiasLevel.None => "Low quality",
+                AntialiasLevel.Draft => "Draft quality",
+                AntialiasLevel.Good => "Good quality",
+                AntialiasLevel.High => "Final quality",
+                _ => throw new UnreachableException(),
+            }));
     public static readonly FrameParameter ShadowmapLevel = new("shadowmap-level", new StateParameter<FrameState>.Choice<ShadowmapQuality, InvalidRhinoValue>(
-        Lens<FrameState, ShadowmapQuality>.New(static state => state.ShadowmapLevel, static quality => state => state with { ShadowmapLevel = quality })));
+        Lens<FrameState, ShadowmapQuality>.New(static state => state.ShadowmapLevel, static quality => state => state with { ShadowmapLevel = quality })),
+        ParameterText.Choice<ShadowmapQuality, InvalidRhinoValue>("Shadow maps", "Shadow map quality the document stores",
+            static quality => quality.Map(off: "None", normal: "Normal", best: "Best")));
     public static readonly FrameParameter TransparentBackground = new("transparent-background", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.TransparentBackground, static on => state => state with { TransparentBackground = on })));
+        Lens<FrameState, bool>.New(static state => state.TransparentBackground, static on => state => state with { TransparentBackground = on })),
+        ParameterText.Of("Transparent background", "Renders the background transparent under every background style"));
     public static readonly FrameParameter RenderBackfaces = new("render-backfaces", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.RenderBackfaces, static on => state => state with { RenderBackfaces = on })));
+        Lens<FrameState, bool>.New(static state => state.RenderBackfaces, static on => state => state with { RenderBackfaces = on })),
+        ParameterText.Of("Render backfaces", "Renders the back faces of surfaces and meshes"));
     public static readonly FrameParameter RenderPoints = new("render-points", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.RenderPoints, static on => state => state with { RenderPoints = on })));
+        Lens<FrameState, bool>.New(static state => state.RenderPoints, static on => state => state with { RenderPoints = on })),
+        ParameterText.Of("Render points and point cloud", "Draws points and point clouds into the rendering"));
     public static readonly FrameParameter RenderCurves = new("render-curves", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.RenderCurves, static on => state => state with { RenderCurves = on })));
+        Lens<FrameState, bool>.New(static state => state.RenderCurves, static on => state => state with { RenderCurves = on })),
+        ParameterText.Of("Render curves", "Draws curves into the rendering"));
     public static readonly FrameParameter RenderIsoparams = new("render-isoparams", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.RenderIsoparams, static on => state => state with { RenderIsoparams = on })));
+        Lens<FrameState, bool>.New(static state => state.RenderIsoparams, static on => state => state with { RenderIsoparams = on })),
+        ParameterText.Of("Render surface edges and isocurves", "Draws surface edges and isocurves into the rendering"));
     public static readonly FrameParameter RenderMeshEdges = new("render-mesh-edges", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.RenderMeshEdges, static on => state => state with { RenderMeshEdges = on })));
+        Lens<FrameState, bool>.New(static state => state.RenderMeshEdges, static on => state => state with { RenderMeshEdges = on })),
+        ParameterText.Of("Render mesh edges", "Draws mesh edges into the rendering"));
     public static readonly FrameParameter RenderAnnotations = new("render-annotations", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.RenderAnnotations, static on => state => state with { RenderAnnotations = on })));
+        Lens<FrameState, bool>.New(static state => state.RenderAnnotations, static on => state => state with { RenderAnnotations = on })),
+        ParameterText.Of("Render dimensions and text", "Draws dimensions and text into the rendering"));
     public static readonly FrameParameter UseHiddenLights = new("use-hidden-lights", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.UseHiddenLights, static on => state => state with { UseHiddenLights = on })));
+        Lens<FrameState, bool>.New(static state => state.UseHiddenLights, static on => state => state with { UseHiddenLights = on })),
+        ParameterText.Of("Use lights on layers that are off", "Renders lights on layers that are off"));
     public static readonly FrameParameter DepthCue = new("depth-cue", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.DepthCue, static on => state => state with { DepthCue = on })));
+        Lens<FrameState, bool>.New(static state => state.DepthCue, static on => state => state with { DepthCue = on })),
+        ParameterText.Of("Depth cue", "Depth cue flag the document stores"));
     public static readonly FrameParameter FlatShade = new("flat-shade", new StateParameter<FrameState>.Toggle(
-        Lens<FrameState, bool>.New(static state => state.FlatShade, static on => state => state with { FlatShade = on })));
+        Lens<FrameState, bool>.New(static state => state.FlatShade, static on => state => state with { FlatShade = on })),
+        ParameterText.Of("Flat shade", "Flat shading flag the document stores"));
 
     public StateParameter<FrameState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProcessGamma, bool PostProcessGammaOn)
@@ -283,12 +280,6 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
     public static IO<LinearWorkflowState> Write(RenderSettingsScope scope, LinearWorkflowState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
 
-    public static ParameterText Text(LinearWorkflowParameter parameter) =>
-        parameter.Map(
-            preProcessColors: ParameterText.Of("Use linear workflow", "Linearizes colors and textures by the gamma before rendering"),
-            postProcessGamma: ParameterText.Of("Gamma", "Gamma the rendering is encoded with and colors are linearized by"),
-            postProcessGammaOn: ParameterText.Of("Gamma", "Encodes the rendering with the gamma"));
-
     public static RowRules Rules(RowSource<LinearWorkflowState> source, LinearWorkflowParameter parameter) => RowRules.Always;
 }
 
@@ -296,15 +287,20 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LinearWorkflowParameter : IStateParameter<LinearWorkflowState> {
+public sealed partial class LinearWorkflowParameter : IRowParameter<LinearWorkflowState> {
     public static readonly LinearWorkflowParameter PreProcessColors = new("use-linear-workflow", new StateParameter<LinearWorkflowState>.Toggle(
-        Lens<LinearWorkflowState, bool>.New(static state => state.PreProcessColors, static on => state => state with { PreProcessColors = on })));
+        Lens<LinearWorkflowState, bool>.New(static state => state.PreProcessColors, static on => state => state with { PreProcessColors = on })),
+        ParameterText.Of("Use linear workflow", "Linearizes colors and textures by the gamma before rendering"));
     public static readonly LinearWorkflowParameter PostProcessGamma = new("gamma", StateParameter.Bounded<LinearWorkflowState, Gamma, float, InvalidRhinoValue>(Lens<LinearWorkflowState, Gamma>.New(static state => state.PostProcessGamma, static gamma => state => state with { PostProcessGamma = gamma }),
-    new Presentation<float> { Step = 0.01f, Decimals = 2 }));
+    new Presentation<float> { Step = 0.01f, Decimals = 2 }),
+        ParameterText.Of("Gamma", "Gamma the rendering is encoded with and colors are linearized by"));
     public static readonly LinearWorkflowParameter PostProcessGammaOn = new("use-post-process-gamma", new StateParameter<LinearWorkflowState>.Toggle(
-        Lens<LinearWorkflowState, bool>.New(static state => state.PostProcessGammaOn, static on => state => state with { PostProcessGammaOn = on })));
+        Lens<LinearWorkflowState, bool>.New(static state => state.PostProcessGammaOn, static on => state => state with { PostProcessGammaOn = on })),
+        ParameterText.Of("Gamma", "Encodes the rendering with the gamma"));
 
     public StateParameter<LinearWorkflowState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record DitheringState(bool Enabled, DitherMethod Method)
@@ -321,12 +317,6 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
     public static IO<DitheringState> Write(RenderSettingsScope scope, DitheringState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
 
-    public static ParameterText Text(DitheringParameter parameter) =>
-        parameter.Map(
-            enabled: ParameterText.Of("Dithering", "Adds noise before the rendering is quantized to display codes"),
-            method: ParameterText.Choice<DitherMethod, InvalidRhinoValue>("Dithering", "Dither the renderer adds",
-                static method => method.Map(floydSteinberg: "Floyd-Steinberg", simpleNoise: "Simple noise")));
-
     public static RowRules Rules(RowSource<DitheringState> source, DitheringParameter parameter) => RowRules.Always;
 }
 
@@ -334,13 +324,18 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DitheringParameter : IStateParameter<DitheringState> {
+public sealed partial class DitheringParameter : IRowParameter<DitheringState> {
     public static readonly DitheringParameter Enabled = new("use-dithering", new StateParameter<DitheringState>.Toggle(
-        Lens<DitheringState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })));
+        Lens<DitheringState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
+        ParameterText.Of("Dithering", "Adds noise before the rendering is quantized to display codes"));
     public static readonly DitheringParameter Method = new("dithering", new StateParameter<DitheringState>.Choice<DitherMethod, InvalidRhinoValue>(
-        Lens<DitheringState, DitherMethod>.New(static state => state.Method, static method => state => state with { Method = method })));
+        Lens<DitheringState, DitherMethod>.New(static state => state.Method, static method => state => state with { Method = method })),
+        ParameterText.Choice<DitherMethod, InvalidRhinoValue>("Dithering", "Dither the renderer adds",
+            static method => method.Map(floydSteinberg: "Floyd-Steinberg", simpleNoise: "Simple noise")));
 
     public StateParameter<DitheringState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> CustomList)
@@ -358,22 +353,8 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
     public static IO<RenderChannelsState> Write(RenderSettingsScope scope, RenderChannelsState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.RenderChannels, channels => IO.lift(() => { RenderSettingsMapper.Update(state, channels); return state; }));
 
-    public static ParameterText Text(RenderChannelsParameter parameter) =>
-        parameter.Map(
-            mode: ParameterText.Enumeration<RenderChannels.Modes>("Render channels", "Channels the renderer writes, Automatic adding each post effect's required channels",
-                static mode => mode switch {
-                    RenderChannels.Modes.Automatic => "Automatic",
-                    RenderChannels.Modes.Custom => "Custom",
-                    _ => throw new UnreachableException(),
-                }),
-            distance: ParameterText.Of("Distance", "Distance from the camera per pixel"),
-            normals: ParameterText.Of("Normals", "Surface normal per pixel"),
-            albedo: ParameterText.Of("Albedo", "Surface base color per pixel"),
-            materialIds: ParameterText.Of("Material IDs", "Material id per pixel"),
-            objectIds: ParameterText.Of("Object IDs", "Object id per pixel"));
-
     public static RowRules Rules(RowSource<RenderChannelsState> source, RenderChannelsParameter parameter) =>
-        new RowRules(None, Some(RowRule.When(source, static state => state.Mode == RenderChannels.Modes.Custom, RenderChannelsParameter.Mode))) switch {
+        new RowRules(None, Some(RowRule.When(source, static state => state.Mode is RenderChannels.Modes.Custom, RenderChannelsParameter.Mode))) switch {
             var custom => parameter.Map(mode: RowRules.Always, distance: custom, normals: custom, albedo: custom, materialIds: custom, objectIds: custom),
         };
 }
@@ -382,16 +363,24 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RenderChannelsParameter : IStateParameter<RenderChannelsState> {
+public sealed partial class RenderChannelsParameter : IRowParameter<RenderChannelsState> {
     public static readonly RenderChannelsParameter Mode = new("mode", new StateParameter<RenderChannelsState>.Enumerated<RenderChannels.Modes>(
-        Lens<RenderChannelsState, RenderChannels.Modes>.New(static state => state.Mode, static mode => state => state with { Mode = mode })));
-    public static readonly RenderChannelsParameter Distance = new("distance", Member(RenderWindow.StandardChannels.DistanceFromCamera));
-    public static readonly RenderChannelsParameter Normals = new("normals", Member(RenderWindow.StandardChannels.NormalXYZ));
-    public static readonly RenderChannelsParameter Albedo = new("albedo", Member(RenderWindow.StandardChannels.AlbedoRGB));
-    public static readonly RenderChannelsParameter MaterialIds = new("material-ids", Member(RenderWindow.StandardChannels.MaterialIds));
-    public static readonly RenderChannelsParameter ObjectIds = new("object-ids", Member(RenderWindow.StandardChannels.ObjectIds));
+        Lens<RenderChannelsState, RenderChannels.Modes>.New(static state => state.Mode, static mode => state => state with { Mode = mode })),
+        ParameterText.Enumeration<RenderChannels.Modes>("Render channels", "Channels the renderer writes, Automatic adding each post effect's required channels",
+            static mode => mode switch {
+                RenderChannels.Modes.Automatic => "Automatic",
+                RenderChannels.Modes.Custom => "Custom",
+                _ => throw new UnreachableException(),
+            }));
+    public static readonly RenderChannelsParameter Distance = new("distance", Member(RenderWindow.StandardChannels.DistanceFromCamera), ParameterText.Of("Distance", "Distance from the camera per pixel"));
+    public static readonly RenderChannelsParameter Normals = new("normals", Member(RenderWindow.StandardChannels.NormalXYZ), ParameterText.Of("Normals", "Surface normal per pixel"));
+    public static readonly RenderChannelsParameter Albedo = new("albedo", Member(RenderWindow.StandardChannels.AlbedoRGB), ParameterText.Of("Albedo", "Surface base color per pixel"));
+    public static readonly RenderChannelsParameter MaterialIds = new("material-ids", Member(RenderWindow.StandardChannels.MaterialIds), ParameterText.Of("Material IDs", "Material id per pixel"));
+    public static readonly RenderChannelsParameter ObjectIds = new("object-ids", Member(RenderWindow.StandardChannels.ObjectIds), ParameterText.Of("Object IDs", "Object id per pixel"));
 
     public StateParameter<RenderChannelsState> Kind { get; }
+
+    public ParameterText Text { get; }
 
     private static StateParameter<RenderChannelsState> Member(RenderWindow.StandardChannels channel) =>
         new StateParameter<RenderChannelsState>.Toggle(Lens<RenderChannelsState, bool>.New(
@@ -409,7 +398,7 @@ public sealed record EditorState(Guid CurrentRenderer, Option<Guid> RenderingVie
             toSeq(settings.GetCustomRenderSizes()),
             settings.CustomImageSizeIsPreset,
             toSeq(PlugIn.GetInstalledPlugIns())
-                .Filter(static plugIn => Optional(PlugIn.GetPlugInInfo(plugIn.Key)).Exists(static info => info.PlugInType == PlugInType.Render))
+                .Filter(static plugIn => Optional(PlugIn.GetPlugInInfo(plugIn.Key)).Exists(static info => info.PlugInType is PlugInType.Render))
                 .Map(static plugIn => (Id: plugIn.Key, Name: plugIn.Value))
                 .Strict()));
 

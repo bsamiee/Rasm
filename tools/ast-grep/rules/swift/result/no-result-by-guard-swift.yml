@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-result-by-guard-swift
-language: swift
+language: swiftlang
 severity: error
 utils:
     effect:
@@ -165,6 +165,28 @@ utils:
             - not: {has: {kind: availability_condition}}
             - not: {has: {kind: statements, not: {matches: returning-branch}}}
             - not: {has: {kind: if_statement, not: {matches: returning-chain}}}
+    returning-entry:
+        kind: switch_entry
+        has:
+            kind: statements
+            matches:
+                swift-single-statement:
+                    first:
+                        any:
+                            - {matches: returned-value, not: {regex: '\belse\b'}}
+                            - {kind: control_transfer_statement, regex: '^throw\b'}
+    boolean-switch:
+        kind: switch_statement
+        all:
+            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+            - not: {has: {kind: switch_entry, not: {has: {kind: statements, has: {kind: control_transfer_statement, has: {field: result, kind: boolean_literal}}}}}}
+    returning-switch:
+        kind: switch_statement
+        all:
+            - not: {has: {kind: switch_entry, not: {matches: returning-entry}}}
+            - has: {kind: switch_entry, has: {kind: statements, has: {matches: returned-value}}}
+            - not: {matches: boolean-switch}
+            - not: {inside: {kind: 'property_declaration, function_declaration', stopBy: {kind: 'property_declaration, function_declaration, lambda_literal'}, matches: swift-view-builder}}
     condition-guard:
         kind: guard_statement
         pattern: $GUARD
@@ -224,6 +246,9 @@ rule:
           pattern: $CHAIN
           matches: returning-chain
           not: {inside: {kind: if_statement}}
+        - kind: switch_statement
+          pattern: $CHAIN
+          matches: returning-switch
         - matches: condition-if
 transform:
     RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
@@ -271,5 +296,5 @@ rewriters:
 fix:
     template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$AWAIT_OPEN$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$SUCCESS$COALESCE$ELSE$BIND_OPEN$LIFTED$BIND_IN$AWAITED$BIND_CLOSE$IF_EXPRESSION$CHAIN_EXPRESSION$IF_HEAD_EXPRESSION'
     expandEnd: {kind: control_transfer_statement}
-message: '`guard` or `if` returns each case by statements where one expression selects the result'
-note: '`<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list or `else if` chain, and the statement stays where the moved expression reaches a fourth nesting level'
+message: '`guard`, `if`, or `switch` returns each case by statements where one expression selects the result'
+note: '`<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list or `else if` chain, `switch <subject> { case <pattern>: <value> }` where every arm returns or throws, and the statement stays where the moved expression reaches a fourth nesting level'

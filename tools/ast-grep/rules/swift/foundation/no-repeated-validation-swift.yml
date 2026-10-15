@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-repeated-validation-swift
-language: swift
+language: swiftlang
 severity: error
 utils:
     encoding:
@@ -19,4 +19,4 @@ rule:
 constraints:
     TYPE: {regex: '\.self$|^[a-z_]\w*$'}
 message: '`$VALUE` decodes into `$TYPE` through an encode and a second decode'
-note: 'Decode `$TYPE` in the read that produced the value, inside a `JSONDocument` when a write must keep unknown fields'
+note: 'Decode the target type in the read that produced the value, inside a `JSONDocument` when a write must keep unknown fields'

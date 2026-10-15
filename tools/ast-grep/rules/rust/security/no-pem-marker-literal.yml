@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-pem-marker-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $MARKER
+    regex: '-----(BEGIN|END) '
+    any:
+        - regex: '^[br]*#*"-----(BEGIN|END) [^"\\]*(\\r)?(\\n)?"#*$'
+        - regex: '\{[A-Za-z0-9_:}]'
+message: '`$MARKER` spells a PEM boundary to parse or build PEM text by hand'
+note: 'Read certificates through `x509_parser::pem::parse_x509_pem(<bytes>)` or `Pem::iter_from_buffer`, and write issued certificates and keys through rcgen `Certificate::pem()` and `KeyPair::serialize_pem()`, each owns the label, base64 body, and line framing'

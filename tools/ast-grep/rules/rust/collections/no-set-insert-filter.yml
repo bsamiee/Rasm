@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-set-insert-filter
+language: rust
+severity: error
+utils:
+    empty-set:
+        kind: let_declaration
+        all:
+            - has: {field: pattern, kind: identifier, pattern: $SET}
+            - has: {field: value, kind: call_expression, regex: '^((::)?(std::)?(collections::)?|indexmap::(set::)?)?(HashSet|BTreeSet|IndexSet)(::<[^()]*>)?::(new|default|with_capacity)\('}
+    own-read:
+        kind: identifier
+        any:
+            - inside: {kind: let_declaration, field: pattern}
+            - inside:
+                kind: field_expression
+                field: value
+                all:
+                    - has: {field: field, regex: '^insert$'}
+                    - inside: {kind: call_expression, field: function, inside: {kind: closure_expression, field: body, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter|retain)$'}}}}}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter|retain)$', pattern: $ADAPTER}}
+        - has:
+            field: arguments
+            has:
+                nthChild: 1
+                kind: closure_expression
+                has: {field: body, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $SET}}, {has: {field: field, regex: '^insert$'}}]}}
+        - inside:
+            kind: block
+            stopBy: end
+            all:
+                - has: {matches: empty-set}
+                - not: {has: {stopBy: end, kind: identifier, pattern: $SET, not: {matches: own-read}}}
+message: '`$ADAPTER` keeps first occurrences through inserts into the local set `$SET`'
+note: 'Call `Itertools::unique()` for whole items or `Itertools::unique_by(<key>)` for a key (`use itertools::Itertools;`, items or keys implement `Hash` and `Eq`), both adapters keep each first occurrence in input order and own the seen set. A `retain` becomes `<vec>.into_iter().unique().collect()`'

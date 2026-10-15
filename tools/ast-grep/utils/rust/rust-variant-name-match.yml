@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-variant-name-match
+language: rust
+utils:
+    literal-text:
+        any:
+            - kind: string_literal
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^((std|core)::)?write$'}
+                - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"[^"{}\\]*"\s*,?\s*\)$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_str$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: string_literal}, not: {has: {nthChild: 2}}}
+            - kind: block
+              all:
+                - has: {nthChild: 1, any: [{matches: literal-text}, {kind: expression_statement, has: {matches: literal-text}}]}
+                - not: {has: {nthChild: 2}}
+    unit-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, has: {nthChild: 1, kind: scoped_identifier}, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: value, matches: literal-text}
+    naming-impl:
+        kind: impl_item
+        all:
+            - has: {field: type, kind: type_identifier, pattern: $T}
+            - any:
+                - not: {has: {field: trait, pattern: $_}}
+                - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\s*<\s*str\s*>$'}
+    error-impl:
+        kind: impl_item
+        all:
+            - has: {field: trait, regex: '(^|::)Error$'}
+            - has: {field: type, pattern: $T}
+rule:
+    kind: match_expression
+    all:
+        - has: {field: value, regex: '^\*?\s*self$'}
+        - has:
+            field: body
+            all:
+                - has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}
+                - not: {has: {kind: match_arm, not: {matches: unit-arm}}}
+        - inside:
+            kind: function_item
+            stopBy: {kind: 'function_item, closure_expression'}
+            all:
+                - has: {field: name, regex: '^(fmt|as_str|as_ref|name)$', pattern: $METHOD}
+                - not: {matches: rust-const-called}
+                - inside: {kind: declaration_list, inside: {matches: naming-impl}}
+        - inside:
+            kind: source_file
+            stopBy: end
+            all:
+                - has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}
+                - not: {has: {stopBy: end, matches: error-impl}}

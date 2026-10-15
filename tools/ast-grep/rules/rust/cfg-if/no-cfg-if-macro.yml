@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cfg-if-macro
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    has: {field: macro, regex: '^((::)?cfg_if::)?cfg_if$'}
+message: '`cfg_if!` selects declarations by `cfg` predicate through a crate macro'
+note: 'Write `cfg_select! { <predicate> => { <items> } _ => { <items> } }` from `core`, the first true predicate selects its arm in item, statement, and expression position. Clippy `disallowed_macros` misses `cfg_if!`, its expanded items keep the spans of the written tokens'

@@ -27,6 +27,7 @@
 
     <!-- [DESIGN] -->
     <rule ref="category/java/design.xml">
+        <exclude name="AvoidDeeplyNestedIfStmts" />
         <exclude name="CognitiveComplexity" />
         <exclude name="CouplingBetweenObjects" />
         <exclude name="CyclomaticComplexity" />

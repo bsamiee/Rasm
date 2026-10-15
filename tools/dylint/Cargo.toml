@@ -1,0 +1,44 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "lints"
+edition.workspace = true
+publish           = false
+
+[package.metadata.rust-analyzer]
+rustc_private = true
+
+# --- [LIB] ------------------------------------------------------------------------------
+
+[lib]
+path       = "lib.rs"
+crate-type = ["cdylib"]
+test       = false
+doctest    = false
+bench      = false
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+clippy_utils   = { workspace = true }
+dylint_linting = { workspace = true }
+itertools      = { workspace = true }
+
+[dev-dependencies]
+anyhow              = { workspace = true }
+cargo_metadata      = { workspace = true }
+fs-err              = { workspace = true }
+futures             = { workspace = true }
+insta               = { workspace = true }
+serde               = { workspace = true }
+serde_json          = { workspace = true }
+serde_path_to_error = { workspace = true }
+thiserror           = { workspace = true }
+tokio               = { workspace = true }
+tokio-util          = { workspace = true }
+tracing             = { workspace = true }

@@ -32,4 +32,4 @@ rule:
         - not: {has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $F}}}
         - not: {has: {field: parameter, pattern: $F}}
 message: 'Function forwards its parameters unchanged to `$F`'
-note: 'Call or pass `$F` in place of the function where its callers pass no further arguments'
+note: 'Call or pass the callee in place of the function where its callers pass no further arguments'

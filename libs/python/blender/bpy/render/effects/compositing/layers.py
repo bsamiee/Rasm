@@ -68,7 +68,7 @@ from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.properties import Changed, Choices
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import alerted, Member, operated, Popover, Property, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import alerted, joined, Member, operated, Popover, Property, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import Listing, Single
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.chain import Domain, Effect, Stage
@@ -78,7 +78,6 @@ from blender.imaging.compositing.layers import Adjustment, Affine, Layer, LayerS
 from blender.imaging.compositing.masks import Mask, TrackMatte
 from blender.imaging.compositing.recombination import Lobes
 from blender.imaging.effects.detail.denoise import Frame, Groups, Passes, SpatialDenoise
-from blender.imaging.effects.quantization import codes
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.files import documents
 from blender.imaging.files.documents import Document, Group, Raster
@@ -285,18 +284,17 @@ class LayerStacking[E: Effect]:
 
             def copied(_: Changes) -> BlenderResult[dict[Key, dict[str, str]]]:
                 found = owned(scratch, self.identity)
-                settings = accumulated(
+                return accumulated(
                     Snapshot.capture(source).bind(lambda snapshot: snapshot.apply(found[key]).outcome)
                     for prior in tree.to_list()
                     for key, source in owned(prior, self.identity).items()
                     if key in found
-                )
-                return settings.map(lambda _: {key: {output.name: output.identifier for output in source.outputs if output.enabled} for key, source in found.items()})
+                ).map(lambda _: {key: {output.name: output.identifier for output in source.outputs if output.enabled} for key, source in found.items()})
 
             return (
                 accumulated(sourced(layer, scene) for layer in layers.layers)
                 .bind(Fragment.merged)
-                .bind(lambda joined: reconciled(Graph(kind=bpy.types.CompositorNodeTree, nodes=dict(joined.nodes)), scratch, self.identity))
+                .bind(lambda joined: reconciled(Graph(kind=bpy.types.CompositorNodeTree, nodes=joined.nodes), scratch, self.identity))
                 .bind(copied)
             )
 
@@ -319,7 +317,7 @@ class LayerStacking[E: Effect]:
             )
             return guides.map(lambda requests: (*source, *requests))
 
-        return accumulated(layer_requests(layer) for layer in layers.layers).map(lambda groups: tuple(request for group in groups for request in group))
+        return accumulated(layer_requests(layer) for layer in layers.layers).map(lambda groups: tuple(itertools.chain.from_iterable(groups)))
 
     def reconciled(self, scene: bpy.types.Scene, tree: bpy.types.NodeTree, context: bpy.types.Context, *, record: Option[LayerStack[Source, E]] = Nothing) -> BlenderResult[bool]:
         """Enables requests, constructs the complete graph, and writes its frame inputs, answering whether the graph or a frame input changed."""
@@ -428,7 +426,7 @@ class LayerStacking[E: Effect]:
                     source=values[0][0][0],
                     affine=values[0][0][1],
                     blend=values[0][1][0],
-                    matte=Gated(enabled=held.matte.enabled, value=values[0][1][1]),
+                    matte=structs.replace(held.matte, value=values[0][1][1]),
                     effects=Gated(enabled=values[1][0], value=values[1][1]),
                 )
             )
@@ -1121,7 +1119,7 @@ class LayerStacking[E: Effect]:
                         def raw(name: str) -> BlenderResult[npt.NDArray[np.float32]]:
                             return Result[FileLayer, BlenderFaults].bind(
                                 Option.of_optional(next((layer for layer in file.layers if layer.name == name), None)).to_result_with(lambda: (BlenderAbsentFault(owner=path, key=name),)),
-                                lambda layer: file.plane(layer, layer.channels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                                lambda layer: file.plane(layer, layer.channels).map_error(BlenderImagingFault.lifted),
                             )
 
                         def color(name: str) -> BlenderResult[npt.NDArray[np.float32]]:
@@ -1132,7 +1130,7 @@ class LayerStacking[E: Effect]:
                                         view
                                         .map(lambda shown: shown.form(config, pixels))
                                         .default_with(lambda: viewed(scene).form(config, pixels, exposure=scene.view_settings.exposure, gamma=scene.view_settings.gamma))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                                        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                                        .map_error(BlenderImagingFault.lifted)
                                     )
                                 )
                                 .map(unassociated)
@@ -1179,7 +1177,7 @@ class LayerStacking[E: Effect]:
                         top = color("Composite")
                         return paired(accumulated(each(layer) for layer in record.layers), top)
 
-                    return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), planes)
+                    return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path).map_error(BlenderImagingFault.lifted), planes)
 
                 shown = view.default_with(lambda: viewed(scene))
                 return read_tree(tree, record).bind(
@@ -1202,13 +1200,7 @@ class LayerStacking[E: Effect]:
                 )
             )
 
-        match depth:
-            case Depth.UINT8:
-                return built(lambda pixels: codes(pixels, 8))
-            case Depth.UINT16:
-                return built(lambda pixels: codes(pixels, 16))
-            case Depth.HALF | Depth.FLOAT:
-                return built(lambda pixels: pixels)
+        return built(depth.coded)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -1216,14 +1208,14 @@ class LayerStacking[E: Effect]:
 
 def stacked_by(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Option[bpy.types.NodeTree]:
     """Returns an entry's group only when it carries the stack ownership mark."""
-    return Option.of_optional(entry.node_group).filter(lambda group: Mark.read(identity, group).filter(lambda mark: mark.key == LayerStacks.ownership.key).is_some())
+    return Option.of_optional(entry.node_group).filter(lambda group: LayerStacks.ownership.marked(identity, group).is_some())
 
 
 def nested_tree[E: Effect](identity: Identity, tree: bpy.types.NodeTree, layer: Layer[Source, E]) -> Option[bpy.types.NodeTree]:
     """Returns an owned nested stack from the layer's actual group node."""
     match owned(tree, identity).get(f"{layer.key}_source"):
         case bpy.types.CompositorNodeGroup(node_tree=inner) if inner is not None:
-            return Some(inner).filter(lambda tree: Mark.read(identity, tree).filter(lambda mark: mark.key == LayerStacks.ownership.key).is_some())
+            return Some(inner).filter(lambda tree: LayerStacks.ownership.marked(identity, tree).is_some())
         case _:
             return Nothing
 
@@ -1278,7 +1270,7 @@ def inlined(prefix: Key, group: NodeGroup, outer: Callable[[Key], End]) -> Blend
     """Relays native group inputs and preserves original ordered link multiplicity."""
 
     def mapped(end: End) -> End:
-        return outer(end.socket) if end.node == INPUTS else End(node=f"{prefix}_{end.node}", socket=end.socket)
+        return outer(end.socket) if end.node == INPUTS else structs.replace(end, node=f"{prefix}_{end.node}")
 
     return (
         Option
@@ -1456,7 +1448,7 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning) -> Ble
         def framed_group(group: NodeGroup) -> NodeGroup:
             label = Descriptor(root=bpy.types.NodeFrame, owner="", prop=bpy.types.NodeFrame.bl_rna.properties["label"])
             framed_keys = frozenset(key for body, _, _ in parts for key in body.nodes)
-            frames = {f"{layer.key}_frame": FrameNode(members={label: layer.name}, nodes=dict(body.nodes)) for layer, (body, _, _) in zip(record.layers, parts)}
+            frames = {f"{layer.key}_frame": FrameNode(members={label: layer.name}, nodes=body.nodes) for layer, (body, _, _) in zip(record.layers, parts)}
             return structs.replace(
                 group,
                 graph=structs.replace(
@@ -1476,7 +1468,7 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning) -> Ble
                 lambda joined: NodeGroup.built(
                     key=LayerStacks.ownership.key,
                     name=LayerStacks.title,
-                    interface=Interface(outputs=(Socket(key=Shell.image, name="Image", kind=bpy.types.NodeSocketColor),), inputs=face.inputs, panels=tuple(panel for _, panel, _ in parts)),
+                    interface=structs.replace(face, outputs=(Socket(key=Shell.image, name="Image", kind=bpy.types.NodeSocketColor),), panels=tuple(panel for _, panel, _ in parts)),
                     outputs={Shell.image: (joined, running[-1])},
                 )
             )
@@ -1553,15 +1545,7 @@ class LayerStacks[E: Effect]:
 
     def presets_drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Acquires and composes the complete native recipe listings."""
-
-        def draw(rows: tuple[RowDraw, ...]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for row in rows:
-                    row(layout, holder, context)
-
-            return shown
-
-        return self.bound(identity).bind(lambda stacking: accumulated(listing.drawn(identity) for listing in stacking.listings)).map(draw)
+        return self.bound(identity).bind(lambda stacking: accumulated(listing.drawn(identity) for listing in stacking.listings)).map(joined)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Acquires the native editor through its actual registered stack binding."""

@@ -27,10 +27,10 @@ public abstract partial record ObjectTarget {
             bounded: static (doc, bounded) => IO.lift(() =>
                 Conversions.Rows(doc.Objects.GetObjectList(bounded.Settings)).Filter(found => RhinoObject.GetTightBoundingBox([found], out BoundingBox box) && bounded.Predicate(box)).Strict()),
             window: static (doc, window) => IO.lift(() =>
-                    Conversions.Rows(doc.Objects.GetSelectedObjects(includeLights: true, includeGrips: false)).Map(static found => (Object: found, Persistent: found.IsSelected(checkSubObjects: false) == 2)).Strict())
+                    Conversions.Rows(doc.Objects.GetSelectedObjects(includeLights: true, includeGrips: false)).Map(static found => (Object: found, Persistent: found.IsSelected(checkSubObjects: false) is 2)).Strict())
                 .Bracket(
                     Use: selected =>
-                        from cleared in IO.lift(() => selected.Iter(static held => held.Object.Select(@on: false, syncHighlight: true)))
+                        from cleared in IO.lift(() => selected.Iter(static held => held.Object.Select(@on: false)))
                         from picked in IO.lift(() => Conversions.Rows(window.Crossing
                             ? doc.Objects.FindByCrossingWindowRegion(window.Viewport, window.Region, window.Inside, window.Filter)
                             : doc.Objects.FindByWindowRegion(window.Viewport, window.Region, window.Inside, window.Filter)))

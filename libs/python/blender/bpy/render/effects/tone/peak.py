@@ -103,10 +103,10 @@ def formed_view(context: bpy.types.Context) -> Option[DisplayView]:
 
 def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
     """Writes the observed PQ peak while preserving mapping parameters and blend, naming an undo step where the peak changed."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
     found: BlenderResult[Option[float]] = Result[PyOpenColorIO.Config, BlenderFaults].bind(
-        config, lambda config: metering.samples_of(config, file.pixels).map(metering.peak).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        config, lambda config: metering.samples_of(config, file.pixels).map(metering.peak).map_error(BlenderImagingFault.lifted)
     )
     return (
         paired(found, peak_mapping.read(identity, entry))

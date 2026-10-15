@@ -26,7 +26,7 @@ public sealed partial class Sampling {
     internal Option<Action<Span<(double X, double Y)>>> Snap { get; }
 
     internal double Point(ERational coordinate, WrapMode wrap, int size) =>
-        (wrap == WrapMode.Periodic || wrap == WrapMode.Mirror ? wrap.Fold(coordinate, size).Point : coordinate) switch {
+        (wrap.Tiles ? wrap.Fold(coordinate, size).Point : coordinate) switch {
             var point when this == Nearest => ERational.FromEInteger(NoiseFunctions.Split(point).Cell).Add(ERational.FromDouble(0.5d)).ToDouble(),
             var point => point.ToDouble(),
         };
@@ -83,7 +83,7 @@ public abstract partial record CoordinateMap {
                             Vector256<double> weights = Lanes(sample.Lanes(t)) * coverage;
                             Vector256<double> read = source.Sample(at, (wrap, wrap), Vector256<double>.Zero,
                                 static (sum, pixel, weight) => sum + (weight * Vector256.Create((double)pixel.X * pixel.W, (double)pixel.Y * pixel.W, (double)pixel.Z * pixel.W, pixel.W)));
-                            return Vector256.ConditionalSelect(Vector256.Equals(weights, Vector256<double>.Zero), Vector256<double>.Zero, weights * read);
+                            return Vector256.ConditionalSelect(Vector256.IsZero(weights), Vector256<double>.Zero, weights * read);
                         });
                     }
                     Vector256<double> pixel = associated / total;
@@ -116,8 +116,8 @@ public abstract partial record CoordinateMap {
 
     private void Prepare(Span<(double X, double Y)> points, PixelExtent extent) {
         foreach (ref (double X, double Y) point in points) point = (
-            Wrap.Across == WrapMode.Periodic || Wrap.Across == WrapMode.Mirror ? Wrap.Across.Fold(point.X, extent.Width, 0d).Point : point.X,
-            Wrap.Down == WrapMode.Periodic || Wrap.Down == WrapMode.Mirror ? Wrap.Down.Fold(point.Y, extent.Height, 0d).Point : point.Y);
+            Wrap.Across.Tiles ? Wrap.Across.Fold(point.X, extent.Width, 0d).Point : point.X,
+            Wrap.Down.Tiles ? Wrap.Down.Fold(point.Y, extent.Height, 0d).Point : point.Y);
         if (Sampling.Snap.Case is Action<Span<(double X, double Y)>> snap) snap(points);
     }
 
@@ -178,7 +178,7 @@ public abstract partial record CoordinateMap {
             ReadOnlySpan<Vector256<double>> read = new((void*)sampled.DataPointer, count);
             for (int i = 0; i < count; i++) {
                 Vector256<double> weights = lanes * coverage[i];
-                destination[column + i] += Vector256.ConditionalSelect(Vector256.Equals(weights, Vector256<double>.Zero), Vector256<double>.Zero, weights * read[i]);
+                destination[column + i] += Vector256.ConditionalSelect(Vector256.IsZero(weights), Vector256<double>.Zero, weights * read[i]);
             }
 
             void Gather(int patch, double left, double top) {

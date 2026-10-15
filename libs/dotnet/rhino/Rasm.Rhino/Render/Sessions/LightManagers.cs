@@ -61,7 +61,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 
     private IO<bool> Filled(RhinoDoc doc, Guid id, Light target) =>
         Held(doc, id).Bind(held => held.Match(
-            Some: engine => Lights.Gamma(doc).Bind(transfer => Staged(target, engine.Light, transfer)).Map(static _ => true),
+            Some: engine => Lights.Gamma(doc).Bind(transfer => Staged(target, engine.Light, transfer)).Map(value: true),
             None: static () => IO.pure(value: false)));
 
     private IO<Option<EngineLight>> Held(RhinoDoc doc, Guid id) =>

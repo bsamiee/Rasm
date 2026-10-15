@@ -9,6 +9,7 @@ using Emgu.CV.Structure;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
+using SixLabors.ImageSharp.PixelFormats;
 using TorchSharp;
 using UnitsNet;
 using UnitsNet.Units;
@@ -233,8 +234,9 @@ public sealed record GeometryOutline(
                 from guide in context.Guides.Find(route.Source.Channel)
                 from edges in route.Source.Edges(state, context)
                 select (route.Line, edges, guide)).Somes();
-            return toSeq(LineClass.Items)
-                .Map((line, channel) => (Line: line, Channel: channel, Sources: available.Filter(route => route.Line == line).Map(static route => (route.Edges, route.Guide))))
+            return toSeq(LineClass.Items.GroupJoin(available, static line => line, static route => route.Line,
+                    static (line, routes) => (Line: line, Sources: toSeq(routes).Map(static route => (route.Edges, route.Guide)))))
+                .Map(static (stroke, channel) => (stroke.Line, Channel: channel, stroke.Sources))
                 .Filter(static stroke => !stroke.Sources.IsEmpty)
                 .TraverseM(stroke => Width(state, context, stroke.Line).Bind(width => Covered(state, z, stroke.Sources, stroke.Line, width, stroke.Channel, cover, unclaimed, frame, progress)))
                 .As()
@@ -251,7 +253,7 @@ public sealed record GeometryOutline(
                             (color, weight) = (covers[(x * colors.Length) + k] * (1f - weight)) switch { var c => (color + (c * colors[k]), weight + c) };
                         layer.Span[x] = new Vector4(color, weight);
                     }
-                    state.Mode.Composite(row, layer.Span, weights.Span, AlphaRepresentation.Unassociated, AlphaRepresentation.Associated);
+                    state.Mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated, PixelAlphaRepresentation.Associated);
                 }).Run(frame, progress));
         });
 
@@ -328,7 +330,7 @@ public sealed record GeometryOutline(
         ReadOnlySpan<byte> marks = new(mask.DataPointer.ToPointer(), mask.Rows * mask.Cols);
         ReadOnlySpan<float> depths = new(contour.DataPointer.ToPointer(), contour.Rows * contour.Cols);
         for (int pixel = 0, label = 1; pixel < marks.Length; pixel++) {
-            if (marks[pixel] == 0)
+            if (marks[pixel] is 0)
                 table[label++] = stroke(depths[pixel]);
         }
         return widths;
@@ -338,7 +340,7 @@ public sealed record GeometryOutline(
         double frame = line.Width.Get(state).Pixels(context.Extent);
         RampTable ramp = state.TaperRamp.Tabulate(context.Working);
         Fin<Func<float, double>> reach = line.World.Get(state).Active.Match(
-            world => world == Length.Zero || frame == 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : context.Camera.ToFin(new CameraRequired()).Map(camera =>
+            world => world == Length.Zero || frame is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : context.Camera.ToFin(new CameraRequired()).Map(camera =>
                 camera.Frustum.Switch(
                     (Frame: frame, Span: (double)world.Meters * context.Extent.Width / camera.Frustum.Window.Width),
                     perspective: static (scale, _) => (Func<float, double>)(depth => double.Min(scale.Span / depth, scale.Frame)),
@@ -550,7 +552,7 @@ public sealed record EdgeDetect(
             int channels = edges.NumberOfChannels;
             ReadOnlySpan<double> responses = new(edges.GetDataPointer(frame.RowIndex(line)).ToPointer(), channels * row.Length);
             for (int x = 0; x < row.Length; x++)
-                row[x] = new Vector4(channels == 1 ? new Vector3((float)responses[x]) : new Vector3((float)responses[3 * x], (float)responses[(3 * x) + 1], (float)responses[(3 * x) + 2]), row[x].W);
+                row[x] = new Vector4(channels is 1 ? new Vector3((float)responses[x]) : new Vector3((float)responses[3 * x], (float)responses[(3 * x) + 1], (float)responses[(3 * x) + 2]), row[x].W);
         }).Run(frame, progress);
 
     private static unsafe Fin<Unit> Stroked(EdgeDetect state, PassContext context, PixelFrame frame, Mat edges, Swatch ground, float floor, IProgress<int> progress) {
@@ -578,7 +580,7 @@ public sealed record EdgeDetect(
                 layer.Span[x] = new Vector4(Vector3.Lerp(under, line, coverage), 1f);
                 cover.Span[x] = float.Max(coverage, floor);
             }
-            state.Mode.Composite(row, layer.Span, cover.Span, AlphaRepresentation.Unassociated);
+            state.Mode.Composite(row, layer.Span, cover.Span, PixelAlphaRepresentation.Unassociated);
         }).Run(frame, progress);
     }
 }
@@ -636,7 +638,7 @@ public sealed partial class KuwaharaKind {
             for (int x = 0; x < width; x++) {
                 sectors.Span.Clear();
                 for (int quadrant = 0; quadrant < means.Length; quadrant++) {
-                    (int left, int right) = (quadrant & 1) == 0 ? ((int)double.Max(0d, x - radius), x) : (x, (int)double.Min(width - 1, x + radius));
+                    (int left, int right) = (quadrant & 1) is 0 ? ((int)double.Max(0d, x - radius), x) : (x, (int)double.Min(width - 1, x + radius));
                     (int top, int bottom) = quadrant < 2 ? (y, (int)double.Min(height - 1, y + radius)) : ((int)double.Max(0d, y - radius), y);
                     int columns = right - left + 1;
                     for (int cell = 0; cell < columns * (bottom - top + 1); cell++)

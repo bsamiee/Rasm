@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mapfile-status-loop
+language: bash
+severity: error
+utils:
+    isolated:
+        kind: function_definition, subshell, command_substitution, process_substitution
+    nested-loop:
+        kind: while_statement, for_statement, c_style_for_statement
+    leaving:
+        kind: command
+        any:
+            - has: {field: name, regex: '^(return|exit)$'}
+            - all:
+                - has: {field: name, regex: '^break$'}
+                - has: {field: argument, not: {regex: '^["'']?1["'']?$'}}
+    break:
+        kind: command
+        has: {field: name, regex: '^break$'}
+    option-value:
+        follows: {kind: word, regex: '^-[a-zA-Z]*[dnOsuCc]$'}
+rule:
+    kind: command
+    pattern: $READER
+    all:
+        - has: {field: name, regex: '^(mapfile|readarray)$'}
+        - not: {has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*C'}}
+        - any:
+            - has: {kind: word, pattern: $ARRAY, regex: '^[A-Za-z_][A-Za-z0-9_]*$', nthChild: {position: 1, reverse: true}, not: {matches: option-value}}
+            - has: {pattern: $DEFAULT, nthChild: {position: 1, reverse: true}, any: [{kind: command_name}, {kind: word, regex: '^-'}, {matches: option-value}]}
+        - precedes: {kind: do_group, stopBy: {not: {regex: '^;$'}}}
+        - inside:
+            kind: while_statement
+            field: condition
+            regex: '^while\b'
+            not:
+                has:
+                    field: body
+                    any:
+                        - has: {stopBy: {matches: isolated}, matches: leaving}
+                        - has: {stopBy: {any: [{matches: isolated}, {matches: nested-loop}]}, matches: break}
+transform:
+    IMPLICIT: {replace: {source: $DEFAULT, replace: '(?s)^.*$', by: 'MAPFILE'}}
+fix: '$READER && (( ${#$ARRAY$IMPLICIT[@]} ))'
+message: '`$READER` succeeds at end of input, the loop never ends by its status'
+note: 'Test the array length after the reader, `while mapfile -tn <count> <array> && (( ${#<array>[@]} )); do`, `MAPFILE` when the reader names no array'

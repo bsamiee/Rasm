@@ -2,7 +2,6 @@
 id: no-source-in-error-message
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 utils:
     comment:
         kind: 'line_comment, block_comment'

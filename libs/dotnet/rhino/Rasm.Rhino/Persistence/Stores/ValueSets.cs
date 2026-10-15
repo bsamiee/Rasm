@@ -20,7 +20,7 @@ public readonly record struct EntryKey(string Owner, Seq<string> Path) : ICompar
     public int CompareTo(EntryKey other) =>
         string.CompareOrdinal(Owner, other.Owner) is var owner and not 0
             ? owner
-            : Path.Zip(other.Path, string.CompareOrdinal).Find(static order => order != 0).IfNone(Path.Count.CompareTo(other.Path.Count));
+            : Path.Zip(other.Path, string.CompareOrdinal).Find(static order => order is not 0).IfNone(Path.Count.CompareTo(other.Path.Count));
 
     public Fin<TValue> Read<TValue>(string text, Func<string, Fin<TValue>> read) =>
         this switch {
@@ -212,7 +212,7 @@ public sealed class ValueSetConverter : JsonConverter<ValueSet> {
         from child in toSeq(node)
         from leaf in child.Value switch {
             JsonObject branch => Leaves(branch, path.Add(child.Key)),
-            JsonValue text when text.GetValueKind() == JsonValueKind.String => Seq((path.Add(child.Key), text.GetValue<string>())),
+            JsonValue text when text.GetValueKind() is JsonValueKind.String => Seq((path.Add(child.Key), text.GetValue<string>())),
             _ => throw new JsonException(),
         }
         select leaf;

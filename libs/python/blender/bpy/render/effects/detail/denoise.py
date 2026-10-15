@@ -369,7 +369,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
                 lambda ends: node(
                     "denoise",
                     bpy.types.CompositorNodeDenoise,
-                    {**dict(zip(routes, ends)), "HDR": True, "Prefilter": End(node=INPUTS, socket=prefilter.name), "Quality": End(node=INPUTS, socket=quality.name)},
+                    dict(zip(routes, ends)) | {"HDR": True, "Prefilter": End(node=INPUTS, socket=prefilter.name), "Quality": End(node=INPUTS, socket=quality.name)},
                     {},
                 )
             )
@@ -400,14 +400,14 @@ def unit(key: Key, group: NodeGroup, path: KeyPath, socket: Callable[[Key], End]
     """Builds one unit from its filter path, guide ends, and firefly controls."""
     fireflies, _ = SpatialDenoise.__struct_fields__
     _, value = Gated.__struct_fields__
-    controls = {**{field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)}, **{held: socket(held) for held in (fireflies, item_key(fireflies, value))}}
-    return nested(key, group, {COLOR_INPUT.key: source, "albedo": pair.albedo, "normal": pair.normal, **controls}, COLOR_RESULT.key)
+    controls = {field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)} | {held: socket(held) for held in (fireflies, item_key(fireflies, value))}
+    return nested(key, group, {COLOR_INPUT.key: source, "albedo": pair.albedo, "normal": pair.normal} | controls, COLOR_RESULT.key)
 
 
 def gated(key: Key, source: Operand, filtered: tuple[Fragment, End], gate: Gate) -> BlenderResult[tuple[Fragment, End]]:
     """Blends enabled denoise against its firefly-cleaned input, retaining disabled source."""
     body, result = filtered
-    return mixed(f"{key}_amount", "RGBA", gate.amount, (body, End(node=result.node, socket="noisy")), filtered).bind(lambda blended: switched(key, "RGBA", gate.enabled, source, blended))
+    return mixed(f"{key}_amount", "RGBA", gate.amount, (body, structs.replace(result, socket="noisy")), filtered).bind(lambda blended: switched(key, "RGBA", gate.enabled, source, blended))
 
 
 def filing(terms: tuple[tuple[str, End], ...]) -> Filing:
@@ -434,7 +434,7 @@ def denoised(shell: Shell[SpatialDenoise]) -> BlenderResult[tuple[Fragment, End]
         body, result = frame
         target = item_key(*paths.target)
         return menu(target, "RGBA", shell.socket(*paths.target), shell.items[paths.target], {Frame.title: frame, Passes.title: shell.source, Groups.title: shell.source}).bind(
-            lambda selected: Fragment.joined(switched(_FRAME_BASE.node, "RGBA", End(node=target, socket=Frame.title), shell.source, (body, End(node=result.node, socket="noisy")))).bind(
+            lambda selected: Fragment.joined(switched(_FRAME_BASE.node, "RGBA", End(node=target, socket=Frame.title), shell.source, (body, structs.replace(result, socket="noisy")))).bind(
                 lambda baseline: joined((selected, baseline))
             )
         )

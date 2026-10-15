@@ -147,19 +147,19 @@ Member, signature, enum, and operator property facts come from the installed bui
 - `<function>.__doc__` prints the signature of a Python-level function (`bpy.app.timers.register`, `bpy.utils.*`)
 
 Searches find code using a member:
-- `rg <member> "${BLENDER_PATH%/MacOS/Blender}/Resources/5.4/scripts"` finds stock code
-- `rg` over `~/Library/Application Support/Blender/5.4/extensions` and `scripts/addons` finds extension code
+- `rg <member> "${BLENDER_PATH%/MacOS/Blender}/Resources/<version>/scripts"` finds stock code
+- `rg` over `~/Library/Application Support/Blender/<version>/extensions` and `scripts/addons` finds extension code
 
 ## [07]-[EXTENSIONS]
 
 Use `manage-repo` for extension projects and their `pack` and `install` targets.
 
-Repository `user_default` holds every installed extension:
-- `nx run <id>:install` installs and enables an extension inside a running GUI session, else through `--command extension install-file`
-- Running GUI sessions are those of the executable `BLENDER_PATH` resolves, by file identity, under the installing process's `BLENDER_USER_*` profile
+Repository `user_default` holds extensions installed from a file, remote repositories the rest:
+- `nx run <id>:install` runs `install-file --repo user_default --enable` inside a running GUI session, else through `--command extension`
+- `install-file` over an installed extension replaces its folder and modules whatever the archive version
 - `"$BLENDER_PATH" --command extension remove user_default.<id>` uninstalls with no GUI running
 - `install-file` exits 0 on install and on a platform or version refusal, and 1 on a failed `--enable`
-- `install-file` output's `STATUS Installed "<id>"` or `ERROR <id>: <reason>` line states the result
+- `install-file` output's `STATUS Installed "<id>"`, `STATUS Reinstalled "<id>"`, or `ERROR <id>: <reason>` line states the result
 - `install` and `install-file` save preferences an enable or asset library changed, and `remove`, `repo-add`, and `repo-remove` always save
 - `--no-prefs` skips preference saves for a command that changes extension files and leaves the enabled set as found
 - Calls reach extension modules through `importlib.import_module("bl_ext.<repository>.<id>.<module>")`
@@ -176,7 +176,6 @@ Each source writes its log to one place:
 |  [03]   | Task GUI          | `--stdout` log with prints, add-on requests, and extension registration tracebacks |
 |  [04]   | GUI, no log file  | `execute_blender_code` answers, Info editor lines in `window_manager.reports`      |
 |  [05]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR`      |
-|  [06]   | Crash, macOS      | `~/Library/Logs/DiagnosticReports/Blender-<time>.ips`                              |
 
 Log reads follow host rules:
 - Blender Python reads `PYTHONUNBUFFERED` under `--python-use-system-env` alone, and prints reach the log per line
@@ -187,26 +186,8 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, each command launching Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before launch:
+Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, launching Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before launch:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
-- `python .claude/skills/use-blender/scripts/evaluate.py checks <file.py>` runs each `@check` the file declares
-- `checks --isolate` runs one process per check, and `checks --falsify` runs each check again with its `flip` input
-- `run` and `checks` install every package `nx run <id>:pack` bundles, with the first-party wheel whole, into tree folder `scripts/modules` before launch
+- `run` installs the distributions `nx run <id>:pack` bundles into tree folder `scripts/modules` before launch
 - Blender lists `scripts/modules` first on `sys.path` and keeps its packages through factory resets
-- `python .claude/skills/use-blender/scripts/evaluate.py extension <zip>` validates and installs an archive
-- `extension` then cycles disable and enable twice and unregisters the extension
-- Checks files call `check` with no import, and each check runs from factory settings:
-
-```python
-import bpy
-
-
-@check("<id>", expect=<value or exception class>, flip=<input>)
-def <name>(flip=<default>):
-    return <value read from bpy>
-```
-
-Results read in order:
-1. Stdout summary line `<name>: <n> passed, <n> failed, <n> crashed, <rows path>`, exit code 1 on any failure or crash
-2. `jq -c 'select(.verdict == false or .kind == "crash")' .artifacts/blender/evaluate/<name>/rows.jsonl` lists failed and crashed rows
-3. Crash report a crash row's `report` names, then `blender.log` in the run folder
+- Crash reports sit in the tree's `tmp`, output in its `blender.log`

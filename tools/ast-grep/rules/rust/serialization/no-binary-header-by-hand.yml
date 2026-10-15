@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-binary-header-by-hand
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, call_expression'
+    pattern: $SITE
+    matches: rust-binary-header-read
+message: '`$SITE` tests a magic number beside endian field reads to decode a binary header by hand'
+note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(little, magic = <bytes>)]` or `#[br(big, magic = <bytes>)]` and read it through `BinReaderExt::read_le` or `read_be`, binrw checks the magic and decodes each field with its position in the error'

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-infallible-type
+language: rust
+severity: error
+rule:
+    any:
+        - kind: type_identifier
+          regex: '^Infallible$'
+          not: {inside: {kind: scoped_type_identifier}}
+        - kind: scoped_type_identifier
+          regex: '^((::)?(std|core)::)?convert::Infallible$'
+fix: '!'
+message: '`Infallible` names the never type through its alias'
+note: 'Write `!`, `core::convert::Infallible` is the alias `pub type Infallible = !;`. Drop the `Infallible` import the last use leaves unused'

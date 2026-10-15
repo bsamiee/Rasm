@@ -73,7 +73,7 @@ def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
         )).bind(lambda parts: composed(*parts))
 
     def scan_plane(scan: Scan) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
-        return Scan(path=bpy.path.abspath(scan.path)).tile(shell.config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(Some)
+        return Scan(path=bpy.path.abspath(scan.path)).tile(shell.config).map_error(BlenderImagingFault.lifted).map(Some)
 
     def fielded(point: Operand, offset: Operand, space: str) -> BlenderResult[tuple[Fragment, End]]:
         field, granularity_field, _, _, _, _, _, _ = Film.__struct_fields__

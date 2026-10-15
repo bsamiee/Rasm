@@ -9,6 +9,7 @@ from fractions import Fraction
 from functools import reduce
 import hashlib
 import importlib.resources
+from itertools import chain
 from operator import itemgetter
 import os
 from pathlib import Path
@@ -246,7 +247,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
             Result[bpy.types.Scene, BlenderFaults]
             .bind(scene, reached)
             .bind(lambda scopes: accumulated(map(denoised, scopes)))
-            .map(lambda groups: tuple(scope for group in groups for scope in group))
+            .map(lambda groups: tuple(chain.from_iterable(groups)))
             .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error((BlenderAbsentFault(owner=repr(context), key=dispatch.reach.name),)))
         )
 
@@ -281,11 +282,11 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
             def started(source: Path, command: str) -> BlenderResult[Path]:
                 argv = (self.host.binary, "--background", str(source), "--command", command, base64.b64encode(msgspec.json.encode(Preparing(plan=str(path), target=queueing.target))).decode("ascii"))
-                return detached(argv, PlanFile.LOG.beside(path)).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+                return detached(argv, PlanFile.LOG.beside(path)).map_error(BlenderRenderingFault.lifted)
 
             return (
                 accumulated(self.pathed.took(scene, day) for scene in scenes)
-                .bind(lambda _: store(path, msgspec.json.encode(plan, order="deterministic")).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
+                .bind(lambda _: store(path, msgspec.json.encode(plan, order="deterministic")).map_error(BlenderRenderingFault.lifted))
                 .bind(lambda _: self.queued.write(manager, Queued(plan=str(path))))
                 .bind(lambda _: saved(Path(bpy.data.filepath), SaveMode.ACTIVE))
                 .bind(lambda source: identity.name(Name.CLI, QueueRun.prepare).bind(lambda command: started(source, command)))
@@ -308,22 +309,20 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
         def sent(jobs: tuple[Job, ...]) -> BlenderResult[Sent]:
             queue = RenderQueue(jobs=jobs, blender=bpy.app.version_string, extension=self.identity.manifest.version)
-            answer = send(arguments.target, queue, self.host)
-            match answer.tag:
-                case "error":
-                    return Error((BlenderRenderingFault(faults=answer.error),))
-                case "ok":
-                    issued = answer.ok
-            record = Sent(queue=queue, target=arguments.target, issued=tuple(value for result in issued for value in result.to_option().to_list()))
-            for result in issued:
-                match result.tag:
-                    case "ok":
-                        self.identity.reports.logger.info(result.ok)
-                    case "error":
-                        self.identity.reports.hold((BlenderRenderingFault(faults=result.error),))
-            return store(PlanFile.SENT.beside(path), msgspec.json.encode(record, order="deterministic")).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(lambda _: record)
+            match send(arguments.target, queue, self.host):
+                case Result(tag="error", error=faults):
+                    return Error(BlenderRenderingFault.lifted(faults))
+                case Result(ok=results):
+                    record = Sent(queue=queue, target=arguments.target, issued=tuple(value for result in results for value in result.to_option().to_list()))
+                    for result in results:
+                        match result:
+                            case Result(tag="ok", ok=issued):
+                                self.identity.reports.logger.info(issued)
+                            case Result(error=refused):
+                                self.identity.reports.hold(BlenderRenderingFault.lifted(refused))
+                    return store(PlanFile.SENT.beside(path), msgspec.json.encode(record, order="deterministic")).map_error(BlenderRenderingFault.lifted).map(lambda _: record)
 
-        loaded: BlenderResult[Plan] = load(path, Plan).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+        loaded: BlenderResult[Plan] = load(path, Plan).map_error(BlenderRenderingFault.lifted)
         return (
             Result[Plan, BlenderFaults]
             .bind(
@@ -416,35 +415,28 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
             def completed(progress: Progress) -> BlenderResult[Progress]:
                 self.identity.reports.reported(posted)(
                     queueing.listener, Completed(frames=len(progress.marks), seconds=sum((Fraction(mark.seconds) for mark in progress.marks), Fraction()))
-                ).default_value(None)
-                return (shut() if queueing.power.shutdown else Ok(None)).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(lambda _: progress)
+                ).to_optional()
+                return (shut() if queueing.power.shutdown else Ok(None)).map_error(BlenderRenderingFault.lifted).map(lambda _: progress)
 
             def failed(faults: RenderingFaults) -> BlenderResult[Progress]:
                 notice: Notice
                 match faults:
-                    case (RenderingRunFault(error=int() as code), *_) if code != 1:
+                    case (RenderingRunFault(error=int(code)), *_) if code != 1:
                         notice = Exhausted(job=queue.stem, attempts=run.target.retries + 1)
                     case _:
-                        notice = Failed(job=queue.stem, reason=" ".join(text for _, text in rendered((BlenderRenderingFault(faults=faults),))))
-                self.identity.reports.reported(posted)(queueing.listener, notice).default_value(None)
-                return Error((BlenderRenderingFault(faults=faults),))
+                        notice = Failed(job=queue.stem, reason=" ".join(text for _, text in rendered(BlenderRenderingFault.lifted(faults))))
+                self.identity.reports.reported(posted)(queueing.listener, notice).to_optional()
+                return Error(BlenderRenderingFault.lifted(faults))
 
-            answer = observed(records)
-            match answer.tag:
-                case "error":
-                    return Error((BlenderRenderingFault(faults=answer.error),))
-                case "ok":
-                    found = answer.ok
-            if not Progress.begun(found.map(itemgetter(0)), queue, os.getpid()).marks:
-                self.identity.reports.reported(posted)(queueing.listener, Started(jobs=len(queue.jobs), frames=len(queue.steps))).default_value(None)
-            result = queueing.power.held(lambda: supervise(run.target, queue, self.host, queueing.heartbeat))
-            match result.tag:
-                case "ok":
-                    return completed(result.ok)
-                case "error":
-                    return failed(result.error)
+            match observed(records):
+                case Result(tag="error", error=faults):
+                    return Error(BlenderRenderingFault.lifted(faults))
+                case Result(ok=observations):
+                    if not Progress.begun(observations.map(itemgetter(0)), queue, os.getpid()).marks:
+                        self.identity.reports.reported(posted)(queueing.listener, Started(jobs=len(queue.jobs), frames=len(queue.steps))).to_optional()
+                    return queueing.power.held(lambda: supervise(run.target, queue, self.host, queueing.heartbeat)).map(completed).default_with(failed)
 
-        return paired(load(Path(run.queue), RenderQueue).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)), self.settings(self.identity)).bind(lambda pair: ran(*pair))
+        return paired(load(Path(run.queue), RenderQueue).map_error(BlenderRenderingFault.lifted), self.settings(self.identity)).bind(lambda pair: ran(*pair))
 
     def rendered(self, run: Run) -> BlenderResult[tuple[StageMark, ...]]:
         """Renders the first remaining scheduled job run and persists each native frame mark."""
@@ -462,7 +454,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 before = frozenset(held.part for held in progress.marks[:-1])
                 first = holding <= before | {mark.part} and not holding <= before
                 for estimate in Estimate.queued(progress, queue, datetime.datetime.now(datetime.UTC)).filter(lambda _: first).to_list():
-                    self.identity.reports.reported(posted)(queueing.listener, Estimated(estimate=estimate)).default_value(None)
+                    self.identity.reports.reported(posted)(queueing.listener, Estimated(estimate=estimate)).to_optional()
                 job = queue.jobs[mark.part]
                 scene = bpy.data.scenes[job.scene]
                 return (
@@ -480,7 +472,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                     load(records, Progress)
                     .map(lambda held: msgspec.structs.replace(held, marks=(*held.marks, mark)))
                     .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")).map(lambda _: held))
-                    .map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+                    .map_error(BlenderRenderingFault.lifted)
                 )
                 return Result[Progress, BlenderFaults].bind(persisted, lambda held: finished(held, mark))
 
@@ -493,10 +485,10 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                     else Ok(())
                 )
 
-            loaded: BlenderResult[Progress] = load(records, Progress).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+            loaded: BlenderResult[Progress] = load(records, Progress).map_error(BlenderRenderingFault.lifted)
             return Result[Progress, BlenderFaults].bind(loaded, runs)
 
-        return paired(load(Path(run.queue), RenderQueue).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)), self.settings(self.identity)).bind(lambda pair: ran(*pair))
+        return paired(load(Path(run.queue), RenderQueue).map_error(BlenderRenderingFault.lifted), self.settings(self.identity)).bind(lambda pair: ran(*pair))
 
     # --- [SESSION_PROGRESS]
 
@@ -530,9 +522,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Result[bpy.types.WindowManager, BlenderFaults]
             .bind(manager, self.queued.read)
-            .bind(
-                lambda queued: Option.of_optional(queued.plan).map(lambda plan: read(Path(plan)).map(Some).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))).default_value(Ok(Nothing))
-            )
+            .bind(lambda queued: Option.of_optional(queued.plan).map(lambda plan: read(Path(plan)).map(Some).map_error(BlenderRenderingFault.lifted)).default_value(Ok(Nothing)))
         )
 
     def kept(self) -> BlenderResult[tuple[RenderQueue, LocalMachine, Progress, datetime.datetime]]:
@@ -563,11 +553,11 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 fresh
                 .bind(lambda now: now.sent.bind(lambda sent: now.progress.filter(lambda pair: pair[0].ending is Ending.SUCCEEDED).map(lambda _: sent.queue)))
-                .map(lambda queue: cleared(queue, self.host).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
+                .map(lambda queue: cleared(queue, self.host).map_error(BlenderRenderingFault.lifted))
                 .default_value(Ok(None))
             )
 
-        self.identity.reports.reported(lambda: self.observed(bpy.context).bind(acted))().default_value(None)
+        self.identity.reports.reported(lambda: self.observed(bpy.context).bind(acted))().to_optional()
         return Ok(Some(1.0))
 
     def runs(self, _context: bpy.types.Context) -> Iterable[rows.Work]:
@@ -606,10 +596,10 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 .map(
                     lambda issued: Done(
                         notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()),
-                        skipped=accumulated(issued).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).swap().to_option(),
+                        skipped=accumulated(issued).map_error(BlenderRenderingFault.lifted).swap().to_option(),
                     )
                 )
-                .map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+                .map_error(BlenderRenderingFault.lifted)
                 if phase in resumable
                 else Error((BlenderChoiceFault(path=str(self.host.path(queue, RunFile.PROGRESS)), identifier=phase.name, accepted=tuple(value.name for value in resumable)),))
             )
@@ -627,11 +617,11 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                     load(records, Progress)
                     .map(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
                     .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")))
-                    .map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+                    .map_error(BlenderRenderingFault.lifted)
                 )
                 return paired(persisted, posted(queueing.listener, Cancelled(frames=len(progress.marks)))).map(lambda _: Done(notes=(("INFO", f"Stopped {queue.stem}"),)))
 
-            stopped: BlenderResult[None] = stop(progress).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+            stopped: BlenderResult[None] = stop(progress).map_error(BlenderRenderingFault.lifted)
             return Result[None, BlenderFaults].bind(stopped, ended)
 
         return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: halted(pair[0][0], pair[0][2], pair[1]))
@@ -724,15 +714,14 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
         identity = dispatcher.identity
 
         def drawn(layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties) -> None:
-            planned = (
+            lines = (
                 dispatching
                 .bound(identity)
                 .bind(lambda pair: pair[1].read(properties))
                 .bind(lambda record: paired(dispatcher.planned(context, record, datetime.datetime.now(datetime.UTC)), dispatcher.settings(identity)))
+                .map(lambda pair: (pair[1].target.title, f"{len(pair[0].scopes)} jobs, {sum(len(ranged(bpy.data.scenes[scope.scene]).numbers) for scope in pair[0].scopes)} frames"))
+                .default_with(lambda faults: tuple(text for _, text in rendered(faults)))
             )
-            lines = planned.map(
-                lambda pair: (pair[1].target.title, f"{len(pair[0].scopes)} jobs, {sum(len(ranged(bpy.data.scenes[scope.scene]).numbers) for scope in pair[0].scopes)} frames")
-            ).default_with(lambda faults: tuple(text for _, text in rendered(faults)))
             for line in lines:
                 layout.label(text=line)
             for field in Dispatch.__struct_fields__:
@@ -740,8 +729,13 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
 
         def logged(call: Call[Empty]) -> BlenderResult[Done]:
             def opened_log(plan: Path) -> BlenderResult[Done]:
-                sent = dispatcher.state.observed.bind(lambda held: held.sent).filter(lambda record: isinstance(record.target, LocalMachine))
-                log = sent.map(lambda record: dispatcher.host.path(record.queue, RunFile.LOG)).default_with(lambda: PlanFile.LOG.beside(plan))
+                log = (
+                    dispatcher.state.observed
+                    .bind(lambda held: held.sent)
+                    .filter(lambda record: isinstance(record.target, LocalMachine))
+                    .map(lambda record: dispatcher.host.path(record.queue, RunFile.LOG))
+                    .default_with(lambda: PlanFile.LOG.beside(plan))
+                )
                 return called(bpy.ops.wm.path_open, {"filepath": str(log)}).map(lambda _: Done())
 
             manager: BlenderResult[bpy.types.WindowManager] = Option.of_optional(call.context.window_manager).to_result_with(
@@ -757,7 +751,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
         def shutdown_cancelled(call: Call[Empty]) -> BlenderResult[Done]:
             def cancelling(progress: Progress, power: PowerHold) -> BlenderResult[Done]:
                 return (
-                    cancelled(progress).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(lambda _: Done(notes=(("INFO", "Shutdown cancelled"),)))
+                    cancelled(progress).map_error(BlenderRenderingFault.lifted).map(lambda _: Done(notes=(("INFO", "Shutdown cancelled"),)))
                     if power.shutdown
                     else Error((BlenderAbsentFault(owner=repr(power), key="shutdown"),))
                 )
@@ -799,7 +793,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                 dispatcher
                 .settings(call.identity)
                 .bind(flamenco)
-                .bind(lambda target: Dispatcher.connected().bind(lambda _: exchange.opened(target.server, queried).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))))
+                .bind(lambda target: Dispatcher.connected().bind(lambda _: exchange.opened(target.server, queried).map_error(BlenderRenderingFault.lifted)))
                 .map(held)
             )
 
@@ -809,7 +803,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                     with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
                         return Path(shutil.copy(script, Path(folder) / Flamenco.script))
 
-                return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(folder), error=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
+                return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=folder, error=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
             return dispatcher.settings(call.identity).bind(
                 lambda queueing: copied(queueing.scripts.value) if queueing.scripts.enabled else Error((BlenderAbsentFault(owner=repr(call.context.preferences), key="scripts"),))
@@ -1008,7 +1002,7 @@ def scoped(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, pl
             with path.open("rb") as file:
                 return hashlib.file_digest(file, "sha256").digest()
 
-        return catch(read, exception=OSError)().map_error(lambda error: (BlenderReadFault(request=str(path), error=error),))
+        return catch(read, exception=OSError)().map_error(lambda error: (BlenderReadFault(request=path, error=error),))
 
     def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[Side, Side]) -> BlenderResult[Job]:
         used = dispatcher.routing.used(scene)
@@ -1058,7 +1052,7 @@ def scoped(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, pl
 
 def posted(listener: Listener, notice: Notice) -> BlenderResult[None]:
     """Awaits a gated listener post after native online-access admission."""
-    return (Dispatcher.connected() if listener.topic.enabled else Ok(None)).bind(lambda _: published(listener, notice).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
+    return (Dispatcher.connected() if listener.topic.enabled else Ok(None)).bind(lambda _: published(listener, notice).map_error(BlenderRenderingFault.lifted))
 
 
 def peaked(path: Path) -> BlenderResult[Option[int]]:
@@ -1068,7 +1062,7 @@ def peaked(path: Path) -> BlenderResult[Option[int]]:
         with closing(image) as held:
             return Option.of_optional(held.spec().getattribute("Memory")).map(lambda text: int(text.removesuffix("M")) * 2**20)
 
-    return opened(str(path)).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(read)
+    return opened(str(path)).map_error(BlenderImagingFault.lifted).map(read)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

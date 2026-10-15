@@ -26,14 +26,14 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, Blende
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import End, ended, Fragment, Graph, INPUTS, Loaded, node, NodeGroup, Operand, vector
 from blender.bpy.nodes.interface import Interface, Socket
-from blender.bpy.nodes.trees import tree_of
+from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.scene.objects import fanned, ObjectState, Reconciled
 from blender.bpy.settings.attachments import Attachment, reconciling
 from blender.bpy.settings.properties import Definition
 from blender.imaging.calibration import Calibration
 from blender.imaging.color.config import admitted
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Rgb
+from blender.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -129,8 +129,8 @@ class Clay(Case, frozen=True, kw_only=True, tag=2):
 
     title = "Clay"
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="clay", saved=Saved.USED)
-    color: Rgb[Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]] = Rgb(red=0.8, green=0.8, blue=0.8)
-    roughness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)] = 0.5
+    color: Rgb[Unit] = Rgb(red=0.8, green=0.8, blue=0.8)
+    roughness: Unit = 0.5
 
 
 class Emissive(Case, frozen=True, kw_only=True, tag=3):
@@ -165,7 +165,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def reshaded(held: Handle[bpy.types.Material], identity: Identity) -> BlenderResult[Option[str]]:
         """Reconciles the latest attached setup in a deferred write without an undo step."""
-        config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
         return (
             paired(held.resolve(), Materials.attachment.bound(identity))
             .bind(lambda pair: paired(tree_of(pair[0]).bind(pair[1].read), config).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity)))
@@ -182,7 +182,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
         def run(call: Call[Empty]) -> BlenderResult[Done]:
             paths = tuple(map(str, call.paths))
-            config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
 
             def retained(held: bpy.types.Material) -> bpy.types.Material:
                 rollback.callback(bpy.data.batch_remove, ids=(held,))
@@ -372,7 +372,7 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
             except RuntimeError as error:
                 return Error((BlenderEditFault(request=setup.title, error=error),))
             rollback.callback(bpy.data.batch_remove, ids=(made,))
-            return row.owned(identity, made, mark).bind(lambda held: tree_of(held).map(lambda tree: tree.nodes.clear()).map(lambda _: held))
+            return row.owned(identity, made, mark).bind(emptied)
 
         def published(held: bpy.types.Material) -> bpy.types.Material:
             rollback.pop_all()

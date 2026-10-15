@@ -85,7 +85,7 @@ public static class MeshEdits {
             static made => Missing.Unless(made.Mesh, nameof(Mesh.Offset))
                 .Bind(static mesh => Measurements.Valid(mesh, nameof(Mesh.Offset)))
                 .Map(mesh => (Mesh: mesh, WallFaces: toSeq(made.Walls))),
-            static made => DisposalOps.Release(Conversions.Rows(new[] { made.Mesh })), retain);
+            static made => DisposalOps.Release(Conversions.Rows([made.Mesh])), retain);
 
     public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
         DisposalOps.Acquire(

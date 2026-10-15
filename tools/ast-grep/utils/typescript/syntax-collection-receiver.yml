@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: syntax-collection-receiver
+language: tsx
+arguments: [collection]
+utils:
+    collection-type:
+        kind: type_annotation
+        has: {kind: generic_type, has: {field: name, kind: type_identifier, matches: collection}}
+    construction:
+        kind: new_expression
+        has: {field: constructor, kind: identifier, matches: collection}
+    built:
+        any:
+            - matches: construction
+            - kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression
+              has: {nthChild: 1, matches: built}
+rule:
+    any:
+        - kind: identifier
+          pattern: $RECEIVER
+          inside:
+            kind: program
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: variable_declarator
+                      all:
+                        - has: {field: name, pattern: $RECEIVER}
+                        - any: [{has: {field: type, matches: collection-type}}, {has: {field: value, matches: built}}]
+                    - kind: required_parameter, optional_parameter
+                      all: [{has: {field: pattern, pattern: $RECEIVER}}, {has: {field: type, matches: collection-type}}]
+        - kind: member_expression
+          all:
+            - has: {field: object, kind: this}
+            - has: {field: property, pattern: $FIELD}
+            - inside:
+                kind: class_body
+                stopBy: end
+                has:
+                    kind: public_field_definition
+                    all:
+                        - has: {field: name, pattern: $FIELD}
+                        - any: [{has: {field: type, matches: collection-type}}, {has: {field: value, matches: built}}]

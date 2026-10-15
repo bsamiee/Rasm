@@ -29,14 +29,14 @@ public static class Copies {
     // --- [ACQUISITION]
     public static IO<T> Acquire<T>(Func<T?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create, product => Missing.Unless(product, member).Bind(held => Measurements.Valid(held, member)),
-            static product => DisposalOps.Release(Conversions.Rows(new[] { product })), retain);
+            static product => DisposalOps.Release(Conversions.Rows([product])), retain);
 
     public static IO<T> Acquire<T>(Func<Fin<T>> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create, answer =>
             from product in answer
             from valid in Measurements.Valid(product, member)
             select valid,
-            static answer => answer.Match(Succ: static product => DisposalOps.Release(Conversions.Rows(new[] { product })), Fail: static _ => IO.pure(unit)), retain);
+            static answer => answer.Match(Succ: static product => DisposalOps.Release(Conversions.Rows([product])), Fail: static _ => IO.pure(unit)), retain);
 
     public static IO<Seq<T>> Acquire<T>(Func<T?[]?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create, products => Missing.Unless(products, member).Bind(held => Measurements.Valid([.. held], member)), Released, retain);

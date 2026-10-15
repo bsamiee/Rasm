@@ -118,11 +118,11 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = Nothing) -> Generator[None]:
         """Narrows the framebuffer scissor using pixel or native View2D coordinates."""
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
-        match view.tag:
-            case "some":
+        match view:
+            case Option(tag="some", some=region):
                 origin_x, origin_y, _, _ = gpu.state.viewport_get()
-                (left, bottom), (right, top) = ((origin_x + column, origin_y + row) for column, row in (view.some.view_to_region(*corner, clip=False) for corner in corners))  # type: ignore[misc, has-type]
-            case "none":
+                (left, bottom), (right, top) = ((origin_x + column, origin_y + row) for column, row in (region.view_to_region(*corner, clip=False) for corner in corners))  # type: ignore[misc, has-type]
+            case _:
                 (left, bottom), (right, top) = ((round(x), round(y)) for x, y in corners)
         held = gpu.state.scissor_get()
         held_x, held_y, held_width, held_height = held

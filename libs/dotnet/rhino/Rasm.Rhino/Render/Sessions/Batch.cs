@@ -69,7 +69,7 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
                 window.RegisterPostEffectExecutionControl)).As()
             from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
             select started,
-            Callbacks.Each(Seq(IO.lift(StopRendering), Released)).Map(static _ => unit));
+            Callbacks.Each(Seq(IO.lift(StopRendering), Released)).Map(unit));
 
     public override void StopRendering() =>
         _ = Callbacks.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))).Run();
@@ -105,7 +105,7 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
         RenderWindow.RenderSuccessCode answer = Callbacks.Answer(
             IO.lift(() => Try.lift(() => render.Run(environment)).Run())
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
-                .Map(static _ => RenderWindow.RenderSuccessCode.Completed),
+                .Map(RenderWindow.RenderSuccessCode.Completed),
             static () => RenderWindow.RenderSuccessCode.Failed,
             site);
         Callbacks.Run(Callbacks.Each(Seq(

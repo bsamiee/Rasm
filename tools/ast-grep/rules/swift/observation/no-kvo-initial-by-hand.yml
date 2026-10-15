@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-kvo-initial-by-hand
+language: swiftlang
+severity: error
+rule:
+    kind: property_declaration
+    all:
+        - has:
+            field: value
+            kind: call_expression
+            all:
+                - has:
+                    nthChild: 1
+                    kind: call_expression
+                    all:
+                        - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^observe$'}}}
+                        - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument, has: {field: name, regex: '^options$'}}}}}
+                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, has: {nthChild: 1, kind: if_statement, pattern: $CHECK}, not: {has: {nthChild: 2}}}}}
+        - precedes: {kind: if_statement, pattern: $CHECK}
+message: 'Observation handler repeats `$CHECK` after registering in place of asking for the initial value'
+note: 'Pass `options: [.initial]` to `observe(_:options:changeHandler:)` and delete the statement after it, the handler then runs once with the current value before the first change'

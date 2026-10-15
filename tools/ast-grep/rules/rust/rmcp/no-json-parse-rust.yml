@@ -2,97 +2,18 @@
 id: no-json-parse-rust
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
-utils:
-    value-type:
-        regex: &value-type '^(&\s*(mut\s+)?)?((serde_json::)?(value::)?Value|(serde_json::)?(map::)?Map\s*<\s*String\s*,.*>|(rmcp::)?(model::)?JsonObject)$'
-    plain-map:
-        kind: generic_type
-        all:
-            - has: {field: type, regex: '(^|::)(BTreeMap|HashMap|IndexMap)$'}
-            - has: {field: type_arguments, has: {nthChild: 2, not: {regex: '^(serde_json::)?(value::)?Value$'}}}
-    plain-map-type:
-        any: [{matches: plain-map}, {kind: reference_type, has: {field: type, matches: plain-map}}]
-    typed-root:
-        matches: {rust-typed-binding: {type: {regex: *value-type}}}
-    plain-root:
-        matches: {rust-typed-binding: {type: {matches: plain-map-type}}}
-    decoder:
-        regex: '^(serde_json::)?from_(str|slice|reader|value)$'
-    decode:
-        kind: call_expression
-        has: {field: function, any: [{matches: decoder}, {kind: generic_function, has: {field: function, matches: decoder}}]}
-    keyed:
-        any:
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(get|get_mut|remove|contains_key|pointer|pointer_mut)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: 'string_literal, raw_string_literal'}}, {not: {has: {nthChild: 2}}}]}
-            - kind: index_expression
-              has: {nthChild: 2, kind: 'string_literal, raw_string_literal'}
-    keyed-typed:
-        matches: keyed
-        any:
-            - kind: call_expression
-              has: {field: function, has: {field: value, matches: typed-root}}
-            - kind: index_expression
-              has: {nthChild: 1, matches: typed-root}
-    keyed-plain:
-        matches: keyed
-        any:
-            - kind: call_expression
-              has: {field: function, has: {field: value, matches: plain-root}}
-            - kind: index_expression
-              has: {nthChild: 1, matches: plain-root}
-    keyed-chain:
-        any:
-            - matches: keyed
-            - kind: call_expression
-              has:
-                field: function
-                kind: field_expression
-                all:
-                    - has: {field: field, regex: '^(and_then|map|filter|filter_map|or_else|cloned|copied|as_ref|as_deref|ok|flatten|unwrap|expect|unwrap_or_default|get|get_mut|pointer)$'}
-                    - has: {field: value, matches: keyed-chain}
-            - kind: 'index_expression, try_expression, parenthesized_expression, reference_expression'
-              has: {nthChild: 1, matches: keyed-chain}
-    value-read:
-        regex: '^(as_str|as_u64|as_i64|as_f64|as_bool|as_null|as_number|as_array|as_array_mut|as_object|as_object_mut|is_string|is_number|is_object|is_array|is_boolean|is_null|is_u64|is_i64|is_f64)$'
-    terminal-read:
-        kind: call_expression
-        all:
-            - any:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, matches: value-read}}, {has: {field: value, matches: keyed-chain}}]}
-                - all:
-                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(and_then|map|filter|filter_map|is_some_and|is_none_or|map_or|map_or_else)$'}}, {has: {field: value, matches: keyed-chain}}]}
-                    - has:
-                        field: arguments
-                        any:
-                            - has: {kind: closure_expression, has: {field: body, any: [{kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, matches: value-read}}}, {has: {stopBy: end, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, matches: value-read}}}}]}}
-                            - has: {kind: scoped_identifier, all: [{has: {field: path, regex: 'Value$'}}, {has: {field: name, matches: value-read}}]}
-            - not: {has: {stopBy: end, matches: keyed-plain}}
-            - not: {has: {stopBy: end, matches: terminal-read}}
-    test-scope:
-        any:
-            - inside: {stopBy: end, kind: function_item, follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*((\w+::)*test|cfg\(test\))\b'}}
-            - inside: {stopBy: end, kind: mod_item, follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\(test\)'}}
 rule:
-    pattern: $READ
+    kind: macro_invocation
+    pattern: $DOCUMENT
     all:
         - any:
-            - matches: terminal-read
-            - matches: keyed-typed
-              not: {inside: {stopBy: end, matches: terminal-read}}
-            - matches: decode
-              has: {field: function, kind: generic_function, has: {field: type_arguments, has: {matches: value-type}}}
-            - kind: let_declaration
-              all:
-                - has: {field: type, matches: value-type}
-                - has: {field: value, any: [{matches: decode}, {kind: 'try_expression, await_expression', has: {matches: decode}}]}
-            - kind: macro_invocation
-              all:
+            - all:
                 - has: {field: macro, regex: '^(serde_json::)?json$'}
                 - has: {kind: token_tree, has: {stopBy: end, kind: token_tree, regex: '^\{', has: {kind: string_literal, precedes: {regex: '^:$'}}}}
-        - not: {matches: test-scope}
-message: '`$READ` reads, matches, or builds a document as an untyped value keyed by string'
-note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, take tool and prompt arguments as `Parameters<T>` or decode them once with `rmcp::handler::server::tool::parse_json_object::<T>`, and write a document through `serde_json::to_value`'
+            - all:
+                - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+                - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', regex: '\{\{\s*(\\"[^"\\]+\\"|"[^"]+")\s*:'}}
+        - not: {matches: rust-test-scope}
+        - not: {matches: rust-owned-span}
+message: '`$DOCUMENT` builds a document as untyped text or an untyped value keyed by string'
+note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, write it through `serde_json::to_value` or `serde_json::to_string`, and derive its schema with `schemars::schema_for!` in place of hand-written schema JSON'

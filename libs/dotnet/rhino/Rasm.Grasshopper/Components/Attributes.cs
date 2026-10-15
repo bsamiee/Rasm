@@ -65,19 +65,19 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     public PlotAttributes(ModularComponent owner, IPlugInSink sink) : base(owner) {
         (component, this.sink) = (owner, sink);
-        Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => args.Buttons == MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored), nameof(Responses.MouseDown));
+        Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored), nameof(Responses.MouseDown));
         Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => Sizing(current => IO.lift(() => {
             current.Frame.Continue(args.ContentLocation);
             Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
             Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
-        }).Map(static _ => Response.Handled)), nameof(Responses.MouseDrag));
-        Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => args.Buttons == MouseButtons.Primary ? Finished : IO.pure(Response.Ignored), nameof(Responses.MouseUp));
-        Responder.KeyDownHook += Reply<KeyEventArgs>(args => args.Key == Keys.Escape
+        }).Map(Response.Handled)), nameof(Responses.MouseDrag));
+        Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored), nameof(Responses.MouseUp));
+        Responder.KeyDownHook += Reply<KeyEventArgs>(args => args.Key is Keys.Escape
             ? track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: static () => IO.pure(Response.Ignored)))
-            : Sizing(_ => args.Key == Keys.S && args.Modifiers == Keys.None ? IO.lift(() => {
+            : Sizing(_ => args.Key is Keys.S && args.Modifiers is Keys.None ? IO.lift(() => {
                 Grasshopper2.Settings.CanvasSnapToObjects.Value = !Grasshopper2.Settings.CanvasSnapToObjects.Value;
                 args.Handled = true;
-            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(static _ => Response.Handled) : IO.pure(Response.Ignored)), nameof(Responses.KeyDown));
+            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(Response.Handled) : IO.pure(Response.Ignored)), nameof(Responses.KeyDown));
         Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled, Site(nameof(Responses.LostFocus))).Invoke;
     }
 
@@ -179,9 +179,9 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
                     const float width = 3f;
                     RectangleF bounds = held.Parameter.Attributes.Bounds;
-                    context.Graphics.FillRectangle(colour, new RectangleF(held.Side == PlugSide.Input ? bounds.Left : bounds.Right - width, bounds.Top, width, bounds.Height));
+                    context.Graphics.FillRectangle(colour, new RectangleF(held.Side is PlugSide.Input ? bounds.Left : bounds.Right - width, bounds.Top, width, bounds.Height));
                 }))),
-            path => Callbacks.Each(Seq(IO.lift(context.Graphics.ResetClip), IO.lift(path.Dispose))).Map(static _ => unit)), Site());
+            path => Callbacks.Each(Seq(IO.lift(context.Graphics.ResetClip), IO.lift(path.Dispose))).Map(unit)), Site());
         base.DrawForeground(context, skin, capsule, shade);
     }
 
@@ -197,8 +197,8 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
                 const float halfPixel = 0.5f;
                 const float gap = 1f;
                 RectangleF bounds = separator.Bounds;
-                float direction = separator.Side == PlugSide.Input ? 1f : -1f;
-                float outer = (separator.Side == PlugSide.Input ? bounds.Left : bounds.Right) + (direction * halfPixel);
+                float direction = separator.Side is PlugSide.Input ? 1f : -1f;
+                float outer = (separator.Side is PlugSide.Input ? bounds.Left : bounds.Right) + (direction * halfPixel);
                 float inner = outer + (direction * radius);
                 float top = bounds.Top - gap;
                 float bottom = bounds.Top + gap;
@@ -248,8 +248,8 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             Func<(SizeF Size, float Scale)> surface = () => (ContentBox.Size, Scale());
             IO<Unit> cancel = IO.lift(() => ContentBox.Size).Bind(size => control.Cancel(size, Scale()));
             Func<ResponseMouseArgs, Response> press = Reply<ResponseMouseArgs>(args =>
-                DisposalOps.OnFailure(Mouse(args, control.Press).Bind(reply => reply == Response.Capture
-                    ? Capture(owned => DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(cancel, static effect => effect.Run())), static lease => IO.lift(lease.Dispose), owned).Map(static _ => unit))
+                DisposalOps.OnFailure(Mouse(args, control.Press).Bind(reply => reply is Response.Capture
+                    ? Capture(owned => DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(cancel, static effect => effect.Run())), static lease => IO.lift(lease.Dispose), owned).Map(unit))
                     : IO.pure(reply)), cancel));
             Func<ResponseMouseArgs, Response> drag = Reply<ResponseMouseArgs>(args => Mouse(args, control.Move));
             Func<ResponseMouseArgs, Response> up = Reply<ResponseMouseArgs>(args =>
@@ -259,7 +259,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
                 select released);
             Func<ResponseMouseArgs, Response> twice = Reply<ResponseMouseArgs>(args => Mouse(args, control.DoubleClick));
             Func<ResponseMouseArgs, Response> wheel = Reply<ResponseMouseArgs>(args => Mouse(args, control.Scroll));
-            Action<ResponseMouseArgs> over = Observe<ResponseMouseArgs>(args => Mouse(args, control.Move).Map(static _ => unit));
+            Action<ResponseMouseArgs> over = Observe<ResponseMouseArgs>(args => Mouse(args, control.Move).Map(unit));
             System.Action leave = () => Callbacks.Run(DisposalOps.OnFailure(control.Leave(ContentBox.Size, Scale()), Cancelled), Site());
             Func<KeyEventArgs, Response> key = Reply<KeyEventArgs>(args => control.Key(ContentBox.Size, Scale(), args)
                 .Map(_ => control.Captured ? Response.Capture : args.Handled ? Response.Handled : Response.Ignored));
@@ -280,7 +280,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
                    from bound in DisposalOps.Acquire(IO.lift(() => new Disposal<ComponentControl>(control, released => {
                        bool current = hosted.Exists(bound => ReferenceEquals(bound.Surface, surface));
                        hosted = hosted.Filter(_ => !current);
-                       _ = (current ? Callbacks.Each(Seq(Cancelled, released.Leave(ContentBox.Size, Scale()))).Map(static _ => unit) : cancel).Uninterruptible().Run();
+                       _ = (current ? Callbacks.Each(Seq(Cancelled, released.Leave(ContentBox.Size, Scale()))).Map(unit) : cancel).Uninterruptible().Run();
                    })), static lease => IO.lift(lease.Dispose), keep)
                    from arranged in DisposalOps.OnFailure(IO.lift(() => {
                        hosted = Some((control, surface));
@@ -302,9 +302,9 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             Option<Either<Resizing, IDisposable>> prior = track.Value;
             track.Value = Some(Right<Resizing, IDisposable>(release));
             return Cleaned(prior);
-        })).Map(static _ => Response.Capture);
+        })).Map(Response.Capture);
 
-    public IO<Response> Released => Cancelled.Map(static _ => Response.Release);
+    public IO<Response> Released => Cancelled.Map(Response.Release);
 
     private CallbackSite Site([CallerMemberName] string member = "") => new(sink, typeof(PlotAttributes<TReading>), member);
 
@@ -324,7 +324,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     private IO<Unit> Cleaned(Option<Either<Resizing, IDisposable>> held) => held.Match(
         Some: current => current.Match(
             Left: resize => Callbacks.Each(Seq(SnapSession.End(Editor.Instance.Canvas),
-                IO.lift(() => { Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(static _ => unit),
+                IO.lift(() => { Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(unit),
             Right: static release => IO.lift(release.Dispose)),
         None: static () => IO.pure(unit));
 
@@ -337,7 +337,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         }).Bind(held => held.Match(
             Some: current => Cancelled.Bind(_ => IO.lift(() => new ResizeAction(Owner)))
                 .Bind(undo => atomicIO(() => track.Value = Some<Either<Resizing, IDisposable>>(new Resizing(current.Frame, undo, current.Margins))))
-                .Map(static _ => Response.Capture),
+                .Map(Response.Capture),
             None: static () => IO.pure(Response.Ignored))).Uninterruptible();
 
     private IO<Response> Finished =>
@@ -348,7 +348,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             Some: done => DisposalOps.OnFailure(
                 SnapSession.End(Editor.Instance.Canvas).Bind(_ => IO.lift(() => Optional(Owner.Document).Iter(document =>
                     document.Undo.Do(new VerbNoun(RowText.Localize("Resize", table: Some<object>(sink)), Owner.InstanceId.ToString()), done.Undo))))
-                    .Map(static _ => Response.Release),
+                    .Map(Response.Release),
                 Cleaned(Some<Either<Resizing, IDisposable>>(done))),
             None: static () => IO.pure(Response.Ignored))).Uninterruptible();
 

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-field-display
+language: rust
+severity: error
+rule:
+    kind: impl_item
+    matches: rust-field-display
+    has: {field: type, pattern: $T}
+message: '`Display` for `$T` writes a literal format over its own fields'
+note: 'Derive `derive_more::Display` on `<type>` with `#[display("<format>")]` naming fields (`{host}`, `{_0}`) and delete the impl. Enums take one attribute per variant, and a single-field struct forwards with no attribute. An error type thiserror renders stays as written'

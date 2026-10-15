@@ -62,7 +62,7 @@ const compiled = (
 Each splice replaces one bracket token or inserts text. `needsReference` keeps assignment targets, call and `new` callees, and binding patterns as written, since `__read` returns a value. `parse` under `ecmaVersion: 2024` rejects syntax V8 in UXP lacks, with its line, before compilation. `Compiled` is the `Function` constructor reached through a function's prototype, typed where it is read, and `header` is the line count that constructor writes ahead of its body.
 
 - Scope entries are the names the source references, passed as values, and no source text is built from a value
-- Bodies with a top-level `await` compile through the constructor of `async () => undefined` and run outside a synchronous unit of work
+- Bodies with a top-level `await` compile as the return of an async arrow function around the body and run outside a synchronous unit of work
 - Supplied TypeScript is stripped with a position-preserving stripper before the parse
 
 ## [02]-[THROWN_LINES]

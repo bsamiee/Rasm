@@ -1,4 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
+import { sessionPath } from '@rasm/hosting/sites.ts';
+import { openDialogs } from '@rasm/ui/dialogs.ts';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, type ReactNode, Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
@@ -8,7 +10,7 @@ import { MediaFigure } from '../media/figure.tsx';
 import type { PortfolioData, Session } from '../model/document.ts';
 import { Chapter } from './chapter.tsx';
 import { ProjectIndex, StickyBar } from './contents.tsx';
-import { openDialogs, useNavigation } from './navigation.ts';
+import { useNavigation } from './navigation.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -87,7 +89,7 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session.signedIn ? '/signout-with-chatgpt?return_to=%2F' : '/signin-with-chatgpt?return_to=%2F%3Fedit%3D1'} target="_top">
+                    <a className="quiet-link" href={session.signedIn ? sessionPath('signout', '/') : sessionPath('signin', '/?edit=1')} target="_top">
                         {session.signedIn ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}
@@ -129,14 +131,14 @@ function Site({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                                 </div>
                             )}
                         </div>
-                        {portfolio.hero ? (
-                            <div className="flex min-w-0 justify-center [--media-height:75svh]">
-                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} renderMedia={true} />
-                            </div>
-                        ) : (
+                        {portfolio.hero === undefined ? (
                             <div className="relative flex h-[clamp(280px,36vw,580px)] items-center justify-center border border-line bg-surface before:absolute before:-top-px before:-left-px before:size-[22px] before:border-accent before:border-t before:border-l before:content-[''] after:absolute after:-right-px after:-bottom-px after:size-[22px] after:border-accent after:border-r after:border-b after:content-[''] max-md:h-[clamp(240px,52vw,420px)]">
                                 <span className="eyebrow absolute top-5 left-[22px] text-muted max-sm:top-4 max-sm:left-4">Hero placement</span>
                                 <Plus className="size-11 stroke-1 text-cross" nonScalingStroke={true} />
+                            </div>
+                        ) : (
+                            <div className="flex min-w-0 justify-center [--media-height:75svh]">
+                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} renderMedia={true} />
                             </div>
                         )}
                     </section>

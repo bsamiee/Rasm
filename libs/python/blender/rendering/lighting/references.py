@@ -14,10 +14,10 @@ import PyOpenColorIO
 from blender.imaging.chain import GREY
 from blender.imaging.color.processors import applied, processor, xyz
 from blender.imaging.color.white import White
-from blender.imaging.faults import accumulated, ImagingFaults, paired
+from blender.imaging.faults import accumulated, paired
 from blender.imaging.hashing import content_hash, rng
-from blender.imaging.parameters import Choice, Finite, Gated, markers, Position, Presentation, Rgb, Seed
-from blender.rendering.faults import RenderingArithmeticFault, RenderingFaults, RenderingImagingFault, RenderingResult, RenderingSizeFault
+from blender.imaging.parameters import Choice, Finite, Gated, markers, NonNegative, Position, Presentation, Rgb, Seed, Unit
+from blender.rendering.faults import RenderingArithmeticFault, RenderingImagingFault, RenderingResult, RenderingSizeFault
 from blender.rendering.lighting.rigs import Disk, Placement, Placements, Point, Spot, Sun
 from blender.rendering.outputs.framing import Side
 
@@ -77,7 +77,7 @@ class Blinds(msgspec.Struct, frozen=True, kw_only=True):
     """Horizontal slat shadows across the reference."""
 
     cycles: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(soft=Some((5.0, 7.0)))] = 6.0
-    shade: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)] = 0.45
+    shade: Unit = 0.45
 
 
 class Rim(msgspec.Struct, frozen=True, kw_only=True):
@@ -86,14 +86,14 @@ class Rim(msgspec.Struct, frozen=True, kw_only=True):
     amount: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(soft=Some((0.0, 1.2)))] = 0.6
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
     radius: Annotated[float, msgspec.Meta(ge=0.0, le=math.sqrt(2.0))] = 0.5
-    falloff: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)] = 1.4
+    falloff: NonNegative = 1.4
 
 
 class Roll(msgspec.Struct, frozen=True, kw_only=True):
     """Draw of arbitrary editable fields over their presentation ranges."""
 
     highlights: Annotated[int, msgspec.Meta(ge=1, le=8)] = 3
-    saturation: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)] = 0.8
+    saturation: Unit = 0.8
     seed: Seed = 0
 
 
@@ -540,13 +540,12 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
     def tinted(built: PyOpenColorIO.Processor) -> RenderingResult[tuple[npt.NDArray[np.float64], ...]]:
         return accumulated(admitted(row) for row in applied(built.getDefaultCPUProcessor(), np.array(temperatures, dtype=np.float32)))
 
-    def refused(faults: ImagingFaults) -> RenderingFaults:
-        return (RenderingImagingFault(faults=faults),)
-
     try:
         temperatures = tuple(White(temperature=placement.light.temperature.value, tint=0.0).xyz for placement in placements.lights if placement.light.temperature.enabled)
         colors = (
-            processor(config, PyOpenColorIO.GroupTransform([xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map_error(refused).bind(tinted)
+            processor(config, PyOpenColorIO.GroupTransform([xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE))
+            .map_error(RenderingImagingFault.lifted)
+            .bind(tinted)
             if temperatures
             else Ok(())
         )

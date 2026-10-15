@@ -19,7 +19,7 @@ public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdg
             var components => toSeq(components.Vertices).Filter(static component => component.EdgeCount > 0)
                 .Map(static component => toSeq(component.Vertices).Strict()).Strict() switch {
                     var cycles => cycles.IsEmpty
-                        ? Fin.Succ(toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward))
+                        ? Fin.Succ(toSeq(components.SourceFirstBidirectionalTopologicalSort())
                             .Bind(static component => toSeq(component.Vertices)).Strict())
                         : Fin.Fail<Seq<Guid>>(new CyclicDefinitions(cycles)),
                 },
@@ -48,14 +48,14 @@ public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdg
         select Of(ids, toSeq(members[true]),
             toHashMap(definitions.Map(static definition => (definition.Id,
                 Placed: Conversions.Rows(definition.GetReferences((int)ReferenceScope.TopLevel)).Map(static instance => instance.Id).Strict())).Filter(static row => !row.Placed.IsEmpty)),
-            toHashMap(definitions.Filter(static definition => definition.IsLinkedType && definition.ObjectCount == 0)
+            toHashMap(definitions.Filter(static definition => definition.IsLinkedType && definition.ObjectCount is 0)
                 .Choose(static definition => Conversions.Present(definition.SourceArchive).Map(path => (definition.Id, path)))), toSeq(members[false]));
 
     public static DefinitionGraph Of(ArchiveGraph archive) =>
         (Instances: archive.Components.Edges.Where(static edge => edge.Kind == RelationKind.InstanceOf),
          Containers: archive.Components.Edges.Where(static edge => edge.Kind == RelationKind.MemberOf).ToLookup(static edge => edge.Source.Id, static edge => edge.Target.Id)) switch {
              var relations => Of(
-                 toSeq(archive.Components.Vertices).Filter(static vertex => vertex.Type == ModelComponentType.InstanceDefinition).Map(static vertex => vertex.Id).Strict(),
+                 toSeq(archive.Components.Vertices).Filter(static vertex => vertex.Type is ModelComponentType.InstanceDefinition).Map(static vertex => vertex.Id).Strict(),
                  toSeq(from instance in relations.Instances
                        from container in relations.Containers[instance.Source.Id]
                        select new MemberReference(container, instance.Source.Id, instance.Target.Id)),

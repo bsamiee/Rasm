@@ -80,7 +80,7 @@ public sealed record JobEntryRejected : Expected {
 public sealed record JobFrameOutsideSpan(SequenceNumber Frame, SequenceNumber First, SequenceNumber Last) : Expected("Job frame {Frame} lies outside its entry's {First} to {Last} range", (int)Codes.JobFrameOutsideSpan);
 
 public sealed record NoticeRefused(HttpStatusCode Status) : Expected("{Status} answered the notice post", (int)Codes.NoticeRefused) {
-    public static Fin<Unit> Unless(HttpStatusCode status) => status == HttpStatusCode.OK ? unit : new NoticeRefused(status);
+    public static Fin<Unit> Unless(HttpStatusCode status) => status is HttpStatusCode.OK ? unit : new NoticeRefused(status);
 }
 
 public sealed record NoticeUnreached : Expected {

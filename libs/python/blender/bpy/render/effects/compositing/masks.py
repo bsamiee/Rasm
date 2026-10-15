@@ -6,7 +6,7 @@ from math import pi, tau
 
 import bpy
 from expression import Nothing, Ok, Option, Some
-from msgspec import structs
+import msgspec
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
@@ -102,8 +102,7 @@ def band() -> BlenderResult[NodeGroup]:
 @functools.cache
 def shape() -> BlenderResult[NodeGroup]:
     """Returns rotated box and ellipse keys in displayed camera-frame coordinates."""
-    image, aspect, scale = (End(node=INPUTS, socket=name) for name in ("image", "aspect", "scale"))
-    outline, position_shape, size_shape, rotation, feather_shape = structs.fields(Shape)
+    outline, position_shape, size_shape, rotation, feather_shape = msgspec.structs.fields(Shape)
     position, size, angle, feather = (End(node=INPUTS, socket=field.name) for field in (position_shape, size_shape, rotation, feather_shape))
 
     def shaped(space: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
@@ -157,29 +156,12 @@ def shape() -> BlenderResult[NodeGroup]:
             .map(ended("blur", "Image"))
         )
 
-    return paired(Interface.of(Shape), framed("frame", image, aspect, scale).bind(shaped)).bind(
-        lambda parts: NodeGroup.built(
-            "shape",
-            "Shape",
-            Interface(
-                inputs=(
-                    Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),
-                    Socket(key="aspect", name="Aspect", kind=bpy.types.NodeSocketFloat),
-                    Socket(key="scale", name="Scale", kind=bpy.types.NodeSocketFloat),
-                    *parts[0].inputs,
-                ),
-                panels=parts[0].panels,
-                outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),),
-            ),
-            {"key": parts[1]},
-        )
-    )
+    return _framed_key("shape", "Shape", Shape, shaped)
 
 
 @functools.cache
 def wipe() -> BlenderResult[NodeGroup]:
     """Returns a corner-normalized wipe with exact hidden and revealed endpoints."""
-    image, aspect, scale = (End(node=INPUTS, socket=name) for name in ("image", "aspect", "scale"))
     completion, angle, softness = (End(node=INPUTS, socket=name) for name in Transition.__struct_fields__)
 
     def traveled(space: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
@@ -194,15 +176,18 @@ def wipe() -> BlenderResult[NodeGroup]:
 
             def ranged(axes: Fragment) -> BlenderResult[tuple[Fragment, End]]:
                 x, y = ended("corner_axes", "X")(axes), ended("corner_axes", "Y")(axes)
-                bounds = accumulated(
-                    paired(math(f"{name}_x", operation, x, 0.0), math(f"{name}_y", operation, y, 0.0)).bind(lambda ends: math(name, "ADD", *ends))
-                    for name, operation in (("minimum", "MINIMUM"), ("maximum", "MAXIMUM"))
-                )
-                return bounds.bind(
-                    lambda ends: paired(
-                        vector("projection", "DOT_PRODUCT", space.point, unit).bind(lambda point: math("distance", "SUBTRACT", point, ends[0])), math("span", "SUBTRACT", ends[1], ends[0])
+                return (
+                    accumulated(
+                        paired(math(f"{name}_x", operation, x, 0.0), math(f"{name}_y", operation, y, 0.0)).bind(lambda ends: math(name, "ADD", *ends))
+                        for name, operation in (("minimum", "MINIMUM"), ("maximum", "MAXIMUM"))
                     )
-                ).bind(lambda ends: math("travel", "DIVIDE", *ends))
+                    .bind(
+                        lambda ends: paired(
+                            vector("projection", "DOT_PRODUCT", space.point, unit).bind(lambda point: math("distance", "SUBTRACT", point, ends[0])), math("span", "SUBTRACT", ends[1], ends[0])
+                        )
+                    )
+                    .bind(lambda ends: math("travel", "DIVIDE", *ends))
+                )
 
             return corners.bind(ranged)
 
@@ -228,23 +213,7 @@ def wipe() -> BlenderResult[NodeGroup]:
 
         return direction.bind(projected).bind(revealed)
 
-    return paired(Interface.of(Transition), framed("frame", image, aspect, scale).bind(traveled)).bind(
-        lambda parts: NodeGroup.built(
-            "wipe",
-            "Wipe",
-            Interface(
-                inputs=(
-                    Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),
-                    Socket(key="aspect", name="Aspect", kind=bpy.types.NodeSocketFloat),
-                    Socket(key="scale", name="Scale", kind=bpy.types.NodeSocketFloat),
-                    *parts[0].inputs,
-                ),
-                panels=parts[0].panels,
-                outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),),
-            ),
-            {"key": parts[1]},
-        )
-    )
+    return _framed_key("wipe", "Wipe", Transition, traveled)
 
 
 @functools.cache
@@ -284,7 +253,7 @@ def qualifier() -> BlenderResult[NodeGroup]:
                     .bind(lambda distance: nested("hue_edge", feather, {"distance": distance, "softness": End(node=INPUTS, socket=item_key(*hue_path, softness))}, "key"))
                 )
                 bands = accumulated(
-                    nested(name, interval, {"value": value, **{field.name: End(node=INPUTS, socket=item_key(name, value_gated, field.name)) for field in structs.fields(Band)}}, "key")
+                    nested(name, interval, {"value": value, **{field.name: End(node=INPUTS, socket=item_key(name, value_gated, field.name)) for field in msgspec.structs.fields(Band)}}, "key")
                     for name, value in ((saturation_qualifier, saturation), (luminance_qualifier, luminance))
                 )
                 return (
@@ -311,10 +280,8 @@ def qualifier() -> BlenderResult[NodeGroup]:
         lambda parts: NodeGroup.built(
             "qualifier",
             "Qualifier",
-            Interface(
-                inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor), *parts[0].inputs),
-                panels=parts[0].panels,
-                outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),),
+            msgspec.structs.replace(
+                parts[0], inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor), *parts[0].inputs), outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),)
             ),
             {"key": parts[1]},
         )
@@ -324,7 +291,7 @@ def qualifier() -> BlenderResult[NodeGroup]:
 def matte(working: NodeGroup) -> BlenderResult[NodeGroup]:
     """Returns clamped alpha or associated working-space Y, optionally inverted."""
     image = End(node=INPUTS, socket="image")
-    channel, invert = structs.fields(TrackMatte)
+    channel, invert = msgspec.structs.fields(TrackMatte)
     return (
         paired(node("alpha", bpy.types.CompositorNodeSeparateColor, {"Image": image}, {"mode": "RGB"}).map(ended("alpha", "Alpha")), nested("luminance", working, {"image": image}, "luminance"))
         .bind(
@@ -345,10 +312,8 @@ def matte(working: NodeGroup) -> BlenderResult[NodeGroup]:
                 lambda face: NodeGroup.built(
                     "track_matte",
                     "Track Matte",
-                    Interface(
-                        inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor), *face.inputs),
-                        panels=face.panels,
-                        outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),),
+                    msgspec.structs.replace(
+                        face, inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor), *face.inputs), outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),)
                     ),
                     {"key": key},
                 )
@@ -373,7 +338,7 @@ def relayed(outer: Callable[[Key], Operand], interface: Interface) -> dict[Key, 
 @functools.cache
 def joined(opening: bool) -> BlenderResult[NodeGroup]:
     """Returns one mask join, using the operation's identity for the opening mask."""
-    key_mask, operation_mask, invert = structs.fields(Mask)
+    key_mask, operation_mask, invert = msgspec.structs.fields(Mask)
     heads = (
         Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),
         Socket(key="aspect", name="Aspect", kind=bpy.types.NodeSocketFloat),
@@ -414,7 +379,7 @@ def joined(opening: bool) -> BlenderResult[NodeGroup]:
         lambda parts: NodeGroup.built(
             "first_mask" if opening else "mask",
             "First Mask" if opening else "Mask",
-            Interface(inputs=(*heads, *parts[0].inputs), panels=parts[0].panels, outputs=(Socket(key="coverage", name="Coverage", kind=bpy.types.NodeSocketFloat),)),
+            msgspec.structs.replace(parts[0], inputs=(*heads, *parts[0].inputs), outputs=(Socket(key="coverage", name="Coverage", kind=bpy.types.NodeSocketFloat),)),
             {"coverage": parts[1]},
         )
     )
@@ -432,6 +397,38 @@ def masked(key: Key, count: int, entering: Operand, aspect: Operand, scale: Oper
         return functools.reduce(lambda done, index: done.bind(lambda pair: joined_at(index, rest, Some(pair))), range(2, count + 1), joined_at(1, first, Nothing)).map(Some)
 
     return paired(joined(True), joined(False)).bind(chained) if count else Ok(Nothing)
+
+
+def _framed_key(key: Key, name: str, form: type[msgspec.Struct], body: Callable[[FrameSpace], BlenderResult[tuple[Fragment, End]]]) -> BlenderResult[NodeGroup]:
+    """Builds a key group over the displayed camera frame of its image.
+
+    Args:
+        key: Group key.
+        name: Group name.
+        form: Settings record whose fields follow the image, aspect, and scale inputs.
+        body: Key build over the image's frame space.
+
+    Returns:
+        `Ok` of the group with one float `key` output; `Error` of the faults the interface, frame, or body answers.
+    """
+    image, aspect, scale = (End(node=INPUTS, socket=socket) for socket in ("image", "aspect", "scale"))
+    return paired(Interface.of(form), framed("frame", image, aspect, scale).bind(body)).bind(
+        lambda parts: NodeGroup.built(
+            key,
+            name,
+            msgspec.structs.replace(
+                parts[0],
+                inputs=(
+                    Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),
+                    Socket(key="aspect", name="Aspect", kind=bpy.types.NodeSocketFloat),
+                    Socket(key="scale", name="Scale", kind=bpy.types.NodeSocketFloat),
+                    *parts[0].inputs,
+                ),
+                outputs=(Socket(key="key", name="Key", kind=bpy.types.NodeSocketFloat),),
+            ),
+            {"key": parts[1]},
+        )
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

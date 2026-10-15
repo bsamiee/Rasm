@@ -287,7 +287,7 @@ internal readonly partial struct Quantity {
 }
 
 internal static class Conversions {
-    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TError : Error, IValidationError<TError> =>
+    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TRaw : notnull where TError : Error, IValidationError<TError> =>
         T.Validate(raw, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
 }
 ```

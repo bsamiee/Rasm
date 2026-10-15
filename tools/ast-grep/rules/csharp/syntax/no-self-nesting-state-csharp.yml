@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-self-nesting-state-csharp
+language: csharp
+severity: error
+utils:
+    function:
+        kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'
+    equality:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - has: {field: left, kind: identifier}
+                - has: {field: right, kind: identifier}
+                - has: {pattern: $STATE}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: 'identifier, member_access_expression', regex: '(^|\.)Equals$'}
+                - any:
+                    - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $STATE}}
+                    - has: {field: arguments, has: {kind: argument, has: {pattern: $STATE}}}
+    settling:
+        kind: 'while_statement, do_statement, for_statement'
+        has: {stopBy: end, matches: equality}
+rule:
+    kind: 'object_creation_expression, implicit_object_creation_expression'
+    all:
+        - any:
+            - inside: {kind: assignment_expression, field: right, has: {field: left, pattern: $STATE}}
+            - all:
+                - inside: {kind: variable_declarator, has: {field: name, pattern: $NEXT}}
+                - inside:
+                    stopBy: {matches: function}
+                    kind: 'while_statement, do_statement, for_statement'
+                    has: {stopBy: end, kind: assignment_expression, all: [{has: {field: left, pattern: $STATE}}, {has: {field: right, pattern: $NEXT}}]}
+        - has:
+            kind: argument_list
+            has:
+                kind: argument
+                has:
+                    any:
+                        - pattern: $STATE
+                        - {kind: collection_expression, has: {kind: collection_element, has: {kind: expression_element, has: {pattern: $STATE}}}}
+        - inside: {stopBy: {matches: function}, matches: settling}
+message: '`$STATE` is rebuilt around its previous value each pass of a loop that compares it with its prior value, the fixpoint never settles'
+note: 'Map each pass into a finite lattice: join into a flat value (a set union, a bounded shape, or the operand roots) instead of wrapping the prior state in a new constructor'

@@ -1,6 +1,7 @@
 """Property-test registration and public-API test coverage accounting."""
 
 from collections.abc import Mapping
+from copy import replace
 import enum
 import functools
 import importlib
@@ -115,7 +116,7 @@ def covers(*subjects: object) -> list[pytest.MarkDecorator]:
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
     """Register a package for public-API test coverage on the session stash, a repeat call merging exemptions and keeping the first test directory."""
     packages = stash.setdefault(PACKAGES_UNDER_TEST, frozendict())
-    registration = PackageUnderTest(exempt | prior.exempt, prior.suite) if (prior := packages.get(package)) is not None else PackageUnderTest(exempt, suite)
+    registration = replace(prior, exempt=exempt | prior.exempt) if (prior := packages.get(package)) is not None else PackageUnderTest(exempt, suite)
     stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
 
 

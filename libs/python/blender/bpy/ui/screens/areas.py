@@ -6,7 +6,7 @@ from enum import auto, Enum
 from typing import Annotated, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation
@@ -162,8 +162,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
 
     def applied(self, located: Located) -> BlenderResult["AppliedArrangement"]:
         """Returns an owned arrangement, unwinding every completed step on refusal."""
-        arranged = AppliedArrangement(located, self)
-        return arranged.advanced().map(lambda _: arranged).or_else_with(lambda faults: accumulated((Error(faults), arranged.released())).map(lambda _: arranged))
+        return AppliedArrangement(located, self).started()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -182,26 +181,23 @@ class AppliedArrangement:
         self.releases = ExitStack()
         self.results: list[BlenderResult[None]] = []
 
+    def started(self) -> BlenderResult[Self]:
+        """Applies the first steps, unwinding every completed step on refusal."""
+        return self.advanced().map(lambda _: self).or_else_with(lambda faults: accumulated((Error(faults), self.released())).map(lambda _: self))
+
     def advanced(self) -> BlenderResult[Option[Self]]:
         """Applies one layout step per host pass, waiting for its state before continuing."""
         for placed, state in self.waiting.to_list():
-            located = Located.found(self.window, placed.area)
-            match located.tag:
-                case "none":
+            match Located.found(self.window, placed.area).map(lambda located: state.applied(located.area)):
+                case Option(tag="some", some=Result(tag="error", error=faults)):
+                    return Error(faults)
+                case Option(tag="some", some=Result(ok=Option(tag="none"))):
+                    return Ok(Some(self))
+                case Option(tag="some", some=Result(ok=Option(some=restore))):
+                    placed.restore = restore
                     self.waiting = Nothing
-                    continue
-                case "some":
-                    answer = state.applied(located.some.area)
-            match answer.tag:
-                case "error":
-                    return Error(answer.error)
-                case "ok":
-                    match answer.ok.tag:
-                        case "some":
-                            placed.restore = answer.ok.some
-                            self.waiting = Nothing
-                        case "none":
-                            return Ok(Some(self))
+                case _:
+                    self.waiting = Nothing
 
         def entered(at: Located, prior: Option[str], ui_type: str, state: EditorState) -> BlenderResult[None]:
             """Owns release before changing the editor and defers its state to the next pass."""
@@ -228,30 +224,25 @@ class AppliedArrangement:
                 case Retype(ui_type=ui_type, state=state):
                     return entered(at, Some(at.area.ui_type), ui_type, state)
 
-        origin = Located.found(self.window, self.area)
-        match origin.tag:
-            case "none":
+        match Located.found(self.window, self.area):
+            case Option(tag="none"):
                 return Error((BlenderAbsentFault(owner=repr(self.window.screen), key=self.area),))
-            case "some":
-                at = origin.some
-        if self.steps:
-            step, *remaining = self.steps
+            case Option(some=at) if self.steps:
+                step, *remaining = self.steps
 
-            def held(_: None) -> Option[Self]:
-                """Consumes the acquired step and yields for Blender's layout pass."""
-                self.steps = tuple(remaining)
-                return Some(self)
+                def held(_: None) -> Option[Self]:
+                    """Consumes the acquired step and yields for Blender's layout pass."""
+                    self.steps = tuple(remaining)
+                    return Some(self)
 
-            return stepped(at, step).map(held)
-        match self.full.tag:
-            case "none":
-                return Ok(Nothing)
-            case "some":
-                maximized = at.run(bpy.ops.screen.screen_full_area, {"use_hide_panels": self.full.some is Fullscreen.FOCUS})
-                match maximized.tag:
-                    case "error":
-                        return Error(maximized.error)
-                    case "ok":
+                return stepped(at, step).map(held)
+            case Option(some=at):
+                match self.full.map(lambda full: at.run(bpy.ops.screen.screen_full_area, {"use_hide_panels": full is Fullscreen.FOCUS})):
+                    case Option(tag="none"):
+                        return Ok(Nothing)
+                    case Option(some=Result(tag="error", error=faults)):
+                        return Error(faults)
+                    case _:
                         self.releases.callback(
                             lambda: self.results.append(called(bpy.ops.screen.back_to_previous, {}, override=Some(bpy.context.temp_override(window=self.window))).map(lambda _: None))
                         )

@@ -1,4 +1,4 @@
-import { BrowserCrypto } from '@effect/platform-browser';
+import { ReorderableList } from '@rasm/ui/reorderable.tsx';
 import { Array, Effect, Optic, String } from 'effect';
 import { type ReactNode, useState } from 'react';
 import { Button } from 'react-aria-components';
@@ -9,7 +9,8 @@ import type { Entry } from '../model/document.ts';
 import { Composition, type Placement } from '../model/placement.ts';
 import { ConfirmDialog, MenuButton } from './controls.tsx';
 import { PlacementFields } from './placement.tsx';
-import { ReorderableList } from './reorderable.tsx';
+import { reorderable } from './presentation.ts';
+import { identifier } from './services.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -44,19 +45,10 @@ function CompositionEditor({ assets, entry, item, onChange, onHero }: { assets: 
                     </div>
                 </fieldset>
             </div>
-            <PlacementFields assets={assets} onChange={(placement): void => replace({ ...item, items: second ? [placement, second] : [placement] })} onCover={(): void => onChange((current) => ({ ...current, cover: first }))} onHero={(): void => onHero(first)} value={first} />
+            <PlacementFields assets={assets} onChange={(placement): void => replace({ ...item, items: second === undefined ? [placement] : [placement, second] })} onCover={(): void => onChange((current) => ({ ...current, cover: first }))} onHero={(): void => onHero(first)} value={first} />
             {second && <PlacementFields assets={assets} onChange={(placement): void => replace({ ...item, items: [first, placement] })} onCover={(): void => onChange((current) => ({ ...current, cover: second }))} onHero={(): void => onHero(second)} value={second} />}
             <div className="actions">
-                {second ? (
-                    <>
-                        <button className="button button-outline" onClick={(): void => replace({ ...item, items: [second, first] })} type="button">
-                            Swap pair order
-                        </button>
-                        <button className="button button-outline" onClick={(): void => replace({ ...item, items: [first] }, { ...item, id: Effect.runSync(BrowserCrypto.WebCrypto).randomUUID(), items: [second] })} type="button">
-                            Unpair
-                        </button>
-                    </>
-                ) : (
+                {second === undefined ? (
                     singles.length > 0 && (
                         <MenuButton
                             label="Pair with"
@@ -66,6 +58,15 @@ function CompositionEditor({ assets, entry, item, onChange, onHero }: { assets: 
                             Pair with
                         </MenuButton>
                     )
+                ) : (
+                    <>
+                        <button className="button button-outline" onClick={(): void => replace({ ...item, items: [second, first] })} type="button">
+                            Swap pair order
+                        </button>
+                        <button className="button button-outline" onClick={(): void => replace({ ...item, items: [first] }, { ...item, id: Effect.runSync(identifier), items: [second] })} type="button">
+                            Unpair
+                        </button>
+                    </>
                 )}
                 <ConfirmDialog description="The source file stays in your library. Published work changes only when you publish." disabled={false} label="Remove composition" onConfirm={(): void => replace()} />
             </div>
@@ -126,6 +127,7 @@ function Compositions({
                                 }
                             />
                         )}
+                        {...reorderable}
                         items={entry.compositions}
                         label={`${entryTitle(entry)} compositions`}
                         onChange={(update): void => onChange((current) => ({ ...current, compositions: update(current.compositions) }))}

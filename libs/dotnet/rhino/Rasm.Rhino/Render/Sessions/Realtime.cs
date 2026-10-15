@@ -195,7 +195,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             from world in opened.Queue.World
             from started in Start(new RealtimeStart(opened.Target, doc, view, viewport, opened.Queue.Take))
             select unit,
-            Callbacks.Each(Seq(IO.pure(unit).Bind(_ => Stop()), Closed)).Map(static _ => unit));
+            Callbacks.Each(Seq(IO.pure(unit).Bind(_ => Stop()), Closed)).Map(unit));
 
     private IO<Unit> Closed =>
         atomicIO(() => {
@@ -275,7 +275,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         select unit;
 
     private IO<Unit> Delivered(HudEvent hudEvent) =>
-        Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(static _ => unit);
+        Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(unit);
 
     // --- [REPORTS]
     protected Option<RealtimeSession> Session => sessions.Value;

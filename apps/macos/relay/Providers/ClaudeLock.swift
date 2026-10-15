@@ -1,16 +1,18 @@
 import Foundation
+import RasmMacOS
+import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 private nonisolated struct ClaudeLockfileStat: Equatable, Sendable {
-    let inode: Int
-    let modified: Date
+    let inode: Inode
+    let modified: Duration
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 private nonisolated struct ClaudeLockfile: Sendable {
-    static let staleAfter: TimeInterval = 60
+    static let staleAfter: Duration = .seconds(60)
     let url: URL
     let stat: ClaudeLockfileStat
 
@@ -20,7 +22,7 @@ private nonisolated struct ClaudeLockfile: Sendable {
                 if case .lockHeld = error {
                     fileStat(at: url)
                         .flatMap { existing in
-                            existing.modified < Date().addingTimeInterval(-staleAfter)
+                            existing.modified < .seconds(Date().timeIntervalSince1970) - staleAfter
                                 ? remove(at: url) : .failure(.lockHeld(url))
                         }
                         .flatMap { _ in create(at: url) }
@@ -41,10 +43,10 @@ private nonisolated struct ClaudeLockfile: Sendable {
         unchangedStat()
             .flatMap { _ in
                 Result {
-                    try FileManager.default.setAttributes(
-                        [.modificationDate: Date()],
-                        ofItemAtPath: url.path,
-                    )
+                    var touched: URL = url
+                    var values: URLResourceValues = URLResourceValues()
+                    values.contentModificationDate = Date()
+                    try touched.setResourceValues(values)
                 }
                 .mapError(ClaudeFailure.filesystem)
             }
@@ -83,17 +85,12 @@ private nonisolated struct ClaudeLockfile: Sendable {
     }
 
     private static func fileStat(at url: URL) -> Result<ClaudeLockfileStat, ClaudeFailure> {
-        Result { try FileManager.default.attributesOfItem(atPath: url.path) }
+        Result { () throws(Errno) in try FilePath(url.path(percentEncoded: false)).stat() }
             .mapError(ClaudeFailure.filesystem)
-            .flatMap { attributes in
-                if attributes[.type] as? FileAttributeType == .typeDirectory,
-                    let inode: Int = attributes[.systemFileNumber] as? Int,
-                    let modified: Date = attributes[.modificationDate] as? Date
-                {
-                    .success(ClaudeLockfileStat(inode: inode, modified: modified))
-                } else {
-                    .failure(.lockCompromised(url))
-                }
+            .flatMap { stat in
+                stat.type == .directory
+                    ? .success(ClaudeLockfileStat(inode: stat.inode, modified: .seconds(stat.st_mtim.tv_sec) + .nanoseconds(stat.st_mtim.tv_nsec)))
+                    : .failure(.lockCompromised(url))
             }
     }
 }
@@ -115,9 +112,10 @@ actor ClaudeLock {
         directories: [URL],
         _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>,
     ) async -> Result<Value, ClaudeFailure> {
-        let urls: [URL] = Set(directories).sorted { first, second in first.path < second.path }
+        let urls: [URL] = Set(directories).sorted { first, second in first.path(percentEncoded: false) < second.path(percentEncoded: false) }
             .flatMap { directory in
-                [refreshLockfile(in: directory), URL(filePath: directory.resolvingSymlinksInPath().path + ".lock")]
+                let resolved: URL = directory.resolvingSymlinksInPath()
+                return [refreshLockfile(in: directory), resolved.deletingLastPathComponent().appending(path: "\(resolved.lastPathComponent).lock")]
             }
         return await Result {
             for url: URL in urls {
@@ -142,17 +140,18 @@ actor ClaudeLock {
     }
 
     private static func acquire(_ urls: [URL]) async -> Result<ClaudeLock, ClaudeFailure> {
-        let held: Result<[ClaudeLockfile], ClaudeFailure> = urls.reduce(.success([])) { held, url in
-            held.flatMap { lockfiles in
-                ClaudeLockfile.acquire(at: url)
-                    .map { lockfile in lockfiles + [lockfile] }
-                    .mapError { error in release(lockfiles, after: error) }
+        let acquired: (lockfiles: [ClaudeLockfile], failure: ClaudeFailure?) = urls.reduce(into: ([], nil)) { acquired, url in
+            guard acquired.failure == nil else { return }
+            switch ClaudeLockfile.acquire(at: url) {
+                case .success(let lockfile): acquired.lockfiles.append(lockfile)
+                case .failure(let error): acquired.failure = release(acquired.lockfiles, after: error)
             }
         }
+        let held: Result<[ClaudeLockfile], ClaudeFailure> = acquired.failure.map(Result.failure) ?? .success(acquired.lockfiles)
         switch held {
             case .success(let lockfiles): return .success(ClaudeLock(lockfiles: lockfiles))
             case .failure(.lockHeld(let url)):
-                return await ProcessRun.withDeadline(.seconds(ClaudeLockfile.staleAfter)) {
+                return await ProcessRun.withDeadline(ClaudeLockfile.staleAfter) {
                     await Result { try await FileWatch.values(of: url, read: FileWatch.exists, debounce: nil).first { present in !present } }
                         .mapError(ClaudeFailure.filesystem)
                         .flatMap { removed in removed.map { _ in .success(()) } ?? .failure(.cancelled) }
@@ -184,7 +183,7 @@ actor ClaudeLock {
             .bind { _ in await heartbeat() }
     }
 
-    private func release<Value: Sendable>(
+    private func release<Value>(
         returning outcome: Result<Value, ClaudeFailure>
     ) -> Result<Value, ClaudeFailure> {
         let released: Result<Void, ClaudeFailure> = lockfiles.reversed().reduce(.success(())) { released, lockfile in

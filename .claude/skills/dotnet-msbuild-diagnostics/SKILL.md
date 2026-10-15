@@ -14,7 +14,11 @@ Diagnosing a build from its binary log, from capture through the `binlog` MCP se
 
 ## [01]-[CAPTURE]
 
-Every build and restore target passes `-bl:<dir>/<purpose>-{}.binlog`. `<dir>` is `binlog` under the absolute path `dotnet msbuild <root>/Directory.Build.props -getProperty:ArtifactsPath` prints. MSBuild replaces `{}` with a UTC date, time, process id, and random string. `nx run <project>:build --skip-nx-cache -- <switches>` forwards switches to the build. Nx cache hits write no log. `dotnet msbuild` runs evaluation reads and replays. `build`, `test`, and `format` run through Nx targets alone. Every `dotnet` command that runs MSBuild accepts `-bl`.
+Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `format` write `<dir>/<project>/<target>.binlog`:
+- Nx cache hits restore the log of the run they replay
+- `<dir>` is `binlog` under the absolute path `dotnet msbuild <root>/Directory.Build.props -getProperty:ArtifactsPath` prints
+- `dotnet msbuild` runs evaluation reads and replays, `-bl` captures one
+- MSBuild replaces `{}` in a `-bl` path with a UTC date, time, process id, and random string
 
 | [INDEX] | [SWITCH]                                             | [EFFECT]                                                             |
 | :-----: | :--------------------------------------------------- | :------------------------------------------------------------------- |
@@ -30,8 +34,7 @@ Every build and restore target passes `-bl:<dir>/<purpose>-{}.binlog`. `<dir>` i
 |  [10]   | `-getProperty:A,B -getItem:C -getResultOutputFile:f` | Evaluated values as JSON in `f`, no build, one project file per call |
 |  [11]   | `-t:X -getTargetResult:X`                            | Runs `X` and prints its returned items as JSON                       |
 |  [12]   | `-profileEvaluation:<file>.md`                       | Evaluation time per element, `.md` gives a markdown table            |
-|  [13]   | `-v:diag`                                            | One `Property reassignment:` message per overwritten property        |
-|  [14]   | `MSBuildDebugEngine=1` with `MSBUILDDEBUGPATH=<dir>` | Every MSBuild process writes a binlog under `<dir>/.MSBuild_Logs/`   |
+|  [13]   | `MSBuildDebugEngine=1` with `MSBUILDDEBUGPATH=<dir>` | Every MSBuild process writes a binlog under `<dir>/.MSBuild_Logs/`   |
 
 - `-bl` values without a `.binlog` extension fail `MSB1029` before the build
 - `ProjectImports=None` leaves `mcp__binlog__binlog_files` and `mcp__binlog__binlog_search_files` empty
@@ -42,8 +45,7 @@ Every build and restore target passes `-bl:<dir>/<purpose>-{}.binlog`. `<dir>` i
 - `-dotnet-test` log holds the platform's project evaluation alone and reports `FAILED`
 - `MSBuildDebugEngine` covers a build a tool starts without `-bl`, both variable names are case-sensitive on macOS
 - Without `MSBUILDDEBUGPATH` the logs go under `.MSBuild_Logs/` in the current directory, the central node's file name starts with `CentralNode_`
-- `-check`, `-profileEvaluation`, and `-v:diag` write no binlog of their own, `-bl` beside them captures the run
-- `dotnet msbuild` prints the `BinaryLogger wrote to:` line at `-v:n` or higher
+- `-check` and `-profileEvaluation` write no binlog of their own, `-bl` beside them captures the run
 - `git clean -fdx -e "*.binlog"` keeps the logs
 - `-getProperty`, `-getItem`, `-getTargetResult`, and `-pp` take one project or `.props` file, a solution path fails `MSB1063` or refuses the switch
 - `Directory.Build.props` evaluates the root values without a project
@@ -69,77 +71,31 @@ mcp__binlog__binlog_warnings {"binlog_file": "<log>.binlog"}
 
 - Binlog tools are deferred, a `ToolSearch` `select:` query loads each drill-down tool before its first call
 - `<log>.binlog` is the requested log, else the newest log in `<dir>`
-
-| [INDEX] | [TOOL]                                             | [PURPOSE]                                                                      |
-| :-----: | :------------------------------------------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `mcp__binlog__binlog_capabilities`                 | Server contract version and the tools that emit the JSON envelope              |
-|  [02]   | `mcp__binlog__binlog_overview`                     | Status, duration, MSBuild version, project count, error and warning counts     |
-|  [03]   | `mcp__binlog__binlog_diagnose`                     | Failed targets, root causes, missing references, double writes, analyzers      |
-|  [04]   | `mcp__binlog__binlog_errors`                       | Deduplicated errors, `category` filter, task output on `include_task_output`   |
-|  [05]   | `mcp__binlog__binlog_warnings`                     | Deduplicated warnings, filtered by `code` or `category`                        |
-|  [06]   | `mcp__binlog__binlog_projects`                     | Every project with status and duration                                         |
-|  [07]   | `mcp__binlog__binlog_evaluations`                  | One entry per evaluation with id and duration, filtered by `project`           |
-|  [08]   | `mcp__binlog__binlog_evaluation_properties`        | Properties of one `evaluation_id`, filtered by `property_names`                |
-|  [09]   | `mcp__binlog__binlog_evaluation_global_properties` | Global properties of one `evaluation_id`                                       |
-|  [10]   | `mcp__binlog__binlog_properties`                   | Key properties of a project, or the ones matching `filter`                     |
-|  [11]   | `mcp__binlog__binlog_explain_property`             | Final value of one property and every source that assigned it                  |
-|  [12]   | `mcp__binlog__binlog_compare_property`             | One property across every project: differs, set, inconsistent, not set         |
-|  [13]   | `mcp__binlog__binlog_items`                        | Items of one `itemType` for a project, or the item types when omitted          |
-|  [14]   | `mcp__binlog__binlog_imports`                      | Import chain of a project with each missing import marked                      |
-|  [15]   | `mcp__binlog__binlog_preprocess`                   | Project file source alone, no import expansion                                 |
-|  [16]   | `mcp__binlog__binlog_files`                        | Embedded source files, listed or read by `filePath` and line range             |
-|  [17]   | `mcp__binlog__binlog_search_files`                 | Text or regex search across the embedded source files                          |
-|  [18]   | `mcp__binlog__binlog_search`                       | Build event search in the StructuredLog query syntax                           |
-|  [19]   | `mcp__binlog__binlog_explore_node`                 | Ancestors, details, and children of one `node_id`                              |
-|  [20]   | `mcp__binlog__binlog_project_targets`              | Targets of one project with timing and skip status                             |
-|  [21]   | `mcp__binlog__binlog_search_targets`               | Targets by name substring across every project, with `skipped` per instance    |
-|  [22]   | `mcp__binlog__binlog_target_reasons`               | Trigger, dependency chain, and summed duration per target matching the name    |
-|  [23]   | `mcp__binlog__binlog_target_graph`                 | Executed-target timeline of one evaluation, addressed as `eval-<id>`           |
-|  [24]   | `mcp__binlog__binlog_tasks_in_target`              | Tasks inside one target of a project                                           |
-|  [25]   | `mcp__binlog__binlog_task_details`                 | Parameters and messages of one task by `project`, `target_name`, `task_name`   |
-|  [26]   | `mcp__binlog__binlog_expensive_projects`           | Slowest projects by exclusive target duration                                  |
-|  [27]   | `mcp__binlog__binlog_expensive_targets`            | Slowest targets, aggregated by name                                            |
-|  [28]   | `mcp__binlog__binlog_expensive_tasks`              | Slowest tasks, aggregated by name                                              |
-|  [29]   | `mcp__binlog__binlog_project_target_times`         | Target timing of one project                                                   |
-|  [30]   | `mcp__binlog__binlog_expensive_analyzers`          | Slowest analyzers and generators from a `ReportAnalyzer=true` build            |
-|  [31]   | `mcp__binlog__binlog_analyzer_summary`             | Time and invocation count per analyzer from a `ReportAnalyzer=true` build      |
-|  [32]   | `mcp__binlog__binlog_build_graph`                  | Project dependency graph with durations and the critical path                  |
-|  [33]   | `mcp__binlog__binlog_incremental_analysis`         | Skip or rebuild decision per target, and `IncrementalClean` deletions          |
-|  [34]   | `mcp__binlog__binlog_double_writes`                | Files `Copy` tasks wrote twice, directories more than one project copied into  |
-|  [35]   | `mcp__binlog__binlog_assembly_conflicts`           | `MSB3277` warnings with the `ResolveAssemblyReference` inputs behind them      |
-|  [36]   | `mcp__binlog__binlog_compiler`                     | `Csc`, `Vbc`, and `Fsc` command lines with response files                      |
-|  [37]   | `mcp__binlog__binlog_nuget`                        | Restore diagnostics, packages, versions, sources, and restore duration         |
-|  [38]   | `mcp__binlog__binlog_assets`                       | `project.assets.json` frameworks, libraries, reverse dependencies of `package` |
-|  [39]   | `mcp__binlog__binlog_compare`                      | Property and package diff between binlogs                                      |
-|  [40]   | `mcp__binlog__binlog_extract_preview`              | Size and project count of a subtree extraction, without a write                |
-|  [41]   | `mcp__binlog__binlog_extract`                      | Standalone `.binlog` of the selected projects, without embedded source files   |
-|  [42]   | `mcp__binlog__list_mcp_instances`                  | Running server instances with memory and `isOrphaned`                          |
-|  [43]   | `mcp__binlog__stop_instance`                       | Stop one instance by PID                                                       |
-|  [44]   | `mcp__binlog__stop`                                | Stop the current instance                                                      |
-
+- Each tool's schema `ToolSearch` loads states its purpose and arguments
 - Reader drops records a newer MSBuild wrote, `mcp__binlog__binlog_warnings` reports the loss as `Skipped some data unknown to this version of Viewer`
 - `mcp__binlog__binlog_extract` refuses a log with dropped records unless `allow_unsupported_records=true`, the extract omits them
-- `mcp__binlog__binlog_analyzer_summary` and `mcp__binlog__binlog_incremental_analysis` accept no size limit and return the whole result
-- `mcp__binlog__binlog_task_details` accepts no size limit and returns the whole result
+- `mcp__binlog__binlog_analyzer_summary` accepts no size limit and returns the whole result
+- `mcp__binlog__binlog_task_details` clips oversized parameter values, `offset` pages output messages and `parameter_offset` parameters
 - `mcp__binlog__binlog_search` marks a project, target, or task `[id]` and a message `[in id]` with its owner
-- `mcp__binlog__binlog_search_targets`, `mcp__binlog__binlog_tasks_in_target`, and `mcp__binlog__binlog_projects` print `node_id` values
+- `mcp__binlog__binlog_explore_node` takes a `binlog_search` `[id]` or a `binlog_search_targets` `id` as `node_id`
+- `mcp__binlog__binlog_tasks_in_target` prints task `id` values unique within one project execution, no `node_id`
 - `mcp__binlog__binlog_target_reasons` sums duration, executions, and skips across every target of one name
 - `mcp__binlog__binlog_double_writes` reads performed copies, a `Copy` that skipped an unchanged file is no write
 - `mcp__binlog__binlog_double_writes` misses a second instance of one project and a copy-local file projects share, `BC0102` reports both
 - Solution node adds one synthetic `Build failed.` error to every failed count and matches the requested name in `mcp__binlog__binlog_search_targets`
 - `mcp__binlog__binlog_files` reads the embedded copy of a file, the file as the build saw it
-- `mcp__binlog__binlog_properties` can answer from the restore evaluation, `MSBuildIsRestoring=True` in its output shows it
+- `mcp__binlog__binlog_properties` prints one block per `project_id` and `evaluation_id`, `Context=` names the pass when recorded
 - `mcp__binlog__binlog_evaluation_properties` on the build-pass evaluation id reads a value that differs between passes
 - Stale server instances hold binlogs in memory until `mcp__binlog__stop_instance` on each `isOrphaned` entry of `mcp__binlog__list_mcp_instances`
-- `mcp__binlog__binlog_incremental_analysis` returns `{kind, schemaVersion, data}` with `data.summary` counts and one `data.targets[]` row per target
+- `mcp__binlog__binlog_incremental_analysis` returns `{kind, schemaVersion, data}`, `data.summary` counts the whole build
+- `offset` pages one `data.targets[]` row per target, `deletion_offset` pages `data.incrementalCleanDeletions`
 - `mcp__binlog__binlog_task_details` returns `{id, name, projectFile, targetName, durationMs, parameters, outputMessages}`
 - `mcp__binlog__binlog_task_details` by names prints nothing when `target_name` is not the target holding the task
 - `project` of `mcp__binlog__binlog_task_details` takes a framework suffix (`App.csproj net10.0`) to pick one inner build
 - `mcp__binlog__binlog_search` with `$target` names the holding target and the `[id]` the `task_id` form takes
-- `mcp__binlog__binlog_explain_property` reports a global property `Set by: evaluation` with the project as `Source`
+- `mcp__binlog__binlog_explain_property` prints `Evaluation snapshot`, `Execution global input`, and assignment observations per context
+- `mcp__binlog__binlog_search_files` names the file declaring a value, a `-p:` value has none
 - `mcp__binlog__binlog_compare_property` marks a global property `global`
-- `mcp__binlog__binlog_explain_property` names the evaluated project as `Source` for a value an import assigns
-- `mcp__binlog__binlog_search_files` names the file declaring a value an import assigns
 - `mcp__binlog__binlog_diagnose` counts an error with no file and line once across every project reporting it
 
 ### [02.1]-[SEARCH_SYNTAX]
@@ -230,7 +186,6 @@ Failed restores stop every project, failed references block their dependents. St
 |  [12]   | `BC0301` | Project under the Downloads folder or another untrusted directory    | Error, project      |
 |  [13]   | `BC0302` | `Exec` that runs `dotnet`, `msbuild`, or `nuget` to build a project  | Warning             |
 
-- Suggestions print as `message` lines on the console logger at `-v:m` and higher
 - `BC0201` and `BC0202` accept a self-reference and an emptiness check, and report a read inside a `Condition`
 - `AllowUninitializedPropertiesInConditions=true` on both codes accepts the condition reads, `false` is the default
 - Project scope covers the project file, `scope=all` extends `BC0201`, `BC0202`, and `BC0203` to every import
@@ -254,7 +209,7 @@ build_check.BC0202.AllowUninitializedPropertiesInConditions = true
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `nx run <project>:build --skip-nx-cache -- -t:Rebuild -check`, `nx run-many -t build -p tag:language:dotnet` in place of `nx run <project>:build` for every project
+1. Run `nx run <project>:build -- -t:Rebuild`, or `nx run-many -t build -p tag:language:dotnet` for every project
 2. Read each `BC` line on the console, or run `mcp__binlog__binlog_errors` then `mcp__binlog__binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
 

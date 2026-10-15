@@ -8,7 +8,7 @@ import operator
 import sys
 from typing import Annotated
 
-from expression import Error, Nothing, Ok, Some
+from expression import Error, Nothing, Ok, Result, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -244,102 +244,110 @@ class Particles(Effect, frozen=True, kw_only=True, tag=33):
                     spectrum(self.emission.value.spectrum, tones) if self.emission.enabled else Ok(np.zeros((len(particles), 3), dtype=np.float64)),
                     spectrum(self.temperature, tones) if self.emission.enabled and self.incandescence > 0.0 else Ok(np.ones((len(particles), 3), dtype=np.float64)),
                 ))
-                if colors.tag == "error":
-                    return Error(colors.error)
-                coating, light, thermal = colors.ok
-                illuminant = light * (1.0 - self.incandescence + self.incandescence * thermal)
-                radiance = math.exp2(self.emission.value.intensity) if self.emission.enabled else 0.0
-                unit_area, area_error = self.iris.integral(self.population.softness, epsabs=precision.absolute, epsrel=precision.relative) if particles and self.emission.enabled else (1.0, 0.0)
-                channel = np.array((1.0 - max(self.fringe, 0.0), 1.0 - abs(self.fringe) / 2.0, 1.0 + min(self.fringe, 0.0)))
-                twinkle_held = self.scintillation.hold * math.floor(reference_frame / self.scintillation.hold)
-                plain = Perlin(dimensions=4, size=1.0, stretch=1.0, distortion=0.0, octaves=Octaves(detail=0.0), cut=Cut(interpolation=Interpolation.LINEAR))
+                match colors:
+                    case Result(tag="error", error=faults):
+                        return Error(faults)
+                    case Result(ok=planes):
+                        coating, light, thermal = planes
+                        illuminant = light * (1.0 - self.incandescence + self.incandescence * thermal)
+                        radiance = math.exp2(self.emission.value.intensity) if self.emission.enabled else 0.0
+                        unit_area, area_error = (
+                            self.iris.integral(self.population.softness, epsabs=precision.absolute, epsrel=precision.relative) if particles and self.emission.enabled else (1.0, 0.0)
+                        )
+                        channel = np.array((1.0 - max(self.fringe, 0.0), 1.0 - abs(self.fringe) / 2.0, 1.0 + min(self.fringe, 0.0)))
+                        twinkle_held = self.scintillation.hold * math.floor(reference_frame / self.scintillation.hold)
+                        plain = Perlin(dimensions=4, size=1.0, stretch=1.0, distortion=0.0, octaves=Octaves(detail=0.0), cut=Cut(interpolation=Interpolation.LINEAR))
 
-                def moved(particle: Particle, times: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-                    drift = times[:, None] * heading * self.motion.speed * particle.scale
-                    local = np.array((float(particle.mark.center[0] - origin[0]), float(particle.mark.center[1] - origin[1]))) + drift
-                    if self.turbulence == 0.0:
-                        return Ok(local)
-                    rest = np.array(tuple(float(value) for value in particle.mark.center)) + drift
-                    coordinates = np.column_stack((rest / particle.scale, self.evolution * times, np.zeros(len(times))))
-                    return accumulated(sample(self.wind, coordinates, seed=self.seed, stream=axis + 1) for axis in range(2)).map(
-                        lambda fields: local + self.turbulence * particle.scale * (2.0 * np.stack([field[:, 0] for field in fields], axis=-1) - 1.0)
-                    )
+                        def moved(particle: Particle, times: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+                            drift = times[:, None] * heading * self.motion.speed * particle.scale
+                            local = np.array((float(particle.mark.center[0] - origin[0]), float(particle.mark.center[1] - origin[1]))) + drift
+                            if self.turbulence == 0.0:
+                                return Ok(local)
+                            rest = np.array(tuple(float(value) for value in particle.mark.center)) + drift
+                            coordinates = np.column_stack((rest / particle.scale, self.evolution * times, np.zeros(len(times))))
+                            return accumulated(sample(self.wind, coordinates, seed=self.seed, stream=axis + 1) for axis in range(2)).map(
+                                lambda fields: local + self.turbulence * particle.scale * (2.0 * np.stack([field[:, 0] for field in fields], axis=-1) - 1.0)
+                            )
 
-                def profiles(particle: Particle, offsets: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-                    coordinates = offsets * np.array((self.squeeze, 1.0))
-                    normalized = np.divide(coordinates[:, None, :], particle.optical * channel[None, :, None], out=np.zeros((len(offsets), 3, 2), dtype=np.float64), where=channel[None, :, None] > 0.0)
-                    return self.iris.profile(normalized, self.population.softness) * (channel > 0.0)
+                        def profiles(particle: Particle, offsets: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+                            coordinates = offsets * np.array((self.squeeze, 1.0))
+                            normalized = np.divide(
+                                coordinates[:, None, :], particle.optical * channel[None, :, None], out=np.zeros((len(offsets), 3, 2), dtype=np.float64), where=channel[None, :, None] > 0.0
+                            )
+                            return self.iris.profile(normalized, self.population.softness) * (channel > 0.0)
 
-                def occluded(nearer: Particle, times: npt.NDArray[np.float64], positions: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-                    return moved(nearer, times).map(lambda center: 1.0 - nearer.mark.gain * np.mean(profiles(nearer, positions - center), axis=-1))
+                        def occluded(nearer: Particle, times: npt.NDArray[np.float64], positions: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+                            return moved(nearer, times).map(lambda center: 1.0 - nearer.mark.gain * np.mean(profiles(nearer, positions - center), axis=-1))
 
-                def modulated(particle: Particle, times: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-                    if not (self.emission.enabled and self.twinkle > 0.0):
-                        return Ok(np.ones(len(times), dtype=np.float64))
-                    coordinates = np.column_stack((
-                        np.full(len(times), particle.mark.cell[0]),
-                        np.full(len(times), particle.mark.cell[1]),
-                        np.full(len(times), particle.layer),
-                        self.scintillation.speed * (twinkle_held + times - held),
-                    ))
-                    return sample(plain, coordinates, seed=self.seed, stream=3).map(lambda twinkle: 1.0 - self.twinkle * twinkle[:, 0])
+                        def modulated(particle: Particle, times: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+                            if not (self.emission.enabled and self.twinkle > 0.0):
+                                return Ok(np.ones(len(times), dtype=np.float64))
+                            coordinates = np.column_stack((
+                                np.full(len(times), particle.mark.cell[0]),
+                                np.full(len(times), particle.mark.cell[1]),
+                                np.full(len(times), particle.layer),
+                                self.scintillation.speed * (twinkle_held + times - held),
+                            ))
+                            return sample(plain, coordinates, seed=self.seed, stream=3).map(lambda twinkle: 1.0 - self.twinkle * twinkle[:, 0])
 
-                def deposited(observation: npt.NDArray[np.float64], replicate: int, index: int, particle: Particle) -> ImagingResult[None]:
-                    net = precision.points(3, replicate, key=(*particle.mark.cell, particle.layer, self.seed))
-                    times = held + opening + (closing - opening) * net[:, 2]
-                    radius = particle.optical * np.sqrt(net[:, 0])
-                    angle = math.tau * net[:, 1]
-                    offsets = np.stack((radius * np.cos(angle) / self.squeeze, radius * np.sin(angle)), axis=-1)
+                        def deposited(observation: npt.NDArray[np.float64], replicate: int, index: int, particle: Particle) -> ImagingResult[None]:
+                            net = precision.points(3, replicate, key=(*particle.mark.cell, particle.layer, self.seed))
+                            times = held + opening + (closing - opening) * net[:, 2]
+                            radius = particle.optical * np.sqrt(net[:, 0])
+                            angle = math.tau * net[:, 1]
+                            offsets = np.stack((radius * np.cos(angle) / self.squeeze, radius * np.sin(angle)), axis=-1)
 
-                    def landed(center: npt.NDArray[np.float64]) -> ImagingResult[None]:
-                        positions = center + offsets
-                        selected = (positions[:, 0] >= 0.0) & (positions[:, 0] < float(spec.width * dx)) & (positions[:, 1] >= 0.0) & (positions[:, 1] < float(spec.height * dy))
-                        if not np.any(selected):
-                            return Ok(None)
-                        kept, arrived = times[selected], positions[selected]
-                        columns = np.floor(arrived[:, 0] / float(dx)).astype(np.intp)
-                        rows = spec.height - 1 - np.floor(arrived[:, 1] / float(dy)).astype(np.intp)
-                        profile = profiles(particle, offsets[selected])
-                        opacity = particle.mark.gain * np.mean(profile, axis=-1)
-                        pixel = source[rows, columns]
-                        temporal = (1.0 - self.fade + self.fade * net[selected, 2]) / (1.0 - self.fade / 2.0) if opening != closing else np.ones(len(kept), dtype=np.float64)
-                        weight = math.pi * particle.optical**2 / self.squeeze / float(dx * dy) / len(net)
+                            def landed(center: npt.NDArray[np.float64]) -> ImagingResult[None]:
+                                positions = center + offsets
+                                selected = (positions[:, 0] >= 0.0) & (positions[:, 0] < float(spec.width * dx)) & (positions[:, 1] >= 0.0) & (positions[:, 1] < float(spec.height * dy))
+                                if not np.any(selected):
+                                    return Ok(None)
+                                kept, arrived = times[selected], positions[selected]
+                                columns = np.floor(arrived[:, 0] / float(dx)).astype(np.intp)
+                                rows = spec.height - 1 - np.floor(arrived[:, 1] / float(dy)).astype(np.intp)
+                                profile = profiles(particle, offsets[selected])
+                                opacity = particle.mark.gain * np.mean(profile, axis=-1)
+                                pixel = source[rows, columns]
+                                temporal = (1.0 - self.fade + self.fade * net[selected, 2]) / (1.0 - self.fade / 2.0) if opening != closing else np.ones(len(kept), dtype=np.float64)
+                                weight = math.pi * particle.optical**2 / self.squeeze / float(dx * dy) / len(net)
 
-                        def added(factors: tuple[tuple[npt.NDArray[np.float64], ...], npt.NDArray[np.float64]]) -> None:
-                            occlusions, modulation = factors
-                            transmittance = functools.reduce(operator.mul, occlusions, np.ones(len(kept), dtype=np.float64))
-                            contribution = np.zeros((len(kept), 4), dtype=np.float64)
-                            if self.coverage.enabled:
-                                contribution[:, :3] = opacity[:, None] * (coating[index] - pixel[:, :3])
-                                contribution[:, 3] = opacity * (1.0 - pixel[:, 3])
-                            if self.emission.enabled:
-                                energy = radiance * particle.mark.gain * math.pi * particle.mark.radius**2
-                                area = unit_area * np.square(particle.optical * channel) / self.squeeze
-                                peak = np.divide(energy * illuminant[index], area, out=np.zeros(3, dtype=np.float64), where=channel > 0.0)
-                                contribution[:, :3] += profile * peak * modulation[:, None]
-                            np.add.at(observation, (rows, columns), contribution * (weight * temporal * transmittance)[:, None])
+                                def added(factors: tuple[tuple[npt.NDArray[np.float64], ...], npt.NDArray[np.float64]]) -> None:
+                                    occlusions, modulation = factors
+                                    transmittance = functools.reduce(operator.mul, occlusions, np.ones(len(kept), dtype=np.float64))
+                                    contribution = np.zeros((len(kept), 4), dtype=np.float64)
+                                    if self.coverage.enabled:
+                                        contribution[:, :3] = opacity[:, None] * (coating[index] - pixel[:, :3])
+                                        contribution[:, 3] = opacity * (1.0 - pixel[:, 3])
+                                    if self.emission.enabled:
+                                        energy = radiance * particle.mark.gain * math.pi * particle.mark.radius**2
+                                        area = unit_area * np.square(particle.optical * channel) / self.squeeze
+                                        peak = np.divide(energy * illuminant[index], area, out=np.zeros(3, dtype=np.float64), where=channel > 0.0)
+                                        contribution[:, :3] += profile * peak * modulation[:, None]
+                                    np.add.at(observation, (rows, columns), contribution * (weight * temporal * transmittance)[:, None])
 
-                        return paired(accumulated(occluded(nearer, kept, arrived) for nearer in particles[:index]), modulated(particle, kept)).map(added)
+                                return paired(accumulated(occluded(nearer, kept, arrived) for nearer in particles[:index]), modulated(particle, kept)).map(added)
 
-                    return moved(particle, times).bind(landed)
+                            return moved(particle, times).bind(landed)
 
-                observations = np.broadcast_to(source, (precision.replicates, *source.shape)).copy()
-                for replicate in range(precision.replicates):
-                    for index, particle in enumerate(particles):
-                        if (deposit := deposited(observations[replicate], replicate, index, particle)).tag == "error":
-                            return Error(deposit.error)
-                estimate = estimated(observations, precision)
-                if not (output := (plane.copy(OpenImageIO.DOUBLE))).set_pixels(output.roi, estimate.value):
-                    return Error((ImagingBufferFault(request=output, error=output.geterror()),))
-                return Ok(
-                    Estimate(
-                        value=output,
-                        standard_error=estimate.standard_error,
-                        precision=precision,
-                        replicates=observations,
-                        normalization=Some((unit_area, area_error)) if particles and self.emission.enabled else Nothing,
-                    )
-                )
+                        observations = np.broadcast_to(source, (precision.replicates, *source.shape)).copy()
+                        steps = ((replicate, index, particle) for replicate in range(precision.replicates) for index, particle in enumerate(particles))
+                        deposits: ImagingResult[None] = functools.reduce(lambda done, step: done.bind(lambda _: deposited(observations[step[0]], *step)), steps, Ok(None))
+                        match deposits:
+                            case Result(tag="error", error=faults):
+                                return Error(faults)
+                            case Result(ok=_):
+                                estimate = estimated(observations, precision)
+                                if not (output := (plane.copy(OpenImageIO.DOUBLE))).set_pixels(output.roi, estimate.value):
+                                    return Error((ImagingBufferFault(request=output, error=output.geterror()),))
+                                return Ok(
+                                    Estimate(
+                                        value=output,
+                                        standard_error=estimate.standard_error,
+                                        precision=precision,
+                                        replicates=observations,
+                                        normalization=Some((unit_area, area_error)) if particles and self.emission.enabled else Nothing,
+                                    )
+                                )
         except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
             return Error((ImagingGeneratorFault(request=self, error=error),))
 

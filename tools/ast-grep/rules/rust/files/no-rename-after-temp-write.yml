@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rename-after-temp-write
+language: rust
+severity: error
+utils:
+    path-argument:
+        any:
+            - kind: reference_expression
+              has: {field: value, pattern: $TMP}
+            - pattern: $TMP
+              not: {kind: reference_expression}
+    temp-write:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)(write|File::create|File::create_new)$|^File::(create|create_new)$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+            - all:
+                - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)copy$'}
+                - has: {field: arguments, has: {nthChild: 2, matches: path-argument}}
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^open$'}}, {has: {field: value, regex: '^((::)?(std|tokio|fs_err|async_std)::)?(fs::)?OpenOptions::new\(\)'}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+    written-before:
+        follows:
+            stopBy: end
+            kind: 'expression_statement, let_declaration'
+            has: {stopBy: end, matches: temp-write}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)rename$'}
+        - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+        - pattern: $RENAME
+        - any:
+            - matches: written-before
+            - inside: {stopBy: {kind: 'block, function_item, closure_expression'}, matches: written-before}
+message: '`$RENAME` publishes `$TMP` after writing it under a fixed name in the same block'
+note: 'Create the file with `tempfile::NamedTempFile::new_in(<destination directory>)?`, write through it, and call `.persist(<destination>)?`, the temporary file takes a unique name on the destination''s file system and is deleted on drop when a step before `persist` fails'

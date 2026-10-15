@@ -114,7 +114,7 @@ public static class MeshConstruction {
                 cloud: static cloud => (Mesh.CreateQuickHull3D(cloud, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D))),
             static answer => Missing.Unless(answer.Mesh, answer.Member).Bind(mesh => Measurements.Valid(mesh, answer.Member))
                 .Map(mesh => (mesh, Conversions.Rows(answer.Facets).Map(static facet => toSeq(facet)).Strict())),
-            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Mesh })),
+            static answer => DisposalOps.Release(Conversions.Rows([answer.Mesh])),
             retain);
 
     public static IO<Mesh> CreatePatch(PatchBoundary boundary, Seq<Curve> innerBoundaries, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints, Tolerances tolerances, Action<IDisposable> retain) =>

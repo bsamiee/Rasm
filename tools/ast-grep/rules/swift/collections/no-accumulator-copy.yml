@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-accumulator-copy
+language: swiftlang
+severity: error
+utils:
+    scope:
+        kind: 'function_declaration, lambda_literal, init_declaration, computed_property'
+    fold:
+        kind: navigation_expression
+        has: {field: suffix, has: {field: suffix, regex: '^reduce$'}}
+    seed:
+        kind: value_argument
+        nthChild: 1
+        not: {has: {kind: value_argument_label}}
+        has: {field: value, not: {regex: '^(\[|"|(Array|ContiguousArray|Set|Dictionary|String)\b)'}}
+    seeded:
+        kind: value_arguments
+        all:
+            - has: {matches: seed}
+            - not: {has: {kind: value_argument, nthChild: 2}}
+    fold-closure:
+        kind: lambda_literal
+        any:
+            - inside:
+                kind: call_suffix
+                all:
+                    - has: {matches: seeded}
+                    - inside: {kind: call_expression, has: {nthChild: 1, matches: fold}}
+            - inside:
+                kind: call_suffix
+                not: {has: {kind: value_arguments}}
+                inside:
+                    kind: call_expression
+                    has:
+                        nthChild: 1
+                        kind: call_expression
+                        all:
+                            - has: {nthChild: 1, matches: fold}
+                            - has: {kind: call_suffix, has: {matches: seeded}}
+            - inside:
+                kind: value_argument
+                field: value
+                inside:
+                    kind: value_arguments
+                    has: {matches: seed}
+                    inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: fold}}}
+    copied:
+        kind: additive_expression
+        all:
+            - has: {field: op, regex: '^\+$'}
+            - any:
+                - all: [{has: {field: lhs, kind: simple_identifier, pattern: $ACC}}, {has: {field: rhs, kind: array_literal}}]
+                - all: [{has: {field: lhs, kind: array_literal}}, {has: {field: rhs, kind: simple_identifier, pattern: $ACC}}]
+rule:
+    matches: copied
+    any:
+        - all:
+            - has: {kind: simple_identifier, pattern: $ACC, inside: {kind: lambda_literal, stopBy: end, has: {kind: lambda_function_type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: $ACC}}}}}
+            - inside: {stopBy: end, matches: fold-closure}
+        - inside:
+            kind: assignment
+            field: result
+            all:
+                - has: {field: operator, regex: '^=$'}
+                - has: {field: target, has: {pattern: $ACC}}
+                - inside: {stopBy: {matches: scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
+message: '`$ACC` is copied whole on every pass to add elements, quadratic in the input'
+note: 'Append in place, `reduce(into:)` with `append(_:)` or `append(contentsOf:)` or `+=` on the loop''s own buffer, or derive every element in one `map`, `flatMap`, or `compactMap`'

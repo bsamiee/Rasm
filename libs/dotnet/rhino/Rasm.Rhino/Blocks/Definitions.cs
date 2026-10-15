@@ -128,7 +128,7 @@ public abstract partial record DefinitionEdit {
                 reference => IO.lift(() => Missing.Unless(reference, nameof(FileReference.CreateFromFullAndRelativePaths)))
                     .Bind(held => IO.lift(() => Refused.Unless(
                         doc.InstanceDefinitions.ModifySourceArchive(definition.Index, held, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive)))),
-                static reference => DisposalOps.Release(Conversions.Rows(new[] { reference })))
+                static reference => DisposalOps.Release(Conversions.Rows([reference])))
             select modified;
     }
 
@@ -240,7 +240,7 @@ public static class Definitions {
                     byCamera: static (target, camera) =>
                         target.Definition.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, target.Pixels, camera.ApplyDpiScaling)),
                 bitmap => IO.lift(() => Missing.Unless(bitmap, nameof(InstanceDefinition.CreatePreviewBitmap))).Bind(body),
-                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap })))
+                static bitmap => DisposalOps.Release(Conversions.Rows([bitmap])))
         select result;
 
     // --- [WRITES]

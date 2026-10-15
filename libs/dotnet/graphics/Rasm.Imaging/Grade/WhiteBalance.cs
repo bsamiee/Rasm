@@ -26,7 +26,7 @@ public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) 
             foreach (Vector4 pixel in frame.View.Span.GetRowSpan((int)(line - frame.Origin.Y)).Slice((int)(bounds.Left - frame.Origin.X), width))
                 sum += pixel.W > 0f && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(pixel.AsVector3())) ? Vector256.Create(pixel.X, pixel.Y, pixel.Z, 1d) : Vector256<double>.Zero;
         }
-        return sum[3] == 0d
+        return sum[3] is 0d
             ? new EmptyRegion(bounds)
             : Adaptation.Correlate(working, Vector256.Narrow(sum / sum[3], Vector256<double>.Zero).GetLower().AsVector3())
                 .Map(static white => new WhiteBalanceState(white.Temperature, white.Tint));

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-visible-member
+language: csharp
+rule:
+    any:
+        - kind: 'field_declaration, event_field_declaration, property_declaration, indexer_declaration, event_declaration, method_declaration'
+          all:
+            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - not: {has: {kind: modifier, regex: '^private$'}}
+        - kind: parameter
+          inside: {kind: parameter_list, inside: {kind: record_declaration}}
+    not:
+        inside:
+            stopBy: end
+            kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'
+            not: {has: {kind: modifier, regex: '^public$'}}

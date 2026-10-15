@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-size-windows
+language: rust
+severity: error
+utils:
+    adjacent-order:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(<|<=|>|>=)$'}
+            - has: {field: left, kind: index_expression, regex: '\[\s*[01]\s*\]$'}
+            - has: {field: right, kind: index_expression, regex: '\[\s*[01]\s*\]$'}
+    order-check:
+        kind: field_expression
+        all:
+            - has: {field: field, regex: '^all$'}
+            - inside: {kind: call_expression, has: {field: arguments, has: {kind: closure_expression, has: {field: body, matches: adjacent-order}}}}
+rule:
+    kind: call_expression
+    all:
+        - pattern: $S.windows($N)
+        - has: {field: arguments, has: {kind: integer_literal}}
+        - not: {all: [{regex: '\.windows\s*\(\s*2\s*\)$'}, {inside: {matches: order-check}}]}
+        - not: {pattern: '$R.collect::<Vec<$_>>().windows($N)'}
+        - not: {matches: rust-domain-span}
+fix: '$S.array_windows::<$N>()'
+message: '`$S.windows($N)` slides a literal-size window as a runtime slice'
+note: 'Call `<slice>.array_windows::<N>()`, `array_windows` yields `&[T; N]` with constant indexes `indexing_slicing` accepts and a `|[left, right]|` destructuring pattern. `no-sortedness-by-windows` owns `windows(2).all(..)` over adjacent order and `no-collected-windows` a collected `Vec`'

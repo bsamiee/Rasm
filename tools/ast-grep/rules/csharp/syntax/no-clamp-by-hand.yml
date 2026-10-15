@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-clamp-by-hand
+language: csharp
+severity: error
+utils:
+    clamp-owner:
+        any:
+            - kind: predefined_type
+              regex: '^(sbyte|byte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal)$'
+            - regex: '^((global::)?System\.)?(Math|MathF)$'
+    literal:
+        any:
+            - kind: 'integer_literal, real_literal'
+            - {kind: prefix_unary_expression, regex: '^-', has: {kind: 'integer_literal, real_literal'}}
+    pair:
+        kind: argument_list
+        all:
+            - has: {kind: argument, nthChild: 2}
+            - not: {has: {kind: argument, nthChild: 3}}
+            - not: {has: {kind: argument, has: {field: name, kind: identifier}}}
+    bound-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: expression, matches: clamp-owner, pattern: $OWNER}}
+            - has: {field: arguments, matches: pair}
+    inner-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $OWNER}}
+            - has: {field: arguments, matches: pair, has: {kind: argument, has: {pattern: $X, not: {matches: literal}}}}
+    lower:
+        kind: binary_expression
+        any:
+            - all: [{has: {field: left, pattern: $X}}, {has: {field: operator, regex: '^<=?$'}}, {has: {field: right, matches: literal, pattern: $LO}}]
+            - all: [{has: {field: left, matches: literal, pattern: $LO}}, {has: {field: operator, regex: '^>=?$'}}, {has: {field: right, pattern: $X}}]
+    upper:
+        kind: binary_expression
+        any:
+            - all: [{has: {field: left, pattern: $X}}, {has: {field: operator, regex: '^>=?$'}}, {has: {field: right, matches: literal, pattern: $HI}}]
+            - all: [{has: {field: left, matches: literal, pattern: $HI}}, {has: {field: operator, regex: '^<=?$'}}, {has: {field: right, pattern: $X}}]
+rule:
+    pattern: $CLAMP
+    any:
+        - all:
+            - matches: bound-call
+            - has: {field: function, has: {field: name, regex: '^Min$'}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $HI}}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: inner-call, has: {field: function, has: {field: name, regex: '^Max$'}}}}}
+            - has: {field: arguments, has: {kind: argument, has: {kind: invocation_expression, has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $LO}}}}}}
+        - all:
+            - matches: bound-call
+            - has: {field: function, has: {field: name, regex: '^Max$'}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $LO}}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: inner-call, has: {field: function, has: {field: name, regex: '^Min$'}}}}}
+            - has: {field: arguments, has: {kind: argument, has: {kind: invocation_expression, has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $HI}}}}}}
+        - kind: conditional_expression
+          any:
+            - all:
+                - has: {field: condition, matches: lower, pattern: $TEST}
+                - has: {field: consequence, pattern: $LO}
+                - has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: upper}}, {has: {field: consequence, pattern: $HI}}, {has: {field: alternative, pattern: $X}}]}
+            - all:
+                - has: {field: condition, matches: upper, pattern: $TEST}
+                - has: {field: consequence, pattern: $HI}
+                - has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: lower}}, {has: {field: consequence, pattern: $LO}}, {has: {field: alternative, pattern: $X}}]}
+transform:
+    CLAMPER: {replace: {source: $OWNER, replace: '^((global::)?System\.)?MathF$', by: float}}
+    TERNARY: {replace: {source: $TEST, replace: '(?s)^.+$', by: Math}}
+fix: $CLAMPER$TERNARY.Clamp($X, $LO, $HI)
+message: '`$CLAMP` bounds a value between two constant limits by hand'
+note: 'Call `Clamp(value, min, max)` on the owner of the type, one call naming both limits'

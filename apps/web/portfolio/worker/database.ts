@@ -1,14 +1,13 @@
 import { D1Client } from '@effect/sql-d1';
-import { type Cause, Crypto, Effect, flow, Match, Option, type PlatformError, Record, Schema } from 'effect';
-import { Hex } from 'effect/encoding';
-import { Etag } from 'effect/http';
+import { contentEtag, unavailable } from '@rasm/hosting/http.ts';
+import { Effect, flow, Match, Option, Record, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';
 import { findOne, findOneOption } from 'effect/sql/SqlSchema';
 import type { Statement } from 'effect/sql/Statement';
 import { isPreconditionFailure } from 'partial-content';
 import { PreconditionFailed } from '../model/api.ts';
 import { ImageAsset, PdfAsset, VideoAsset } from '../model/asset.ts';
-import { PortfolioData, type StoredPortfolio } from '../model/document.ts';
+import { PortfolioData, StoredPortfolio } from '../model/document.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,14 +15,10 @@ const emptyBody = JSON.stringify({ name: '', introduction: '', email: '', entrie
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [SERVICE_UNAVAILABLE]
-const unavailable = (error: Cause.YieldableError): Effect.Effect<never, HttpApiError.ServiceUnavailable> => Effect.andThen(Effect.logError(error), Effect.fail(new HttpApiError.ServiceUnavailable()));
-
 // --- [DOCUMENTS]
 const portfolioReferences = (sql: D1Client.D1Client): Statement<{ state: string; assetId: string }> => sql`SELECT state, j.value ->> '$.assetId' AS asset_id
     FROM documents d, json_tree(d.body) j
     WHERE CASE WHEN j.type = 'object' THEN json_type(j.value,'$.assetId') END = 'text'`;
-const contentEtag = (body: string): Effect.Effect<string, PlatformError.PlatformError, Crypto.Crypto> => Crypto.Crypto.use((crypto) => crypto.digest('SHA-256', new TextEncoder().encode(body))).pipe(Effect.map((digest) => Etag.toString({ _tag: 'Strong', value: Hex.encode(digest) })));
 const readDocument = flow(
     findOne({
         Request: Schema.Literals(['draft', 'published']),
@@ -61,9 +56,9 @@ const writeDocument = Effect.fn('writeDocument')(
             execute: () => sql`SELECT COALESCE((SELECT body FROM documents WHERE state = 'draft'),${emptyBody}) AS body`,
         })(undefined);
         if (isPreconditionFailure(new Headers({ 'if-match': etag }), yield* contentEtag(previous.body), undefined)) {
-            return yield* new PreconditionFailed();
+            return yield* PreconditionFailed.make();
         }
-        const body = JSON.stringify(portfolio);
+        const body = yield* Schema.encodeEffect(Schema.fromJsonString(StoredPortfolio))(portfolio);
         const digest = yield* contentEtag(body);
         const unchanged = sql`COALESCE((SELECT body FROM documents WHERE state = 'draft'),${emptyBody}) = ${previous.body}`;
         const references = sql`NOT EXISTS (
@@ -96,8 +91,8 @@ const writeDocument = Effect.fn('writeDocument')(
         })(undefined);
         return yield* Match.value(result.status).pipe(
             Match.when('saved', () => Effect.succeed(digest)),
-            Match.when('stale', () => Effect.fail(new PreconditionFailed())),
-            Match.when('missing', () => Effect.fail(new HttpApiError.Conflict())),
+            Match.when('stale', () => Effect.fail(PreconditionFailed.make())),
+            Match.when('missing', () => Effect.fail(HttpApiError.Conflict.make())),
             Match.exhaustive,
         );
     },
@@ -107,7 +102,7 @@ const writeDocument = Effect.fn('writeDocument')(
 // --- [ASSETS]
 const readAsset = flow(
     findOne({
-        Request: Schema.Struct({ id: Schema.String, width: Schema.OptionFromNullOr(Schema.Number) }),
+        Request: Schema.Struct({ id: Schema.String, width: Schema.OptionFromNullOr(Schema.Finite) }),
         Result: Schema.Struct({ mime: Schema.String, published: Schema.BooleanFromBit, objectKey: Schema.String }),
         execute: (request) =>
             D1Client.D1Client.use(
@@ -124,7 +119,7 @@ const readAsset = flow(
             `,
             ),
     }),
-    Effect.catchTag('NoSuchElementError', () => Effect.fail(new HttpApiError.NotFound())),
+    Effect.catchTag('NoSuchElementError', () => Effect.fail(HttpApiError.NotFound.make())),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 
@@ -146,4 +141,4 @@ const registerOwner = flow(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ownerUserId, portfolioReferences, readAsset, readDocument, registerOwner, unavailable, writeDocument };
+export { ownerUserId, portfolioReferences, readAsset, readDocument, registerOwner, writeDocument };

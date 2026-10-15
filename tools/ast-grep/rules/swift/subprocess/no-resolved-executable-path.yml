@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-resolved-executable-path
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {nthChild: 1, regex: '^((Subprocess\.)?run|(Subprocess\.)?Configuration(\.init)?)$'}
+        - has: {stopBy: end, kind: value_argument, all: [{has: {field: name, regex: '^environment$'}}, {has: {field: value, pattern: $ENVIRONMENT}}]}
+        - has:
+            stopBy: end
+            kind: call_expression
+            regex: '^((Subprocess\.)?Executable)?\.path\('
+            pattern: $PATH
+            has: {kind: call_suffix, has: {stopBy: end, kind: value_argument, has: {field: value, kind: simple_identifier, pattern: $RESOLVED}}}
+        - inside:
+            stopBy: end
+            kind: statements
+            has:
+                kind: property_declaration
+                all:
+                    - has: {field: name, has: {field: bound_identifier, pattern: $RESOLVED}}
+                    - has: {stopBy: end, kind: call_expression, pattern: '$_.resolveExecutablePath(in: $ENVIRONMENT)'}
+message: '`$PATH` runs a path that `resolveExecutablePath(in:)` found under the environment the child receives'
+note: 'Run `Executable.name(_:)` with that environment, Subprocess searches the same `PATH` at spawn and reports a missing executable as `SubprocessError.Code.executableNotFound`'

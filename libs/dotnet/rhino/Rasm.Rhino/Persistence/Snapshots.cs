@@ -30,10 +30,10 @@ public abstract partial record SnapshotChange {
     public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange;
 
     internal (string Script, Seq<(SnapshotName Name, bool Present)> Before) Request => Switch(
-        save: static change => ($"_-Snapshots _Save _Parameters=_All \"{change.Name}\" _Enter", Seq((change.Name, false))),
-        restore: static change => ($"_-Snapshots _Restore \"{change.Name}\" _Enter _Enter", Seq((change.Name, true))),
-        delete: static change => ($"_-Snapshots _Delete \"{change.Name}\" _Enter", Seq((change.Name, true))),
-        rename: static change => ($"_-Snapshots _Rename \"{change.Name}\" \"{change.NewName}\" _Enter", Seq((change.Name, true), (change.NewName, false))));
+        save: static change => ($"""_-Snapshots _Save _Parameters=_All "{change.Name}" _Enter""", Seq((change.Name, false))),
+        restore: static change => ($"""_-Snapshots _Restore "{change.Name}" _Enter _Enter""", Seq((change.Name, true))),
+        delete: static change => ($"""_-Snapshots _Delete "{change.Name}" _Enter""", Seq((change.Name, true))),
+        rename: static change => ($"""_-Snapshots _Rename "{change.Name}" "{change.NewName}" _Enter""", Seq((change.Name, true), (change.NewName, false))));
 }
 
 public sealed record SnapshotObject(RhinoDoc Doc, RhinoObject Object, Transform Transform);
@@ -163,9 +163,7 @@ public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : Sna
     public sealed override bool PrepareForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
         Callbacks.Succeeded(
             from state in definition.Document
-            select from frames in state.Prepare(doc, archive_start, archive_stop)
-                   from stored in IO.lift(() => documentFrames.Swap(_ => frames))
-                   select unit,
+            select state.Prepare(doc, archive_start, archive_stop).Bind(frames => writeIO(documentFrames, frames)).Map(unit),
             static () => false, CallbackSite.Of(this));
 
     public sealed override void ExtendBoundingBoxForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
@@ -197,7 +195,7 @@ public abstract class DefinedSnapshotClient(SnapshotDefinition definition) : Sna
 
     public sealed override bool AnimationStop(RhinoDoc doc) =>
         Callbacks.Succeeded(
-            from document in IO.lift(() => documentFrames.Swap(static _ => Option<SnapshotFrames<RhinoDoc>>.None))
+            from document in writeIO(documentFrames, None)
             from objects in IO.lift(objectFrames.Clear)
             select unit,
             CallbackSite.Of(this));
@@ -239,7 +237,7 @@ public static class NamedSnapshots {
         select ran;
 
     public static IO<Unit> RunSnapshot(RhinoDoc doc, Seq<SnapshotChange> changes) =>
-        changes.TraverseM(change => RunSnapshot(doc, change)).As().Map(static _ => unit);
+        changes.TraverseM(change => RunSnapshot(doc, change)).As().Map(unit);
 
     // --- [SCOPES]
     public static IO<T> WithSnapshot<T>(RhinoDoc doc, SnapshotName held, Option<SnapshotName> target, IO<T> body) =>

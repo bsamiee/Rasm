@@ -1,14 +1,14 @@
 """Registration bands, row acquisitions, and an extension's resource scope."""
 
-from collections.abc import Callable, Generator, Iterable
-from contextlib import AbstractContextManager, contextmanager, ExitStack
+from collections.abc import Callable, Iterable
+from contextlib import AbstractContextManager, ExitStack
 from enum import auto, Enum
 from functools import reduce
 from itertools import chain
 from typing import NoReturn, Protocol, runtime_checkable
 
 import bpy
-from expression import Option, Result
+from expression import Error, Ok, Option, Result
 
 from blender.bpy.extension.classes import Classes
 from blender.bpy.extension.identity import Identity
@@ -34,7 +34,6 @@ class Band(Enum):
     SUBSCRIPTIONS = auto()
     TIMERS = auto()
     REGISTRIES = auto()
-    PREFERENCE_ROWS = auto()
 
 
 type Acquisition = type | AbstractContextManager[BlenderResult[None] | None]
@@ -82,20 +81,6 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
     """
     held = ExitStack()
 
-    @contextmanager
-    def released(preference_rows: ExitStack) -> Generator[None]:
-        """Releases preference rows before Blender's quit preference save."""
-
-        def closed(_: object) -> None:
-            """Closes the preference-row band at the host exit boundary."""
-            preference_rows.close()
-
-        bpy.app.handlers.exit_pre.append(bpy.app.handlers.persistent(closed))
-        try:
-            yield
-        finally:
-            bpy.app.handlers.exit_pre.remove(closed)
-
     def merged() -> None:
         """Merges user keymap edits after the release unregisters their operators, keeping each edit's operator properties for the next enable."""
         for manager in Option.of_optional(bpy.context.window_manager).to_list():
@@ -106,7 +91,6 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
         stack.callback(merged)
         stack.enter_context(identity.reports)
         stacks = {band: stack.enter_context(ExitStack()) for band in Band}
-        stack.enter_context(released(stacks[Band.PREFERENCE_ROWS]))
         schema = (Band.GROUPS, Band.ATTACHMENTS)
         declarations: list[Registrable] = []
         acquired_pairs: list[tuple[Band, Acquisition]] = []
@@ -118,25 +102,28 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
                 if (answer := entered(stacks[band], tuple(acquisition for _, acquisition in fresh))).is_error():
                     return answer
                 acquired_pairs.extend(fresh)
-            return Result(ok=None)
+            return Ok(None)
 
         def built(pairs: tuple[tuple[Band, Acquisition], ...], row: Registrable | tuple[Band, Acquisition]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
             """Constructs each declaration once and enters each new schema at its first use."""
             if not isinstance(row, Registrable):
-                return Result(ok=pairs if row in pairs else (*pairs, row))
+                return Ok(pairs if row in pairs else (*pairs, row))
             if any(row is declaration for declaration in declarations):
-                return Result(ok=pairs)
-            if (prerequisite := walked(schema, pairs)).is_error():
-                return Result(error=prerequisite.error)
-            declarations.append(row)
-            answer = row.acquisitions(identity)
-            acquired = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
-            return acquired.bind(
-                lambda members: reduce(lambda result, member: result.bind(lambda held: built(held, member)), members, Result[tuple[tuple[Band, Acquisition], ...], BlenderFaults](ok=pairs))
-            ).bind(lambda held: walked(schema, held).map(lambda _: held))
+                return Ok(pairs)
+            match walked(schema, pairs):
+                case Result(tag="error", error=faults):
+                    return Error(faults)
+                case Result(ok=_):
+                    declarations.append(row)
+                    answer = row.acquisitions(identity)
+                    acquired = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
+                    return acquired.bind(lambda members: folded(pairs, members)).bind(lambda held: walked(schema, held).map(lambda _: held))
 
-        answered = reduce(lambda result, row: result.bind(lambda pairs: built(pairs, row)), rows, Result[tuple[tuple[Band, Acquisition], ...], BlenderFaults](ok=()))
-        return answered.bind(lambda pairs: walked((band for band in Band if band not in schema), pairs))
+        def folded(pairs: tuple[tuple[Band, Acquisition], ...], rows: Iterable[Registrable | tuple[Band, Acquisition]]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+            """Builds rows in order from the pairs already acquired."""
+            return reduce(lambda result, row: result.bind(lambda held: built(held, row)), rows, Result[tuple[tuple[Band, Acquisition], ...], BlenderFaults](ok=pairs))
+
+        return folded((), rows).bind(lambda pairs: walked((band for band in Band if band not in schema), pairs))
 
     def refused(faults: BlenderFaults) -> NoReturn:
         """Renders typed failures at Blender's registration exception boundary."""

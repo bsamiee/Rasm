@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unit-option-result
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $B.then_some(()).$OK($E)
+            - pattern: '$B.then(|| ()).$OK($E)'
+constraints:
+    OK: {regex: '^ok_or(_else)?$'}
+fix: $B.$OK($E)
+message: '`$B` builds an `Option<()>` only to convert it into a `Result`'
+note: 'Call `<condition>.ok_or(<error>)` or `<condition>.ok_or_else(<closure>)` (`bool::ok_or`, Rust 1.98), each returns `Ok(())` for `true` and the error for `false` with no `Option` between. `no-bool-result-branch` owns the `if` form'

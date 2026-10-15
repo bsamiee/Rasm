@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetExt>.rhp</TargetExt>
-        <Description>Historical arch profiles from picked span, apex, and foil inputs</Description>
+        <Description>Draws historical arch profiles as joined curves from picked span ends, apex or rise, and foil count, with live preview</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Packages">

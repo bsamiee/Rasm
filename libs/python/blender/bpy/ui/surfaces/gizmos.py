@@ -6,7 +6,7 @@ from functools import partial
 from typing import ClassVar, Literal, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import mathutils
 import msgspec
@@ -185,7 +185,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 gizmo.target_set_handler(
                     key,
                     get=lambda: handler.get(context),
-                    set=lambda value: write(context, value).default_value(None),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    set=lambda value: write(context, value).to_optional(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                     range=handler.range.map(lambda extent: partial(extent, context)).to_optional(),
                 )
                 return Ok(None)
@@ -231,22 +231,16 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 if not isinstance(binding, tuple):
                     return binding(gizmo, context)
                 key, member = binding
-                result = reached(member, context)
-                match result.tag:
-                    case "error":
-                        return Error(result.error)
-                    case "ok":
-                        found = result.ok
-                match found.tag:
-                    case "none":
-                        return Ok(None)
-                    case "some":
-                        held = found.some
-                        try:
-                            for owner, identifier in located(held, context, context).to_list():
-                                gizmo.target_set_prop(key, owner, identifier, index=held.descriptor.index.default_value(-1))
-                        except RuntimeError as error:
-                            return Error((BlenderEditFault(request=held.descriptor.path, error=error),))
+                match reached(member, context):
+                    case Result(tag="error", error=faults):
+                        return Error(faults)
+                    case Result(ok=found):
+                        for held in found.to_list():
+                            try:
+                                for owner, identifier in located(held, context, context).to_list():
+                                    gizmo.target_set_prop(key, owner, identifier, index=held.descriptor.index.default_value(-1))
+                            except RuntimeError as error:
+                                return Error((BlenderEditFault(request=held.descriptor.path, error=error),))
                         return Ok(None)
 
             def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:

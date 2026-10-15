@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-generator-by-hand
+language: rust
+severity: error
+rule:
+    kind: 'integer_literal, compound_assignment_expr'
+    pattern: $STEP
+    any:
+        - kind: integer_literal
+          regex: '(?i)^(6_*3_*6_*4_*1_*3_*6_*2_*2_*3_*8_*4_*6_*7_*9_*3_*0_*0_*5|1_*4_*4_*2_*6_*9_*5_*0_*4_*0_*8_*8_*8_*9_*6_*3_*4_*0_*7|0x_*5_*8_*5_*1_*f_*4_*2_*d_*4_*c_*9_*5_*7_*f_*2_*d|0x_*1_*4_*0_*5_*7_*b_*7_*e_*f_*7_*6_*7_*8_*1_*4_*f)_*([iu](64|128))?$'
+        - kind: compound_assignment_expr
+          all:
+            - pattern: $X ^= $X << 13
+            - inside:
+                kind: expression_statement
+                inside:
+                    kind: block
+                    has:
+                        kind: expression_statement
+                        has: {kind: compound_assignment_expr, pattern: $X ^= $X >> $_}
+message: '`$STEP` steps a linear congruential or xorshift generator by hand'
+note: 'Draw from a rand generator seeded through `SeedableRng::seed_from_u64(seed)` and passed into the domain function: `rand::rngs::StdRng` for a seeded stream or `rand::rngs::ChaCha8Rng` for a stream reproducible across rand releases'

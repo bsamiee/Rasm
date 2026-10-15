@@ -1,5 +1,7 @@
 """Blender failures and the result shared by Blender operations."""
 
+from importlib.resources.abc import Traversable
+from pathlib import Path
 from typing import Protocol, TYPE_CHECKING
 import zoneinfo
 
@@ -67,7 +69,7 @@ class BlenderAbsentFault(msgspec.Struct, frozen=True, kw_only=True):
     key: str | int
 
 
-class BlenderCollisionFault(Refusal[str, str], frozen=True):
+class BlenderCollisionFault(Refusal[str, str | Path], frozen=True):
     """Requested name or placement occupied."""
 
 
@@ -81,11 +83,11 @@ class BlenderOperatorFault(Refusal[str, RuntimeError | frozenset["rna_enums.Oper
     """Operator that refused its call or returned no success."""
 
 
-class BlenderReadFault(Refusal[str, msgspec.DecodeError | TypeError | ValueError | OSError | KeyError | NotImplementedError | MemoryError], frozen=True):
+class BlenderReadFault(Refusal[str | Traversable, msgspec.DecodeError | TypeError | ValueError | OSError | KeyError | NotImplementedError | MemoryError], frozen=True):
     """File or stored form its reader refused."""
 
 
-class BlenderWriteFault(Refusal[str, OSError], frozen=True):
+class BlenderWriteFault(Refusal[str | Path, OSError], frozen=True):
     """Folder or file its writer refused."""
 
 
@@ -98,11 +100,21 @@ class BlenderImagingFault(msgspec.Struct, frozen=True, kw_only=True):
 
     faults: ImagingFaults
 
+    @classmethod
+    def lifted(cls, faults: ImagingFaults) -> BlenderFaults:
+        """Carries the imaging faults as one Blender fault."""
+        return (cls(faults=faults),)
+
 
 class BlenderRenderingFault(msgspec.Struct, frozen=True, kw_only=True):
     """Complete fault tuple from a rendering operation."""
 
     faults: RenderingFaults
+
+    @classmethod
+    def lifted(cls, faults: RenderingFaults) -> BlenderFaults:
+        """Carries the rendering faults as one Blender fault."""
+        return (cls(faults=faults),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

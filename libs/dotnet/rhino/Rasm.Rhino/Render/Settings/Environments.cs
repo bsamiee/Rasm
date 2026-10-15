@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
@@ -54,23 +53,6 @@ public sealed record BackgroundState(
             return accepted;
         }));
 
-    public static ParameterText Text(BackgroundParameter parameter) =>
-        parameter.Map(
-            style: ParameterText.Enumeration<BackgroundStyle>("Background", "What the rendering shows behind the scene",
-                static style => style switch {
-                    BackgroundStyle.SolidColor => "Solid color",
-                    BackgroundStyle.WallpaperImage => "Wallpaper",
-                    BackgroundStyle.Gradient => "Gradient",
-                    BackgroundStyle.Environment => "360˚ Environment",
-                    _ => throw new UnreachableException(),
-                }),
-            backgroundColorTop: ParameterText.Of("Solid color", "Background color, the top of a gradient"),
-            backgroundColorBottom: ParameterText.Of("Gradient", "Bottom color of a gradient background"),
-            backdropEnvironment: ParameterText.Of("Background environment", "Environment used by an environment background") with { Absent = Some("None") },
-            scaleBackgroundToFit: ParameterText.Of("Stretch to fit", "Stretches the viewport's wallpaper to the rendering"),
-            reflectionOverride: ParameterText.Of("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"),
-            reflectionEnvironment: ParameterText.Of("Reflection environment", "Environment selected for custom reflections") with { Absent = Some("None") });
-
     public static RowRules Rules(RowSource<BackgroundState> source, BackgroundParameter parameter) =>
         parameter.Map(
             style: RowRules.Always,
@@ -89,23 +71,39 @@ public sealed record BackgroundState(
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class BackgroundParameter : IStateParameter<BackgroundState> {
+public sealed partial class BackgroundParameter : IRowParameter<BackgroundState> {
     public static readonly BackgroundParameter Style = new("background-style", new StateParameter<BackgroundState>.Enumerated<BackgroundStyle>(
-        Lens<BackgroundState, BackgroundStyle>.New(static state => state.BackgroundStyle, static style => state => state with { BackgroundStyle = style })));
+        Lens<BackgroundState, BackgroundStyle>.New(static state => state.BackgroundStyle, static style => state => state with { BackgroundStyle = style })),
+        ParameterText.Enumeration<BackgroundStyle>("Background", "What the rendering shows behind the scene",
+            static style => style switch {
+                BackgroundStyle.SolidColor => "Solid color",
+                BackgroundStyle.WallpaperImage => "Wallpaper",
+                BackgroundStyle.Gradient => "Gradient",
+                BackgroundStyle.Environment => "360˚ Environment",
+                _ => throw new UnreachableException(),
+            }));
     public static readonly BackgroundParameter BackgroundColorTop = new("background-color-top", new StateParameter<BackgroundState>.Color(
-        Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color })));
+        Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color })),
+        ParameterText.Of("Solid color", "Background color, the top of a gradient"));
     public static readonly BackgroundParameter BackgroundColorBottom = new("background-color-bottom", new StateParameter<BackgroundState>.Color(
-        Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color })));
+        Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color })),
+        ParameterText.Of("Gradient", "Bottom color of a gradient background"));
     public static readonly BackgroundParameter BackdropEnvironment = new("backdrop-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
-        Lens<BackgroundState, Option<Guid>>.New(static state => state.BackdropEnvironment, static environment => state => state with { BackdropEnvironment = environment })));
+        Lens<BackgroundState, Option<Guid>>.New(static state => state.BackdropEnvironment, static environment => state => state with { BackdropEnvironment = environment })),
+        ParameterText.Of("Background environment", "Environment used by an environment background") with { Absent = Some("None") });
     public static readonly BackgroundParameter ScaleBackgroundToFit = new("scale-background-to-fit", new StateParameter<BackgroundState>.Toggle(
-        Lens<BackgroundState, bool>.New(static state => state.ScaleBackgroundToFit, static on => state => state with { ScaleBackgroundToFit = on })));
+        Lens<BackgroundState, bool>.New(static state => state.ScaleBackgroundToFit, static on => state => state with { ScaleBackgroundToFit = on })),
+        ParameterText.Of("Stretch to fit", "Stretches the viewport's wallpaper to the rendering"));
     public static readonly BackgroundParameter ReflectionOverride = new("custom-env-for-refl-and-refr-on", new StateParameter<BackgroundState>.Toggle(
-        Lens<BackgroundState, bool>.New(static state => state.ReflectionOverride, static on => state => state with { ReflectionOverride = on })));
+        Lens<BackgroundState, bool>.New(static state => state.ReflectionOverride, static on => state => state with { ReflectionOverride = on })),
+        ParameterText.Of("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"));
     public static readonly BackgroundParameter ReflectionEnvironment = new("reflection-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
-        Lens<BackgroundState, Option<Guid>>.New(static state => state.ReflectionEnvironment, static environment => state => state with { ReflectionEnvironment = environment })));
+        Lens<BackgroundState, Option<Guid>>.New(static state => state.ReflectionEnvironment, static environment => state => state with { ReflectionEnvironment = environment })),
+        ParameterText.Of("Reflection environment", "Environment selected for custom reflections") with { Absent = Some("None") });
 
     public StateParameter<BackgroundState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverride, Option<Guid> SkylightingEnvironment)
@@ -131,12 +129,6 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
                 return accepted;
             })));
 
-    public static ParameterText Text(LightingParameter parameter) =>
-        parameter.Map(
-            skylightEnabled: ParameterText.Of("Skylight", "Lights the scene with the skylighting environment"),
-            skylightingOverride: ParameterText.Of("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"),
-            skylightingEnvironment: ParameterText.Of("Skylighting environment", "Environment selected for custom skylighting") with { Absent = Some("None") });
-
     public static RowRules Rules(RowSource<LightingState> source, LightingParameter parameter) =>
         parameter.Map(
             skylightEnabled: RowRules.Always,
@@ -149,15 +141,20 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
 [ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LightingParameter : IStateParameter<LightingState> {
+public sealed partial class LightingParameter : IRowParameter<LightingState> {
     public static readonly LightingParameter SkylightEnabled = new("skylight-on", new StateParameter<LightingState>.Toggle(
-        Lens<LightingState, bool>.New(static state => state.SkylightEnabled, static on => state => state with { SkylightEnabled = on })));
+        Lens<LightingState, bool>.New(static state => state.SkylightEnabled, static on => state => state with { SkylightEnabled = on })),
+        ParameterText.Of("Skylight", "Lights the scene with the skylighting environment"));
     public static readonly LightingParameter SkylightingOverride = new("skylight-custom-environment-on", new StateParameter<LightingState>.Toggle(
-        Lens<LightingState, bool>.New(static state => state.SkylightingOverride, static on => state => state with { SkylightingOverride = on })));
+        Lens<LightingState, bool>.New(static state => state.SkylightingOverride, static on => state => state with { SkylightingOverride = on })),
+        ParameterText.Of("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"));
     public static readonly LightingParameter SkylightingEnvironment = new("skylighting-environment", new StateParameter<LightingState>.OptionalRaw<Guid>(
-        Lens<LightingState, Option<Guid>>.New(static state => state.SkylightingEnvironment, static environment => state => state with { SkylightingEnvironment = environment })));
+        Lens<LightingState, Option<Guid>>.New(static state => state.SkylightingEnvironment, static environment => state => state with { SkylightingEnvironment = environment })),
+        ParameterText.Of("Skylighting environment", "Environment selected for custom skylighting") with { Absent = Some("None") });
 
     public StateParameter<LightingState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

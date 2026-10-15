@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-termination-status-by-pattern
+language: swiftlang
+severity: error
+utils:
+    exited-zero:
+        regex: '^((Subprocess\.)?TerminationStatus)?\.exited\(0\)$'
+    plain-operand:
+        kind: 'simple_identifier, navigation_expression, call_expression'
+rule:
+    pattern: $SITE
+    any:
+        - kind: equality_expression
+          all:
+            - has: {matches: exited-zero}
+            - has: {matches: plain-operand, not: {matches: exited-zero}}
+        - kind: infix_expression
+          all:
+            - has: {field: op, regex: '^!=$'}
+            - has: {matches: exited-zero}
+            - has: {matches: plain-operand, not: {matches: exited-zero}}
+        - kind: 'if_statement, guard_statement'
+          all:
+            - has: {kind: simple_identifier, regex: '^exited$', follows: {regex: '^\.$', follows: {regex: '^case$'}}}
+            - has: {kind: pattern, regex: '^0$'}
+            - has: {kind: 'simple_identifier, navigation_expression', regex: '^[\w.]+$', follows: {regex: '^=$'}}
+transform:
+    CONDITION: {replace: {source: $SITE, replace: 'case\s+((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*=\s*([\w.]+)', by: '${3}.isSuccess'}}
+    BRANCH: {replace: {source: $CONDITION, replace: '(?s)^if ([\w.]+\.isSuccess) \{\s*true\s*\} else \{\s*false\s*\}$', by: '$1'}}
+    EQUAL: {replace: {source: $BRANCH, replace: '(?s)^(.+?)\s*==\s*((Subprocess\.)?TerminationStatus)?\.exited\(0\)$', by: '${1}.isSuccess'}}
+    UNEQUAL: {replace: {source: $EQUAL, replace: '(?s)^(.+?)\s*!=\s*((Subprocess\.)?TerminationStatus)?\.exited\(0\)$', by: '!${1}.isSuccess'}}
+    EQUAL_LEFT: {replace: {source: $UNEQUAL, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*==\s*(.+)$', by: '${3}.isSuccess'}}
+    RESULT: {replace: {source: $EQUAL_LEFT, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*!=\s*(.+)$', by: '!${3}.isSuccess'}}
+fix: $RESULT
+message: '`$SITE` tests a `TerminationStatus` for exit code 0 by pattern'
+note: 'Read `isSuccess`, swift-subprocess defines it as exit code 0 and `false` for a signal, the same test without restating the cases'

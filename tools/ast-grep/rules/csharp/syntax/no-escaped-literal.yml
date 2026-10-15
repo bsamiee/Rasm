@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-escaped-literal
+language: csharp
+severity: error
+rule:
+    pattern: $LITERAL
+    any:
+        - kind: 'string_literal, interpolated_string_expression'
+          all:
+            - not: {has: {kind: interpolation_start, regex: '@'}}
+            - has: {kind: 'string_literal_content, string_content, interpolation'}
+            - has: {kind: escape_sequence, regex: '^\\"$'}
+            - not: {has: {kind: escape_sequence, not: {regex: '^\\[\\"]$'}}}
+        - kind: verbatim_string_literal
+          all:
+            - regex: '^@"[^\n]*""[^\n]*"$'
+            - regex: '^@"[^\n]*[^"\n][^\n]*"$'
+        - kind: interpolated_string_expression
+          all:
+            - has: {kind: interpolation_start, regex: '@'}
+            - has: {kind: string_content, regex: '""'}
+            - not: {regex: '\n'}
+message: '`$LITERAL` escapes quotes a raw string literal holds as written'
+note: 'Write the text as a raw string literal, `"""..."""` on one line, or its one content line between `"""` lines when the text starts or ends with a quote, `$$"""` when the text holds braces. Line breaks stay `\n` escapes, MA0135 and MA0136 reject a literal spanning content lines'

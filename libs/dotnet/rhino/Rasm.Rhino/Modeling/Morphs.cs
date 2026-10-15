@@ -134,7 +134,7 @@ public static class Morphs {
     // --- [FLATTENS]
     public static IO<Seq<(GeometryBase Flat, Option<GeometryBase> Source)>> SquishBack(GeometryBase squished, Seq<GeometryBase> marks, Action<IDisposable> retain) =>
         Copies.AcquireSparse(() => Squisher.SquishBack2dMarks(squished, marks)?.ToArray(), nameof(Squisher.SquishBack2dMarks), retain)
-            .Map(back => marks.Zip(back, static (flat, source) => (Flat: flat, Source: source)));
+            .Map(back => marks.Zip(back));
 
     public static IO<Seq<Mesh>> Unwrap(Seq<Mesh> meshes, MeshUnwrapMethod method, Option<Plane> symmetry, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
@@ -198,7 +198,7 @@ public static class Morphs {
         from mesh2d in Copies.Acquire(squisher.Get2dMesh, nameof(Squisher.Get2dMesh), owned)
         from mesh3d in Copies.Acquire(squisher.Get3dMesh, nameof(Squisher.Get3dMesh), owned)
         select new SquishResult<T>(
-            squished.Flat, marks.Zip(squished.Marks, static (source, flat) => (Source: source, Flat: flat)), mesh2d, mesh3d,
-            Conversions.Rows(squisher.GetLengthConstrained2dLines()).Zip(Conversions.Rows(squisher.GetLengthConstrained3dLines()), static (flat, source) => (Flat: flat, Source: source)),
+            squished.Flat, marks.Zip(squished.Marks), mesh2d, mesh3d,
+            Conversions.Rows(squisher.GetLengthConstrained2dLines()).Zip(Conversions.Rows(squisher.GetLengthConstrained3dLines())),
             Conversions.Rows(squisher.GetAreaConstrainedTrianglesIndices()));
 }

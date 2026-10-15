@@ -1,12 +1,12 @@
 ---
 name: agent-builder
-description: "Use when writing, rebuilding, or reviewing an agent definition, covering skill and agent divide, sections, integration, and description."
+description: "Use when writing or reviewing an agent definition, covering skill and agent divide, sections, integration, exclusions, and description."
 argument-hint: "[agent-file]"
 ---
 
 # [AGENT_BUILDER]
 
-Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in a definition states what its agent acts on during a run. Paths, `skills` entries, targets, and MCP tools a definition names exist. Rebuilt definitions keep every command and row of the earlier revision, or the report names the drop.
+Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in a definition states what its agent acts on during a run. Paths, `skills` entries, targets, and MCP tools a definition names exist, and `tools` holds every tool a step calls. Rebuilt definitions keep every command and row of the earlier revision, or the report names the drop.
 
 [REFERENCES]:
 - [01]-[TOOL_FORMS](references/tool-forms.md): Forms and facts per CLI tool, MCP tool, and Nx target
@@ -19,10 +19,10 @@ Agent definitions hold one role with its discovery steps, procedure, and owned f
 |  [02]   | Agent    | One role's purpose, scope its prompt supplies, order it works in                  |
 
 Facts sit once, in skill or agent:
-- Step 1 reads references the role applies as `<reference> of <skill>`, `Skill(<name>)` first for a skill missing from `skills`
+- Step 1 reads each reference the role applies, `Skill(<name>)` first for a skill missing from `skills`
 - References one branch applies sit under its condition
 - Numbered run orders with commands move from a reference into `procedure`, the reference keeps each step's criterion
-- Steps name a reference sequence as `under the <name> sequence of <reference>` with the call or reading it lacks
+- Steps cite a reference section by its heading label as `under [NN]-[LABEL] of <file>` with the call or reading it lacks
 - Mistakes a run showed enter as their implied criterion, a judgment in the skill or a tool behavior as a decision fact
 - Steps repeated across agents with one reading become a rule or a target each agent names
 
@@ -90,6 +90,13 @@ Steps name tools in the form the harness runs:
 - Commands with outputs one reading consumes join one `Bash` call, commands with output that decides the next step run alone
 - MCP tools appear as `mcp__<server>__<tool>`, a plugin server's as `mcp__plugin_<plugin>_<server>__<tool>`, searches take a bounded result count
 - Paths an MCP tool resolves outside the shell are absolute
+- Skills load, preloaded or through `Skill`, with a `Base directory for this skill: <dir>` line
+- Steps read `references/<file>.md` under the base directory of `<skill>`
+- `${CLAUDE_PLUGIN_ROOT}` expands in a plugin agent's body and no other agent's, `${CLAUDE_SKILL_DIR}` in no agent's body
+
+[CODEX_TOOLS]:
+- Skills list each entry as `<skill>: <description> (file: <root>/<folder>/SKILL.md)` over a table of roots, inherited by every agent
+- Steps read `references/<file>.md` beside the `SKILL.md` of `<skill>`
 
 [CLI_TOOLS]:
 - Commands take the documented form with flags `--help` prints

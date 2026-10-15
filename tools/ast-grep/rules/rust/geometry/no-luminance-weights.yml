@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-luminance-weights
+language: rust
+severity: error
+rule:
+    kind: float_literal
+    pattern: $WEIGHT
+    matches: rust-luminance-weight
+message: '`$WEIGHT` restates a Rec. 709 luminance weight'
+note: 'Convert through `palette`, `relative_luminance()` from `palette::color_difference::Wcag21RelativeContrast` on a `palette::Srgb` or `palette::LinSrgb`, or `palette::LinLuma::from_color` for a luma value'

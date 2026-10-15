@@ -100,7 +100,7 @@ def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Oper
         case ShelfPopup(shelf=shelf):
             target, form, operator, values = shelf, Name.SHELF, bpy.ops.wm.call_asset_shelf_popover, {}
     named = identity.name(form, target) if isinstance(target, str) else Ok(target.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    return named.map(lambda identifier: (operator, {"name": identifier, **values}))
+    return named.map(lambda identifier: (operator, {"name": identifier} | values))
 
 
 def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, identity: Identity) -> BlenderResult[None]:

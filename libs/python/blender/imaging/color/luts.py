@@ -42,6 +42,26 @@ class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
         """Converts native format pairs into persistent format records in provider order."""
         return tuple(cls(name=name, extension=extension) for name, extension in formats)
 
+    @classmethod
+    def bakeable(cls) -> tuple[Self, ...]:
+        """Formats the native baker writes."""
+        return cls.of(PyOpenColorIO.Baker.getFormats())
+
+    @classmethod
+    def writable(cls) -> tuple[Self, ...]:
+        """Formats a native transform group writes exactly."""
+        return cls.of(PyOpenColorIO.GroupTransform.GetWriteFormats())
+
+    @classmethod
+    def readable(cls) -> tuple[Self, ...]:
+        """Formats a native file transform reads."""
+        return cls.of(PyOpenColorIO.FileTransform.getFormats())
+
+    @classmethod
+    def matrices(cls) -> tuple[Self, ...]:
+        """Exactly written formats the native baker also writes."""
+        return tuple(row for row in cls.writable() if row in cls.bakeable())
+
 
 class Uniform(Case, frozen=True, kw_only=True, tag=1):
     """Nodes evenly spaced between native allocation endpoints."""
@@ -155,7 +175,7 @@ def image_read(path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenC
         rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
         level = round(np.cbrt(width))
         match height, width:
-            case _ if height == width and level**3 == width:
+            case _ if height == width == level**3:
                 size = level**2
                 plane = rgb.reshape(size, size * size, 3)
             case _ if width == height * height:

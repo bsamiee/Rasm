@@ -52,6 +52,7 @@ const PortfolioData = Schema.make<Schema.Codec<typeof envelope.Type, typeof enve
 );
 const Session = Schema.Union([Schema.Struct({ kind: Schema.Literal('owner') }), Schema.Struct({ kind: Schema.Literal('visitor'), signedIn: Schema.Boolean })]);
 const Bootstrap = Schema.Struct({ initial: PortfolioData, session: Session });
+const shell = { root: 'portfolio', data: 'portfolio-data', schema: Bootstrap } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -60,4 +61,4 @@ const createEntry = (id: string, kind: typeof Entry.Type.kind): typeof Entry.Typ
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Bootstrap, createEntry, Entry, Portfolio, PortfolioData, placements, Session, StoredPortfolio };
+export { createEntry, Entry, Portfolio, PortfolioData, placements, Session, StoredPortfolio, shell };

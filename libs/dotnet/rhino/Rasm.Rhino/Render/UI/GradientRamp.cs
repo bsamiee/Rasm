@@ -66,7 +66,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
     protected override Seq<PlotMark<RampPart>> Layout(GradientRampState state, SizeF size, float scale) =>
         new PlotMark<RampPart>(new MarkShape.Band(Bar(state, size)), Frame, Some(new MarkPart<RampPart>(new RampPart.Bar(), 0f)))
             .Cons(state.Switch(size,
-                editor: static (held, editor) => Knots(editor, Plane(Bar(editor, held))),
+                editor: static (held, editor) => Knots(editor, PlotPlane.Cartesian.Unit(Bar(editor, held))),
                 key: static (_, _) => Seq<PlotMark<RampPart>>()));
 
     protected override PartFacet Facet(GradientRampState state, RampPart key) =>
@@ -81,8 +81,6 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         state.Switch(size,
             editor: static (held, _) => new RectangleF(KnotWidth / 2f, 0f, held.Width - KnotWidth, BarHeight),
             key: static (held, _) => new RectangleF(0f, 0f, held.Width, BarHeight));
-
-    private static PlotPlane.Cartesian Plane(RectangleF plot) => new(plot, new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
 
     private static Seq<PlotMark<RampPart>> Knots(GradientRampState.Editor editor, PlotPlane.Cartesian plane) =>
         editor.Shown.ToSeq()
@@ -122,17 +120,17 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
 
     private static IO<Unit> Columns(PlotCanvas canvas, RectangleF bar, RampTable table, Gamut gamut) =>
         from checker in Thumbnails.Checker(canvas, bar, Checkerboard.Content)
-        from blended in Plots.Strip(canvas, Plane(bar with { Height = (1f - Opaque) * bar.Height }), x => table.Sample(x) switch {
+        from blended in Plots.Strip(canvas, PlotPlane.Cartesian.Unit(bar with { Height = (1f - Opaque) * bar.Height }), x => table.Sample(x) switch {
             var light => new Color(Plots.Encoded(gamut, light.AsVector3()), light.W),
         })
-        from opaque in Plots.Strip(canvas, Plane(RectangleF.FromSides(bar.Left, bar.Bottom - (Opaque * bar.Height), bar.Right, bar.Bottom)), x => Plots.Encoded(gamut, table.Sample(x).AsVector3()))
+        from opaque in Plots.Strip(canvas, PlotPlane.Cartesian.Unit(RectangleF.FromSides(bar.Left, bar.Bottom - (Opaque * bar.Height), bar.Right, bar.Bottom)), x => Plots.Encoded(gamut, table.Sample(x).AsVector3()))
         select unit;
 
     private static IO<Unit> Legend(PlotCanvas canvas, RectangleF bar, RectangleF bounds, Option<AgXLook> look) =>
         FalseColor.Key(look).Ramp.Tabulate(Gamut.StandardRgb) switch {
             var table =>
-                from bands in Plots.Strip(canvas, Plane(bar), x => Displayed(table.Sample(x)))
-                from labels in Plots.Labels(canvas, Plane(bounds), LabelSide.Bottom, KeyLabels(look))
+                from bands in Plots.Strip(canvas, PlotPlane.Cartesian.Unit(bar), x => Displayed(table.Sample(x)))
+                from labels in Plots.Labels(canvas, PlotPlane.Cartesian.Unit(bounds), LabelSide.Bottom, KeyLabels(look))
                 select unit,
         };
 
@@ -191,7 +189,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         from editor in Editing(state)
         from ramp in editor.Shown
         from hit in part
-        from at in Located(Plane(Bar(editor, size)).Value(e.Location).First)
+        from at in Located(PlotPlane.Cartesian.Unit(Bar(editor, size)).Value(e.Location).First)
         from next in hit.Switch((Editor: editor, Ramp: ramp, At: at),
             bar: static (held, _) => Added(held.Editor, held.Ramp, held.At).ToOption().Map(added => new Transition<GradientRampState, Ramp>(
                 held.Editor with { Shown = added.Ramp, Selected = added.Index, Grip = new RampGrip(held.Ramp, added.Stop, added.Index, held.At) },
@@ -266,7 +264,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         select new Transition<GradientRampState, Ramp>(editor with { Shown = added.Ramp, Selected = added.Index }, new Edit<Ramp>.Step(added.Ramp));
 
     private static Option<RampPosition> Midway(Ramp ramp, Option<int> selected) =>
-        Located(ramp.Stops.Count == 1
+        Located(ramp.Stops.Count is 1
             ? ((double)RampPosition.MinValue + RampPosition.MaxValue) / 2d
             : selected.Filter(static index => index > 0).Match(
                 Some: index => ((double)ramp.Stops[index - 1].Position + ramp.Stops[index].Position) / 2d,

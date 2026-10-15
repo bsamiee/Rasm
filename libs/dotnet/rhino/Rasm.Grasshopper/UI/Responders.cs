@@ -57,37 +57,37 @@ public sealed class FrameResponder : Responses, IResponsive {
         (from frame in IO.lift(() => new FrameResponder(control, bounds, limits, placed, sink))
          let lease = new Disposal<FrameResponder>(frame, static held =>
              Callbacks.Each(Seq(held.Cancelled, IO.lift(() => held.control.PopFocus(held)),
-                 IO.lift(() => held.control.UnregisterIResponsive(held)).Map(static _ => unit),
+                 IO.lift(() => held.control.UnregisterIResponsive(held)).Map(unit),
                  IO.lift(() => { held.control.Cursor = Cursors.Default; }))).Map(static _ => unit).Uninterruptible().Run())
          from registered in DisposalOps.OnFailure(IO.lift(() => { control.RegisterIResponsive(frame); retain(lease); }), IO.lift(lease.Dispose))
          select frame).Uninterruptible();
 
     // --- [RESPONSES]
     public override Response MouseDown(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseDown(e)).Bind(reply => reply == Response.Ignored
-            ? e.Buttons == MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored)
+        Answered(IO.lift(() => base.MouseDown(e)).Bind(reply => reply is Response.Ignored
+            ? e.Buttons is MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored)
             : IO.pure(reply)));
 
     public override Response MouseDoubleClick(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseDoubleClick(e)).Bind(reply => reply == Response.Ignored
-            ? e.Buttons == MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored)
+        Answered(IO.lift(() => base.MouseDoubleClick(e)).Bind(reply => reply is Response.Ignored
+            ? e.Buttons is MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored)
             : IO.pure(reply)));
 
     public override Response MouseDrag(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseDrag(e)).Bind(reply => reply == Response.Ignored
-            ? During(current => current.Step(e.ContentLocation).Bind(Shown).Map(static _ => Response.Handled))
+        Answered(IO.lift(() => base.MouseDrag(e)).Bind(reply => reply is Response.Ignored
+            ? During(current => current.Step(e.ContentLocation).Bind(Shown).Map(Response.Handled))
             : IO.pure(reply)));
 
     public override Response MouseUp(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseUp(e)).Bind(reply => reply == Response.Ignored
-            ? e.Buttons == MouseButtons.Primary ? Finished : During(static _ => IO.pure(Response.Handled))
+        Answered(IO.lift(() => base.MouseUp(e)).Bind(reply => reply is Response.Ignored
+            ? e.Buttons is MouseButtons.Primary ? Finished : During(static _ => IO.pure(Response.Handled))
             : IO.pure(reply)));
 
     public override Response KeyDown(KeyEventArgs e) =>
-        Answered(IO.lift(() => base.KeyDown(e)).Bind(reply => reply == Response.Ignored ? During(current => (e.Key, e.Modifiers) switch {
-            (Keys.Escape, _) => Cancelled.Map(static _ => Response.Release),
+        Answered(IO.lift(() => base.KeyDown(e)).Bind(reply => reply is Response.Ignored ? During(current => (e.Key, e.Modifiers) switch {
+            (Keys.Escape, _) => Cancelled.Map(Response.Release),
             (Keys.S, Keys.None) => IO.lift(static () => { Settings.CanvasSnapToObjects.Value = !Settings.CanvasSnapToObjects.Value; })
-                .Bind(_ => current.Cleared).Map(static _ => Response.Handled),
+                .Bind(_ => current.Cleared).Map(Response.Handled),
             _ => IO.pure(Response.Handled),
         }) : IO.pure(reply)));
 
@@ -97,11 +97,11 @@ public sealed class FrameResponder : Responses, IResponsive {
                 control.Cursor = Optional(new ResizingFrame(RegionBoundary, limits.Minimum, limits.Maximum)
                 .CursorAt(e.ContentLocation, FrameLimits.ResizeBands(limits.Minimum, limits.Maximum, limits.Edges))).IfNone(Cursors.Default);
             }),
-            IO.lift(() => base.MouseOver(e)))).Map(static _ => unit), Site());
+            IO.lift(() => base.MouseOver(e)))).Map(unit), Site());
 
     public override void MouseLeave() =>
         Callbacks.Run(Callbacks.Each(Seq(
-            IO.lift(() => { control.Cursor = Cursors.Default; }), IO.lift(base.MouseLeave))).Map(static _ => unit), Site());
+            IO.lift(() => { control.Cursor = Cursors.Default; }), IO.lift(base.MouseLeave))).Map(unit), Site());
 
     private Response Answered(IO<Response> effect, [CallerMemberName] string member = "") =>
         Callbacks.Answer(DisposalOps.OnFailure(effect, Cancelled), static () => Response.Release, Site(member));
@@ -149,14 +149,14 @@ public sealed class FrameResponder : Responses, IResponsive {
 
     private IO<Unit> Cancelled =>
         Taken.Bind(held => held.Match(
-            Some: current => Callbacks.Each(Seq(current.Cleared, Shown(current.Origin))).Map(static _ => unit),
+            Some: current => Callbacks.Each(Seq(current.Cleared, Shown(current.Origin))).Map(unit),
             None: static () => IO.pure(unit))).Uninterruptible();
 
     private IO<Response> Finished =>
         IO.lift(static environment => environment).Bind(environment =>
             Taken.Bind(held => held.Match(
                 Some: current => DisposalOps.OnFailure(
-                    current.Cleared.Bind(_ => IO.liftVAsync(() => IO.pure(RegionBoundary).Bind(placed).RunAsync(environment))).Map(static _ => Response.Release),
+                    current.Cleared.Bind(_ => IO.liftVAsync(() => IO.pure(RegionBoundary).Bind(placed).RunAsync(environment))).Map(Response.Release),
                     Shown(current.Origin)),
                 None: static () => IO.pure(Response.Ignored))).Uninterruptible());
 
@@ -184,7 +184,7 @@ public static class Responders {
         IO.lift(() => args.Control is not Canvas canvas
             || (args.IsMenu && canvas.ResolvePick(
                 canvas.Map(args.MouseEvent.Location, CoordinateSystem.Control, CoordinateSystem.Content),
-                includeGrips: false, includeForeground: true, includeBackground: true, includeWires: true, recursive: true).Kind == Pick.None))
+                includeGrips: false, includeForeground: true, includeBackground: true, includeWires: true, recursive: true).Kind is Pick.None))
             .Bind(joins => when(joins, Filled(args.Menu, groups, scope, menus)).As());
 
     private static IO<Unit> Filled(ContextMenu host, Seq<Seq<CommandRow>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
@@ -231,7 +231,7 @@ public static class Responders {
                 Keys.Shift => Some(new SizeF(SnappingSettings.Current.HorizontalGapSize, SnappingSettings.Current.VerticalGapSize)),
                 _ => Option<SizeF>.None,
             }
-            select (Document: document, Offset: new SizeF(direction.Width * step.Width, direction.Height * step.Height)))
+            select (Document: document, Offset: direction * step))
         from moved in move.Traverse(held => CanvasLayout.Nudged(held.Document, held.Offset,
             new VerbNoun(RowText.Localize("Nudge", table: Some<object>(sink)), RowText.Localize("Selection", table: Some<object>(sink))))).As()
         from shown in when(moved.Exists(static any => any), IO.lift(() => {

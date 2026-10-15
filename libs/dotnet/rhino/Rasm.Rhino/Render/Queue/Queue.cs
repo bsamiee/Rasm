@@ -464,7 +464,7 @@ public static class Queues {
             ended: static _ => Fin.Succ(unit),
             crashed: static _ => Fin.Succ(unit)))
         from started in QueueProgress.Started(job, queue, resumed, settings)
-        from held in IO.lift(() => Atom(started))
+        from held in atomIO(started)
         from began in IO.lift(context.Sink.Clock.GetTimestamp)
         from ran in DisposalOps.OnFailure(
                     from written in QueueProgress.Write(context.Record, started)
@@ -486,7 +486,7 @@ public static class Queues {
         select unit, DisposalOps.Release);
 
     internal static bool Stopping(Error error) =>
-        error.Is(Errors.Cancelled) || error.FoldM(static cause => cause is Ended ended ? Seq(ended.Result) : Seq<Result>()).As().Exists(static result => result == Result.ExitRhino);
+        error.Is(Errors.Cancelled) || error.FoldM(static cause => cause is Ended ended ? Seq(ended.Result) : Seq<Result>()).As().Exists(static result => result is Result.ExitRhino);
 
     private static IO<ForkIO<Unit>> Heartbeat(QueueContext context, QueueHeartbeat heartbeat, Action<IDisposable> retain) =>
         DisposalOps.Fork(QueueProgress.Touch(context.Record, context.Sink.Clock)
@@ -498,7 +498,7 @@ public static class Queues {
         (from record in held.SwapIO(was => was with { Ended = Some(end) })
          from elapsed in IO.lift(() => context.Sink.Clock.GetElapsedTime(began).ToDuration())
          from published in Callbacks.Each(Seq(
-             Readout.SwapIO(was => was with { State = new RunState.Ended(end) }).Map(static _ => unit),
+             Readout.SwapIO(was => was with { State = new RunState.Ended(end) }).Map(unit),
              QueueProgress.Write(context.Record, record),
              context.Notify(notice(record, elapsed))))
          select unit).Uninterruptible();
@@ -517,7 +517,7 @@ public static class Queues {
     private static IO<Unit> Frames(QueueContext context, RhinoDoc doc, RenderBatch queue, Atom<QueueProgress> held, bool sampled) =>
         DisposalOps.Within<IDisposable, Unit>(retain =>
         from render in IO.lift(static () => Conversions.Required(Command.LookupCommandId(RenderCommand, searchForEnglishName: true), nameof(Command.LookupCommandId))).OnUiThread()
-        from heard in IO.lift(static () => Atom(Heard.Empty))
+        from heard in atomIO(Heard.Empty)
         from dock in Notifications.Acquire(retain).OnUiThread()
         from listened in Listened(context, render, heard).TraverseM(acquire => acquire(retain)).As().OnUiThread()
         from tray in Notifications.Tray(context.Tray, context.Sink, retain).OnUiThread()
@@ -527,15 +527,15 @@ public static class Queues {
     private static Seq<Func<Action<IDisposable>, IO<Unit>>> Listened(QueueContext context, Guid render, Atom<Heard> heard) =>
         Seq<Func<Action<IDisposable>, IO<Unit>>>(
             retain => EventKind.BeginCommand.Inline(args => when(args.CommandId == render,
-                IO.lift(context.Sink.Clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(static _ => unit)).As(), context.Sink, retain),
+                IO.lift(context.Sink.Clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(unit)).As(), context.Sink, retain),
             retain => EventKind.ImageFileSaved.Inline(args =>
-                IO.lift(context.Sink.Clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args, at)) })).Map(static _ => unit), context.Sink, retain),
+                IO.lift(context.Sink.Clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args, at)) })).Map(unit), context.Sink, retain),
             retain => EventKind.EndCommand.Inline(args => when(args.CommandId == render,
-                heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(static _ => unit)).As(), context.Sink, retain));
+                heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As(), context.Sink, retain));
 
     private static IO<Unit> Mailed(RunScope scope, bool sampled) =>
         DisposalOps.Within<IDisposable, Unit>(retain =>
-                    from post in Subscriptions.Idle<Unit, RunRequest>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(static _ => unit))(
+                    from post in Subscriptions.Idle<Unit, RunRequest>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(unit))(
                         new CallbackSite(scope.Context.Sink, typeof(Queues), nameof(Frames)), retain).OnUiThread()
                     from order in IO.lift(() => Order(scope.Queue, scope.Held.Value, sampled))
                     from heads in order.Sampled.TraverseM(run => Requested(post, run)).As()
@@ -546,9 +546,9 @@ public static class Queues {
                 static owned => DisposalOps.Release(owned).OnUiThread());
 
     private static IO<Unit> Requested(Func<(Unit Key, RunRequest Value), IO<Unit>> post, QueueRun run) =>
-        DisposalOps.Within(static () => Conduit.make(Buffer<Fin<Unit>>.Unbounded), reply =>
+        DisposalOps.Within(static () => Conduit.make<Fin<Unit>>(), reply =>
         from posted in post((unit, new RunRequest(run, reply)))
-        from answer in SourceT.lift<IO, Fin<Unit>>(reply.Source).Take(1).Last().As()
+        from answer in reply.Source.Take(1).Last()
         from ran in IO.lift(answer)
         select ran, static reply => reply.Complete());
 
@@ -582,7 +582,7 @@ public static class Queues {
                   _ => Projected(viewport, rendered).Bind(_ => Lit(scope, run, rendered)),
                   held => Callbacks.Each(Seq(
                       IO.lift(() => Refused.Unless(viewport.SetViewProjection(held, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection))),
-                      IO.lift(held.Dispose))).Map(static _ => unit))
+                      IO.lift(held.Dispose))).Map(unit))
               select ran;
 
     private static IO<Unit> Projected(RhinoViewport viewport, OverscanFrame frame) =>
@@ -594,12 +594,12 @@ public static class Queues {
     private static IO<Unit> Lit(RunScope scope, QueueRun run, OverscanFrame rendered) =>
         run.Entry.Sun.Match(
             Some: _ => SunState.Moment(new RenderSettingsSource.Live(scope.Doc), scope.Context.Sink.Clock) switch {
-                var moment => moment.Read.Bind(prior => DisposalOps.Within(() => prior, _ => Looped(scope, run, rendered), value => moment.Put(value).Map(static _ => unit))),
+                var moment => moment.Read.Bind(prior => DisposalOps.Within(() => prior, _ => Looped(scope, run, rendered), value => moment.Put(value).Map(unit))),
             },
             None: () => Looped(scope, run, rendered));
 
     private static IO<Unit> Looped(RunScope scope, QueueRun run, OverscanFrame rendered) =>
-        run.Frames.TraverseM(frame => Frame(scope, run.Entry, rendered, frame)).As().Map(static _ => unit);
+        run.Frames.TraverseM(frame => Frame(scope, run.Entry, rendered, frame)).As().Map(unit);
 
     private static IO<Unit> Frame(RunScope scope, QueueEntry<OutputPath> entry, OverscanFrame rendered, SequenceNumber frame) =>
         from started in IO.lift(scope.Context.Sink.Clock.GetTimestamp)
@@ -641,7 +641,7 @@ public static class Queues {
                 Entries = was.Entries.AddOrUpdate(
                     mark.Entry,
                     entry => entry with { Last = Some(mark.Frame), Times = entry.Times.Add(time) },
-                    EntryProgress.Empty with { Last = Some(mark.Frame), Times = Seq(time) }),
+                    () => EntryProgress.Empty with { Last = Some(mark.Frame), Times = Seq(time) }),
             },
         })
         from written in QueueProgress.Write(scope.Context.Record, record)
@@ -793,8 +793,8 @@ public static class Queues {
                     new CommandRow.Run(Face("render-queue-add-sets", "Add Render Sets", "Queue every render set that renders"), None, static scope => Added(scope, SetEntries)),
                     new CommandRow.Run(Face("render-queue-add-study", "Add Sun Study", "Queue the document's sun study, one frame per moment"), None, static scope => Added(scope, StudyEntries)),
                     new CommandRow.Check(Face("render-queue-clay", "Clay", "Render each entry added next with every object in clay"), None,
-                        static scope => scope.Read(Clayed.Source), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(static _ => unit)),
-                    new CommandRow.Run(Face("render-queue-check", "Check", "Check the queue before it renders"), None, static scope => Checked(scope, Local).Map(static _ => unit)),
+                        static scope => scope.Read(Clayed.Source), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(unit)),
+                    new CommandRow.Run(Face("render-queue-check", "Check", "Check the queue before it renders"), None, static scope => Checked(scope, Local).Map(unit)),
                     new CommandRow.Run(Face("render-queue-render", "Render", "Render the queue in this Rhino"), Some(ready), static scope => Sent(scope, Local, Fresh)),
                     new CommandRow.Run(Face("render-queue-handoff", "Render in New Rhino", "Save, quit, and render the queue in a new Rhino behind the frontmost window"), Some(ready),
                         static scope => Sent(scope, Packaged(static package => IO.pure<QueueTarget>(new QueueTarget.Handoff(package))), Fresh)),
@@ -807,7 +807,7 @@ public static class Queues {
                     new CommandRow.Run(Face("render-queue-test-notice", "Send Test Notice", "Post a test notice to Rhino, the system, and the ntfy topic"), None, static scope =>
                         IO.lift(() => QueueContext.Current.Of(scope.Sink))
                             .Bind(static context => DisposalOps.Fork(context.Notify(new QueueEvent.Test()), context.Retain))
-                            .Map(static _ => unit))),
+                            .Map(unit))),
             },
                 RowRules.Always),
             new ControlRow.Group(RowText.Localize("Run"), RowRules.Always) { Wording = Wording.Localized },
@@ -913,7 +913,7 @@ public static class Queues {
         from record in resumed(context)
         from stamp in IO.lift(() => context.Sink.Clock.ToZonedClock().GetCurrentLocalDateTime())
         from sent in Dispatch.Send(context, new DocumentSource.Live(doc), plan, chosen, stamp, record, context.Retain,
-            Some<Func<Preflight, IO<Unit>>>(report => scope.Store(Report.Source).Put(Some(Some(report))).Map(static _ => unit)))
+            Some<Func<Preflight, IO<Unit>>>(report => scope.Store(Report.Source).Put(Some(Some(report))).Map(unit)))
         select sent;
 
     private static Func<Destination, IO<QueueTarget>> Packaged(Func<Destination, IO<QueueTarget>> target) =>

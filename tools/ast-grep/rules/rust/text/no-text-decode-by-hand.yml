@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-text-decode-by-hand
+language: rust
+severity: error
+utils:
+    byte-source:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(iter|into_iter|bytes|copied|cloned)$'}}
+            - not: {has: {field: function, has: {field: value, stopBy: end, kind: range_expression}}}
+            - has: {field: function, has: {field: value, any: [{not: {kind: call_expression}}, {matches: byte-source}]}}
+    byte:
+        any:
+            - kind: identifier
+            - kind: unary_expression
+              regex: '^\*'
+              has: {kind: identifier}
+    to-char:
+        any:
+            - kind: scoped_identifier
+              regex: '^((std|core)::)?(primitive::)?char::from$'
+            - kind: closure_expression
+              has:
+                field: body
+                any:
+                    - kind: call_expression
+                      all:
+                        - has: {field: function, regex: '^((std|core)::)?(primitive::)?char::from$'}
+                        - has: {field: arguments, has: {nthChild: 1, matches: byte}, not: {has: {nthChild: 2}}}
+                    - kind: type_cast_expression
+                      all: [{has: {field: value, matches: byte}}, {has: {field: type, regex: '^char$'}}]
+    utf16-unit:
+        kind: closure_expression
+        has: {field: body, stopBy: end, kind: scoped_identifier, regex: '^((std|core)::)?u16::from_(le|be|ne)_bytes$'}
+    utf16-decode:
+        kind: scoped_identifier
+        regex: '^((std|alloc)::)?(string::)?(String::from_utf16(_lossy)?|char::decode_utf16)$'
+rule:
+    kind: call_expression
+    pattern: $DECODE
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}
+        - any:
+            - all:
+                - has: {field: function, has: {field: value, matches: byte-source}}
+                - has: {field: arguments, has: {nthChild: 1, matches: to-char}, not: {has: {nthChild: 2}}}
+            - all:
+                - has: {field: function, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(chunks_exact|chunks|array_chunks|as_chunks)$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, matches: utf16-unit}}
+                - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: {kind: function_item}, matches: utf16-decode}}
+message: '`$DECODE` decodes bytes into chars by hand'
+note: 'Call `encoding_rs::mem::decode_latin1(<bytes>)` for one char per byte, and `encoding_rs::UTF_16LE.decode_without_bom_handling_and_without_replacement(<bytes>)` (`UTF_16BE` for big-endian, `decode_without_bom_handling` for the lossy form) for UTF-16 code units, each decodes the buffer in one call with no intermediate `Vec<u16>`'

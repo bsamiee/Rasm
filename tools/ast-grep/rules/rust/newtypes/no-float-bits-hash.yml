@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-float-bits-hash
+language: rust
+severity: error
+utils:
+    bits:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^to_bits$'}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    float-struct:
+        kind: struct_item
+        all:
+            - has: {field: name, pattern: $TYPE}
+            - has: {field: body, has: {stopBy: end, kind: primitive_type, regex: '^f(16|32|64|128)$'}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: bits}}, {has: {field: field, regex: '^hash$'}}]}
+            - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_(u16|u32|u64|u128)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: bits}}
+        - kind: impl_item
+          all:
+            - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::)?Eq$'}
+            - has: {field: type, any: [{kind: type_identifier, pattern: $TYPE}, {kind: generic_type, has: {field: type, pattern: $TYPE}}]}
+            - has: {field: body, not: {has: {pattern: $_}}}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: float-struct}}
+message: '`$SITE` treats a float as a total order or a hash key by hand'
+note: 'Type the field `ordered_float::OrderedFloat<f64>` (NaN equal to itself and ordered last) or `ordered_float::NotNan<f64>` (NaN rejected at construction) and derive `PartialEq`, `Eq`, `Hash`, and `Ord`, a hand `to_bits` hash or empty `impl Eq` breaks for `0.0` and `-0.0` and for NaN'

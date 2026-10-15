@@ -10,6 +10,7 @@ using Rasm.Imaging.Filters.Stylize;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
+using SixLabors.ImageSharp.PixelFormats;
 using TorchSharp;
 using UnitsNet.Units;
 
@@ -436,7 +437,7 @@ public sealed record MapDisplacement(
             None: () => state.Source.Map(image => (PixelPass)new PixelPass.Frame(new CoordinateMap.Sampled(image.Frame, state.Sampling, (state.Wrap, state.Wrap)).Apply)));
 
     private unsafe Fin<Unit> Kernel(Func<Mat, Mat, double, PassContext, Fin<Unit>> plane, PassContext context, PixelFrame frame, IProgress<int> progress) =>
-        Source.Match(Some: image => Fitted(image, frame), None: () => frame).Filter(header => {
+        Source.Match(Some: image => Fitted(image, frame), None: frame).Filter(header => {
             using Mat offsets = new();
             ((double X, double Y) amount, (double Sin, double Cos) turn, Point corner, int width) =
                 ((Horizontal.Pixels(context.Extent), Vertical.Pixels(context.Extent)), double.SinCos(-Rotation), frame.Origin, header.Cols);
@@ -526,7 +527,7 @@ public sealed record Refraction(
                            }, Sampling, (Wrap, Wrap)).Apply(refracted, progress)
                            select applied;
                 })
-                select Blend.Composite(frame, refracted, BlendingMode.Mix, Mix.Full, [], AlphaRepresentation.Unassociated)).Map(composite => {
+                select Blend.Composite(frame, refracted, BlendingMode.Mix, Mix.Full, [], PixelAlphaRepresentation.Unassociated)).Map(composite => {
                     composite.View.Span.CopyTo(frame.View.Span);
                     return unit;
                 });

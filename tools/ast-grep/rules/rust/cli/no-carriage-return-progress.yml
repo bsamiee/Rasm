@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-carriage-return-progress
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    pattern: $REDRAW
+    all:
+        - has: {field: macro, regex: '^((::)?(std|core)::)?(e?print(ln)?|write(ln)?)$'}
+        - any:
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\\r([^\\"]|\\[^n])'}}
+            - all:
+                - has: {field: macro, regex: '(^|::)(e?print|write)$'}
+                - has: {kind: token_tree, has: {kind: string_literal, regex: '([^\\]|^")(\\\\)*\\r"$'}}
+message: '`$REDRAW` redraws a progress line with a carriage return'
+note: 'Drive an `indicatif::ProgressBar` through `inc`, `set_position`, `set_message`, and `finish_with_message`, or install `tracing_indicatif::IndicatifLayer` and call `IndicatifSpanExt::pb_inc` on the span doing the work, the bar redraws at a bounded rate, hides on a non-terminal, and keeps log lines above it. A trailing `\r` before the newline `writeln!` or `println!` adds ends a CRLF line and stays as written'

@@ -87,7 +87,7 @@ public static class Kernels {
 
     private static torch.Tensor GaussianWeights(long count, double sigma) {
         if (count == 1) return torch.ones(count, dtype: torch.ScalarType.Float64, device: torch.CPU);
-        torch.Tensor offsets = (torch.ones(count, dtype: torch.ScalarType.Int64, device: torch.CPU).cumsum(0) - ((count / 2) + 1)).to_type(torch.ScalarType.Float64) / sigma;
+        torch.Tensor offsets = (torch.ones(count, dtype: torch.ScalarType.Int64, device: torch.CPU).cumsum(0) - ((count / 2) + 1)).@double() / sigma;
         torch.Tensor weights = (offsets.square() * -0.5).exp();
         return weights / weights.sum();
     }
@@ -102,7 +102,7 @@ public static class Kernels {
         long channels = pixels.size(1);
         (long x, long y) = anchor.IfNone((width / 2, height / 2));
         torch.Tensor padded = torch.nn.functional.pad(pixels, (x, width - x - 1, y, height - y - 1), padding);
-        torch.Tensor weights = kernel.to_type(torch.ScalarType.Float64).reshape(1, 1, height, width);
+        torch.Tensor weights = kernel.@double().reshape(1, 1, height, width);
         return torch.nn.functional.conv2d(padded.reshape(channels, 1, padded.size(2), padded.size(3)), weights)
             .reshape(1, channels, pixels.size(2), pixels.size(3));
     }

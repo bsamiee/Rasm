@@ -87,7 +87,7 @@ public static class PageStreams {
             DisposalOps.Within((Action<IDisposable> temporary) =>
                 from mode in Copies.Owned(() => row.Viewport.DisplayMode,
                     static made => Missing.Unless(made, nameof(RhinoViewport.DisplayMode)),
-                    static made => DisposalOps.Release(Conversions.Rows(new[] { made })), temporary)
+                    static made => DisposalOps.Release(Conversions.Rows([made])), temporary)
                 from viewport in Copies.Owned(static () => new RhinoViewport(), static made => Fin.Succ(made), temporary)
                 from restored in IO.lift(() => {
                     viewport.Size = frame.Media;
@@ -190,7 +190,7 @@ public static class PageStreams {
         from added in sources.TraverseM(source => source.Switch(
             (Doc: doc, Pdf: pdf, Text: text, Layers: layers),
             captured: static (state, captured) => Pages(state.Doc, Seq(captured.Source), pages =>
-                pages.TraverseM(page => Added(state.Doc, state.Pdf, state.Text, state.Layers, page, captured.Marks)).As().Map(static _ => unit)),
+                pages.TraverseM(page => Added(state.Doc, state.Pdf, state.Text, state.Layers, page, captured.Marks)).As().Map(unit)),
             blank: static (state, blank) => Blank(state.Doc, state.Pdf, blank.Sheet, blank.Marks))).As()
         select pdf;
 
@@ -230,7 +230,7 @@ public static class PageStreams {
             DisposalOps.Within(() => ViewCapture.CaptureToBitmap(settings), bitmap =>
                 IO.lift(() => Missing.Unless(bitmap, nameof(ViewCapture.CaptureToBitmap))).Bind(held =>
                     IO.lift(() => held.Save(path, encoding.Format))),
-                static bitmap => DisposalOps.Release(Conversions.Rows(new[] { bitmap }))));
+                static bitmap => DisposalOps.Release(Conversions.Rows([bitmap]))));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToSvg(RhinoDoc doc, IterableNE<PageSource> sources, FileOutput output) =>
         Written(doc, toSeq(sources), FileExtension.Create(".svg"), output, static (settings, path) =>

@@ -157,6 +157,18 @@ def pixels(key: Key, frame: FrameSpace, length: Operand, kind: Literal["FLOAT", 
             return node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.scale}, {}).bind(lambda axes: math(key, "MULTIPLY", length, ended(f"{key}_axes", "X")(axes)))
 
 
+def lensed() -> BlenderResult[Fragment]:
+    """Builds the active camera keyed `camera` and its camera info keyed `lens`."""
+    return node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": ended("camera", "Active Camera")(camera)}, {}))
+
+
+def shorter(key: Key, extent: Operand) -> BlenderResult[tuple[Fragment, End]]:
+    """Builds the smaller side of a 2D extent, its axis split keyed `<key>_sides`."""
+    return node(f"{key}_sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": extent}, {}).bind(
+        lambda sides: math(key, "MINIMUM", ended(f"{key}_sides", "X")(sides), End(node=f"{key}_sides", socket="Y"))
+    )
+
+
 def _coordinates(key: Key, image: Operand) -> BlenderResult[tuple[PixelGrid, tuple[Fragment, End]]]:
     """Builds native data and display coordinates over the realized source domain."""
     realized, coordinates, dimensions = item_key(key, "realized"), item_key(key, "coordinates"), item_key(key, "dimensions")
@@ -197,4 +209,4 @@ def _coordinates(key: Key, image: Operand) -> BlenderResult[tuple[PixelGrid, tup
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FrameSpace", "PixelGrid", "framed", "gridded", "pixels", "sampled"]
+__all__ = ["FrameSpace", "PixelGrid", "framed", "gridded", "lensed", "pixels", "sampled", "shorter"]

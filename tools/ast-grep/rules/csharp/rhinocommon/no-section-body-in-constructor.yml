@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-section-body-in-constructor
+language: csharp
+severity: error
+files: ['**/rhino/**']
+rule:
+    kind: constructor_declaration
+    all:
+        - has: {field: name, pattern: $SECTION}
+        - inside:
+            kind: declaration_list
+            inside:
+                kind: class_declaration
+                has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^Eto\w*Section\d*$'}}}}}
+        - has:
+            field: body
+            has:
+                stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}
+                kind: assignment_expression
+                has:
+                    field: left
+                    any:
+                        - regex: '^Content$'
+                        - {kind: member_access_expression, all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, regex: '^Content$'}}]}
+message: '`$SECTION` builds its body when the host constructs it, and the host constructs every section, hidden ones included'
+note: 'Build `Content` when the holder first shows the section, in `HolderVisible(true)` or `OnLoad`, and keep the constructor to identity'

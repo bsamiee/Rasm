@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-formatted-url
+language: rust
+severity: error
+utils:
+    url-text:
+        kind: string_literal
+        regex: '^"[A-Za-z][A-Za-z0-9+.-]*://'
+    open-segment:
+        kind: string_literal
+        regex: '([^/:]/|[?=&])"$'
+    spliced:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: right, not: {kind: 'string_literal, raw_string_literal'}}
+            - has: {field: left, any: [{matches: open-segment}, {kind: call_expression, has: {stopBy: end, matches: open-segment}}, {kind: binary_expression, has: {field: right, matches: open-segment}}]}
+rule:
+    pattern: $URL
+    any:
+        - kind: macro_invocation
+          all:
+            - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+            - has: {kind: token_tree, has: {matches: url-text, regex: '://[^"/?]*[/?][^"]*[^{]\{[A-Za-z0-9_:}]'}}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - not: {inside: {kind: binary_expression, field: left}}
+            - has: {stopBy: end, matches: url-text}
+            - any: [{matches: spliced}, {has: {stopBy: end, matches: spliced}}]
+message: '`$URL` splices values into URL text'
+note: 'Build the URL through `url::Url::parse(<base>)?.join(<path>)?`, push path parts through `path_segments_mut()` and query pairs through `query_pairs_mut().append_pair(<key>, <value>)`, the url crate percent-encodes each value and validates the result'

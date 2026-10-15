@@ -1,15 +1,22 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "mcp-bridge"
-description       = "Serves one stdio MCP server over a loopback Streamable HTTP endpoint, leaving out the tools whose names match a hide glob"
-edition.workspace = true
+name                 = "rasm-mcp-bridge"
+version.workspace    = true
+categories           = ["command-line-utilities", "network-programming"]
+edition.workspace    = true
+keywords             = ["mcp", "modelcontextprotocol", "stdio", "streamable-http", "proxy"]
+license.workspace    = true
+repository.workspace = true
+description          = "Bridges a stdio MCP server to loopback Streamable HTTP, hiding tools by glob"
 
 # --- [BIN] ------------------------------------------------------------------------------
 
 [[bin]]
-name = "mcp-bridge"
-path = "main.rs"
+name  = "rasm-mcp-bridge"
+path  = "main.rs"
+test  = false
+bench = false
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
@@ -19,10 +26,11 @@ workspace = true
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-mcp       = { workspace = true }
-rmcp      = { workspace = true }
-tokio     = { workspace = true }
-clap      = { workspace = true }
-globset   = { workspace = true }
-thiserror = { workspace = true }
-tracing   = { workspace = true }
+tokio      = { workspace = true }
+tokio-util = { workspace = true }
+thiserror  = { workspace = true }
+globset    = { workspace = true }
+rmcp       = { workspace = true }
+tracing    = { workspace = true }
+clap       = { workspace = true }
+rasm-mcp   = { workspace = true }

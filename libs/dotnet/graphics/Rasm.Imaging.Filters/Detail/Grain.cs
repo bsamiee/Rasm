@@ -77,10 +77,10 @@ public sealed record FilmGrain(
                        for (int x = 0; x < row.Length; x++) {
                            double luma = (X * row[x].X) + (Y * row[x].Y) + (Z * row[x].Z);
                            double logLuma = double.Log2(double.Max(luma, 0d)) + context.Exposure;
-                           double dark = start == 0d ? luma > 0d ? 0d : 1d : 1d - RampInterpolation.Ease.Weight(double.Clamp(double.Exp2(logLuma - double.Log2(start)), 0d, 1d));
-                           double distance = highlightScale == 0d ? luma : double.Exp2(logLuma - double.Log2(highlightScale)) - (start / highlightScale) - (span / highlightScale);
-                           double bright = width == 0d ? distance > 0d ? 1d : 0d : RampInterpolation.Ease.Weight(double.Clamp(distance, 0d, 1d));
-                           double weight = ((double)state.Shadows * dark) + ((double)state.Midtones * (1d - dark - bright)) + ((double)state.Highlights * bright);
+                           double dark = start is 0d ? luma > 0d ? 0d : 1d : 1d - RampInterpolation.Ease.Weight(double.Clamp(double.Exp2(logLuma - double.Log2(start)), 0d, 1d));
+                           double distance = highlightScale is 0d ? luma : double.Exp2(logLuma - double.Log2(highlightScale)) - (start / highlightScale) - (span / highlightScale);
+                           double bright = width is 0d ? distance > 0d ? 1d : 0d : RampInterpolation.Ease.Weight(double.Clamp(distance, 0d, 1d));
+                           double weight = (state.Shadows * dark) + (state.Midtones * (1d - dark - bright)) + (state.Highlights * bright);
                            Vector4 log = mix * draws[x];
                            row[x] *= new Vector4(Vector3.Lerp(Vector3.One, Vector3.Exp(log.AsVector3() + new Vector3(log.W - bias)), (float)weight), 1f);
                        }

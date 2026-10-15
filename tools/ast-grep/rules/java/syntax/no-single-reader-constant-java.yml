@@ -3,6 +3,8 @@ id: no-single-reader-constant-java
 language: java
 severity: error
 utils:
+    member-list:
+        kind: class_body, interface_body, enum_body, enum_body_declarations, annotation_type_body
     literal:
         any:
             - kind: >-
@@ -15,6 +17,7 @@ utils:
               all:
                 - has: {field: object, matches: literal}
                 - has: {field: arguments, matches: literal}
+                - not: {matches: java-regex-compile}
             - kind: object_creation_expression
               all:
                 - has: {field: arguments, matches: literal}
@@ -29,7 +32,7 @@ utils:
     member:
         kind: >-
             method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, block, field_declaration, constant_declaration, enum_constant
-        inside: {matches: java-member-list}
+        inside: {matches: member-list}
     reader:
         matches: member
         pattern: $READER
@@ -40,12 +43,23 @@ rule:
         - has: {kind: modifiers, all: [{has: {regex: '^private$'}}, {has: {regex: '^final$'}}]}
         - not: {has: {kind: modifiers, has: {kind: 'marker_annotation, annotation'}}}
         - has: {field: declarator, all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: literal}}]}
-        - inside: {matches: java-member-list}
+        - inside: {matches: member-list}
         - inside:
             kind: program
             stopBy: end
             all:
                 - has: {stopBy: end, matches: reader}
                 - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+        - not:
+            all:
+                - has: {field: declarator, has: {field: value, kind: object_creation_expression}}
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        any:
+                            - {kind: method_invocation, has: {field: object, any: [{pattern: $NAME}, {kind: field_access, has: {field: field, pattern: $NAME}}]}}
+                            - {kind: synchronized_statement, has: {kind: parenthesized_expression, has: {pattern: $NAME}}}
 message: Constant `$NAME` has one reader
 note: Bind the value inside its one reader, as a local where its name states a fact and inline otherwise

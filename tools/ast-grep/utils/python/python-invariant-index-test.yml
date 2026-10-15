@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-invariant-index-test
+language: python
+utils:
+    scope:
+        kind: 'function_definition, lambda, class_definition'
+    construct:
+        any:
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(set|frozenset|list|tuple|dict|sorted)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: 'identifier, attribute', pattern: $SOURCE}}, {not: {has: {nthChild: 2}}}]}
+            - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
+              has: {kind: for_in_clause, not: {follows: {kind: for_in_clause, stopBy: end}}, has: {field: right, pattern: $SOURCE}}
+    mutated:
+        any:
+            - kind: call
+              has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: object, pattern: $SOURCE}
+                    - has: {field: attribute, regex: '^(add|append|appendleft|clear|discard|extend|extendleft|insert|pop|popitem|popleft|remove|reverse|setdefault|sort|update)$'}
+            - kind: 'assignment, augmented_assignment'
+              has: {field: left, any: [{pattern: $SOURCE}, {kind: subscript, has: {field: value, pattern: $SOURCE}}]}
+            - kind: delete_statement
+              has: {stopBy: end, kind: subscript, has: {field: value, pattern: $SOURCE}}
+    per-item:
+        any:
+            - kind: block
+              inside: {kind: 'for_statement, while_statement', field: body, pattern: $LOOP}
+            - inside: {kind: while_statement, field: condition, pattern: $LOOP}
+            - kind: if_clause
+              inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', pattern: $LOOP}
+            - inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', field: body, pattern: $LOOP}
+            - kind: for_in_clause
+              follows: {stopBy: end, kind: for_in_clause}
+              inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', pattern: $LOOP}
+    bound:
+        matches: {python-binding: {name: {pattern: $NAME}}}
+        not: {inside: {stopBy: end, pattern: $INDEX}}
+    variant:
+        kind: identifier
+        pattern: $NAME
+        not: {inside: {kind: attribute, field: attribute}}
+        inside:
+            stopBy: end
+            pattern: $LOOP
+            any:
+                - matches: bound
+                - has: {stopBy: {matches: scope}, matches: bound}
+rule:
+    kind: comparison_operator
+    all:
+        - has: {field: operators, regex: '^(not\s+)?in$'}
+        - any: [{matches: per-item}, {inside: {stopBy: {matches: scope}, matches: per-item}}]
+        - has: {nthChild: 2, matches: construct, pattern: $INDEX}
+        - not: {has: {nthChild: 2, has: {stopBy: end, matches: variant}}}
+        - not: {inside: {stopBy: end, pattern: $LOOP, has: {stopBy: end, matches: mutated}}}

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-single-caller-function
-language: swift
+language: swiftlang
 severity: error
 utils:
     reference:
@@ -19,20 +19,37 @@ utils:
             stopBy: end
             matches: holds-reference
             precedes: {stopBy: end, matches: holds-reference}
+    statement-branch:
+        any:
+            - kind: switch_statement
+              has: {kind: switch_entry, has: {kind: statements, has: {nthChild: 2}}}
+            - kind: if_statement
+              any:
+                - has: {kind: statements, has: {nthChild: 2}}
+                - has: {kind: if_statement, matches: statement-branch}
 rule:
     kind: function_declaration
     all:
         - any:
             - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
             - inside: {kind: statements}
-        - not: {has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBAction)\b'}}, {has: {regex: '^override$'}}]}}
+        - not:
+            has:
+                kind: modifiers
+                any:
+                    - has: {kind: attribute, regex: '^@(objc|IBAction|concurrent|MainActor)\b'}
+                    - has: {regex: '^(override|nonisolated\b.*)$'}
         - has: {field: name, kind: simple_identifier, pattern: $NAME}
         - has:
             field: body
             has:
                 matches:
                     swift-single-statement:
-                        first: {not: {kind: 'for_statement, while_statement, repeat_while_statement, do_statement, guard_statement, assignment, property_declaration, function_declaration'}}
+                        first:
+                            not:
+                                any:
+                                    - kind: 'for_statement, while_statement, repeat_while_statement, do_statement, guard_statement, assignment, property_declaration, function_declaration'
+                                    - matches: statement-branch
         - not: {has: {field: body, has: {stopBy: end, matches: reference}}}
         - inside:
             kind: source_file

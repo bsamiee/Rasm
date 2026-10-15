@@ -1,40 +1,14 @@
 {
     "name": "argus",
-    "description": "Language-server navigation and automatic workspace diagnostic feedback",
+    "version": "1.0.0",
+    "description": "Repository language servers as MCP tools for code navigation and diagnostics",
+    "author": {
+        "name": "Bardia Samiee"
+    },
     "mcpServers": {
         "argus": {
             "type": "http",
             "url": "http://127.0.0.1:7410/"
-        }
-    },
-    "hooks": {
-        "hooks": {
-            "PostToolUse": [
-                {
-                    "hooks": [
-                        {
-                            "type": "mcp_tool",
-                            "server": "argus",
-                            "tool": "feedback",
-                            "input": { "sessionId": "${session_id}", "turnId": "${turn_id}", "transcriptPath": "${transcript_path}", "toolUseId": "${tool_use_id}", "toolName": "${tool_name}" },
-                            "statusMessage": "Reading diagnostics"
-                        }
-                    ]
-                }
-            ],
-            "Stop": [
-                {
-                    "hooks": [
-                        {
-                            "type": "mcp_tool",
-                            "server": "argus",
-                            "tool": "format",
-                            "input": { "sessionId": "${session_id}" },
-                            "statusMessage": "Formatting edited files"
-                        }
-                    ]
-                }
-            ]
         }
     },
     "interface": {

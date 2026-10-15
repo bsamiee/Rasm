@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
-using System.Reflection;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Grade.Curves;
@@ -32,22 +31,13 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
 
     private readonly PostEffectType stage;
     private readonly IPlugInViews views;
-    private readonly Option<SectionBody> body;
-    private Seq<IDisposable> owned;
+    private readonly SectionLifetime lifetime;
+    private Option<SectionBody> body;
 
-    public DefinedEffectSection(PostEffect effect, Func<EtoPostEffectCollapsibleSection, IO<View.Section>> row) {
+    public DefinedEffectSection(PostEffect effect, Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> row) {
         views = IPlugInViews.Of(effect);
         (stage, Caption) = (effect.PostEffectType, RowText.Localize(effect.LocalName, table: Some<object>(views)));
-        body = Callbacks.Answer(
-            DisposalOps.Acquire(retain =>
-                from section in row(this)
-                from document in IO.lift(static () => Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
-                from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
-                from held in SectionBody.Realize(views, section, scope, retain)
-                select held, resource => owned = owned.Add(resource))
-                .Bind(held => IO.lift(() => { Content = held.Content; return Some(held); })),
-            static () => Option<SectionBody>.None,
-            new CallbackSite(views, GetType(), ConstructorInfo.ConstructorName));
+        lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Hidden, retain => Realized(row, retain));
     }
 
     public override Guid PostEffectId => Effect;
@@ -55,51 +45,50 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
     Guid ICollapsibleSection.Id => Effect;
     public override LocalizeStringPair Caption { get; }
     public override int SectionHeight => body.Match(Some: static held => held.Height, None: static () => 0);
-    public override bool Hidden => !toSeq(GetPostEffects(stage)).Exists(static listed => listed.Id == Effect);
 
-    protected override void OnLoad(System.EventArgs e) {
-        base.OnLoad(e);
-        Callbacks.Run(body.Traverse(static held => held.Shown(visible: true)).As().Map(static _ => unit), new CallbackSite(views, GetType(), nameof(OnLoad)));
-    }
-
-    protected override void OnUnLoad(System.EventArgs e) {
-        Callbacks.Run(body.Traverse(static held => held.Shown(visible: false)).As().Map(static _ => unit), new CallbackSite(views, GetType(), nameof(OnUnLoad)));
-        base.OnUnLoad(e);
-    }
+    public override bool Hidden =>
+        !toSeq(GetPostEffects(stage)).Exists(listed => listed.Id == Effect && listed.IsSelected && (stage is PostEffectType.ToneMapping || listed.Shown));
 
     protected override void Dispose(bool disposing) {
-        if (disposing)
-            Callbacks.Run(
-                IO.lift(() => { Content = null; base.Dispose(disposing); })
-                    .Bind(_ => IO.lift(() => { Seq<IDisposable> released = owned; owned = []; return released; }))
-                    .Bind(DisposalOps.Release).Uninterruptible(),
-                new CallbackSite(views, GetType(), nameof(Dispose)));
-        else
+        try {
+            if (disposing)
+                lifetime.Dispose();
+        } finally {
             base.Dispose(disposing);
+        }
     }
+
+    private IO<Unit> Realized(Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> row, Action<IDisposable> retain) =>
+        from section in row(this, retain)
+        from document in IO.lift(static () => Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
+        from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
+        from held in SectionBody.Realize(views, section, scope, retain)
+        from placed in DisposalOps.Change(() => (body, Content), next => (body, Content) = next, (Some(held), held.Content), retain)
+        from shown in held.Shown(visible: true)
+        select unit;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SectionRows {
     // --- [EFFECTS]
-    public static Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Stage<TState, TParameter>(
+    public static Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Stage<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(TParameter Parameter, ParameterText Text)> texts, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
         Atom<StageFrame> input)
         where TState : IPixelStage<TState>
         where TParameter : class, IStateParameter<TState> =>
-        section => Row(effect, state, texts, looks, section, source =>
-            Demanded(input).Map(read => Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over the stage input", read,
+        (section, retain) => Row(effect, state, texts, looks, section, source =>
+            Demanded(input, retain).Map(read => Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over the stage input", read,
                 [new HostEvent<Unit>(typeof(Atom<StageFrame>), nameof(input.Change), (deliver, site, retain) =>
                     Subscriptions.Attach<AtomChangedEvent<StageFrame>>(handler => input.Change += handler, handler => input.Change -= handler,
                         _ => Callbacks.Run(deliver(unit), site), retain))],
                 stage => Blocks(source, texts, stage), RowRules.Always)) + Amount(state, section)));
 
-    public static Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Job<TState, TParameter>(
+    public static Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Job<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(TParameter Parameter, ParameterText Text)> texts, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
         Atom<WorkState> work)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
-        section => Row(effect, state, texts, looks, section, source =>
+        (section, _) => Row(effect, state, texts, looks, section, source =>
             IO.pure(Of(source, texts, None, static _ => RowRules.Always)
                 .Add(TextRows.Progress("Progress", "Work the effect's last run reports", new ReadoutSource<WorkState>.Cell(work), RowRules.Always))));
 
@@ -133,8 +122,8 @@ public static class SectionRows {
     public static Seq<ControlRow> Amount(string owner, Mix factory, Func<RowScope, ValueStore<Mix>> store) =>
         Accepted(RowSource.Keyed(owner, EffectStates.AmountKey(factory), store), RowRules.Always);
 
-    private static IO<IO<Option<StageInput>>> Demanded(Atom<StageFrame> input) =>
-        StageFrame.Watch(input).Map(static read => read.Map(static pair => pair.Map(static held =>
+    private static IO<IO<Option<StageInput>>> Demanded(Atom<StageFrame> input, Action<IDisposable> retain) =>
+        StageFrame.Watch(input, retain).Map(static read => read.Map(static pair => pair.Map(static held =>
             new StageInput(IO.pure(Some(held.Frame)), held.Context, None))));
 
     // --- [LOOKS]
@@ -245,7 +234,7 @@ public static class SectionRows {
                     var cases => ChoiceRows.Choice(
                             source, field,
                             Lens<TState, StateCase<TValue>>.New(
-                                current => StateCase<TValue>.Items.Single(item => item.Holds(lens.Get(current))),
+                                current => StateCase<TValue>.Items.First(item => item.Holds(lens.Get(current))),
                                 picked => current => picked.Holds(lens.Get(current)) ? current : lens.Set(picked.Default, current)),
                             scope => IO.pure(cases.Map(each => new ChoiceItem<StateCase<TValue>>(
                                 each.Item, Wording.English.Shown(text.Items[each.Item.Key].Caption, scope.Sink), None))), rules)
@@ -387,7 +376,7 @@ public static class SectionRows {
                 ToolTip = RowText.Localize("Write the exposure that sets the stage input's trimmed mean luminance at middle grey").Local,
             })
             let show = stage.Match(Some: static input => input.Read, None: static () => IO.pure(Option<PixelFrame>.None))
-                .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(static _ => unit)
+                .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(unit)
             let site = new CallbackSite(scope.Sink, typeof(Eto.Forms.Command), nameof(Eto.Forms.Command.Executed))
             from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ => Metered(scope, exposure, stage, mailbox, retain), site), retain)
             from button in ButtonRows.Push(command, retain)
@@ -406,11 +395,10 @@ public static class SectionRows {
 
     private static IO<Unit> Forked(
         ExposureState held, PixelFrame read, StageInput input, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
-        DisposalOps.Fork(IO.lift<Fin<ExposureState>>(() => held.Metered(read, input.Context.Working)).Bind(answer => mailbox((unit, answer))), retain).Map(static _ => unit);
+        DisposalOps.Fork(IO.lift<Fin<ExposureState>>(() => held.Metered(read, input.Context.Working)).Bind(answer => mailbox((unit, answer))), retain).Map(unit);
 
     private static IO<Unit> Committed<TRecord>(RowScope scope, RowSource<TRecord> source, TRecord value, Seq<IStateParameter<TRecord>> writes) where TRecord : IStateRecord<TRecord> =>
-        from diff in scope.Commit(new BindingGroup(Seq(source.Values(scope))), ValueSet.Fields(source.Owner, value, writes))
-        select unit;
+        scope.Commit(new BindingGroup(Seq(source.Values(scope))), ValueSet.Fields(source.Owner, value, writes)).Map(unit);
 
     // --- [CDL_FILES]
     private static ControlRow Opened(RowSource<CdlState> cdl) =>

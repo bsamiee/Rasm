@@ -5,7 +5,7 @@ from typing import ClassVar, Self
 
 import bpy
 import bpy.utils.previews
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -76,14 +76,8 @@ class Previews(msgspec.Struct, frozen=True, kw_only=True):
 
         def drawn(plane: Option[npt.NDArray[np.float32]]) -> BlenderResult[Option[int]]:
             """Completes the native item change before publishing its request and display facts."""
-            match plane.tag:
-                case "some":
-                    preview = Option.of_optional(tiles.collection.get(slot)).default_with(lambda: tiles.collection.new(slot))
-                    icon = Some(written(preview, plane.some, shown.checker).icon_id)
-                    redraw = redrawn().map(lambda _: None)
-                case "none":
-                    icon = Nothing
-                    redraw = self.dropped(slot)
+            icon = plane.map(lambda pixels: written(Option.of_optional(tiles.collection.get(slot)).default_with(lambda: tiles.collection.new(slot)), pixels, shown.checker).icon_id)
+            redraw = redrawn().map(lambda _: None) if plane.is_some() else self.dropped(slot)
             tiles.drawn[slot] = shown
             return redraw.map(lambda _: icon)
 

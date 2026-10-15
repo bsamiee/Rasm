@@ -161,7 +161,7 @@ public static class Intersections {
                     ? new CurveCrossing<TAt, TSpan>.Hit(crossing.ParameterA, at(crossing), crossing.PointA, crossing.PointB)
                     : new CurveCrossing<TAt, TSpan>.Overlap(crossing.OverlapA, span(crossing)))
                 .Strict()),
-            static events => DisposalOps.Release(Conversions.Rows(new[] { events })));
+            static events => DisposalOps.Release(Conversions.Rows([events])));
 
     // --- [CURVES_AND_POINTS]
     public static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> Acquire(Func<(bool Accepted, Curve[] Curves, Point3d[] Points)> host, string member, Action<IDisposable> retain) =>
@@ -184,7 +184,7 @@ public static class Intersections {
             Fin<MeshCrossings> (answer) => answer.Accepted
                 ? new MeshCrossings(Conversions.Rows(answer.Polylines), Conversions.Rows(answer.Overlaps), Optional(answer.Mesh))
                 : token.IsCancellationRequested ? Errors.Cancelled : new Refused(answer.Member),
-            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Mesh })), retain)
+            static answer => DisposalOps.Release(Conversions.Rows([answer.Mesh])), retain)
         select crossings;
 
     public static IO<Option<(double T, Seq<int> Faces)>> MeshRay(Mesh mesh, Ray3d ray) =>
@@ -197,7 +197,7 @@ public static class Intersections {
 
     public static IO<Seq<(Point3d Point, int Face)>> MeshPoints(Func<(Point3d[] Points, int[]? Faces)> host) =>
         from answer in IO.lift(host)
-        select toSeq(answer.Points).Zip(Conversions.Rows(answer.Faces), static (point, face) => (Point: point, Face: face)).Strict();
+        select toSeq(answer.Points).Zip(Conversions.Rows(answer.Faces)).Strict();
 
     // --- [RAYS_AND_PROJECTIONS]
     public static IO<Seq<(Point3d Point, int Geometry, Option<int> Face)>> RayShoot(Seq<GeometryBase> geometry, Ray3d ray, ReflectionCount reflections, bool honorTrims) =>
@@ -211,7 +211,7 @@ public static class Intersections {
             mesh: static (state, meshes) => (Points: Intersection.ProjectPointsToMeshesEx(meshes, state.Points, state.Direction, state.Absolute, out int[] sources), Sources: sources, Member: nameof(Intersection.ProjectPointsToMeshesEx)),
             brep: static (state, breps) => (Points: Intersection.ProjectPointsToBrepsEx(breps, state.Points, state.Direction, state.Absolute, out int[] sources), Sources: sources, Member: nameof(Intersection.ProjectPointsToBrepsEx))))
         from projected in IO.lift(Missing.Unless(answer.Points, answer.Member))
-        select toSeq(answer.Sources).Zip(toSeq(projected), static (source, point) => (Source: source, Point: point));
+        select toSeq(answer.Sources).Zip(toSeq(projected));
 
     // --- [CLASHES]
     public static IO<Seq<MeshClash>> Clashes(Seq<Mesh> setA, Seq<Mesh> setB, double distance, int maxEvents) =>

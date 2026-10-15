@@ -75,16 +75,16 @@ public static class RhinoObjects {
             Conversions.Present(o.InstanceDefinitionModelSerialNumber),
             (ObjectSelection)o.IsSelected(checkSubObjects: false),
             Conversions.Rows(o.GetSelectedSubObjects()),
-            o.IsHighlighted(checkSubObjects: false) != 0,
+            o.IsHighlighted(checkSubObjects: false) is not 0,
             Conversions.Rows(o.GetHighlightedSubObjects()),
-            o.ObjectFrame(RhinoObject.ObjectFrameFlags.Standard),
+            o.ObjectFrame(),
             o.ObjectFrame(RhinoObject.ObjectFrameFlags.IncludeScaleTransforms),
             Callbacks.Found(o.TryGetGumballFrame(out GumballFrame repositioned), repositioned),
             Callbacks.Found(o.TryGetGumballFrameForCurrentAlignment(out GumballFrame aligned), aligned),
             Callbacks.Found(o.GetDynamicTransform(out Transform dragged), dragged),
             o.MemoryEstimate(),
             o.ShortDescriptionWithClosedStatus(prepend: false, plural: false, out int status),
-            Some(status).Filter(static closed => closed != 0).Map(static closed => closed == 2));
+            Some(status).Filter(static closed => closed is not 0).Map(static closed => closed is 2));
 
     public static IO<SubObjectState> ReadSubObject(RhinoObject o, ComponentIndex componentIndex) =>
         IO.lift(() => new SubObjectState(
@@ -102,7 +102,7 @@ public static class RhinoObjects {
     // --- [SELECTION]
     public static IO<Seq<ObjectSelection>> SelectSubObjects(RhinoObject o, Seq<ComponentIndex> components, ObjectSelection selection, bool syncHighlight) =>
         IO.lift(() => Callbacks.Each(components, (component, index) =>
-            (ObjectSelection)o.SelectSubObject(component, selection != ObjectSelection.Unselected, syncHighlight, selection == ObjectSelection.Persistent) switch {
+            (ObjectSelection)o.SelectSubObject(component, selection is not ObjectSelection.Unselected, syncHighlight, selection is ObjectSelection.Persistent) switch {
                 var state => RefusedElement.Unless(state == selection, state, nameof(RhinoObject.SelectSubObject), index),
             }));
 

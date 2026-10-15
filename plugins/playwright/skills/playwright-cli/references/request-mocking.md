@@ -52,8 +52,10 @@ playwright cli network-state-set online
 - `request <n>` prints status, duration, type, MIME type, and both header sets, `--filename` saves it
 - `request-headers`, `request-body`, `response-headers`, and `response-body` print one part as its value alone, `--filename` saves it
 - Part commands print nothing for an absent part (a GET request body, a 204 response body, a body from before the last reload or navigation)
-- `request-headers` lists headers the page set after route changes, adds `cookie` while any route is active, and omits `host`, `accept-encoding`, and `sec-fetch-*`
-- `response-body` inlines text, JSON, XML, JavaScript, and SVG and saves other types as `response-<timestamp>.<subtype>`, `jpg` for JPEG and `bin` without a type, printing the path
+- `request-headers` lists headers the page set after route changes and adds `cookie` while any route is active
+- `request-headers` omits `host`, `accept-encoding`, and `sec-fetch-*`
+- `response-body` inlines text, JSON, XML, JavaScript, and SVG, and saves other types as `response-<timestamp>.<subtype>`, printing the path
+- Saved bodies take subtype `jpg` for JPEG and `bin` without a type
 
 ```bash
 playwright cli requests
@@ -71,7 +73,7 @@ playwright cli requests --clear
 
 `run-code` registers a page route for a conditional response, a modified real response, a failure, or a delay:
 - Page routes outrank `route` commands, stay out of `route-list` and `unroute`, and hold across navigations until `page.unrouteAll()`
-- `route.abort(<code>)` takes a lowercase Chromium net error name, `requests` prints `internetdisconnected` as `[FAILED] net::ERR_INTERNET_DISCONNECTED`
+- `route.abort(<code>)` takes a lowercase net error name, `requests` prints `internetdisconnected` as `[FAILED] net::ERR_INTERNET_DISCONNECTED`
 
 ```bash
 playwright cli run-code "async page => {

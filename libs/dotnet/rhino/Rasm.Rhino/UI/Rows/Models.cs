@@ -29,7 +29,7 @@ public sealed class LiveModel<TState> where TState : notnull {
 
     private IO<Unit> Publish(TState next) =>
         state.SwapMaybeIO(held => !held.Stale && EqualityComparer<TState>.Default.Equals(held.Value, next) ? None : Some(held with { Value = next, Stale = false }))
-            .Map(static _ => unit);
+            .Map(unit);
 }
 
 public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<RhinoDoc, IO<TState>> read) where TState : notnull {
@@ -53,7 +53,7 @@ public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<R
 
     private IO<Unit> Refresh(HashMap<Option<uint>, Unit> marked) =>
         from docs in IO.lift(() => toSeq(marked.Keys).Exists(static serial => serial.IsNone)
-            ? Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false))
+            ? Conversions.Rows(RhinoDoc.OpenDocuments())
             : toSeq(marked.Keys).Somes().Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Strict())
         from refreshed in Callbacks.Each(docs.Map(doc =>
                 IO.lift(() => Optional(doc.RuntimeData.TryGetValue<LiveModel<TState>>(this)))

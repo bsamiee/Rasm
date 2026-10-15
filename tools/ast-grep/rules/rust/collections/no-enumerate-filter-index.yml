@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enumerate-filter-index
+language: rust
+severity: error
+utils:
+    index-free-test:
+        not: {has: {stopBy: end, kind: field_expression, all: [{has: {field: field, regex: '^then(_some)?$'}}, {has: {field: value, any: [{pattern: $IDX}, {has: {stopBy: end, kind: identifier, pattern: $IDX}}]}}]}}
+rule:
+    kind: call_expression
+    pattern: $CHAIN
+    any:
+        - all:
+            - pattern: $I.enumerate().filter($F).map(|($IDX, _)| $IDX)
+            - has: {field: function, has: {field: value, has: {field: arguments, has: {nthChild: 1, kind: closure_expression, regex: '^(move\s+)?\|\s*&?\(\s*_\s*,'}}}}
+        - all:
+            - pattern: $I.enumerate().filter_map(|($IDX, $ITEM)| $TEST.then_some($IDX))
+            - matches: index-free-test
+        - all:
+            - pattern: '$I.enumerate().filter_map(|($IDX, $ITEM)| $TEST.then(|| $IDX))'
+            - matches: index-free-test
+message: '`$CHAIN` numbers every element to keep the indexes that pass a test'
+note: 'Call `Itertools::positions(<test>)` on the iterator (`use itertools::Itertools;`), `positions` yields the index of each element the test accepts. The test takes each element by value in place of a reference to the numbered pair'

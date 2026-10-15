@@ -130,15 +130,12 @@ def prepared(
     if not record.compression.enabled:
         return Ok((record, {}))
 
-    def buffered(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
-        return Error((ImagingBufferFault(request=image, error=image.geterror()),)) if image.has_error else Ok(image)
-
     def located(pixels: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
         image = OpenImageIO.ImageBuf(pixels)
         image.copy_metadata(source)
         image.set_origin(source.xbegin, source.ybegin, source.zbegin)
         image.roi_full = source.roi_full
-        return buffered(image)
+        return ImagingBufferFault.checked(image)
 
     def coded(image: OpenImageIO.ImageBuf) -> Option[OpenImageIO.ImageSpec]:
         if not (width := (record.compression.value.coded_width)).enabled:
@@ -167,13 +164,18 @@ def prepared(
                 Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=image, error=image.geterror()),)), restored
             )
 
-        return located(straight).bind(lambda image: buffered(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2)))).bind(lambda rgb: record.compression.value.applied(rgb, coded(rgb))).bind(associated)
+        return (
+            located(straight)
+            .bind(lambda image: ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2))))
+            .bind(lambda rgb: record.compression.value.applied(rgb, coded(rgb)))
+            .bind(associated)
+        )
 
     try:
         return (
             Result[npt.NDArray[np.float32], ImagingFaults]
             .bind(Option.of_optional(source.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=source, error=source.geterror()),)), compressed)
-            .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            .map_error(BlenderImagingFault.lifted)
             .map(lambda image: (record, {Shell.image: image}))
         )
     except (TypeError, OverflowError, MemoryError) as error:

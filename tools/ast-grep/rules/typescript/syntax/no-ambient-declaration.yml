@@ -18,7 +18,7 @@ rule:
     any:
         - kind: ambient_declaration
           any:
-            - has: {kind: 'lexical_declaration, variable_declaration, function_signature, class_declaration, abstract_class_declaration, enum_declaration, internal_module'}
+            - has: {kind: 'lexical_declaration, function_signature, class_declaration, abstract_class_declaration, enum_declaration'}
             - has: {kind: statement_block, matches: declared-member}
             - has:
                 kind: module

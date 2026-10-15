@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-recursive-case
+language: swiftlang
+arguments: [case]
+rule:
+    kind: simple_identifier
+    all:
+        - matches: case
+        - inside: {kind: enum_entry, inside: {kind: enum_class_body, inside: {kind: class_declaration, has: {field: name, pattern: $OWNER}}}}
+        - precedes:
+            kind: enum_type_parameters
+            has:
+                stopBy: end
+                kind: user_type
+                has: {kind: type_identifier, pattern: $OWNER}
+                not: {has: {kind: type_identifier, nthChild: 2}}

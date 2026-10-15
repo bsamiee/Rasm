@@ -1,7 +1,7 @@
 {
     "name": "argus",
     "version": "1.0.0",
-    "description": "Language servers, each started on the first edit of a file with one of its extensions",
+    "description": "Repository language servers for code navigation",
     "author": {
         "name": "Bardia Samiee"
     }

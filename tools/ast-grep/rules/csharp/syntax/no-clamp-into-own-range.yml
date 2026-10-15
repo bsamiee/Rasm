@@ -34,4 +34,4 @@ rule:
                             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Min|Max)$'}}
                             - has: {field: arguments, has: {kind: argument, matches: limit}}
 message: '`$CLAMP` forces a value into the limits of `$TYPE` and hides the out-of-range case its validation reports'
-note: Pass the unclamped value to the `$TYPE` factory or `Validate` and return its error for a value outside the limits
+note: Pass the unclamped value to the type's factory or `Validate` and return its error for a value outside the limits

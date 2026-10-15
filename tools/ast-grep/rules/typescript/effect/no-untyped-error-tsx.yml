@@ -3,6 +3,15 @@ id: no-untyped-error-tsx
 language: tsx
 severity: error
 utils:
+    native-error:
+        any:
+            - kind: new_expression
+              has: {field: constructor, matches: syntax-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
+            - kind: as_expression, satisfies_expression, parenthesized_expression
+              has: {matches: native-error}
+    effect-channel:
+        kind: member_expression
+        has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Exit)$'}}}}
     untagged-error:
         any:
             - kind: string, number, true, false, null, undefined, regex
@@ -12,8 +21,7 @@ utils:
             - kind: template_string
             - kind: as_expression, satisfies_expression, parenthesized_expression
               has: {matches: untagged-error}
-            - kind: new_expression
-              has: {field: constructor, matches: syntax-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
+            - matches: native-error
             - any:
                 - kind: new_expression
                   has: {field: 'constructor', not: {matches: syntax-package-reference}}
@@ -90,6 +98,7 @@ utils:
               matches: untagged-thunk
 rule:
     kind: call_expression
+    not: {all: [{has: {field: function, matches: effect-channel}}, {has: {stopBy: end, pattern: $ERROR, matches: native-error}}]}
     any:
         - all:
             - has: {field: arguments, has: {matches: untagged-error, pattern: $ERROR}}
@@ -110,4 +119,4 @@ rule:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: options-callee}
 message: '`$FAIL` fails with `$ERROR`, an error built from text'
-note: 'Fail with a `Data.TaggedError`, `Schema.TaggedError`, or `Data.taggedEnum` variant holding typed fields, or with the error the library types (`Effect.fromOption(<option>)` fails with `NoSuchElementError`), consumers then match `_tag` in place of text'
+note: 'Fail with a `Schema.TaggedError` or `Data.taggedEnum` variant holding typed fields, or with the error the library types (`Effect.fromOption(<option>)` fails with `NoSuchElementError`), consumers then match `_tag` in place of text'

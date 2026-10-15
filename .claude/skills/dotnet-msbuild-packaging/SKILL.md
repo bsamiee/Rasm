@@ -79,7 +79,7 @@ Files with no place in the project set:
 |  [03]   | `CentralPackageFloatingVersionsEnabled`  | `false`   | `true` permits `1.*`, restore then depends on the feed state           |
 |  [04]   | `ManagePackageVersionsCentrally=false`   |           | In a nested `Directory.Packages.props`, removes a tree from CPM        |
 
-Transitive pinning restores every transitive package with a `PackageVersion` item at the item's version, a pin below a dependency's floor fails restore with `NU1109`. `dotnet pack` promotes pinned transitive packages to explicit nuspec dependencies. `PackageVersion Update` in a nested file changes one version for one tree.
+Transitive pinning restores every transitive package with a `PackageVersion` item at the item's version, a pin below a dependency's lower bound fails restore with `NU1109`. `dotnet pack` promotes pinned transitive packages to explicit nuspec dependencies. `PackageVersion Update` in a nested file changes one version for one tree.
 
 | [INDEX] | [METADATA]             | [EFFECT]                                                                                 |
 | :-----: | :--------------------- | :--------------------------------------------------------------------------------------- |
@@ -124,7 +124,7 @@ SemVer precedence misorders the prerelease builds a CI labels by branch or by bu
 - Alphanumeric identifiers compare as text, `<n>-<branch>-<build>` outranks `<n>-dev-<build>` when `<branch>` sorts after `dev`
 - Digits inside an alphanumeric identifier compare as text, `<n>-alpha9` outranks `<n>-alpha13`
 - Search API `version`, floating `*-*`, and `dotnet package list --outdated` return the SemVer maximum
-- Registration leaves carry `published` and `listed`, an unlisted leaf reads `published` as `1900-01-01`
+- Registration leaves hold `published` and `listed`, an unlisted leaf reads `published` as `1900-01-01`
 - `PackageReference` compatibility follows `ManagedCodeConventions` asset selection for the target framework
 - `VersionRange.TryParse` with `allowFloating` reads an exact range (`[x.y.z]`) and a floating version (`1.*`)
 
@@ -142,15 +142,12 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
     </packageSources>
     <packageSourceMapping>
         <packageSource key="nuget.org">
-        <package pattern="*" />
+            <package pattern="*" />
         </packageSource>
         <packageSource key="contoso">
-        <package pattern="Contoso.*" />
+            <package pattern="Contoso.*" />
         </packageSource>
     </packageSourceMapping>
-    <config>
-        <add key="globalPackagesFolder" value="packages" />
-    </config>
 </configuration>
 ```
 
@@ -160,7 +157,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - Exact id patterns beat a prefix, a longer prefix beats a shorter one, `*` is the default
 - CPM reports `NU1507` with more than one HTTP source and no mapping
 - Mapping is skipped for an id present in the global packages folder
-- `globalPackagesFolder` in a `<config>` section gives a repository its own folder, a CI runner cache restores that path between jobs
+- `globalPackagesFolder` in a repository `<config>` splits its packages from outside restores, machine `NUGET_PACKAGES` serves both from one folder
 - Relative `globalPackagesFolder` and `repositoryPath` values resolve against the directory of the `NuGet.config` that sets them
 - `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config`
 - `NUGET_PACKAGES` overrides `globalPackagesFolder` alone, a relative value fails restore
@@ -288,15 +285,13 @@ Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` un
 ```xml
 <PropertyGroup Label="Continuous integration" Condition="'$(CI)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
 </PropertyGroup>
 ```
 
 - `ContinuousIntegrationBuild` turns on `DeterministicSourcePaths`
 - `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks and BuildCheck log
 - `SatelliteResourceLanguages=en` keeps named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`
-- Satellite and documentation properties belong to the unconditioned group
+- Warning, satellite, and documentation properties belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, a Windows target framework then fails `NETSDK1100`
 - `global.json` `rollForward: disable` pins the SDK on runners, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
 - Use `Skill(dotnet-msbuild-diagnostics)` for BuildCheck on the pipeline build
@@ -313,7 +308,7 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [02]   | `-clp:Summary;ErrorsOnly`       | Console logger parameters, `-v:m` sets the verbosity                                     |
 |  [03]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                         |
 |  [04]   | `-nodeReuse:false`              | Worker nodes exit with the build and no MSBuild server starts, both otherwise outlive it |
-|  [05]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise waits 10 minutes after the last build   |
+|  [05]   | `-p:UseSharedCompilation=false` | `csc` runs as a child process, the Roslyn server otherwise idles 10 minutes past a build |
 
 | [INDEX] | [VARIABLE]                             | [EFFECT]                                                                 |
 | :-----: | :------------------------------------- | :----------------------------------------------------------------------- |
@@ -321,14 +316,14 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [02]   | `DOTNET_CLI_TELEMETRY_OPTOUT=1`        | No telemetry                                                             |
 |  [03]   | `DOTNET_GENERATE_ASPNET_CERTIFICATE=0` | No development certificate on first run                                  |
 |  [04]   | `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0`    | No `PATH` edit on first run                                              |
-|  [05]   | `DOTNET_CLI_HOME=<dir>`                | Location of first-run sentinels, workload data, and local tools          |
+|  [05]   | `DOTNET_CLI_HOME=<dir>`                | Moves first-run sentinels, workloads, local tools, and packages folder   |
 |  [06]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
 
 `global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs package `Microsoft.Testing.Extensions.TrxReport` in each test project, `--project` and `--solution` exclude each other, and exit codes are `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
 
 - `dotnet test --no-build` runs `ComputeRunArguments` per test project and starts the app host
 - `TestingPlatformCommandLineArguments` reaches the test run through `RunArguments`
-- `TestingPlatformDotnetTestSupport` belongs to VSTest mode, the .NET 10 runner fails when a project sets it
+- `TestingPlatformDotnetTestSupport` belongs to VSTest mode, MTP-mode `dotnet test` fails when a project sets it
 - Extension options (`--report-trx`, `--coverage`, `--crashdump`) fail with exit code `5` in a project without the providing package
 - `coverlet.MTP` names each report by a timestamp under `--results-directory`
 

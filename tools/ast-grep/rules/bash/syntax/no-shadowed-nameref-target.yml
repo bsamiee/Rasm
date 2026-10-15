@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-shadowed-nameref-target
+language: bash
+severity: error
+utils:
+    nameref-option:
+        kind: word
+        regex: '^-[a-zA-Z]*n'
+    positional-nameref:
+        kind: declaration_command
+        all:
+            - has: {matches: nameref-option}
+            - has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?[1-9]\}?"?$'}}
+    call:
+        kind: command
+        all:
+            - has: {field: name, pattern: $FUNCTION}
+            - has: {kind: word, pattern: $LOCAL}
+rule:
+    kind: variable_name
+    pattern: $LOCAL
+    inside:
+        kind: declaration_command
+        stopBy: {not: {kind: variable_assignment}}
+        regex: '^(local|declare|typeset)\b'
+        not: {has: {matches: nameref-option}}
+        inside:
+            kind: function_definition
+            stopBy: end
+            all:
+                - has: {field: name, pattern: $FUNCTION}
+                - has: {field: body, has: {stopBy: end, matches: positional-nameref}}
+                - inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call}}
+message: 'Local `$LOCAL` of `$FUNCTION` captures the nameref a caller aims at its own `$LOCAL`'
+note: 'Name the locals of a function holding a nameref so no caller passes them, `local -n _<function>_out=$1` beside `local _<function>_<name>`, bash resolves the nameref through dynamic scope to the innermost variable of that name'

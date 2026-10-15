@@ -5,7 +5,7 @@ from typing import Annotated
 from expression import Some
 import msgspec
 
-from blender.imaging.parameters import Case, Gated, Presentation, Rgb, Stops
+from blender.imaging.parameters import Case, Gated, Presentation, Rgb, Stops, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -30,9 +30,7 @@ class Lobes(Case, frozen=True, kw_only=True, tag=1):
 
     title = "Light Passes"
     terms: Annotated[Terms[Gated[Stops]], msgspec.Meta(title="Gains", description="Gain in stops per summed term")] = Terms(**dict.fromkeys(Terms.__struct_fields__, Gated(enabled=True, value=0.0)))
-    occlusion: Annotated[Gated[Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]], msgspec.Meta(description="Ambient occlusion strength over lobe light"), Presentation(soft=Some((0.0, 1.0)))] = Gated(
-        enabled=False, value=1.0
-    )
+    occlusion: Annotated[Gated[Unit], msgspec.Meta(description="Ambient occlusion strength over lobe light"), Presentation(soft=Some((0.0, 1.0)))] = Gated(enabled=False, value=1.0)
 
 
 class GroupGain(msgspec.Struct, frozen=True, kw_only=True):

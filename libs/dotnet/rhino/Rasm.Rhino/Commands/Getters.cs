@@ -224,7 +224,7 @@ public static partial class Getters {
 
     // --- [POINTS]
     public static IO<T> Point<T>(RhinoDoc doc, PointRequest<T> request, Func<WorldPick, IO<T>> picked) =>
-        Pointed(static () => new GetPoint(), doc, request, getter => getter.Get(request.Released, get2DPoint: false), getter => (GetResult.Point, World(getter, doc, picked)));
+        Pointed(static () => new GetPoint(), doc, request, getter => getter.Get(request.Released), getter => (GetResult.Point, World(getter, doc, picked)));
 
     public static IO<T> WindowPoint<T>(RhinoDoc doc, PointRequest<T> request, Func<WindowPick, IO<T>> picked) =>
         Pointed(

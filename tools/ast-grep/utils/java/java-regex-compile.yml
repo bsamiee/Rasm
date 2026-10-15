@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: java-regex-compile
+language: java
+utils:
+    constant:
+        any:
+            - kind: string_literal
+            - {kind: identifier, regex: '^[A-Z][A-Z0-9_]*$'}
+            - {kind: field_access, has: {field: field, regex: '^[A-Z][A-Z0-9_]*$'}}
+            - kind: binary_expression
+              all:
+                - has: {field: left, matches: constant}
+                - has: {field: right, matches: constant}
+            - {kind: parenthesized_expression, has: {matches: constant}}
+    regex:
+        nthChild: 1
+        matches: constant
+    fastpath:
+        any:
+            - kind: string_literal
+              regex: &single '^"(?:[^.$|()\[{^?*+\\"]|\\[tnrfb''"]|\\\\[^0-9A-Za-z])"$'
+            - kind: identifier
+              pattern: $SEPARATOR
+              inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $SEPARATOR}}, {has: {field: value, regex: *single}}]}}
+rule:
+    kind: method_invocation
+    any:
+        - all:
+            - has: {field: object, regex: '^Pattern$'}
+            - has: {field: name, regex: '^(compile|matches)$'}
+            - has: {field: arguments, has: {matches: regex}}
+        - all:
+            - has: {field: name, regex: '^(replaceAll|replaceFirst)$'}
+            - has: {field: arguments, all: [{has: {matches: regex}}, {has: {nthChild: 2}}]}
+        - all:
+            - has: {field: name, regex: '^matches$'}
+            - has: {field: arguments, all: [{has: {matches: regex}}, {not: {has: {nthChild: 2}}}]}
+        - all:
+            - has: {field: name, regex: '^split$'}
+            - has: {field: arguments, has: {matches: regex, not: {matches: fastpath}}}

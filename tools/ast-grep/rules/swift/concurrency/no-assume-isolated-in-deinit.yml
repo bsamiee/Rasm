@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-assume-isolated-in-deinit
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has:
+            nthChild: 1
+            pattern: $HOP
+            any:
+                - kind: simple_identifier
+                  regex: '^assumeIsolated$'
+                - kind: navigation_expression
+                  has: {field: suffix, regex: '^\.assumeIsolated$'}
+        - inside: {kind: deinit_declaration, stopBy: {kind: 'deinit_declaration, lambda_literal, function_declaration'}}
+message: '`$HOP` asserts actor isolation inside a nonisolated `deinit`'
+note: 'Declare `isolated deinit` and call isolated members directly, the runtime running the deinitializer on the actor''s executor'

@@ -311,6 +311,10 @@ public sealed partial class BasisKind {
         new(basis.Dimensions.Wave(point, basis.WaveForm, basis.WaveProfile, basis.WavePhase, basis.Distortion, basis.Octaves, basis.WaveDetailScale, field), point), static _ => Fin.Succ((0f, 1f)));
     public static readonly BasisKind White = new("white", static basis => (point, field) => new(basis.Dimensions.White(point, field).X, point), static _ => Fin.Succ((0f, 1f)));
 
+    internal bool Sited => Map(
+        fbm: false, multifractal: false, heteroTerrain: false, hybridMultifractal: false, ridgedMultifractal: false, f1: true, f2: true, smoothF1: true,
+        edgeDistance: false, gabor: false, magic: false, wave: false, white: false);
+
     [UseDelegateFromConstructor]
     internal partial Func<(ERational X, ERational Y, ERational Z, ERational W), uint, NoiseSample<(ERational X, ERational Y, ERational Z, ERational W)>> Sampler(NoiseBasis basis);
 
@@ -349,15 +353,15 @@ public sealed partial class NoiseDimensions {
         });
 
     public static readonly NoiseDimensions One = new("1d", Neighborhood.Of(1), 0.25f, Planar, static (word, offset) =>
-        (word >> 28) switch { var h => (1u + (h & 7u)) * ((h & 8u) != 0u ? -offset.X : offset.X) });
+        (word >> 28) switch { var h => (1u + (h & 7u)) * ((h & 8u) is not 0u ? -offset.X : offset.X) });
     public static readonly NoiseDimensions Two = new("2d", Planar.Cells, 0.6616f, Planar, static (word, offset) =>
-        (word >> 29) switch { var h => (((h & 1u) != 0u ? -1f : 1f) * (h < 4u ? offset.X : offset.Y)) + (((h & 2u) != 0u ? -2f : 2f) * (h < 4u ? offset.Y : offset.X)) });
+        (word >> 29) switch { var h => (((h & 1u) is not 0u ? -1f : 1f) * (h < 4u ? offset.X : offset.Y)) + (((h & 2u) is not 0u ? -2f : 2f) * (h < 4u ? offset.Y : offset.X)) });
     public static readonly NoiseDimensions Three = new("3d", Spherical.Cells, 0.982f, Spherical, static (word, offset) =>
-        (word >> 28) switch { var h => (((h & 1u) != 0u ? -1f : 1f) * (h < 8u ? offset.X : offset.Y)) + (((h & 2u) != 0u ? -1f : 1f) * (h < 4u ? offset.Y : h is 12u or 14u ? offset.X : offset.Z)) });
+        (word >> 28) switch { var h => (((h & 1u) is not 0u ? -1f : 1f) * (h < 8u ? offset.X : offset.Y)) + (((h & 2u) is not 0u ? -1f : 1f) * (h < 4u ? offset.Y : h is 12u or 14u ? offset.X : offset.Z)) });
     public static readonly NoiseDimensions Four = new("4d", Neighborhood.Of(4), 0.8344f, Spherical, static (word, offset) =>
         (word >> 27) switch {
-            var h => (((h & 1u) != 0u ? -1f : 1f) * (h < 24u ? offset.X : offset.Y)) + (((h & 2u) != 0u ? -1f : 1f) * (h < 16u ? offset.Y : offset.Z))
-                + (((h & 4u) != 0u ? -1f : 1f) * (h < 8u ? offset.Z : offset.W)),
+            var h => (((h & 1u) is not 0u ? -1f : 1f) * (h < 24u ? offset.X : offset.Y)) + (((h & 2u) is not 0u ? -1f : 1f) * (h < 16u ? offset.Y : offset.Z))
+                + (((h & 4u) is not 0u ? -1f : 1f) * (h < 8u ? offset.Z : offset.W)),
         });
 
     internal Neighborhood Cells { get; }
@@ -374,7 +378,7 @@ public sealed partial class NoiseDimensions {
 public sealed record Timing(Clock Clock, Pace Pace) : IStateRecord<Timing, TimingParameter, InvalidGenerator> {
     public static Timing Default { get; } = new(Clock.MinValue, Pace.Standard);
 
-    public Clock At(PassContext context) => context.Time.Map(time => Clock.Advanced((double)Pace * time.TotalSeconds)).IfNone(Clock);
+    public Clock At(PassContext context) => context.Time.Match(Some: time => Clock.Advanced(Pace * time.TotalSeconds), None: Clock);
 }
 
 [SmartEnum<string>]
@@ -447,7 +451,7 @@ public sealed record NoiseBasis(
         Kind.Range(this).Map(range => (Kind.Sampler(this), range));
 
     internal Fin<Func<(ERational X, ERational Y, ERational Z, ERational W), uint, NoiseSample<(ERational X, ERational Y, ERational Z, ERational W)>>> SiteSampler =>
-        (Kind == BasisKind.F1 || Kind == BasisKind.F2 || Kind == BasisKind.SmoothF1)
+        Kind.Sited
             && Octaves.Lacunarity == FractalLacunarity.MinValue && Octaves.Detail > FractalDetail.MinValue && Octaves.Roughness > AxisFraction.MinValue
                 ? new InvalidGenerator() : Kind.Sampler(this);
 
@@ -642,7 +646,7 @@ internal static class NoiseFunctions {
             closest = toward.LengthSquared() < closest.LengthSquared() ? toward : closest;
         float edge = float.MaxValue;
         foreach (Vector4 toward in reach)
-            edge = (toward - closest).LengthSquared() > 0.0001f ? float.Min(edge, Vector4.Dot((closest + toward) / 2f, Vector4.Normalize(toward - closest))) : edge;
+            edge = Vector4.DistanceSquared(toward, closest) > 0.0001f ? float.Min(edge, Vector4.Dot((closest + toward) / 2f, Vector4.Normalize(toward - closest))) : edge;
         return edge;
     }
 
@@ -739,10 +743,10 @@ internal static class NoiseFunctions {
             static (peak, _) => peak, static (_, peak, _) => peak);
 
         public float CellBound(Octaves octaves, Cellular cellular, float smoothness, float span) {
-            float reach = (smoothness == 0f ? lattice.Cells.Near : lattice.Cells.Wide).Select(offset => cellular.Metric.Length(
+            float reach = (smoothness is 0f ? lattice.Cells.Near : lattice.Cells.Wide).Select(offset => cellular.Metric.Length(
                 Vector4.Max(Vector4.Abs(offset - lattice.Cells.Live), Vector4.Abs(offset + (cellular.Randomness * lattice.Cells.Live))), cellular.Exponent))
-                .Order().ElementAt(smoothness == 0f ? (int)span - 1 : lattice.Cells.Wide.Count - 1);
-            float peak = smoothness == 0f ? reach : RoundBound(EFloat.FromSingle(reach).Add(EFloat.FromSingle(smoothness).Multiply(lattice.Cells.Wide.Count).Divide(4)), 8 * lattice.Cells.Wide.Count);
+                .Order().ElementAt(smoothness is 0f ? (int)span - 1 : lattice.Cells.Wide.Count - 1);
+            float peak = smoothness is 0f ? reach : RoundBound(EFloat.FromSingle(reach).Add(EFloat.FromSingle(smoothness).Multiply(lattice.Cells.Wide.Count).Divide(4)), 8 * lattice.Cells.Wide.Count);
             return lattice.Fractal(peak, 0f, 1f, octaves, cellular, smoothness, span, 0u,
                 static (at, _) => at, static (scale, _) => scale, static (_, _, _, _) => 0f,
                 static (_, at, _, _, _) => new NoiseSample<float>(at, 0f)).Value;
@@ -783,7 +787,7 @@ internal static class NoiseFunctions {
         private float Cascade<T>(T point, Octaves octaves, float offset, float lead, uint field, Func<T, float, T> advance, Func<NoiseDimensions, T, uint, float> sample) {
             (float value, float amplitude) = (1f, 1f);
             for (int octave = 0; octaves.Weight(octave) > 0f; octave++)
-                (value, amplitude, point) = (value * ((octave == 0 ? lead : 1f) + (octaves.Weight(octave) * amplitude * (sample(lattice, point, field) + offset))), amplitude * octaves.Roughness, advance(point, octaves.Lacunarity));
+                (value, amplitude, point) = (value * ((octave is 0 ? lead : 1f) + (octaves.Weight(octave) * amplitude * (sample(lattice, point, field) + offset))), amplitude * octaves.Roughness, advance(point, octaves.Lacunarity));
             return value;
         }
 
@@ -812,7 +816,7 @@ internal static class NoiseFunctions {
             (float signal, float value, float amplitude) = (0f, 0f, 1f);
             for (int octave = 0; octaves.Weight(octave) >= 1f; octave++) {
                 float ridge = offset - MathF.Abs(sample(lattice, point, field));
-                signal = ridge * ridge * (octave == 0 ? 1f : Easing.Saturate(signal * gain));
+                signal = ridge * ridge * (octave is 0 ? 1f : Easing.Saturate(signal * gain));
                 (value, amplitude, point) = (value + (signal * amplitude), amplitude * octaves.Roughness, advance(point, octaves.Lacunarity));
             }
             return value;
@@ -979,7 +983,7 @@ internal static class NoiseFunctions {
             for (int index = 0; index < wide.Length; index++) {
                 Vector4 next = locate(origin, wide[index]);
                 float reach = cellular.Metric.Length(next - local, cellular.Exponent);
-                float blend = index == 0 ? 1f : (float)RampInterpolation.Ease.Weight(Easing.Saturate(0.5f + (0.5f * (distance - reach) / smoothness)));
+                float blend = index is 0 ? 1f : (float)RampInterpolation.Ease.Weight(Easing.Saturate(0.5f + (0.5f * (distance - reach) / smoothness)));
                 float correction = smoothness * blend * (1f - blend);
                 (distance, site) = (float.Lerp(distance, reach, blend) - correction, Vector4.Lerp(site, next, blend) - (correction / (1f + (3f * smoothness)) * lattice.Cells.Live));
             }

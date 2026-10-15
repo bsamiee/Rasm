@@ -65,7 +65,7 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
         select parameter;
 
     private static IO<IParameter> Coded(IParameter parameter, ParameterFace face, IPlugInSink sink) =>
-        IO.lift(() => parameter.UserName = RowText.Localize(face.Code, table: Some<object>(sink))).Map(_ => parameter);
+        IO.lift(() => parameter.UserName = RowText.Localize(face.Code, table: Some<object>(sink))).Map(parameter);
 
     internal ParameterRow Presented(IGlyph glyph, int master, SpecialColour accent) =>
         this with {

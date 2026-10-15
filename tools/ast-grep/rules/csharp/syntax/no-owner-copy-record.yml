@@ -52,4 +52,4 @@ rule:
                         - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
         - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
 message: '`$NAME` copies members of its owner into `$TYPE`, members on the owner state what `$TYPE` derives'
-note: Declare each member of `$TYPE` on the owner holding its inputs, and delete `$TYPE` when no other producer builds it
+note: Declare each member of the copy type on the owner holding its inputs, and delete the copy type when no other producer builds it

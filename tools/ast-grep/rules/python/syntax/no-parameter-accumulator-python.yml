@@ -46,12 +46,12 @@ rule:
                 field: function
                 kind: attribute
                 all:
-                    - has: {field: object, matches: written}
                     - has: {field: attribute, regex: '^(append|appendleft|extend|extendleft|insert|add|update|setdefault|subtract|remove|discard|pop|popleft|popitem|clear|sort|reverse|rotate|move_to_end|difference_update|intersection_update|symmetric_difference_update|frombytes|fromlist|fromfile|fromunicode|fill|put|partition|resize)$'}
+                    - has: {field: object, matches: written}
             - kind: call
               all:
-                - has: {field: function, matches: mutator}
                 - has: {field: arguments, has: {nthChild: 1, matches: written}}
+                - has: {field: function, matches: mutator}
             - kind: call
               all:
                 - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(foreach_get|readinto1?|recv_into|recvfrom_into)$'}}
@@ -65,5 +65,18 @@ rule:
             - kind: delete_statement
               has: {matches: assigned}
         - not: {inside: {kind: function_definition, stopBy: {kind: function_definition}, has: {field: body, matches: released}}}
+        - not:
+            inside:
+                kind: function_definition
+                stopBy: end
+                all:
+                    - has: {field: name, regex: '^check$'}
+                    - has:
+                        field: parameters
+                        has:
+                            kind: typed_parameter
+                            all:
+                                - has: {nthChild: 1, pattern: $P}
+                                - has: {field: type, regex: '^list\[', has: {stopBy: end, matches: {python-imported-name: {module: {regex: '^refurb\.error$'}, name: {regex: '^Error$'}}}}}
 message: '`$WRITE` writes into the container parameter `$P`'
-note: 'Use `return` for a new container or `yield` for its items, a domain function writes only its return value'
+note: 'Use `return` for a new container or `yield` for its items, a domain function writes only its return value. A refurb `check(node, errors: list[Error])` appends to `errors`, the one report channel refurb gives a check'

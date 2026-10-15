@@ -87,23 +87,18 @@ public sealed class RenderingComparison : IDisposable {
         public Measurement(object owner, PixelFrame reference, PixelFrame test, IPlugInSink sink, TaskScheduler scheduler) {
             Owner = owner;
             Test = test;
-            started = new(new(() => {
-                CancellationTokenSource cancellation = new();
-                Task<Unit> work = Task.Factory.StartNew(async () => {
-                    using EnvIO environment = EnvIO.New(token: cancellation.Token, source: cancellation);
-                    return await IO.lift(() => FrameComparison.Of(reference, test))
+            started = new(
+                new(() => new Disposal<ForkIO<Unit>>(
+                    IO.liftAsync(environment => Task.Factory.StartNew(() => FrameComparison.Of(reference, test), environment.Token, TaskCreationOptions.None, scheduler))
+                        .Bind(static measured => IO.lift(() => measured))
                         .Bind(measured => Result.SwapIO(_ => Some(measured)))
-                        .Map(static _ => unit)
+                        .Map(unit)
                         .Catch(error => IO.lift(() => sink.Report(error, typeof(RenderingComparison), nameof(Measures))))
-                        .As().RunAsync(environment).ConfigureAwait(false);
-                }, cancellation.Token, TaskCreationOptions.None, scheduler).Unwrap();
-                return new Disposal<CancellationTokenSource>(cancellation, released => {
-                    released.Cancel();
-                    _ = work.ContinueWith(_ => released.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                        .As().Fork().Run(),
+                    static fork => fork.Cancel.Run())),
+                static acquired => {
+                    if (acquired.IsValueCreated) acquired.Value.Dispose();
                 });
-            }), static acquired => {
-                if (acquired.IsValueCreated) acquired.Value.Dispose();
-            });
         }
 
         public PixelFrame Test { get; }
@@ -169,10 +164,10 @@ public sealed class RenderingComparison : IDisposable {
         from current in Updated(state => state.Filter(chosen => chosen.Side == side) | Some(next))
         from graded in when(current.Exists(chosen => ReferenceEquals(chosen, next)),
             IO.liftVAsync(() => DisposalOps.Fork(Grade(request), lease => Updated(state => state.Map(chosen => ReferenceEquals(chosen.Request, request) ? chosen with { Work = Some(lease) } : chosen))
-                .Map(chosen => { if (!chosen.Exists(held => ReferenceEquals(held.Request, request))) lease.Dispose(); return unit; }).Run()).RunAsync(environment)).Map(static _ => unit)).As()
+                .Map(chosen => { if (!chosen.Exists(held => ReferenceEquals(held.Request, request))) lease.Dispose(); return unit; }).Run()).RunAsync(environment)).Map(unit)).As()
         select graded).Uninterruptible());
 
-    public IO<Unit> Clear => Updated(static _ => Option<Chosen>.None).Map(static _ => unit);
+    public IO<Unit> Clear => Updated(static _ => Option<Chosen>.None).Map(unit);
 
     private IO<Option<Chosen>> Updated(Func<Option<Chosen>, Option<Chosen>> change) =>
         (from changed in atomicIO(() => {
@@ -192,7 +187,7 @@ public sealed class RenderingComparison : IDisposable {
     private IO<Unit> Grade(TileRequest request) =>
         Formation(request)
             .Bind(formed => Updated(state => state.Map(chosen => ReferenceEquals(chosen.Request, request) ? chosen with { Frame = Some(formed.Frame) } : chosen)))
-            .Map(static _ => unit)
+            .Map(unit)
             .Catch(error => Updated(state => state.Filter(chosen => !ReferenceEquals(chosen.Request, request))).Bind(_ => IO.lift(() => sink.Report(error, typeof(RenderingComparison), nameof(Choose)))))
             .As();
 
@@ -202,7 +197,7 @@ public sealed class RenderingComparison : IDisposable {
         select (formed, scene);
 
     private static (FrameFeed Feed, Gamut Gamut) Output(TileRequest request) =>
-        request.Chain.Exists(static kind => kind.Stage == PostEffectType.ToneMapping)
+        request.Chain.Exists(static kind => kind.Stage is PostEffectType.ToneMapping)
             ? (RenderRuns.Formed.Feed, EffectPipeline.Display.Encoding.Gamut)
             : (RenderRuns.Formed.Feed with { Encoding = TransferCurve.Linear, Peak = None }, EffectPipeline.Working);
 
@@ -283,12 +278,12 @@ public sealed class RenderingComparison : IDisposable {
                     previewed.Value = previewed.Value.Map(shown => ReferenceEquals(shown.Request, preview.Request) ? shown with { Work = Some(lease) } : shown);
                     return current;
                 }).Map(current => { if (!current) lease.Dispose(); return unit; }).Run()).RunAsync(environment))
-                .Map(static _ => unit),
+                .Map(unit),
             None: static () => IO.pure(unit))
         select formed).Uninterruptible());
 
     private IO<Unit> Landed(Preview asked, Fin<(PixelFrame Frame, PixelFrame Scene)> formed) =>
-        atomicIO(() => previewed.Value = previewed.Value.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview)).Map(static _ => unit);
+        atomicIO(() => previewed.Value = previewed.Value.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview)).Map(unit);
 
     private IO<Unit> Withdrawn(TileRequest request) =>
         atomicIO(() => {
@@ -323,7 +318,7 @@ public sealed class RenderingComparison : IDisposable {
                 select (live.Current, sampled.Reference, sampled.Masks),
                 Rendered.Map(static live => (live.Current, Reference: Option<FrameShown>.None, Masks: Seq<FrameMask>()))),
             Compared(scope, comparison => comparison.Updated(state => state.Map(chosen =>
-                chosen.Measurement.Exists(measurement => ReferenceEquals(measurement.Work.Owner, owner)) ? chosen with { Measurement = None } : chosen)).Map(static _ => unit), IO.pure(unit)));
+                chosen.Measurement.Exists(measurement => ReferenceEquals(measurement.Work.Owner, owner)) ? chosen with { Measurement = None } : chosen)).Map(unit), IO.pure(unit)));
     }
 
     public static ControlRow Difference { get; } =

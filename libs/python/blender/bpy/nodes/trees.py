@@ -46,6 +46,11 @@ def tree_of(holder: bpy.types.ID) -> BlenderResult[bpy.types.NodeTree]:
     return (Some(holder) if isinstance(holder, bpy.types.NodeTree) else embedded(holder)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(holder), key=bpy.types.NodeTree.__name__),))
 
 
+def emptied[T: bpy.types.ID](holder: T) -> BlenderResult[T]:
+    """Removes every node of the tree a holder embeds, returning the holder."""
+    return tree_of(holder).map(lambda tree: tree.nodes.clear()).map(lambda _: holder)
+
+
 def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier: str) -> BlenderResult[bpy.types.NodeSocket]:
     """Finds a socket by identifier alone, never by name.
 
@@ -194,4 +199,4 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[O
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["GraphTree", "GroupNode", "Holder", "OutputNode", "active_output", "created", "fingerprinted", "group_node", "grouped", "joined", "ordered", "socket_at", "tree_of"]
+__all__ = ["GraphTree", "GroupNode", "Holder", "OutputNode", "active_output", "created", "emptied", "fingerprinted", "group_node", "grouped", "joined", "ordered", "socket_at", "tree_of"]

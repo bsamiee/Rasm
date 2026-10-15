@@ -32,3 +32,12 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 ## [03]-[PROJECTS]
 
 - Use `README.md` for the group a library joins
+- `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET`
+- Targets declare their binlog an output, a cache hit restores the log of the run it replays
+
+## [04]-[CHECKERS]
+
+- `Directory.Build.rsp` turns on BuildCheck for every MSBuild command under the root, `MSBuildTreatWarningsAsErrors` fails each report
+- File-based app builds read no `Directory.Build.rsp` and reject `-check` as an argument, their virtual projects run no BuildCheck
+- C# API bans sit in `tools/ast-grep/rules/csharp` alone, a `BannedSymbols.txt` list splits their policy
+- Analyzer packages join for a diagnostic no enabled analyzer or ast-grep rule reports

@@ -74,7 +74,7 @@ public static partial class Mappings {
         from result in IO.lift(Callbacks.Each(samples, (sample, index) => moved.Match(
             Some: xforms => (Side: mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture, xforms.Points, xforms.Normals), Texture: texture),
             None: () => (Side: mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture), Texture: texture)) switch {
-                var (side, texture) => RefusedElement.Unless(side != 0, (texture, side), nameof(TextureMapping.Evaluate), index),
+                var (side, texture) => RefusedElement.Unless(side is not 0, (texture, side), nameof(TextureMapping.Evaluate), index),
             }))
         select result;
 
@@ -106,14 +106,14 @@ public static partial class Mappings {
         let held = mapping.ValueUnsafe()
         from assigned in IO.lift(() => Refused.Unless(objectTransform.Match(
             Some: xform => rhinoObject.SetTextureMapping(channel, held, xform),
-            None: () => rhinoObject.SetTextureMapping(channel, held)) != 0, nameof(RhinoObject.SetTextureMapping)))
+            None: () => rhinoObject.SetTextureMapping(channel, held)) is not 0, nameof(RhinoObject.SetTextureMapping)))
         select assigned;
 
     private static IO<Option<MappingEntry>> Entry(RhinoObject rhinoObject, int channel, Action<IDisposable> retain) =>
         Copies.Owned(
             () => (Mapping: rhinoObject.GetTextureMapping(channel, out Transform objectTransform), ObjectTransform: objectTransform),
             Fin<Option<MappingEntry>> (answer) => Optional(answer.Mapping).Map(mapping => new MappingEntry(channel, mapping, answer.ObjectTransform)),
-            static answer => DisposalOps.Release(Conversions.Rows(new[] { answer.Mapping })),
+            static answer => DisposalOps.Release(Conversions.Rows([answer.Mapping])),
             retain);
 
     // --- [COORDINATES]
@@ -125,7 +125,7 @@ public static partial class Mappings {
         from coordinates in IO.lift(() => Optional(mesh.GetCachedTextureCoordinates(rhinoObject, texture)).Traverse(Copied).As())
         select coordinates;
 
-    public static IO<bool> Matches(Mesh mesh, MappingTag tag) => IO.lift(() => tag.CompareTo(mesh.VertexColors.Tag) == 0);
+    public static IO<bool> Matches(Mesh mesh, MappingTag tag) => IO.lift(() => tag.CompareTo(mesh.VertexColors.Tag) is 0);
 
     private static Fin<Either<Seq<Point2d>, Seq<Point3d>>> Copied(CachedTextureCoordinates held) => (held.Dim, Conversions.Rows(held)) switch {
         (2, var points) => new Either<Seq<Point2d>, Seq<Point3d>>.Left(points.Map(static point => new Point2d(point.X, point.Y))),

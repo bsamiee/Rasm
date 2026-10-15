@@ -31,7 +31,7 @@ function Media({ placement, active, priority, presentation, layoutId, viewport }
             video.current?.pause();
         }
     }, [active, visible]);
-    if (viewport && !eager && !nearby) {
+    if (viewport !== undefined && !eager && !nearby) {
         return null;
     }
     return failed ? (
@@ -55,7 +55,7 @@ function Media({ placement, active, priority, presentation, layoutId, viewport }
                     </ErrorBoundary>
                 ),
                 video: ({ poster }): ReactElement =>
-                    thumbnail && poster ? (
+                    thumbnail && poster !== undefined ? (
                         <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={mediaUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
                     ) : (
                         // biome-ignore lint/a11y/useMediaCaption: Owners must burn captions into videos with meaningful audio; timed-text uploads are not supported

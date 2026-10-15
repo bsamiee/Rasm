@@ -2,7 +2,6 @@
 id: no-condition-poll-rust
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 utils:
     timed-wait:
         kind: await_expression

@@ -376,7 +376,7 @@ public abstract partial record SunWindow {
         (Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(start).ToValidation(),
          Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(end).ToValidation(),
          (start <= end ? Fin.Succ(unit) : new ReversedWindow(start, end)).ToValidation(),
-         Some(step).Filter(held => held.Years == 0 && held.Months == 0 && held.ToDuration() >= grain).ToFin(new InvalidStudyStep(step))
+         Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain).ToFin(new InvalidStudyStep(step))
              .Bind(held => Conversions.Whole(held.ToDuration(), grain))
              .ToValidation())
             .Apply((_, _, _, count) => window(start, end, count))
@@ -474,9 +474,6 @@ public static partial class SunMapper {
     [MapperIgnoreSource(nameof(SunWindow.Step), Justification = "Written as the case's frame spacing")]
     [MapperIgnoreSource(nameof(SunWindow.Frames), Justification = "Read by previews alone")]
     private static partial void Map(SunWindow window, AnimationProperties properties);
-
-    [UserMapping]
-    private static double Degrees(NorthAngle north) => north;
 
     [UserMapping]
     private static double Degrees(Latitude latitude) => latitude;

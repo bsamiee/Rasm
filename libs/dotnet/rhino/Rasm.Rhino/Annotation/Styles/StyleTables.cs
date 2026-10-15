@@ -50,7 +50,7 @@ public static class StyleTables {
          select new SEquatableEdge<TableUpsert<DimensionStyle, DimensionStyleSpec>>(dependency, dependent))
         .ToLookup(static edge => edge.Source) switch {
             var edges => toSeq(upserts.ToBidirectionalGraph(row => edges[row], allowParallelEdges: false)
-                .SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Forward)),
+                .SourceFirstBidirectionalTopologicalSort()),
         };
 
     // --- [GRAPH]

@@ -62,7 +62,7 @@ def prepared(
             "damage": Estimate(value=key, standard_error=estimate.standard_error[..., 4:], precision=estimate.precision, replicates=estimate.replicates[..., 4:], normalization=estimate.normalization),
         }
 
-    return record.applied(source, bounds, extent, clock, precision=precision).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(published)
+    return record.applied(source, bounds, extent, clock, precision=precision).map_error(BlenderImagingFault.lifted).map(published)
 
 
 def flickered(shell: Shell[Flicker]) -> BlenderResult[tuple[Fragment, End]]:
@@ -95,7 +95,7 @@ def flickered(shell: Shell[Flicker]) -> BlenderResult[tuple[Fragment, End]]:
 
 damage: CompositorEffect[Damage] = CompositorEffect(
     record=Damage,
-    graph=lambda shell: Ok((Fragment(), shell.source)),
+    graph=Shell.passed,
     coverage=Coverage.RESULT,
     requested=Some(precise),
     preparation=Some(prepared),

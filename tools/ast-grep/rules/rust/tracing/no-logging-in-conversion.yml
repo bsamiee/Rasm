@@ -2,7 +2,6 @@
 id: no-logging-in-conversion
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 rule:
     all:
         - any:

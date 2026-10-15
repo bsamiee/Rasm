@@ -14,6 +14,14 @@ utils:
         regex: '(?i)(^|_)(secs|seconds|ms|millis|milliseconds|us|micros|ns|nanos|mins|minutes|hours|timeout|interval|delay|ttl|duration|elapsed)$'
     path-name:
         regex: '(?i)(^|_)(path|dir|directory|file|folder)$'
+    timestamp-name:
+        regex: '(?i)(^|_)((created|updated|modified|expires|issued|started|finished|deleted)_at|timestamp|since_epoch|epoch_(secs|seconds|ms|millis|nanos))$'
+    date-name:
+        regex: '(?i)(^|_)(date|time|datetime)$'
+    quantity-name:
+        regex: '(?i)(_(mm|km|ft|kg|lbs|deg|rad|kpa|mpa|psi|kw|kwh|hz|khz|mhz)|(^|_)(millimet(er|re)s|centimet(er|re)s|met(er|re)s|kilomet(er|re)s|feet|inches|kilograms|degrees|radians|pascals|watts|kilowatts|joules|celsius|kelvin|fahrenheit|hertz))$'
+    serde-item:
+        inside: {stopBy: end, kind: 'struct_item, enum_item', follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '\bderive\s*\([^)]*\b(Serialize|Deserialize)\b'}}
 rule:
     kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
     pattern: $DECLARATION
@@ -25,7 +33,19 @@ rule:
             - all:
                 - any: [{has: {field: name, matches: path-name}}, {has: {field: pattern, kind: identifier, matches: path-name}}]
                 - has: {field: type, matches: text-type}
+            - all:
+                - kind: 'field_declaration, parameter, let_declaration'
+                - any: [{has: {field: name, matches: timestamp-name}}, {has: {field: pattern, kind: identifier, matches: timestamp-name}}]
+                - has: {field: type, matches: number-type}
+            - all:
+                - any: [{has: {field: name, matches: date-name}}, {has: {field: pattern, kind: identifier, matches: date-name}}]
+                - has: {field: type, matches: text-type}
+            - all:
+                - kind: 'field_declaration, parameter, let_declaration'
+                - any: [{has: {field: name, matches: quantity-name}}, {has: {field: pattern, kind: identifier, matches: quantity-name}}]
+                - has: {field: type, kind: primitive_type, regex: '^f64$'}
+                - not: {matches: serde-item}
         - not: {inside: {kind: parameters, inside: {matches: rust-fixed-signature}}}
         - not: {inside: {stopBy: end, kind: 'struct_item, enum_item, union_item', follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*repr\b'}}}
-message: '`$DECLARATION` holds a duration or path as a plain number or string'
-note: 'Type it with its owner''s range, `std::time::Duration` for a span and `PathBuf` or `&Path` for a location, conversion from the host''s number or text happens once at the boundary'
+message: '`$DECLARATION` holds a duration, path, instant, date, or physical quantity as a plain number or string'
+note: 'Type the declaration with its owner''s range, `core::time::Duration` for a span, `PathBuf` or `&Path` for a location, `jiff::Timestamp` for an instant, `jiff::civil::Date`, `Time`, or `DateTime` for calendar text, and `uom::si::f64::{Length, Mass, Angle, Pressure, Power, Energy, ThermodynamicTemperature, Frequency}` for a unit-suffixed `f64`. `#[serde_as(as = "TimestampSeconds<i64>")]` keeps an integer timestamp on the wire. A serde struct keeps its unit-suffixed `f64` field, uom serializes base-unit values. Conversion from the host''s number or text happens once at the boundary'

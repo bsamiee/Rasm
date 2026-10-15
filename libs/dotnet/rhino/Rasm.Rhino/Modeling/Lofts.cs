@@ -80,7 +80,7 @@ public static class Lofts {
         };
 
     public static IO<Seq<Brep>> SweepOne(Curve rail, Option<Vector3d> up, IterableNE<(Curve Shape, double Parameter)> stations, bool closed, SweepBlend blend, SweepMiter miter, CurveFit fit, Tolerances tolerances, Action<IDisposable> retain) =>
-        from sweeper in IO.lift(() => SweepMapper.ToSweepOneRail(tolerances, closedSweep: closed, globalShapeBlending: blend == SweepBlend.Global, miterType: (int)miter))
+        from sweeper in IO.lift(() => SweepMapper.ToSweepOneRail(tolerances, closedSweep: closed, globalShapeBlending: blend is SweepBlend.Global, miterType: (int)miter))
         from configured in IO.lift(() => sweeper.SetRoadlikeUpDirection(Conversions.Unset(up)))
         let rows = toSeq(stations.OrderBy(static row => row.Parameter))
         from swept in fit.Switch(

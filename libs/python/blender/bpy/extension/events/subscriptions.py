@@ -37,7 +37,7 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
 
         def notified() -> None:
             """Reports the body while answering the native notification result."""
-            return body().default_value(None)
+            return body().to_optional()
 
         subscribe = partial(
             bpy.msgbus.subscribe_rna,

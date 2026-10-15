@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-error-type
+language: rust
+arguments: [name]
+rule:
+    any:
+        - kind: impl_item
+          all: [{has: {field: trait, regex: '(^|::)Error$'}}, {has: {field: type, matches: name}}]
+        - kind: 'struct_item, enum_item'
+          all:
+            - has: {field: name, matches: name}
+            - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*derive\s*\([^)]*\bError\b'}

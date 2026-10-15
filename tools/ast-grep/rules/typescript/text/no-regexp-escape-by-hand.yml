@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-regexp-escape-by-hand
+language: tsx
+severity: error
+ignores:
+    - apps/creative-cloud/indesign/galley/**
+    - libs/typescript/creative-cloud/indesign/**
+    - libs/typescript/creative-cloud/uxp/**
+    - plugins/function-hooks/**
+utils:
+    syntax-class:
+        kind: regex
+        all:
+            - has: {field: flags, regex: '^[dimsuv]*g[dimsuv]*$'}
+            - has:
+                field: pattern
+                all:
+                    - regex: '^\[(?:[^\\\]^\p{L}\p{N}\s]|\\[^\p{L}\p{N}\s])(?:[^\\\]\p{L}\p{N}\s]|\\[^\p{L}\p{N}\s])*\]$'
+                    - regex: '\.'
+                    - regex: '\*'
+                    - regex: '\+'
+                    - regex: '\?'
+                    - regex: '\$'
+                    - regex: '\{'
+                    - regex: '\}'
+                    - regex: '\('
+                    - regex: '\)'
+                    - regex: '\|'
+                    - regex: '^\[.+\^'
+                    - regex: '^\[.+\['
+                    - regex: '^\[(?:[^\\\]]|\\.)*\\\]'
+                    - regex: '^\[(?:[^\\\]]|\\.)*\\\\'
+    escaped-pattern:
+        any:
+            - matches: syntax-class
+            - kind: identifier
+              pattern: $PATTERN
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: variable_declarator
+                    stopBy: end
+                    all:
+                        - has: {field: name, pattern: $PATTERN}
+                        - has: {field: value, matches: syntax-class}
+                        - inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}}
+    prefixed-match:
+        any:
+            - kind: template_string
+              regex: '^`\\\\\$\{[^}]*\}`$'
+              has: {kind: template_substitution, has: {pattern: $MATCH}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\+$'}
+                - has: {field: left, kind: string, regex: '^[''"]\\\\[''"]$'}
+                - has: {field: right, pattern: $MATCH}
+    escaping-replacement:
+        any:
+            - kind: string, template_string
+              regex: '^[''"`]\\\\\$&[''"`]$'
+            - kind: arrow_function, function_expression
+              all:
+                - any:
+                    - has: {field: parameter, kind: identifier, pattern: $MATCH}
+                    - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $MATCH}}}
+                - any:
+                    - has: {field: body, matches: prefixed-match}
+                    - has:
+                        field: body
+                        kind: statement_block
+                        all:
+                            - has: {kind: return_statement, nthChild: 1, has: {matches: prefixed-match}}
+                            - not: {has: {nthChild: 2}}
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^replace(All)?$'}}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {nthChild: 3}}
+                - has: {nthChild: 2, matches: escaping-replacement}
+                - has: {nthChild: 1, matches: escaped-pattern}
+        - any:
+            - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bString$'}}}}}
+            - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $TEXT}}
+transform:
+    ARGUMENT: {replace: {source: $TEXT, replace: '(?s)^(.+)$', by: '($1)'}}
+fix: RegExp.escape$ARGUMENT
+message: '`$CALL` escapes regular expression syntax characters by hand'
+note: '`RegExp.escape(<text>)` escapes every syntax character, and writes a leading alphanumeric, other punctuators, and whitespace as hex escapes valid under `u` and `v`'

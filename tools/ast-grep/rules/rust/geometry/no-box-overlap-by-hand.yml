@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-box-overlap-by-hand
+language: rust
+severity: error
+utils:
+    comparison:
+        kind: binary_expression
+        has: {field: operator, regex: '^(<|<=|>|>=)$'}
+    nested:
+        matches: comparison
+        all:
+            - has:
+                kind: field_expression
+                all:
+                    - has: {field: field, pattern: $X}
+                    - has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^mins?$'}}, {has: {field: value, pattern: $A}}]}
+            - has:
+                kind: field_expression
+                all:
+                    - has: {field: field, pattern: $X}
+                    - has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^maxs?$'}}, {has: {field: value, pattern: $B, not: {pattern: $A}}}]}
+    nested-mirror:
+        matches: comparison
+        all:
+            - has: {kind: field_expression, all: [{has: {field: field, pattern: $X}}, {has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^mins?$'}}, {has: {field: value, pattern: $B}}]}}]}
+            - has: {kind: field_expression, all: [{has: {field: field, pattern: $X}}, {has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^maxs?$'}}, {has: {field: value, pattern: $A}}]}}]}
+    flat:
+        matches: comparison
+        all:
+            - has: {kind: field_expression, all: [{has: {field: field, regex: '^(min_?[xyz]|[xyz]_?min)$', pattern: $LO}}, {has: {field: value, pattern: $A}}]}
+            - has: {kind: field_expression, all: [{has: {field: field, regex: '^(max_?[xyz]|[xyz]_?max)$', pattern: $HI}}, {has: {field: value, pattern: $B, not: {pattern: $A}}}]}
+    flat-mirror:
+        matches: comparison
+        all:
+            - has: {kind: field_expression, all: [{has: {field: field, pattern: $LO}}, {has: {field: value, pattern: $B}}]}
+            - has: {kind: field_expression, all: [{has: {field: field, pattern: $HI}}, {has: {field: value, pattern: $A}}]}
+    joined:
+        kind: binary_expression
+        has: {field: operator, regex: '^(&&|\|\|)$'}
+    extent-comparison:
+        matches: comparison
+        has: {kind: field_expression, regex: '\.(mins?|maxs?)\.\w+$|\.(min_?[xyz]|[xyz]_?min|max_?[xyz]|[xyz]_?max)$'}
+rule:
+    matches: joined
+    not: {inside: {matches: joined, has: {field: right, matches: extent-comparison}}}
+    any:
+        - all:
+            - has: {field: right, matches: nested}
+            - has: {field: left, any: [{matches: nested-mirror}, {matches: joined, has: {field: right, matches: nested-mirror}}]}
+        - all:
+            - has: {field: right, matches: flat}
+            - has: {field: left, any: [{matches: flat-mirror}, {matches: joined, has: {field: right, matches: flat-mirror}}]}
+message: '`$A` and `$B` test box overlap by comparing their extents by hand'
+note: 'Hold the boxes as `parry3d_f64::bounding_volume::Aabb` and call `intersects` from `parry3d_f64::bounding_volume::BoundingVolume`, as `rstar::AABB` with `intersects` from `rstar::Envelope`, or as `geo::Rect` with `geo::Intersects::intersects`'

@@ -3,31 +3,20 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record StageFrame {
-    public abstract Option<(PixelFrame Frame, PassContext Context)> Input { get; }
+public sealed record StageFrame(int Watchers, Option<(PixelFrame Frame, PassContext Context)> Input) {
+    public static StageFrame Unwatched { get; } = new(0, None);
 
-    public abstract bool Demanded { get; }
+    public bool Demanded => Watchers > 0;
 
-    public static IO<IO<Option<(PixelFrame Frame, PassContext Context)>>> Watch(Atom<StageFrame> stage) =>
-        IO.lift(() => stage.SwapMaybe(static held => held.Demanded ? None : Some<StageFrame>(new Awaited())))
+    public static IO<IO<Option<(PixelFrame Frame, PassContext Context)>>> Watch(Atom<StageFrame> stage, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+                IO.lift(() => {
+                    _ = stage.Swap(static held => held with { Watchers = held.Watchers + 1 });
+                    return new Disposal<Atom<StageFrame>>(stage, static held => _ = held.Swap(static frame => frame.Watchers > 1 ? frame with { Watchers = frame.Watchers - 1 } : Unwatched));
+                }),
+                static lease => IO.lift(lease.Dispose), retain)
             .Map(_ => IO.lift(() => stage.Value.Input));
 
     internal static Unit Fill(Atom<StageFrame> stage, PixelFrame input, PassContext context) =>
-        ignore(stage.SwapMaybe(held => held.Demanded ? Some<StageFrame>(new Held(input, context)) : None));
-
-    public sealed record Unread : StageFrame {
-        public override Option<(PixelFrame Frame, PassContext Context)> Input => None;
-        public override bool Demanded => false;
-    }
-
-    public sealed record Awaited : StageFrame {
-        public override Option<(PixelFrame Frame, PassContext Context)> Input => None;
-        public override bool Demanded => true;
-    }
-
-    public sealed record Held(PixelFrame Frame, PassContext Context) : StageFrame {
-        public override Option<(PixelFrame Frame, PassContext Context)> Input => (Frame, Context);
-        public override bool Demanded => true;
-    }
+        ignore(stage.SwapMaybe(held => held.Demanded ? Some(held with { Input = (input, context) }) : None));
 }

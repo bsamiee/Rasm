@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-identity-and-then
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: $O.and_then(|$X| $X)
+            - pattern: $O.and_then($IDENTITY)
+constraints:
+    IDENTITY: {regex: '^((::)?(std|core)::)?(convert::)?identity$'}
+fix: $O.flatten()
+message: '`$O.and_then` returns the inner value unchanged'
+note: 'Call `<option or result>.flatten()`, `flatten` removes one level of nesting'

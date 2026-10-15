@@ -2,7 +2,6 @@
 id: no-discarded-receiver
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 utils:
     channel-path:
         kind: scoped_identifier
@@ -41,4 +40,4 @@ transform:
         replace: {source: $SENDER_TYPE, replace: '^(.+)$', by: ': $1'}
 fix: let $SENDER$ANNOTATION = $MODULE::Sender$TURBOFISH::new$ARGS;
 message: '`$MODULE::channel` builds a receiver the `$SENDER` binding discards'
-note: 'Construct the sender alone with `$MODULE::Sender::new`, receivers come from `Sender::subscribe` where a consumer exists'
+note: 'Construct the sender alone with `<module>::Sender::new`, receivers come from `Sender::subscribe` where a consumer exists'

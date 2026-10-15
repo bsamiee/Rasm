@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-infallible-result
-language: swift
+language: swiftlang
 severity: error
 utils:
     boundary: {kind: 'function_declaration, lambda_literal, property_declaration'}
@@ -25,6 +25,7 @@ rule:
                 - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
                 - has: {kind: type_annotation, has: {field: name, matches: result-type}}
                 - has: {field: computed_value, kind: computed_property, not: {has: {kind: computed_setter}}}
+        - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: protocol_function_declaration, all: [{has: {field: name, pattern: $NAME}}, {has: {matches: result-type}}]}}}
         - has: {stopBy: {matches: boundary}, matches: swift-success-call}
         - not: {has: {stopBy: {matches: boundary}, matches: failure-reference}}
         - not: {has: {stopBy: {matches: boundary}, kind: try_expression}}

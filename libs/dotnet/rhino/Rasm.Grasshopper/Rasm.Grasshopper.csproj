@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Foundation for building any Grasshopper 2 plug-in, extending Rasm.Rhino to Grasshopper documents, components, and canvas</Description>
+    </PropertyGroup>
+
     <ItemGroup Label="Rhino">
         <PackageReference Include="Grasshopper2" />
     </ItemGroup>

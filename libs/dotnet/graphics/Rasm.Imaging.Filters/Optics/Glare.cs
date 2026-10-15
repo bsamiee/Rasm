@@ -146,9 +146,9 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
 
             double Section(double angle) {
                 (double sin, double cos) = double.SinCos(angle);
-                (double nearX, double farX) = cos == 0d ? left <= 0d && right >= 0d ? (0d, double.PositiveInfinity) : (double.PositiveInfinity, double.NegativeInfinity)
+                (double nearX, double farX) = cos is 0d ? left <= 0d && right >= 0d ? (0d, double.PositiveInfinity) : (double.PositiveInfinity, double.NegativeInfinity)
                     : (double.Min(left / cos, right / cos), double.Max(left / cos, right / cos));
-                (double nearY, double farY) = sin == 0d ? top <= 0d && bottom >= 0d ? (0d, double.PositiveInfinity) : (double.PositiveInfinity, double.NegativeInfinity)
+                (double nearY, double farY) = sin is 0d ? top <= 0d && bottom >= 0d ? (0d, double.PositiveInfinity) : (double.PositiveInfinity, double.NegativeInfinity)
                     : (double.Min(top / sin, bottom / sin), double.Max(top / sin, bottom / sin));
                 double edge = radius * Boundary(-angle);
                 (double near, double far) = (double.Max(0d, double.Max(double.Max(nearX, nearY), obstruction * edge)), double.Min(edge, double.Min(farX, farY)));
@@ -162,7 +162,7 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
         Vector256<double> distance = Vector256.Create(reach);
         Vector256<double> one = Vector256.Create(1d);
         Vector256<double> obstruction = Vector256.Create((double)Obstruction) * r;
-        Vector256<double> w = Obstruction == AxisFraction.MaxValue ? Vector256<double>.Zero : ramp == 0d
+        Vector256<double> w = Obstruction == AxisFraction.MaxValue ? Vector256<double>.Zero : ramp is 0d
             ? Vector256.ConditionalSelect(Vector256.LessThanOrEqual(distance, r) & Vector256.GreaterThanOrEqual(distance, obstruction), one, Vector256<double>.Zero)
             : Vector256.Create(edge / ramp) switch {
                 var slope => Vector256.Min(Vector256.Clamp((slope * (r - distance)) + Vector256.Create(0.5d), Vector256<double>.Zero, one), Vector256.Clamp(one + (slope * (distance - obstruction)), Vector256<double>.Zero, one)),
@@ -173,11 +173,11 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
 
     public Vector256<double> Integral(double radius, double ramp) {
         Vector256<double> r = Radii(radius);
-        double[] areas = [.. Enumerable.Range(0, 3).Select(component => r[component] == 0d || Obstruction == AxisFraction.MaxValue ? 0d
+        double[] areas = [.. Enumerable.Range(0, 3).Select(component => r[component] is 0d || Obstruction == AxisFraction.MaxValue ? 0d
             : Blades / (double)Squeeze * Integrate.GaussKronrod(angle => {
                 double boundary = r[component] * Boundary(angle);
                 double inner = Obstruction * boundary;
-                if (ramp == 0d)
+                if (ramp is 0d)
                     return (boundary - inner) * (boundary + inner) / 2d;
                 (double high, double low) = (boundary + (ramp / 2d), inner - ramp);
                 double upper = double.Min(1d, double.Min(high / ramp, (high - low) / (2d * ramp)));
@@ -234,7 +234,7 @@ public sealed unsafe record DirtSpecks(DirtCoverage Coverage, ShortSideExtent Sc
         Span<Complex> gains = new((void*)pink.DataPointer, cells.Length);
         for (int i = 0; i < cells.Length; i++) {
             (int y, int x) = int.DivRem(i, size.Width);
-            double gain = x == 0 && y == 0 ? 0d : reference / double.Hypot(double.Hypot(Frequency(x, size.Width), Frequency(y, size.Height)), knee);
+            double gain = x is 0 && y is 0 ? 0d : reference / double.Hypot(double.Hypot(Frequency(x, size.Width), Frequency(y, size.Height)), knee);
             (cells[i], gains[i]) = (CoordinateHash.Normals(x, y, field).X, new Complex(gain, gain));
         }
         CvInvoke.Dft(draw, spectrum, DxtType.ComplexOutput, 0);
@@ -445,7 +445,7 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
             }
         }
         static (double Phase, double Footprint) Cell(ERational step, int offset) {
-            if (offset == 0)
+            if (offset is 0)
                 return (0d, 1d);
             ERational frequency = step.Multiply(int.Abs(offset));
             ERational centre = ERational.Create(1, 2);
@@ -498,7 +498,7 @@ public sealed unsafe record Ghosts(HighlightKey Key, GhostIterations Iterations,
 
     internal static (float Scale, Vector4 Gain)[] Copies(int iteration, int count, float modulation) =>
         [.. Enumerable.Range(0, Modulated.Count).Select(k => (
-            (2.1f * (1f - (((4 * iteration) + k + (count % 2 == 1 ? 0.5f : 0f)) / (4f * count)))) switch { var s => k % 2 == 1 ? -0.99f / s : s },
+            (2.1f * (1f - (((4 * iteration) + k + (count % 2 is 1 ? 0.5f : 0f)) / (4f * count)))) switch { var s => k % 2 is 1 ? -0.99f / s : s },
             new Vector4((Vector3.One - (Modulated[k] * modulation)) / Modulated.Count, 0f)))];
 
     private static void Accumulate(Mat source, Mat target, PixelFrame frame, ReadOnlySpan<(float Scale, Vector4 Gain)> copies) {

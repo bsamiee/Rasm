@@ -1,6 +1,6 @@
 """Declared requirements over native context, collections, jobs, and output state."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import os
 from pathlib import Path
 import shutil
@@ -207,6 +207,11 @@ def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
             return Ok(None) if holds(condition, context, item) else Error((BlenderUnmetFault(requirement=condition),))
 
 
+def polled(condition: Option[Condition]) -> Mapping[str, object]:
+    """Returns the native class poll member testing a present condition."""
+    return condition.map(lambda held: {"poll": classmethod(lambda _cls, context: holds(held, context))}).default_value({})
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AllOf", "AnyOf", "Condition", "Count", "Extension", "Folder", "HdrWindow", "Job", "Not", "Present", "Setting", "check", "existing", "holds"]
+__all__ = ["AllOf", "AnyOf", "Condition", "Count", "Extension", "Folder", "HdrWindow", "Job", "Not", "Present", "Setting", "check", "existing", "holds", "polled"]

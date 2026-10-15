@@ -48,7 +48,7 @@ public static class Status {
     // --- [PACING]
     public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<T>> work, IPlugInSink sink) =>
         DisposalOps.Within<IDisposable, T>(retain =>
-            from reading in IO.lift(static () => Atom<WorkState>(new WorkState.Indeterminate()))
+            from reading in atomIO<WorkState>(new WorkState.Indeterminate())
             from progress in DisposalOps.Acquire(IO.lift(() => new WorkProgress(reading, total)), static held => IO.lift(held.Dispose), retain)
             from forked in DisposalOps.Fork(work(progress), retain)
             from metered in Metered(doc, label, total, reading, sink, retain).OnUiThread()
@@ -60,9 +60,9 @@ public static class Status {
         from window in IO.lift(() => Missing.Unless(RhinoEtoApp.MainWindowForDocument(doc), nameof(RhinoEtoApp.MainWindowForDocument)))
         from answer in DisposalOps.Acquire(
             IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, RowText.Localize(label, table: Some<object>(sink)).Local, embedLabel: true, showPercentComplete: true)),
-            answer => when(answer == 1, IO.lift(() => StatusBar.HideProgressMeter(doc.RuntimeSerialNumber))).As(),
+            answer => when(answer is 1, IO.lift(() => StatusBar.HideProgressMeter(doc.RuntimeSerialNumber))).As(),
             answer => {
-                if (answer == 1) retain(new Disposal<uint>(doc.RuntimeSerialNumber, static serial => StatusBar.HideProgressMeter(serial)));
+                if (answer is 1) retain(new Disposal<uint>(doc.RuntimeSerialNumber, static serial => StatusBar.HideProgressMeter(serial)));
             })
         from sampled in answer switch {
             1 => FrameClocks.Sample(window, Moved(reading, doc.RuntimeSerialNumber), new CallbackSite(sink, typeof(StatusBar), nameof(StatusBar.UpdateProgressMeter)), retain),

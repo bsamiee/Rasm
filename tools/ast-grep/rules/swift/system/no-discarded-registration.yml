@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-registration
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has:
+            nthChild: 1
+            kind: navigation_expression
+            has: {field: suffix, has: {field: suffix, regex: '^(add(Local|Global)MonitorForEvents|add(Periodic|Boundary)TimeObserver)$', pattern: $CALL}}
+        - any:
+            - inside: {kind: assignment, field: result, has: {field: target, regex: '^_$'}}
+            - inside:
+                kind: statements
+                any:
+                    - has: {nthChild: 2}
+                    - inside: {kind: function_body, inside: {kind: function_declaration, not: {has: {regex: '^->$'}}}}
+message: '`$CALL` registers a handler and drops the token that removes it, so the handler stays attached'
+note: 'Store the returned token in the owner and pass it to the matching removal, `NSEvent.removeMonitor(_:)` or `removeTimeObserver(_:)`, when the owner goes away'

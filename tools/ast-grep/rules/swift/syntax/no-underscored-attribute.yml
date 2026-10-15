@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-underscored-attribute
+language: swiftlang
+severity: error
+rule:
+    kind: attribute
+    pattern: $ATTR
+    regex: '^@(inline\(\s*__always\s*\)|_alwaysEmitIntoClient)$'
+transform:
+    INLINE: {replace: {source: $ATTR, replace: '^@inline\(\s*__always\s*\)$', by: '@inline(always)'}}
+    STABLE: {replace: {source: $INLINE, replace: '^@_alwaysEmitIntoClient$', by: '@export(implementation)'}}
+fix: $STABLE
+message: '`$ATTR` spells an attribute through its underscored form'
+note: 'Write `@inline(always)` for `@inline(__always)` and `@export(implementation)` for `@_alwaysEmitIntoClient`, the compiler rejects `@inline(always)` on a non-final class method and on a recursive call, and a public `@inline(always)` declaration is `@inlinable`'

@@ -1,9 +1,10 @@
 import AppKit
 import Foundation
 import Network
-import OSLog
 import Observation
+import RasmMacOS
 import SwiftUI
+import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -62,23 +63,19 @@ final class AccountStore {
     private var storageIssue: AccountStorageFailure?
     private var providerIssues: [Provider: ProviderError] = [:]
     private var isStopping: Bool = false
+    private var occupiedStores: Set<CredentialStore> = []
 
-    @ObservationIgnored private let locations: FileLocations
-    @ObservationIgnored private let storage: AccountStorage
-    @ObservationIgnored private let claude: ClaudeClient
-    @ObservationIgnored private let codex: CodexClient
-    @ObservationIgnored private let logger: Logger = Logger(
-        subsystem: "app.rasm.relay",
-        category: "Accounts",
-    )
+    private let locations: FileLocations
+    private let storage: AccountStorage
+    private let claude: ClaudeClient
+    private let codex: CodexClient
+    private let logger: Logger = Logger(subsystem: Bundle.identity, category: "Accounts")
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
     @ObservationIgnored private var authenticationCodes: AsyncStream<String>.Continuation?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var refreshPause: Task<Void, any Error>?
     @ObservationIgnored private var lastPanelOpen: ContinuousClock.Instant?
-    @ObservationIgnored private var occupiedStores: Set<CredentialStore> = []
-    @ObservationIgnored private var storeWaiters: [UUID: AsyncStream<Void>.Continuation] = [:]
 
     init(environment: [String: String]) {
         locations = FileLocations(environment: environment)
@@ -117,24 +114,12 @@ final class AccountStore {
         owning: Set<CredentialStore> = [],
         _ work: (Set<CredentialStore>) async -> Void,
     ) async throws(CancellationError) {
-        let changes: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) =
-            AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let id: UUID = UUID()
-        storeWaiters[id] = changes.continuation
-        defer {
-            storeWaiters[id] = nil
-            changes.continuation.finish()
-        }
-        changes.continuation.yield(())
-        for await _ in changes.stream {
+        for await _ in Observations({ self.occupiedStores }) {
             let needed: Set<CredentialStore> = requested().subtracting(owning)
             guard needed.isDisjoint(with: occupiedStores) else { continue }
             guard !Task.isCancelled else { throw CancellationError() }
             occupiedStores.formUnion(needed)
-            defer {
-                occupiedStores.subtract(needed)
-                for waiter: AsyncStream<Void>.Continuation in storeWaiters.values { waiter.yield(()) }
-            }
+            defer { occupiedStores.subtract(needed) }
             await work(owning.union(needed))
             return
         }
@@ -712,7 +697,7 @@ final class AccountStore {
             }
         } catch {
             logger.error(
-                "Watch on \(file.path, privacy: .private): \(String(describing: error), privacy: .public)"
+                "Watch on \(file.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .public)"
             )
         }
     }
@@ -725,7 +710,7 @@ final class AccountStore {
             }
         } catch {
             logger.error(
-                "Watch on \(lock.path, privacy: .private): \(String(describing: error), privacy: .public)"
+                "Watch on \(lock.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .public)"
             )
         }
     }

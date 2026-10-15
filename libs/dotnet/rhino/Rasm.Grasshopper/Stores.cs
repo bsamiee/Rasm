@@ -4,7 +4,6 @@ using Grasshopper2.Extensions;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 

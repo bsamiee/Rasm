@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-obj-parse-by-hand
+language: rust
+severity: error
+rule:
+    kind: string_literal
+    pattern: $FACE
+    matches: rust-obj-face
+message: '`$FACE` reads Wavefront OBJ face records by hand beside their vertex records'
+note: 'Load through `tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)`, or `tobj::load_obj_buf` for an in-memory reader, tobj returns models with positions, normals, texture coordinates, and indices'

@@ -1,14 +1,14 @@
-import { Array, Match, Option, Record } from 'effect';
+import { focus } from '@rasm/ui/focus.ts';
+import { Array, Match, Option, Record, Schema } from 'effect';
 import { FileText, Film } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
 import { byteSize, entryTitle } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
-import type { Asset, AssetCollection } from '../model/asset.ts';
+import { type Asset, type AssetCollection, PdfAsset } from '../model/asset.ts';
 import { type Portfolio, placements } from '../model/document.ts';
 import { placementsFor } from '../model/placement.ts';
 import { ConfirmDialog, MenuButton } from './controls.tsx';
-import { focus } from './focus.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ function Library({
     onHero: (asset: typeof Asset.Type) => void;
     onDelete: (asset: typeof Asset.Type) => void;
 }): ReactNode {
-    const assetIds = (portfolio: typeof Portfolio.Type): ReadonlySet<string> => new Set(placements(portfolio).flatMap((placement) => (placement.kind === 'video' && placement.poster ? [placement.asset.id, placement.poster.id] : [placement.asset.id])));
+    const assetIds = (portfolio: typeof Portfolio.Type): ReadonlySet<string> => new Set(placements(portfolio).flatMap((placement) => (placement.kind === 'video' && placement.poster !== undefined ? [placement.asset.id, placement.poster.id] : [placement.asset.id])));
     const inDraft = assetIds(draft);
     const inPublished = assetIds(published);
     const ids = useId();
@@ -69,7 +69,7 @@ function Library({
                             <span className="wrap-anywhere mt-3 block text-sm">{asset.name}</span>
                             <span className="meta-line">
                                 {byteSize.format(asset.size)}
-                                {asset.mime === 'application/pdf' ? ` · ${asset.pages.length} sheets` : ''}
+                                {Schema.is(PdfAsset)(asset) ? ` · ${asset.pages.length} sheets` : ''}
                             </span>
                         </GridListItem>
                     )}
@@ -109,7 +109,7 @@ function Library({
                                 </div>
                                 <p className="hint">
                                     {byteSize.format(asset.size)}
-                                    {asset.mime === 'application/pdf' ? ` · ${asset.pages.length} sheets` : ''}
+                                    {Schema.is(PdfAsset)(asset) ? ` · ${asset.pages.length} sheets` : ''}
                                     {uses.length > 0 ? ` · Used in ${usage.format(uses)}.` : ''}
                                 </p>
                                 <details className="hint">

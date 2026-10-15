@@ -1,5 +1,5 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import { BrowserCrypto } from '@effect/platform-browser';
+import { focus } from '@rasm/ui/focus.ts';
 import { Array, Effect, Match, Optic, Option, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
@@ -11,11 +11,11 @@ import { type Placement, placementsFor } from '../model/placement.ts';
 import { Compositions } from './compositions.tsx';
 import { ConfirmDialog, RequestAlert } from './controls.tsx';
 import { EntryFields, EntryList } from './entries.tsx';
-import { emailId, focus, titleId } from './focus.ts';
+import { emailId, titleId } from './focus.ts';
 import { Identity } from './identity.tsx';
 import { Library } from './library.tsx';
 import { ReuseFile } from './reuse.tsx';
-import { deleteRequest, draft, draftRequest, reloadRequest, saveRequest } from './services.ts';
+import { deleteRequest, draft, draftRequest, identifier, reloadRequest, saveRequest } from './services.ts';
 import { type Destination, destination, pendingUploads } from './uploader.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -87,7 +87,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
     const setHero = (hero: typeof Placement.Type | undefined): void => setDraft(AsyncResult.map(Optic.replace(portfolio.optionalKey('hero'), hero)));
     const updateEntry = (update: (entry: typeof Entry.Type) => typeof Entry.Type): void => setDraft(AsyncResult.map(entries.modify(Array.map((item) => (item.id === selected ? update(item) : item)))));
     const create = (kind: typeof Entry.Type.kind): void => {
-        const created = createEntry(Effect.runSync(BrowserCrypto.WebCrypto).randomUUID(), kind);
+        const created = createEntry(Effect.runSync(identifier), kind);
         setDraft(AsyncResult.map(entries.modify(Array.append(created))));
         setSelected(created.id);
         setWorkspace('entry');
@@ -163,7 +163,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                         </Tab>
                     </TabList>
                     <TabPanel className="editor-panel" id={`${ids}entries`}>
-                        {(workspace === 'projects' || !current) && (
+                        {(workspace === 'projects' || current === undefined) && (
                             <>
                                 <div className="actions">
                                     <button className="button button-outline" id={`${ids}new`} onClick={(): void => create('project')} type="button">
@@ -179,7 +179,7 @@ function DraftEditor({ data, published, changed, pending, etag, onPreview }: { d
                                     onChange={(update): void => setDraft(AsyncResult.map(entries.modify(update)))}
                                     onRemove={(keys): void => {
                                         setDraft(AsyncResult.map(entries.modify(Array.filter((candidate) => !keys.has(candidate.id)))));
-                                        setSelected((value) => (value && keys.has(value) ? undefined : value));
+                                        setSelected((value) => (value !== undefined && keys.has(value) ? undefined : value));
                                         setTarget((target) => (target.kind === 'entry' && keys.has(target.id) ? { kind: 'library' } : target));
                                         focus(`${ids}new`);
                                     }}

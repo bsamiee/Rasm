@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ordered-pair-branch
+language: rust
+severity: error
+rule:
+    kind: if_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - any:
+            - pattern: 'if $A <= $B { ($A, $B) } else { ($B, $A) }'
+            - pattern: 'if $A < $B { ($A, $B) } else { ($B, $A) }'
+            - pattern: 'if $A >= $B { ($B, $A) } else { ($A, $B) }'
+            - pattern: 'if $A > $B { ($B, $A) } else { ($A, $B) }'
+message: '`if` orders `$A` and `$B` into a pair by hand'
+note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`, `T: Ord`), `minmax` returns `[min, max]` and keeps argument order on a tie. The array replaces the tuple at every consumer. `minmax_by_key` covers a keyed comparison, and `minmax_by(<a>, <b>, f64::total_cmp)` a float pair'

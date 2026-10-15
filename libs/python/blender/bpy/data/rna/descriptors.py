@@ -141,11 +141,14 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
         """Returns an applicable live owner from a root or native context."""
-        root = item.filter(lambda value: isinstance(value, self.root)).or_else_with(
-            lambda: Some(context) if isinstance(context, self.root) else root_in(self.root, context) if isinstance(context, bpy.types.Context) else Nothing
-        )
-        return root.bind(lambda value: struct_at(value, self.owner)).filter(
-            lambda owner: owner.bl_rna.properties.get(self.prop.identifier) == self.prop and effective(owner)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        return (
+            item
+            .filter(lambda value: isinstance(value, self.root))
+            .or_else_with(lambda: Some(context) if isinstance(context, self.root) else root_in(self.root, context) if isinstance(context, bpy.types.Context) else Nothing)
+            .bind(lambda value: struct_at(value, self.owner))
+            .filter(
+                lambda owner: owner.bl_rna.properties.get(self.prop.identifier) == self.prop and effective(owner)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            )
         )
 
     # --- [VALUES]
@@ -189,9 +192,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         """Compares native float32 bits and other values exactly."""
         if isinstance(self.prop, bpy.types.StringProperty) and isinstance(desired, bytes):
             desired = msgspec.to_builtins(desired) if self.prop.subtype == "BYTE_STRING" else os.fsdecode(desired)
-        return (
-            bool(np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(desired, np.float32).view(np.uint32))) if isinstance(self.prop, bpy.types.FloatProperty) else held == desired
-        )
+        return np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(desired, np.float32).view(np.uint32)) if isinstance(self.prop, bpy.types.FloatProperty) else held == desired
 
     def write(self, owner: Native, value: "Value | bytes | bpy.types.bpy_struct[object]") -> "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]":
         """Returns the prior value after assignment, Nothing if equal, or a native refusal."""
@@ -448,4 +449,4 @@ def assigned(members: Mapping[Descriptor, Value], root: "bpy.types.bpy_struct[ob
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["GATED", "LEADING", "Descriptor", "IdName", "Native", "Scalar", "Value", "assigned", "differing", "effective", "holds", "id_path", "root_in", "sequenced", "struct_at", "written"]
+__all__ = ["GATED", "LEADING", "Descriptor", "IdName", "Native", "P_co", "Scalar", "Value", "assigned", "differing", "effective", "holds", "id_path", "root_in", "sequenced", "struct_at", "written"]

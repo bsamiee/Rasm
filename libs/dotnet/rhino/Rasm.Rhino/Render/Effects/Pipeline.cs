@@ -101,13 +101,13 @@ public static class RenderRuns {
             var (parallel, aperture) => (
                     parallel ? Fin.Succ(Option<FocalLength>.None)
                         : Conversions.Validated<FocalLength, float, InvalidPixelValue>((float)(view.Viewport.Camera35mmLensLength * LengthUnit.Scale(LengthUnit.Millimeters, LengthUnit.Meters))).Map(Some),
-                    parallel || view.FocalBlurMode != ViewInfoFocalBlurModes.Manual || aperture < ApertureMinimum
+                    parallel || view.FocalBlurMode is not ViewInfoFocalBlurModes.Manual || aperture < ApertureMinimum
                         ? Fin.Succ(Option<FNumber>.None)
                         : Conversions.Validated<FNumber, float, InvalidPixelValue>(aperture).Map(Some))
                 .Apply(static (focal, number) => (Focal: focal, Aperture: number)).As(),
         })
         from lens in IO.lift(() => Cameras.Focus(view, doc.ModelUnits, optics.Focal, optics.Aperture))
-            .Catch(static error => error.IsType<InvalidPixelValue>(), error => report(error).Map(static _ => Option<LensFocus>.None))
+            .Catch(static error => error.IsType<InvalidPixelValue>(), error => report(error).Map(Option<LensFocus>.None))
         from camera in IO.lift(() => Cameras.ToCamera(view, doc.ModelUnits, extent, lens))
         from lights in Cameras.ToLights(doc)
         select RenderRun.Empty with { Camera = camera, Time = time, Lights = Some(lights), Metres = (float)LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters), FocalLength = optics.Focal, Aperture = optics.Aperture };
@@ -231,16 +231,16 @@ public static class EffectPipeline {
         let pass = Staged(value, context)
         let area = pass.Map(held => held.Map(color: rect, pointwise: rect, frame: whole)).IfNone(whole)
         let completed = rect == whole && !pipeline.IsRendering
-        let tapped = completed && stage != PostEffectType.Early
+        let tapped = completed && stage is not PostEffectType.Early
         let demanded = completed && input.Value.Demanded
         let order = prepared.Order
         let after = toSeq(order.SkipWhile(effect => effect.Id != id)).Skip(1)
-        let gamma = stage == PostEffectType.ToneMapping && pass.IsNone ? None : prepared.Gamma
-        let normalized = gamma.Filter(_ => stage == PostEffectType.Late && after.Exists(static effect => effect.Id == PostEffectUuids.Gamma))
-        let passes = pass.ToSeq() + (stage == PostEffectType.ToneMapping ? gamma.Map<PixelPass>(static held => Compensated(held)).ToSeq() : [])
+        let gamma = stage is PostEffectType.ToneMapping && pass.IsNone ? None : prepared.Gamma
+        let normalized = gamma.Filter(_ => stage is PostEffectType.Late && after.Exists(static effect => effect.Id == PostEffectUuids.Gamma))
+        let passes = pass.ToSeq() + (stage is PostEffectType.ToneMapping ? gamma.Map<PixelPass>(static held => Compensated(held)).ToSeq() : [])
         let unknown = order.Filter(effect => effect.Id != PostEffectUuids.Gamma && effect.Id != PostEffectUuids.Dithering
             && !kinds.Exists(kind => kind.Id == effect.Id && kind.Pass.IsSome) && effect.CanExecute(pipeline)).Map(static effect => effect.Id)
-        let native = order.Filter(effect => effect.PostEffectType == PostEffectType.Late && unknown.Exists(identifier => identifier == effect.Id)).Map(static effect => effect.Id)
+        let native = order.Filter(effect => effect.PostEffectType is PostEffectType.Late && unknown.Exists(identifier => identifier == effect.Id)).Map(static effect => effect.Id)
         let unobserved = after.Filter(effect => unknown.Exists(identifier => identifier == effect.Id)).Map(static effect => effect.Id)
         let unavailable = after.Filter(effect => native.Exists(identifier => identifier == effect.Id)).Map(static effect => effect.Id)
             + toSeq(order.TakeWhile(effect => effect.Id != id)).Filter(effect => effect.Id == PostEffectUuids.Dithering && effect.CanExecute(pipeline)).Map(static effect => effect.Id)
@@ -248,12 +248,12 @@ public static class EffectPipeline {
             Staged(value, context with {
                 Display = target.Display,
                 Depth = target.Depth,
-                Signal = stage == PostEffectType.Late ? target.Display.Encoding.Transfer : context.Signal,
+                Signal = stage is PostEffectType.Late ? target.Display.Encoding.Transfer : context.Signal,
                 Derivations = target.Derivations,
             })))
         let exposure = value.Record is ExposureState exposed && pass.IsSome
             ? Some((exposed.Exposure.Scale, Amount: (float)value.Amount.IfNone(Mix.Full))) : None
-        let display = stage == PostEffectType.Late
+        let display = stage is PostEffectType.Late
             ? new ColorEncoding(Working, context.Signal, Nits.ReferenceWhite).To(Display.Encoding).Map<PixelPass>(static step => new PixelPass.Color(step))
             : Seq<PixelPass>()
         from _ in when(pass.IsSome || tapped || demanded,
@@ -279,7 +279,7 @@ public static class EffectPipeline {
                     Exposure = unobserved.IsEmpty
                         ? Fin.Succ(context.Exposure + exposure.Map(static held => Exposure.Applied(held.Scale, held.Amount)).IfNone(0d))
                         : new NativeOutputUnavailable(pipeline.RenderingId, unobserved),
-                    Formation = stage == PostEffectType.ToneMapping ? replay.Filter(_ => value.Record is ToneMapping) : run.Formation,
+                    Formation = stage is PostEffectType.ToneMapping ? replay.Filter(_ => value.Record is ToneMapping) : run.Formation,
                     Channels = run.Channels | auxiliary,
                 }))
             from _______ in IO.lift(() => copy.Filter(_ => demanded).Iter(held => StageFrame.Fill(input, held, context)))
@@ -290,7 +290,7 @@ public static class EffectPipeline {
         PostEffectPipeline pipeline, PostEffectType stage, EffectValue<TState> value, Atom<StageFrame> input, Derivations derivations)
         where TState : IPixelStage<TState> =>
         Context(pipeline, stage, value, derivations).Map(held =>
-            Staged(value, held.Pass).IsSome || (!pipeline.IsRendering && (stage != PostEffectType.Early || input.Value.Demanded)));
+            Staged(value, held.Pass).IsSome || (!pipeline.IsRendering && (stage is not PostEffectType.Early || input.Value.Demanded)));
 
     public static Option<PixelPass> Staged<TState>(EffectValue<TState> value, PassContext context) where TState : IPixelStage<TState> =>
         value.Amount.Contains(Mix.MinValue)
@@ -303,9 +303,9 @@ public static class EffectPipeline {
         from run in IO.lift(() => RenderRuns.Current(pipeline.RenderingId))
         from order in toSeq(pipeline.ExecutionOrder()).TraverseM(id => IO.lift(() =>
             Missing.Unless(((IPostEffects)pipeline).PostEffectFromId(id), nameof(IPostEffects.PostEffectFromId)))).As()
-        from gamma in stage == PostEffectType.Early ? IO.pure(Option<GammaExponent>.None) : OutputGamma(pipeline)
+        from gamma in stage is PostEffectType.Early ? IO.pure(Option<GammaExponent>.None) : OutputGamma(pipeline)
         from exposure in Applied(pipeline)
-        let signal = stage != PostEffectType.Late ? TransferCurve.Linear : run.Formation.IsSome
+        let signal = stage is not PostEffectType.Late ? TransferCurve.Linear : run.Formation.IsSome
             ? Display.Encoding.Transfer : gamma.Map<Transfer>(static exponent => new Transfer.Gamma(exponent)).IfNone(TransferCurve.Linear)
         from guides in Guides(pipeline.GetChannelForRead, extent, Whole(extent), TState.Channels(value.Record), run.Metres)
         select (new PassContext(
@@ -366,8 +366,8 @@ public static class EffectPipeline {
         select formed;
 
     public static Seq<PixelPass.Color> Baked(Seq<(PostEffectType Stage, PixelPass Pass)> chain) =>
-        chain.Exists(static stage => stage.Stage == PostEffectType.ToneMapping) switch {
-            var formed => chain.Filter(stage => formed || stage.Stage == PostEffectType.Early)
+        chain.Exists(static stage => stage.Stage is PostEffectType.ToneMapping) switch {
+            var formed => chain.Filter(stage => formed || stage.Stage is PostEffectType.Early)
                 .Choose(static stage => stage.Pass.Switch<Option<PixelPass.Color>>(color: static color => color, pointwise: static _ => None, frame: static _ => None)),
         };
 }

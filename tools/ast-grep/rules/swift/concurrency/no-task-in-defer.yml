@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-task-in-defer
+language: swiftlang
+severity: error
+rule:
+    kind: 'call_expression, constructor_expression'
+    all:
+        - matches: swift-task-launch
+        - has: {nthChild: 1, pattern: $TASK}
+        - inside:
+            kind: lambda_literal
+            stopBy: {kind: 'lambda_literal, function_declaration'}
+            inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}}}
+message: '`$TASK` in `defer` starts cleanup that outlives the scope it cleans up'
+note: 'Await cleanup in the `defer` body, inside `withTaskCancellationShield` when it must finish after cancellation'

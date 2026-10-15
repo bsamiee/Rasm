@@ -31,7 +31,7 @@ const Products = Schema.Struct({
 // --- [ERRORS] --------------------------------------------------------------------------
 
 const InstallReason = Schema.TaggedUnion({ Refused: { host: Schema.String, answer: Schema.String } });
-class InstallError extends Schema.TaggedError<InstallError>()('InstallError', { reason: InstallReason }) {
+class InstallError extends Schema.TaggedError<InstallError, { readonly brand: unique symbol }>()('InstallError', { reason: InstallReason }) {
     override get message(): string {
         return InstallReason.match(this.reason, { Refused: ({ host, answer }) => `Adobe's plug-in installer did not install the ${host} archive: ${answer}` });
     }
@@ -74,7 +74,7 @@ const submit = Effect.fn('submit')(function* (built: string, manifest: typeof Ma
     yield* spawner.string(ChildProcess.make('ditto', ['-c', '-k', '--norsrc', staged, `${staged}.ccx`]));
     yield* spawner
         .string(ChildProcess.make(`${INSTALLER}/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent`, ['--install', `${staged}.ccx`]))
-        .pipe(Effect.filterOrFail(String.includes('Installation Successful'), (answer) => new InstallError({ reason: { _tag: 'Refused', host: host.app, answer: String.trim(answer) } })));
+        .pipe(Effect.filterOrFail(String.includes('Installation Successful'), (answer) => InstallError.make({ reason: { _tag: 'Refused', host: host.app, answer: String.trim(answer) } })));
 }, Effect.scoped);
 const install = Effect.fn('install')(function* ({ built }: { readonly built: string }) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);

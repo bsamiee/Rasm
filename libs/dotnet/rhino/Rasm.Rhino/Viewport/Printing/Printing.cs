@@ -40,6 +40,6 @@ public sealed partial class PrintView {
                         new CallbackSite(job.Pages.Head.Sink, typeof(PrintDocument), nameof(PrintDocument.PrintPage))), retain)
                 from shown in ShowDialog(document, doc)
                 select shown, DisposalOps.Release), static document => IO.lift(document.Dispose))
-        from accepted in unless(result == DialogResult.Ok, IO.fail<Unit>(Errors.Cancelled)).As()
+        from accepted in unless(result is DialogResult.Ok, IO.fail<Unit>(Errors.Cancelled)).As()
         select accepted;
 }

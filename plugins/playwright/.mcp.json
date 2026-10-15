@@ -1,9 +1,5 @@
 {
     "mcpServers": {
-        "playwright": {
-            "type": "http",
-            "url": "http://127.0.0.1:7411/mcp"
-        },
         "playwright-test": {
             "type": "http",
             "url": "http://127.0.0.1:7412/mcp"

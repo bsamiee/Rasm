@@ -66,12 +66,12 @@ public sealed class EventJournal<TKey, TValue> : IDisposable {
              .ReduceIO(unit, (_, entry) => atomicIO(() => state.Swap(held => held.Append(entry, retainedPerPartition))).Map(static _ => Reduced.Continue(unit)))
              .Catch(error => atomicIO(() => state.Swap(held => held with { Failure = Some(error) }))
                  .Bind(_ => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member))))
-             .Finally(IO.lift(() => channel.Writer.TryComplete()).Map(static _ => unit))
+             .Finally(IO.lift(() => channel.Writer.TryComplete()).Map(unit))
              .As()
              .Fork()
-             from created in DisposalOps.Acquire(IO.lift(() => new EventJournal<TKey, TValue>(state, channel, worker)), static open => open.Close().Map(static _ => unit), retain)
+             from created in DisposalOps.Acquire(IO.lift(() => new EventJournal<TKey, TValue>(state, channel, worker)), static open => open.Close().Map(unit), retain)
              select created,
-             IO.lift(() => channel.Writer.TryComplete()).Map(static _ => unit))
+             IO.lift(() => channel.Writer.TryComplete()).Map(unit))
          select journal).Uninterruptible();
 
     // --- [RECORD]
@@ -81,7 +81,7 @@ public sealed class EventJournal<TKey, TValue> : IDisposable {
 
     // --- [CLOSE]
     public IO<JournalSnapshot<TKey, TValue>> Close() =>
-        IO.lift(() => channel.Writer.TryComplete()).Bind(_ => worker.Await).Bind(_ => IO.lift(() => state.Value)).Uninterruptible();
+        IO.lift(() => channel.Writer.TryComplete()).Bind(_ => worker.Await).Bind(_ => state.ValueIO).Uninterruptible();
 
     public void Dispose() => _ = Close().Run();
 }
@@ -94,7 +94,7 @@ public static class Subscriptions {
             DisposalOps.Acquire(IO.lift(() => new Disposal<THandler>(handler, remove)), static lease => IO.lift(lease.Dispose), lease => {
                 add(handler);
                 owned(lease);
-            }).Map(static _ => unit), retain);
+            }).Map(unit), retain);
 
     public static IO<TResult> Detached<THandler, TResult>(Action<THandler> add, Action<THandler> remove, THandler handler, IO<TResult> effect) where THandler : Delegate =>
         envIO.Bind(environment =>
@@ -117,7 +117,7 @@ public static class Subscriptions {
     public static HostEvent<TArgs> Host<TArgs>(Type owner, Func<Seq<HostEvent<TArgs>>> sources, [CallerMemberName] string member = "") =>
         new(owner, member, (deliver, site, retain) =>
             DisposalOps.Acquire(owned => IO.lift(sources)
-                .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(static _ => unit), (_, lease) => retain(lease)));
+                .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(unit), (_, lease) => retain(lease)));
 
     public static DocumentEvent<TArgs> Watched<TArgs>(Action<EventWatcher, EventHandler<TArgs>> add, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
         new(typeof(EventWatcher), member, (deliver, site, retain) =>
@@ -125,15 +125,15 @@ public static class Subscriptions {
                 DisposalOps.Acquire(IO.lift(static () => new EventWatcher(includeHeadlessDocuments: true)), static watcher => IO.lift(watcher.Dispose), watcher => {
                     add(watcher, Callbacks.Handler(deliver, site));
                     owned(watcher);
-                }).Map(static _ => unit), retain), documentSerial);
+                }).Map(unit), retain), documentSerial);
 
     // --- [MAILBOXES]
     public static Func<CallbackSite, Action<IDisposable>, IO<Func<(TKey Key, TValue Value), IO<Unit>>>> Idle<TKey, TValue>(Func<HashMap<TKey, TValue>, IO<Unit>> drain) =>
         (site, retain) =>
-            from pending in IO.lift(static () => Atom((Pending: HashMap<TKey, TValue>(), Taken: HashMap<TKey, TValue>())))
+            from pending in atomIO((Pending: HashMap<TKey, TValue>(), Taken: HashMap<TKey, TValue>()))
             from idle in Attach<EventHandler>(static handler => RhinoApp.Idle += handler, static handler => RhinoApp.Idle -= handler, Callbacks.Handler<EventArgs>(
                 _ => pending.SwapIO(static held => (HashMap<TKey, TValue>(), held.Pending)).Bind(held => unless(held.Taken.IsEmpty, IO.pure(held.Taken).Bind(drain)).As()), site).Invoke, retain)
-            select fun(((TKey Key, TValue Value) entry) => pending.SwapIO(held => held with { Pending = held.Pending.AddOrUpdate(entry.Key, entry.Value) }).Map(static _ => unit));
+            select fun(((TKey Key, TValue Value) entry) => pending.SwapIO(held => held with { Pending = held.Pending.AddOrUpdate(entry.Key, entry.Value) }).Map(unit));
 
     public static IO<Func<TItem, IO<Unit>>> Queued<TItem>(Buffer<TItem> buffer, Func<TItem, IO<Unit>> consume, Func<Error, IO<Unit>> failed, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>

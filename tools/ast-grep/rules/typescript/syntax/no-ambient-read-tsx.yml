@@ -60,12 +60,10 @@ utils:
 rule:
     not: {inside: {matches: service-implementation, stopBy: end}}
     any:
-        - kind: new_expression
-          has: {field: constructor, regex: '^((globalThis|window|self)\.)?Date$', matches: syntax-global-reference}
-          not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
         - kind: call_expression
           has:
             field: function
+            not: {regex: '^((globalThis|window|self)\.)?(Date\.now|Math\.random|crypto\.randomUUID)$'}
             any:
                 - matches: ambient-function
                 - matches: syntax-global-reference

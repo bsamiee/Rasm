@@ -76,7 +76,7 @@ public static class RenderWindows {
         IO.lift(() => Refused.Unless(window.AddWireframeChannel(region.Document, region.Viewport, size, region.Region), nameof(RenderWindow.AddWireframeChannel)));
 
     private static Seq<RenderWindow.StandardChannels> Known(RenderWindow.StandardChannels[] channels) =>
-        toSeq(channels).Filter(static channel => channel != RenderWindow.StandardChannels.None).Strict();
+        toSeq(channels).Filter(static channel => channel is not RenderWindow.StandardChannels.None).Strict();
 
     // --- [PIXELS]
     public static IO<PixelFrame> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>

@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.UI.Rows;
 using Rhino;
 
 namespace Rasm.Rhino.Document.Files;
@@ -60,23 +61,28 @@ public sealed record Destination(OutputFolder Folder, Stem Stem, bool Overwrite)
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError<InvalidRhinoValue>]
-public sealed partial class DestinationParameter : IStateParameter<Destination> {
+public sealed partial class DestinationParameter : IRowParameter<Destination> {
     public static readonly DestinationParameter Folder = new(
         "folder",
         new StateParameter<Destination>.Keyed<OutputFolder, string, InvalidRhinoValue>(
-            Lens<Destination, OutputFolder>.New(static destination => destination.Folder, static folder => destination => destination with { Folder = folder })));
+            Lens<Destination, OutputFolder>.New(static destination => destination.Folder, static folder => destination => destination with { Folder = folder })),
+        ParameterText.Of("Folder", "Folder the files are written to"));
 
     public static readonly DestinationParameter Stem = new(
         "stem",
         new StateParameter<Destination>.Keyed<Stem, string, InvalidRhinoValue>(
-            Lens<Destination, Stem>.New(static destination => destination.Stem, static stem => destination => destination with { Stem = stem })));
+            Lens<Destination, Stem>.New(static destination => destination.Stem, static stem => destination => destination with { Stem = stem })),
+        ParameterText.Of("Name", "File name stem every target extends"));
 
     public static readonly DestinationParameter Overwrite = new(
         "overwrite",
         new StateParameter<Destination>.Toggle(
-            Lens<Destination, bool>.New(static destination => destination.Overwrite, static overwrite => destination => destination with { Overwrite = overwrite })));
+            Lens<Destination, bool>.New(static destination => destination.Overwrite, static overwrite => destination => destination with { Overwrite = overwrite })),
+        ParameterText.Of("Overwrite", "Replaces a file at the path, off takes the next free version"));
 
     public StateParameter<Destination> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

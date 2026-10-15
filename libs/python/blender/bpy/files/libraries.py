@@ -176,11 +176,11 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     match link:
         case Linked():
-            keywords = {"link": True, **msgspec.structs.asdict(link)}
+            keywords = {"link": True} | msgspec.structs.asdict(link)
         case LocalCopy():
-            keywords = {"link": False, **msgspec.structs.asdict(link)}
+            keywords = {"link": False} | msgspec.structs.asdict(link)
         case Overrides():
-            keywords = {"link": True, "create_liboverrides": True, **msgspec.structs.asdict(link)}
+            keywords = {"link": True, "create_liboverrides": True} | msgspec.structs.asdict(link)
 
     return sourced(bpy.data, path, chosen, **keywords).bind(
         lambda answer: answer[0].bind(
@@ -197,7 +197,7 @@ def library_written(
         lambda _: (
             catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
             .map(lambda _: path)
-            .map_error(lambda error: (BlenderWriteFault(request=str(path), error=error),))
+            .map_error(lambda error: (BlenderWriteFault(request=path, error=error),))
         )
     )
 

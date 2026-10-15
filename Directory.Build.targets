@@ -118,7 +118,7 @@
 
     <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(TargetExt)' == '.rhp' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
-            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" />
+            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'" />
         </ItemGroup>
     </Target>
 

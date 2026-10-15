@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-date-format-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $FORMAT
+    inside: {kind: token_tree, inside: {kind: macro_invocation}}
+    any:
+        - regex: '\{\w*:0>?4\}[-/.]?\{\w*:0>?2\}[-/.]?\{\w*:0>?2\}'
+        - regex: '\{\w*:0>?2\}[-/.]\{\w*:0>?2\}[-/.]\{\w*:0>?4\}'
+message: '`$FORMAT` spells a calendar date from zero-padded numbers'
+note: 'Hold the value as a `jiff::civil::Date`, `jiff::civil::DateTime`, or `jiff::Timestamp` and format it through `Display` (ISO 8601) or `strftime("<format>")`, jiff validates the fields and holds the calendar rules a padded number skips'

@@ -1,4 +1,5 @@
-import { Effect, Record, Struct } from 'effect';
+import { BrowserCrypto } from '@effect/platform-browser';
+import { Crypto, Effect, Record, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
 import { ClientApi, type PendingUpload } from '../model/api.ts';
@@ -61,6 +62,10 @@ const discardRequest = PortfolioClient.runtime
     )
     .pipe(Atom.keepAlive);
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const identifier = Crypto.Crypto.use((crypto) => crypto.randomUUIDv4()).pipe(Effect.provide(BrowserCrypto.layer));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { deleteRequest, discardRequest, draft, draftRequest, pendingRequest, reloadRequest, saveRequest };
+export { deleteRequest, discardRequest, draft, draftRequest, identifier, pendingRequest, reloadRequest, saveRequest };

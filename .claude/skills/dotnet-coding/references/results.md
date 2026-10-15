@@ -21,28 +21,24 @@ internal static class Rules {
 }
 ```
 
-`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields validate through the generated `Validate` of a smart enum or value object, each mapped to `Validation<Error, T>`, and the tuple `Apply` builds the aggregate from every result, every failed field reports:
+`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields cross through `Conversions.Validated` and `ToValidation`, and the tuple `Apply` builds the aggregate from every result, every failed field reports:
 
 ```csharp
 internal sealed record Contact(Kind Kind, Region Region, Number Number);
 
 internal static class Contacts {
-    public static Validation<Error, Kind> ValidKind(string kind) =>
-        Kind.Validate(kind, provider: null, out Kind? item) is { } error ? error : item!;
-    public static Validation<Error, Region> ValidRegion(string region) =>
-        Region.Validate(region, provider: null, out Region item) is { } error ? error : item;
-    public static Validation<Error, Number> ValidNumber(string number) =>
-        Number.Validate(number, provider: null, out Number item) is { } error ? error : item;
     public static Validation<Error, Contact> Create(string kind, string region, string number) =>
-        (ValidKind(kind), ValidRegion(region), ValidNumber(number))
-            .Apply(static (k, r, n) => new Contact(k, r, n))
-            .As();
+        (
+            Conversions.Validated<Kind, string, UnknownKind>(kind).ToValidation(),
+            Conversions.Validated<Region, string, InvalidRegion>(region).ToValidation(),
+            Conversions.Validated<Number, string, InvalidNumber>(number).ToValidation()
+        ).Apply(static (k, r, n) => new Contact(k, r, n)).As();
     public static int Faults(Validation<Error, Contact> result) =>
         result.Match(Fail: static errors => errors.Count, Succ: static _ => 0);
 }
 ```
 
-`Kind` is a smart enum, its `Validate` yields a nullable reference and `item!` follows the null check, `Region` and `Number` are value objects with a struct `out` value. Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
+`UnknownKind`, `InvalidRegion`, and `InvalidNumber` are the `[ValidationError<T>]` types of each value type. Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
 
 Collections of validators of shape `T -> Validation<Error, T>` fold into one validator, and the traversal selects the behavior:
 
@@ -59,7 +55,7 @@ internal static class Validators {
 
 ## [02]-[WORKFLOWS]
 
-`Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`. `Fin` has no `Where`, a predicate supplies `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
+`Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`. `Where` on `Fin` fails with `Errors.None`, a predicate supplies `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
 
 ```csharp
 internal sealed record ZeroDivisor() : Expected("divisor is 0", (int)Codes.ZeroDivisor);
@@ -107,14 +103,14 @@ internal static class Pipeline {
 }
 ```
 
-Every bound function returns the same failure type, choose the workflow's domain errors before composing it. Lifting a multi-argument function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
+Every bound function returns the same failure type, choose the workflow's domain errors before composing it. Lifting a multi-argument function first with `Some`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
 
 ```csharp
 internal static class Lifting {
     private static readonly Func<int, int, int> Multiply = static (x, y) => x * y;
 
     public static Option<int> Mapped(Option<int> left, Option<int> right) => Multiply.Map(left).Apply(right).As();
-    public static Option<int> Lifted(Option<int> left, Option<int> right) => Pure(Multiply).Apply(left).Apply(right).As();
+    public static Option<int> Lifted(Option<int> left, Option<int> right) => Some(Multiply).Apply(left).Apply(right).As();
     public static Option<int> Tupled(Option<int> left, Option<int> right) => (left, right).Apply(Multiply).As();
 }
 ```
@@ -281,12 +277,9 @@ internal static class Properties {
     private static readonly Gen<Option<int>> Operand =
         Gen.OneOf(Gen.Int[-1000, 1000].Select(static x => Some(x)), Gen.Const(Option<int>.None));
 
-    public static Fin<Unit> Equivalence() =>
-        Try.lift(() => {
-            Operand.Select(Operand).Sample((a, b) => Multiply.Map(a).Apply(b).As() == Lifted.Apply(a).Apply(b).As());
-            return unit;
-        }).Run();
+    public static void Equivalence() =>
+        Operand.Select(Operand).Sample((a, b) => Multiply.Map(a).Apply(b).As() == Lifted.Apply(a).Apply(b).As());
 }
 ```
 
-`Gen.OneOf` builds a generator that yields both `Some` and `None`, a generator of integers alone checks only the `Some` path. The bounded range keeps the product inside `int`, `Sample` throws on a counterexample and `Try.lift` captures it into `Fin`, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function alone.
+`Gen.OneOf` builds a generator that yields both `Some` and `None`, a generator of integers alone checks only the `Some` path. The bounded range keeps the product inside `int`, `Sample` throws on a counterexample, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function alone.

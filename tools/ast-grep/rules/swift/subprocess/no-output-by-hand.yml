@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-output-by-hand
+language: swiftlang
+severity: error
+utils:
+    run-body:
+        kind: lambda_literal
+        inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess\.)?run$'}}
+    output-loop:
+        kind: for_statement
+        has: {field: collection, regex: '\.standard(Output|Error)(\.strings\([^)]*\))?$'}
+    drain:
+        matches: output-loop
+        all:
+            - has: {field: item, regex: '^_$'}
+            - not: {has: {kind: statements}}
+    collect:
+        matches: output-loop
+        all:
+            - has: {field: collection, regex: '\.standard(Output|Error)$'}
+            - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $BUFFER}}
+            - has:
+                kind: statements
+                all:
+                    - not: {has: {nthChild: 2}}
+                    - has:
+                        nthChild: 1
+                        has:
+                            stopBy: end
+                            kind: call_expression
+                            all:
+                                - has: {nthChild: 1, regex: '\.withUnsafeBytes$', has: {stopBy: end, kind: simple_identifier, pattern: $BUFFER}}
+                                - has: {stopBy: end, kind: call_expression, regex: '\.append\(contentsOf:'}
+    sole:
+        kind: statements
+        not: {has: {nthChild: 2}}
+rule:
+    pattern: $SITE
+    any:
+        - matches: drain
+          inside:
+            matches: run-body
+            stopBy: end
+            has:
+                matches: sole
+                has:
+                    nthChild: 1
+                    any:
+                        - matches: drain
+                        - has:
+                            stopBy: {kind: lambda_literal}
+                            kind: call_expression
+                            all:
+                                - has: {nthChild: 1, regex: '^Result$'}
+                                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: drain}}}}
+        - matches: collect
+          inside: {matches: run-body, stopBy: end}
+message: '`$SITE` drains or collects output that an output method of the run returns itself'
+note: 'Pass `output: .discarded` for output no code reads and `.bytes(limit:)`, `.data(limit:)`, or `.string(limit:)` for collected output, the run then needs no `.sequence` output and no loop in its body'

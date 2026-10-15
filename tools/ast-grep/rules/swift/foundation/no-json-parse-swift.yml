@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-json-parse-swift
-language: swift
+language: swiftlang
 severity: error
 utils:
     keyed:
@@ -33,7 +33,7 @@ rule:
             - has: {field: key, kind: line_string_literal}
             - has: {field: value, kind: 'call_expression, prefix_expression', regex: '^\.(string|number|bool|object|array|null)\b'}
         - kind: as_expression
-          has: {field: name, regex: '^(\[String: Any(Object)?\]|\[Any(Object)?\]|NS(Mutable)?(Dictionary|Array))$'}
+          has: {field: name, regex: '^(\[String: Any(Object)?\]|\[Any(Object)?\]|NSMutable(Dictionary|Array))$'}
         - kind: equality_expression
           has: {matches: tag}
         - kind: pattern

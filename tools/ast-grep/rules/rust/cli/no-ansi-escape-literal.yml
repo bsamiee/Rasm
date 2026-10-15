@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ansi-escape-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $ESCAPE
+    regex: '\\(x1[bB]|u\{0*1[bB]\})\\*\['
+message: '`$ESCAPE` spells an ANSI control sequence by hand'
+note: 'Style text through `anstyle::Style` written as `{style}<text>{style:#}` to `anstream::stdout()` or `stderr()`, move the cursor and erase through `crossterm::cursor` and `crossterm::terminal::Clear` commands, and strip escapes through `anstream::adapter::strip_str`. `anstream` drops styling where output is no terminal or the environment disables color'

@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
+import RasmMacOS
 import Subprocess
+import System
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -20,7 +22,7 @@ actor ClaudeClient: ProviderClient {
         self.paths = paths
         self.environment = environment
         let candidate: String = environment["USER"] ?? NSUserName()
-        username = candidate.contains(/^[a-zA-Z0-9._-]+$/) ? candidate : "claude-code-user"
+        username = candidate.contains(#/^[a-zA-Z0-9._-]+$/#) ? candidate : "claude-code-user"
         let configuration: URLSessionConfiguration = .ephemeral
         configuration.timeoutIntervalForResource = 30
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -56,7 +58,7 @@ actor ClaudeClient: ProviderClient {
             directory: directory,
             configFile: directory.appending(path: ".claude.json"),
             directoryConfigFile: directory.appending(path: ".config.json"),
-            configDirectoryPath: directory.path.precomposedStringWithCanonicalMapping,
+            configDirectoryPath: FilePath(directory.path(percentEncoded: false)).string.precomposedStringWithCanonicalMapping,
             username: username,
         )
     }
@@ -245,7 +247,7 @@ actor ClaudeClient: ProviderClient {
                     await withTaskGroup { group in
                         group.addTask(name: "Login code") {
                             for await code: String in codes {
-                                return await Result {
+                                return await Result { () async throws(SubprocessError) in
                                     _ = try await execution.standardInputWriter.write(code + "\n", using: UTF8.self)
                                     try await execution.standardInputWriter.finish()
                                 }
@@ -563,7 +565,7 @@ actor ClaudeClient: ProviderClient {
         return response.mapError { error -> ClaudeFailure in
             switch error {
                 case is CancellationError: .cancelled
-                case let error as URLError where error.code == .cancelled: .cancelled
+                case URLError.cancelled: .cancelled
                 default: .transport(error)
             }
         }
@@ -636,9 +638,9 @@ actor ClaudeClient: ProviderClient {
     // --- [CHILDREN]
     private func executable() async -> Result<Executable, ClaudeFailure> {
         let directories: [String] =
-            [".local/bin", ".bun/bin", ".npm-global/bin", ".volta/bin"].map { path in paths.home.appending(path: path).path }
+            [".local/bin", ".bun/bin", ".npm-global/bin", ".volta/bin"].map { path in paths.home.appending(path: path).path(percentEncoded: false) }
             + [environment["PATH"]].compactMap(\.self)
-        return await Result {
+        return await Result { () async throws(SubprocessError) in
             try await Executable.name("claude").resolveExecutablePath(in: .custom(["PATH": directories.joined(separator: ":")]))
         }
         .map(Executable.path)

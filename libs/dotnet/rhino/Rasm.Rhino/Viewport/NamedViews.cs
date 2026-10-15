@@ -78,7 +78,7 @@ public static class NamedViews {
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
         Find(doc, name).Bind(index => DisposalOps.Within(() => doc.NamedViews[index],
             view => IO.lift(() => Missing.Unless(view, nameof(NamedViewTable))).Bind(read),
-            static view => DisposalOps.Release(Conversions.Rows(new[] { view }))));
+            static view => DisposalOps.Release(Conversions.Rows([view]))));
 
     public static IO<int> Update(RhinoDoc doc, string name, Func<ViewInfo, IO<Unit>> edit) =>
         Read(doc, name, view => edit(view).Bind(_ => IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add)))));

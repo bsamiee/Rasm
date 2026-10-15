@@ -12,7 +12,7 @@ Governs every English text in a project (markdown, comments, messages, identifie
 - [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): `python ${CLAUDE_SKILL_DIR}/scripts/prose.py check <path>...` prints findings over named files and unignored files of named folders, `fix` writes the fixable ones
+- [01]-[PROSE](scripts/prose.py): Additive auto-fix and report pass
 
 ## [01]-[TERMINOLOGY]
 
@@ -195,7 +195,7 @@ Comments state intent or constraint code cannot show, in one line and statement 
 - Test case comments name case's shape as a noun phrase, then the fact that decides it
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
 - Structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
-- Section dividers follow `CLAUDE.md` file organization, `prose.py` fixes shape and empty sections, reports repeats, orphans, order, and preamble placement
+- Section dividers follow `CLAUDE.md` file organization
 - Doc comment summaries are one sentence that states what the member returns or does without restating its name, remarks keep one fact per sentence
 - Use `Skill(python-document)` for a doc comment's tags, sections, period, and presence, `/dotnet-document` and `/typescript-document` hold the C# and TypeScript forms
 - Messages (log, error, exception, diagnostic) state what happened, its cause when known, then the action, each in one sentence with no period
@@ -212,7 +212,6 @@ Rewrite of an existing file:
 5. Rename coined identifiers and files with every reference
 6. Replace coined terms and delete filler by the word map, a word outside the map joins the row of its category
 7. Rewrite each remaining sentence to state one fact in its section
-8. Run `prose.py fix` over the files in scope and rewrite each finding it prints
-9. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
+8. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
 New text follows the same rules from its first draft. Every run reads `references/word-map.md` and `references/rewrites.md` whole before its first edit.

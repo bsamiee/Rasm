@@ -42,9 +42,14 @@ utils:
             - pattern: {context: 'for ($FIRST, $$$REST) in x: pass', selector: tuple_pattern}
             - pattern: {context: 'x = $FIRST, $$$REST', selector: expression_list}
             - pattern: {context: 'x = ($FIRST, $$$REST)', selector: tuple}
+    same-target:
+        any:
+            - pattern: $TARGET
+            - kind: parenthesized_expression
+              has: {matches: same-target}
     identity:
         any:
-            - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: yield $TARGET}}}
+            - has: {field: body, has: {kind: expression_statement, has: {kind: yield, has: {nthChild: 1, matches: same-target}}}}
             - all:
                 - has: {field: left, matches: items}
                 - has: {field: body, has: {kind: expression_statement, has: {kind: yield, has: {nthChild: 1, matches: items}}}}
@@ -72,6 +77,19 @@ utils:
                 any:
                     - matches: read-later
                     - inside: {stopBy: {kind: function_definition}, not: {kind: function_definition}, matches: read-later}
+    reread-target:
+        kind: identifier
+        pattern: $L
+        inside:
+            stopBy: {kind: for_statement}
+            kind: for_statement
+            field: left
+            any:
+                - matches: read-later
+                - inside: {stopBy: {kind: function_definition}, not: {kind: function_definition}, matches: read-later}
+    ruff-identity:
+        matches: identity
+        not: {has: {field: left, any: [{matches: reread-target}, {has: {stopBy: end, matches: reread-target}}]}}
     statement-loop:
         kind: for_statement
         matches: yield-loop
@@ -79,7 +97,7 @@ utils:
             - has: {field: left, pattern: $TARGET}
             - not: {inside: {stopBy: {kind: 'function_definition, lambda'}, kind: for_statement, matches: yield-loop}}
             - not: {inside: {stopBy: {kind: function_definition}, kind: function_definition, regex: '^async\b'}}
-            - not: {matches: identity}
+            - not: {matches: ruff-identity}
 rule:
     any:
         - matches: statement-loop
@@ -159,4 +177,4 @@ transform:
     TAIL: {replace: {source: $GENERATED, replace: '(?s)^(.+)$', by: '$1)'}}
 fix: $HEAD$TAIL$KEPT
 message: '`for $TARGET` yields by statement in place of one `yield from`'
-note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` with one clause per nested loop or filter, and `<a> if <test> else <b>` as the value of a branch. Comments, multiline strings, valueless yields, assignment expressions in an iterable or binding a target, and targets read after the loop require a manual rewrite'
+note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` with one clause per nested loop or filter, and `<a> if <test> else <b>` as the value of a branch. Comments, multiline strings, valueless yields, assignment expressions in an iterable or binding a target, and targets read after the loop require a manual rewrite. Ruff UP028 reports a loop yielding its own target with no other read of it'

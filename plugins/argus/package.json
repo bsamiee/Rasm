@@ -1,14 +1,14 @@
 {
     "name": "argus",
     "private": true,
+    "description": "Language servers of .lsp.json, native in Claude Code and loopback MCP tools in Codex",
     "type": "module",
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@parcel/watcher": "catalog:",
         "effect": "catalog:",
-        "nx": "catalog:",
-        "vscode-languageserver-protocol": "catalog:",
-        "vscode-languageserver-textdocument": "catalog:"
+        "minimatch": "catalog:",
+        "vscode-languageserver-protocol": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:"

@@ -1,13 +1,22 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "mcp"
-edition.workspace = true
+name                 = "rasm-mcp"
+version.workspace    = true
+categories           = ["network-programming", "web-programming::http-server"]
+edition.workspace    = true
+keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http", "json-rpc"]
+license.workspace    = true
+repository.workspace = true
+description          = "MCP client and loopback Streamable HTTP server built on rmcp"
 
 # --- [LIB] ------------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
@@ -17,6 +26,7 @@ workspace = true
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
+futures              = { workspace = true }
 tokio                = { workspace = true }
 tokio-util           = { workspace = true }
 nonempty-collections = { workspace = true }
@@ -27,3 +37,4 @@ axum                 = { workspace = true }
 rmcp                 = { workspace = true }
 tracing              = { workspace = true }
 tracing-subscriber   = { workspace = true }
+clap                 = { workspace = true }

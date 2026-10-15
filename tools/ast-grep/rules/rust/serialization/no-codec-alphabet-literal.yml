@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-codec-alphabet-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $ALPHABET
+    regex: '^[br]*#*"(ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789(\+/|-_)|ABCDEFGHIJKLMNOPQRSTUVWXYZ234567|0123456789ABCDEFGHIJKLMNOPQRSTUV|0123456789(abcdef|ABCDEF)|0123456789bcdefghjkmnpqrstuvwxyz)"#*$'
+message: '`$ALPHABET` spells the alphabet of a codec the catalog implements'
+note: 'Encode and decode through a `data_encoding` constant (`BASE64`, `BASE64URL_NOPAD`, `BASE32`, `BASE32HEX`, `HEXLOWER`, `HEXUPPER`) and geohash cells through `geohash::encode` and `geohash::decode`, the constant holds alphabet, padding, and validation. A random token draws random bytes and encodes them'

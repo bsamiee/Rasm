@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/typography",
+    "private": true,
+    "description": "Foundation for font-aware apps and extensions, reading any font face as typed design metrics at a variation instance and point size",
+    "type": "module",
+    "exports": {
+        "./*": "./*.ts"
+    },
+    "dependencies": {
+        "effect": "catalog:",
+        "fontkit": "catalog:"
+    },
+    "devDependencies": {
+        "@types/fontkit": "catalog:"
+    }
+}

@@ -62,7 +62,7 @@ internal sealed record SplitAnchor<TValue> : SplitAnchor where TValue : notnull 
         PlugInSettings.Store(plugIn.Child(Positions), Row).Read
             .Catch(
                 static error => error.IsType<UnreadText>() || error.IsType<InvalidRhinoValue>(),
-                error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(static _ => Option<TValue>.None))
+                error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(Option<TValue>.None))
             .Map(held => Row.Value.ToRaw(held.IfNone(Row.Value.Default)));
 
     public override IO<Unit> Keep(SettingsNode plugIn, double position) =>
@@ -147,7 +147,7 @@ public static class Containers {
     private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope, Action<IDisposable> retain) =>
         from row in DisposalOps.Acquire(IO.lift(static () => new TopRowButtonLayout()), static held => IO.lift(held.Dispose), retain)
         from cells in toSeq(tiles.Cells).TraverseM(command => Tile(command, scope, retain)).As()
-        let refresh = Callbacks.Each(cells.Map(static cell => cell.Refresh)).Map(static _ => unit)
+        let refresh = Callbacks.Each(cells.Map(static cell => cell.Refresh)).Map(unit)
         from signals in toSeq(tiles.Cells).Bind(static command => command.Enabled.ToSeq()).Bind(static rule => rule.Sources).Distinct()
             .TraverseM(source => source.Signals(scope)).As()
         from heard in scope.Listen(_ => refresh, retain)
@@ -159,7 +159,7 @@ public static class Containers {
         from shown in refresh
         select (Control)row;
 
-    private static IO<(Seq<ImageButton> Buttons, IO<Unit> Refresh)> Tile(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Seq<DrawnButton> Buttons, IO<Unit> Refresh)> Tile(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
         from realized in command.Switch(
             (Scope: scope, Retain: retain),
             run: static (held, run) => run.Realize(held.Scope, held.Retain).Map(done =>

@@ -21,7 +21,7 @@ csharp_style_var_when_type_is_apparent = false:error                          # 
 csharp_style_var_elsewhere = false:error                                      # No var elsewhere
 dotnet_style_predefined_type_for_locals_parameters_members = true:error       # Language keywords (int, string) in declarations
 dotnet_style_predefined_type_for_member_access = true:error                   # Language keywords in member access
-csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,required,volatile,async:error # Fixed modifier order
+csharp_preferred_modifier_order = public,private,protected,internal,file,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,required,volatile,async:error
 dotnet_style_qualification_for_field = false:error                            # No this. on fields
 dotnet_style_qualification_for_property = false:error                         # No this. on properties
 dotnet_style_qualification_for_method = false:error                           # No this. on methods
@@ -47,7 +47,7 @@ csharp_style_inlined_variable_declaration = true:error                        # 
 
 # --- [SYNTAX_AND_CONCISION] -------------------------------------------------------------
 csharp_style_prefer_primary_constructors = true:error                         # Primary constructors
-dotnet_style_prefer_collection_expression = when_types_exactly_match:error    # Collection expressions when types match exactly
+dotnet_style_prefer_collection_expression = when_types_loosely_match:error    # Collection expressions for interface targets too
 csharp_style_implicit_object_creation_when_type_is_apparent = true:error      # Target-typed new when the type is apparent
 dotnet_style_object_initializer = true:error                                  # Object initializers
 dotnet_style_collection_initializer = true:error                              # Collection initializers
@@ -108,24 +108,25 @@ dotnet_diagnostic.IDE0055.severity = error                                    # 
 
 # --- [QUALITY_ANALYZERS] ----------------------------------------------------------------
 dotnet_diagnostic.CA1000.severity = none                                      # Static generic factories construct their owning type directly
-dotnet_diagnostic.CA1034.severity = none                                      # Thinktecture union cases and closed Expected error hierarchies nest inside their owner by the union standard
+dotnet_diagnostic.CA1034.severity = none                                      # Union cases and closed Expected error hierarchies nest in their owner
 dotnet_diagnostic.CA1711.severity = error                                     # No reserved type suffix (Collection, EventHandler, Ex, New) on a name
-dotnet_diagnostic.CA1715.severity = none                                      # Functional type parameters use their documented symbols without prefixes
-dotnet_diagnostic.CA1716.severity = none                                      # Libraries serve C# alone, host names like Integer, Option, and Nothing keep the host's spelling
-dotnet_diagnostic.CA1720.severity = none                                      # Union cases mirror host value types (Integer, Double, String) by the host's names
+dotnet_diagnostic.CA1715.severity = none                                      # Functional type parameters keep documented symbols without prefixes
+dotnet_diagnostic.CA1716.severity = none                                      # Libraries serve C# alone, host names keep host spelling
+dotnet_diagnostic.CA1720.severity = none                                      # Union cases take host value type names (Integer, Double, String)
 dotnet_diagnostic.CA1724.severity = none                                      # Unrelated namespace names impose no type naming constraint
-dotnet_diagnostic.MA0008.severity = none                                      # Structs already lay out sequentially, the attribute restates the runtime default
-dotnet_diagnostic.MA0018.severity = none                                      # Deprecated CA1000 duplicate; generic factories belong to their owning type
+dotnet_diagnostic.MA0008.severity = none                                      # Structs lay out sequentially by default, the attribute restates it
+dotnet_diagnostic.MA0018.severity = none                                      # Deprecated CA1000 duplicate, generic factories belong to owning type
 dotnet_diagnostic.MA0038.severity = none                                      # Deprecated static-method checker; CA1822 owns the policy
 dotnet_diagnostic.MA0041.severity = none                                      # Deprecated static-property checker; CA1822 owns the policy
-dotnet_diagnostic.MA0048.severity = none                                      # File organization groups a concern's types in one file, one type per file splits a concern
-dotnet_diagnostic.MA0051.severity = none                                      # A length cap forces extracted helpers, the density standard keeps one operation in one body
+dotnet_diagnostic.MA0048.severity = none                                      # Files group a concern's types, one type per file splits a concern
+dotnet_diagnostic.MA0051.severity = none                                      # Length caps force extracted helpers, one operation stays in one body
 dotnet_diagnostic.CA1021.severity = error                                     # Off under latest-all: no out parameters
 dotnet_diagnostic.CA1045.severity = error                                     # Off under latest-all: no ref parameters
-dotnet_diagnostic.CA1062.severity = none                                      # Nullable annotations carry the null contract, a guard on a non-nullable parameter is junk validation
-dotnet_diagnostic.CA1516.severity = error                                     # Off under latest-all: cross-platform intrinsics over x86-only or Arm-only ones
+dotnet_diagnostic.CA1062.severity = none                                      # Nullable annotations state null contract, guards are junk validation
+dotnet_diagnostic.CA1516.severity = error                                     # Off under latest-all: cross-platform intrinsics over x86 or Arm ones
 dotnet_diagnostic.CA1307.severity = error                                     # Explicit StringComparison on string comparison overloads
 dotnet_diagnostic.CA1310.severity = error                                     # Explicit StringComparison on culture-sensitive comparisons
+dotnet_code_quality.CA1003.api_surface = all                                  # EventHandler<T> over event-shaped delegates at every accessibility
 
 # --- [THREADING_ANALYZERS] --------------------------------------------------------------
 dotnet_diagnostic.VSTHRD003.severity = error                                  # No await on a task started outside the current context
@@ -139,14 +140,16 @@ dotnet_diagnostic.MA0032.severity = error                                     # 
 dotnet_diagnostic.MA0121.severity = error                                     # Off by default: no parameter reassignment
 dotnet_diagnostic.MA0141.severity = error                                     # Off by default: is not null over != null
 dotnet_diagnostic.MA0142.severity = error                                     # Off by default: is null over == null
+dotnet_diagnostic.MA0148.severity = error                                     # Off by default: constant pattern over == on a discrete constant
+dotnet_diagnostic.MA0149.severity = error                                     # Off by default: not pattern over != on a discrete constant
 dotnet_diagnostic.MA0170.severity = error                                     # Off by default: no type an attribute argument cannot hold
 dotnet_diagnostic.MA0171.severity = error                                     # Off by default: is null over Nullable<T>.HasValue
 dotnet_diagnostic.MA0172.severity = error                                     # Off by default: identical operands in a binary expression
 dotnet_diagnostic.MA0186.severity = error                                     # Off by default: [NotNullWhen(true)] on the Equals parameter
-dotnet_diagnostic.MA0217.severity = error                                     # Off by default: static lambdas when nothing is captured, same fix as TTRESG1001
+dotnet_diagnostic.MA0217.severity = error                                     # Off by default: static lambdas capturing nothing, as TTRESG1001 fixes
 dotnet_diagnostic.MA0107.severity = error                                     # Off by default: no culture-sensitive object.ToString
-dotnet_diagnostic.MA0161.severity = error                                     # Off by default: explicit UseShellExecute, the implicit value varies by host
-dotnet_diagnostic.MA0162.severity = error                                     # Off by default: Process.Start with ProcessStartInfo, the string overloads cannot set it
+dotnet_diagnostic.MA0161.severity = error                                     # Off by default: explicit UseShellExecute, its default varies by host
+dotnet_diagnostic.MA0162.severity = error                                     # Off by default: ProcessStartInfo overloads, string ones cannot set it
 dotnet_diagnostic.MA0180.severity = error                                     # Off by default: ILogger<T> type argument matches the containing type
 dotnet_diagnostic.MA0080.severity = error                                     # WithCancellation on async enumeration
 dotnet_diagnostic.MA0167.severity = error                                     # TimeProvider overloads when available
@@ -161,7 +164,7 @@ dotnet_diagnostic.RCS1014.severity = error                                    # 
 dotnet_diagnostic.RCS1050.severity = error                                    # Off by default: no parentheses on new T { } with an initializer
 dotnet_diagnostic.RCS1052.severity = error                                    # Off by default: one attribute per bracket pair
 dotnet_diagnostic.RCS1056.severity = none                                     # Directness permits aliases that resolve namespace and type collisions
-dotnet_diagnostic.RCS1161.severity = none                                     # Implicit enum ordinals derive from declaration order; explicit values state external contracts
+dotnet_diagnostic.RCS1161.severity = none                                     # Ordinals follow declaration order, explicit values state contracts
 dotnet_diagnostic.RCS1078.severity = error                                    # Off by default: "" over string.Empty
 dotnet_diagnostic.RCS1079.severity = error                                    # Off by default: no NotImplementedException left in code
 dotnet_diagnostic.RCS1081.severity = error                                    # Off by default: one declarator per field or local
@@ -169,18 +172,18 @@ dotnet_diagnostic.RCS1162.severity = error                                    # 
 dotnet_diagnostic.RCS1174.severity = error                                    # Off by default: no async/await around a single returned task
 dotnet_diagnostic.RCS1198.severity = error                                    # Off by default: no value type boxed in string concatenation
 dotnet_diagnostic.RCS1208.severity = error                                    # Reduce if nesting
-dotnet_diagnostic.RCS1231.severity = none                                     # in on a small readonly struct costs more than the copy, MA0168 enforces in where it pays
+dotnet_diagnostic.RCS1231.severity = none                                     # in on small readonly structs costs more than a copy, MA0168 owns in
 dotnet_diagnostic.RCS1252.severity = error                                    # Off by default: one infinite-loop form
 dotnet_diagnostic.RCS1253.severity = error                                    # Off by default: one doc summary layout
 dotnet_diagnostic.ROS0003.severity = error                                    # Rule enabled without its roslynator_* option
 dotnet_diagnostic.RCS1001.severity = none                                     # Contradicts csharp_prefer_braces = false at error
 dotnet_diagnostic.RCS1003.severity = none                                     # Contradicts csharp_prefer_braces = false at error
-dotnet_diagnostic.RCS1021.severity = none                                     # An expression body on an assignment lambda rebinds IO.lift(Action) to IO.lift<A>(Func<A>)
-dotnet_diagnostic.RCS1181.severity = none                                     # Section dividers the file organization standard requires stay line comments
+dotnet_diagnostic.RCS1021.severity = none                                     # Assignment lambda expression bodies rebind IO.lift(Action) to Func<A>
+dotnet_diagnostic.RCS1181.severity = none                                     # Section dividers file organization requires stay line comments
 dotnet_diagnostic.RCS1217.severity = none                                     # Contradicts RCS1267 at error, interpolation over concatenation
-dotnet_diagnostic.RCS1238.severity = none                                     # Value-choosing branches are conditional expressions by the density standard, nesting included
-dotnet_diagnostic.RCS1241.severity = none                                     # Non-generic comparer interfaces would be forwards to the generic ones, forwards are defects
-roslynator_array_creation_type_style = implicit_when_type_is_obvious          # RCS1014: new[] or [] where a declaration or the elements state the type
+dotnet_diagnostic.RCS1238.severity = none                                     # Value-choosing branches are conditional expressions, nesting included
+dotnet_diagnostic.RCS1241.severity = none                                     # Non-generic comparers forward to generic ones, a forward is a defect
+roslynator_array_creation_type_style = implicit_when_type_is_obvious          # RCS1014: new[] or [] where a declaration or elements state the type
 roslynator_empty_string_style = literal                                       # RCS1078: "" literal
 roslynator_enum_flag_value_style = shift_operator                             # RCS1254: 1 << n
 roslynator_infinite_loop_style = while                                        # RCS1252: while (true)
@@ -198,7 +201,7 @@ dotnet_diagnostic.IDE0052.severity = error                                    # 
 dotnet_diagnostic.IDE0060.severity = error                                    # Remove unused parameters
 dotnet_diagnostic.IDE0064.severity = error                                    # Make struct fields writable when they are reassigned
 dotnet_diagnostic.IDE0070.severity = error                                    # HashCode.Combine for composite hash codes
-dotnet_diagnostic.IDE0072.severity = none                                     # Discard arm it demands on enum switches hides a missing member from CS8509
+dotnet_diagnostic.IDE0072.severity = none                                     # Its discard arm on enum switches hides missing members from CS8509
 dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage targets
 dotnet_diagnostic.IDE0077.severity = error                                    # SuppressMessage targets in the Roslyn format
 dotnet_diagnostic.IDE0079.severity = error                                    # Remove stale suppressions
@@ -231,11 +234,11 @@ dotnet_diagnostic.RMG090.severity = error                                     # 
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
 # --- [MESSAGEPACK_ANALYZERS] ------------------------------------------------------------
-dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit serializer options, the default reads a static mutable field
-dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options from a constant in place of a mutable static field
+dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit options, defaults read a mutable static
+dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: constant serializer options over a mutable static
 
 # --- [ERRORPRONE_ANALYZERS] -------------------------------------------------------------
-dotnet_diagnostic.EPC38.severity = error                                      # Off by default: IEnumerable<Task> enumerated twice starts the tasks twice
+dotnet_diagnostic.EPC38.severity = error                                      # Off by default: enumerating IEnumerable<Task> twice starts tasks twice
 dotnet_diagnostic.EPC39.severity = error                                      # Off by default: enumerable re-enumerated inside a loop
 dotnet_diagnostic.EPC40.severity = error                                      # Off by default: IEnumerable<T> parameter enumerated more than once
 
@@ -243,10 +246,10 @@ dotnet_diagnostic.EPC40.severity = error                                      # 
 dotnet_analyzer_diagnostic.severity = error
 dotnet_diagnostic.CS1591.severity = none                                      # Comments are section dividers alone, member docs stay optional
 dotnet_diagnostic.CA2225.severity = error                                     # Named alternates for operator overloads
-dotnet_diagnostic.CS8524.severity = none                                      # Discard arm it demands for unnamed enum values is the widened arm the quality bar rejects
+dotnet_diagnostic.CS8524.severity = none                                      # Its discard arm for unnamed enum values is a rejected widened arm
 
 [.artifacts/**.cs]
-dotnet_diagnostic.EPC29.severity = none                                       # xunit.v3.msbuildtasks and Microsoft.Testing.Platform.MSBuild generate ExcludeFromCodeCoverage without a Justification
+dotnet_diagnostic.EPC29.severity = none                                       # Test SDK generators emit ExcludeFromCodeCoverage without Justification
 
 [tests/**/*.cs]
 dotnet_diagnostic.VSTHRD111.severity = none                                   # xUnit1030 at error forbids ConfigureAwait(false) in tests

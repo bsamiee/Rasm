@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-template-replace
+language: rust
+utils:
+    placeholder:
+        kind: string_literal
+        regex: '^"\{\{\s*[A-Za-z_][\w.]*\s*\}\}"$'
+    placeholder-replace:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(replace|replacen)$'}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    any:
+                        - matches: placeholder
+                        - kind: reference_expression
+                          has: {kind: macro_invocation, matches: placeholder-format}
+                        - matches: placeholder-format
+    placeholder-format:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((::)?(std|alloc)::)?format$'}
+            - has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"\{\{\{\{\s*\{[^{}]*\}\s*\}\}\}\}"$'}}
+rule:
+    matches: placeholder-replace
+    not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: placeholder-replace}}}

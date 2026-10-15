@@ -1,5 +1,6 @@
-import AppKit
 import Carbon.OpenScripting
+import Foundation
+import RasmMacOS
 import Subprocess
 import Synchronization
 import System
@@ -66,7 +67,7 @@ struct ScriptingDictionary: Sendable {
     static func read(_ application: Application, process: pid_t) -> Result<Self, AggregateError<Failure>> {
         held.withLock { held in held[application.url] }.flatMap { hit in hit.process == process ? Result.success(hit.dictionary) : nil }
             ?? definition(of: application)
-            .flatMap { definition in Result { try Self(definition: definition) }.mapError { error in AggregateError(.unreadable(error)) } }
+            .flatMap { definition in Result { try Self(definition: definition) }.mapError { error in AggregateError(first: .unreadable(error)) } }
             .map { dictionary in
                 held.withLock { held in held[application.url] = (process, dictionary) }
                 return dictionary
@@ -80,12 +81,14 @@ struct ScriptingDictionary: Sendable {
             } else if Bundle(url: application.url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil {
                 .success(())
             } else {
-                .failure(AggregateError(.instances(count: 0)))
+                .failure(AggregateError(first: .instances(count: 0)))
             }
         return readable.flatMap {
             var definition: Unmanaged<CFData>?
             let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application.url as CFURL, 0, &definition)
-            return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() { .success(data as Data) } else { .failure(AggregateError(.undefined(status: status))) }
+            return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() { .success(data as Data) } else {
+                .failure(AggregateError(first: .undefined(status: status)))
+            }
         }
     }
 
@@ -117,8 +120,8 @@ struct ScriptingDictionary: Sendable {
         let codes: [FourCharCode] = raw.map { code in [code] } ?? Set(found.map(\.code)).sorted()
         return switch (codes.first, codes.count) {
             case (.some(let code), 1): .success(Term(name: name, code: code, types: Set(found.flatMap(\.types))))
-            case (.none, _): .failure(AggregateError(.unknownTerm(name: name)))
-            case (.some, _): .failure(AggregateError(.ambiguousTerm(name: name, codes: codes.compactMap(NSFileTypeForHFSTypeCode))))
+            case (.none, _): .failure(AggregateError(first: .unknownTerm(name: name)))
+            case (.some, _): .failure(AggregateError(first: .ambiguousTerm(name: name, codes: codes.compactMap(NSFileTypeForHFSTypeCode))))
         }
     }
 
@@ -179,40 +182,7 @@ enum Failure: LocalizedError {
     }
 }
 
-struct AggregateError<Element: Sendable>: Error {
-    let first: Element
-    let remaining: [Element]
-
-    init(_ first: Element, remaining: [Element] = []) {
-        self.first = first
-        self.remaining = remaining
-    }
-
-    static func + (left: Self, right: Self) -> Self {
-        Self(left.first, remaining: left.remaining + [right.first] + right.remaining)
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-func collect<Value, Element>(_ results: [Result<Value, AggregateError<Element>>]) -> Result<[Value], AggregateError<Element>> {
-    results.reduce(.success([])) { collected, result in
-        switch (collected, result) {
-            case (.success(let values), .success(let value)): .success(values + [value])
-            case (.failure(let failures), .success), (.success, .failure(let failures)): .failure(failures)
-            case (.failure(let left), .failure(let right)): .failure(left + right)
-        }
-    }
-}
-
-extension Result {
-    func bind<Next>(_ next: (Success) async -> Result<Next, Failure>) async -> Result<Next, Failure> {
-        switch self {
-            case .success(let value): await next(value)
-            case .failure(let error): .failure(error)
-        }
-    }
-}
 
 func put(_ items: [(keyword: AEKeyword, value: NSAppleEventDescriptor)], into descriptor: NSAppleEventDescriptor) -> NSAppleEventDescriptor {
     items.reduce(into: descriptor) { descriptor, item in descriptor.setDescriptor(item.value, forKeyword: item.keyword) }

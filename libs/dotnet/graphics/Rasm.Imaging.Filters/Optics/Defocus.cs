@@ -153,7 +153,7 @@ public sealed unsafe record Defocus(FocusField Field, DefocusRadius Radius, FNum
         [.. Range(0, side * side).Select(i => iris.Outline(((side / 2) - (i % side), (side / 2) - (i / side))))];
 
     private static Vector256<double> Tap(Iris iris, (double Reach, double Edge) outline, double radius) =>
-        outline.Reach == 0d ? Vector256.Create(1d) : iris.Weights(outline.Reach, outline.Edge, radius, 1d);
+        outline.Reach is 0d ? Vector256.Create(1d) : iris.Weights(outline.Reach, outline.Edge, radius, 1d);
 
     private static int Window(float reach) => (2 * (int)float.Ceiling(reach)) + 1;
 }

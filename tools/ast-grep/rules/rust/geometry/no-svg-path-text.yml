@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-svg-path-text
+language: rust
+severity: error
+utils:
+    move-text:
+        kind: string_literal
+        regex: '^"(\s*|.*\bd=\\")[Mm] ?\{[^{}]*\}[ ,]\s*\{[^{}]*\}'
+rule:
+    kind: string_literal
+    pattern: $TEXT
+    any:
+        - matches: move-text
+        - regex: '^"\s*[LlCcQqSsTt] ?\{[^{}]*\}[ ,]\s*\{[^{}]*\}'
+          inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, matches: move-text}}
+message: '`$TEXT` writes SVG path data as text by hand'
+note: 'Build a `kurbo::BezPath` with `move_to`, `line_to`, `curve_to`, and `close_path` and call `to_svg()`. `kurbo::BezPath::from_svg` reads path data back'

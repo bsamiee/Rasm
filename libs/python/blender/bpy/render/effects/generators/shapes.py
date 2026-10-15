@@ -9,7 +9,7 @@ from expression import Nothing, Ok, Option, Some
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace
+from blender.bpy.nodes.coordinates import framed, FrameSpace, shorter
 from blender.bpy.nodes.graphs import Clock, compared, End, ended, Fragment, masked, math, menu, mixed, nested, node, NodeGroup, Operand, selected, summed, switched, vector
 from blender.bpy.nodes.interface import Interface, item_key, Socket
 from blender.bpy.render.effects.generators.noise import emitted, periodic, sample, sampled
@@ -117,11 +117,9 @@ def lattice(key: Key, point: Operand, width: Operand, height: Operand, offset: O
     nearest = normalized.bind(lambda parameter: vector(f"{key}_fraction", "FRACTION", parameter)).bind(
         lambda fraction: vector(f"{key}_opposite", "SUBTRACT", (1.0, 1.0, 0.0), fraction).bind(lambda opposite: vector(f"{key}_nearest", "MINIMUM", fraction, opposite))
     )
-    scaled = paired(nearest, node(f"{key}_spacing", bpy.types.ShaderNodeCombineXYZ, {"X": width, "Y": height}, {}).map(ended(f"{key}_spacing", "Vector"))).bind(
-        lambda parts: vector(f"{key}_distances", "MULTIPLY", *parts)
-    )
     distance = (
-        scaled
+        paired(nearest, node(f"{key}_spacing", bpy.types.ShaderNodeCombineXYZ, {"X": width, "Y": height}, {}).map(ended(f"{key}_spacing", "Vector")))
+        .bind(lambda parts: vector(f"{key}_distances", "MULTIPLY", *parts))
         .bind(lambda distances: node(f"{key}_distances_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": distances}, {}))
         .bind(lambda axes: math(f"{key}_nearest_line", "MINIMUM", ended(f"{key}_distances_axes", "X")(axes), End(node=f"{key}_distances_axes", socket="Y")))
         .bind(lambda distance: math(f"{key}_distance", "MULTIPLY_ADD", line, -0.5, distance))
@@ -378,10 +376,7 @@ def figured[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
     primitive_figure, position, rotation, short_side = Figure.__struct_fields__
     at = (*path, primitive_figure)
     cases = tuple(shape for shape in shell.cases[at] if isinstance(shape, Box | Ellipse | Triangle | Cross | Heart | Segment | Bar | Grid | Polygon | Ring))
-    extent = node(f"{key}_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {}).bind(
-        lambda axes: math(f"{key}_short", "MINIMUM", ended(f"{key}_extent", "X")(axes), End(node=f"{key}_extent", socket="Y"))
-    )
-    scale = extent.bind(lambda short: switched(f"{key}_scale", "FLOAT", shell.socket(*path, short_side), 1.0, short))
+    scale = shorter(f"{key}_short", frame.extent).bind(lambda short: switched(f"{key}_scale", "FLOAT", shell.socket(*path, short_side), 1.0, short))
     local = (
         vector(f"{key}_anchor", "MULTIPLY", shell.socket(*path, position), frame.extent)
         .bind(lambda anchor: vector(f"{key}_offset", "SUBTRACT", frame.point, anchor))
@@ -644,8 +639,9 @@ def lightning[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, shap
 
     def joined(parts: tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], tuple[Fragment, End]]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
         bounds, radius = parts
-        channels = paired(subdivided(f"{key}_main", bounds, (radius, radius), 0), accumulated(fork(index, bounds, radius) for index in range(shape.branches)))
-        return channels.bind(lambda held: reduce(lambda done, step: done.bind(lambda nearest: nearer(f"{key}_{step[0]}", nearest, step[1])), enumerate(held[1], 1), Ok(held[0])))
+        return paired(subdivided(f"{key}_main", bounds, (radius, radius), 0), accumulated(fork(index, bounds, radius) for index in range(shape.branches))).bind(
+            lambda held: reduce(lambda done, step: done.bind(lambda nearest: nearer(f"{key}_{step[0]}", nearest, step[1])), enumerate(held[1], 1), Ok(held[0]))
+        )
 
     return paired(paired(start, end), radius).bind(joined)
 
@@ -700,7 +696,7 @@ def fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Operand, *tu
         paired(coverages, frame_coverage)
         .bind(
             lambda parts: selected(
-                "shape_field", shell.socket(*path), shell.items[path], {str(index): ("FLOAT", {Frame.title: parts[1], **dict(zip(labels, column))}) for index, column in enumerate(zip(*parts[0]))}
+                "shape_field", shell.socket(*path), shell.items[path], {str(index): ("FLOAT", {Frame.title: parts[1]} | dict(zip(labels, column))) for index, column in enumerate(zip(*parts[0]))}
             )
         )
         .map(lambda outputs: tuple(outputs[str(index)] for index in range(len(growths))))
@@ -718,8 +714,7 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
     (color_solid,) = Solid.__struct_fields__
     pixel = math(f"{key}_pixel", "DIVIDE", 1.0, frame.greater)
     corners = (*path, Corners)
-    fractions = node(f"{key}_fraction", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.fraction}, {})
-    weights = fractions.bind(
+    weights = node(f"{key}_fraction", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.fraction}, {}).bind(
         lambda axes: accumulated(
             node(
                 weight,
@@ -873,18 +868,21 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
         if held.profile.enabled
         else coordinate
     )
-    colors = paired(paired(corner_color, cell_field.bind(colored_cells)), cycled.bind(extended))
-    return colors.bind(
-        lambda parts: selected(
-            f"{key}_paint",
-            shell.socket(*path),
-            shell.items[path],
-            {
-                "color": ("RGBA", {Solid.title: shell.socket(*path, Solid, color_solid), Corners.title: parts[0][0], Cells.title: parts[0][1], Gradient.title: parts[1][0]}),
-                "coverage": ("FLOAT", {Solid.title: 1.0, Corners.title: 1.0, Cells.title: 1.0, Gradient.title: parts[1][1]}),
-            },
+    return (
+        paired(paired(corner_color, cell_field.bind(colored_cells)), cycled.bind(extended))
+        .bind(
+            lambda parts: selected(
+                f"{key}_paint",
+                shell.socket(*path),
+                shell.items[path],
+                {
+                    "color": ("RGBA", {Solid.title: shell.socket(*path, Solid, color_solid), Corners.title: parts[0][0], Cells.title: parts[0][1], Gradient.title: parts[1][0]}),
+                    "coverage": ("FLOAT", {Solid.title: 1.0, Corners.title: 1.0, Cells.title: 1.0, Gradient.title: parts[1][1]}),
+                },
+            )
         )
-    ).map(lambda fields: (fields["color"], fields["coverage"]))
+        .map(lambda fields: (fields["color"], fields["coverage"]))
+    )
 
 
 def coverage(key: str, distance: Operand, width: Option[Operand], softness: Operand, pixel: Operand, growth: Operand = 0.0) -> BlenderResult[tuple[Fragment, End]]:

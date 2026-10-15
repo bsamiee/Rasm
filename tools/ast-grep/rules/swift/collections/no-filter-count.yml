@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-count
+language: swiftlang
+severity: error
+utils:
+    filter-call:
+        kind: call_expression
+        pattern: $FILTER
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, regex: '^filter$'}}}, {has: {field: target, pattern: $C}}]}
+            - has:
+                kind: call_suffix
+                any:
+                    - all:
+                        - has: {kind: lambda_literal, pattern: $TEST}
+                        - not: {has: {kind: value_arguments}}
+                    - all:
+                        - not: {has: {kind: lambda_literal}}
+                        - has:
+                            kind: value_arguments
+                            all:
+                                - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $TEST}}
+                                - not: {has: {kind: value_argument, nthChild: 2}}
+    zero-test:
+        any:
+            - kind: 'equality_expression, comparison_expression'
+            - {kind: infix_expression, has: {field: op, regex: '^(==|!=|<=?|>=?)$'}}
+        has: {kind: integer_literal, regex: '^0$'}
+rule:
+    kind: navigation_expression
+    all:
+        - has: {field: suffix, has: {field: suffix, regex: '^count$'}}
+        - has:
+            field: target
+            any:
+                - matches: filter-call
+                - {kind: try_expression, all: [{has: {kind: try_operator, pattern: $TRY}}, {has: {field: expr, matches: filter-call}}]}
+        - not: {inside: {matches: zero-test}}
+transform:
+    TRIED: {replace: {source: $TRY, replace: '(?s)^(.+)$', by: '$1 '}}
+fix: '$TRIED$C.count(where: $TEST)'
+message: '`$FILTER` builds every passing element to count them'
+note: '`<sequence>.count(where: <test>)` counts passing elements without building the filtered collection, `contains(where:)` answers a test against 0'

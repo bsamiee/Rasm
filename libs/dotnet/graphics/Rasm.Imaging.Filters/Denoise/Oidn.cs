@@ -214,7 +214,7 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
         (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
             (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),
             static (packed, input) => (packed.Size + ((nuint)input.Frame.Block.Length * sizeof(float)), packed.Inputs.Add((input.Role, input.Frame, packed.Size))));
-        Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = state.Prefilter == GuidePrefilter.Accurate ? inputs.Tail : [];
+        Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = state.Prefilter is GuidePrefilter.Accurate ? inputs.Tail : [];
         using SafeOidnBufferHandle buffer = oidnNewBuffer(device, size);
         nuint pixelStride = (nuint)Marshal.SizeOf<Vector4>();
         ProgressMonitor monitor = (step, n) => {
@@ -249,7 +249,7 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
                 }).As()
                 from filtered in prefiltered.Map(static (guide, step) => (Guide: guide, Step: step))
                     .TraverseM(input => Execute([input.Guide], (input.Guide.Frame, input.Guide.Offset), input.Step, [])).As()
-                from denoised in Execute(inputs, (color, 0), prefiltered.Count, Seq(("hdr", true), ("cleanAux", inputs.Count > 1 && state.Prefilter != GuidePrefilter.Fast)))
+                from denoised in Execute(inputs, (color, 0), prefiltered.Count, Seq(("hdr", true), ("cleanAux", inputs.Count > 1 && state.Prefilter is not GuidePrefilter.Fast)))
                 let output = new PixelFrame(color.Origin, color.Size, color.Extent, block => oidnReadBuffer(buffer, 0, bytes, block))
                 from read in Status(device)
                 select output).Map(output => {

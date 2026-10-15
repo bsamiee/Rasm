@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-byte-size-format-by-hand
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $FORMAT
+    regex: '(^|[^{])\{[^{}]*\}\s?([KMGTPE]i?B|kB)\b'
+message: '`$FORMAT` formats a byte count with a unit picked by hand'
+note: 'Format `bytesize::ByteSize::b(<bytes>)`, `ByteSize` picks the IEC unit and rounds to one decimal on display. `.display().si()` selects decimal units. A hand unit fixes one scale and divides by `1024.0` at each site'

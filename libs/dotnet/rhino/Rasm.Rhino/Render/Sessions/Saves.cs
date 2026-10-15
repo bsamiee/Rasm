@@ -216,7 +216,7 @@ public static class Saves {
                     recorded.Request.Chain.Filter(static kind => kind.State != typeof(Dither)),
                     context with { Signal = TransferCurve.Linear, Lights = None })
                 .Map(chain => (Frame: recorded.Scene.Copy(), Passes: chain.Map(static stage => stage.Pass)
-                    + (chain.Exists(static stage => stage.Stage == PostEffectType.ToneMapping)
+                    + (chain.Exists(static stage => stage.Stage is PostEffectType.ToneMapping)
                         ? Seq<PixelPass>()
                         : TargetWrite.SceneLinear.To(context.Display.Encoding).Map<PixelPass>(static step => new PixelPass.Color(step))))))
         from formed in prepared.Passes.TraverseM(pass => IO.lift(() => pass.Run(prepared.Frame, new Progress<int>()))).As()

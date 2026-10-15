@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-caret-underline
+language: rust
+severity: error
+utils:
+    format-macro:
+        kind: macro_invocation
+        has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+    space-literal:
+        kind: 'string_literal, char_literal'
+        regex: '^(" +"|'' '')$'
+    caret-literal:
+        kind: 'string_literal, char_literal'
+        regex: '^("\^+"|''\^'')$'
+    repeat-token:
+        kind: identifier
+        regex: '^repeat$'
+        follows: {regex: '^\.$'}
+    space-repeat-token:
+        matches: space-literal
+        precedes: {regex: '^\.$', precedes: {matches: repeat-token}}
+    caret-text:
+        kind: string_literal
+        regex: '^"([^"{}\\]|\\.|\{\{|\}\}|\{[^{}]*\})*?\^'
+    padded-placeholder:
+        kind: string_literal
+        regex: '\{[^{}]*:[^{}]?>[^{}]*\}'
+    caret-repeat:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: caret-literal}}, {has: {field: field, regex: '^repeat$'}}]}
+    space-repeat:
+        kind: call_expression
+        has: {field: function, kind: field_expression, all: [{has: {field: value, matches: space-literal}}, {has: {field: field, regex: '^repeat$'}}]}
+    caret-push:
+        kind: expression_statement
+        has:
+            kind: call_expression
+            all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $BUFFER}}, {has: {field: field, regex: '^(push|push_str)$'}}]}
+                - has: {field: arguments, has: {nthChild: 1, any: [{matches: caret-literal}, {matches: caret-text}]}}
+rule:
+    pattern: $SITE
+    any:
+        - matches: caret-repeat
+        - matches: format-macro
+          has:
+            kind: token_tree
+            any:
+                - all: [{has: {matches: space-repeat-token}}, {has: {matches: caret-text}}]
+                - has: {matches: caret-literal, precedes: {regex: '^\.$', precedes: {matches: repeat-token}}}
+                - all: [{has: {matches: padded-placeholder}}, {has: {matches: caret-literal}}]
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $BUFFER}}, {has: {field: field, regex: '^push_str$'}}]}
+            - has: {field: arguments, has: {nthChild: 1, kind: reference_expression, has: {matches: space-repeat}}}
+            - inside: {kind: expression_statement, precedes: {stopBy: end, matches: caret-push}}
+message: '`$SITE` draws a caret line under source text by hand'
+note: 'Render the span through `annotate_snippets::Renderer` (`Renderer::styled().render(&[Level::ERROR.primary_title(<message>).element(Snippet::source(<source>).annotation(AnnotationKind::Primary.span(<range>)))])`), the renderer places the marker by display width and draws line numbers and labels. Padding by count misplaces the marker after tabs and wide characters'

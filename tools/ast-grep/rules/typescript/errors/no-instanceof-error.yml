@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-instanceof-error
+language: tsx
+severity: error
+ignores:
+    - apps/creative-cloud/indesign/galley/**
+    - apps/web/portfolio/**
+    - libs/typescript/creative-cloud/indesign/**
+    - libs/typescript/creative-cloud/uxp/**
+    - libs/typescript/web/hosting/**
+    - libs/typescript/web/media/**
+    - libs/typescript/web/ui/**
+    - plugins/function-hooks/**
+rule:
+    any:
+        - pattern: $VALUE instanceof $ERROR
+        - pattern: $ERROR.prototype.isPrototypeOf($VALUE)
+        - pattern: $OBJECT.prototype.isPrototypeOf.call($ERROR.prototype, $VALUE)
+constraints:
+    ERROR: {regex: '^((globalThis|window|self)\.)?Error$', matches: syntax-global-reference}
+    OBJECT: {regex: '^((globalThis|window|self)\.)?Object$', matches: syntax-global-reference}
+fix: $ERROR.isError($VALUE)
+message: 'Error test on `$VALUE` walks the `$ERROR.prototype` chain of the running realm alone'
+note: '`Error.isError(<value>)` reads the internal error slot, true for an error from another realm and false for an object inheriting `Error.prototype` without one'

@@ -1,4 +1,3 @@
-import { Atom } from 'effect/reactivity';
 import { type RefObject, useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { Entry, Portfolio } from '../model/document.ts';
 
@@ -11,34 +10,21 @@ interface Navigation {
     readonly jump: (entry: typeof Entry.Type) => void;
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-const openDialogs = Atom.make<ReadonlySet<string>>(new Set<string>());
-const dialogOpen = Atom.family((id: string) =>
-    Atom.writable(
-        (get) => get(openDialogs).has(id),
-        (context, open: boolean): void => {
-            const current = context.get(openDialogs);
-            context.set(openDialogs, open ? new Set(current).add(id) : current.difference(new Set([id])));
-        },
-    ),
-);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fragment = (project: string, composition?: string): string => `#${new URLSearchParams({ project, ...(composition ? { composition } : {}) })}`;
+const fragment = (project: string, composition?: string): string => `#${new URLSearchParams({ project, ...(composition === undefined ? {} : { composition }) })}`;
 const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLElement | null>, sticky: RefObject<HTMLDivElement | null>, foreground: boolean): Navigation => {
     const [active, setActive] = useState<string>();
     const [selections, setSelections] = useState<Readonly<Record<string, string>>>({});
     const intersections = useRef(new Set<string>());
-    const selected = (entry: typeof Entry.Type): string | undefined => entry.compositions.find((item) => item.id === selections[entry.id])?.id ?? entry.compositions[0]?.id;
+    const selected = (entry: typeof Entry.Type): string | undefined => (entry.compositions.find((item) => item.id === selections[entry.id]) ?? entry.compositions[0])?.id;
     const select = (project: string, composition: string | undefined): void => {
         const target = fragment(project, composition);
         if (location.hash !== target) {
             history.pushState(null, '', target);
         }
         history.scrollRestoration = 'manual';
-        if (composition) {
+        if (composition !== undefined) {
             setSelections((value) => ({ ...value, [project]: composition }));
         }
     };
@@ -62,10 +48,9 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         }
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
         setActive(entry?.id);
-        const bounds = work.current?.getBoundingClientRect();
-        const page = bounds && bounds.top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? '#top' : '#work';
-        const target = entry ? fragment(entry.id, selected(entry)) : page;
-        history.scrollRestoration = entry ? 'manual' : 'auto';
+        const page = work.current !== null && work.current.getBoundingClientRect().top > Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) ? '#top' : '#work';
+        const target = entry === undefined ? page : fragment(entry.id, selected(entry));
+        history.scrollRestoration = entry === undefined ? 'auto' : 'manual';
         if (location.hash !== target) {
             history.replaceState(null, '', target);
         }
@@ -79,21 +64,21 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         history.scrollRestoration = 'manual';
         const params = new URLSearchParams(location.hash.slice(1));
         const entry = portfolio.entries.find((item) => item.id === params.get('project'));
-        if (!entry) {
+        if (entry === undefined) {
             setActive(undefined);
             history.replaceState(null, '', '#work');
             work.current?.scrollIntoView({ behavior: 'instant' });
             return;
         }
-        const composition = entry.compositions.find((item) => item.id === params.get('composition')) ?? entry.compositions[0];
-        if (composition) {
-            setSelections((value) => ({ ...value, [entry.id]: composition.id }));
+        const composition = (entry.compositions.find((item) => item.id === params.get('composition')) ?? entry.compositions[0])?.id;
+        if (composition !== undefined) {
+            setSelections((value) => ({ ...value, [entry.id]: composition }));
         }
         if (active !== entry.id) {
             document.querySelector(`#${CSS.escape(entry.id)}`)?.scrollIntoView({ behavior: 'instant' });
         }
         setActive(entry.id);
-        const target = fragment(entry.id, composition?.id);
+        const target = fragment(entry.id, composition);
         if (location.hash !== target) {
             history.replaceState(null, '', target);
         }
@@ -106,7 +91,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
             intersections.current.clear();
             const line = Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
             observer = new IntersectionObserver((records) => track(records, portfolio.entries), { rootMargin: `${-line}px 0px ${line + 1 - window.innerHeight}px 0px` });
-            if (work.current) {
+            if (work.current !== null) {
                 observer.observe(work.current);
             }
             work.current?.querySelectorAll(':scope > section').forEach(observer.observe, observer);
@@ -121,7 +106,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
                 observe();
             });
         });
-        if (sticky.current) {
+        if (sticky.current !== null) {
             size.observe(sticky.current);
         }
         const events = new AbortController();
@@ -139,4 +124,4 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { dialogOpen, fragment, type Navigation, openDialogs, useNavigation };
+export { fragment, type Navigation, useNavigation };

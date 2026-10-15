@@ -103,9 +103,6 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
             Decoded RGB in the entering windows, native buffer failures, or JPEG refusal.
         """
 
-        def buffered(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
-            return Error((ImagingBufferFault(request=image, error=image.geterror()),)) if image.has_error else Ok(image)
-
         def resized(image: OpenImageIO.ImageBuf, spec: OpenImageIO.ImageSpec, filtername: str) -> ImagingResult[OpenImageIO.ImageBuf]:
             target = OpenImageIO.ImageBuf(spec)
             return Ok(target) if OpenImageIO.ImageBufAlgo.resize(target, image, filtername=filtername, roi=target.roi) else Error((ImagingBufferFault(request=target, error=target.geterror()),))
@@ -115,7 +112,7 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
             image.copy_metadata(reference)
             image.set_origin(reference.xbegin, reference.ybegin, reference.zbegin)
             image.roi_full = reference.roi_full
-            return buffered(image)
+            return ImagingBufferFault.checked(image)
 
         def processed(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
             return (
@@ -128,9 +125,9 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
         return (
             coded
             .map(lambda spec: resized(source, spec, "box"))
-            .default_with(lambda: Ok(source))
+            .default_value(Ok(source))
             .bind(processed)
-            .bind(lambda image: coded.map(lambda _: resized(image, source.spec(), "triangle")).default_with(lambda: Ok(image)))
+            .bind(lambda image: coded.map(lambda _: resized(image, source.spec(), "triangle")).default_value(Ok(image)))
         )
 
 

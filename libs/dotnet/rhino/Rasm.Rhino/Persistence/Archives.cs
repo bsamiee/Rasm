@@ -46,7 +46,7 @@ public sealed partial class RelationKind {
     public static readonly RelationKind OnLayer = new(ModelComponentType.Layer, static archive =>
         Conversions.Rows(archive.Objects).SelectMany(static item => Conversions.Present(item.Attributes.LayerIndex).ToSeq(), static (item, index) => (item.Id, Left<int, Guid>(index))));
     public static readonly RelationKind UsesMaterial = new(ModelComponentType.Material, static archive =>
-        Conversions.Rows(archive.Objects).Filter(static item => item.Attributes.MaterialSource == ObjectMaterialSource.MaterialFromObject)
+        Conversions.Rows(archive.Objects).Filter(static item => item.Attributes.MaterialSource is ObjectMaterialSource.MaterialFromObject)
             .SelectMany(static item => Conversions.Present(item.Attributes.MaterialIndex).ToSeq(), static (item, index) => (item.Id, Left<int, Guid>(index))));
     public static readonly RelationKind InGroup = new(ModelComponentType.Group, static archive =>
         Conversions.Rows(archive.Objects).SelectMany(static item => Conversions.Rows(item.Attributes.GetGroupList()), static (item, index) => (item.Id, Left<int, Guid>(index))));
@@ -69,7 +69,9 @@ public sealed record DanglingLink(Guid Source, RelationKind Kind, Either<int, Gu
 
 public sealed record ArchiveGraph(ArrayBidirectionalGraph<ComponentIdentity, ComponentRelation> Components, Seq<DanglingLink> Dangling, HashMap<Guid, string> Sources) {
     public Seq<ComponentIdentity> Unreferenced =>
-        toSeq(Components.Vertices).Filter(vertex => Components.IsInEdgesEmpty(vertex) && toSeq(RelationKind.Items).Exists(kind => kind.Target == vertex.Type)).Strict();
+        toHashSet(toSeq(RelationKind.Items).Map(static kind => kind.Target)) switch {
+            var targets => toSeq(Components.Vertices).Filter(vertex => Components.IsInEdgesEmpty(vertex) && targets.Contains(vertex.Type)).Strict(),
+        };
 
     public HashMap<RelationKind, int> Coverage =>
         toHashMap(Components.Edges.CountBy(static edge => edge.Kind).Select(static count => (count.Key, count.Value)));

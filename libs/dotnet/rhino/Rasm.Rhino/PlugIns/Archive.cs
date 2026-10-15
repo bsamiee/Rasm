@@ -56,6 +56,6 @@ internal static class DocumentArchive {
     public static void Read(Seq<DocumentFrame> frames, RhinoDoc doc, BinaryArchiveReader reader, FileReadOptions options, CallbackSite site) =>
         Callbacks.Run(
             IO.lift(() => options.OpenMode || options.NewMode)
-                .Bind(opened => when(opened, Histories.Cons(frames).TraverseM(frame => frame.Read(doc, reader)).As().Map(static _ => unit)).As()),
+                .Bind(opened => when(opened, Histories.Cons(frames).TraverseM(frame => frame.Read(doc, reader)).As().Map(unit)).As()),
             site);
 }

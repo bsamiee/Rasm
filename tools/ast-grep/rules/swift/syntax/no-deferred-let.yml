@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-deferred-let
+language: swiftlang
+severity: error
+utils:
+    arm-assignment:
+        kind: assignment
+        all:
+            - has: {field: operator, pattern: $$_EQUALS, regex: '^=$'}
+            - has: {field: target, has: {kind: simple_identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+    assigning-arm:
+        kind: statements
+        matches: {swift-single-statement: {first: {any: [{matches: arm-assignment}, {kind: control_transfer_statement, regex: '^throw\b'}]}}}
+    assigning-if:
+        kind: if_statement
+        all:
+            - has: {regex: '^else$'}
+            - not: {has: {kind: availability_condition}}
+            - not: {has: {kind: statements, not: {matches: assigning-arm}}}
+            - not: {has: {kind: if_statement, not: {matches: assigning-if}}}
+    assigning-switch:
+        kind: switch_statement
+        not: {has: {kind: switch_entry, not: {has: {kind: statements, matches: assigning-arm}}}}
+rule:
+    kind: property_declaration
+    pattern: $DECLARATION
+    all:
+        - has: {kind: value_binding_pattern, regex: '^let$'}
+        - has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+        - has: {kind: type_annotation}
+        - not: {has: {field: value, pattern: $_}}
+        - not: {has: {field: computed_value, pattern: $_}}
+        - inside: {kind: statements}
+        - precedes:
+            pattern: $BRANCH
+            any:
+                - matches: assigning-if
+                - matches: assigning-switch
+            has: {stopBy: end, matches: arm-assignment}
+transform:
+    EXPRESSION: {rewrite: {source: $BRANCH, rewriters: [assigned-value]}}
+rewriters:
+    - id: assigned-value
+      rule: {kind: assignment, has: {field: result, pattern: $VALUE}}
+      fix: $VALUE
+fix:
+    template: '$DECLARATION = $EXPRESSION'
+    expandEnd: {kind: 'if_statement, switch_statement'}
+message: '`$NAME` is declared without a value and assigned in each arm of the branch after it'
+note: 'Bind the branch as an expression, `let <name>: <Type> = switch <subject> { case <pattern>: <value> }` or `= if <condition> { <value> } else { <value> }`, an arm that throws keeps its `throw`'

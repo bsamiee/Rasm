@@ -1,15 +1,20 @@
-schema_version = "1.0.0"
-id = "darkroom"
-version = "1.0.0"
-name = "Darkroom"
-tagline = "Image formation, output, and render management"
-maintainer = "Bardia Samiee"
-type = "add-on"
-website = "https://github.com/bsamiee/Rasm"
+# --- [EXTENSION] ------------------------------------------------------------------------
+
+schema_version      = "1.0.0"
+id                  = "darkroom"
+version             = "1.0.0"
+name                = "Darkroom"
+tagline             = "Render pipeline from image formation through output and review"
+maintainer          = "Bardia Samiee"
+type                = "add-on"
+website             = "https://github.com/bsamiee/Rasm"
+tags                = ["Compositing", "Render", "Sequencer"]
 blender_version_min = "5.4.0"
-license = ["SPDX:MIT"]
+license             = ["SPDX:MIT"]
+
+# --- [PERMISSIONS] ----------------------------------------------------------------------
 
 [permissions]
-files = "Writes renders, exports, LUTs, presets, history, and logs"
-network = "Submits render queue jobs and sends queue notices"
+files     = "Writes renders, exports, extension data, and user OCIO config"
+network   = "Submits jobs to Flamenco Manager and posts queue notices to ntfy"
 clipboard = "Copies and pastes setting values between scenes and files"

@@ -21,22 +21,22 @@ internal sealed record NumericCell<TValue, TKey>(Control Value, FieldFit Fit, Op
     where TKey : notnull {
     public Seq<NumericPart<TValue>> Parts => Track.ToSeq().Add(Field);
 
-    public IO<Unit> Show(Option<TValue> value) => Parts.TraverseM(part => part.Receive(value)).As().Map(static _ => unit);
+    public IO<Unit> Show(Option<TValue> value) => Parts.TraverseM(part => part.Receive(value)).As().Map(unit);
 
     public IO<Unit> Edits(EventHandler<EditEventArgs<TValue>> handler, Action<IDisposable> retain) =>
-        Parts.TraverseM(part => Subscriptions.Attach(part.Add, part.Remove, handler, retain)).As().Map(static _ => unit);
+        Parts.TraverseM(part => Subscriptions.Attach(part.Add, part.Remove, handler, retain)).As().Map(unit);
 
     public IO<Unit> Attached(IO<Unit> reset, CallbackSite site, Action<IDisposable> retain) =>
         (
             Track.Map(part => Subscriptions.Attach(
                 handler => part.Cell.Control.MouseDoubleClick += handler, handler => part.Cell.Control.MouseDoubleClick -= handler,
-                Callbacks.Handler<MouseEventArgs>(e => when(e.Buttons == MouseButtons.Primary, IO.lift(() => { e.Handled = true; }).Bind(_ => reset)).As(),
+                Callbacks.Handler<MouseEventArgs>(e => when(e.Buttons is MouseButtons.Primary, IO.lift(() => { e.Handled = true; }).Bind(_ => reset)).As(),
                     site with { Member = nameof(Control.MouseDoubleClick) }), retain)).ToSeq()
             + Track.Filter(static part => part.Square).Map(part => Subscriptions.Attach(
                 handler => Field.Cell.Control.SizeChanged += handler, handler => Field.Cell.Control.SizeChanged -= handler,
                 Callbacks.Handler<EventArgs>(_ => IO.lift(() => { part.Cell.Control.Width = Field.Cell.Control.Height; }),
                     site with { Member = nameof(Control.SizeChanged) }), retain)).ToSeq())
-        .TraverseM(static attached => attached).As().Map(static _ => unit);
+        .TraverseM(static attached => attached).As().Map(unit);
 
     public RowCells Cells<TRecord>(Option<Control> gate, Option<TValue> initial, RowEdit<TRecord> edit, CallbackSite site) where TRecord : notnull =>
         new(Value, gate, None, Some(Fit), [], [],
@@ -89,7 +89,7 @@ public static class NumericRows {
         from cell in Cell(presentation, Conversions.Validated<TValue, TKey, TError>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), Wording.English.Shown(field.Caption, sink), sink, retain)
         let site = new CallbackSite(sink, typeof(NumericRows), nameof(Line))
         from edits in cell.Edits(Handled(lens, site)(edit), retain)
-        from attached in cell.Attached(edit.Take(new Edit<TValue>.Commit(lens.Get(source.Default)), Into(lens)).Map(static _ => unit), site, retain)
+        from attached in cell.Attached(edit.Take(new Edit<TValue>.Commit(lens.Get(source.Default)), Into(lens)).Map(unit), site, retain)
         select (new RowLine(Some(field.Caption), cell.Value, pick, Some(cell.Fit)), (Func<Option<TRecord>, IO<Unit>>)(held => cell.Show(held.Map(lens.Get))));
 
     // --- [REALIZE]
@@ -98,7 +98,7 @@ public static class NumericRows {
     private static Func<RowEdit<TRecord>, EventHandler<EditEventArgs<TValue>>> Handled<TRecord, TValue>(Lens<TRecord, TValue> lens, CallbackSite site)
         where TRecord : notnull
         where TValue : notnull =>
-        edit => Callbacks.Handler<EditEventArgs<TValue>>(change => edit.Take(change.Edit, Into(lens)).Map(static _ => unit), site);
+        edit => Callbacks.Handler<EditEventArgs<TValue>>(change => edit.Take(change.Edit, Into(lens)).Map(unit), site);
 
     private static IO<(NumericPart<TValue> Part, FieldFit Fit)> Typed<TValue, TKey>(NumberText<TKey> text, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, IPlugInSink sink, Action<IDisposable> retain)
         where TValue : notnull
@@ -144,12 +144,12 @@ public static class NumericRows {
         let publish = fun((NumericPart<TValue> next, IDisposable lease) => Published(held, panel, next, lease))
         from initial in DisposalOps.Replace(make, (typed, lease) => publish(typed.Part, lease))
         select (new NumericPart<TValue>(new TableCell(panel), Square: false,
-                    value => held.ValueIO.Bind(static state => IO.lift(state.Part.Bind(static part => part).ToFin(Errors.Cancelled))).Bind(part => part.Receive(value)),
-                    handler => held.Value.Part.Bind(static part => part).ToFin(Errors.Cancelled).ThrowIfFail().Add(handler),
-                    handler => held.Value.Part.Bind(static part => part).Iter(part => part.Remove(handler))),
+                    value => held.ValueIO.Bind(static state => IO.lift(state.Part.Flatten().ToFin(Errors.Cancelled))).Bind(part => part.Receive(value)),
+                    handler => held.Value.Part.Flatten().ToFin(Errors.Cancelled).ThrowIfFail().Add(handler),
+                    handler => held.Value.Part.Flatten().Iter(part => part.Remove(handler))),
                 initial.Fit,
                 (Func<Func<Action<IDisposable>, IO<NumericPart<TValue>>>, IO<Unit>>)(replace =>
-                    DisposalOps.Replace(replace, publish).Map(static _ => unit)));
+                    DisposalOps.Replace(replace, publish).Map(unit)));
 
     private static IO<Unit> Published<TValue>(
         Ref<(Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases)> held, Panel panel, NumericPart<TValue> next, IDisposable lease) where TValue : notnull {
@@ -161,7 +161,7 @@ public static class NumericRows {
         });
         return DisposalOps.OnFailure(
             IO.lift(() => { panel.Content = next.Cell.Control; }),
-            IO.lift(() => prior.Part.Bind(static part => part).Match(
+            IO.lift(() => prior.Part.Flatten().Match(
                 Some: part => { panel.Content = part.Cell.Control; }, None: () => panel.Content = null))
                 .Bind(_ => atomicIO(() => {
                     (Option<Option<NumericPart<TValue>>> Part, Seq<IDisposable> Releases) current = held.Value;
@@ -205,7 +205,7 @@ public static class NumericRows {
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             handler => gate.CheckedChanged += handler, handler => gate.CheckedChanged -= handler,
             edit => Callbacks.Handler<EventArgs>(_ => Optional(gate.Checked).Match(
-                Some: state => edit.Take(new Edit<bool>.Commit(state), Into(enabled)).Map(static _ => unit),
+                Some: state => edit.Take(new Edit<bool>.Commit(state), Into(enabled)).Map(unit),
                 None: static () => IO.pure(unit)), site),
             held => held.Map(lens.Get) switch {
                 var gated => IO.lift(() => {

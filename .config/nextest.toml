@@ -1,0 +1,5 @@
+# --- [PROFILE] --------------------------------------------------------------------------
+
+[profile.default]
+fail-fast    = false
+leak-timeout = { period = "200ms", result = "fail" }

@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-growth-in-endless-loop-java
+language: java
+severity: error
+utils:
+    scope:
+        kind: method_declaration, constructor_declaration, lambda_expression, class_body
+    breakable:
+        kind: while_statement, do_statement, for_statement, enhanced_for_statement, switch_block
+    exit:
+        any:
+            - kind: return_statement, throw_statement
+            - kind: break_statement
+              any:
+                - has: {kind: identifier}
+                - inside: {stopBy: {matches: breakable}, matches: breakable, pattern: $LOOP}
+            - kind: method_invocation
+              pattern: System.exit($$$)
+    endless:
+        kind: while_statement, do_statement, for_statement
+        pattern: $LOOP
+        all:
+            - any:
+                - has: {field: condition, regex: '^\(\s*(true|!\s*Thread\.(currentThread\(\)\.isInterrupted|interrupted)\(\))\s*\)$'}
+                - all:
+                    - kind: for_statement
+                    - not: {has: {field: condition, pattern: $_}}
+            - not: {has: {stopBy: {matches: scope}, matches: exit}}
+    grown:
+        any:
+            - kind: identifier
+            - {kind: field_access, has: {field: object, regex: '^this$'}}
+    keyed:
+        not:
+            any:
+                - kind: string_literal, character_literal, decimal_integer_literal, hex_integer_literal, class_literal, true, false, null_literal
+                - {kind: identifier, regex: '^[A-Z][A-Z0-9_]*$'}
+                - {kind: field_access, has: {field: field, regex: '^[A-Z][A-Z0-9_]*$'}}
+    growth:
+        kind: method_invocation
+        any:
+            - all:
+                - has: {field: name, regex: '^(add|addAll|addFirst|addLast|offer|offerFirst|offerLast|push|append|insert)$'}
+                - has: {field: object, matches: grown, pattern: $GROWN}
+            - all:
+                - has: {field: name, regex: '^(put|putIfAbsent|computeIfAbsent|compute|merge)$'}
+                - has: {field: object, matches: grown, pattern: $GROWN}
+                - has: {field: arguments, has: {nthChild: 1, matches: keyed}}
+            - all:
+                - has: {field: object, regex: '^Collections$'}
+                - has: {field: name, regex: '^addAll$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: grown, pattern: $GROWN}}
+    owner:
+        any:
+            - pattern: $GROWN
+            - {kind: method_invocation, has: {field: object, pattern: $GROWN}}
+    drain:
+        any:
+            - kind: method_invocation
+              all:
+                - has: {field: name, regex: '^(clear|remove|removeAll|removeIf|removeFirst|removeLast|retainAll|poll|pollFirst|pollLast|pop|setLength|delete|deleteCharAt|drainTo)$'}
+                - has: {field: object, matches: owner}
+            - kind: assignment_expression
+              has: {field: left, pattern: $GROWN}
+    reset:
+        kind: variable_declarator
+        has: {field: name, pattern: $GROWN}
+    function:
+        kind: method_declaration, constructor_declaration, lambda_expression
+    declared:
+        kind: formal_parameter, variable_declarator
+        has: {field: name, pattern: $GROWN}
+rule:
+    matches: growth
+    all:
+        - inside: {stopBy: {matches: scope}, matches: endless, not: {has: {stopBy: end, matches: reset}}}
+        - any:
+            - inside: {stopBy: end, matches: function, has: {stopBy: end, matches: declared}, not: {has: {stopBy: end, matches: drain}}}
+            - all:
+                - not: {inside: {stopBy: end, matches: function, has: {stopBy: end, matches: declared}}}
+                - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: drain}}}
+message: '`$GROWN` grows each pass of a loop with no exit, nothing removes from it'
+note: 'Bound the collection, drain it per pass, or build it inside the loop body so each pass starts empty'

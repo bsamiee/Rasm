@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-srgb-transfer-by-hand
+language: rust
+severity: error
+rule:
+    kind: 'float_literal, call_expression, binary_expression'
+    pattern: $SITE
+    matches: rust-srgb-transfer
+message: '`$SITE` spells the sRGB transfer function by hand'
+note: 'Hold the color as `palette::Srgb` and call `into_linear()` for linear light. `palette::Srgb::from_linear` encodes linear light back'

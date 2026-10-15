@@ -124,9 +124,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
         source, lighting = scene, Lighting()
 
         def staged(head: Option[npt.NDArray[np.float32]]) -> BlenderResult[npt.NDArray[np.float32]]:
-            context = Tiles.held[identity.package].proxy.bind(
-                lambda proxy: head.map(lambda pixels: ((pixels.shape[0], pixels.shape[1]), scaled(proxy.framing, proxy.plane.shape[:2], pixels.shape[:2])))
-            )
+            context = Tiles.held[identity.package].proxy.map2(lambda proxy, pixels: ((pixels.shape[0], pixels.shape[1]), scaled(proxy.framing, proxy.plane.shape[:2], pixels.shape[:2])), head)
             chain = self.chain(identity, source, record, head) if isinstance(record, Effect) else record(head)
             return paired(chain, lighting.environment).bind(
                 lambda pair: (

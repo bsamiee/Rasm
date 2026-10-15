@@ -1,6 +1,7 @@
 {
     "name": "@rasm/test-support",
     "private": true,
+    "description": "Reusable test support and Vitest setup for property-based and integration tests of Effect code",
     "type": "module",
     "exports": {
         "./arbitraries": "./arbitraries.ts",

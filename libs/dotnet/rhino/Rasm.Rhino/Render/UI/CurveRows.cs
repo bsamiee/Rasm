@@ -64,7 +64,7 @@ public static class CurveRows {
         where TRecord : notnull =>
         from keyed in IO.pure(toHashMap(lanes.Map(static lane => (lane.Key, lane))))
         let named = fun((CurveKey key) => Wording.English.Shown(keyed[key].Field.Caption, scope.Sink))
-        from anchor in IO.lift(static () => Atom(Option<CurveAnchor>.None))
+        from anchor in atomIO(Option<CurveAnchor>.None)
         from editor in DisposalOps.Acquire(IO.lift(() => new CurveEditor(
             scope.Sink,
             new CurveEditorState.Editing(lanes.Head.Key, HashMap<CurveKey, PlottedCurve>(), Seq<int>(), ShowsHistogram: true, None),
@@ -75,9 +75,9 @@ public static class CurveRows {
         from chosen in strip.Show(Some(lanes.Head.Key))
         from bound in RowEdit.Bind(
                 source, lanes.Map(static lane => lane.Field), h => editor.Edited += h, h => editor.Edited -= h,
-                edit => Callbacks.Handler<EditEventArgs<PlottedCurve>>(args => edit.Take(args.Edit, (curve, held) => Fin.Succ(keyed[curve.Key].Write(curve, held))).Map(static _ => unit), site),
+                edit => Callbacks.Handler<EditEventArgs<PlottedCurve>>(args => edit.Take(args.Edit, (curve, held) => Fin.Succ(keyed[curve.Key].Write(curve, held))).Map(unit), site),
                 held => held.Match(
-                    Some: record => toSeq(lanes).TraverseM(lane => editor.Receive(Some(lane.Curve(record)))).As().Map(static _ => unit),
+                    Some: record => toSeq(lanes).TraverseM(lane => editor.Receive(Some(lane.Curve(record)))).As().Map(unit),
                     None: () => editor.Receive(None)),
                 scope, site, retain)
         from pick in stage.Traverse(input => PreviewRows.Pick(input, "Pick a point from the frame", mean => scope.Read(source).Bind(record => editor.Pick(key => keyed[key].Input(record, mean, input.Context))), scope, retain)).As()
@@ -90,7 +90,7 @@ public static class CurveRows {
         from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout(new StackLayoutItem(strip.Control, HorizontalAlignment.Left), new StackLayoutItem(editor, HorizontalAlignment.Stretch))), static value => IO.lift(value.Dispose), retain)
         from arranged in IO.lift(() => {
             stack.Orientation = Orientation.Vertical;
-            stack.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table).Height;
+            stack.Spacing = RhinoLayout.StackedSpacing(RhinoLayout.SpacingType.Table);
             stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         })
         select new RowCells(
@@ -119,7 +119,7 @@ public static class CurveRows {
                         field.Enabled = true;
                     }).Bind(_ => field.Receive(Some(CurveCoordinate.Create(side.Coordinate.Get(point))))),
                 },
-                None: () => toSeq(fields.Values).TraverseM(static field => IO.lift(() => field.Enabled = false).Bind(_ => field.Receive(None))).As().Map(static _ => unit))));
+                None: () => toSeq(fields.Values).TraverseM(static field => IO.lift(() => field.Enabled = false).Bind(_ => field.Receive(None))).As().Map(unit))));
 
     private static IO<Unit> Entered(Edit<CurveCoordinate> edit, Lens<CurveAnchor, double> coordinate, IO<Option<CurveAnchor>> anchored, CurveEditor editor) =>
         from held in anchored
@@ -213,7 +213,7 @@ public static class CurveRows {
         from executed in Subscriptions.Attach(
                 h => command.Executed += h, h => command.Executed -= h,
                 Callbacks.Handler<EventArgs>(
-                    _ => stage.Traverse(input => input.Read.Bind(frame => frame.Match(Some: held => bound.Commit(Levels.Auto(held, input.Context.Working)).Map(static _ => unit), None: static () => IO.pure(unit)))).As().Map(static _ => unit),
+                    _ => stage.Traverse(input => input.Read.Bind(frame => frame.Match(Some: held => bound.Commit(Levels.Auto(held, input.Context.Working)).Map(unit), None: static () => IO.pure(unit)))).As().Map(unit),
                     site with { Member = nameof(Command.Executed) }), retain)
         from auto in ButtonRows.Push(command, retain)
         let show =

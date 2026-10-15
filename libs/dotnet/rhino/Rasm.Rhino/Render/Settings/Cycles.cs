@@ -210,7 +210,7 @@ public abstract partial class CyclesKey {
     private sealed class Entries(DictionaryOwner owner) : IValueKeyVisitor<(ValueBinding Binding, IO<Unit> Reset)> {
         public (ValueBinding Binding, IO<Unit> Reset) Visit<TValue, TRaw>(ValueKey<TValue, TRaw> key) where TValue : notnull where TRaw : notnull =>
             ArchivableDictionaries.Store(owner, key, None) switch {
-                var store => (ValueBinding.Key(Owner, key, store), store.Write(None).Map(static _ => unit)),
+                var store => (ValueBinding.Key(Owner, key, store), store.Write(None).Map(unit)),
             };
     }
 

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-free-list-slots
+language: rust
+severity: error
+utils:
+    optional-slots:
+        kind: field_declaration
+        has:
+            field: type
+            kind: generic_type
+            all:
+                - has: {field: type, regex: '^((std::)?vec::)?Vec$'}
+                - has: {field: type_arguments, has: {nthChild: 1, kind: generic_type, has: {field: type, regex: '^((std|core)::option::)?Option$'}}}
+    free-list:
+        kind: field_declaration
+        all:
+            - has: {field: name, regex: '(?i)^(free|free_?list|free_?slots|free_?indices|vacant|vacancies|holes|recycled|reusable|spare)$', pattern: $FREE}
+            - has:
+                field: type
+                kind: generic_type
+                all:
+                    - has: {field: type, regex: '^((std::)?collections::|(std::)?vec::)?(Vec|VecDeque)$'}
+                    - has: {field: type_arguments, has: {nthChild: 1, kind: primitive_type, regex: '^(usize|u32|u64)$'}}
+rule:
+    kind: struct_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, all: [{has: {matches: optional-slots}}, {has: {matches: free-list}}]}
+message: '`$NAME` keeps an arena of optional slots and a free list `$FREE` of reusable indexes by hand'
+note: 'Hold `slotmap::SlotMap<K, T>` (`insert` returns a generational key, `remove` frees its slot), the map reuses freed slots and rejects a key whose slot was freed and filled again'

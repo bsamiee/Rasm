@@ -1,6 +1,6 @@
 ---
 name: typescript-document
-description: "Use when writing or reviewing TSDoc on an exported TypeScript declaration, or deciding whether a signature and name already document a symbol."
+description: "Use when writing, reviewing, or skipping TSDoc on an exported TypeScript declaration, covering scope, style, tags, and React."
 disable-model-invocation: true
 ---
 
@@ -22,12 +22,12 @@ Covers TSDoc comments the TypeScript language service shows on hover.
 
 Exported declarations (types, interfaces, enums, functions, constants) and internals with a contract the code does not show take a comment. Trivial getters, one-line helpers, test helpers, and anonymous components take none:
 
-| [INDEX] | [SITUATION]                                             | [ACTION]                                                       |
-| :-----: | :------------------------------------------------------ | :------------------------------------------------------------- |
-|  [01]   | Signature and name state the whole behavior             | No comment                                                     |
-|  [02]   | Boundary code throws an exception that escapes          | One `@throws` block per exception type                         |
-|  [03]   | Returns `Effect.Effect<A, E, R>`, `Either`, or `Option` | `@returns` names each `E` case and what `None` or `Left` means |
-|  [04]   | Caller needs copy-paste usage                           | `@example`                                                     |
+| [INDEX] | [SITUATION]                                             | [ACTION]                                                          |
+| :-----: | :------------------------------------------------------ | :---------------------------------------------------------------- |
+|  [01]   | Signature and name state the whole behavior             | No comment                                                        |
+|  [02]   | Boundary code throws an exception that escapes          | One `@throws` block per exception type                            |
+|  [03]   | Returns `Effect.Effect<A, E, R>`, `Result`, or `Option` | `@returns` names each `E` case and what `None` or `Failure` means |
+|  [04]   | Caller needs copy-paste usage                           | `@example`                                                        |
 
 ## [03]-[STYLE]
 

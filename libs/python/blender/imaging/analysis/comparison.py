@@ -119,11 +119,11 @@ def comparison_of(reference: npt.NDArray[np.float32], test: npt.NDArray[np.float
         window = side - 1 + side % 2
         structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing  # type: ignore[no-untyped-call]
         measures = {
-            Axis.MEAN_ERROR: float(signal.meanerror),
-            Axis.RMS_ERROR: float(signal.rms_error),
-            Axis.MAX_ERROR: float(signal.maxerror),
-            Axis.PSNR: float(signal.PSNR),
-            **({Axis.NRMSE: float(signal.rms_error / scale)} if scale > 0.0 else {}),
+            Axis.MEAN_ERROR: signal.meanerror,
+            Axis.RMS_ERROR: signal.rms_error,
+            Axis.MAX_ERROR: signal.maxerror,
+            Axis.PSNR: signal.PSNR,
+            **({Axis.NRMSE: signal.rms_error / scale} if scale > 0.0 else {}),
             Axis.FLIP: float(flip.mean(dtype=np.float64)),
             **dict(structural.map(lambda answer: (Axis.SSIM, float(answer[0]))).to_list()),
         }

@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-self-nesting-state-java
+language: java
+severity: error
+utils:
+    function:
+        kind: method_declaration, constructor_declaration, lambda_expression, class_body
+    loop:
+        kind: while_statement, do_statement, for_statement, enhanced_for_statement
+    factory:
+        kind: method_invocation
+        all:
+            - has: {field: name, regex: '^(of|asList|copyOf|ofNullable)$'}
+            - has: {field: object, regex: '^(List|Set|Map|Stream|Arrays|Optional|ImmutableList|ImmutableSet)$'}
+    wrapped:
+        any:
+            - {kind: identifier, pattern: $PRIOR}
+            - {matches: factory, has: {field: arguments, has: {kind: identifier, pattern: $PRIOR}}}
+            - {kind: array_creation_expression, has: {field: value, has: {kind: identifier, pattern: $PRIOR}}}
+    wrap:
+        kind: object_creation_expression
+        all:
+            - not: {has: {kind: class_body}}
+            - has: {field: arguments, has: {matches: wrapped}}
+            - any:
+                - has: {field: arguments, has: {nthChild: 2}}
+                - has: {field: type, not: {kind: generic_type}}
+    compared:
+        kind: method_invocation
+        any:
+            - all:
+                - has: {field: name, regex: '^equals$'}
+                - any:
+                    - has: {field: object, pattern: $STATE}
+                    - has: {field: arguments, has: {pattern: $STATE}}
+            - all:
+                - pattern: Objects.equals($$$)
+                - has: {field: arguments, has: {pattern: $STATE}}
+    settled:
+        all:
+            - matches: compared
+            - any:
+                - has: {field: object, pattern: $PRIOR}
+                - has: {field: arguments, has: {pattern: $PRIOR}}
+rule:
+    any:
+        - kind: assignment_expression
+          all:
+            - has: {field: left, kind: identifier, pattern: $STATE}
+            - has: {field: left, pattern: $PRIOR}
+            - has: {field: right, matches: wrap}
+            - inside: {stopBy: {matches: function}, matches: loop, has: {stopBy: end, matches: compared}}
+        - kind: variable_declarator, assignment_expression
+          all:
+            - any:
+                - all: [{kind: variable_declarator}, {has: {field: name, pattern: $STATE}}, {has: {field: value, matches: wrap}}]
+                - all: [{kind: assignment_expression}, {has: {field: left, kind: identifier, pattern: $STATE}}, {has: {field: right, matches: wrap}}]
+            - inside: {stopBy: {matches: function}, matches: loop, has: {stopBy: end, matches: settled}}
+message: '`$STATE` wraps its previous value each pass, the fixpoint test never sees it settle'
+note: 'Join into a flat value of bounded height, a union, a maximum, or a canonical representative, so a pass over equal inputs returns an equal state'

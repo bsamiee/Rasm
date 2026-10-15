@@ -15,19 +15,19 @@ utils:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, regex: '^((::)?(std|tokio|fs_err|async_std)::)?fs::(metadata|symlink_metadata)$'}
+                - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)(metadata|symlink_metadata)$'}
                 - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(metadata|symlink_metadata)$'}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(fs_err_)?(metadata|symlink_metadata)$'}}]}
                 - matches: no-arguments
     exists-test:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(exists|is_file|is_dir|is_symlink|try_exists)$'}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(exists|is_file|is_dir|is_symlink|try_exists|fs_err_try_exists)$'}}]}
                 - matches: no-arguments
             - all:
-                - has: {field: function, regex: '^((::)?(std|tokio|fs_err|async_std)::)?fs::(exists|try_exists)$'}
+                - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)(exists|try_exists)$'}
                 - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
     metadata-test:
         kind: call_expression
@@ -55,13 +55,13 @@ utils:
         pattern: $SITE
         any:
             - all:
-                - has: {field: function, regex: '^((::)?(std|tokio|fs_err|async_std)::)?fs::(read|read_to_string|read_dir|read_link|metadata|symlink_metadata|canonicalize|remove_file|remove_dir|remove_dir_all|create_dir|create_dir_all|copy|rename|hard_link|File::open|File::create_new)$|^File::(open|create_new)$'}
+                - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)(read|read_to_string|read_dir|read_link|metadata|symlink_metadata|canonicalize|remove_file|remove_dir|remove_dir_all|create_dir|create_dir_all|copy|rename|hard_link|File::open|File::create_new)$|^File::(open|create_new)$'}
                 - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(metadata|symlink_metadata|read_dir|read_link|canonicalize)$'}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(fs_err_)?(metadata|symlink_metadata|read_dir|read_link|canonicalize)$'}}]}
                 - matches: no-arguments
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^open$'}}, {has: {field: value, regex: '^((::)?(std|tokio|fs_err|async_std)::)?(fs::)?OpenOptions::new\(\)'}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^open$'}}, {has: {field: value, regex: '^(((::)?(std|tokio|async_std)::)?(fs::)?|(::)?fs_err::(tokio::)?)OpenOptions::new\(\)'}}]}
                 - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
     owner:
         kind: 'function_item, closure_expression'
@@ -107,4 +107,4 @@ rule:
             - matches: guarded-statement
             - inside: {stopBy: {kind: 'block, function_item, closure_expression'}, matches: guarded-statement}
 message: '`$SITE` reports a missing path itself and runs after a test that `$PATH` exists'
-note: 'Run the operation unconditionally and match `io::ErrorKind::NotFound` (or `AlreadyExists` for `create_dir`) on its error, the test races the filesystem and repeats a check the operation makes, `fs::write` and `File::create` under an absence test stay as written since they overwrite a present file'
+note: 'Run the operation unconditionally and match `io::ErrorKind::NotFound` (`AlreadyExists` for `create_dir`) on its error, the test races the filesystem and repeats a check the operation makes. `fs::write` and `File::create` under an absence test overwrite a present file and stay as written'

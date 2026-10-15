@@ -2,8 +2,7 @@ namespace Rasm.Rhino.Persistence;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
-    TypeMismatch = 1,
-    UnreadText,
+    UnreadText = 1,
     UnstorableKind,
     UnreadableRecord,
     ArchiveRejected,
@@ -14,10 +13,6 @@ internal enum Codes {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record TypeMismatch(string Key, Type Stored, Type Requested) : Expected("Key {Key} holds a {Stored} where a {Requested} is read", (int)Codes.TypeMismatch) {
-    public static Fin<T> Unless<T>(object value, string key) where T : notnull => value is T typed ? typed : new TypeMismatch(key, value.GetType(), typeof(T));
-}
-
 public sealed record UnreadText(string Text, Type Requested, Option<Error> Inner = default) : Expected("Text {Text} reads as no {Requested}", (int)Codes.UnreadText, Inner);
 
 public sealed record UnstorableKind(string Key, Type Kind) : Expected("ArchivableDictionary.Set takes no {Kind} for key {Key}", (int)Codes.UnstorableKind);

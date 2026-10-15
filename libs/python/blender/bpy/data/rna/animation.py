@@ -76,7 +76,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
         def fits(prop: bpy.types.Property) -> bool:
             match prop, self.index:
-                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as array, int() as index:
+                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as array, int(index):
                     return array.is_animatable and index < array.array_length
                 case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), None:
                     return False

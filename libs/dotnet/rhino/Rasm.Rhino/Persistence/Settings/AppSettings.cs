@@ -192,7 +192,7 @@ public static class AppSettings {
         IO.lift(static () => Callbacks.Each(
             Conversions.Rows(PackageManagerSettings.Sources?.Split(PackageSource.Separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             static (source, _) => Conversions.Validated<PackageSource, string, InvalidRhinoValue>(source))),
-        static sources => IO.lift(() => PackageManagerSettings.Sources = string.Join(PackageSource.Separator, sources.Map(static source => (string)source))).Map(static _ => unit));
+        static sources => IO.lift(() => PackageManagerSettings.Sources = string.Join(PackageSource.Separator, sources.Map(static source => (string)source))).Map(unit));
 
     public static ProcessSetting<bool> SearchPath(string folder) => new(
         IO.lift(() => toSeq(FileSettings.GetSearchPaths()).Exists(path => string.Equals(path, folder, StringComparison.OrdinalIgnoreCase))),

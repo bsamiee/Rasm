@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-escape-code
+language: csharp
+severity: error
+rule:
+    kind: escape_sequence
+    pattern: $CODE
+    regex: '^\\(u001[bB]|U0000001[bB]|x0{0,2}1[bB])$'
+fix: '\e'
+message: '`$CODE` spells the escape character by its code point'
+note: 'Write the escape character as `\e`'

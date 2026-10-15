@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-then-retain
+language: rust
+severity: error
+rule:
+    kind: let_declaration
+    all:
+        - has:
+            field: value
+            kind: call_expression
+            all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}
+                - has: {stopBy: end, kind: call_expression, pattern: $V.iter().filter($P)}
+        - precedes:
+            kind: expression_statement
+            has: {kind: call_expression, any: [{pattern: $V.retain($Q)}, {pattern: $V.retain_mut($Q)}]}
+message: '`$V` copies its matching elements out and retains the rest in a second pass'
+note: 'Call `<vec>.extract_if(.., <predicate>).collect()` (`Vec`, `BTreeMap`, `BTreeSet`, and `HashMap` and `HashSet` without the range), `extract_if` moves matching elements out in the pass that removes them. One predicate replaces the `filter` and `retain` tests'

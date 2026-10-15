@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import RasmMacOS
 
 // --- [MODELS] --------------------------------------------------------------------------
 

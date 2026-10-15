@@ -15,7 +15,7 @@ from blender.bpy.render.color.luts import Formatted, lut_files, writable
 from blender.bpy.render.effects.stack import CompositorEffect, EffectName, Named, Shell
 from blender.bpy.settings.properties import Choices
 from blender.imaging.color.config import admitted
-from blender.imaging.color.luts import Exact, LutFormat, LutOutput, written
+from blender.imaging.color.luts import LutFormat, written
 from blender.imaging.color.processors import bracketed
 from blender.imaging.effects.grade.cdl import Cdl, Channel, read
 from blender.imaging.faults import ImagingResult, paired
@@ -54,14 +54,10 @@ class Imported(Named, frozen=True, kw_only=True):
 class Exported(Formatted, frozen=True, kw_only=True):
     """Editable correction written through a native exact transform format."""
 
-    formats = staticmethod(lambda: LutFormat.of(PyOpenColorIO.GroupTransform.GetWriteFormats()))
+    formats = staticmethod(LutFormat.writable)
     name: EffectName
     format: Annotated[str, msgspec.Meta(title="Format"), writable]
     source: Source = Source.CORRECTION
-
-    def output(self) -> BlenderResult[LutOutput]:
-        """Returns the requested exact native writer."""
-        return self.chosen().map(lambda row: Exact(format=row))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -103,7 +99,7 @@ def loaded(path: str) -> BlenderResult[tuple[tuple[Option[str], Cdl], ...]]:
     Returns:
         Ordered optional identifiers and corrections, or file and native ASC faults.
     """
-    return lut_files.current(path, PyOpenColorIO.GetCurrentConfig()).bind(lambda current: read(current).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+    return lut_files.current(path, PyOpenColorIO.GetCurrentConfig()).bind(lambda current: read(current).map_error(BlenderImagingFault.lifted))
 
 
 def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
@@ -144,10 +140,9 @@ def exported(call: Call[Exported]) -> BlenderResult[Done]:
                 )
 
     held = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name)).bind(lambda entry: cdl.read(call.identity, entry))
-    output = paired(held, record.output()).bind(
-        lambda pair: source(pair[0].effect).bind(lambda built: written(pair[1], {str(call.paths[0]): built})).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    return (
+        paired(held, record.output()).bind(lambda pair: source(pair[0].effect).bind(lambda built: written(pair[1], {str(call.paths[0]): built})).map_error(BlenderImagingFault.lifted)).map(Done.wrote)
     )
-    return output.map(lambda paths: Done(notes=tuple(("INFO", f"Wrote {path}") for path in paths)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -158,7 +153,7 @@ importer = Operator(
     description="Reads an editable correction into the entry",
     form=Imported,
     run=imported,
-    invoke=Some(Open(extensions=lambda _record: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.of(PyOpenColorIO.FileTransform.getFormats()))))),
+    invoke=Some(Open(extensions=lambda _record: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())))),
 )
 exporter = Operator(
     key="export_cdl",

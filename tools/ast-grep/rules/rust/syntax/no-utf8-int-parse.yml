@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-utf8-int-parse
+language: rust
+severity: error
+utils:
+    decode:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?str::from_utf8$'}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $B}}
+rule:
+    kind: call_expression
+    all:
+        - matches: rust-utf8-int-parse
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - pattern: $TEXT.parse::<$T>()
+        - has: {field: function, has: {field: function, has: {field: value, has: {stopBy: end, matches: decode}}}}
+message: '`$B` decodes as UTF-8 text only to parse a `$T`'
+note: 'Call `<int>::from_ascii_bytes(<bytes>)` (`#![feature(int_from_ascii)]`, integers and `NonZero`), the method parses the bytes with no text decode. Non-UTF-8 input fails as `ParseIntError` in place of the decode error'

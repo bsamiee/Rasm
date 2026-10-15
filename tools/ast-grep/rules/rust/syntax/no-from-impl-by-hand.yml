@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-from-impl-by-hand
+language: rust
+severity: error
+utils:
+    slot:
+        not: {kind: 'line_comment, block_comment'}
+    constructor:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: identifier, any: [{regex: '^Self$'}, {pattern: $S}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $P}}, {not: {has: {nthChild: 2}}}]}
+            - kind: struct_expression
+              all:
+                - has: {field: name, any: [{regex: '^Self$'}, {pattern: $S}]}
+                - has:
+                    field: body
+                    all:
+                        - has: {nthChild: 1, any: [{kind: shorthand_field_initializer, pattern: $P}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $P}}]}
+                        - not: {has: {nthChild: 2}}
+    from-method:
+        kind: function_item
+        all:
+            - has: {field: name, regex: '^from$'}
+            - has: {field: parameters, all: [{has: {nthChild: 1, kind: parameter, has: {field: pattern, kind: identifier, pattern: $P}}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: body, has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: constructor}}
+            - not: {has: {field: body, has: {nthChild: {position: 2, ofRule: {matches: slot}}}}}
+    single-field:
+        any:
+            - kind: field_declaration_list
+              all: [{has: {nthChild: 1, kind: field_declaration}}, {not: {has: {nthChild: 2, kind: field_declaration}}}]
+            - kind: ordered_field_declaration_list
+              regex: '^\(\s*[^,]+,?\s*\)$'
+    derive-more-from:
+        kind: attribute_item
+        any:
+            - regex: '^#\[\s*derive\s*\([\s\S]*\bderive_more::From\b'
+            - all:
+                - regex: '^#\[\s*derive\s*\([\s\S]*(^|[^:\w])From\b'
+                - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '\bderive_more::(\{[^}]*\b)?From\b'}}
+rule:
+    any:
+        - kind: impl_item
+          all:
+            - has: {field: trait, regex: '^((::)?(std|core)::(convert::)?)?From<'}
+            - has: {field: type, any: [{kind: type_identifier, pattern: $S}, {kind: generic_type, has: {field: type, pattern: $S}}]}
+            - has: {field: body, all: [{has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: from-method}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}}]}
+            - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $S}}}}}}
+        - kind: struct_item
+          all:
+            - has: {field: name, pattern: $S}
+            - has: {field: body, matches: single-field}
+            - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derive-more-from}
+message: '`$S` converts from its one field through a hand `From` impl or `derive_more::From`'
+note: 'Write `#[derive(From)]` with `use core::from::From;` (`#![feature(derive_from)]`), the derive converts a single-field struct from its field. An impl transforming the value and a multi-field or enum derive stay as written. The `redundant_error_conversion` and `untyped_error` dylints own a conversion into an error type, the error type takes `#[from]` on its thiserror field'

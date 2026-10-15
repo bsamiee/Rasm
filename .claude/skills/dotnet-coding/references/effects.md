@@ -179,10 +179,10 @@ Resource and instrumentation helpers take a callback and act before and after it
 
 ```csharp
 internal static class Scopes {
-    public static IO<A> Timed<A>(Atom<Duration> elapsed, IO<A> work) =>
-        IO.lift(System.Diagnostics.Stopwatch.StartNew).Bracket(
+    public static IO<A> Timed<A>(TimeProvider time, Func<Duration, IO<Unit>> report, IO<A> work) =>
+        IO.lift(time.GetTimestamp).Bracket(
             Use: _ => work,
-            Fin: watch => IO.lift(() => elapsed.Swap(_ => Duration.FromTimeSpan(watch.Elapsed))));
+            Fin: start => report(time.GetElapsedTime(start).ToDuration()));
 }
 ```
 
@@ -190,9 +190,10 @@ Once helpers return `IO<A>`, query syntax exposes scoped behavior without callba
 
 ```csharp
 internal static class Removals {
-    public static IO<int> PurgeOld(Atom<Duration> elapsed) =>
+    public static IO<int> PurgeOld(TimeProvider time, Func<Duration, IO<Unit>> report) =>
         Scopes.Timed(
-            elapsed,
+            time,
+            report,
             from connection in use(static () => new Connection())
             select connection.Execute("DELETE Entries WHERE Timestamp < @upTo"));
     public static IO<int> RemoveOrder =>

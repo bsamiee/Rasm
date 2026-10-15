@@ -2,7 +2,6 @@
 id: no-computed-literal-rust
 language: rust
 severity: error
-ignores: ['**/tests/**', '**/benches/**']
 utils:
     literal:
         any:
@@ -122,6 +121,11 @@ rule:
         - matches: literal-array-join
         - matches: literal-text-method
         - all: [{matches: literal-concat}, {matches: outer}]
-        - all: [{matches: literal-arith}, {matches: outer}, {not: {matches: rust-const-context}}, {not: {matches: rust-test-scope}}]
+        - all:
+            - matches: literal-arith
+            - matches: outer
+            - not: {matches: rust-const-context}
+            - not: {matches: rust-test-scope}
+            - not: {any: [{matches: rust-owned-span}, {matches: rust-domain-span}]}
 message: '`$COMPUTED` computes a literal from literals'
-note: 'Write one literal holding the result, or bind arithmetic to a `const` named for the fact it derives, a reader sees the value without evaluating code, joined constant path segments take `PathBuf::from("<base>/<segment>")` and text built from `env!` values takes `concat!(<piece>, env!("<NAME>"))`'
+note: 'Write one literal holding the result, or bind arithmetic to a `const` named for the fact it derives (inside its one reader when one function reads it), a reader sees the value without evaluating code. Joined constant path segments take `PathBuf::from("<base>/<segment>")`. Text built from `env!` values takes `concat!(<piece>, env!("<NAME>"))`'

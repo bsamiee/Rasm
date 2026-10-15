@@ -9,13 +9,13 @@ MSBuild evaluates a project before it executes targets, once per project instanc
 ### [01.1]-[MEASUREMENT]
 
 ```bash
-nx run <project>:build --skip-nx-cache -- -profileEvaluation:<dir>/evaluation-{}.md
-nx run <project>:build --skip-nx-cache -- -v:diag | rg 'Property reassignment'
+nx run <project>:build --skip-nx-cache -- -profileEvaluation:<dir>/evaluation.md
 ```
 
 - `-profileEvaluation` prints one row per import, property, item, and target
 - `-profileEvaluation` reports inclusive and exclusive time grouped by evaluation pass, the glob rows include the directory enumeration cost
-- SDK files produce most `Property reassignment:` lines, the lines naming a file under the repository matter
+- Binlogs hold one `Property reassignment:` message per overwritten property, `mcp__binlog__binlog_search` with `"Property reassignment"` lists them
+- SDK files produce most `Property reassignment:` messages, the messages naming a file under the repository matter
 
 ### [01.2]-[BINLOG_DIAGNOSIS]
 
@@ -64,7 +64,7 @@ nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
 nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
 ```
 
-Analyze the newest `build-*.binlog`:
+Analyze `<dir>/<project>/build.binlog`, the second build's log:
 1. Run `mcp__binlog__binlog_incremental_analysis`, read each `skipped: false` row of `targets` for `reason`, `triggerInputs`, and `staleOutputs`
 2. Read `incrementalCleanDeletions` for a file a skipped target had declared
 3. Run `mcp__binlog__binlog_project_target_times` for each project the rows name
@@ -81,7 +81,7 @@ Analyze the newest `build-*.binlog`:
 `CoreCompile` declares its sources, references, and analyzers as `Inputs` and the assembly, reference assembly, and documentation file as `Outputs`, a no-change build skips it.
 - `Deterministic` is `true` by default, identical inputs produce an identical assembly
 - `ProduceReferenceAssembly` is `true` by default, `Csc` writes `obj/<config>/<tfm>/refint/<name>.dll`
-- `CopyRefAssembly` updates `ref/<name>.dll` when the public surface changes
+- `CopyRefAssembly` updates `ref/<name>.dll` when the public API changes
 - Changes inside a method body recompile the library and leave every consumer's `CoreCompile` skipped
 - New public types rewrite the reference assembly and recompile every consumer, `CoreCompile` shows `skipped: false` in each dependent
 

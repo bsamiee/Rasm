@@ -1,6 +1,6 @@
 ---
 name: search-code
-description: "Use when a task needs a dependency's signature, API shape, usage, docs, wiki, source, tags, or releases from the installed package or its repository."
+description: "Use when a task needs a fact about a dependency, covering installed declarations, usage, repository files at a tag, and releases."
 ---
 
 # [SEARCH_CODE]
@@ -24,19 +24,21 @@ Installed version of a direct or transitive package and the package that depends
 - .NET: resolved version at each node of the graph from a restored project
 - TypeScript: version per dependent, transitive packages sit under `node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>`, scope `/` spelled `+`
 - Python: version with every direct dependent from `uv.lock`, an extra or group in parentheses
+- Rust: version with every direct dependent from `Cargo.lock`
 
 ```bash
 dotnet nuget why <project>.csproj <id>
 pnpm why <pkg> --depth 1
 uv tree --frozen --invert --package <pkg> --depth 1
+cargo tree --invert <crate> --depth 1
 ```
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, no decompile:
-- Installed version, `<lib>` is `.cache/nuget/packages/<id>/<version>/lib/<tfm>`
+- Installed version, `<lib>` is `$NUGET_PACKAGES/<id>/<version>/lib/<tfm>`
 - Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
 
 ```bash
-rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' ${CLAUDE_PROJECT_DIR}/<lib>/*.xml
+rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib>/*.xml
 curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xOf - 'lib/*.xml' | rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*'
 ```
 
@@ -46,9 +48,9 @@ curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.n
 3. Doc comment, attributes, and signature per overload with line, `-A<n>` on its `rg` reads the body
 
 ```bash
-dotnet dnx ilspycmd -y -- -l cisde ${CLAUDE_PROJECT_DIR}/<dll> | rg '<Type>'
-dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' ${CLAUDE_PROJECT_DIR}/<dll> | rg -n '^\s*public '
-dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' ${CLAUDE_PROJECT_DIR}/<dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
+dotnet dnx ilspycmd -y -- -l cisde <dll> | rg '<Type>'
+dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
+dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
 ```
 
 .NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` is the first worktree line of `git worktree list --porcelain`:
@@ -56,8 +58,8 @@ dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' ${CLAUDE_PROJECT_DIR}/<dll> | 
 2. Project with one file per type, without `-p` the whole assembly as one `<Name>.decompiled.cs`
 
 ```bash
-dotnet dnx ilspycmd -y -- --dump-table Assembly --json ${CLAUDE_PROJECT_DIR}/<dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
-dotnet dnx ilspycmd -y -- -p -o <main>/.artifacts/ilspy/<Name>/<Version> ${CLAUDE_PROJECT_DIR}/<dll>
+dotnet dnx ilspycmd -y -- --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
+dotnet dnx ilspycmd -y -- -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
 ```
 
 TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the entry file:
@@ -90,6 +92,13 @@ Python typed signature per overload from a package's `.pyi` or its `-stubs` pack
 
 ```bash
 rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' ${CLAUDE_PROJECT_DIR}/.venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
+```
+
+Rust public declaration with file and line from crate source under `$CARGO_HOME/registry/src`:
+
+```bash
+rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol>\b' \
+    $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version> --glob '*.rs'
 ```
 
 MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK `global.json` resolves, package targets under `build/` or `buildTransitive/`:
@@ -155,7 +164,7 @@ curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" 
 Cited README lines of an installed .NET or TypeScript package:
 
 ```bash
-rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/.cache/nuget/packages/<id>/<version> --glob '*.md'
+rg -n -A6 '<term>' $NUGET_PACKAGES/<id>/<version> --glob '*.md'
 rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.md'
 ```
 
@@ -172,13 +181,16 @@ Repository, commit, and tag behind an installed version, then its tree, files, b
     - .NET: `projectUrl` holds the repository when a `repository` element holds a commit alone
     - TypeScript: repository URL, package directory in a monorepo, and commit when the publisher recorded one
     - Python: source, documentation, and changelog URLs of the installed version
+    - Rust: repository URL, then commit and package directory from the crate's `.cargo_vcs_info.json`
 2. Tag spelling for a version (`v1.5.0`, `8.7.0`, `effect@3.22.1`, `4.0.0a6`), a nuspec commit matches column one, no filter lists every tag
 3. Cited lines of a file at the tag, any size
 
 ```bash
-rg -o '<(repository|projectUrl)[^<]*' ${CLAUDE_PROJECT_DIR}/.cache/nuget/packages/<id>/<version>/<id>.nuspec
+rg -o '<(repository|projectUrl)[^<]*' $NUGET_PACKAGES/<id>/<version>/<id>.nuspec
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
 curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -c '.info.project_urls'
+cargo info <crate>@<version> | rg '^repository:'
+jq -c '{sha1: .git.sha1, path_in_vcs}' $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version>/.cargo_vcs_info.json
 git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<version>$'
 gh api "repos/<owner>/<repo>/contents/<path>?ref=<tag>" -H "Accept: application/vnd.github.raw+json" | rg -n -A3 '\b<term>\b'
 ```
@@ -200,7 +212,7 @@ GitHub reads at the tag:
 ```text
 ToolSearch {"query": "select:mcp__github__get_repository_tree,mcp__github__get_file_contents,mcp__github__get_file_blame", "max_results": 3}
 mcp__github__get_repository_tree {"owner": "<owner>", "repo": "<repo>", "tree_sha": "<tag>", "recursive": true, "path_filter": "<dir>/"}
-mcp__github__get_file_contents {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>"}
+mcp__github__get_file_contents {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "refs/tags/<tag>"}
 mcp__github__get_file_blame {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>", "start_line": <n>, "end_line": <n>}
 ```
 
@@ -242,6 +254,12 @@ Python versions:
 ```bash
 uv tree --frozen --outdated --package <pkg> --depth 0
 curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]?'
+```
+
+Rust newest version on crates.io:
+
+```bash
+cargo search <crate> --limit 1
 ```
 
 GitHub release notes body alone, `Not Found` means no release exists for the tag and its changelog holds release notes:

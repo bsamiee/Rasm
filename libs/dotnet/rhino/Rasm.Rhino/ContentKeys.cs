@@ -16,6 +16,8 @@ public enum KeyDomain {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+public sealed record NamedId(Guid Id, Option<string> Name);
+
 [ValueObject<UInt128>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidRhinoValue>]
 public readonly partial struct ContentKey {
@@ -49,7 +51,7 @@ public static class ContentKeys {
 
         public XxHash128 Id(Guid value) => accumulator.Integer(BinaryPrimitives.ReadUInt128BigEndian(value.ToByteArray(bigEndian: true)));
 
-        public XxHash128 Number(double value) => accumulator.Integer(BitConverter.DoubleToInt64Bits(double.IsNaN(value) ? double.NaN : value == 0d ? 0d : value));
+        public XxHash128 Number(double value) => accumulator.Integer(BitConverter.DoubleToInt64Bits(double.IsNaN(value) ? double.NaN : value is 0d ? 0d : value));
 
         public XxHash128 Rows<T>(Seq<T> rows, Func<XxHash128, T, XxHash128> row) => rows.Fold(accumulator.Integer(rows.Count), row);
     }

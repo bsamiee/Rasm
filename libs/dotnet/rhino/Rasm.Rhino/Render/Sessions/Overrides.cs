@@ -41,14 +41,12 @@ internal sealed class ClayMeshProvider(IPlugInViews sink, uint serial, RenderMat
 public static class RenderOverrides {
     // --- [SCOPE]
     public static IO<T> Around<T>(RenderOverride over, OverrideScope scope, IO<T> launch) =>
-        DisposalOps.Within(() => atomic(() => {
-            uint serial = scope.Document.RuntimeSerialNumber;
-            if (Captures.Value.Active.ContainsKey(serial) || Captures.Value.Retiring.ContainsKey(serial))
-                return Fin.Fail<(uint Serial, Capture Capture)>(new OverrideHeld(serial));
-            Capture capture = new(scope.Sink, scope.Group, Ref(Option<ValueSet>.None), Ref(Option<IDisposable>.None));
-            _ = Captures.Swap(held => (held.Active.Add(serial, capture), held.Retiring));
-            return Fin.Succ((Serial: serial, Capture: capture));
-        }), answer =>
+        DisposalOps.Within(() => (Serial: scope.Document.RuntimeSerialNumber, Capture: new Capture(scope.Sink, scope.Group, Ref(Option<ValueSet>.None), Ref(Option<IDisposable>.None))) switch {
+            var claim => Captures.Swap(held => held.Active.ContainsKey(claim.Serial) || held.Retiring.ContainsKey(claim.Serial) ? held : (held.Active.Add(claim.Serial, claim.Capture), held.Retiring))
+                .Active.Find(claim.Serial).Exists(found => ReferenceEquals(found, claim.Capture))
+                    ? Fin.Succ(claim)
+                    : Fin.Fail<(uint Serial, Capture Capture)>(new OverrideHeld(claim.Serial)),
+        }, answer =>
             from held in IO.lift(answer)
             from before in scope.Group.Capture
             from captured in atomicIO(() => held.Capture.Values.Swap(_ => Some(new ValueSet(before.Entries.Intersect(over.Values.Entries.Keys)))))
@@ -64,10 +62,10 @@ public static class RenderOverrides {
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register =>
         static (sink, retain) => DisposalOps.Acquire(
             IO.lift(() => new Disposal<IPlugInSink>(sink, static held => Released(held).Run())),
-            static lease => IO.lift(lease.Dispose), retain).Map(static _ => unit);
+            static lease => IO.lift(lease.Dispose), retain).Map(unit);
 
     // --- [CAPTURE]
-    private static readonly Ref<(HashMap<uint, Capture> Active, HashMap<uint, Capture> Retiring)> Captures = Ref((HashMap<uint, Capture>(), HashMap<uint, Capture>()));
+    private static readonly Atom<(HashMap<uint, Capture> Active, HashMap<uint, Capture> Retiring)> Captures = Atom((HashMap<uint, Capture>(), HashMap<uint, Capture>()));
 
     private static IO<Unit> Applied(RenderOverride over, OverrideScope scope, uint serial, Capture capture) =>
         from diff in scope.Group.Apply(over.Values, LanguageExt.HashSet.empty<EntryKey>())
@@ -85,22 +83,21 @@ public static class RenderOverrides {
     // --- [RESTORE]
     private static IO<Unit> Release(uint serial, Capture capture) =>
         DisposalOps.Within(
-            () => atomic(() => Captures.Swap(held => (held.Active.Remove(serial), held.Retiring.AddOrUpdate(serial, capture)))),
+            () => Captures.Swap(held => (held.Active.Remove(serial), held.Retiring.AddOrUpdate(serial, capture))),
             _ => Restored(serial, capture),
-            _ => atomicIO(() => Captures.Swap(held => (held.Active, held.Retiring.Remove(serial)))).Map(static _ => unit)).Uninterruptible();
+            _ => Captures.SwapIO(held => (held.Active, held.Retiring.Remove(serial))).Map(unit)).Uninterruptible();
 
     private static IO<Unit> Released(IPlugInSink sink) =>
-        atomicIO(() => Captures.Swap(held => {
-            Seq<uint> serials = toSeq(held.Active.Filter(capture => capture.Sink == sink).Keys);
-            return (held.Active.Except(serials), held.Retiring + held.Active.Intersect(serials));
-        })).Map(static _ => unit);
+        Captures.SwapIO(held => toSeq(held.Active.Filter(capture => capture.Sink == sink).Keys) switch {
+            var serials => (held.Active.Except(serials), held.Retiring + held.Active.Intersect(serials)),
+        }).Map(unit);
 
     private static IO<Unit> Restored(uint serial, Capture capture) =>
         Callbacks.Each(Seq(
             DisposalOps.Release(capture.Clay.Value.ToSeq()),
             IO.lift(() => Optional(RhinoDoc.FromRuntimeSerialNumber(serial)).Bind(_ => capture.Values.Value))
                 .Bind(values => values.TraverseM(prior => capture.Group.Apply(prior, LanguageExt.HashSet.empty<EntryKey>())).As())
-                .Map(static _ => unit))).Map(static _ => unit);
+                .Map(unit))).Map(static _ => unit);
 
     // --- [CLAY]
     private static IO<Unit> Clay(Albedo albedo, OverrideScope scope, Action<IDisposable> retain) =>

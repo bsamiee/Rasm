@@ -161,7 +161,7 @@ public sealed record MatchedLook(
         RgbLinear Color(System.Numerics.Vector3 color) =>
             new Unicolour(reading.Gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z)
                 .ConvertToConfiguration(Gamut.StandardRgb.Configuration).RgbLinear switch {
-                    var rgb when rgb.R == 0d && rgb.G == 0d && rgb.B == 0d => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, 1d, 1d, 1d).RgbLinear,
+                    var rgb when rgb.R is 0d && rgb.G is 0d && rgb.B is 0d => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, 1d, 1d, 1d).RgbLinear,
                     var rgb => Math.Max(Math.Abs(rgb.R), Math.Max(Math.Abs(rgb.G), Math.Abs(rgb.B))) switch {
                         var peak => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear,
                             rgb.R / peak, rgb.G / peak, rgb.B / peak).MapToRgbGamut().RgbLinear,
@@ -382,12 +382,12 @@ public static class LightRigs {
                 (Document: doc, Caption: caption),
                 create: static (state, create) => Created(state.Document, create, state.Caption),
                 place: static (state, place) => Moved(state.Document, place, state.Caption),
-                release: static (state, release) => Labelled(state.Document, release.Light, None).Map(static _ => Seq<Guid>()),
+                release: static (state, release) => Labelled(state.Document, release.Light, None).Map(Seq<Guid>()),
                 remove: static (state, remove) =>
-                    Lights.Apply(state.Document, new LightOp.Delete(new ComponentRef<LightObject>.ById(remove.Light), Quiet: true)).Map(static _ => Seq<Guid>()))).As()
+                    Lights.Apply(state.Document, new LightOp.Delete(new ComponentRef<LightObject>.ById(remove.Light), Quiet: true)).Map(Seq<Guid>()))).As()
         let fresh = created.Flatten()
         from grouped in unless(fresh.IsEmpty, Lights.Apply(doc, new LightOp.Grouping(
-            fresh.Map<ComponentRef<LightObject>>(static id => new ComponentRef<LightObject>.ById(id)), On: true)).Map(static _ => unit)).As()
+            fresh.Map<ComponentRef<LightObject>>(static id => new ComponentRef<LightObject>.ById(id)), On: true)).Map(unit)).As()
         select unit;
 
     private static IO<Seq<Guid>> Created(RhinoDoc doc, RigChange.Create create, Func<LightRole, string> caption) =>
@@ -440,7 +440,7 @@ public static class LightRigs {
             from target in Target(state.Document, state.Rig.Target)
             from moved in IO.lift(() => previous.Value != target)
             from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Reading, state.Commit, state.Sink)
-                .Bind(_ => previous.SwapIO(_ => target)).Map(static _ => unit)).As()
+                .Bind(_ => previous.SwapIO(_ => target)).Map(unit)).As()
             select unit;
         return DisposalOps.Acquire(
             owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)

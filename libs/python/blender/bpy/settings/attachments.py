@@ -20,6 +20,7 @@ from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
 from blender.bpy.settings.properties import Changed, Choices, RecordGroup
 from blender.imaging.faults import accumulated, paired
+from blender.rendering.edits import Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -151,7 +152,7 @@ class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def locks(self, host: Host) -> frozenset[str]:
         """Returns the stored locks belonging to fields of the current record."""
-        return Option.of_optional(self.struct(host).get(Slot.LOCKS)).map(lambda held: frozenset(held.keys())).default_value(frozenset()) & frozenset(self.group.record.__struct_fields__)
+        return Option.of_optional(self.struct(host).get(Slot.LOCKS)).map(lambda held: frozenset(held.keys())).default_with(frozenset) & frozenset(self.group.record.__struct_fields__)
 
     def toggled(self, host: Host, key: str) -> None:
         """Flips the lock of one field in native group storage."""
@@ -325,6 +326,11 @@ def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: 
     )
 
 
+def endpoints(name: str) -> Stored[tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]]:
+    """Stores an operation's persisted before and after trees under one native key."""
+    return Stored(name=name, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Attached", "Attachment", "Host", "Slot", "Stored", "pointed", "preferred", "reconciling"]
+__all__ = ["Attached", "Attachment", "Host", "Slot", "Stored", "endpoints", "pointed", "preferred", "reconciling"]

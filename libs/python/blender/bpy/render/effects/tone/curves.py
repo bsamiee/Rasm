@@ -133,31 +133,29 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
                 match candidates:
                     case ((value, inverse),):
                         return processor(config, PyOpenColorIO.GroupTransform([value], direction=PyOpenColorIO.TRANSFORM_DIR_FORWARD if inverse else PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map_error(
-                            lambda faults: (BlenderImagingFault(faults=faults),)
+                            BlenderImagingFault.lifted
                         )
                     case _:
                         return Error((BlenderAbsentFault(owner=space.getName(), key=PyOpenColorIO.AllocationTransform.__name__),))
 
             match self.allocation:
-                case str() as name:
+                case str(name):
                     return Result[PyOpenColorIO.ColorSpace, BlenderFaults].bind(
                         Option.of_optional(config.getColorSpace(name)).to_result_with(lambda: (BlenderAbsentFault(owner=config.getName(), key=name),)), selected
                     )
                 case transform:
-                    return processor(config, PyOpenColorIO.GroupTransform([transform], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                    return processor(config, PyOpenColorIO.GroupTransform([transform], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map_error(BlenderImagingFault.lifted)
 
         def prepared(scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> BlenderResult[tuple[PreviewJob, ...]]:
             def guided() -> BlenderResult[PyOpenColorIO.Processor]:
                 def selected(held: Option[DisplayView]) -> BlenderResult[PyOpenColorIO.Processor]:
                     display = held.map(lambda record: record.display).default_with(lambda: viewed(scene).display)
                     return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults].bind(
-                        DisplayView.for_encoding(config, display).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                        DisplayView.for_encoding(config, display).map_error(BlenderImagingFault.lifted),
                         lambda found: found.map(lambda pair: pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=display, key=DisplayView.for_encoding.__name__),)),
                     )
 
-                return self.guide.map(lambda transform: processor(config, transform).map_error(lambda faults: (BlenderImagingFault(faults=faults),))).default_with(
-                    lambda: formation.current(identity, scene).bind(selected)
-                )
+                return self.guide.map(lambda transform: processor(config, transform).map_error(BlenderImagingFault.lifted)).default_with(lambda: formation.current(identity, scene).bind(selected))
 
             rows = tuple(
                 (held.entry, row)
@@ -465,10 +463,8 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
             lambda pair: NodeGroup.built(
                 item_key("tone", kind),
                 kind.title,
-                Interface(
-                    outputs=(Socket(key="curve", name="Curve", kind=bpy.types.NodeSocketFloat),),
-                    inputs=(Socket(key="value", name="Value", kind=bpy.types.NodeSocketFloat), *pair[0].inputs),
-                    panels=pair[0].panels,
+                msgspec.structs.replace(
+                    pair[0], outputs=(Socket(key="curve", name="Curve", kind=bpy.types.NodeSocketFloat),), inputs=(Socket(key="value", name="Value", kind=bpy.types.NodeSocketFloat), *pair[0].inputs)
                 ),
                 {"curve": (pair[1], End(node="curve"))},
             )
@@ -695,7 +691,7 @@ def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
             node("outset", bpy.types.FunctionNodeTransformDirection, {"Direction": End(node="preserved", socket="Vector"), "Transform": End(node="out_of_rendering", socket="Matrix")}, {}),
         ).map(ended("outset", "Direction"))
 
-    basis: BlenderResult[npt.NDArray[np.float64]] = record.base(config).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    basis: BlenderResult[npt.NDArray[np.float64]] = record.base(config).map_error(BlenderImagingFault.lifted)
     return paired(basis, accumulated((primary(), matrix(), *(scalar(kind) for kind in kinds)))).bind(lambda pair: body(*pair))
 
 
@@ -867,10 +863,7 @@ def normalized(_identity: Identity, _scene: bpy.types.Scene, record: Hable) -> B
     _, _, _, _, _, _, scene_white = Hable.__struct_fields__
     return (
         Result[Option[tuple[float, float]], BlenderFaults]
-        .bind(
-            record.normalization().map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-            lambda value: value.to_result_with(lambda: (BlenderAbsentFault(owner=record.title, key=scene_white),)),
-        )
+        .bind(record.normalization().map_error(BlenderImagingFault.lifted), lambda value: value.to_result_with(lambda: (BlenderAbsentFault(owner=record.title, key=scene_white),)))
         .map(lambda values: {socket.key: (log2(abs(value)) if value else 0.0, float(np.sign(value)), 0.0) for socket, value in zip(normalization, values)})
     )
 
@@ -891,11 +884,11 @@ def tony(table: str | Traversable) -> CompositorEffect[Tony]:
                 sampled = (
                     lut_files
                     .current(str(path), shell.config)
-                    .bind(lambda path: Lookup(source=path, space=Tony.space).tile(shell.config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+                    .bind(lambda path: Lookup(source=path, space=Tony.space).tile(shell.config).map_error(BlenderImagingFault.lifted))
                     .bind(lambda parts: parts[1].to_result_with(lambda: (BlenderAbsentFault(owner=str(path), key="Lut3DTransform"),)))
                 )
         except OSError as error:
-            return Error((BlenderReadFault(request=str(table), error=error),))
+            return Error((BlenderReadFault(request=table, error=error),))
         return sampled.bind(lambda parts: tabled("tony", Tony.title, msgspec.structs.replace(parts[0], spacing=Rational()), parts[1], shell.source, shell.config))
 
     return CompositorEffect(record=Tony, graph=mapped, straight=True, initial_view=initial_view, registrables=(tiles, encode_formation))
@@ -911,7 +904,7 @@ def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
             entry = Option.of_optional(next(iter(entries(call.identity, scene, DisplayView)), None))
             return (
                 entry
-                .map(lambda entry: formation.read(call.identity, entry).bind(lambda prior: formation.write(call.identity, scene, entry, Entry(effect=target, blend=prior.blend))))
+                .map(lambda entry: formation.read(call.identity, entry).bind(lambda prior: formation.write(call.identity, scene, entry, msgspec.structs.replace(prior, effect=target))))
                 .default_with(
                     lambda: written(scene, "view_settings.view_transform", target.view).bind(
                         lambda view: written(scene, "view_settings.look", "None").map(lambda look: view.is_some() or look.is_some())
@@ -923,25 +916,28 @@ def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
         return (
             Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults]
             .bind(
-                DisplayView.for_encoding(config, display).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                DisplayView.for_encoding(config, display).map_error(BlenderImagingFault.lifted),
                 lambda view: view.map(lambda pair: pair[0]).to_result_with(lambda: (BlenderAbsentFault(owner=display, key=DisplayView.for_encoding.__name__),)),
             )
             .bind(selected)
         )
 
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
     return call.root(bpy.types.Scene).bind(lambda scene: paired(config, formation.current(call.identity, scene)).bind(lambda pair: chosen(scene, *pair)))
 
 
-def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[T]:
+def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> BlenderResult[T]:
     """Returns a measured white override from covered associated scene-linear pixels."""
     match record.curve if isinstance(record, ToneCurve) else record:
         case Logarithmic() | ReinhardExtended() | Hable() as curve:
             curve_field, _, _ = ToneCurve.__struct_fields__
             _, _, _, _, _, _, scene_white = Hable.__struct_fields__
             extent: ImagingResult[Extent] = samples_of(config, plane).bind(lambda samples: samples.extent().to_result_with(lambda: (ImagingWhiteFault(white=Nothing),)))
-            return extent.bind(lambda extent: curves.metered(curve, extent.white)).map(
-                lambda resolved: msgspec.structs.replace(record, **({curve_field: resolved} if isinstance(record, ToneCurve) else {scene_white: resolved.scene_white}))
+            return (
+                extent
+                .bind(lambda extent: curves.metered(curve, extent.white))
+                .map(lambda resolved: msgspec.structs.replace(record, **({curve_field: resolved} if isinstance(record, ToneCurve) else {scene_white: resolved.scene_white})))
+                .map_error(BlenderImagingFault.lifted)
             )
         case _:
             return Ok(record)
@@ -961,8 +957,8 @@ def prepared[T: (ToneCurve, Hable)](
     match record.curve if isinstance(record, ToneCurve) else record:
         case Logarithmic(scene_white=Gated(enabled=False)) | ReinhardExtended(scene_white=Gated(enabled=False)) | Hable(scene_white=Gated(enabled=False)):
             pixels = image.get_pixels(OpenImageIO.FLOAT)
-            effective: ImagingResult[T] = Error((ImagingBufferFault(request=image, error=image.geterror()),)) if pixels is None else whitened(record, config, pixels)
-            return effective.map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(lambda effective: (effective, {}))
+            effective: BlenderResult[T] = Error((BlenderImagingFault(faults=(ImagingBufferFault(request=image, error=image.geterror()),)),)) if pixels is None else whitened(record, config, pixels)
+            return effective.map(lambda effective: (effective, {}))
         case _:
             return Ok((record, {}))
 
@@ -971,12 +967,12 @@ def measured[T: (ToneCurve, Hable)](
     row: CompositorEffect[T], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]
 ) -> BlenderResult[Option[str]]:
     """Writes an explicit measured white override, preserving the entry's blend, and names an undo step where the white changed."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
     def sampled(config: PyOpenColorIO.Config, held: Entry[T]) -> BlenderResult[Option[str]]:
         match held.effect.curve if isinstance(held.effect, ToneCurve) else held.effect:
             case Logarithmic() | ReinhardExtended() | Hable():
-                effective: BlenderResult[T] = whitened(held.effect, config, file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                effective: BlenderResult[T] = whitened(held.effect, config, file.pixels)
                 return Result[T, BlenderFaults].bind(
                     effective, lambda record: row.write(identity, scene, entry, msgspec.structs.replace(held, effect=record)).map(lambda changed: Some(meter_white.title) if changed else Nothing)
                 )
@@ -1004,7 +1000,7 @@ def metered[T: ToneCurve | Hable](row: CompositorEffect[T], reading: ViewerRead,
 
 initial_view: Option[Callable[[PyOpenColorIO.Config, bpy.types.Scene], BlenderResult[DisplayView]]] = Some(
     lambda config, scene: Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults].bind(
-        DisplayView.for_encoding(config, viewed(scene).display).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+        DisplayView.for_encoding(config, viewed(scene).display).map_error(BlenderImagingFault.lifted),
         lambda view: view.map(lambda pair: pair[0]).to_result_with(lambda: (BlenderAbsentFault(owner=scene.name, key=DisplayView.for_encoding.__name__),)),
     )
 )

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-fixed-value
-language: swift
+language: swiftlang
 utils:
     literal-value:
         any:

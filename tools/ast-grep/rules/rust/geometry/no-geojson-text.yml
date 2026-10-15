@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-geojson-text
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $TEXT
+    matches: rust-geojson-text
+message: '`$TEXT` spells GeoJSON by hand'
+note: 'Build `geojson::FeatureCollection`, `geojson::Feature`, and `geojson::Geometry` values and serialize them with `to_string()`, or convert `geo` geometries through `geozero::ToJson`'

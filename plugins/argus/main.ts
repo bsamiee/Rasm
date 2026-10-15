@@ -1,18 +1,17 @@
-import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
-import { basename, extname, relative, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { promisify } from 'node:util';
 import { NodeHttpServer, NodeRuntime, NodeServices, NodeStream } from '@effect/platform-node';
-import { subscribe } from '@parcel/watcher';
-import { Array, Cache, Deferred, Duration, Effect, FileSystem, Layer, Logger, Match, MutableRef, Option, Pool, Predicate, Record, Schema, Semaphore, Stream, String, Struct } from 'effect';
+import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
+import { Array, Cause, Duration, Effect, Equal, Exit, Fiber, FileSystem, HashMap, HashSet, Latch, Layer, Logger, Match, Option, Order, Pool, Predicate, Queue, Record, Runtime, Schema, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Command, Flag } from 'effect/cli';
+import { identity } from 'effect/Function';
 import { HttpRouter } from 'effect/http';
 import { ChildProcess } from 'effect/process';
-import { readJsonFile } from 'nx/src/devkit-exports.js';
+import { minimatch } from 'minimatch';
 import {
     type CancellationToken,
     CancellationTokenSource,
@@ -21,6 +20,9 @@ import {
     type Definition,
     type DefinitionLink,
     DefinitionRequest,
+    type Diagnostic,
+    DiagnosticRefreshRequest,
+    type DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DidChangeConfigurationNotification,
     DidChangeTextDocumentNotification,
@@ -37,30 +39,29 @@ import {
     InitializedNotification,
     InitializeRequest,
     LSPErrorCodes,
-    type ProtocolConnection,
+    MarkupKind,
+    type ProgressToken,
     PublishDiagnosticsNotification,
-    type PublishDiagnosticsParams,
     type Range,
     ReferencesRequest,
+    RegistrationRequest,
     type RelatedFullDocumentDiagnosticReport,
     ResponseError,
     ShutdownRequest,
+    type TextDocumentItem,
     type TextDocumentPositionParams,
     TextDocumentSyncKind,
+    UnregistrationRequest,
+    WatchKind,
+    WorkDoneProgress,
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver-protocol/node';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import plugin from './.claude-plugin/plugin.json' with { type: 'json' };
+import plugin from './.codex-plugin/plugin.json' with { type: 'json' };
 import lsp from './.lsp.json' with { type: 'json' };
-import { EditContext, nativeEdits, TranscriptFailed } from './edits.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Server = Effect.Success<ReturnType<typeof start>>;
-interface Change {
-    readonly event: FileEvent;
-    readonly languageId: string;
-}
 interface Language {
     readonly pool: Pool.Pool<Server, ServerExited | RequestFailed>;
     readonly languageId: string;
@@ -68,30 +69,73 @@ interface Language {
 interface Workspace {
     readonly fs: FileSystem.FileSystem;
     readonly root: string;
-    readonly ignore: string[];
+    readonly observers: Set<(batch: Batch) => Effect.Effect<void, RequestFailed>>;
+    readonly current: Latch.Latch;
+    readonly watching: Effect.Effect<never, RequestFailed>;
     readonly languages: Map<string, Language>;
-    readonly reports: Map<string, { readonly pushed?: PublishDiagnosticsParams | undefined; readonly pulled?: PublishDiagnosticsParams | undefined }>;
-    readonly stale: Set<string>;
-    readonly edits: Map<string, string>;
-    readonly sessions: Cache.Cache<string, Session>;
 }
-interface Session {
-    readonly pending: Map<string, Change & Language>;
-    readonly formatting: Map<string, FileEvent>;
-    readonly delivered: Map<string, ReadonlySet<string>>;
-    readonly delivery: Semaphore.Semaphore;
+interface Batch {
+    readonly events: readonly FileEvent[];
+    readonly stale: boolean;
 }
+interface Opened extends TextDocumentItem {
+    readonly synced: number;
+}
+interface Finding extends Diagnostic {
+    readonly severity: DiagnosticSeverity;
+    readonly relatedInformation: DiagnosticRelatedInformation[];
+}
+interface Publication {
+    readonly sequence: number;
+    readonly version: number | undefined;
+    readonly findings: readonly Finding[];
+}
+interface Status {
+    readonly sequence: number;
+    readonly invalidated: number;
+    readonly began: number;
+    readonly active: HashSet.HashSet<ProgressToken>;
+    readonly registrations: HashMap.HashMap<string, typeof Registration.Type>;
+    readonly published: HashMap.HashMap<string, Publication>;
+}
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const requestTimeout = 60_000;
+const changeTypes = { create: FileChangeType.Created, update: FileChangeType.Changed, delete: FileChangeType.Deleted } as const;
+const watchKinds = { [FileChangeType.Created]: WatchKind.Create, [FileChangeType.Changed]: WatchKind.Change, [FileChangeType.Deleted]: WatchKind.Delete } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Timeout = Schema.Int.check(Schema.isGreaterThan(0));
 const LanguageServer = Schema.Struct({
     command: Schema.String,
     args: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
     extensionToLanguage: Schema.Record(Schema.String, Schema.String),
     initializationOptions: Schema.optionalKey(Schema.Json),
     settings: Schema.OptionFromOptionalKey(Schema.Json),
     workspaceFolder: Schema.OptionFromOptionalKey(Schema.String),
+    startupTimeout: Schema.OptionFromOptionalKey(Timeout),
+    shutdownTimeout: Schema.OptionFromOptionalKey(Timeout),
+    requestTimeout: Timeout.pipe(Schema.withDecodingDefaultKey(Effect.succeed(requestTimeout))),
 });
+const Registration = Schema.Union([
+    Schema.Struct({
+        id: Schema.String,
+        method: Schema.Literal(DidChangeWatchedFilesNotification.method),
+        registerOptions: Schema.Struct({
+            watchers: Schema.Array(
+                Schema.Struct({
+                    globPattern: Schema.Union([Schema.String, Schema.Struct({ baseUri: Schema.Union([Schema.String, Schema.Struct({ uri: Schema.String })]), pattern: Schema.String })]),
+                    kind: Schema.OptionFromOptionalKey(Schema.Int),
+                }),
+            ),
+        }),
+    }),
+    Schema.Struct({ id: Schema.String, method: Schema.Literal(DocumentDiagnosticRequest.method), registerOptions: Schema.Struct({ identifier: Schema.optionalKey(Schema.String) }) }),
+    Schema.Struct({ id: Schema.String, method: Schema.Literal(DidSaveTextDocumentNotification.method), registerOptions: Schema.Struct({ includeText: Schema.optionalKey(Schema.Boolean) }) }),
+]);
 const Document = Schema.Struct({ file: Schema.String.annotate({ description: 'File path, absolute or relative to project root' }) });
 const Coordinate = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
 const Position = Schema.Struct({ ...Document.fields, line: Coordinate.annotate({ description: '1-based line' }), column: Coordinate.annotate({ description: '1-based UTF-16 column' }) });
@@ -99,390 +143,366 @@ const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class NoLanguageServer extends Schema.TaggedError<NoLanguageServer>()('NoLanguageServer', { file: Schema.String }) {}
-class ReadFailed extends Schema.TaggedError<ReadFailed>()('ReadFailed', { cause: Schema.Defect() }) {}
-class ServerExited extends Schema.TaggedError<ServerExited>()('ServerExited', { cause: Schema.Defect() }) {}
-class RequestFailed extends Schema.TaggedError<RequestFailed>()('RequestFailed', { cause: Schema.Defect() }) {}
-const Failure = Schema.Union([NoLanguageServer, ReadFailed, ServerExited, RequestFailed, TranscriptFailed]);
+class NoLanguageServer extends Schema.TaggedError<NoLanguageServer, { readonly brand: unique symbol }>()('NoLanguageServer', { file: Schema.String }) {}
+class ReadFailed extends Schema.TaggedError<ReadFailed, { readonly brand: unique symbol }>()('ReadFailed', { cause: Schema.Defect() }) {}
+class ServerExited extends Schema.TaggedError<ServerExited, { readonly brand: unique symbol }>()('ServerExited', { cause: Schema.Defect() }) {}
+class RequestFailed extends Schema.TaggedError<RequestFailed, { readonly brand: unique symbol }>()('RequestFailed', { cause: Schema.Defect() }) {}
+const Failure = Schema.Union([NoLanguageServer, ReadFailed, ServerExited, RequestFailed]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [SERVERS]
+// --- [PROTOCOL]
 
 const send = <R>(message: (token: CancellationToken) => Promise<R>): Effect.Effect<R, RequestFailed> =>
     Effect.acquireUseRelease(
         Effect.sync(() => new CancellationTokenSource()),
-        (source) => Effect.tryPromise({ try: () => message(source.token), catch: (cause) => new RequestFailed({ cause }) }).pipe(Effect.onInterrupt(() => Effect.sync(() => source.cancel()))),
+        (source) => Effect.tryPromise({ try: () => message(source.token), catch: (cause) => RequestFailed.make({ cause }) }).pipe(Effect.onInterrupt(() => Effect.sync(() => source.cancel()))),
         (source) => Effect.sync(() => source.dispose()),
     );
+const fileEvent = ({ path, type }: Event): FileEvent => ({ uri: pathToFileURL(path).href, type: changeTypes[type] });
+const finding = (diagnostic: Diagnostic): Finding => ({ ...diagnostic, severity: diagnostic.severity ?? DiagnosticSeverity.Error, relatedInformation: diagnostic.relatedInformation ?? [] });
+const deadline = (duration: Duration.Input): (<A, E, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E | RequestFailed, R>) =>
+    Effect.timeoutOrElse({ duration, orElse: () => Effect.fail(RequestFailed.make({ cause: new Cause.TimeoutError(`no answer within ${Duration.format(Duration.fromInputUnsafe(duration))}`) })) });
+
+// --- [SERVERS]
+
 const start = Effect.fn('start')(function* (config: typeof LanguageServer.Type, workspace: Workspace) {
     const folder = resolve(workspace.root, ...Option.toArray(config.workspaceFolder));
+    const workspaceFolder = { uri: pathToFileURL(folder).href, name: basename(folder) };
     const input = new PassThrough();
-    const child = yield* ChildProcess.make(config.command, config.args, { cwd: folder, stdin: NodeStream.fromReadable({ evaluate: () => input }).pipe(Stream.orDie), stderr: 'inherit' }).pipe(Effect.mapError((cause) => new ServerExited({ cause })));
-    const connection = createProtocolConnection(NodeStream.toReadableNever(child.stdout), input);
-    const documents = new Map<string, TextDocument>();
-    const results = new Map<string, RelatedFullDocumentDiagnosticReport>();
-    const dirty = new Map<string, Change>();
-    const versions = MutableRef.make(0);
-    const watchFailed = yield* Deferred.make<never, RequestFailed>();
-    yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-            connection.dispose();
-            Array.forEach(documents.keys(), (uri) => workspace.reports.delete(uri));
-        }),
+    const child = yield* ChildProcess.make(config.command, config.args, { cwd: folder, env: config.env, extendEnv: true, stdin: NodeStream.fromReadable({ evaluate: () => input }).pipe(Stream.orDie), detached: false, killSignal: 'SIGKILL' }).pipe(Effect.mapError((cause) => ServerExited.make({ cause })));
+    yield* Stream.runForEach(child.stderr.pipe(Stream.decodeText(), Stream.splitLines), Effect.logInfo).pipe(Effect.ignore({ log: 'Warn', message: 'stderr read failed' }), Effect.forkScoped);
+    const connection = yield* Effect.acquireRelease(
+        Effect.sync(() => createProtocolConnection(NodeStream.toReadableNever(child.stdout), input)),
+        (acquired) => Effect.sync(() => acquired.dispose()),
     );
+    const status = yield* SubscriptionRef.make<Status>({ sequence: 0, invalidated: 0, began: 0, active: HashSet.empty(), registrations: HashMap.empty(), published: HashMap.empty() });
+    const advance = (next: (current: Status) => Status): Effect.Effect<number> =>
+        SubscriptionRef.modify(status, (current) => {
+            const advanced = next({ ...current, sequence: current.sequence + 1 });
+            return [advanced.sequence, advanced];
+        });
+    const run = Effect.runSyncWith(yield* Effect.context<never>());
+    const observe = (next: (current: Status) => Status): void => run(Effect.asVoid(advance(next)));
+    const registered = <M extends (typeof Registration.Type)['method']>(current: Status, method: M): Extract<typeof Registration.Type, { readonly method: M }>[] => [...HashMap.values(current.registrations)].filter((entry): entry is Extract<typeof Registration.Type, { readonly method: M }> => entry.method === method);
+    const ask = <R>(message: (token: CancellationToken) => Promise<R>): Effect.Effect<R, RequestFailed> => send(message).pipe(deadline(config.requestTimeout));
+    const documents = new Map<string, Opened>();
+    const dirty = new Map<string, FileEvent & Pick<Opened, 'languageId'>>();
+    const results = new Map<string, Map<string | undefined, RelatedFullDocumentDiagnosticReport>>();
+    const receive = ({ events, stale }: Batch): Effect.Effect<void, RequestFailed> =>
+        Effect.flatMap(SubscriptionRef.get(status), (current) => {
+            [...(stale ? [...documents.keys()].map((uri): FileEvent => ({ uri, type: FileChangeType.Changed })) : []), ...events].forEach((event) => {
+                const opened = documents.get(event.uri);
+                if (opened !== undefined) {
+                    dirty.set(event.uri, { ...event, languageId: opened.languageId });
+                }
+            });
+            const watchers = registered(current, DidChangeWatchedFilesNotification.method).flatMap(({ registerOptions }) => registerOptions.watchers);
+            const changes = events.filter(({ uri, type }) => {
+                const path = fileURLToPath(uri);
+                return watchers.some(
+                    ({ globPattern, kind }) =>
+                        Option.match(kind, { onNone: () => true, onSome: (mask) => (mask & watchKinds[type]) !== 0 }) &&
+                        (typeof globPattern === 'string'
+                            ? minimatch(isAbsolute(globPattern) ? path : relative(folder, path), globPattern, { dot: true })
+                            : minimatch(relative(fileURLToPath(typeof globPattern.baseUri === 'string' ? globPattern.baseUri : globPattern.baseUri.uri), path), globPattern.pattern, { dot: true })),
+                );
+            });
+            return changes.length === 0 ? Effect.void : send(() => connection.sendNotification(DidChangeWatchedFilesNotification.type, { changes }));
+        });
     yield* Effect.acquireRelease(
-        Effect.tryPromise({
-            try: () =>
-                subscribe(
-                    workspace.root,
-                    (error, events) =>
-                        error === null
-                            ? Array.forEach(events, ({ path, type }) => {
-                                  const opened = documents.get(pathToFileURL(path).href);
-                                  if (opened !== undefined) {
-                                      workspace.stale.add(opened.uri);
-                                      dirty.set(opened.uri, { event: { uri: opened.uri, type: ({ create: FileChangeType.Created, update: FileChangeType.Changed, delete: FileChangeType.Deleted } as const)[type] }, languageId: opened.languageId });
-                                  }
-                              })
-                            : Deferred.doneUnsafe(watchFailed, Effect.fail(new RequestFailed({ cause: error }))),
-                    { ignore: workspace.ignore },
-                ),
-            catch: (cause) => new RequestFailed({ cause }),
-        }),
-        (subscription) => Effect.promise(() => subscription.unsubscribe()),
+        Effect.sync(() => workspace.observers.add(receive)),
+        () => Effect.sync(() => workspace.observers.delete(receive)),
     );
     const exited = Effect.raceFirst(
-        Effect.flatMap(Effect.exit(child.exitCode), (cause) => Effect.fail(new ServerExited({ cause }))),
-        Deferred.await(watchFailed),
+        Effect.flatMap(Effect.exit(child.exitCode), (cause) => Effect.fail(ServerExited.make({ cause }))),
+        workspace.watching,
     );
     connection.onRequest(ConfigurationRequest.type, ({ items }) =>
-        items.map(({ section }) =>
-            Option.getOrNull(Array.reduce(Array.fromNullishOr(section).flatMap(String.split('.')), config.settings, (value, key) => Option.flatMap(value, (entry) => (Array.isArray<Schema.Json>(entry) || typeof entry !== 'object' || entry === null ? Option.none() : Record.get<string, Schema.Json>(entry, key))))),
-        ),
+        items.map(({ section }) => Option.getOrNull((section?.split('.') ?? []).reduce((value, key) => Option.flatMap(value, (entry) => (Array.isArray<Schema.Json>(entry) || typeof entry !== 'object' || entry === null ? Option.none() : Record.get<string, Schema.Json>(entry, key))), config.settings))),
     );
-    connection.onRequest(WorkDoneProgressCreateRequest.type, () => undefined);
-    connection.onNotification(PublishDiagnosticsNotification.type, (pushed) => {
-        const opened = documents.get(pushed.uri);
-        if (opened !== undefined && !workspace.stale.has(pushed.uri) && (pushed.version === undefined || pushed.version === opened.version)) {
-            workspace.reports.set(pushed.uri, { ...workspace.reports.get(pushed.uri), pushed });
-        }
+    connection.onRequest(RegistrationRequest.type, ({ registrations }) =>
+        observe((current) => ({ ...current, invalidated: current.sequence, registrations: Array.getSomes(registrations.map((entry) => Schema.decodeUnknownOption(Registration)(entry))).reduce((all, entry) => HashMap.set(all, entry.id, entry), current.registrations) })),
+    );
+    connection.onRequest(UnregistrationRequest.type, ({ unregisterations }) => observe((current) => ({ ...current, invalidated: current.sequence, registrations: unregisterations.reduce((all, { id }) => HashMap.remove(all, id), current.registrations) })));
+    connection.onRequest(DiagnosticRefreshRequest.type, () => observe((current) => ({ ...current, invalidated: current.sequence })));
+    connection.onRequest(WorkDoneProgressCreateRequest.type, ({ token }) => {
+        const progress = connection.onProgress(WorkDoneProgress.type, token, ({ kind }): void => {
+            observe((current) =>
+                Match.value(kind).pipe(
+                    Match.when('begin', () => ({ ...current, invalidated: current.sequence, began: current.sequence, active: HashSet.add(current.active, token) })),
+                    Match.when('report', () => current),
+                    Match.when('end', () => ({ ...current, invalidated: current.sequence, active: HashSet.remove(current.active, token) })),
+                    Match.exhaustive,
+                ),
+            );
+            if (kind === 'end') {
+                progress.dispose();
+            }
+        });
     });
+    connection.onNotification(PublishDiagnosticsNotification.type, ({ uri, version, diagnostics }) => observe((current) => ({ ...current, published: HashMap.set(current.published, uri, { sequence: current.sequence, version, findings: diagnostics.map(finding) }) })));
     connection.listen();
-    const { capabilities } = yield* Effect.raceFirst(
-        send((token) =>
-            connection.sendRequest(
-                InitializeRequest.type,
-                {
-                    processId: process.pid,
-                    rootUri: pathToFileURL(folder).href,
-                    workspaceFolders: [{ uri: pathToFileURL(folder).href, name: basename(folder) }],
-                    initializationOptions: config.initializationOptions,
-                    capabilities: { workspace: { configuration: true }, textDocument: { synchronization: { didSave: true }, diagnostic: {}, publishDiagnostics: { versionSupport: true }, hover: { contentFormat: ['plaintext'] } } },
+    const { capabilities } = yield* send((token) =>
+        connection.sendRequest(
+            InitializeRequest.type,
+            {
+                processId: process.pid,
+                rootUri: workspaceFolder.uri,
+                workspaceFolders: [workspaceFolder],
+                initializationOptions: config.initializationOptions,
+                capabilities: {
+                    window: { workDoneProgress: true },
+                    workspace: { configuration: true, didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true }, diagnostics: { refreshSupport: true } },
+                    textDocument: {
+                        synchronization: { dynamicRegistration: true, didSave: true },
+                        diagnostic: { dynamicRegistration: true },
+                        publishDiagnostics: { versionSupport: true, relatedInformation: true, codeDescriptionSupport: true },
+                        hover: { contentFormat: [MarkupKind.PlainText] },
+                    },
                 },
-                token,
-            ),
+            },
+            token,
         ),
-        exited,
-    );
+    ).pipe(deadline(Option.getOrElse(config.startupTimeout, () => Duration.infinity)), Effect.raceFirst(exited));
+    const { openClose = false, change = TextDocumentSyncKind.None, save = false } = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
+    yield* advance((current) => ({
+        ...current,
+        registrations: HashMap.fromIterable(
+            (
+                [
+                    ...(capabilities.diagnosticProvider === undefined ? [] : [capabilities.diagnosticProvider]).map(({ identifier }) => ({ id: DocumentDiagnosticRequest.method, method: DocumentDiagnosticRequest.method, registerOptions: identifier === undefined ? {} : { identifier } })),
+                    ...(save === false ? [] : [{ id: DidSaveTextDocumentNotification.method, method: DidSaveTextDocumentNotification.method, registerOptions: save === true || save.includeText === undefined ? {} : { includeText: save.includeText } }]),
+                ] satisfies (typeof Registration.Type)[]
+            ).map((entry) => [entry.id, entry] as const),
+        ),
+    }));
     yield* send(() => connection.sendNotification(InitializedNotification.type, {}));
     yield* Effect.transposeOption(Option.map(config.settings, (settings) => send(() => connection.sendNotification(DidChangeConfigurationNotification.type, { settings }))));
-    yield* Effect.addFinalizer(() => send((token) => connection.sendRequest(ShutdownRequest.type, token)).pipe(Effect.andThen(send(() => connection.sendNotification(ExitNotification.type))), Effect.ignore));
-    const { openClose = false, change = TextDocumentSyncKind.None, save = false } = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
-    const diagnosticProvider = Option.fromUndefinedOr(capabilities.diagnosticProvider);
+    yield* Effect.addFinalizer(() =>
+        send((token) => connection.sendRequest(ShutdownRequest.type, token)).pipe(
+            Effect.andThen(send(() => connection.sendNotification(ExitNotification.type))),
+            Effect.andThen(child.exitCode),
+            deadline(Option.getOrElse(config.shutdownTimeout, () => Duration.infinity)),
+            Effect.ignore({ log: 'Warn', message: 'shutdown did not complete' }),
+        ),
+    );
+    const close = Effect.fn('close')(function* (uri: string) {
+        if (documents.has(uri) && openClose) {
+            yield* send(() => connection.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri } }));
+        }
+        documents.delete(uri);
+        dirty.delete(uri);
+        results.delete(uri);
+    });
     const synchronize = Effect.fn('synchronize')(function* (uri: string, languageId: string) {
-        const stale = workspace.stale.delete(uri);
-        const text = yield* workspace.fs.readFileString(fileURLToPath(uri)).pipe(
-            Effect.mapError((cause) => new ReadFailed({ cause })),
-            Effect.tapError(() => Effect.sync(() => stale && workspace.stale.add(uri))),
-        );
+        const text = yield* workspace.fs.readFileString(fileURLToPath(uri)).pipe(Effect.mapError((cause) => ReadFailed.make({ cause })));
+        dirty.delete(uri);
         const previous = documents.get(uri);
-        if (previous?.getText() === text) {
+        if (previous?.text === text) {
             return previous;
         }
-        const document = TextDocument.create(uri, languageId, MutableRef.incrementAndGet(versions), text);
+        const document: Opened = { uri, languageId, version: (previous?.version ?? 0) + 1, text, synced: yield* advance(identity) };
         documents.set(uri, document);
-        workspace.reports.delete(uri);
         if (previous === undefined ? openClose : change !== TextDocumentSyncKind.None) {
             yield* send(() =>
-                previous === undefined
-                    ? connection.sendNotification(DidOpenTextDocumentNotification.type, { textDocument: { uri, languageId, version: document.version, text } })
-                    : connection.sendNotification(DidChangeTextDocumentNotification.type, {
-                          textDocument: { uri, version: document.version },
-                          contentChanges: change === TextDocumentSyncKind.Incremental ? [{ range: { start: previous.positionAt(0), end: previous.positionAt(previous.getText().length) }, text }] : [{ text }],
-                      }),
+                previous === undefined ? connection.sendNotification(DidOpenTextDocumentNotification.type, { textDocument: Struct.omit(document, ['synced']) }) : connection.sendNotification(DidChangeTextDocumentNotification.type, { textDocument: { uri, version: document.version }, contentChanges: [{ text }] }),
             );
         }
-        if (save !== false) {
-            yield* send(() => connection.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri }, ...(save !== true && save.includeText === true ? { text } : {}) }));
-        }
+        yield* Effect.forEach(registered(yield* SubscriptionRef.get(status), DidSaveTextDocumentNotification.method).slice(0, 1), ({ registerOptions: { includeText } }) =>
+            send(() => connection.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri }, ...(includeText === true ? { text } : {}) })),
+        );
         return document;
     }, Effect.uninterruptible);
+    const pull = (document: Opened, identifier: string | undefined): Effect.Effect<Option.Option<readonly Finding[]>, RequestFailed> => {
+        const previous = results.get(document.uri)?.get(identifier);
+        return ask((token) => connection.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: document.uri }, ...(identifier === undefined ? {} : { identifier }), ...(previous?.resultId === undefined ? {} : { previousResultId: previous.resultId }) }, token)).pipe(
+            Effect.filterOrElse(
+                (report): report is RelatedFullDocumentDiagnosticReport => report.kind === DocumentDiagnosticReportKind.Full,
+                (report) => Effect.fromNullishOr(previous).pipe(Effect.mapBoth({ onFailure: () => RequestFailed.make({ cause: report }), onSuccess: (full) => ({ ...full, resultId: report.resultId }) })),
+            ),
+            Effect.tap((full) => Effect.sync(() => results.getOrInsertComputed(document.uri, () => new Map()).set(identifier, full))),
+            Effect.map(({ items }) => Option.some(items.map(finding))),
+            Effect.catchIf(
+                ({ cause }) => cause instanceof ResponseError && cause.code === LSPErrorCodes.ServerCancelled,
+                () => Effect.succeedNone,
+            ),
+        );
+    };
+    const collect = Effect.fnUntraced(function* (document: Opened, invalidated: number): Effect.fn.Return<readonly Finding[], RequestFailed> {
+        const pushed = (current: Status): Option.Option<Publication> => Option.filter(HashMap.get(current.published, document.uri), ({ sequence, version }) => (version === undefined ? sequence > document.synced : version === document.version));
+        yield* SubscriptionRef.changes(status).pipe(
+            Stream.takeUntil((current) => current.invalidated >= invalidated && HashSet.isEmpty(current.active) && (registered(current, DocumentDiagnosticRequest.method).length > 0 || ((current.began === 0 || current.began > document.synced) && Option.isSome(pushed(current))))),
+            Stream.runDrain,
+        );
+        const before = yield* SubscriptionRef.get(status);
+        const pulled = Option.all(yield* Effect.forEach(registered(before, DocumentDiagnosticRequest.method), ({ registerOptions: { identifier } }) => pull(document, identifier), { concurrency: 'unbounded' }));
+        const after = yield* SubscriptionRef.get(status);
+        return yield* Option.match(
+            Option.filter(pulled, () => after.invalidated === before.invalidated),
+            {
+                onNone: () => collect(document, Math.max(before.invalidated + 1, after.invalidated)),
+                onSome: (reports) => Effect.succeed([...reports.flat(), ...Option.toArray(pushed(after)).flatMap(({ findings }) => findings)]),
+            },
+        );
+    });
     return {
         connection,
         exited,
-        documents,
-        diagnosticProvider,
+        ask,
         synchronize,
-        refresh: Effect.fn('refresh')(function* (extra: readonly Change[]) {
-            const changes = [...new Map([...dirty, ...extra.map((pending) => [pending.event.uri, pending] as const)]).values()];
-            if (changes.length > 0) {
-                yield* send(() => connection.sendNotification(DidChangeWatchedFilesNotification.type, { changes: changes.map(({ event }) => event) }));
-            }
-            return Array.getSomes(
-                yield* Effect.validate(
-                    changes,
-                    Effect.fnUntraced(function* ({ event: { uri, type }, languageId }: Change) {
-                        const marked = dirty.get(uri);
-                        const document = type === FileChangeType.Deleted ? Option.none() : Option.some(yield* synchronize(uri, languageId));
-                        if (Option.isNone(document)) {
-                            if (documents.has(uri) && openClose) {
-                                yield* send(() => connection.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri } }));
-                            }
-                            documents.delete(uri);
-                            results.delete(uri);
-                            workspace.reports.delete(uri);
-                        }
-                        if (dirty.get(uri) === marked) {
-                            dirty.delete(uri);
-                        }
-                        return document;
-                    }, Effect.uninterruptible),
-                    { concurrency: 'unbounded' },
-                ).pipe(Effect.mapError((cause) => new RequestFailed({ cause }))),
-            );
-        }),
-        pull: Effect.fn('pull')(function* (document: TextDocument) {
-            const previous = results.get(document.uri);
-            const result = yield* Option.match(diagnosticProvider, {
-                onNone: () => Effect.succeedNone,
-                onSome: ({ identifier }) =>
-                    send((token) => connection.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: document.uri }, ...(identifier === undefined ? {} : { identifier }), ...(previous?.resultId === undefined ? {} : { previousResultId: previous.resultId }) }, token)).pipe(
-                        Effect.flatMap((report) => (report.kind === DocumentDiagnosticReportKind.Full ? Effect.succeed(report) : Effect.fromNullishOr(previous).pipe(Effect.mapBoth({ onFailure: () => new RequestFailed({ cause: report }), onSuccess: (full) => ({ ...full, resultId: report.resultId }) })))),
-                        Effect.tap((full) => Effect.sync(() => results.set(document.uri, full))),
-                        Effect.map(Option.some),
-                        Effect.catchIf(
-                            ({ cause }) => cause instanceof ResponseError && cause.code === LSPErrorCodes.ServerCancelled,
-                            () => Effect.succeedNone,
-                        ),
-                    ),
-            });
-            workspace.reports.set(document.uri, { ...workspace.reports.get(document.uri), pulled: Option.getOrUndefined(Option.map(result, ({ items }) => ({ uri: document.uri, version: document.version, diagnostics: items }))) });
+        refresh: Latch.await(workspace.current).pipe(
+            Effect.andThen(Effect.suspend(() => Effect.validate([...dirty.values()], ({ uri, type, languageId }) => (type === FileChangeType.Deleted ? close(uri) : Effect.asVoid(synchronize(uri, languageId)))))),
+            Effect.asVoid,
+            Effect.mapError((cause) => RequestFailed.make({ cause })),
+        ),
+        diagnose: Effect.fn('diagnose')(function* (document: Opened) {
+            const current = Array.dedupe(yield* collect(document, 0));
+            const referenced = current.flatMap(({ relatedInformation }) => relatedInformation.filter(({ location: { uri } }) => uri === document.uri).map(({ location: { range }, message }) => ({ range, message })));
+            return current
+                .filter(({ range, message }) => !referenced.some(Equal.equals({ range, message })))
+                .toSorted(Order.mapInput(Order.Tuple([Order.Number, Order.Number, Order.Number]), ({ range: { start: position }, severity }: Finding) => [position.line, position.character, severity] as const))
+                .flatMap(render(workspace.root, document.uri));
         }),
     };
 });
 
 // --- [RENDERING]
 
+const oneLine = (message: Diagnostic['message']): string => (typeof message === 'string' ? message : message.value).replaceAll('\n', ' ');
+const render =
+    (root: string, uri: string) =>
+    ({ severity, range, source, code, codeDescription, message, relatedInformation }: Finding): readonly string[] =>
+        Object.entries(DiagnosticSeverity)
+            .filter(([, value]) => value === severity)
+            .map(([name]) =>
+                [
+                    `${location(root, uri, range)} ${name.toLowerCase()} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${oneLine(message)}${codeDescription === undefined ? '' : ` ${codeDescription.href}`}`,
+                    ...relatedInformation.map((related) => `  ${location(root, related.location.uri, related.location.range)} ${oneLine(related.message)}`),
+                ].join('\n'),
+            );
 const location = (root: string, uri: string, { start: { line, character } }: Range): string => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
 const locations =
     (root: string) =>
     (targets: Definition | DefinitionLink[] | null): readonly string[] =>
-        Array.fromNullishOr(targets)
-            .flat()
-            .map((target) => ('targetUri' in target ? location(root, target.targetUri, target.targetSelectionRange) : location(root, target.uri, target.range)));
-const render =
-    (root: string, threshold: DiagnosticSeverity) =>
-    ({ uri, version, diagnostics }: PublishDiagnosticsParams): readonly string[] =>
-        diagnostics.flatMap(({ severity, range, source, code, message }) =>
-            Object.entries(DiagnosticSeverity)
-                .filter(([, value]) => value === (severity ?? DiagnosticSeverity.Error) && value <= threshold)
-                .map(([name]) => `${location(root, uri, range)} ${name.toLowerCase()} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${(typeof message === 'string' ? message : message.value).replaceAll('\n', ' ')}${version === undefined ? ' [server publication without document version]' : ''}`),
-        );
+        [targets ?? []].flat().map((target) => ('targetUri' in target ? location(root, target.targetUri, target.targetSelectionRange) : location(root, target.uri, target.range)));
 
 // --- [QUERIES]
 
-const open = Effect.fn('open')(function* (workspace: Workspace, file: string, use: (server: Server, document: TextDocument) => Effect.Effect<readonly string[], RequestFailed>) {
-    const { pool, languageId } = yield* Effect.fromNullishOr(workspace.languages.get(extname(file))).pipe(Effect.mapError(() => new NoLanguageServer({ file })));
+const open = Effect.fn('open')(function* (workspace: Workspace, file: string, use: (server: Server, document: Opened) => Effect.Effect<readonly string[], RequestFailed>) {
+    const { pool, languageId } = yield* Effect.fromNullishOr(workspace.languages.get(extname(file))).pipe(Effect.mapError(() => NoLanguageServer.make({ file })));
     const server = yield* Pool.get(pool);
     return {
-        lines: yield* server.refresh([]).pipe(
+        lines: yield* server.refresh.pipe(
             Effect.andThen(server.synchronize(pathToFileURL(resolve(workspace.root, file)).href, languageId)),
             Effect.flatMap((document) => use(server, document)),
             Effect.raceFirst(server.exited),
         ),
     };
 }, Effect.scoped);
-const request = Effect.fn('request')(<R>(workspace: Workspace, { file, line, column }: typeof Position.Type, call: (connection: ProtocolConnection, params: TextDocumentPositionParams, token: CancellationToken) => Promise<R>, lines: (result: R) => readonly string[]) =>
-    open(workspace, file, (server, { uri }) => send((token) => call(server.connection, { textDocument: { uri }, position: { line: line - 1, character: column - 1 } }, token)).pipe(Effect.map(lines))),
+const request = Effect.fn('request')(<R>(workspace: Workspace, { file, line, column }: typeof Position.Type, call: (server: Server, params: TextDocumentPositionParams, token: CancellationToken) => Promise<R>, lines: (result: R) => readonly string[]) =>
+    open(workspace, file, (server, { uri }) => server.ask((token) => call(server, { textDocument: { uri }, position: { line: line - 1, character: column - 1 } }, token)).pipe(Effect.map(lines))),
 );
-
-// --- [HOOKS]
-
-const feedback = Effect.fn('feedback')(function* (workspace: Workspace, sessionId: string, owned: Session, events: readonly FileEvent[]) {
-    const owns = (uri: string): boolean => workspace.edits.get(uri) === sessionId;
-    Array.forEach(events, (event) => {
-        const language = workspace.languages.get(extname(event.uri));
-        if (language !== undefined) {
-            owned.pending.set(event.uri, { event, ...language });
-        }
-    });
-    yield* Effect.validate(
-        Map.groupBy(
-            Array.filter(owned.pending.values(), ({ event }) => owns(event.uri)),
-            ({ pool }) => pool,
-        ),
-        ([pool, queued]) =>
-            Effect.flatMap(Pool.get(pool), (server) => {
-                const changes = queued.filter(({ event }) => owns(event.uri));
-                return server.refresh(changes).pipe(
-                    Effect.flatMap((refreshed) =>
-                        Effect.validate(
-                            (Option.exists(server.diagnosticProvider, ({ interFileDependencies }) => interFileDependencies) && changes.length + refreshed.length > 0 ? [...server.documents.values()] : refreshed).filter(({ uri }) => owns(uri)),
-                            server.pull,
-                            { concurrency: 'unbounded', discard: true },
-                        ),
-                    ),
-                    Effect.andThen(Effect.sync(() => Array.forEach(changes, ({ event }) => owned.pending.delete(event.uri)))),
-                    Effect.raceFirst(server.exited),
-                );
-            }).pipe(Effect.scoped),
-        { concurrency: 'unbounded', discard: true },
-    ).pipe(Effect.mapError((cause) => new RequestFailed({ cause })));
-    return [...workspace.reports].flatMap(([uri, { pushed, pulled }]) => {
-        const found = owns(uri) && !workspace.stale.has(uri) ? [pushed, pulled].filter((report) => report !== undefined).filter(({ version, diagnostics }) => version !== undefined || diagnostics.length > 0) : [];
-        const lines = new Set(found.flatMap(render(workspace.root, DiagnosticSeverity.Warning)));
-        const previous = owned.delivered.get(uri);
-        if (found.length > 0) {
-            owned.delivered.set(uri, lines);
-        }
-        return [...lines].filter((line) => previous?.has(line) !== true);
-    });
-});
-const format = Effect.fn('format')(function* (workspace: Workspace, project: string, sessionId: string, owned: Session) {
-    const events = Array.filter(owned.formatting.values(), ({ uri }) => workspace.edits.get(uri) === sessionId);
-    const failures: readonly string[] =
-        events.length === 0
-            ? []
-            : yield* Effect.tryPromise({
-                  try: (signal) =>
-                      promisify(execFile)('nx', ['run', `${project}:format:files`, '--output-style=static', '--', ...events.map(({ uri }) => fileURLToPath(uri))], { cwd: workspace.root, signal, maxBuffer: Number.POSITIVE_INFINITY }).then(
-                          (): readonly string[] => [],
-                          (error: { readonly code?: unknown; readonly stdout: string; readonly stderr: string }) => (typeof error.code === 'number' ? [`${error.stdout}${error.stderr}`.trim()] : Promise.reject(error)),
-                      ),
-                  catch: (cause) => new RequestFailed({ cause }),
-              });
-    if (failures.length === 0) {
-        Array.forEach(events, ({ uri }) => owned.formatting.delete(uri));
-    }
-    return yield* feedback(workspace, sessionId, owned, events).pipe(
-        Effect.map((diagnostics) => Array.match([...failures, ...diagnostics], { onEmpty: () => ({}), onNonEmpty: (lines) => ({ decision: 'block' as const, reason: lines.join('\n') }) })),
-        Effect.catchIf(
-            () => failures.length > 0,
-            (error) => Effect.succeed({ decision: 'block' as const, reason: failures.join('\n'), systemMessage: `Diagnostic feedback failed: ${Schema.toFormatter(Failure)(error)}` }),
-        ),
-    );
-});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const query = <const Name extends string, P extends Schema.Constraint, S extends Schema.Constraint>(name: Name, description: string, parameters: P, success: S): Tool.Tool<Name, { readonly parameters: P; readonly success: S; readonly failure: typeof Failure; readonly failureMode: 'error' }> =>
-    Tool.make(name, { description, parameters, success, failure: Failure }).annotate(Tool.Readonly, true).annotate(Tool.Destructive, false).annotate(Tool.OpenWorld, false);
+    Tool.make(name, { description, parameters, success, failure: Failure }).annotate(Tool.Readonly, true).annotate(Tool.Destructive, false).annotate(Tool.Idempotent, true).annotate(Tool.OpenWorld, false);
 const tools = Toolkit.make(
-    query('diagnostics', 'Errors, warnings, information, and hints the language server reports for a file, one `path:line:column severity source(code): message` line each', Document, Lines),
+    query('diagnostics', 'Language server diagnostics of a file, one `path:line:column severity source(code): message` line each with indented related locations', Document, Lines),
     query('definition', 'Definition locations of the symbol at a line and column, one `path:line:column` line each', Position, Lines),
     query('references', 'Reference locations of the symbol at a line and column, declaration included, one `path:line:column` line each', Position, Lines),
     query('hover', 'Type signature and documentation of the symbol at a line and column', Position, Lines),
-    query('feedback', 'PostToolUse hook records native session edits and delivers new errors and warnings for that session', EditContext, Schema.Struct({ hookSpecificOutput: Schema.optionalKey(Schema.Struct({ hookEventName: Schema.Literal('PostToolUse'), additionalContext: Schema.String })) })),
-    query(
-        'format',
-        'Stop hook formats native session edits through Nx writer targets and delivers new diagnostic facts',
-        EditContext.mapFields(Struct.pick(['sessionId'])),
-        Schema.Union([Schema.Struct({ decision: Schema.Literal('block'), reason: Schema.String, systemMessage: Schema.optionalKey(Schema.String) }), Schema.Record(Schema.String, Schema.Never)]),
-    ).annotate(Tool.Readonly, false),
 );
 const initialize = Effect.fn('initialize')(function* () {
     const root = process.cwd();
+    const fs = yield* FileSystem.FileSystem;
     const ignored = yield* Effect.validate(
         [
             { args: ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'], separator: '\0' },
             { args: ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'], separator: '\n' },
         ],
-        ({ args, separator }) => Effect.tryPromise((signal) => promisify(execFile)('git', args, { cwd: root, signal, maxBuffer: Number.POSITIVE_INFINITY })).pipe(Effect.map(({ stdout }) => stdout.split(separator).filter((path) => path.length > 0))),
+        ({ args, separator }) =>
+            Effect.scoped(Effect.flatMap(ChildProcess.make('git', args, { cwd: root }), (handle) => Effect.all({ text: Stream.mkString(Stream.decodeText(handle.stdout)), code: handle.exitCode }, { concurrency: 'unbounded' }))).pipe(
+                Effect.filterOrFail(
+                    ({ code }) => code === 0,
+                    (cause) => RequestFailed.make({ cause }),
+                ),
+                Effect.map(({ text }) => text.split(separator).filter((path) => path.length > 0)),
+            ),
         { concurrency: 'unbounded' },
-    ).pipe(Effect.mapError((cause) => new RequestFailed({ cause })));
-    const { name: project } = readJsonFile<{ readonly name: string }>(resolve(root, 'package.json'));
-    const variables: NodeJS.Dict<string> = { ...process.env, ...Record.singleton('CLAUDE_PROJECT_DIR', root) };
+    ).pipe(Effect.mapError((cause) => RequestFailed.make({ cause })));
+    const variables: NodeJS.Dict<string> = { ...process.env, CLAUDE_PROJECT_DIR: root };
     const substitute = (value: Schema.Json): Schema.Json =>
         Match.value(value).pipe(
-            Match.when(Match.string, (text) => text.replace(/\$\{(?<name>\w+)\}/gu, (match, name: string) => variables[name] ?? match)),
-            Match.when(Array.isArray<Schema.Json>, (values) => values.map(substitute)),
+            Match.when(Match.string, (template) => template.replace(/\$\{(?<name>\w+)\}/gu, (match, name: string) => variables[name] ?? match)),
+            Match.when(Array.isArray<Schema.Json>, (items) => items.map(substitute)),
             Match.when(Predicate.isObjectKeyword, Record.map(substitute)),
             Match.orElse(() => value),
         );
+    const ignore = ignored.flat().map((path) => resolve(root, path));
+    const snapshot = resolve(root, '.cache', plugin.name, 'watcher.snapshot');
+    const scanned = { ignore: [...ignore, snapshot], backend: 'brute-force' as const };
+    const record = fs.makeDirectory(dirname(snapshot), { recursive: true }).pipe(
+        Effect.mapError((cause) => RequestFailed.make({ cause })),
+        Effect.andThen(Effect.tryPromise({ try: () => writeSnapshot(root, snapshot, scanned), catch: (cause) => RequestFailed.make({ cause }) })),
+    );
+    const observers: Workspace['observers'] = new Set();
+    const current = yield* Latch.make(true);
+    const scope = yield* Scope.fork(yield* Effect.scope, 'parallel');
+    const notify = (batch: Batch): Effect.Effect<void, RequestFailed> => Effect.forEach(observers, (receive) => receive(batch), { discard: true });
+    yield* record;
+    const watcher = yield* Stream.callback<Batch, RequestFailed>((queue) =>
+        Effect.acquireRelease(Effect.tryPromise({ try: () => subscribe(root, (error, events) => Queue.offerUnsafe(queue, { events: events.map(fileEvent), stale: error !== null }), { ignore }), catch: (cause) => RequestFailed.make({ cause }) }), (subscription) => Effect.promise(() => subscription.unsubscribe())),
+    ).pipe(
+        Stream.runForEach((batch) =>
+            batch.stale
+                ? Latch.close(current).pipe(
+                      Effect.andThen(Effect.tryPromise({ try: () => getEventsSince(root, snapshot, scanned), catch: (cause) => RequestFailed.make({ cause }) })),
+                      Effect.tap(() => record),
+                      Effect.flatMap((missed) => notify({ events: [...batch.events, ...missed.map(fileEvent)], stale: true })),
+                      Effect.ensuring(Latch.open(current)),
+                  )
+                : notify(batch),
+        ),
+        Effect.forkIn(scope),
+    );
     const workspace: Workspace = {
-        fs: yield* FileSystem.FileSystem,
+        fs,
         root,
-        ignore: ignored.flat().map((path) => resolve(root, path)),
+        observers,
+        current,
+        watching: Effect.flatMap(Fiber.await(watcher), (cause) => Effect.fail(RequestFailed.make({ cause }))),
         languages: new Map(),
-        reports: new Map(),
-        stale: new Set(),
-        edits: new Map(),
-        sessions: yield* Cache.make<string, Session>({ capacity: Number.POSITIVE_INFINITY, lookup: () => Effect.map(Semaphore.make(1), (delivery) => ({ pending: new Map(), formatting: new Map(), delivered: new Map(), delivery })) }),
     };
-    const scope = yield* Effect.scope;
     yield* Effect.forEach(
-        Object.values(yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, LanguageServer))(substitute(lsp))),
-        Effect.fnUntraced(function* (config: typeof LanguageServer.Type) {
+        Object.entries(yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, LanguageServer))(substitute(lsp))),
+        Effect.fnUntraced(function* ([language, config]: readonly [string, typeof LanguageServer.Type]) {
             const pool: Language['pool'] = yield* Pool.makeWithTTL({
-                acquire: start(config, workspace).pipe(Effect.tap((server) => server.exited.pipe(Effect.ignore, Effect.andThen(Pool.invalidate(pool, server)), Effect.forkIn(scope)))),
+                acquire: start(config, workspace).pipe(
+                    Effect.annotateLogs({ language }),
+                    Effect.tap((server) => server.exited.pipe(Effect.ignore, Effect.andThen(Pool.invalidate(pool, server)), Effect.forkIn(scope))),
+                ),
                 min: 0,
                 max: 1,
-                timeToLive: Duration.infinity,
+                timeToLive: '30 minutes',
+            }).pipe(Scope.provide(scope));
+            Object.entries(config.extensionToLanguage).forEach(([extension, languageId]) => {
+                workspace.languages.set(extension, { pool, languageId });
             });
-            Array.forEach(Record.toEntries(config.extensionToLanguage), ([extension, languageId]) => workspace.languages.set(extension, { pool, languageId }));
         }),
     );
     return tools.of({
-        diagnostics: ({ file }) =>
-            open(workspace, file, (server, document) =>
-                server.pull(document).pipe(
-                    Effect.map(() => {
-                        const { pushed, pulled } = workspace.stale.has(document.uri) ? {} : (workspace.reports.get(document.uri) ?? {});
-                        const lines = [pushed, pulled].filter((report) => report !== undefined).flatMap(render(root, DiagnosticSeverity.Hint));
-                        const path = relative(root, fileURLToPath(document.uri));
-                        return Option.match(Option.fromUndefinedOr(Option.isSome(server.diagnosticProvider) ? pulled : pushed), {
-                            onNone: () => [`${path}: awaiting diagnostic publication for document version ${document.version}`, ...lines],
-                            onSome: ({ version, diagnostics }) => (version === undefined && diagnostics.length === 0 ? [`${path}: empty server publication without document version; current document diagnostics unknown`] : lines),
-                        });
-                    }),
-                ),
-            ),
-        definition: (position) => request(workspace, position, (connection, params, token) => connection.sendRequest(DefinitionRequest.type, params, token), locations(root)),
-        references: (position) => request(workspace, position, (connection, params, token) => connection.sendRequest(ReferencesRequest.type, { ...params, context: { includeDeclaration: true } }, token), locations(root)),
+        diagnostics: ({ file }) => open(workspace, file, (server, document) => server.diagnose(document)),
+        definition: (position) => request(workspace, position, ({ connection }, params, token) => connection.sendRequest(DefinitionRequest.type, params, token), locations(root)),
+        references: (position) => request(workspace, position, ({ connection }, params, token) => connection.sendRequest(ReferencesRequest.type, { ...params, context: { includeDeclaration: true } }, token), locations(root)),
         hover: (position) =>
             request(
                 workspace,
                 position,
-                (connection, params, token) => connection.sendRequest(HoverRequest.type, params, token),
-                (hover) =>
-                    Array.fromNullishOr(hover?.contents)
-                        .flat()
-                        .map((content) => (typeof content === 'string' ? content : content.value)),
+                ({ connection }, params, token) => connection.sendRequest(HoverRequest.type, params, token),
+                (hover) => [hover?.contents ?? []].flat().map((content) => (typeof content === 'string' ? content : content.value)),
             ),
-        feedback: (context) =>
-            Effect.flatMap(Cache.get(workspace.sessions, context.sessionId), (owned) =>
-                nativeEdits(workspace.fs, context).pipe(
-                    Effect.tap((events) =>
-                        Effect.sync(() =>
-                            Array.forEach(events, (event) => {
-                                workspace.stale.add(event.uri);
-                                workspace.edits.set(event.uri, context.sessionId);
-                                if (event.type === FileChangeType.Deleted) {
-                                    owned.formatting.delete(event.uri);
-                                    owned.delivered.delete(event.uri);
-                                } else {
-                                    owned.formatting.set(event.uri, event);
-                                }
-                            }),
-                        ),
-                    ),
-                    Effect.flatMap((events) => feedback(workspace, context.sessionId, owned, events)),
-                    owned.delivery.withPermit,
-                    Effect.map((lines) => (lines.length === 0 ? {} : { hookSpecificOutput: { hookEventName: 'PostToolUse' as const, additionalContext: `Workspace diagnostics:\n${lines.join('\n')}` } })),
-                ),
-            ),
-        format: ({ sessionId }) => Effect.flatMap(Cache.get(workspace.sessions, sessionId), (owned) => format(workspace, project, sessionId, owned).pipe(owned.delivery.withPermit)),
     });
 });
 
@@ -490,15 +510,14 @@ const endpoint = McpServer.toolkit(tools).pipe(
     Layer.provide(tools.toLayer(initialize())),
     Layer.provide(
         McpServer.layerHttp({
-            instructions: "Read a symbol's definition, references, and type signature from its language server before changing it, and a file's diagnostics after",
             name: plugin.name,
             path: '/',
-            protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_06_18],
+            protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18],
             version: plugin.version,
         }),
     ),
 );
 
-Command.make(plugin.name, { port: Flag.Int('port').pipe(Flag.withSchema(Schema.Number.check(Schema.isBetween({ minimum: 1, maximum: 65_535 }))), Flag.withDescription('Loopback port the Streamable HTTP endpoint listens on')) }, ({ port }) =>
-    HttpRouter.serve(endpoint, { disableLogger: true }).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port })), Layer.launch),
-).pipe(Command.run({ version: plugin.version }), Effect.provide(NodeServices.layer), Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain);
+Command.make(plugin.name, { port: Flag.Int('port').pipe(Flag.withSchema(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65_535 }))), Flag.withDescription('Loopback port the Streamable HTTP endpoint listens on')) }, ({ port }) =>
+    HttpRouter.serve(endpoint, { disableLogger: true }).pipe(Layer.provide(NodeHttpServer.layerServer(createServer, { host: '127.0.0.1', port, disablePreemptiveShutdown: true })), Layer.launch),
+).pipe(Command.run({ version: plugin.version }), Effect.provide(NodeServices.layer), Effect.provideService(Logger.LogToStderr, true), NodeRuntime.runMain({ teardown: (exit, onExit) => Runtime.defaultTeardown<unknown, unknown>(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? Exit.void : exit, onExit) }));

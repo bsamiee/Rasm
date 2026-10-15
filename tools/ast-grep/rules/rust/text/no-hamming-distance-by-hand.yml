@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hamming-distance-by-hand
+language: rust
+severity: error
+utils:
+    chars:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^chars$'}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    zipped-chars:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^zip$'}}, {has: {field: value, matches: chars}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: chars}}
+            - all:
+                - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?zip$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: chars}}, {has: {nthChild: 2, matches: chars}}]}
+    side:
+        any:
+            - kind: identifier
+            - kind: unary_expression
+              regex: '^\*'
+              has: {kind: identifier}
+            - kind: field_expression
+              has: {field: field, regex: '^[01]$'}
+    differs:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^!=$'}
+            - has: {field: left, matches: side}
+            - has: {field: right, matches: side}
+    pair-step:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: value, matches: zipped-chars}}
+            - any:
+                - all:
+                    - has: {field: function, has: {field: field, regex: '^filter$'}}
+                    - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, matches: differs}}}
+                - all:
+                    - has: {field: function, has: {field: field, regex: '^map$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            kind: closure_expression
+                            has:
+                                field: body
+                                kind: call_expression
+                                all:
+                                    - has: {field: function, regex: '^(u8|u16|u32|u64|usize)::from$'}
+                                    - has: {field: arguments, has: {nthChild: 1, matches: differs}}
+    tally:
+        kind: field_expression
+        all: [{has: {field: field, regex: '^(count|sum)$'}}, {has: {field: value, matches: pair-step}}]
+rule:
+    kind: call_expression
+    pattern: $CHAIN
+    all:
+        - has: {field: function, any: [{matches: tally}, {kind: generic_function, has: {field: function, matches: tally}}]}
+        - has: {field: arguments, not: {has: {pattern: $_}}}
+message: '`$CHAIN` counts the differing chars of two texts by hand'
+note: 'Call `strsim::hamming(<a>, <b>)`, `hamming` returns `Err(StrSimError::DifferentLengthArgs)` on texts of unequal length where `zip` stops at the shorter text and counts a prefix'

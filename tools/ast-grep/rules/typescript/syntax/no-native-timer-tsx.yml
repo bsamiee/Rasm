@@ -21,11 +21,15 @@ rule:
         pattern: $NAME
         any:
             - matches: syntax-global-reference
-              regex: '^((globalThis|window|self)\.)?(setTimeout|setInterval|setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout|process\.nextTick)$'
+              regex: '^((window|self)\.(setTimeout|setInterval)|((globalThis|window|self)\.)?(setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout|process\.nextTick))$'
             - matches:
                 syntax-import-reference:
-                    source: {regex: '^(node:)?timers(/promises)?$'}
-                    exported: {regex: '^(setTimeout|setInterval|setImmediate|clearTimeout|clearInterval|clearImmediate)$'}
+                    source: {regex: '^(node:)?timers$'}
+                    exported: {regex: '^(setImmediate|clearTimeout|clearInterval|clearImmediate)$'}
+            - matches:
+                syntax-import-reference:
+                    source: {regex: '^(node:)?timers/promises$'}
+                    exported: {regex: '^(setTimeout|setInterval|setImmediate)$'}
             - matches:
                 syntax-import-reference:
                     source: {regex: '^(node:)?process$'}

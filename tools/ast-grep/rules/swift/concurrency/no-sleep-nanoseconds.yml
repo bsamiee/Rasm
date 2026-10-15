@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sleep-nanoseconds
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {nthChild: 1, kind: navigation_expression, regex: '^(_Concurrency\.)?Task(<[^{]*>)?\.sleep$', pattern: $SLEEP}
+        - has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                has:
+                    kind: value_argument
+                    all:
+                        - has: {field: name, regex: '^nanoseconds$'}
+                        - has: {field: value, pattern: $N}
+message: '`$SLEEP(nanoseconds: $N)` counts a `UInt64` of nanoseconds in place of a `Duration`'
+note: 'Sleep for a `Duration` through `Task.sleep(for:)`, which waits on `ContinuousClock` and counts time the system sleeps'
+fix: '$SLEEP(for: .nanoseconds($N))'

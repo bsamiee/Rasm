@@ -12,6 +12,7 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Files;
 
@@ -131,9 +132,9 @@ public sealed record LayeredDocument {
     private PixelFrame Over(PixelFrame under, DocumentLayer layer) =>
         layer.Switch(
             (Document: this, Under: under),
-            raster: static (state, raster) => Blend.Composite(state.Under, raster.Frame, raster.Mode, raster.Opacity, raster.Mask.Map(static mask => new Mask(MaskOperation.Add, mask)).ToSeq(), AlphaRepresentation.Associated),
+            raster: static (state, raster) => Blend.Composite(state.Under, raster.Frame, raster.Mode, raster.Opacity, raster.Mask.Map(static mask => new Mask(MaskOperation.Add, mask)).ToSeq(), PixelAlphaRepresentation.Associated),
             folder: static (state, folder) => folder.Mode.Match(
-                Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, [], AlphaRepresentation.Associated),
+                Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, [], PixelAlphaRepresentation.Associated),
                 None: () => state.Document.Flatten(folder.Children, state.Under) switch {
                     var passed => folder.Opacity == Mix.Full ? passed : new PixelFrame(passed.Origin, passed.Size, passed.Extent, block => TensorPrimitives.Lerp(state.Under.Block, passed.Block, (float)folder.Opacity, block)),
                 }));
@@ -171,7 +172,7 @@ public sealed record LayeredDocument {
             this,
             raster: static (document, raster) => Seq(new LayerRecord(
                 document.Canvas.Window, document.Channels(raster), raster.Mode.BlendModeKey, raster.Opacity, raster.Visible, raster.Mask.Map(_ => document.Canvas.Window), raster.Name, [])),
-            folder: static (document, folder) => folder.Mode.Map(static mode => mode.BlendModeKey).IfNone(PassThrough) switch {
+            folder: static (document, folder) => folder.Mode.Match(Some: static mode => mode.BlendModeKey, None: PassThrough) switch {
                 var key => Divider.Cons(document.Records(folder.Children)).Add(new LayerRecord(
                     (0L, 0L, 0L, 0L), GroupChannels, key, folder.Opacity, folder.Visible, None, folder.Name, [folder.Open ? 1u : 2u, Signature, key])),
             }));

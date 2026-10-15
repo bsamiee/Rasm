@@ -1,6 +1,6 @@
 ---
 name: search-web
-description: "Use when a task needs live web retrieval, discovery, page reading, site section, claim check, or cited research report."
+description: "Use when a task needs an answer from the open web, covering discovery, page and PDF reading, site sections, and cited research."
 argument-hint: "[question]"
 ---
 
@@ -160,17 +160,17 @@ tvly research run '<scope>' --model mini --no-wait --json
 cat > '<schema.json>' <<'JSON'
 {
     "properties": {
-    "claims": {
-        "type": "array", "description": "Findings required by the scope",
-        "items": {
-        "type": "object",
-        "properties": {
-            "claim": {"type": "string", "description": "Claim stated in cited source"},
-            "source_url": {"type": "string", "description": "URL supporting the claim"}
-        },
-        "required": ["claim", "source_url"]
+        "claims": {
+            "type": "array", "description": "Findings required by the scope",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "claim": {"type": "string", "description": "Claim stated in cited source"},
+                    "source_url": {"type": "string", "description": "URL supporting the claim"}
+                },
+                "required": ["claim", "source_url"]
+            }
         }
-    }
     },
     "required": ["claims"]
 }
@@ -193,17 +193,17 @@ mcp__exa__agent_run {
     "outputSchema": {
         "type": "object", "required": ["rows"],
         "properties": {
-        "rows": {
-            "type": "array", "maxItems": 1,
-            "items": {
-            "type": "object", "required": ["name", "claim", "source_url"],
-            "properties": {
-                "name": {"type": "string"},
-                "claim": {"type": ["string", "null"]},
-                "source_url": {"type": ["string", "null"], "format": "uri"}
+            "rows": {
+                "type": "array", "maxItems": 1,
+                "items": {
+                    "type": "object", "required": ["name", "claim", "source_url"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "claim": {"type": ["string", "null"]},
+                        "source_url": {"type": ["string", "null"], "format": "uri"}
+                    }
+                }
             }
-            }
-        }
         }
     }
 }

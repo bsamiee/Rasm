@@ -2,6 +2,7 @@
 id: no-partial-class-attribute
 language: python
 severity: error
+metadata: {python-below: '3.14'}
 utils:
     record-base:
         any:
@@ -88,5 +89,5 @@ rule:
             - has: {matches: partial-class}
             - not: {follows: {kind: decorator, stopBy: end}}
             - inside: {kind: decorated_definition, matches: class-body}
-message: '`$VALUE` stores `functools.partial` as a class attribute, bound as a method on Python 3.14 and later and unbound on Blender and Rhino''s embedded Python 3.13'
+message: '`$VALUE` stores `functools.partial` as a class attribute, bound as a method from Python 3.14 and unbound below it'
 note: 'Wrap the partial in `staticmethod` for an unbound call, `functools.partialmethod` for a method, or `enum.member` for an enum member, each bound alike on every interpreter'

@@ -1,4 +1,4 @@
-"""Native asset metadata, catalogs, session libraries, imports, and publication."""
+"""Native asset metadata, catalogs, extension libraries, imports, and publication."""
 
 from collections.abc import Generator
 from contextlib import contextmanager, ExitStack
@@ -15,7 +15,7 @@ import msgspec
 
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderReadFault, BlenderResult, BlenderWriteFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult, BlenderWriteFault
 from blender.bpy.files.blends import folder_made
 from blender.bpy.files.libraries import blocks_loaded, library_written, LibraryLink, Linked, listed, LocalCopy
 from blender.imaging.faults import accumulated, paired
@@ -81,7 +81,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension library acquired as a session preference row."""
+    """Extension library held as a preference row while the extension is enabled."""
 
     title: str
     folder: Key
@@ -92,12 +92,12 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
         return identity.folder / "assets" / self.folder
 
     def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
-        """Returns the preference acquisition released ahead of Blender's preference save."""
-        return Ok(((Band.PREFERENCE_ROWS, self.acquired(identity)),))
+        """Returns the preference row acquisition."""
+        return Ok(((Band.RESOURCES, self.acquired(identity)),))
 
     @contextmanager
     def acquired(self, identity: Identity) -> Generator[BlenderResult[None]]:
-        """Places the session library and releases its preference changes.
+        """Places the library row, or takes the row an earlier session's preference save kept, and removes it on release.
 
         Args:
             identity: Extension owning the library folder.
@@ -108,16 +108,12 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as lifetime:
 
             def held(folder: Path, rows: bpy.types.AssetLibraryCollection) -> BlenderResult[bpy.types.UserAssetLibrary]:
-                match next((row for row in rows if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None):
-                    case None:
-                        made = Option.of_optional(rows.new(name=self.title, directory=str(folder))).to_result_with(lambda: (BlenderAbsentFault(owner=repr(rows), key=self.title),))
-                        for row in made.to_option().to_list():
-                            lifetime.callback(rows.remove, row)
-                        return made
-                    case row:
-                        lifetime.callback(setattr, row, "name", row.name)
-                        lifetime.callback(setattr, row, "import_method", row.import_method)
-                        return Ok(row)
+                made: BlenderResult[bpy.types.UserAssetLibrary] = Option.of_optional(
+                    next((row for row in rows if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None) or rows.new(name=self.title, directory=str(folder))
+                ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(rows), key=self.title),))
+                for row in made.to_option().to_list():
+                    lifetime.callback(rows.remove, row)
+                return made
 
             def configured(row: bpy.types.UserAssetLibrary) -> None:
                 row.name = self.title
@@ -148,17 +144,20 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
     target = folder / "blender_assets.cats.txt"
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
 
+    def unread(error: msgspec.ValidationError | ValueError) -> BlenderFaults:
+        return (BlenderReadFault(request=target, error=error),)
+
     def ensured(_: Path) -> BlenderResult[dict[str, UUID]]:
         try:
             return accumulated(
                 paired(
-                    catch(lambda: msgspec.convert(catalog.path, CatalogPath), exception=msgspec.ValidationError)().map_error(lambda error: (BlenderReadFault(request=str(target), error=error),)),
-                    catch(lambda: UUID(catalog.uuids[0]), exception=ValueError)().map_error(lambda error: (BlenderReadFault(request=str(target), error=error),)),
+                    catch(lambda: msgspec.convert(catalog.path, CatalogPath), exception=msgspec.ValidationError)().map_error(unread),
+                    catch(lambda: UUID(catalog.uuids[0]), exception=ValueError)().map_error(unread),
                 )
                 for catalog in parse_catalogs(folder)  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[not-iterable]
             ).map(dict)
         except (OSError, UnicodeError) as error:
-            return Error((BlenderReadFault(request=str(target), error=error),))
+            return Error((BlenderReadFault(request=target, error=error),))
 
     def appended(held: dict[str, UUID]) -> BlenderResult[dict[str, UUID]]:
         added = {path: uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}") for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
@@ -168,7 +167,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 file.write(("VERSION 1\n\n" if file.tell() == 0 else "\n") + "".join(f"{uid}:{path}:{path.replace('/', '-')}\n" for path, uid in added.items()))
             return held | added
 
-        return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(target), error=error),)) if added else Ok(held)
+        return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=target, error=error),)) if added else Ok(held)
 
     def marked(catalogs: dict[str, UUID]) -> BlenderResult[Path]:
         try:
@@ -239,7 +238,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
     try:
         paths = tuple(sorted(root.rglob("*.blend")))
     except OSError as error:
-        return Error((BlenderReadFault(request=str(root), error=error),))
+        return Error((BlenderReadFault(request=root, error=error),))
     return (
         accumulated(listed(path, kind, assets_only=True) for path in paths)
         .bind(lambda listings: Option.of_optional(next((path for path, names in zip(paths, listings) if name in names), None)).to_result_with(lambda: (BlenderAbsentFault(owner=str(root), key=name),)))

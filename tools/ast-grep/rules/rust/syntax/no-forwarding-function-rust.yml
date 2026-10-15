@@ -13,6 +13,9 @@ utils:
               has: {field: function, kind: 'identifier, scoped_identifier'}
             - kind: field_expression
               has: {field: value, kind: self}
+            - kind: field_expression
+              has: {field: value, kind: identifier, pattern: $R}
+              inside: {kind: function_item, stopBy: end, has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $R}}}}
     forwarded-call:
         kind: call_expression
         all:
@@ -55,7 +58,10 @@ utils:
         kind: identifier
         nthChild: {position: 1, ofRule: {not: {matches: comment}}}
         pattern: $X
-        not: {inside: {kind: function_item, stopBy: *owner, has: {field: parameters, has: {matches: parameter-name, nthChild: {position: 1, ofRule: {kind: parameter}}}}}}
+        not:
+            any:
+                - inside: {kind: function_item, stopBy: *owner, has: {field: parameters, has: {matches: parameter-name, nthChild: {position: 1, ofRule: {kind: parameter}}}}}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, kind: identifier}}}}
     unforwarded-parameter:
         not: {kind: self_parameter}
         any:
@@ -63,6 +69,7 @@ utils:
             - all:
                 - matches: parameter-name
                 - not: {inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, kind: arguments, pattern: $ARGS, has: {kind: identifier, pattern: $X}}}}}}
+                - not: {inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, kind: field_expression, pattern: $F, has: {field: value, kind: identifier, pattern: $X}}}}}}
     plain-attribute:
         kind: attribute_item
         regex: '^#\[\s*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)\b'
@@ -84,4 +91,4 @@ rule:
         - not: {matches: rust-fixed-signature}
         - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, not: {matches: plain-attribute}}}
 message: 'Function forwards its parameters unchanged to `$F`'
-note: 'Call `<callee>` at each call site, and re-export it by name (`pub use <path>::<callee>;`) where the forwarder widened its visibility'
+note: 'Call `<callee>` at each call site, and give the callee the visibility the forwarder exposed, Clippy `pub_use` rejects a re-export'

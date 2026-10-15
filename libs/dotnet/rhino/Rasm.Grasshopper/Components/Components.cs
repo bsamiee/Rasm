@@ -142,14 +142,14 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         Callbacks.Run(Callbacks.Each(Seq(
             Detached,
             when(Document is not null, DisposalOps.Acquire(
-                retain => TSelf.Row.Attached((TSelf)this, retain).Map(_ => retain),
+                retain => TSelf.Row.Attached((TSelf)this, retain).Map(retain),
                 (retain, lease) => atomic(() => attachment.Value = Some((retain, lease)))).Map(static _ => unit)).As())), DefinedGrasshopperPlugin.Site(this));
 
     private IO<Unit> Detached => atomicIO(() => {
         Option<(Action<IDisposable> Retain, IDisposable Lease)> held = attachment.Value;
         attachment.Value = None;
         return held;
-    }).Bind(static held => held.Traverse(static scope => IO.lift(scope.Lease.Dispose)).As()).Map(static _ => unit);
+    }).Bind(static held => held.Traverse(static scope => IO.lift(scope.Lease.Dispose)).As()).Map(unit);
 
     public IO<A> Retained<A>(Func<Action<IDisposable>, IO<A>> acquire) =>
         atomicIO(() => attachment.Value.Map(static scope => scope.Retain).ToFin(Errors.Cancelled))
@@ -246,7 +246,7 @@ public static class ComponentOps {
 
     // --- [COMPLETED_INPUTS]
     public static IO<Option<A>> Completed<A>(ModularComponent component, Func<ObjectSolutionState, Option<A>> read) =>
-        IO.lift(() => Some(component.State).Filter(static state => state.Phase == Grasshopper2.Doc.Phase.Completed).Bind(read));
+        IO.lift(() => Some(component.State).Filter(static state => state.Phase is Grasshopper2.Doc.Phase.Completed).Bind(read));
 
     public static Option<A> CurrentInput<A>(ModularComponent component, ObjectSolutionState state, int index) =>
         Optional(state.Data.Tree(component.Parameters.Input(index).InstanceId))

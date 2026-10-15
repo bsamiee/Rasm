@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-copied-continuation-csharp
+language: csharp
+severity: error
+utils:
+    owner:
+        kind: 'method_declaration, local_function_statement'
+    parameter:
+        inside: {stopBy: end, matches: owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $REST}}}}
+    base:
+        kind: identifier
+        pattern: $BASE
+        inside: {stopBy: end, matches: owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $BASE}}}}
+    tail:
+        any:
+            - {kind: member_access_expression, all: [{has: {field: name, regex: '^Tail$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}
+            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Skip|Slice|Drop|GetRange)$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}}
+            - {kind: element_access_expression, all: [{has: {field: expression, kind: identifier, pattern: $REST}}, {has: {field: subscript, has: {kind: argument, has: {kind: range_expression}}}}]}
+    worked:
+        any:
+            - matches: tail
+            - {kind: member_access_expression, all: [{has: {field: name, regex: '^Head$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}
+            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault)$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}}
+            - {kind: element_access_expression, has: {field: expression, kind: identifier, pattern: $REST}}
+    rest:
+        any:
+            - all:
+                - matches: tail
+                - matches: parameter
+            - kind: identifier
+              pattern: $REST
+              any:
+                - all:
+                    - matches: parameter
+                    - inside: {stopBy: end, matches: owner, has: {field: body, has: {stopBy: end, matches: worked}}}
+                - inside:
+                    stopBy: end
+                    matches: owner
+                    has:
+                        field: body
+                        has:
+                            stopBy: end
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $REST}
+                                - has:
+                                    all:
+                                        - any:
+                                            - {kind: member_access_expression, has: {field: name, regex: '^Tail$'}}
+                                            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Skip|Slice|Drop|GetRange)$'}}}
+                                            - {kind: element_access_expression, has: {field: subscript, has: {kind: argument, has: {kind: range_expression}}}}
+                                        - any:
+                                            - {kind: 'member_access_expression, element_access_expression', has: {field: expression, matches: base}}
+                                            - {kind: invocation_expression, has: {field: function, has: {field: expression, matches: base}}}
+    joined:
+        any:
+            - kind: collection_expression
+              all:
+                - has: {kind: collection_element, has: {kind: spread_element, has: {matches: rest}}}
+                - has: {kind: collection_element, not: {has: {kind: spread_element, has: {any: [{matches: tail}, {kind: identifier, pattern: $REST}]}}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Concat|Prepend|Append|Cons)$'}}
+                - any:
+                    - has: {field: function, has: {field: expression, matches: rest}}
+                    - has: {field: arguments, has: {kind: argument, has: {matches: rest}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\+$'}
+                - any: [{has: {field: left, matches: rest}}, {has: {field: right, matches: rest}}]
+    recurses:
+        kind: invocation_expression
+        has: {field: function, any: [{kind: identifier, pattern: $NAME}, {kind: member_access_expression, has: {field: name, pattern: $NAME}}]}
+    rest-call:
+        matches: recurses
+        has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $REST}}
+    holds-rest-call:
+        any:
+            - matches: rest-call
+            - has: {stopBy: end, matches: rest-call}
+    joint:
+        any:
+            - {kind: binary_expression, not: {has: {field: operator, regex: '^(&&|\|\||\?\?)$'}}}
+            - kind: 'argument_list, tuple_expression, collection_expression, initializer_expression'
+    beside-rest-call:
+        inside: {matches: joint}
+        any:
+            - follows: {stopBy: end, matches: holds-rest-call}
+            - precedes: {stopBy: end, matches: holds-rest-call}
+    sequenced:
+        kind: 'expression_statement, local_declaration_statement'
+        has: {stopBy: end, matches: rest-call}
+    after-rest-call:
+        follows: {stopBy: end, matches: sequenced}
+    before-rest-call:
+        kind: 'expression_statement, local_declaration_statement'
+        precedes: {stopBy: end, matches: holds-rest-call}
+rule:
+    kind: invocation_expression
+    all:
+        - matches: recurses
+        - inside: {stopBy: end, matches: owner, has: {field: name, pattern: $NAME}}
+        - has: {field: arguments, has: {kind: argument, has: {stopBy: end, matches: joined}}}
+        - any:
+            - inside: {stopBy: {matches: owner}, kind: 'lambda_expression, anonymous_method_expression'}
+            - inside: {stopBy: {matches: owner}, field: body, inside: {kind: 'foreach_statement, for_statement, while_statement, do_statement'}}
+            - matches: beside-rest-call
+            - inside: {stopBy: {matches: owner}, matches: beside-rest-call}
+            - inside: {stopBy: {matches: owner}, matches: after-rest-call}
+            - inside: {stopBy: {matches: owner}, matches: before-rest-call}
+message: '`$NAME` appends `$REST` to each branch and walks it again per branch, the work doubles per branch level'
+note: 'Walk each branch alone and join the branches to one shared continuation, so the remaining work is processed once'

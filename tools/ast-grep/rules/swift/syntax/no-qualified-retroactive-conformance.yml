@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-qualified-retroactive-conformance
+language: swiftlang
+severity: error
+rule:
+    kind: class_declaration
+    all:
+        - has: {field: declaration_kind, regex: '^extension$'}
+        - has:
+            field: name
+            kind: user_type
+            pattern: $TYPE
+            all:
+                - has: {kind: type_identifier, nthChild: 2}
+                - has: {kind: type_identifier, nthChild: 1, pattern: $TYPE_MODULE}
+        - has:
+            kind: inheritance_specifier
+            has:
+                field: inherits_from
+                kind: user_type
+                pattern: $PROTOCOL
+                all:
+                    - has: {kind: type_identifier, nthChild: 2}
+                    - has: {kind: type_identifier, nthChild: 1, pattern: $PROTOCOL_MODULE}
+        - any:
+            - has: {field: name, has: {kind: type_identifier, nthChild: 1, regex: '^Swift$'}}
+            - inside:
+                kind: source_file
+                stopBy: end
+                has: {kind: import_declaration, has: {kind: identifier, has: {kind: simple_identifier, nthChild: 1, pattern: $TYPE_MODULE}}}
+        - any:
+            - has: {kind: inheritance_specifier, has: {field: inherits_from, has: {kind: type_identifier, nthChild: 1, regex: '^Swift$'}}}
+            - inside:
+                kind: source_file
+                stopBy: end
+                has: {kind: import_declaration, has: {kind: identifier, has: {kind: simple_identifier, nthChild: 1, pattern: $PROTOCOL_MODULE}}}
+message: '`$TYPE: $PROTOCOL` conforms a type of an imported module to a protocol of an imported module'
+note: 'Wrap the imported value in a type this module owns and conform the wrapper, module-qualified names silence the retroactive conformance warning and `@retroactive` fails swift-format `AvoidRetroactiveConformances`'

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-smart-enum-scan
+language: csharp
+severity: error
+utils:
+    key-read:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, kind: identifier, pattern: $ITEM}
+            - has: {field: name, regex: '^Key$'}
+    probe:
+        not: {any: [{pattern: $ITEM}, {has: {stopBy: end, kind: identifier, pattern: $ITEM}}]}
+    key-equality:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, matches: key-read}}, {has: {field: right, matches: probe}}]
+                    - all: [{has: {field: right, matches: key-read}}, {has: {field: left, matches: probe}}]
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Equals$'}}, {has: {field: expression, matches: key-read}}]}
+                - has: {field: arguments, all: [{has: {kind: argument, matches: probe}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    key-predicate:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ITEM}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $ITEM}}}]}
+            - has: {field: body, matches: key-equality}
+rule:
+    kind: invocation_expression
+    pattern: $SCAN
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|Where|Find|Exists|Filter)$'}}, {has: {field: expression, matches: csharp-smart-enum-items, has: {field: expression, pattern: $TYPE}}}]}
+        - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: key-predicate}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+message: '`$SCAN` scans every `$TYPE` item for the one holding a key'
+note: 'Read the item through the generated `Get(key)`, or `TryGet(key, out item)` where the key can miss, a lookup through the key comparer the smart enum declares'

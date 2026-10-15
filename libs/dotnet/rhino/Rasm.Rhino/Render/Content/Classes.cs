@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Text;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI.Assets;
@@ -160,7 +159,7 @@ public static class ContentRecords {
                 from added in IO.lift(() => field.File.IsSome ? content.Fields.AddFilename(held.Name, held.Text, "", 0) : content.Fields.Add(held.Name, held.Text))
                 from bound in IO.lift(fun(() => content.BindParameterToField(held.Name, added, RenderContent.ChangeContexts.Program)))
                 select bound,
-        })).Map(static _ => unit);
+        })).Map(unit);
 
     // --- [READS]
     public static IO<TState> Read<TState>(RenderContent content) where TState : IStateRecord<TState> =>
@@ -184,7 +183,7 @@ public static class ContentRecords {
 
     // --- [WRITES]
     public static IO<Unit> Write<TState>(RenderContent content, RenderContent.ChangeContexts context, TState next) where TState : IStateRecord<TState> =>
-        Contents.WithinContentChange(content, context, Callbacks.Each(FieldTexts.Items<TState>().Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(static _ => unit));
+        Contents.WithinContentChange(content, context, Callbacks.Each(FieldTexts.Items<TState>().Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(unit));
 
     public static ValueStore<TState> Store<TState>(RenderContent content) where TState : IStateRecord<TState> =>
         ValueStore.Of(

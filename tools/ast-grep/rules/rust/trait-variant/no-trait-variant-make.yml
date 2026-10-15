@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trait-variant-make
+language: rust
+severity: error
+rule:
+    kind: attribute_item
+    has: {kind: attribute, has: {nthChild: 1, regex: '^(::)?trait_variant::make$'}}
+message: '`trait_variant::make` generates a second trait to state `Send` futures'
+note: 'Bound the one trait at its use site with return-type notation, `S: Store<get(..): Send>` or `where S::get(..): Send` (`#![feature(return_type_notation)]`), and drop the `trait-variant` catalog row with its last use'

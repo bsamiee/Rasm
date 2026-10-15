@@ -164,7 +164,7 @@ def consumed[R: (Curves, HueCurves)](
         logs: BlenderResult[tuple[PyOpenColorIO.CPUProcessor, ...]] = accumulated(
             processor(PyOpenColorIO.Config(), transform).map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
             for transform in (log, PyOpenColorIO.GroupTransform([log], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE))
-        ).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        ).map_error(BlenderImagingFault.lifted)
 
         def rgb(values: tuple[tuple[PyOpenColorIO.CPUProcessor, ...], npt.NDArray[np.float32]]) -> BlenderResult[R]:
             (forward, inverse), weights = values
@@ -174,7 +174,7 @@ def consumed[R: (Curves, HueCurves)](
             output = np.asarray([splines[key](value) for key, value in zip(channels, stops)], dtype=np.float32)
             working_y = float(applied(inverse, output) @ weights)
             master = float(applied(forward, np.full(3, working_y, dtype=np.float32))[0])
-            return inserted(record, dict(zip(channels, map(float, stops))) | {master_field: master}, bindings).to_result_with(lambda: unread)
+            return inserted(record, dict(zip(channels, map(float, stops))) | {master_field: master}, bindings).to_result(unread)
 
         def hue(values: tuple[tuple[PyOpenColorIO.CPUProcessor, ...], PyOpenColorIO.CPUProcessor]) -> BlenderResult[R]:
             (forward, _inverse), conversion = values
@@ -183,19 +183,17 @@ def consumed[R: (Curves, HueCurves)](
             hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = HueCurves.__struct_fields__
             at = {hue_hue: hue, hue_sat: hue, hue_lum: hue, lum_sat: stops, sat_sat: saturation, lum_lum: stops}
             at[sat_lum] = float(np.prod([max(0.0, float(splines[key](at[key]))) for key in (sat_sat, lum_sat, hue_sat)]))
-            return inserted(record, at, bindings).to_result_with(lambda: unread)
+            return inserted(record, at, bindings).to_result(unread)
 
         return (
-            Result[tuple[tuple[PyOpenColorIO.CPUProcessor, ...], npt.NDArray[np.float32]], BlenderFaults].bind(
-                paired(logs, luma(config).map_error(lambda faults: (BlenderImagingFault(faults=faults),))), rgb
-            )
+            Result[tuple[tuple[PyOpenColorIO.CPUProcessor, ...], npt.NDArray[np.float32]], BlenderFaults].bind(paired(logs, luma(config).map_error(BlenderImagingFault.lifted)), rgb)
             if isinstance(record, Curves)
             else Result[tuple[tuple[PyOpenColorIO.CPUProcessor, ...], PyOpenColorIO.CPUProcessor], BlenderFaults].bind(
                 paired(
                     logs,
                     processor(PyOpenColorIO.Config(), PyOpenColorIO.FixedFunctionTransform(PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     .map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
-                    .map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                    .map_error(BlenderImagingFault.lifted),
                 ),
                 hue,
             )
@@ -205,19 +203,17 @@ def consumed[R: (Curves, HueCurves)](
         held, config = values
         mean: BlenderResult[npt.NDArray[np.float32]] = (
             processor(config, PyOpenColorIO.ColorSpaceTransform(src=plane.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
-            .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            .map_error(BlenderImagingFault.lifted)
             .map(lambda built: applied(built.getDefaultCPUProcessor(), covered).mean(axis=0, dtype=np.float64).astype(np.float32))
         )
         return (
             Result[npt.NDArray[np.float32], BlenderFaults]
             .bind(mean, lambda mean: grown(held.effect, mean, config))
-            .bind(lambda record: row.write(identity, scene, entry, Entry(effect=record, blend=held.blend)))
+            .bind(lambda record: row.write(identity, scene, entry, msgspec.structs.replace(held, effect=record)))
             .map(lambda changed: Some("Insert Knots") if changed else Nothing)
         )
 
-    reading: BlenderResult[tuple[Entry[R], PyOpenColorIO.Config]] = paired(
-        row.read(identity, entry), config.admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-    )
+    reading: BlenderResult[tuple[Entry[R], PyOpenColorIO.Config]] = paired(row.read(identity, entry), config.admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted))
     return Result[tuple[Entry[R], PyOpenColorIO.Config], BlenderFaults].bind(reading, read)
 
 

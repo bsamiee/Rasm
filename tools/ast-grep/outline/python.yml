@@ -83,6 +83,19 @@ transform:
 name: $NAME
 signature: $SIGNATURE
 ---
+id: python-unpacked-variable
+language: python
+role: item
+symbolType: variable
+rule:
+    kind: identifier
+    pattern: $NAME
+    not: {regex: '^_$'}
+    inside:
+        kind: 'pattern_list, tuple_pattern, list_pattern'
+        inside: {kind: assignment, field: left, inside: {kind: expression_statement, inside: {kind: module}}}
+name: $NAME
+---
 id: python-decorated-class-field
 language: python
 role: member

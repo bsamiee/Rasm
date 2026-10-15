@@ -13,13 +13,11 @@ from scipy.special import exprel
 
 from blender.imaging.color.luts import Lattice, Logarithmic
 from blender.imaging.faults import ImagingContrastFault, ImagingMatrixFault, ImagingResult
-from blender.imaging.parameters import Gated, Presentation, Quantity, Rgb, Stops
+from blender.imaging.parameters import Gated, Positive, Presentation, Quantity, Rgb, Stops, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Positive = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 type Share = Annotated[float, msgspec.Meta(gt=0.0, lt=1.0)]
-type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager, ExitStack
+from itertools import chain
 import re
 from typing import Annotated, ClassVar, TYPE_CHECKING
 
@@ -155,7 +156,7 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
             `Ok` of section declarations and the `INTERFACE` acquisition; native realization and registration
             failures belong to that acquisition.
         """
-        headers = (*(row for panel in self.panels for row in panel.header), *(row for rows in self.header.values() for row in rows))
+        headers = (*(row for panel in self.panels for row in panel.header), *chain.from_iterable(self.header.values()))
         roots = (*(section for panel in self.panels for section in (panel.section, *panel.children)), *(section for page in self.page.to_list() for section in page.sections), *headers)
         popovers = {popover.key: Panel(section=popover, at=PopoverPanel()) for popover in reached(roots)}
         panels = (*self.panels, *popovers.values())
@@ -177,7 +178,7 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
             return paired(paired(panel.section.realized(identity), children), placed(panel.header, identity)).bind(lambda drawn: sited(panel, drawn))
 
         def built(site: PanelSite, at: Placed, mark: int, headers: Mapping[type[Placed], tuple[RowDraw, ...]]) -> tuple[type[bpy.types.Panel], ...]:
-            shared = {**members(at, mark), "bl_owner_id": identity.package}
+            shared = members(at, mark) | {"bl_owner_id": identity.package}
 
             def poll(_cls: type[bpy.types.Panel], context: bpy.types.Context) -> bool:
                 return site.condition.map(lambda condition: holds(condition, context)).default_value(True)
@@ -207,8 +208,8 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
 
             top = {"bl_options": {"DEFAULT_CLOSED"} if site.headed else {"HIDE_HEADER"}, **shared, "poll": classmethod(poll)}
             return (
-                classed(site.top, {**top, "bl_order": preceding(top)}, (*site.header, *headers.get(type(at), ()))),
-                *(classed(child, {**shared, "bl_parent_id": site.top.name, "bl_order": index, "bl_options": {"DEFAULT_CLOSED"}}) for index, child in enumerate(site.children)),
+                classed(site.top, top | {"bl_order": preceding(top)}, (*site.header, *headers.get(type(at), ()))),
+                *(classed(child, shared | {"bl_parent_id": site.top.name, "bl_order": index, "bl_options": {"DEFAULT_CLOSED"}}) for index, child in enumerate(site.children)),
             )
 
         @contextmanager
@@ -255,7 +256,7 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
         def prepared() -> Generator[BlenderResult[None]]:
             with ExitStack() as stack:
                 yield paired(
-                    accumulated(realized(panel) for panel in panels).map(lambda parts: tuple(site for part in parts for site in part)),
+                    accumulated(realized(panel) for panel in panels).map(lambda parts: tuple(chain.from_iterable(parts))),
                     accumulated(placed(rows, identity).map(lambda draws: (kind, draws)) for kind, rows in self.header.items()).map(dict),
                 ).bind(lambda parts: stack.enter_context(displayed(*parts)))
 

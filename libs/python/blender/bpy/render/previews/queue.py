@@ -13,7 +13,7 @@ from expression import Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 import msgspec
 
-from blender.bpy.data.ids.images import render_result
+from blender.bpy.data.ids.images import built
 from blender.bpy.extension.events.handlers import PathHandler, SceneHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity
@@ -189,7 +189,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
         match context.window_manager:
             case bpy.types.WindowManager(is_interface_locked=False) as manager:
-                shifted = backlog.slot.map(lambda slot: render_result().map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
+                shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
                 return Ok(shifted.bind(lambda held: Ok(None) if held else stepped(manager)).map(lambda _: again).map_error(identity.reports.hold).default_value(again))
             case _:
                 return Ok(again)
@@ -235,7 +235,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
                 PreviewQueue.held[identity.package].slot = Some(image.render_slots.active_index)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
                 return Nothing
 
-            remember = scopes.enter_context(identity.reports.deferred(lambda: render_result().map(remembered)))
+            remember = scopes.enter_context(identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)))
 
             @contextmanager
             def held() -> Generator[None]:

@@ -4,6 +4,7 @@ import type { Atom } from 'effect/reactivity';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Input, Label, ListBox, ListBoxItem, Menu, MenuItem, MenuTrigger, Modal, ModalOverlay, Popover, Select, SelectValue, Slider, SliderOutput, SliderThumb, SliderTrack, Text, TextArea, TextField, type TextFieldProps } from 'react-aria-components';
+import { option, popover } from './presentation.ts';
 import type { deleteRequest, draft, saveRequest } from './services.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -15,18 +16,13 @@ interface Choice {
     readonly label: string;
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const popover = 'max-h-[50vh] max-w-[min(480px,calc(100vw-32px))] overflow-auto border border-control-line bg-background';
-const option = 'min-h-11 cursor-pointer wrap-anywhere px-4 py-2.5 focus:bg-foreground focus:text-background';
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function Field({ label, placeholder, description, multiline, ...props }: FieldProps): ReactNode {
     return (
         <TextField {...props} className="field">
             <Label>{label}</Label>
-            {multiline ? <TextArea className="control min-h-[90px] resize-y" placeholder={placeholder} /> : <Input className="control" {...(placeholder === undefined ? {} : { placeholder })} />}
+            {multiline === true ? <TextArea className="control min-h-[90px] resize-y" placeholder={placeholder} /> : <Input className="control" {...(placeholder === undefined ? {} : { placeholder })} />}
             {description && (
                 <Text className="hint mt-[13px]" slot="description">
                     {description}
@@ -137,12 +133,12 @@ function RequestAlert({ error, conflict, onField }: { error: RequestFailure; con
                                 const text = `${path.map(String).join(' › ')}: ${item.message}`;
                                 return (
                                     <li key={text}>
-                                        {onField ? (
+                                        {onField === undefined ? (
+                                            item.message
+                                        ) : (
                                             <button className="block text-left text-accent-text underline" onClick={(): void => onField(path)} type="button">
                                                 {text}
                                             </button>
-                                        ) : (
-                                            item.message
                                         )}
                                     </li>
                                 );

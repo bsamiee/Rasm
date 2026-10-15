@@ -243,25 +243,18 @@ def looked_up(shell: Shell[Lookup]) -> BlenderResult[tuple[Fragment, End]]:
         head, suffix = parts
         source_field, _, prefix_field = Lookup.__struct_fields__
         if len(head) and not record.prefix.enabled and Shell.image not in shell.images:
-            return Ok((Fragment(), shell.source))
+            return shell.passed()
 
         def prefix(lattice: Lattice) -> BlenderResult[tuple[Fragment, End]]:
             sampled: BlenderResult[npt.NDArray[np.float32]] = (
-                paired(processor(PyOpenColorIO.Config(), head), lattice.samples())
-                .map(lambda pair: applied(pair[0].getDefaultCPUProcessor(), pair[1]))
-                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                paired(processor(PyOpenColorIO.Config(), head), lattice.samples()).map(lambda pair: applied(pair[0].getDefaultCPUProcessor(), pair[1])).map_error(BlenderImagingFault.lifted)
             )
             return Result[npt.NDArray[np.float32], BlenderFaults].bind(sampled, lambda plane: tabled(item_key(prefix_field), f"{name} Prefix", lattice, plane, shell.source, shell.config))
 
-        entering = prefix(record.prefix.value) if len(head) and record.prefix.enabled else Ok((Fragment(), shell.source))
+        entering = prefix(record.prefix.value) if len(head) and record.prefix.enabled else shell.passed()
         return entering.bind(lambda source: suffix.map(lambda table: tabled(item_key(source_field), name, *table, source, shell.config)).default_value(Ok(source)))
 
-    return (
-        lut_files
-        .current(record.source, shell.config)
-        .bind(lambda path: msgspec.structs.replace(record, source=path).tile(shell.config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
-        .bind(built)
-    )
+    return lut_files.current(record.source, shell.config).bind(lambda path: msgspec.structs.replace(record, source=path).tile(shell.config).map_error(BlenderImagingFault.lifted)).bind(built)
 
 
 def prepared(
@@ -295,13 +288,13 @@ def prepared(
             )
 
         return Result[tuple[PyOpenColorIO.Processor, npt.NDArray[np.float32]], BlenderFaults].bind(
-            paired(processor(config, operation).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), pixels), lambda pair: published(applied(pair[0].getDefaultCPUProcessor(), pair[1]))
+            paired(processor(config, operation).map_error(BlenderImagingFault.lifted), pixels), lambda pair: published(applied(pair[0].getDefaultCPUProcessor(), pair[1]))
         )
 
     return (
         lut_files
         .current(record.source, config)
-        .bind(lambda path: msgspec.structs.replace(record, source=path).tile(config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))
+        .bind(lambda path: msgspec.structs.replace(record, source=path).tile(config).map_error(BlenderImagingFault.lifted))
         .bind(lambda parts: processed(parts[0]))
     )
 
@@ -330,7 +323,7 @@ lookup: CompositorEffect[Lookup] = CompositorEffect(
     graph=looked_up,
     straight=True,
     preparation=Some(prepared),
-    opened=Some(Opened(extensions=lambda: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.of(PyOpenColorIO.FileTransform.getFormats()))), of=lambda path: Lookup(source=path))),
+    opened=Some(Opened(extensions=lambda: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())), of=lambda path: Lookup(source=path))),
     registrables=(tiles, reloading),
 )
 

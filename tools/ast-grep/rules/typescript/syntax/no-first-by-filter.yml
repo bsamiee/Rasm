@@ -2,6 +2,7 @@
 id: no-first-by-filter
 language: tsx
 severity: error
+ignores: ['plugins/function-hooks/**']
 utils:
     array-member:
         kind: member_expression

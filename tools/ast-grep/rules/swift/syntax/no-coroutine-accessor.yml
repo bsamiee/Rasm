@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-coroutine-accessor
+language: swiftlang
+severity: error
+utils:
+    accessor-name:
+        kind: simple_identifier
+        regex: '^_(read|modify)$'
+    trailing-code:
+        kind: statements
+        any:
+            - has: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}}
+            - not:
+                has:
+                    kind: control_transfer_statement
+                    regex: '^yield\b'
+                    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+    called-accessor:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, matches: accessor-name}
+            - has: {kind: call_suffix, all: [{has: {kind: lambda_literal}}, {not: {has: {kind: value_arguments}}}]}
+            - inside: {kind: statements, inside: {kind: computed_property}}
+    open-accessor:
+        any:
+            - kind: computed_modify
+              has: {kind: statements, matches: trailing-code}
+            - matches: called-accessor
+              has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, matches: trailing-code}}}
+rule:
+    any:
+        - kind: computed_modify
+          has: {kind: modify_specifier, pattern: $NAME}
+        - kind: call_expression
+          matches: called-accessor
+          has: {nthChild: 1, pattern: $NAME}
+    not:
+        inside:
+            kind: computed_property
+            stopBy: {kind: computed_property}
+            any:
+                - has: {kind: computed_modify, matches: open-accessor}
+                - has: {kind: statements, has: {kind: call_expression, matches: open-accessor}}
+message: '`$NAME` yields storage through an underscored coroutine accessor'
+note: 'Replace `get` and `_read` with `borrow { <value> }` and `set` and `_modify` with `mutate { &<storage> }`, the two accessors paired, a coroutine holding `defer` or code after its `yield` stays until `yielding borrow` and `yielding mutate` leave experimental feature `CoroutineAccessors`'

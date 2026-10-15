@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-quadrature-by-hand
+language: rust
+severity: error
+rule:
+    kind: 'if_expression, match_expression'
+    pattern: $WEIGHT
+    matches: rust-simpson-weight
+message: '`$WEIGHT` alternates composite Simpson weights by index parity'
+note: 'Integrate through gauss-quad: `gauss_quad::Simpson::new(<intervals>).integrate(<a>, <b>, <f>)` runs the same composite rule, and `gauss_quad::GaussLegendre::new(<degree>).integrate(<a>, <b>, <f>)` reaches the same accuracy from fewer evaluations of a smooth integrand. Both constructors take a `NonZero` count'

@@ -107,7 +107,7 @@ public sealed class PresetBinding {
         from file in IO.lift(preset.File.ToFin(new UnknownPreset(preset.Name)))
         from free in IO.lift(Taken.Unless(shelf.Find(to).ForAll(other => other.File.Exists(held => string.Equals(held.FullName, file.FullName, StringComparison.Ordinal))), nameof(Rename), to))
         let target = UserFile(to)
-        from moved in IO.lift(() => File.Move(file.FullName, target.FullName, overwrite: false))
+        from moved in IO.lift(() => File.Move(file.FullName, target.FullName))
         select preset with { Name = to, File = Some(target) };
 
     public static IO<Unit> Delete(Preset preset) =>
@@ -159,8 +159,8 @@ public sealed class PresetBinding {
         from captured in scope.Shown(bound)
         from locks in scope.Locked
         let current = shelf.Current(captured, locks)
-        select looks.Map(look => (MenuPick)new MenuPick.Item(look.Caption, PresetShelf.Matches(look.Values, captured, locks), scope.Commit(bound, look.Values).Map(static _ => unit)))
-            .Concat(shelf.Listed.Map(preset => (MenuPick)new MenuPick.Item(preset.Name, current.Exists(held => held == preset), Apply(preset).Map(static _ => unit))))
+        select looks.Map(look => (MenuPick)new MenuPick.Item(look.Caption, PresetShelf.Matches(look.Values, captured, locks), scope.Commit(bound, look.Values).Map(unit)))
+            .Concat(shelf.Listed.Map(preset => (MenuPick)new MenuPick.Item(preset.Name, current.Exists(held => held == preset), Apply(preset).Map(unit))))
             .Add(new MenuPick.Item(RowText.Localize("Save Preset...").Local, Marked: false, Saved(current)))
             .Concat(current.Filter(static held => held.File.IsSome)
                 .Map(static held => (MenuPick)new MenuPick.Item(RowText.Localize("Delete {0}", arguments: [(string)held.Name]).Local, Marked: false, Delete(held)))
@@ -211,9 +211,9 @@ public sealed class PresetBinding {
                 Run("preset-delete", "Delete Presets", "Delete the selected user presets",
                     _ => from chosen in selection from deleted in Callbacks.Each(chosen.Map(Delete)) select unit),
                 Run("preset-previous", "Previous Preset", "Apply the preset listed before the current one",
-                    scope => bindings(scope).Bind(static binding => binding.Stepped(forward: false)).Map(static _ => unit)),
+                    scope => bindings(scope).Bind(static binding => binding.Stepped(forward: false)).Map(unit)),
                 Run("preset-next", "Next Preset", "Apply the preset listed after the current one",
-                    scope => bindings(scope).Bind(static binding => binding.Stepped(forward: true)).Map(static _ => unit)),
+                    scope => bindings(scope).Bind(static binding => binding.Stepped(forward: true)).Map(unit)),
             ],
             Wording = Wording.Localized,
         },
@@ -245,13 +245,13 @@ public sealed class PresetBinding {
         from name in HostDialogs.ShowEditBox<PresetName, InvalidRhinoValue>(RowText.Localize("Save Preset"), RowText.Localize("Preset name"), current.Map(static held => held.Name))
         from shelf in Shelf
         from free in IO.lift(Taken.Unless(!shelf.Stock.ContainsKey(name), nameof(Save), name))
-        from saved in shelf.User.Find(name).Match(Some: held => Replaced(held), None: () => Save(name).Map(static _ => unit))
+        from saved in shelf.User.Find(name).Match(Some: held => Replaced(held), None: () => Save(name).Map(unit))
         select saved;
 
     private IO<Unit> Replaced(Preset preset) =>
         from answer in HostDialogs.ShowMessage(scope.Document, RowText.Localize("Replace the preset of this name with the section's values?"), RowText.Localize("Replace Preset"),
             ShowMessageButton.YesNo, ShowMessageIcon.Question, ShowMessageDefaultButton.Button2, ShowMessageOptions.None, ShowMessageMode.ApplicationModal)
-        from confirmed in IO.lift(guard(answer == ShowMessageResult.Yes, Errors.Cancelled).ToFin())
+        from confirmed in IO.lift(guard(answer is ShowMessageResult.Yes, Errors.Cancelled).ToFin())
         from replaced in Replace(preset)
         select unit;
 
@@ -316,7 +316,7 @@ public static class LockSets {
         Codec,
         HashMap<Guid, LanguageExt.HashSet<EntryKey>>(),
         static (doc, _) => Registry(doc).Bind(static registry => registry.ValueIO),
-        static (doc, locks) => Registry(doc).Bind(registry => atomicIO(() => registry.Value = registry.Value.AddOrUpdateRange(locks.AsIterable()))).Map(static _ => unit));
+        static (doc, locks) => Registry(doc).Bind(registry => atomicIO(() => registry.Value = registry.Value.AddOrUpdateRange(locks.AsIterable()))).Map(unit));
 
     private static Fin<ArchivableDictionary> Encoded(LanguageExt.HashSet<EntryKey> keys) =>
         Branch(toSeq(keys.Order()).Map(static key => key.Owner.Cons(key.Path)));
@@ -334,7 +334,7 @@ public static class LockSets {
     private static Fin<Seq<Seq<string>>> Paths(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from paths in Callbacks.Each(rows, static (row, _) =>
-            row.Value.Count == 0 ? Fin.Succ(Seq(Seq(row.Key))) : Paths(row.Value).Map(tails => tails.Map(tail => row.Key.Cons(tail))))
+            row.Value.Count is 0 ? Fin.Succ(Seq(Seq(row.Key))) : Paths(row.Value).Map(tails => tails.Map(tail => row.Key.Cons(tail))))
         select paths.Flatten();
 
     private static Fin<HashMap<Guid, LanguageExt.HashSet<EntryKey>>> Sections(ArchivableDictionary source) =>

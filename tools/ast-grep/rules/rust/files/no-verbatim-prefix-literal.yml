@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-verbatim-prefix-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $LIT
+    matches: rust-verbatim-prefix
+message: '`$LIT` tests or strips the Windows verbatim path prefix by hand'
+note: 'Pass the path through `dunce::simplified(<path>)`, and a canonical path through `dunce::simplified(&fs_err::canonicalize(<path>)?)`, dunce drops `\\?\` from a verbatim disk path of valid, unreserved names within 260 characters and keeps every other path whole. `simplified` changes nothing off Windows'

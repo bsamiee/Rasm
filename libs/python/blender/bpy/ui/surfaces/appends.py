@@ -72,12 +72,10 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 
         @contextmanager
         def appended() -> Generator[BlenderResult[None]]:
-            result = placed(self.rows, identity).map(painted).map(drawn)
-            match result.tag:
-                case "error":
-                    yield Result[None, BlenderFaults].Error(result.error)
-                case "ok":
-                    draw = result.ok
+            match placed(self.rows, identity).map(painted).map(drawn):
+                case Result(tag="error", error=faults):
+                    yield Result[None, BlenderFaults].Error(faults)
+                case Result(ok=draw):
                     (target.prepend if self.prepend else target.append)(draw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                     try:
                         yield Result[None, BlenderFaults].Ok(None)

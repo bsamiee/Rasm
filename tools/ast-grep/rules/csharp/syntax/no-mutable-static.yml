@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutable-static
+language: csharp
+severity: error
+rule:
+    any:
+        - kind: field_declaration
+          all:
+            - has: {kind: modifier, regex: '^static$'}
+            - not: {has: {kind: modifier, regex: '^(readonly|const)$'}}
+            - not: {matches: csharp-visible-member}
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}}
+        - kind: property_declaration
+          all:
+            - has: {kind: modifier, regex: '^static$'}
+            - not: {has: {kind: modifier, regex: '^abstract$'}}
+            - has: {field: name, pattern: $NAME}
+            - has: {kind: accessor_list, has: {kind: accessor_declaration, has: {field: name, regex: '^set$'}}}
+message: '`$NAME` is static state that every caller in the process shares and any of them reassigns'
+note: 'Declare a `static readonly` field of an immutable value, or pass the state to each operation and return the next one; state shared across calls is an `Atom` the owner creates once'

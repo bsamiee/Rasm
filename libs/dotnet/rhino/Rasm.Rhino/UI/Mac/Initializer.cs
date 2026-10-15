@@ -73,12 +73,11 @@ internal static class DisplayLinks {
                        return Targets.FindOrAdd(target, () => Refused.Unless(Eto.Mac.ObjCExtensions.AddMethod(target, Tick.Handle, Deliver, "v@:@"), nameof(Eto.Mac.ObjCExtensions.AddMethod)));
                    })
                    from attached in NativeControls.Lifetime(view, owned =>
-                       from link in DisposalOps.Acquire(IO.lift(() => host.GetDisplayLink(host, Tick)), held => IO.lift(() => release(held)), held => {
+                       DisposalOps.Acquire(IO.lift(() => host.GetDisplayLink(host, Tick)), held => IO.lift(() => release(held)), held => {
                            _ = Links.Add(held.Handle, (ticks, new CallbackSite(sink, typeof(CADisplayLink), nameof(NSView.GetDisplayLink))));
                            held.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
                            owned(new Disposal<CADisplayLink>(held, release));
-                       })
-                       select unit,
+                       }).Map(unit),
                        new CallbackSite(sink, typeof(CADisplayLink), nameof(NSView.GetDisplayLink)), retain)
                    select attached;
         };

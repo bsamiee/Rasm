@@ -11,13 +11,9 @@ utils:
             - has:
                 kind: token_tree
                 any:
-                    - regex: '^\(\s*"\{\}"\s*,\s*&?(?:[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*|\d[\d_]*)(?:\.[A-Za-z_]\w*|\.\d+|::<[\w\s,:&'']*>|\([^()]*\)|\[[^\[\]]*\]|\?)*\s*,?\s*\)$'
-                      pattern: $BARE
                     - regex: '^\(\s*"\{\}"\s*,\s*[\s\S]+?\s*,?\s*\)$'
                       not: {regex: '^\(\s*"\{\}"\s*,\s*[A-Za-z_]\w*\s*=[^=]'}
-                      pattern: $COMPOUND
                     - regex: '^\(\s*"\{[A-Za-z_]\w*\}"\s*,?\s*\)$'
-                      pattern: $INLINE
     owning-copy:
         kind: call_expression
         all:
@@ -28,10 +24,5 @@ rule:
         - matches: owning-copy
         - matches: display-format
           not: {inside: {kind: field_expression, field: value, inside: {matches: owning-copy}}}
-transform:
-    BARE_OUT: {replace: {source: $BARE, replace: '^\(\s*"\{\}"\s*,\s*&?([\s\S]+?)\s*,?\s*\)$', by: '$1.to_string()'}}
-    COMPOUND_OUT: {replace: {source: $COMPOUND, replace: '^\(\s*"\{\}"\s*,\s*([\s\S]+?)\s*,?\s*\)$', by: '($1).to_string()'}}
-    INLINE_OUT: {replace: {source: $INLINE, replace: '^\(\s*"\{([A-Za-z_]\w*)\}"\s*,?\s*\)$', by: '$1.to_string()'}}
-fix: $BARE_OUT$COMPOUND_OUT$INLINE_OUT
 message: '`format!` renders one `Display` value with no surrounding text'
-note: 'Call `<value>.to_string()`, the `ToString` method a blanket impl gives every `Display` type, a copy of the formatted `String` (`to_owned`, `to_string`, `clone`) goes with the macro, clippy `useless_format` covers `String` and `&str` values alone'
+note: 'Call `<value>.to_string()`, the `ToString` method a blanket impl gives every `Display` type, and `<value>.to_owned()` on `&str` and `String`, where Clippy `useless_format` reports the same site. A copy of the formatted `String` (`to_owned`, `to_string`, `clone`) goes with the macro'

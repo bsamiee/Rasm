@@ -98,14 +98,14 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Mix>
             EffectValue<TState> before = held.Value;
             Change<A> change = ValueStore.Between(project(before), project(keys.Choose(prepare).Fold(before, static (value, update) => update(value))));
             Func<string, Option<IO<Unit>>> apply = key => prepare(key).Map(update =>
-                IO.lift(() => atomic(() => held.Swap(update))).Map(static _ => unit));
+                IO.lift(() => atomic(() => held.Swap(update))).Map(unit));
             return DisposalOps.Within(
                 () => {
                     Option<Func<string, Option<IO<Unit>>>> prior = writing.Value;
                     writing.Value = Some(apply);
                     return prior;
                 },
-                _ => IO.lift(native).Map(_ => change),
+                _ => IO.lift(native).Map(change),
                 prior => IO.lift(() => { writing.Value = prior; }));
         }).Bind(static next => next);
 
@@ -125,7 +125,7 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Mix>
             nameof(PostEffectState.SetValue))));
 
     public IO<Unit> ResetToFactoryDefaults() =>
-        IO.lift(() => atomic(() => held.Swap(_ => Default))).Map(static _ => unit);
+        IO.lift(() => atomic(() => held.Swap(_ => Default))).Map(unit);
 
     private static Option<string> Stored(PostEffectState store, string key) => Callbacks.Found(store.TryGetValue(key, out string text), text);
 }
@@ -175,14 +175,14 @@ public static class EffectStates {
                     ValueStore.Of(
                         RenderSettingsSources.Read(doc, scope => EffectRegistry.State<TEffect, TState>(scope.Settings, Some(row.Default)))
                             .Map(record => Some(record).Filter(held => !EqualityComparer<TState>.Default.Equals(held, row.Default))),
-                        record => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(row.Default)))).Map(static _ => unit),
+                        record => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(row.Default)))).Map(unit),
                         Applied.Live,
                         None),
                     row.Default,
                     ParameterText.Join<TState, TParameter, TError>(row.Text).Map<(IStateParameter<TState> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption))),
                 row.Amount.Map(factory => ValueBinding.Key(owner, AmountKey(factory), ValueStore.Of(
                     RenderSettingsSources.Read(doc, static scope => EffectRegistry.Amount<TEffect>(scope.Settings)).Map(found => found.Filter(mix => mix != factory)),
-                    mix => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(factory))])).Map(static _ => unit),
+                    mix => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(factory))])).Map(unit),
                     Applied.Live,
                     None)))),
         };

@@ -64,7 +64,7 @@ public sealed record ImageFile {
                 (ColorTags.Primaries.Find(row => row.Code == chunk.ColorPrimaries).Map(static row => row.Gamut), ColorTags.Transfers.Find(row => row.Code == chunk.TransferCharacteristics))
                     .Apply(static (gamut, row) => new ColorEncoding(gamut, row.Transfer, row.White))
                     .As()
-                    .Filter(_ => chunk.MatrixCoefficients == CicpMatrixCoefficients.Identity && chunk.FullRange)
+                    .Filter(_ => chunk.MatrixCoefficients is CicpMatrixCoefficients.Identity && chunk.FullRange)
                     .ToFin(new CicpUnsupported(chunk.ColorPrimaries, chunk.TransferCharacteristics, chunk.MatrixCoefficients, chunk.FullRange)),
             None: static () => new ColorEncoding(Gamut.StandardRgb, TransferCurve.Srgb, Nits.ReferenceWhite));
 

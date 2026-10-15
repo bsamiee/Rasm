@@ -1,3 +1,5 @@
+import type { Option } from '../composition.ts';
+
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Invocation = readonly [string, ...string[]];
@@ -7,7 +9,6 @@ interface Program {
     readonly valued?: readonly string[];
     readonly arities?: ReadonlyMap<string, number>;
     readonly bodies?: readonly string[];
-    readonly flags?: readonly string[];
     readonly leading?: number;
     readonly leadingOptions?: readonly string[];
     readonly recursive?: readonly string[];
@@ -18,12 +19,21 @@ interface Program {
     readonly shell?: true;
     readonly runs?: readonly (readonly string[])[] | '--';
     readonly execs?: readonly string[];
+    readonly spans?: readonly string[];
+    readonly manifests?: readonly string[];
+    readonly solutions?: readonly string[];
+    readonly commands?: number;
+    readonly excludes?: readonly string[];
+    readonly patterns?: readonly string[];
+    readonly pins?: readonly string[];
+    readonly aliases?: ReadonlyMap<string, string>;
+    readonly relocations?: readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
     readonly options: readonly string[];
     readonly values: readonly Given[];
-    readonly positions: readonly { readonly at: number; readonly names: readonly string[] }[];
+    readonly positions: readonly { readonly at: number; readonly names: readonly string[]; readonly taken: number }[];
 }
 interface ParsedOption {
     readonly names: readonly string[];
@@ -34,9 +44,47 @@ interface ParsedOption {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
+const _QUOTED = /(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu;
+const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
+const _TILDE = /^~(?<user>[^/]*)/u;
 const _PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-c', '-m'], informational: ['-V'] };
 const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', stdinless: ['-c'], shell: true };
-const _FD: Program = { execs: ['-x', '-X', '--exec', '--exec-batch'] };
+const _FD: Program = {
+    valued: [
+        '-e',
+        '--extension',
+        '-t',
+        '--type',
+        '-E',
+        '--exclude',
+        '-d',
+        '--max-depth',
+        '--min-depth',
+        '--exact-depth',
+        '-S',
+        '--size',
+        '--changed-within',
+        '--changed-before',
+        '-o',
+        '--owner',
+        '-C',
+        '--base-directory',
+        '--search-path',
+        '-j',
+        '--threads',
+        '--max-results',
+        '-c',
+        '--color',
+        '--format',
+        '--path-separator',
+        '--ignore-file',
+        '--ignore-contain',
+        '--and',
+        '--batch-size',
+    ],
+    leading: 1,
+    execs: ['-x', '-X', '--exec', '--exec-batch'],
+};
 const _FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
 const _AST_GREP: Program = {
     valued: [
@@ -83,6 +131,7 @@ const _AST_GREP: Program = {
         '--snapshot-dir',
         '-f',
     ],
+    commands: 1,
 };
 const _SQL: Program = {
     valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
@@ -277,8 +326,6 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
             recursive: ['-r', '-R', '--recursive', '--dereference-recursive'],
             stdin: 'default',
         },
-        lsof: { valued: ['-c', '-d', '-D', '-f', '-F', '-g', '-i', '-L', '-o', '-p', '-r', '-s', '-S', '-T', '-u', '-x', '+d', '+D'] },
-        wait: { valued: ['-p'] },
         cat: { stdin: 'default' },
         wc: { stdin: 'default' },
         head: { valued: ['-n', '-c'], stdin: 'default' },
@@ -299,14 +346,78 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, leadingOptions: ['--from-file'], stdin: 'default', stdinless: ['-n', '--null-input'] },
         sd: {
             valued: ['-f', '-n', '--flags', '--max-replacements'],
-            flags: ['-p', '--preview', '-F', '--fixed-strings', '-s', '-A', '--across', '-h', '--help', '-V', '--version'],
             leading: 2,
             stdin: 'default',
             informational: ['-h', '-V'],
         },
-        yamlfmt: { valued: ['-conf', '-debug', '-exclude', '-extensions', '-formatter', '-gitignore_path', '-match_type', '-output_format'], wholeWords: true },
         node: { stdin: 'default', stdinless: ['-e', '-p', '--eval', '--print', '--test', '--run'], informational: ['-v'] },
-        dotnet: { informational: ['-h', '-?', '-help', '-version'], wholeWords: true },
+        dotnet: {
+            valued: ['-c', '-configuration', '-f', '-framework', '-r', '-runtime', '-o', '-output', '-v', '-verbosity', '-a', '-arch', '-os', '-binarylog', '-results-directory', '-project'],
+            aliases: new Map([
+                ['-c', '-configuration'],
+                ['-f', '-framework'],
+                ['-r', '-runtime'],
+                ['-o', '-output'],
+                ['-v', '-verbosity'],
+                ['-a', '-arch'],
+            ]),
+            informational: ['-h', '-?', '-help', '-version'],
+            wholeWords: true,
+            manifests: ['.csproj', '.fsproj', '.vbproj'],
+            solutions: ['.slnx'],
+        },
+        ruff: {
+            valued: [
+                '--config',
+                '--target-version',
+                '--select',
+                '--ignore',
+                '--extend-select',
+                '--extend-ignore',
+                '--per-file-ignores',
+                '--extend-per-file-ignores',
+                '--fixable',
+                '--unfixable',
+                '--exclude',
+                '--extend-exclude',
+                '--line-length',
+                '--output-format',
+                '-o',
+                '--output-file',
+                '--stdin-filename',
+                '--cache-dir',
+                '--range',
+            ],
+            commands: 1,
+            pins: ['--target-version'],
+        },
+        ty: {
+            valued: ['--python-version', '--python-platform', '--python', '--project', '--config', '--config-file', '--exclude', '--output-format', '--extra-search-path', '--typeshed', '--error', '--warn', '--ignore', '--color'],
+            commands: 1,
+            excludes: ['--exclude'],
+            pins: ['--python-version'],
+        },
+        mypy: {
+            valued: ['--python-version', '--platform', '--config-file', '--exclude', '--cache-dir', '-p', '--package', '-m', '--module', '-c', '--command', '--follow-imports', '--python-executable', '--custom-typeshed-dir'],
+            commands: 0,
+            patterns: ['--exclude'],
+            pins: ['--python-version'],
+        },
+        tsc: {
+            valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--outDir', '--rootDir', '--lib', '--jsx', '--locale'],
+            aliases: new Map([['-p', '--project']]),
+            relocations: ['--project'],
+            manifests: ['.json'],
+        },
+        swift: {
+            valued: ['--package-path', '--scratch-path', '--cache-path', '--config-path', '--security-path', '-c', '--configuration', '--product', '--target', '--triple', '--sdk', '--toolchain', '--swift-sdk', '-j', '--jobs', '-Xswiftc', '-Xcc', '-Xcxx', '-Xlinker', '--build-system', '--filter', '--skip'],
+            pins: ['--scratch-path'],
+        },
+        cargo: {
+            valued: ['-p', '--package', '--exclude', '--manifest-path', '--lockfile-path', '--profile', '--target', '--target-dir', '-F', '--features', '-j', '--jobs', '--color', '--config', '-Z', '--bin', '--example', '--test', '--bench', '--message-format'],
+            spans: ['--workspace', '--all'],
+            aliases: new Map([['-p', '--package']]),
+        },
         nx: { valued: ['-t', '--targets', '--target', '-p', '--projects', '-c', '--configuration', '--base', '--head', '--exclude', '--output-style'] },
         python: _PYTHON,
         python3: _PYTHON,
@@ -336,26 +447,20 @@ const _option = (row: Program, word: string): ParsedOption => {
     const arities = names.map((name) => _arity(row, name));
     const at = arities.findIndex((arity) => arity > 0);
     const [taken = 0] = at === names.length - 1 && cut < 0 ? arities.slice(at) : [];
-    return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
-};
-
-const known = (program: string, word: string): boolean => {
-    const row = declared(program);
-    const { flags } = row;
-    return flags === undefined || _option(row, word).names.every((name) => flags.includes(name) || _arity(row, name) > 0);
+    return { names: (at < 0 ? names : names.slice(0, at + 1)).map((name) => row.aliases?.get(name) ?? name), taken, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
 };
 
 const firstOperand = (invocation: Invocation, index: number): number => {
     const [program] = invocation;
     const word = invocation[index];
-    return word === undefined || word === '-' || word === '--' || !word.startsWith('-') || !known(program, word) ? index : firstOperand(invocation, index + 1 + _option(declared(program), word).taken);
+    return word === undefined || word === '-' || word === '--' || !word.startsWith('-') ? index : firstOperand(invocation, index + 1 + _option(declared(program), word).taken);
 };
 
 const _split = (program: string, args: readonly string[], at: number): Operands => {
     const empty: Operands = { inputs: [], options: [], values: [], positions: [] };
     const row = declared(program);
     const [head, ...rest] = args;
-    const flagged = head !== undefined && head !== '-' && head !== '--' && (head.startsWith('-') || (head.startsWith('+') && row.valued?.some((name) => name.startsWith('+')) === true)) && known(program, head);
+    const flagged = head !== undefined && head !== '-' && head !== '--' && head.startsWith('-');
     const { names, taken, joined } = flagged ? _option(row, head) : { names: [], taken: 0, joined: [] };
     const tail = head === undefined || head === '--' ? empty : _split(program, rest.slice(taken), at + 1 + taken);
     return head === '--'
@@ -364,7 +469,7 @@ const _split = (program: string, args: readonly string[], at: number): Operands 
               inputs: [...(head === undefined || flagged ? [] : [head]), ...tail.inputs],
               options: [...names, ...tail.options],
               values: [...names.slice(-1).flatMap((name) => [...joined, ...rest.slice(0, taken)].map((value): Given => [name, value])), ...tail.values],
-              positions: [...(names.length === 0 ? [] : [{ at, names }]), ...tail.positions],
+              positions: [...(names.length === 0 ? [] : [{ at, names, taken }]), ...tail.positions],
           };
 };
 
@@ -377,6 +482,22 @@ const operands = ([program, ...args]: Invocation): Operands => {
 // --- [INVOCATIONS]
 
 const basename = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
+
+const segments = (path: string): readonly string[] =>
+    path
+        .split('/')
+        .filter((part) => part !== '' && part !== '.')
+        .reduce<readonly string[]>((kept, part) => (part === '..' ? kept.slice(0, -1) : kept.concat(part)), []);
+
+const placed = (word: string, cwd: string, home: Option<string>): readonly string[] => {
+    const user = _TILDE.exec(word)?.groups?.user;
+    const expanded = user === undefined || home.kind === 'none' ? word : `${user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`}${word.slice(user.length + 1)}`;
+    return segments(expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`);
+};
+
+const within = (path: string, folder: string): boolean => path === folder || path.startsWith(folder === '/' ? '/' : `${folder}/`);
+
+const unquoted = (word: string): string => word.replace(_QUOTED, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(_ESCAPED, '$<char>') : body));
 
 const _wrapped = (program: string, words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
     const row = declared(program);
@@ -405,15 +526,18 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     return _ENV_ASSIGN.test(head) ? invocations(rest) : _chain(basename(head), rest);
 };
 
-const inner = (invocation: Invocation): readonly string[] => {
+const _exec = (invocation: Invocation): number => {
     const { execs = [] } = declared(invocation[0]);
-    const at = operands(invocation).positions.find(({ names }) => names.some((name) => execs.includes(name)))?.at;
-    const rest = at === undefined ? [] : invocation.slice(at + 1);
+    return operands(invocation).positions.find(({ names }) => names.some((name) => execs.includes(name)))?.at ?? invocation.length;
+};
+
+const inner = (invocation: Invocation): readonly string[] => {
+    const rest = invocation.slice(_exec(invocation) + 1);
     const end = rest.findIndex((word) => word === ';' || word === '+');
     return end < 0 ? rest : rest.slice(0, end);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Invocation, Operands };
-export { basename, declared, firstOperand, inner, invocations, known, operands };
+export type { Given, Invocation };
+export { basename, declared, firstOperand, inner, invocations, operands, placed, segments, unquoted, within };

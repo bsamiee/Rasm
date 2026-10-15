@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import RasmMacOS
 import Subprocess
 import System
 
@@ -146,7 +147,7 @@ nonisolated enum ClaudeSession {
         environment: [String: String],
         workingDirectory: URL,
     ) async -> Result<Date?, ClaudeFailure> {
-        await Result { try FileDescriptor.pipe() }.mapError(ClaudeFailure.filesystem)
+        await Result { () throws(Errno) in try FileDescriptor.pipe(options: .closeOnExec) }.mapError(ClaudeFailure.filesystem)
             .flatMap { pipe in
                 Result { try pipe.writeEnd.closeAfter { try pipe.writeEnd.writeAll(token.accessToken.utf8) } }
                     .map { _ in pipe.readEnd }
@@ -286,7 +287,7 @@ nonisolated enum ClaudeSession {
     }
 
     private static func send(
-        _ message: some Encodable & Sendable,
+        _ message: some Encodable,
         to execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
         closingInput: Bool,
     ) async -> Result<Void, ClaudeFailure> {
@@ -297,7 +298,7 @@ nonisolated enum ClaudeSession {
         }
         .mapError { _ in ClaudeFailure.protocolFailure }
         .bind { line in
-            await Result {
+            await Result { () async throws(SubprocessError) in
                 _ = try await execution.standardInputWriter.write(line.bytes)
                 if closingInput { try await execution.standardInputWriter.finish() }
             }

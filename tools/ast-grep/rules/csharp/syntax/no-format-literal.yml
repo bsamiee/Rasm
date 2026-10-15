@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-format-literal
+language: csharp
+severity: error
+utils:
+    format-literal:
+        kind: argument
+        has: {kind: 'string_literal, verbatim_string_literal, raw_string_literal', regex: '\{\d'}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, regex: '^((global::)?System\.)?[sS]tring\.Format$|\.AppendFormat$'}
+        - has:
+            field: arguments
+            any:
+                - has: {nthChild: {position: 1, ofRule: {kind: argument}}, matches: format-literal}
+                - has: {nthChild: {position: 2, ofRule: {kind: argument}}, matches: format-literal}
+        - pattern: $CALL
+message: '`$CALL` fills a constant composite format string by position'
+note: 'Interpolate the arguments into the literal, `$"..."` for `string.Format` and `Append($"...")` for `AppendFormat`, through `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` when a format provider applies'

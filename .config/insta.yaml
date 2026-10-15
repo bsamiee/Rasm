@@ -1,0 +1,5 @@
+# --- [TEST] -----------------------------------------------------------------------------
+
+test:
+    runner: nextest
+    disable_nextest_doctest: true # Binary-only packages hold no library target, `cargo test --doc` after a nextest run fails on them

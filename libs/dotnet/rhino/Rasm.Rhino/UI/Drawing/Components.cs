@@ -66,7 +66,7 @@ public abstract class ComponentControl : Drawable {
     public virtual IO<Unit> Hosted(Control host, Func<(SizeF Size, float Scale)> surface, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => new Disposal<Func<(SizeF Size, float Scale)>>(surface, held => {
             if (hosted.Exists(read => ReferenceEquals(read, held))) hosted = None;
-        })), static lease => IO.lift(lease.Dispose), lease => { retain(lease); hosted = Some(surface); }).Map(static _ => unit);
+        })), static lease => IO.lift(lease.Dispose), lease => { retain(lease); hosted = Some(surface); }).Map(unit);
 
     public abstract Seq<Part> Parts { get; }
     public abstract bool Adjust(PointF at, int steps);
@@ -98,7 +98,7 @@ public abstract class ComponentControl : Drawable {
     }
 
     public static string StyleName(Type control) => $"{control.Assembly.GetName().Name}.{control.Name}";
-    public static float Scale(Keys modifiers) => (modifiers & Application.Instance.CommonModifier) != Keys.None ? 0.1f : 1f;
+    public static float Scale(Keys modifiers) => (modifiers & Application.Instance.CommonModifier) is not Keys.None ? 0.1f : 1f;
     public static bool Snaps(Keys modifiers) => modifiers.HasFlag(Keys.Shift);
 }
 
@@ -217,7 +217,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
         IO.lift(() => grip.Match(Some: held => Dragging(size, scale, e, held), None: () => Tracked(size, scale, () => Pointer = e.Location)));
 
     public override IO<Unit> Release(SizeF size, float scale, MouseEventArgs e) =>
-        IO.lift(() => e.Buttons == MouseButtons.None ? Abandon(size, scale) : grip.Match(Some: held => Releasing(size, scale, e, held), None: static () => unit));
+        IO.lift(() => e.Buttons is MouseButtons.None ? Abandon(size, scale) : grip.Match(Some: held => Releasing(size, scale, e, held), None: static () => unit));
 
     public override IO<Unit> DoubleClick(SizeF size, float scale, MouseEventArgs e) =>
         IO.lift(() => Claimed(size, scale, DoubleClicked(State, size, scale, Hit(size, scale, e.Location), e), () => {
@@ -338,7 +338,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     }
 
     private Unit Keying(SizeF size, float scale, KeyEventArgs e) {
-        bool escapes = e.Key == Keys.Escape && grip.Exists(static held => held.Open.IsSome);
+        bool escapes = e.Key is Keys.Escape && grip.Exists(static held => held.Open.IsSome);
         e.Handled = escapes;
         return escapes ? Abandon(size, scale) : Claimed(size, scale, KeyPressed(State, size, scale, hovered, e), () => e.Handled = true);
     }

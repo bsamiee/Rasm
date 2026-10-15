@@ -1,4 +1,5 @@
 import Foundation
+import RasmMacOS
 import Subprocess
 import System
 
@@ -253,7 +254,7 @@ actor CodexClient: ProviderClient {
     }
 
     private func connection(for home: URL) async -> Result<CodexConnection, CodexFailure> {
-        if let server: CodexServer = servers[home], await !server.connection.isFinished {
+        if let server: CodexServer = servers[home], !(await server.connection.isFinished) {
             return .success(server.connection)
         }
         servers.removeValue(forKey: home)
@@ -264,12 +265,8 @@ actor CodexClient: ProviderClient {
             .filter { key, _ in
                 !key.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key)
             }
-            .merging(["CODEX_HOME": home.path]) { _, override in override }
+            .merging(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]) { _, override in override }
         return await CodexDesktop.serverExecutable()
-            .flatMap { executable -> Result<URL, CodexFailure> in
-                FileManager.default.isExecutableFile(atPath: executable.path)
-                    ? .success(executable) : .failure(.applicationUnavailable)
-            }
             .flatMap { executable in
                 Result {
                     try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
@@ -284,7 +281,7 @@ actor CodexClient: ProviderClient {
                 await startServer(
                     home: home,
                     invocation: ProcessRun.configuration(
-                        executable: .path(FilePath(executable.path)),
+                        executable: .path(FilePath(executable.path(percentEncoded: false))),
                         arguments: ["app-server"],
                         environment: variables,
                         workingDirectory: workingDirectory,
@@ -318,7 +315,12 @@ actor CodexClient: ProviderClient {
                 )
             }
             if case .failure(let error) = outcome {
-                ready.continuation.yield(.failure(CodexFailure(process: error)))
+                let failure: CodexFailure =
+                    switch error {
+                        case .launch(let launch) where launch.code == .executableNotFound: .applicationUnavailable
+                        default: CodexFailure(process: error)
+                    }
+                ready.continuation.yield(.failure(failure))
                 ready.continuation.finish()
             }
         }

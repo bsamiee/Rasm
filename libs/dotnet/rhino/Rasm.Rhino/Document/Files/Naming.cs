@@ -9,7 +9,7 @@ namespace Rasm.Rhino.Document.Files;
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError<InvalidRhinoValue>]
 public sealed partial class NamePart {
-    internal static readonly SearchValues<char> Reserved = SearchValues.Create([.. "\"*/:<>?\\|", .. Enumerable.Range(0, 32).Select(static code => (char)code)]);
+    internal static readonly SearchValues<char> Reserved = SearchValues.Create([.. """*/:<"?>\|""", .. Enumerable.Range(0, 32).Select(static code => (char)code)]);
 
     public static NamePart Ordinal(int position) => new(position.ToString(CultureInfo.InvariantCulture));
 
@@ -64,8 +64,10 @@ public static class Naming {
     private const char Separator = '_';
     private const string VersionMark = "v";
 
-    public static Option<TCounter> Next<TCounter>(this TCounter counter) where TCounter : IObjectFactory<TCounter, int, InvalidRhinoValue>, IConvertible<int> =>
-        counter.ToValue() is var held and < int.MaxValue ? Conversions.Validated<TCounter, int, InvalidRhinoValue>(held + 1).ToOption() : None;
+    extension<TCounter>(TCounter counter) where TCounter : IObjectFactory<TCounter, int, InvalidRhinoValue>, IConvertible<int> {
+        public Option<TCounter> Next() =>
+            counter.ToValue() is var held and < int.MaxValue ? Conversions.Validated<TCounter, int, InvalidRhinoValue>(held + 1).ToOption() : None;
+    }
 
     public static string Compose(NamePart stem, OutputName name, Option<OutputVersion> version) =>
         string.Concat([

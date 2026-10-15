@@ -1,0 +1,22 @@
+{
+    "name": "@rasm/media",
+    "private": true,
+    "description": "Foundation for web apps reading media in the browser: PDF.js documents, sheet rendering and viewing, image renditions, video dimensions, and Uppy upload queues as atoms",
+    "type": "module",
+    "exports": {
+        "./*": "./*"
+    },
+    "dependencies": {
+        "@uppy/core": "catalog:",
+        "@use-gesture/react": "catalog:",
+        "effect": "catalog:",
+        "pdfjs-dist": "catalog:",
+        "react": "catalog:",
+        "vite": "catalog:",
+        "vite-plugin-static-copy": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@types/react": "catalog:"
+    }
+}

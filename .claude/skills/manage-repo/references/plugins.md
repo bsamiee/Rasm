@@ -5,13 +5,12 @@ Each `plugins/<name>` directory is one plugin, listed in the marketplace file of
 ## [01]-[LAYOUT]
 
 Plugin folders hold the manifest, components at the root, and the code those components run:
-- `.claude-plugin/plugin.json` holds `name`, `description`, and `author`, with `version` only where plugin code reads it
-- Plugins and the marketplace file draw no `claude plugin validate` warning but a missing `version`
+- `.claude-plugin/plugin.json` holds `name`, `version` `1.0.0`, `description`, and `author`
 - Harnesses load local marketplace plugins in place with no version pin
 - Components sit at plugin root: `skills/<skill>/SKILL.md`, `agents/<agent>.md`, `commands/<command>.md`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`
 - One invalid `.lsp.json` row skips every server of its file at load, `claude plugin validate` reads no `.lsp.json`
+- `.lsp.json` rows point each server's cache at repository `.cache` through `args` or `settings`, `${CLAUDE_PROJECT_DIR}` expands in `args`
 - Claude plugin configuration paths take `${CLAUDE_PLUGIN_ROOT}`, skill text paths are relative to the skill folder
-- `CLAUDE.md` sits in the code folder it describes and loads as nested project memory when a file there is read
 - TypeScript plugins hold `package.json` and a `tsconfig.json` extending `../../tsconfig.base.json`, `pnpm install` adds them to the workspace
 - `userConfig` values sit in `~/.claude/settings.json` under `pluginConfigs["<name>@<marketplace>"].options` alone
 
@@ -20,8 +19,10 @@ Plugin folders hold the manifest, components at the root, and the code those com
 Claude Code and Codex load one plugin folder, each through its own manifest, marketplace row, and enable row:
 - Function-hook `modules`, `agents/`, and `.lsp.json` load in Claude Code alone
 - Plugins with Claude Code components alone take no Codex manifest
-- Plugins loading different components in each harness hold a `CLAUDE.md` naming which harness loads which
-- Command hooks Codex alone runs sit in `.codex/hooks/` and import nothing from `plugins/`
+- Plugins loading different components in each harness state what each harness loads in that harness's manifest `description`
+- Plugin-root `CLAUDE.md` loads as no installed plugin's context, `claude plugin validate --strict` fails it
+- Guidance for a plugin's code sits in `.claude/rules/<name>.md` with `paths` over its folders, plugin-root `AGENTS.md` links to it
+- Command hooks Codex alone runs sit in `.codex/hooks/`
 - Codex runs a hook after `/hooks` trusts its config hash, an edited hook takes a new trust
 - Codex reads `.codex-plugin/plugin.json` (`name`, `description`, `interface.displayName`), else `.claude-plugin/plugin.json`
 - Servers and hooks one harness alone loads sit inline in its manifest, a root `.mcp.json` or `hooks/hooks.json` loads in both harnesses
@@ -30,8 +31,7 @@ Claude Code and Codex load one plugin folder, each through its own manifest, mar
 - Codex repository marketplaces take `[marketplaces.<marketplace>]` in `.codex/config.toml` with an absolute local source path
 - Repository skills both harnesses run link from `.codex/skills/<skill>` to `../../.claude/skills/<skill>`
 - Plugin skills take no `.codex/skills` link, Codex lists them once from the installed plugin copy
-- Codex plugins load no agent, plugin Codex agents sit in `plugins/<name>/.codex/agents/<agent>.toml` beside `agents/<agent>.md`
-- `.codex/agents/<agent>.toml` links to each plugin agent, Codex reads the link target
+- Codex plugins load no agent, a plugin's Codex agents sit in `.codex/agents/<agent>.toml` as files, Codex spawns no symlinked agent
 - `.claude/settings.json` enables a plugin as `"<name>@<marketplace>": true` under `enabledPlugins`
 - `.codex/config.toml` enables a plugin as `[plugins."<name>@<marketplace>"]`, a copy `codex plugin add` writes to `~/.codex/config.toml` goes
 - Codex sessions load the copy `codex plugin add <name>@<marketplace>` installs, a command naming a repository path reads the working tree

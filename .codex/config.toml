@@ -1,7 +1,7 @@
 # --- [CODEX] ----------------------------------------------------------------------------
 
 approval_policy = "never"
-sandbox_mode = "danger-full-access"
+sandbox_mode    = "danger-full-access"
 
 [apps._default]
 default_tools_approval_mode = "approve"
@@ -18,111 +18,110 @@ max_concurrent_threads_per_session = 80
 
 [mcp_servers.atelier]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7409/"
+url                         = "http://127.0.0.1:7409/"
 
 [mcp_servers.roslyn-codelens]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7401/"
+url                         = "http://127.0.0.1:7401/"
 
 [mcp_servers.binlog]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7403/"
+url                         = "http://127.0.0.1:7403/"
 
 [mcp_servers.nuget]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7402/"
+url                         = "http://127.0.0.1:7402/"
 
 [mcp_servers.ast-grep]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7404/"
+url                         = "http://127.0.0.1:7404/"
 
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
-url = "https://api.githubcopilot.com/mcp/"
-bearer_token_env_var = "GH_PROJECTS_TOKEN"
+url                         = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var        = "GH_PROJECTS_TOKEN"
 
 [mcp_servers.github.http_headers]
-X-MCP-Toolsets = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
+X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
 X-MCP-Exclude-Tools = "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file"
-X-MCP-Features = "file_blame,issue_dependencies"
+X-MCP-Features      = "file_blame,issue_dependencies"
 
 [mcp_servers.exa]
 default_tools_approval_mode = "approve"
-url = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
-env_http_headers.x-api-key = "EXA_API_KEY"
+url                         = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
+env_http_headers.x-api-key  = "EXA_API_KEY"
 
 [mcp_servers.context7]
 default_tools_approval_mode = "approve"
-url = "https://mcp.context7.com/mcp"
-bearer_token_env_var = "CONTEXT7_API_KEY"
+url                         = "https://mcp.context7.com/mcp"
+bearer_token_env_var        = "CONTEXT7_API_KEY"
 
 [mcp_servers.deepwiki]
 default_tools_approval_mode = "approve"
-url = "https://mcp.deepwiki.com/mcp"
+url                         = "https://mcp.deepwiki.com/mcp"
 
 [mcp_servers.greptile]
-url = "https://api.greptile.com/mcp"
+url                  = "https://api.greptile.com/mcp"
 bearer_token_env_var = "GREPTILE_API_KEY"
-enabled = false
+enabled              = false
 
 [mcp_servers.openaiDeveloperDocs]
 default_tools_approval_mode = "approve"
-url = "https://developers.openai.com/mcp"
+url                         = "https://developers.openai.com/mcp"
 
 [mcp_servers.claudeCodeDocs]
 default_tools_approval_mode = "approve"
-url = "https://code.claude.com/docs/mcp"
+url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
-url = "http://localhost:18412/v1/mcp"
+url                  = "http://localhost:18412/v1/mcp"
 bearer_token_env_var = "ILLUSTRATOR_MCP_TOKEN"
 
 [mcp_servers.arena]
-url = "https://mcp.are.na/mcp"
+url     = "https://mcp.are.na/mcp"
 enabled = false
 
 [mcp_servers.xcode]
 default_tools_approval_mode = "approve"
-command = "xcrun"
-args = ["mcpbridge"]
+command                     = "xcrun"
+args                        = ["mcpbridge"]
 
 [mcp_servers.lldb]
 default_tools_approval_mode = "approve"
-command = "xcrun"
-args = ["lldb-mcp"]
-startup_timeout_sec = 20
-tool_timeout_sec = 120
+command                     = "xcrun"
+args                        = ["lldb-mcp"]
+startup_timeout_sec         = 20
+tool_timeout_sec            = 120
 
 [mcp_servers.node_repl.env]
 NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"", "node_repl"]'
 
 [mcp_servers.rhino-mcp-platform]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7406/"
-tool_timeout_sec = 180
+url                         = "http://127.0.0.1:7406/"
+tool_timeout_sec            = 180
 
 [mcp_servers.blender]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7407/"
+url                         = "http://127.0.0.1:7407/"
 
 [mcp_servers.mcp-for-blender]
 default_tools_approval_mode = "approve"
-url = "http://127.0.0.1:7408/"
-tool_timeout_sec = 180
+url                         = "http://127.0.0.1:7408/"
+tool_timeout_sec            = 180
 
 # --- [PLUGINS] --------------------------------------------------------------------------
 
 [marketplaces.rasm]
 source_type = "local"
-source = "/Users/bardiasamiee/Developer/Rasm/plugins"
+source      = "/Users/bardiasamiee/Developer/Rasm/plugins"
 
 [plugins."argus@rasm"]
-enabled = true
+enabled                                       = true
 mcp_servers.argus.default_tools_approval_mode = "approve"
 
 [plugins."playwright@rasm"]
-enabled = true
-mcp_servers.playwright.default_tools_approval_mode = "approve"
+enabled                                                 = true
 mcp_servers.playwright-test.default_tools_approval_mode = "approve"
 
 # --- [HOOKS] ----------------------------------------------------------------------------
@@ -131,18 +130,17 @@ mcp_servers.playwright-test.default_tools_approval_mode = "approve"
 matcher = "startup|clear|compact"
 
 [[hooks.SessionStart.hooks]]
-type = "command"
+type    = "command"
 command = '"$(git rev-parse --show-toplevel)/.claude/hooks/root-cause.sh"'
 
 [[hooks.SubagentStart]]
-
 [[hooks.SubagentStart.hooks]]
-type = "command"
+type    = "command"
 command = '"$(git rev-parse --show-toplevel)/.claude/hooks/root-cause.sh"'
 
 [[hooks.PreToolUse]]
-matcher = "^(Bash|apply_patch)$"
+matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
-type = "command"
+type    = "command"
 command = 'node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts"'

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-member-by-flat-map
+language: swiftlang
+severity: error
+utils:
+    chain-root:
+        any:
+            - {kind: simple_identifier, regex: '^\$0$'}
+            - {kind: key_path_expression, regex: '^\\$'}
+            - {kind: navigation_expression, has: {field: target, matches: chain-root}}
+            - {kind: call_expression, has: {nthChild: 1, matches: chain-root}}
+    member-read:
+        kind: 'navigation_expression, call_expression'
+        pattern: $READ
+        matches: chain-root
+        not: {kind: 'simple_identifier, key_path_expression'}
+    reader:
+        any:
+            - kind: lambda_literal
+              regex: '^\{[^$]*\$0[^$]*\}$'
+              all:
+                - not: {has: {field: type, kind: lambda_function_type}}
+                - has: {kind: statements, has: {nthChild: 1, matches: member-read}, not: {has: {nthChild: 2}}}
+            - kind: value_arguments
+              has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: member-read, regex: '^\\\.'}}
+              not: {has: {kind: value_argument, nthChild: 2}}
+    optional-context:
+        any:
+            - inside: {kind: nil_coalescing_expression, field: value}
+            - inside: {kind: 'if_statement, guard_statement', has: {kind: value_binding_pattern}}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    all:
+        - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}]}
+        - has: {kind: call_suffix, has: {matches: reader}}
+        - matches: optional-context
+transform:
+    REST: {replace: {source: $READ, replace: '^(\$0|\\)', by: ''}}
+fix: $X?$REST
+message: '`$SITE` reads one member of an optional through `flatMap`'
+note: 'Chain the read with `?.` on the optional, `<optional>?.<member>` yields `nil` for a `nil` optional or a `nil` member as the `flatMap` does'

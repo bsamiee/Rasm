@@ -228,9 +228,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             Ok("PASS_THROUGH")
             if elapsed == run.elapsed
             else tick.body(context, run.state, elapsed).bind(
-                lambda following: following.map(lambda state: self._previewed(operator, context, msgspec.structs.replace(run, state=state, elapsed=elapsed), event)).default_with(
-                    lambda: Ok("FINISHED")
-                )
+                lambda following: following.map(lambda state: self._previewed(operator, context, msgspec.structs.replace(run, state=state, elapsed=elapsed), event)).default_value(Ok("FINISHED"))
             )
         )
 

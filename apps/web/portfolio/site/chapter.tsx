@@ -1,4 +1,5 @@
 import { useAtom } from '@effect/atom-react';
+import { dialogOpen } from '@rasm/ui/dialogs.ts';
 import { Option, Record } from 'effect';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight, Grid2x2, X } from 'lucide-react';
@@ -9,7 +10,7 @@ import { CompositionGrid } from '../media/composition.tsx';
 import { compositionLabel, entryTitle, numeral } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
 import type { Entry } from '../model/document.ts';
-import { dialogOpen, type Navigation } from './navigation.ts';
+import type { Navigation } from './navigation.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -17,7 +18,7 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
     const slideDuration = 28;
     const overviewItem = { width: 120, height: 180 };
     const reduced = useReducedMotion();
-    const [viewport, clientApi, serverApi] = useEmblaCarousel({ align: 'start', duration: reduced ? 0 : slideDuration });
+    const [viewport, clientApi, serverApi] = useEmblaCarousel({ align: 'start', duration: reduced === true ? 0 : slideDuration });
     const api = clientApi ?? serverApi;
     const selectedSnap = useSyncExternalStore(
         (onStoreChange) => {
@@ -41,7 +42,7 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
             ['Role', entry.role],
             ['Credits', entry.credits],
         ] as const
-    ).filter(([, value]) => value);
+    ).filter(([, value]) => value !== '');
     const select = useEffectEvent(() => {
         const composition = entry.compositions[api.selectedSnap()]?.id;
         if (composition !== navigation.selected(entry)) {
@@ -56,9 +57,9 @@ function Chapter({ entry, index, navigation }: { entry: typeof Entry.Type; index
         }
     };
     useEffect(() => {
-        const allowDrag = (_api: unknown, { detail }: { readonly detail: Event }): boolean => !(detail.target instanceof Element && detail.target.closest('a,button,video'));
+        const allowDrag = (_api: unknown, { detail }: { readonly detail: Event }): boolean => !(detail.target instanceof Element && detail.target.closest('a,button,video') !== null);
         const release = (): void => {
-            if (reduced) {
+            if (reduced === true) {
                 api.goTo(api.selectedSnap(), true);
             }
         };

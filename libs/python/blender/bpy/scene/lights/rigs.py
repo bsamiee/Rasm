@@ -42,10 +42,10 @@ from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.hashing import content_hash
-from blender.imaging.parameters import Case, Gated, Seed
+from blender.imaging.parameters import Case, Gated, Positive, Seed
 from blender.rendering.history import Retention
 from blender.rendering.lighting.references import DistantLight, gray_ball, ReferenceDistribution, ReferenceImage, Roll, sphere
-from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Radius, Rig, rig_catalog, Spot, Sun
+from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Rig, rig_catalog, Spot, Sun
 from blender.rendering.outputs.framing import Side
 
 if TYPE_CHECKING:
@@ -157,7 +157,7 @@ class Anchor(msgspec.Struct, frozen=True, kw_only=True):
     """World frame a rig places about: center and right, up, and back columns, with the bounding radius."""
 
     matrix: Matrix
-    radius: Radius
+    radius: Positive
 
 
 class LightRig(msgspec.Struct, frozen=True, kw_only=True):
@@ -179,23 +179,9 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         """
         context = bpy.context
 
-        def retained(block: bpy.types.Collection) -> bpy.types.Collection:
-            rollback.callback(bpy.data.batch_remove, ids=(block,))
-            return block
-
         def restored(carried: tuple[tuple[bpy.types.Object, Attached[RigSetup]], tuple[bpy.types.Scene, bpy.types.ViewLayer]]) -> BlenderResult[Option[str]]:
             (empty, attached), (scene, layer) = carried
             config = PyOpenColorIO.GetCurrentConfig()
-
-            def collected(holder: bpy.types.Object) -> BlenderResult[bpy.types.Collection]:
-                mark = Mark(key=LightRig.collection.key, of=Some(holder))
-                return (
-                    Option
-                    .of_optional(earliest(LightRig.collection.held(identity)).get(mark))
-                    .map(Ok)
-                    .default_with(lambda: founded(Some(scene.collection), f"{holder.name} Rig").bind(lambda block: LightRig.collection.owned(identity, block, mark)).map(retained))
-                )
-
             return (
                 paired(
                     attached.read(empty),
@@ -211,7 +197,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda pair: paired(target(pair[1], pair[0], context, scene, layer), _reading(pair[0], config)).map(lambda measured: (*pair, *measured)))
                 .bind(lambda measured: LightRig.prepared(measured[0], config, measured[2].radius, measured[3]).map(lambda prepared: (*measured[:3], prepared)))
                 .bind(
-                    lambda prepared: collected(prepared[1]).bind(
+                    lambda prepared: _home(prepared[1], identity, scene, rollback).bind(
                         lambda home: anchored(prepared[1], empty, prepared[2]).bind(
                             lambda _: rig_placed(empty, prepared[1], home, prepared[3], scene, layer, identity, target_alone=prepared[0].linked)
                         )
@@ -237,7 +223,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                                 root_in(bpy.types.ViewLayer, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.ViewLayer.__name__),)),
                             ),
                         ).bind(restored)
-                        if Mark.read(identity, empty).filter(lambda mark: mark.key == LightRig.empty.key).is_some()
+                        if LightRig.empty.marked(identity, empty).is_some()
                         else Ok(Nothing)
                     )
                 )
@@ -253,18 +239,18 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def prepared(
-        setup: RigSetup, config: PyOpenColorIO.Config, radius: Radius, reading: Option[LightingReading]
+        setup: RigSetup, config: PyOpenColorIO.Config, radius: Positive, reading: Option[LightingReading]
     ) -> BlenderResult[tuple[Placements, tuple[float, ...], Option[tuple[Environment, Graph]]]]:
         """Prepares placements, independent powers, and the native world graph before host publication."""
         return (
             Result[Option[Placements], BlenderFaults]
             .bind(
-                setup.rig.placements(config, radius, reading).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)),
+                setup.rig.placements(config, radius, reading).map_error(BlenderRenderingFault.lifted),
                 lambda placements: placements.to_result_with(lambda: (BlenderAbsentFault(owner=repr(setup), key="reference"),)),
             )
             .bind(
                 lambda placements: paired(
-                    accumulated(placement.power for placement in placements.lights).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)),
+                    accumulated(placement.power for placement in placements.lights).map_error(BlenderRenderingFault.lifted),
                     placements.background
                     .map(lambda background: Environment(lighting=Backdrop(mode=FlatColor(color=background.color), strength=background.strength)))
                     .map(lambda environment: world_graph(environment).map(lambda graph: Some((environment, graph))))
@@ -296,7 +282,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                             call.identity,
                             f"{holder.name} Reference",
                             content_hash(LightRig, chosen, arrays=(np.asarray(setup.size, dtype=np.int64),), config=Some(config)),
-                            lambda: chosen.plane(setup.size).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(Some),
+                            lambda: chosen.plane(setup.size).map_error(BlenderRenderingFault.lifted).map(Some),
                             Tag(space=Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()), view_as_render=Some(True)),
                             of=Some(holder),
                         )
@@ -318,27 +304,17 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             rollback.callback(bpy.data.batch_remove, ids=(block,))
             return block
 
-        def collected(holder: bpy.types.Object) -> BlenderResult[bpy.types.Collection]:
-            mark = Mark(key=LightRig.collection.key, of=Some(holder))
-            return (
-                Option
-                .of_optional(earliest(LightRig.collection.held(identity)).get(mark))
-                .map(Ok)
-                .default_with(lambda: founded(Some(scene.collection), f"{holder.name} Rig").bind(lambda block: LightRig.collection.owned(identity, block, mark)).map(retained))
-            )
-
         def placed(pair: tuple[bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
             holder, attached = pair
             mark = Mark(key=LightRig.empty.key, of=Some(holder))
             existing = Option.of_optional(earliest(LightRig.empty.held(identity)).get(mark))
             return (
-                existing
-                .map(attached.read)
-                .default_with(lambda: attached.read(holder))
+                attached
+                .read(existing.default_value(holder))
                 .bind(lambda setup: paired(target(holder, setup, context, scene, layer), _reading(setup, config)).map(lambda pair: (setup, *pair)))
                 .bind(lambda carried: LightRig.prepared(carried[0], config, carried[1].radius, carried[2]).map(lambda prepared: (carried[0], carried[1], prepared)))
                 .bind(
-                    lambda prepared: collected(holder).bind(
+                    lambda prepared: _home(holder, identity, scene, rollback).bind(
                         lambda home: (
                             existing
                             .map(Ok)
@@ -365,13 +341,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             holder = (
                 focused(layer)
                 .bind(
-                    lambda item: (
-                        Mark
-                        .read(identity, item)
-                        .filter(lambda mark: mark.key == LightRig.empty.key)
-                        .map(lambda mark: mark.of.to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="target"),)))
-                        .default_value(Ok(item))
-                    )
+                    lambda item: LightRig.empty.marked(identity, item).map(lambda mark: mark.of.to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="target"),))).default_value(Ok(item))
                 )
                 .bind(
                     lambda item: (
@@ -440,7 +410,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                         lambda attached: attached.read(rig).bind(
                             lambda setup: (
                                 _reading(setup, PyOpenColorIO.GetCurrentConfig())
-                                .bind(lambda reading: setup.rig.arranged(reading).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)))
+                                .bind(lambda reading: setup.rig.arranged(reading).map_error(BlenderRenderingFault.lifted))
                                 .bind(lambda arranged: arranged.to_result_with(lambda: (BlenderAbsentFault(owner=repr(rig), key="reference"),)))
                                 .bind(lambda arranged: attached.write(rig, msgspec.structs.replace(setup, rig=msgspec.structs.replace(setup.rig, layout=arranged))))
                             )
@@ -502,7 +472,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
             def rendered(source: ReferenceImage | tuple[DistantLight, ...], side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
                 result = source.plane(side) if isinstance(source, ReferenceImage) else sphere(source, (side, side))
-                return result.map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(Some)
+                return result.map_error(BlenderRenderingFault.lifted).map(Some)
 
             def job(slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[npt.NDArray[np.float32]]]], rank: Rank = Rank.REST) -> tuple[Job, ...]:
                 def formed(side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
@@ -511,7 +481,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                             lambda values: (
                                 display
                                 .form(config, np.pad(values, ((0, 0), (0, 0), (0, 4 - values.shape[2])), constant_values=1.0), exposure=exposure, gamma=gamma)
-                                .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                                .map_error(BlenderImagingFault.lifted)
                                 .map(Some)
                             )
                         ).default_value(Ok(Nothing))
@@ -524,7 +494,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def prepared(setup: RigSetup) -> tuple[Job, ...]:
-                origin = Mark.read(identity, holder).filter(lambda mark: mark.key == LightRig.empty.key).bind(lambda mark: mark.of).default_value(holder)
+                origin = LightRig.empty.marked(identity, holder).bind(lambda mark: mark.of).default_value(holder)
                 anchor = (
                     target(origin, setup, context, scene, layer)
                     if isinstance(origin, bpy.types.Object)
@@ -535,10 +505,8 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 inputs = (setup.focus, setup.axes, Handle.of(holder), Option.of_optional(setup.reference).map(Handle.of), measured.to_option())
 
                 def ball(rig: Rig, side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
-                    return measured.bind(lambda pair: rig.placements(config, pair[0].radius, pair[1]).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))).bind(
-                        lambda placements: placements.map(
-                            lambda placement: gray_ball(placement, config, side).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)).map(Some)
-                        ).default_value(Ok(Nothing))
+                    return measured.bind(lambda pair: rig.placements(config, pair[0].radius, pair[1]).map_error(BlenderRenderingFault.lifted)).bind(
+                        lambda placements: placements.map(lambda placement: gray_ball(placement, config, side).map_error(BlenderRenderingFault.lifted).map(Some)).default_value(Ok(Nothing))
                     )
 
                 return (
@@ -718,7 +686,7 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
     def measured(carried: tuple[WorldBounds, Vector, Matrix]) -> BlenderResult[Anchor]:
         bounds, center, frame = carried
         try:
-            radius = msgspec.convert(max((Vector(corner) - center).length for corner in itertools.product(*zip(bounds.low, bounds.high))), type=Radius)  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
+            radius = msgspec.convert(max((Vector(corner) - center).length for corner in itertools.product(*zip(bounds.low, bounds.high))), type=Positive)  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
         except msgspec.ValidationError as error:
             return Error((BlenderReadFault(request=f"{holder!r}.bound_box", error=error),))
         return Ok(Anchor(matrix=Matrix.LocRotScale(center, frame, None).freeze(), radius=radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
@@ -743,7 +711,7 @@ def anchored(holder: bpy.types.Object, rig: bpy.types.Object, anchor: Anchor) ->
         `Ok` after reconciliation, or the native write faults.
     """
     display = Snapshot.of(bpy.types.Object, {"empty_display_type": "SPHERE", "empty_display_size": anchor.radius})
-    follow = Snapshot.of(bpy.types.ChildOfConstraint, {"target": IdName.of(holder), "inverse_matrix": tuple(value for column in holder.matrix_world.inverted().transposed() for value in column)})  # type: ignore[union-attr]
+    follow = Snapshot.of(bpy.types.ChildOfConstraint, {"target": IdName.of(holder), "inverse_matrix": tuple(itertools.chain.from_iterable(holder.matrix_world.inverted().transposed()))})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return reconciled(ObjectState(values=Some(display), placement=Some(anchor.matrix), constraints=Some({"Follow": StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ()).map(lambda _: None)
 
@@ -792,13 +760,13 @@ def rig_placed(
         }
         match light.emitter:
             case Point():
-                return "POINT", {**common, "shadow_soft_size": placement.radius}
+                return "POINT", common | {"shadow_soft_size": placement.radius}
             case Spot(cone=cone, blend=blend):
-                return "SPOT", {**common, "shadow_soft_size": placement.radius, "spot_size": cone, "spot_blend": blend}
+                return "SPOT", common | {"shadow_soft_size": placement.radius, "spot_size": cone, "spot_blend": blend}
             case Disk():
-                return "AREA", {**common, "shape": "DISK", "size": 2.0 * placement.radius}
+                return "AREA", common | {"shape": "DISK", "size": 2.0 * placement.radius}
             case Sun():
-                return "SUN", {**common, "angle": light.size}
+                return "SUN", common | {"angle": light.size}
 
     def lamp(index: int, placement: Placement, power: float) -> BlenderResult[bpy.types.Object]:
         kind, values = emitted(placement, power)
@@ -905,8 +873,22 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
 
 def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[bpy.types.Object]:
     """View layer's active object with a rig empty's mark, or an absent fault."""
-    return focused(view_layer).bind(
-        lambda item: Ok(item) if Mark.read(identity, item).filter(lambda mark: mark.key == LightRig.empty.key).is_some() else Error((BlenderAbsentFault(owner=repr(item), key=LightRig.empty.key),))
+    return focused(view_layer).bind(lambda item: Ok(item) if LightRig.empty.marked(identity, item).is_some() else Error((BlenderAbsentFault(owner=repr(item), key=LightRig.empty.key),)))
+
+
+def _home(holder: bpy.types.Object, identity: Identity, scene: bpy.types.Scene, rollback: ExitStack) -> BlenderResult[bpy.types.Collection]:
+    """Owned rig collection of a holder, or a new one under the scene collection the rollback removes."""
+    mark = Mark(key=LightRig.collection.key, of=Some(holder))
+
+    def retained(block: bpy.types.Collection) -> bpy.types.Collection:
+        rollback.callback(bpy.data.batch_remove, ids=(block,))
+        return block
+
+    return (
+        Option
+        .of_optional(earliest(LightRig.collection.held(identity)).get(mark))
+        .map(Ok)
+        .default_with(lambda: founded(Some(scene.collection), f"{holder.name} Rig").bind(lambda block: LightRig.collection.owned(identity, block, mark)).map(retained))
     )
 
 
@@ -915,7 +897,7 @@ def _reading(setup: RigSetup, config: PyOpenColorIO.Config) -> BlenderResult[Opt
     return (
         Option
         .of_optional(setup.reference)
-        .map(lambda image: read(image, config).bind(lambda file: LightingReading.of(config, file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),))))
+        .map(lambda image: read(image, config).bind(lambda file: LightingReading.of(config, file.pixels).map_error(BlenderImagingFault.lifted)))
         .default_value(Ok(Nothing))
     )
 

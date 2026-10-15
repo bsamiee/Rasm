@@ -177,7 +177,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     def path(self, root: Path, fields: Fields) -> RenderingResult[Path]:
         """Composes a path, refusing a resolved destination outside its root."""
         return self.compose(fields).bind(
-            lambda text: Ok(root / text) if (path := (root / text).resolve()).is_relative_to(base := root.resolve()) else Error((RenderingRootFault(request=str(path), error=str(base)),))
+            lambda text: Ok(root / text) if (path := (root / text).resolve()).is_relative_to(base := root.resolve()) else Error((RenderingRootFault(request=path, error=base),))
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:

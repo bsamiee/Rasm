@@ -126,8 +126,12 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
     def settled[T: msgspec.Struct](self, catalog: Catalog[T]) -> Self:
         """Restricts lead, anchor, and selection to shown rows, the lead falling back to the current row."""
         shown = self.shown(catalog.rows)
-        lead = self.lead.filter(lambda stem: stem in shown).or_else(catalog.current.filter(lambda stem: stem in shown))
-        return replace(self, lead=lead, anchor=self.anchor.filter(lambda stem: stem in shown).or_else(lead), selected=self.selected.intersection(shown))
+
+        def visible(stem: str) -> bool:
+            return stem in shown
+
+        lead = self.lead.filter(visible).or_else(catalog.current.filter(visible))
+        return replace(self, lead=lead, anchor=self.anchor.filter(visible).or_else(lead), selected=self.selected.intersection(shown))
 
     def cells[T: msgspec.Struct](self, canvas: Canvas, catalog: Catalog[T], verbs: Iterable[Verb]) -> Cells:
         """Derives paint and hit rectangles once from the same native region metrics."""
@@ -164,11 +168,11 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
                 return Act(verb=verb, record=Selected(items=chosen)) if chosen else "RUNNING_MODAL"
             case Verb.SAVE, _:
                 return Act(verb=verb, record=Saved(name=catalog.current.map(bpy.path.display_name).default_value("")))
-            case Verb.RENAME, str() as name:
+            case Verb.RENAME, str(name):
                 return Act(verb=verb, record=Renamed(stem=name, name=bpy.path.display_name(name)))
             case Verb.RENAME | Verb.REPLACE, None:
                 return "RUNNING_MODAL"
-            case _, str() as name:
+            case _, str(name):
                 return Act(verb=verb, record=Named(stem=name))
             case _, None:
                 return Act(verb=verb, record=operators.Empty())
@@ -189,7 +193,7 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
                 return self, "CANCELLED"
             case _, "LEFTMOUSE", _, None:
                 return self, "CANCELLED"
-            case _, "LEFTMOUSE", _, str() as stem:
+            case _, "LEFTMOUSE", _, str(stem):
                 span = sorted({shown.index(stem), *(shown.index(held) for held in self.anchor.to_list() if event.shift)})
                 following = replace(
                     self, searching=False, lead=Some(stem), selected=self.selected ^ {stem} if chord else frozenset(shown[span[0] : span[-1] + 1]), anchor=self.anchor if event.shift else Some(stem)
@@ -703,7 +707,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
 def captioned[T: msgspec.Struct](state: Browsed[T], target: Target, numbered: Mapping[str, int]) -> tuple[str, Option[gpu.types.GPUTexture]]:
     """Labels a cell, prefixing a preset's read or render failure, and answers its rendered tile."""
     match target:
-        case str() as stem:
+        case str(stem):
             demand = Option.of_optional(state.demands.get((stem, Rank.SHOWN)))
             outcome = demand.bind(lambda held: Option.of_optional(state.outcomes.get(held)))
             faults = outcome.bind(lambda result: result.swap().to_option()).or_else(demand.bind(lambda held: held.value.swap().to_option()))

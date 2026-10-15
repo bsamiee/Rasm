@@ -106,7 +106,7 @@ public static class Viewports {
     public static IO<TValue> WithMode<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
         DisposalOps.Within(() => DisplayModeDescription.GetDisplayMode(id),
             mode => IO.lift(() => Missing.Unless(mode, nameof(DisplayModeDescription.GetDisplayMode))).Bind(body),
-            static mode => Optional(mode).Traverse(static held => IO.lift(held.Dispose)).As().Map(static _ => unit));
+            static mode => Optional(mode).Traverse(static held => IO.lift(held.Dispose)).As().Map(unit));
 
     public static IO<TValue> WithActiveView<TValue>(RhinoDoc doc, RhinoView view, IO<TValue> body) =>
         DisposalOps.Within((Action<IDisposable> retain) =>

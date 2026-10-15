@@ -1,0 +1,28 @@
+# --- [FORMAT] ---------------------------------------------------------------------------
+
+[format.rules]
+indent-width                    = 4
+key-value-equals-sign-alignment = true
+trailing-comment-alignment      = true
+trailing-comment-space-width    = 1
+
+# --- [EXTENSIONS] -----------------------------------------------------------------------
+
+[extensions."tombi-toml/cargo".lsp.inlay-hint.default-features]
+enabled = false
+
+[extensions."tombi-toml/pyproject".lsp.inlay-hint.dependency-version]
+enabled = false
+
+# --- [SCHEMA] ---------------------------------------------------------------------------
+
+[schema.format.rules]
+table-keys-order.enabled   = false
+array-values-order.enabled = false
+
+# --- [SCHEMAS] --------------------------------------------------------------------------
+
+[[schemas]]
+path    = "tombi://www.schemastore.org/cargo.json"
+include = ["Cargo.toml"]
+strict  = false                                    # Schema lacks the `cargo-features` profile key `trim-paths` that `[profile.dist]` sets

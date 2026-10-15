@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-subscripted-slice
+language: python
+severity: error
+metadata: {python-below: '3.15'}
+rule:
+    pattern: $G
+    matches: {python-evaluated-subscript: {value: {matches: {python-builtin-name: {name: {regex: '^slice$'}}}}}}
+message: '`$G` defines no `__class_getitem__` at this file''s Python target, evaluated subscripts raise `TypeError`'
+note: 'Use `slice` unsubscripted or a quoted annotation'

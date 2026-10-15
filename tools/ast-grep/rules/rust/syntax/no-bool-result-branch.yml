@@ -29,7 +29,7 @@ rule:
     all:
         - not: {has: {stopBy: end, matches: comment}}
         - not: {inside: {kind: else_clause}}
-        - not: {matches: rust-const-context}
+        - not: {inside: {stopBy: {kind: 'function_item, closure_expression, const_item, static_item, const_block'}, any: [{kind: 'const_item, static_item, const_block'}, {matches: rust-const-called}]}}
         - any:
             - all: [{matches: ok-first}, {has: {field: condition, matches: primary, pattern: $P}}]
             - all: [{matches: ok-first}, {has: {field: condition, matches: compound, pattern: $Q}}]
@@ -43,4 +43,4 @@ transform:
     NQW: {replace: {source: $NQ, replace: '^([\s\S]+)$', by: '(!($1))'}}
 fix: '$P$QW$NPW$NQW.ok_or_else(|| $E)'
 message: '`if` chooses between `Ok(())` and `Err($E)` by hand'
-note: 'Write `<condition>.ok_or_else(|| <error>)` (`bool::ok_or_else`, Rust 1.98), clippy `unnecessary_lazy_evaluations` then reduces an eager-safe error to `ok_or(<error>)`, a `const fn`, an `else if` arm, and an `if` holding a comment stay as written'
+note: 'Write `<condition>.ok_or_else(|| <error>)` (`bool::ok_or_else`, Rust 1.98), clippy `unnecessary_lazy_evaluations` then reduces an eager-safe error to `ok_or(<error>)`, a `const` or `static` initializer, a `const {}` block, a `const fn` one of them in the file calls, an `else if` arm, and an `if` holding a comment stay as written. `no-unit-option-result` owns the `then_some(()).ok_or(..)` form'

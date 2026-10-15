@@ -321,7 +321,7 @@ public readonly record struct PiecewiseCurve(
         double toeX = 0.5d * Math.Pow((float)state.ToeLength, 2.2d);
         double toeY = (1d - (float)state.ToeStrength) * toeX;
         double shoulderX = toeX + ((1d - (float)state.ShoulderLength) * (1d - toeY));
-        double white = toeX + (1d - toeY) + Math.Pow(2d, strength) - 1d;
+        double white = toeX + (1d - toeY) + double.Exp2(strength) - 1d;
         double end = white * (1d + (2d * (float)state.ShoulderAngle * strength));
         double ceiling = Math.Pow(1d + (0.5d * (float)state.ShoulderAngle * strength), gamma);
         (double toe, double shoulder) = (Math.Max(1e-5d, Math.Pow(toeY, gamma)), Math.Max(1e-5d, Math.Pow(toeY + shoulderX - toeX, gamma)));

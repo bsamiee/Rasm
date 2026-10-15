@@ -286,7 +286,7 @@ public sealed partial class Ramp : IConvertible<string> {
         const int texels = 256;
         Seq<RampStop> stops = key.Ramp.Stops;
         RampInterpolation interpolation = key.Ramp.Interpolation;
-        if (interpolation.Space == ColourSpace.RgbLinear)
+        if (interpolation.Space is ColourSpace.RgbLinear)
             return new RampTable(stops, (stop, t) => Vector4.Lerp(stops[stop].Color, stops[stop + 1].Color, (float)interpolation.Weight(t)));
         Seq<Unicolour> entered = stops.Map(stop =>
             new Unicolour(key.Gamut.Configuration, ColourSpace.RgbLinear, stop.Color.X, stop.Color.Y, stop.Color.Z, stop.Color.W).ConvertToConfiguration(Configuration.Default));
@@ -388,7 +388,7 @@ public sealed record Presentation<TKey> where TKey : struct, INumber<TKey> {
 
     public Fin<TValue> Admit<TValue>(TValue value, (TKey Low, TKey High) bounds) where TValue : notnull =>
         value is IQuantity quantity
-            ? UnitConverter.Default.ConvertValue(quantity.Value, quantity.UnitKey, Unit.IfNone(() => quantity.GetQuantityInfo().BaseUnitInfo).UnitKey) switch {
+            ? UnitConverter.Convert(quantity.Value, quantity.UnitKey, Unit.IfNone(() => quantity.GetQuantityInfo().BaseUnitInfo).UnitKey) switch {
                 var key => key >= QuantityValue.CreateChecked(bounds.Low) && key <= QuantityValue.CreateChecked(bounds.High)
                     ? Fin.Succ(value)
                     : new InvalidPixelValue(),

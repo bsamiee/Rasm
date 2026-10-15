@@ -287,16 +287,16 @@ public static class Lights {
         light.LightStyle switch {
             LightStyle.CameraPoint or LightStyle.WorldPoint =>
                 Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(light.Radius).ToValidation()
-                    .Map(radius => (LightShape)new LightShape.PointLight(light.Location, radius, light.LightStyle == LightStyle.CameraPoint)),
+                    .Map(radius => (LightShape)new LightShape.PointLight(light.Location, radius, light.LightStyle is LightStyle.CameraPoint)),
             LightStyle.CameraSpot or LightStyle.WorldSpot =>
                 (Conversions.Validated<SpotAngle, double, InvalidRhinoValue>(light.SpotAngleRadians).ToValidation(),
                  Conversions.Validated<HotSpot, double, InvalidRhinoValue>(light.HotSpot).ToValidation(),
                  Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(light.Radius).ToValidation())
-                    .Apply((angle, hotSpot, radius) => (LightShape)new LightShape.SpotLight(light.Location, light.Direction, angle, hotSpot, radius, light.LightStyle == LightStyle.CameraSpot))
+                    .Apply((angle, hotSpot, radius) => (LightShape)new LightShape.SpotLight(light.Location, light.Direction, angle, hotSpot, radius, light.LightStyle is LightStyle.CameraSpot))
                     .As(),
             LightStyle.CameraDirectional or LightStyle.WorldDirectional =>
                 Conversions.Validated<SunAngle, double, InvalidRhinoValue>(RhinoMath.ToRadians(light.Radius)).ToValidation()
-                    .Map(angle => (LightShape)new LightShape.DirectionalLight(light.Location, light.Direction, angle, light.LightStyle == LightStyle.CameraDirectional)),
+                    .Map(angle => (LightShape)new LightShape.DirectionalLight(light.Location, light.Direction, angle, light.LightStyle is LightStyle.CameraDirectional)),
             LightStyle.WorldLinear => new LightShape.LinearLight(light.Location, light.Length, light.Width),
             LightStyle.WorldRectangular => new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),
             LightStyle.Ambient => new LightShape.AmbientLight(),

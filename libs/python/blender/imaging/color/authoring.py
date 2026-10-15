@@ -13,7 +13,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.faults import ImagingConfigFault, ImagingResult, ImagingWriteFault, paired
+from blender.imaging.faults import ImagingConfigFault, ImagingFaults, ImagingResult, ImagingWriteFault, paired
 from blender.imaging.files.images import published
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -123,7 +123,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         request = rows
         tables: dict[str, str] = {}
         stage = stage.absolute()
-        clf = next(row for row in LutFormat.of(PyOpenColorIO.GroupTransform.GetWriteFormats()) if row.extension == "clf")
+        clf = next(row for row in LutFormat.writable() if row.extension == "clf")
 
         def tabled(transform: PyOpenColorIO.Transform) -> PyOpenColorIO.Transform:
             match transform:
@@ -209,7 +209,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
             return Error((ImagingConfigFault(request=request, error=error),))
         except OSError as error:
-            return Error((ImagingWriteFault(request=str(stage), error=error),))
+            return Error((ImagingWriteFault(request=stage, error=error),))
 
     def archived(self, base: PyOpenColorIO.Config, path: pathlib.Path) -> ImagingResult[pathlib.Path]:
         """Stages and atomically publishes an OCIO archive.
@@ -235,11 +235,11 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         try:
             stage = tempfile.TemporaryDirectory()
         except OSError as error:
-            return Error((ImagingWriteFault(request=str(path), error=error),))
+            return Error((ImagingWriteFault(request=path, error=error),))
         try:
             result = self.staged(base, pathlib.Path(stage.name)).bind(encoded)
         finally:
-            removed = catch(stage.cleanup, exception=OSError)().map_error(lambda error: (ImagingWriteFault(request=str(path), error=error),))
+            removed = catch(stage.cleanup, exception=OSError)().map_error(lambda error: (ImagingWriteFault(request=path, error=error),))
         return paired(result, removed).map(lambda pair: pair[0])
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> ImagingResult[pathlib.Path]:
@@ -253,6 +253,9 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             The installed config path, or `config` and `write` faults including resource cleanup failures.
         """
 
+        def refused(error: OSError) -> ImagingFaults:
+            return (ImagingWriteFault(request=folder, error=error),)
+
         def replaced(config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
             path = stage / "config.ocio"
             return (
@@ -260,19 +263,19 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda _: catch(shutil.rmtree, exception=OSError)(folder).or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error)))
                 .bind(lambda _: catch(stage.rename, exception=OSError)(folder))
                 .map(lambda installed: installed / path.name)
-                .map_error(lambda error: (ImagingWriteFault(request=str(folder), error=error),))
+                .map_error(refused)
             )
 
         try:
             folder.parent.mkdir(parents=True, exist_ok=True)
             scratch = tempfile.TemporaryDirectory(dir=folder.parent)
         except OSError as error:
-            return Error((ImagingWriteFault(request=str(folder), error=error),))
+            return Error(refused(error))
         try:
             stage = pathlib.Path(scratch.name) / folder.name
             result = self.staged(base, stage).bind(replaced)
         finally:
-            removed = catch(scratch.cleanup, exception=OSError)().map_error(lambda error: (ImagingWriteFault(request=str(folder), error=error),))
+            removed = catch(scratch.cleanup, exception=OSError)().map_error(refused)
         return paired(result, removed).map(lambda pair: pair[0])
 
 

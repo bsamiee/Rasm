@@ -3,9 +3,10 @@
 from collections.abc import Callable, Mapping
 import functools
 import pathlib
+import struct
 import tempfile
 import typing
-from typing import Annotated, Literal, Self
+from typing import Annotated, BinaryIO, Literal, Self
 
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
@@ -15,6 +16,7 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
+from blender.imaging.effects.quantization import codes
 from blender.imaging.faults import Faults, ImagingFaults, ImagingReadFault, ImagingResult, ImagingUnresolvedFault, ImagingWriteFault, paired
 from blender.imaging.parameters import Case, Choice
 
@@ -40,6 +42,16 @@ class Depth(Writable):
     UINT16 = 2, "16-bit Integer", "dpx", "iff", "jpeg2000", "png", "pnm", "rla", "sgi", "tiff"
     HALF = 3, "16-bit Float", "openexr", "tiff"
     FLOAT = 4, "32-bit Float", "dpx", "fits", "hdr", "openexr", "pnm", "rla", "tiff"
+
+    def coded(self, plane: npt.NDArray[np.float32]) -> npt.NDArray[np.uint8 | np.uint16 | np.float32]:
+        """Stores straight display values as this depth's channel values."""
+        match self:
+            case Depth.UINT8:
+                return codes(plane, 8)
+            case Depth.UINT16:
+                return codes(plane, 16)
+            case Depth.HALF | Depth.FLOAT:
+                return plane
 
 
 class Codec(Writable):
@@ -363,6 +375,35 @@ def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) ->
     )
 
 
+def streamed(path: str, stage: str, write: Callable[[BinaryIO], None]) -> ImagingResult[None]:
+    """Streams an encoder into a staged file and closes it on every path.
+
+    Args:
+        path: Final file the stage publishes, named by each fault.
+        stage: Staged sibling `published` supplies.
+        write: Encoder writing the whole file into the open stream.
+
+    Returns:
+        Nothing; the `write` case holding the native file error or the encoder's value, overflow, or packing error.
+    """
+
+    def refused(error: OSError | ValueError | OverflowError | struct.error) -> ImagingFaults:
+        return (ImagingWriteFault(request=path, error=error),)
+
+    def into(output: BinaryIO) -> ImagingResult[None]:
+        try:
+            write(output)
+        except (OSError, ValueError, OverflowError, struct.error) as error:
+            written = Error(refused(error))
+        else:
+            written = Ok(None)
+        finally:
+            closed = catch(output.close, exception=OSError)().map_error(refused)
+        return paired(written, closed).map(lambda _: None)
+
+    return catch(lambda: pathlib.Path(stage).open("wb"), exception=OSError)().map_error(refused).bind(into)
+
+
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> ImagingResult[str]:
     """Encodes and closes subimages through one output before publishing the file.
 
@@ -435,7 +476,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
             if name
         )
 
-    resolved = (
+    return (
         Option
         .of_optional(config.getColorSpace(colorspace))
         .map(names)
@@ -445,10 +486,9 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
                 Nothing,
             )
         )
+        .map(lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (ImagingReadFault(request=location, error=error),)).map(Some))
+        .default_value(Ok(Nothing))
     )
-    return resolved.map(
-        lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (ImagingReadFault(request=location, error=error),)).map(Some)
-    ).default_value(Ok(Nothing))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -472,4 +512,5 @@ __all__ = [
     "profile",
     "published",
     "read_file",
+    "streamed",
 ]

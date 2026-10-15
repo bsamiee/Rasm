@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untyped-throws
+language: swiftlang
+severity: error
+utils:
+    scope:
+        kind: 'function_declaration, init_declaration, lambda_literal, computed_property, subscript_declaration'
+    owner-case:
+        kind: simple_identifier
+        pattern: $M
+        inside:
+            kind: source_file
+            stopBy: end
+            has:
+                stopBy: end
+                kind: class_declaration
+                all:
+                    - has: {field: declaration_kind, regex: '^enum$'}
+                    - has: {field: name, pattern: $T}
+                    - has: {field: body, has: {kind: enum_entry, has: {kind: simple_identifier, pattern: $M}}}
+    named-error:
+        any:
+            - kind: call_expression
+              has: {nthChild: 1, kind: simple_identifier, regex: '^[A-Z]', pattern: $T}
+            - kind: navigation_expression
+              all:
+                - has: {field: target, kind: simple_identifier, regex: '^[A-Z]', pattern: $T}
+                - has: {field: suffix, has: {field: suffix, matches: owner-case}}
+            - kind: call_expression
+              has:
+                nthChild: 1
+                kind: navigation_expression
+                all:
+                    - has: {field: target, kind: simple_identifier, regex: '^[A-Z]', pattern: $T}
+                    - has: {field: suffix, has: {field: suffix, matches: owner-case}}
+    throw:
+        kind: control_transfer_statement
+        has: {kind: throw_keyword}
+    propagation:
+        any:
+            - {kind: try_operator, regex: '^try$'}
+            - kind: do_statement
+rule:
+    kind: throws
+    regex: '^throws$'
+    inside:
+        kind: 'function_declaration, init_declaration'
+        all:
+            - has: {field: name, pattern: $$NAME}
+            - not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@objc\b'}}}
+            - has: {field: body, has: {stopBy: {matches: scope}, matches: throw, has: {stopBy: {kind: value_arguments}, kind: simple_identifier, regex: '^[A-Z]', pattern: $T}}}
+            - not: {has: {field: body, has: {stopBy: {matches: scope}, matches: throw, not: {has: {matches: named-error}}}}}
+            - not: {has: {field: body, has: {stopBy: {matches: scope}, matches: propagation}}}
+fix: throws($T)
+message: '`$NAME` throws `$T` alone through an untyped `throws`'
+note: 'Declare `throws(<type>)` with the one type every `throw` names, callers then match its cases where an untyped `throws` hands them `any Error`'

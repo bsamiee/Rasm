@@ -1,7 +1,7 @@
 """Native output format value sets and the storage facts of written files."""
 
 from enum import Enum
-from typing import Literal, Self
+from typing import Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -11,6 +11,7 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import answered
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.nodes.graphs import DataType
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.sections import Listing
@@ -96,7 +97,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
         return paired(container, stored).map(lambda pair: cls(holder=Holder.NODE, own=Snapshot.of(Holder.NODE.struct, {}), format=Snapshot.of(bpy.types.ImageFormatSettings, pair[0] | pair[1])))
 
     @classmethod
-    def typed(cls, kind: Literal["FLOAT", "VECTOR", "RGBA"]) -> BlenderResult[Option[Self]]:
+    def typed(cls, kind: DataType) -> BlenderResult[Option[Self]]:
         """Returns a full-float item override for data sockets and no color override."""
         return (
             cls.of(Output.DATA, Kind.EXR).map(
@@ -133,7 +134,7 @@ def sample(selected: Format, depth: Depth) -> BlenderResult[Depth]:
 
 def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[str]:
     """Resolves a certified display baseline encoding in native view order."""
-    found: BlenderResult[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    found: BlenderResult[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display).map_error(BlenderImagingFault.lifted)
     return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults].bind(
         found,
         lambda choice: (

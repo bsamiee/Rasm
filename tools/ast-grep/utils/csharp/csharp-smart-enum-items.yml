@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-smart-enum-items
+language: csharp
+rule:
+    kind: member_access_expression
+    all:
+        - has: {field: name, regex: '^Items$'}
+        - has: {field: expression, kind: 'identifier, generic_name, qualified_name', regex: '^(global::)?([\w.]+\.)?[A-Z]', pattern: $OWNER}
+        - not:
+            inside:
+                kind: compilation_unit
+                stopBy: end
+                has: {stopBy: end, kind: 'property_declaration, variable_declarator, parameter', has: {field: name, pattern: $OWNER}}

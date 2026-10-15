@@ -9,7 +9,7 @@ const PendingUpload = Schema.Struct({ id: Id, name: Schema.NonEmptyString, statu
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class PreconditionFailed extends Schema.TaggedError<PreconditionFailed>()('PreconditionFailed', {}, { httpApiStatus: 412 }) {}
+class PreconditionFailed extends Schema.TaggedError<PreconditionFailed, { readonly brand: unique symbol }>()('PreconditionFailed', {}, { httpApiStatus: 412 }) {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ const makeApi = <P extends typeof Portfolio | typeof StoredPortfolio>(portfolio:
                     error: [PreconditionFailed, HttpApiError.ConflictNoContent, HttpApiError.ServiceUnavailableNoContent],
                 }),
                 HttpApiEndpoint.post('publish', '/publish', {
-                    payload: Schema.check<P>(Schema.makeFilter((document) => document.entries.flatMap((entry, index) => (entry.title.trim() ? [] : [{ path: ['entries', index, 'title'], issue: 'Give this entry a title before publishing' }]))))(portfolio),
+                    payload: Schema.check<P>(Schema.makeFilter((document) => document.entries.flatMap(({ title }, index) => (title.trim() === '' ? [{ path: ['entries', index, 'title'], issue: 'Give this entry a title before publishing' }] : []))))(portfolio),
                     headers: { 'if-match': Schema.NonEmptyString },
                     success: HttpApiSchema.WithHeaders(HttpApiSchema.NoContent, { 'draft-etag': Schema.String }),
                     error: [PreconditionFailed, HttpApiError.ConflictNoContent, HttpApiError.ServiceUnavailableNoContent],

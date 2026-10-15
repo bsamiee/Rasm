@@ -40,20 +40,20 @@ public abstract class JobEffect<TEffect, TState, TParameter, TError, TResource> 
                     return prior.Exists(static held => held.IsNone);
                 });
                 if (!accepted) throw Errors.Cancelled.ToException();
-            }).Map(static _ => unit)).As());
+            }).Map(unit)).As());
 
     public sealed override void Dispose(bool bDisposing) {
         if (bDisposing)
             Callbacks.Run(IO.lift(() => atomic(() => {
                 Option<Option<Disposal<TResource>>> prior = opened.Value;
                 opened.Value = None;
-                return prior.Bind(static held => held).ToSeq();
+                return prior.Flatten().ToSeq();
             })).Bind(DisposalOps.Release), CallbackSite.Of(this));
         base.Dispose(bDisposing);
     }
 
     // --- [PIPELINE]
-    private protected sealed override Func<EtoPostEffectCollapsibleSection, IO<View.Section>> Section => SectionRows.Job(this, Held, ParameterText.Join<TState, TParameter, TError>(TEffect.Row.Text), TEffect.Row.Looks, work);
+    private protected sealed override Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section => SectionRows.Job(this, Held, ParameterText.Join<TState, TParameter, TError>(TEffect.Row.Text), TEffect.Row.Looks, work);
 
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TResource.Channels(Held.Current));
 

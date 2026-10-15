@@ -4,44 +4,185 @@
 avoid-breaking-exported-api = false
 
 # --- [FORMS]
-warn-on-all-wildcard-imports = true # Prelude, test-module `super::*`, and `pub use` globs, each import names its item from its owner
-matches-for-let-else = "AllTypes"   # Every type, not only Option and Result, takes `let`-`else` over a diverging match
-max-struct-bools = 1                # Structs with two or more `bool` fields, invalid states stay unrepresentable at construction
-excessive-nesting-threshold = 5     # Impl and fn bodies count as levels, a method's fourth control level is its sixth block
+warn-on-all-wildcard-imports                 = true       # `wildcard_imports` covers prelude, test-module `super::*`, and `pub use` globs
+matches-for-let-else                         = "AllTypes" # `manual_let_else` covers diverging matches on every type, not `Option` and `Result` alone
+max-struct-bools                             = 1
+max-fn-params-bools                          = 1          # `true, false` arguments state no meaning at a call site
+excessive-nesting-threshold                  = 5          # The impl block counts as one level, a free fn nests 4 control levels and a method 3
+check-inconsistent-struct-field-initializers = true       # `inconsistent_struct_constructor` covers expression fields beside shorthand fields
+enforce-iter-loop-reborrow                   = true       # `explicit_iter_loop` covers reborrows, `&*v` and `&mut *v` replace `iter` and `iter_mut`
+allow-mixed-uninlined-format-args            = false      # `uninlined_format_args` covers strings mixing inlinable arguments with field accesses
+lint-commented-code                          = true       # `collapsible_if` and `collapsible_else_if` cover chains holding a comment
+
+# --- [NAMING]
+upper-case-acronyms-aggressive = true  # `upper_case_acronyms` covers every all-caps run in a type or variant name (`HTTPServer` becomes `HttpServer`)
+allow-exact-repetitions        = false # `module_name_repetitions` covers public items named exactly as their public module
+enum-variant-name-threshold    = 2     # Two variants are the fewest that share an affix
+struct-field-name-threshold    = 2     # Two fields are the fewest that share an affix
+allow-renamed-params-for       = []    # `renamed_function_params` covers `From`, `TryFrom`, and `FromStr` impls
 
 # --- [GRAPH]
-allowed-duplicate-crates = ["syn"]  # syn 2 under proc macros not on syn 3
+allowed-duplicate-crates = [
+    "syn",                   # 2 under proc macros not on `syn` 3
+    "core-foundation",       # 0.9 under hyper-util's `system-configuration` for reqwest `system-proxy`
+    "getrandom",             # 0.2 under newest `ring`, locked for weak features of rustls-webpki and reqwest that no build compiles
+    "windows-sys",           # 0.52 under newest `ring`
+]
 
 # --- [BANS]
-disallowed-methods = [
-    { path = "std::time::SystemTime::now", reason = "Domain code reads no ambient source, callers pass the clock as an argument" },
-    { path = "std::time::Instant::now", reason = "Domain code reads no ambient source, callers pass the clock as an argument" },
-    { path = "tokio::time::Instant::now", reason = "Domain code reads no ambient source, callers pass the clock as an argument" },
-    { path = "std::env::var", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
-    { path = "std::env::var_os", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
-    { path = "std::env::vars", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
-    { path = "std::env::vars_os", reason = "Domain code reads no ambient source, callers pass each setting as an argument" },
-    { path = "std::env::current_dir", reason = "Domain code reads no ambient source, callers pass each path as an argument" },
-    { path = "std::env::home_dir", reason = "Domain code reads no ambient source, callers pass each path as an argument" },
-    { path = "std::env::temp_dir", reason = "Domain code reads no ambient source, callers pass each path as an argument" },
+disallowed-methods          = [
+    { path = "std::time::SystemTime::now", replacement = "jiff::Timestamp::now", reason = "`jiff` owns wall-clock time, its `Timestamp` carries instant arithmetic and zone conversion" },
+    { path = "std::time::SystemTime::elapsed", replacement = "jiff::Timestamp::duration_since", reason = "`jiff` owns wall-clock time, its `Timestamp` carries instant arithmetic and zone conversion" },
+    { path = "std::time::SystemTime::duration_since", replacement = "jiff::Timestamp::try_from", reason = "Does epoch arithmetic by hand, `jiff` owns wall-clock instants and their arithmetic" },
+    { path = "uuid::Timestamp::now", replacement = "uuid::Timestamp::from_unix", reason = "Reads the wall clock beside `jiff`, the seconds and nanoseconds of a `jiff::Timestamp` build the value" },
+    { path = "std::time::Instant::now", replacement = "tokio::time::Instant::now", reason = "`tokio::time::Instant` owns monotonic time, tokio timers take it and its paused test clock drives it" },
+    { path = "std::time::Instant::elapsed", replacement = "tokio::time::Instant::elapsed", reason = "`tokio::time::Instant` owns monotonic time, tokio timers take it and its paused test clock drives it" },
+    { path = "std::env::var", reason = "Domain code takes each setting as an argument" },
+    { path = "std::env::var_os", reason = "Domain code takes each setting as an argument" },
+    { path = "std::env::vars", reason = "Domain code takes each setting as an argument" },
+    { path = "std::env::vars_os", reason = "Domain code takes each setting as an argument" },
+    { path = "std::env::current_dir", reason = "Domain code takes each path as an argument" },
+    { path = "std::env::home_dir", reason = "Domain code takes each path as an argument" },
+    { path = "std::env::temp_dir", reason = "Domain code takes each path as an argument" },
     { path = "std::env::args", reason = "`clap::Parser::parse` validates command-line arguments into typed values at the boundary" },
     { path = "std::env::args_os", reason = "`clap::Parser::parse` validates command-line arguments into typed values at the boundary" },
-    { path = "std::thread::sleep", replacement = "tokio::time::sleep", reason = "Blocks a runtime worker thread" },
+    { path = "tempfile::tempdir", replacement = "tempfile::tempdir_in", reason = "Reads the temporary directory from the environment, domain code takes each path as an argument" },
+    { path = "tempfile::tempfile", replacement = "tempfile::tempfile_in", reason = "Reads the temporary directory from the environment, domain code takes each path as an argument" },
+    { path = "tempfile::NamedTempFile::new", replacement = "tempfile::NamedTempFile::new_in", reason = "Reads the temporary directory from the environment, domain code takes each path as an argument" },
+    { path = "tempfile::TempDir::new", replacement = "tempfile::TempDir::new_in", reason = "Reads the temporary directory from the environment, domain code takes each path as an argument" },
+    { path = "tempfile::Builder::tempfile", replacement = "tempfile::Builder::tempfile_in", reason = "Reads the temporary directory from the environment, domain code takes each path as an argument" },
+    { path = "tempfile::Builder::tempdir", replacement = "tempfile::Builder::tempdir_in", reason = "Reads the temporary directory from the environment, domain code takes each path as an argument" },
+    { path = "etcetera::choose_base_strategy", reason = "Reads `HOME` and `XDG_*` from the environment, domain code takes each path as an argument" },
+    { path = "etcetera::choose_app_strategy", reason = "Reads `HOME` and `XDG_*` from the environment, domain code takes each path as an argument" },
+    { path = "etcetera::home_dir", reason = "Reads `HOME` from the environment, domain code takes each path as an argument" },
+    { path = "std::boxed::Box::leak", reason = "Leaks allocation for process lifetime, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::vec::Vec::leak", reason = "Leaks allocation for process lifetime, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::string::String::leak", reason = "Leaks allocation for process lifetime, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::boxed::Box::into_raw", reason = "Leaks allocation, reclaiming the pointer needs `unsafe` the workspace forbids, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::boxed::Box::into_non_null", reason = "Leaks allocation, reclaiming the pointer needs `unsafe` the workspace forbids, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::vec::Vec::into_raw_parts", reason = "Leaks allocation, reclaiming the pointer needs `unsafe` the workspace forbids, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::string::String::into_raw_parts", reason = "Leaks allocation, reclaiming the pointer needs `unsafe` the workspace forbids, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::rc::Rc::into_raw", reason = "Leaks allocation, reclaiming the pointer needs `unsafe` the workspace forbids, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::sync::Arc::into_raw", reason = "Leaks allocation, reclaiming the pointer needs `unsafe` the workspace forbids, an owner outliving every reader holds the value and passes `&` or `Arc`" },
+    { path = "std::vec::Vec::remove", replacement = "std::vec::Vec::try_remove", reason = "Panics past the end, absence stays `Option`" },
+    { path = "core::time::Duration::from_secs_f64", replacement = "core::time::Duration::try_from_secs_f64", reason = "Panics on negative, NaN, or overflowing input, the conversion returns the reason" },
+    { path = "core::time::Duration::from_secs_f32", replacement = "core::time::Duration::try_from_secs_f32", reason = "Panics on negative, NaN, or overflowing input, the conversion returns the reason" },
+    { path = "rustc_span::def_id::DefId::expect_local", replacement = "rustc_span::def_id::DefId::as_local", reason = "Panics on a foreign item, a local `DefId` is a `LocalDefId` from construction" },
+    { path = "rustc_hir::def::Res::expect_non_local", replacement = "rustc_hir::def::Res::apply_id", reason = "Panics on `Res::Local`, a local binding is a `HirId` from construction" },
+    { path = "std::fs::read", replacement = "fs_err::read", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::read_to_string", replacement = "fs_err::read_to_string", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::write", replacement = "fs_err::write", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::copy", replacement = "fs_err::copy", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::create_dir", replacement = "fs_err::create_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::create_dir_all", replacement = "fs_err::create_dir_all", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::remove_dir", replacement = "fs_err::remove_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::remove_dir_all", replacement = "fs_err::remove_dir_all", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::remove_file", replacement = "fs_err::remove_file", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::rename", replacement = "fs_err::rename", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::metadata", replacement = "fs_err::metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::symlink_metadata", replacement = "fs_err::symlink_metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::read_dir", replacement = "fs_err::read_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::read_link", replacement = "fs_err::read_link", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::hard_link", replacement = "fs_err::hard_link", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::set_permissions", replacement = "fs_err::set_permissions", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::exists", replacement = "fs_err::exists", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::os::unix::fs::symlink", replacement = "fs_err::os::unix::fs::symlink", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold the verbatim prefix, `dunce::simplified(&fs_err::canonicalize(..)?)` names path and drops prefix" },
+    { path = "dunce::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold the verbatim prefix, `dunce::simplified(&fs_err::canonicalize(..)?)` names path and drops prefix" },
+    { path = "std::fs::File::open", replacement = "fs_err::File::open", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::File::create", replacement = "fs_err::File::create", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::File::create_new", replacement = "fs_err::File::create_new", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::OpenOptions::open", replacement = "fs_err::OpenOptions::open", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::metadata", replacement = "fs_err::PathExt::fs_err_metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::symlink_metadata", replacement = "fs_err::PathExt::fs_err_symlink_metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::read_dir", replacement = "fs_err::PathExt::fs_err_read_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::read_link", replacement = "fs_err::PathExt::fs_err_read_link", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::try_exists", replacement = "fs_err::PathExt::fs_err_try_exists", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold the verbatim prefix, `dunce::simplified(&fs_err::canonicalize(..)?)` names path and drops prefix" },
+    { path = "std::path::Path::exists", replacement = "fs_err::exists", reason = "Swallows the error that tells absence from a failed read" },
+    { path = "std::path::Path::is_file", replacement = "fs_err::metadata", reason = "Swallows the error that tells absence from a failed read, `fs_err::metadata(..)?.is_file()` keeps it" },
+    { path = "std::path::Path::is_dir", replacement = "fs_err::metadata", reason = "Swallows the error that tells absence from a failed read, `fs_err::metadata(..)?.is_dir()` keeps it" },
+    { path = "std::path::Path::is_symlink", replacement = "fs_err::symlink_metadata", reason = "Swallows the error that tells absence from a failed read, `fs_err::symlink_metadata(..)?.is_symlink()` keeps it" },
+    { path = "tokio::fs::read", replacement = "fs_err::tokio::read", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::read_to_string", replacement = "fs_err::tokio::read_to_string", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::write", replacement = "fs_err::tokio::write", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::copy", replacement = "fs_err::tokio::copy", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::create_dir", replacement = "fs_err::tokio::create_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::create_dir_all", replacement = "fs_err::tokio::create_dir_all", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::remove_dir", replacement = "fs_err::tokio::remove_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::remove_dir_all", replacement = "fs_err::tokio::remove_dir_all", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::remove_file", replacement = "fs_err::tokio::remove_file", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::rename", replacement = "fs_err::tokio::rename", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::metadata", replacement = "fs_err::tokio::metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::symlink_metadata", replacement = "fs_err::tokio::symlink_metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::read_dir", replacement = "fs_err::tokio::read_dir", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::read_link", replacement = "fs_err::tokio::read_link", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::canonicalize", replacement = "fs_err::tokio::canonicalize", reason = "`io::Error` names no path and Windows results hold the verbatim prefix, `dunce::simplified(&fs_err::tokio::canonicalize(..).await?)` names path and drops prefix" },
+    { path = "tokio::fs::hard_link", replacement = "fs_err::tokio::hard_link", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::set_permissions", replacement = "fs_err::tokio::set_permissions", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::try_exists", replacement = "fs_err::tokio::try_exists", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::symlink", replacement = "fs_err::tokio::symlink", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::File::open", replacement = "fs_err::tokio::File::open", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::File::create", replacement = "fs_err::tokio::File::create", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::File::create_new", replacement = "fs_err::tokio::File::create_new", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "tokio::fs::OpenOptions::open", replacement = "fs_err::tokio::OpenOptions::open", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::path::Path::to_str", replacement = "camino::Utf8Path::from_path", reason = "Each consumer re-checks UTF-8, camino checks it once at the boundary" },
+    { path = "std::path::Path::to_string_lossy", replacement = "camino::Utf8Path::from_path", reason = "Replaces non-UTF-8 bytes silently, camino rejects them once at the boundary" },
+    { path = "serde_json::from_str", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
+    { path = "serde_json::from_slice", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
+    { path = "serde_json::from_reader", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
+    { path = "serde_json::from_value", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
+    { path = "tokio::process::Command::process_group", replacement = "process_wrap::tokio::ProcessGroup", reason = "Raw process groups outlive their owner, process-wrap kills the group on drop" },
     { path = "tokio::task::block_in_place", replacement = "tokio::task::spawn_blocking", reason = "Suspends every future joined in the calling task and panics on a current-thread runtime" },
-    { path = "tokio::runtime::Handle::block_on", reason = "Panics inside an async context, await the future" },
-    { path = "std::net::ToSocketAddrs::to_socket_addrs", replacement = "tokio::net::lookup_host", reason = "Blocks a runtime worker thread on name resolution" },
+    { path = "futures::future::try_join", replacement = "futures::future::join", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::future::try_join3", replacement = "futures::future::join3", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::future::try_join4", replacement = "futures::future::join4", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::future::try_join5", replacement = "futures::future::join5", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::future::try_join_all", replacement = "futures::future::join_all", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::stream::TryStreamExt::try_for_each_concurrent", replacement = "futures::stream::StreamExt::for_each_concurrent", reason = "Short-circuits concurrent operands on the first error and drops the rest, the replacement keeps every result for accumulation" },
+    { path = "futures::stream::TryStreamExt::try_buffer_unordered", replacement = "futures::stream::StreamExt::buffer_unordered", reason = "Short-circuits concurrent operands on the first error and drops the rest, the replacement keeps every result for accumulation" },
+    { path = "futures::stream::TryStreamExt::try_buffered", replacement = "futures::stream::StreamExt::buffered", reason = "Short-circuits concurrent operands on the first error and drops the rest, the replacement keeps every result for accumulation" },
+    { path = "futures::future::ready", replacement = "core::future::ready", reason = "`core` owns the operation" },
+    { path = "futures::future::pending", replacement = "core::future::pending", reason = "`core` owns the operation" },
+    { path = "futures::future::poll_fn", replacement = "core::future::poll_fn", reason = "`core` owns the operation" },
+    { path = "futures::task::noop_waker", replacement = "core::task::Waker::noop", reason = "`core` owns the operation" },
+    { path = "scopeguard::guard", replacement = "core::mem::DropGuard::new", reason = "`core` owns the operation" },
+    { path = "itertools::repeat_n", replacement = "core::iter::repeat_n", reason = "`core` owns the operation" },
+    { path = "itertools::chain", replacement = "core::iter::chain", reason = "`core` owns the operation" },
+    { path = "itertools::zip", replacement = "core::iter::zip", reason = "`core` owns the operation" },
+    { path = "itertools::Itertools::intersperse", replacement = "core::iter::Iterator::intersperse", reason = "`core` owns the operation" },
+    { path = "itertools::Itertools::intersperse_with", replacement = "core::iter::Iterator::intersperse_with", reason = "`core` owns the operation" },
+    { path = "itertools::Itertools::next_array", replacement = "core::iter::Iterator::next_chunk", reason = "`core` owns the operation, `.ok()` gives the `Option`" },
+    { path = "itertools::Itertools::try_collect", replacement = "core::iter::Iterator::try_collect", reason = "`core` owns the operation" },
 ]
-disallowed-types = [
-    { path = "std::sync::Mutex", replacement = "parking_lot::Mutex", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::Mutex` serves a guard held across an `.await` alone" },
-    { path = "std::sync::RwLock", replacement = "parking_lot::RwLock", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::RwLock` serves a guard held across an `.await` alone" },
-    { path = "std::process::Command", replacement = "tokio::process::Command", reason = "`output`, `status`, and `Child::wait` block a runtime worker thread" },
-    { path = "std::net::TcpListener", replacement = "tokio::net::TcpListener", reason = "`accept` blocks a runtime worker thread" },
-    { path = "std::net::TcpStream", replacement = "tokio::net::TcpStream", reason = "`connect`, reads, and writes block a runtime worker thread" },
-    { path = "std::net::UdpSocket", replacement = "tokio::net::UdpSocket", reason = "Sends and receives block a runtime worker thread" },
-    { path = "std::collections::HashMap", replacement = "std::collections::BTreeMap", reason = "Iteration order varies per instance, result order stays deterministic" },
-    { path = "std::collections::HashSet", replacement = "std::collections::BTreeSet", reason = "Iteration order varies per instance, result order stays deterministic" },
+disallowed-macros           = [
+    { path = "tokio::try_join", replacement = "tokio::join", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::try_join", replacement = "futures::join", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
+    { path = "futures::pin_mut", replacement = "core::pin::pin", reason = "`core` owns the operation" },
+    { path = "tokio::pin", replacement = "core::pin::pin", reason = "`core` owns the operation" },
+    { path = "scopeguard::defer", replacement = "core::mem::DropGuard", reason = "`core` owns the operation" },
+    { path = "async_trait::async_trait", reason = "Boxes every trait future, native `async fn` in traits returns it unboxed and return-type notation bounds `Send` at the use site" },
+]
+disallowed-types            = [
+    { path = "std::sync::Mutex", replacement = "std::sync::nonpoison::Mutex", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::Mutex` serves a guard held across an `.await` alone" },
+    { path = "std::sync::RwLock", replacement = "std::sync::nonpoison::RwLock", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::RwLock` serves a guard held across an `.await` alone" },
+    { path = "std::hash::DefaultHasher", replacement = "xxhash_rust::xxh3::Xxh3Default", reason = "SipHash keys and algorithm are unspecified across Rust releases, content identity needs a stable hash" },
+    { path = "std::hash::RandomState", replacement = "xxhash_rust::xxh3::Xxh3DefaultBuilder", reason = "Hashes vary per instance, result order and identity stay deterministic" },
+    { path = "std::collections::HashMap", replacement = "indexmap::IndexMap", reason = "Default `RandomState` varies iteration order per instance, `IndexMap` keeps insertion order with hashed lookups" },
+    { path = "std::collections::HashSet", replacement = "indexmap::IndexSet", reason = "Default `RandomState` varies iteration order per instance, `IndexSet` keeps insertion order with hashed lookups" },
+    { path = "once_cell::sync::OnceCell", replacement = "std::sync::OnceLock", reason = "`std` owns the type, a `static` holds a `LazyLock` or takes its value from `main`" },
+    { path = "once_cell::unsync::OnceCell", replacement = "core::cell::OnceCell", reason = "`core` owns the type" },
+    { path = "once_cell::sync::Lazy", replacement = "std::sync::LazyLock", reason = "`std` owns the type" },
+    { path = "once_cell::unsync::Lazy", replacement = "core::cell::LazyCell", reason = "`core` owns the type" },
+    { path = "sync_wrapper::SyncWrapper", replacement = "core::sync::SyncView", reason = "`core` owns the type" },
 ]
 await-holding-invalid-types = [
-    { path = "tracing::span::Entered", reason = "Spans entered across an await cover every task the worker polls meanwhile, instrument the future through `tracing::Instrument`" },
-    { path = "tracing::span::EnteredSpan", reason = "Spans entered across an await cover every task the worker polls meanwhile, instrument the future through `tracing::Instrument`" },
+    { path = "tracing::span::Entered", reason = "Spans entered across an `.await` cover every task the worker polls meanwhile, instrument futures through `tracing::Instrument`" },
+    { path = "tracing::span::EnteredSpan", reason = "Spans entered across an `.await` cover every task the worker polls meanwhile, instrument futures through `tracing::Instrument`" },
+    { path = "std::sync::nonpoison::MutexGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::Mutex` holds a guard across an `.await`" },
+    { path = "std::sync::nonpoison::MappedMutexGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::Mutex` holds a guard across an `.await`" },
+    { path = "std::sync::nonpoison::RwLockReadGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
+    { path = "std::sync::nonpoison::RwLockWriteGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
+    { path = "std::sync::nonpoison::MappedRwLockReadGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
+    { path = "std::sync::nonpoison::MappedRwLockWriteGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
 ]

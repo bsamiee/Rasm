@@ -2,7 +2,6 @@
 id: no-duplicate-log-field
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 utils:
     log-macro:
         kind: macro_invocation

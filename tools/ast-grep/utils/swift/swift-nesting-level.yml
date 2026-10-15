@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-nesting-level
-language: swift
+language: swiftlang
 rule:
     any:
         - kind: guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement

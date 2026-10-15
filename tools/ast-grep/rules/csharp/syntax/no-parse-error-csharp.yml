@@ -34,11 +34,16 @@ utils:
     extension-block:
         kind: constructor_declaration
         has: {field: name, regex: '^extension$'}
+    generic-extension-header:
+        any:
+            - {kind: ERROR, regex: '^extension\s*<[^>]+>\s*\([^\n]+\)\s*\{$'}
+            - {kind: method_declaration, has: {field: returns, kind: generic_name, regex: '^extension\s*<'}}
     extension-member:
         any:
             - inside: {matches: extension-block, stopBy: end}
-            - {kind: ERROR, regex: '^\}$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, matches: extension-block}}}
-            - {kind: ERROR, regex: '^extension\s*<[^>]+>\s*\([^\n]+\)\s*\{$'}
+            - {kind: ERROR, regex: '^\}$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, any: [{matches: extension-block}, {matches: generic-extension-header}]}}}
+            - matches: generic-extension-header
+            - {kind: ERROR, inside: {matches: generic-extension-header}}
     ref-compound-assignment:
         kind: ERROR
         regex: '^=$'
@@ -88,4 +93,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), assignments to ref-returning calls (`Field(owner) = value` and `Field(owner) += handler`), members of a C# 14 `extension(<receiver>)` block, which the grammar reads as a constructor named `extension`, generic extension headers (`extension<T>(<receiver>) {`), and file-based app directives (`#:package <id>`), which the grammar recovers as errors running up to the `;` of the first `using` directive (tree-sitter-c-sharp issue #431)
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-c-sharp grammar gaps are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), assignments to ref-returning calls (`Field(owner) = value` and `Field(owner) += handler`), members of a C# 14 `extension(<receiver>)` block, which the grammar reads as a constructor named `extension`, generic extension headers (`extension<T>(<receiver>) {`, read with a `where` clause as a method returning `extension<T>`), and file-based app directives (`#:package <id>`), which the grammar recovers as errors running up to the `;` of the first `using` directive (tree-sitter-c-sharp issue #431)

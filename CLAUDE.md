@@ -10,17 +10,14 @@
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
-- Audits, security scans, supply-chain pins, and approval gates are added on user request alone
-- Tests are made at the user's request alone
-- Commits and pushes happen on user request alone
+- Audits, security scans, supply-chain pins, approval gates, tests, commits, and pushes happen on user request alone
 
 - Non-trivial work keeps one task file under tmp outside the project, holding open tasks and found facts alone
 - Each result updates the task file as it arrives: its task deleted, tasks it changes rewritten, facts it found added
 - Run applications and hosts live as work needs them, a step that can end the session logs its intent to disk before and its result after
 - Close untitled, unsaved documents without saving when work needs their application, when they hold no work to keep
 - Start work and briefs from facts the task file and `docs/research` record, a fact stands until compiler or running code contradicts it
-- Split non-trivial work into units sub-agents build, read what the split needs, brief each to act, delegate the read of a named missing fact
-- Reviews are adversarial, reviewers assume code is wrong and commit corrections, reducing code LOC/surface, and rebuilding approach if needed
+- Reviews are adversarial, reviewers assume code, approach, and structure are wrong
 
 ## [01]-[LANGUAGE_STANDARDS]
 
@@ -28,7 +25,8 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 
 [TOOL_ROUTING]:
 - ALWAYS use `watch-apps` skill before launching or scripting a desktop app
-- ALWAYS use `playwright:playwright-cli` skill for a browser, a page, a Playwright test, or a trace
+- ALWAYS use `playwright:playwright-cli` skill for a browser session or Playwright test
+- ALWAYS use `playwright:playwright-trace` skill for a Playwright trace
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
@@ -42,7 +40,6 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `dotnet-msbuild-execution` skill for a `<Target>`
 - ALWAYS use `dotnet-msbuild-diagnostics` skill for diagnosing a .NET build
 - ALWAYS use `dotnet-msbuild-packaging` skill for NuGet and .slnx
-- ALWAYS use `nuget` MCP for a NuGet package's newest version
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `use-rhino` skill for Rhino and Grasshopper
@@ -56,7 +53,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 |  [02]   | `loc`       | `loc <dir>` counts code lines with complexity score per file and folder                                     |
 |  [03]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it          |
 |  [04]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose alone                                              |
-|  [05]   | `gh`        | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
+|  [05]   | `gh`        | Local checkout work: PR from HEAD, checks, checkout, releases, `gh api` for any uncovered endpoint          |
 |  [06]   | `jq`/`yq`   | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays   |
 |  [07]   | `sd`        | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-` |
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
@@ -112,6 +109,11 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS type configuration values with their owner's range
 - ALWAYS reach members through typed handles instead of member-name strings
 
+[LIBRARIES]: Libraries are foundations for current and future apps of their domain
+- ALWAYS place product code no single product decides in its host or domain library at first use, an app holds its product's decisions alone
+- ALWAYS derive a product's name, identity, and configuration in a library from arguments or its host, an app importing another app is a defect
+- ALWAYS take a choice that differs between apps as a value an app supplies or replaces, a choice the domain or host fixes stays closed
+
 [PRODUCTS]: Products are the artifacts their host installs or serves to a person holding no checkout
 - ALWAYS give a product the identity its host reads from an installed one (identifier, version, signature)
 - ALWAYS register a product's services and permissions through the mechanism its host gives installed products
@@ -153,6 +155,7 @@ Source files group declarations into sections and an owner's members into operat
 |  [08]   | `[EXPORTS]`     | Export lists, `__all__`                                        |
 
 [DIVIDERS]: One label names one concept in every file
+- ALWAYS keep code files free of comments other than section and subsection dividers
 - ALWAYS open a section with a full divider: comment marker, `---`, one `[UPPER_SNAKE]` label, dashes to column 90
 - ALWAYS open a subsection with a divider without dashes, indented with its members, when one section holds more than one operation family
 - ALWAYS place every declaration under a divider, the preamble (imports, namespace, shebang, `set` flags, assembly attributes) precedes the first one
@@ -168,8 +171,9 @@ Source files group declarations into sections and an owner's members into operat
 - Python: `TYPE_CHECKING` blocks and conditional imports join the preamble, `__all__` closes the file under `[EXPORTS]`
 - TypeScript: runtime schemas and data classes are `[MODELS]`, Effect services `[SERVICES]`, `Layer` values `[COMPOSITION]`
 - Swift: `@main` types are `[COMPOSITION]`, an `extension` sits in the section of the type it extends
-- Rust: traits and unit enums are `[TYPES]`, payload enums `[MODELS]`, error enums `[ERRORS]`, an `impl` block sits in the section of its type, a lint pass `impl` `[COMPOSITION]`
-- Rust: a crate root holds code, a root of `mod` and `pub use` lines alone is a defect
+- Rust: traits and unit enums are `[TYPES]`, payload enums `[MODELS]`, error enums `[ERRORS]`
+- Rust: `impl` blocks sit in the section of their type, a lint pass `impl` in `[COMPOSITION]`
+- Rust: crate roots hold code, a root of `mod` and `pub use` lines alone is a defect
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)

@@ -1,5 +1,5 @@
-import { defaulted, unit } from '@rasm/ai/bridge';
-import { register, type routed, WRITING } from '@rasm/ai/extension';
+import { defaulted, unit } from '@rasm/mcp/bridge';
+import { register, type routed, WRITING } from '@rasm/mcp/extension';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import type { applications } from './applications.ts';
@@ -9,7 +9,7 @@ import { Scripting } from './scripting.ts';
 
 const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Success<ReturnType<typeof routed>>, { fields, failure, route, unserved, unpreviewable }: Effect.Success<ReturnType<typeof applications>>) {
     const [scripting, files, path] = yield* Effect.all([Scripting, FileSystem.FileSystem, Path.Path]);
-    const steps: Record.ReadonlyRecord<string, { readonly command: string; readonly arguments: typeof Schema.JsonObject.Type }> = {
+    const steps: Record.ReadonlyRecord<string, { readonly command: string; readonly arguments: Schema.JsonObject }> = {
         'com.adobe.InDesign': {
             command: 'do script',
             arguments: {
@@ -80,13 +80,12 @@ const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Succes
         const [blocks, failures] = yield* Effect.partition(
             artifacts,
             (artifact) =>
-                Effect.gen(function* () {
-                    const [mimeType, bytes] = yield* Effect.all([scripting.call((sender) => sender.contentType({ url: artifact })), Effect.flatMap(path.fromFileUrl(artifact), files.readFile)], { concurrency: 'unbounded' });
-                    return Option.match(Option.filter(mimeType, String.startsWith('image/')), {
+                Effect.map(Effect.all([scripting.call((sender) => sender.contentType({ url: artifact })), Effect.flatMap(path.fromFileUrl(artifact), files.readFile)], { concurrency: 'unbounded' }), ([mimeType, bytes]) =>
+                    Option.match(Option.filter(mimeType, String.startsWith('image/')), {
                         onSome: (image): McpSchema.ContentBlock => McpSchema.ImageContent.make({ data: bytes, mimeType: image }),
                         onNone: () => McpSchema.EmbeddedResource.make({ resource: McpSchema.BlobResourceContents.make({ uri: artifact.href, blob: bytes, mimeType: Option.getOrUndefined(mimeType) }) }),
-                    });
-                }),
+                    }),
+                ),
             { concurrency: 'unbounded' },
         );
         return [{ reply, failures: Array.map(failures, Struct.get('message')) }, blocks] as const;
@@ -97,7 +96,7 @@ const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Succes
             ? Option.match(
                   Option.filter(previewed, (given) => given !== true),
                   {
-                      onSome: () => Effect.fail(new McpSchema.InvalidParams({ message: 'preview with run Command takes true: a dictionary command renders no image' })),
+                      onSome: () => Effect.fail(McpSchema.InvalidParams.make({ message: 'preview with run Command takes true: a dictionary command renders no image' })),
                       onNone: () => Effect.map(route(parameters), (application) => [Option.some(description), command(application, run, description, Option.isSome(previewed))] as const),
                   },
               )

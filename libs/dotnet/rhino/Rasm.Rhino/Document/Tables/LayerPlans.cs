@@ -91,9 +91,9 @@ public static class LayerPlans {
     private static Seq<LayerOp> Ops(LayerTree live, LayerPlan plan, Seq<Placement> rows, Seq<Guid> stale) {
         Option<Placement> named = plan.Current.Bind(path => rows.Find(row => row.Path == path));
         HashMap<LayerPath, Guid> ids = toHashMap(rows.Map(static row => (row.Path, row.Id)));
-        Seq<Guid> shown = named.Match(Some: row => Lineage(row.Path).Map(path => ids[path]), None: () => live.Ancestors(live.Current));
-        Seq<Placement> answered = rows.Map(row => shown.Exists(id => id == row.Id)
-            ? row with { Edits = row.Edits.Filter(static edit => (edit.Restores & (RestoreLayerProperties.Visible | RestoreLayerProperties.Locked)) == RestoreLayerProperties.None) }
+        LanguageExt.HashSet<Guid> shown = toHashSet(named.Match(Some: row => Lineage(row.Path).Map(path => ids[path]), None: () => live.Ancestors(live.Current)));
+        Seq<Placement> answered = rows.Map(row => shown.Contains(row.Id)
+            ? row with { Edits = row.Edits.Filter(static edit => (edit.Restores & (RestoreLayerProperties.Visible | RestoreLayerProperties.Locked)) is RestoreLayerProperties.None) }
             : row);
         Seq<LayerOp> created = answered.Filter(static row => row.Held.IsNone)
             .Map<LayerOp>(static row => new LayerOp.Create(row.Path.Leaf, row.Parent, Some(row.Id), row.Edits));

@@ -21,7 +21,7 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import End, ended, Fragment, Graph, Loaded, mixed, node, Operand
-from blender.bpy.nodes.trees import tree_of
+from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.settings.attachments import Attachment, reconciling
 from blender.bpy.settings.properties import Choices, Definition
 from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
@@ -282,7 +282,7 @@ def world_graph(environment: Environment) -> BlenderResult[Graph]:
                     case Solar():
                         pass
                 if isinstance(mode, Scattering):
-                    members.update({"sun_disc": mode.disc.enabled if isinstance(mode.sun, Still) else False, **msgspec.structs.asdict(mode.disc.value)})
+                    members.update({"sun_disc": mode.disc.enabled if isinstance(mode.sun, Still) else False} | msgspec.structs.asdict(mode.disc.value))
                 return node(key, bpy.types.ShaderNodeTexSky, {}, members).map(ended(key, "Color"))
             case Hdri(path=path, projection=projection, turn=turn):
                 return node(
@@ -356,7 +356,7 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
             except RuntimeError as error:
                 return Error((BlenderEditFault(request=row.key, error=error),))
             rollback.callback(bpy.data.batch_remove, ids=(made,))
-            return row.owned(identity, made, mark).bind(lambda world: tree_of(world).map(lambda tree: tree.nodes.clear()).map(lambda _: world))
+            return row.owned(identity, made, mark).bind(emptied)
 
         def published(world: bpy.types.World) -> bpy.types.World:
             rollback.pop_all()
@@ -392,7 +392,7 @@ def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: 
         .bind(lambda world: Mark.read(identity, world))
         .filter(lambda mark: mark.key == row.key)
         .map(lambda mark: written(scene, "world", mark.of.to_optional()).map(lambda _: Some(row.removed(identity))))
-        .default_with(lambda: Ok(Nothing))
+        .default_value(Ok(Nothing))
     )
 
 

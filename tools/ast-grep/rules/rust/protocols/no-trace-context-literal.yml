@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trace-context-literal
+language: rust
+severity: error
+rule:
+    kind: string_literal
+    pattern: $HEADER
+    matches: rust-trace-context-header
+message: '`$HEADER` names a W3C trace-context header to propagate a span by hand'
+note: 'Inject and extract the context through `opentelemetry_sdk::propagation::TraceContextPropagator` with `opentelemetry_http::HeaderInjector` and `HeaderExtractor`, the propagator writes and validates both headers and the sampled flag'

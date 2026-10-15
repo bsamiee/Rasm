@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-json-pointer-escape
+language: rust
+utils:
+    pointer-token:
+        kind: string_literal
+        regex: '^"~[01]"$'
+    escape-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^replacen?$'}}
+            - has: {field: arguments, has: {matches: pointer-token}}
+rule:
+    matches: escape-call
+    not: {inside: {kind: field_expression, field: value, inside: {matches: escape-call}}}

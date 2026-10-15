@@ -32,13 +32,11 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     def loaded(self, session: tuple[Attached[T], bpy.types.WindowManager]) -> BlenderResult[None]:
         """Loads the file record, returning decode or native session-write refusals."""
         attached, manager = session
-        held: Option[bpy.types.Text] = Option.of_optional(bpy.data.texts.get(attached.name))
-        record: BlenderResult[T] = held.map(
-            lambda text: catch(lambda: msgspec.json.decode(text.as_string(), type=self.form), exception=msgspec.DecodeError)().map_error(
-                lambda error: (BlenderReadFault(request=repr(text), error=error),)
-            )
-        ).default_with(lambda: Ok(self.form()))
-        return record.bind(lambda value: attached.write(manager, value))
+
+        def decoded(text: bpy.types.Text) -> BlenderResult[T]:
+            return catch(lambda: msgspec.json.decode(text.as_string(), type=self.form), exception=msgspec.DecodeError)().map_error(lambda error: (BlenderReadFault(request=repr(text), error=error),))
+
+        return Option.of_optional(bpy.data.texts.get(attached.name)).map(decoded).default_with(lambda: Ok(self.form())).bind(lambda value: attached.write(manager, value))
 
     def saved(self, session: tuple[Attached[T], bpy.types.WindowManager]) -> BlenderResult[None]:
         """Persists actual session values in the file or returns native read faults."""

@@ -1,16 +1,19 @@
 {
     "name": "architectural-portfolio",
     "private": true,
+    "description": "Architectural portfolio publishing projects and studies as one server-rendered page, with owner-only editor",
     "type": "module",
     "dependencies": {
         "@effect/atom-react": "catalog:",
         "@effect/platform-browser": "catalog:",
         "@effect/sql-d1": "catalog:",
+        "@rasm/hosting": "workspace:*",
+        "@rasm/media": "workspace:*",
+        "@rasm/ui": "workspace:*",
         "@uppy/core": "catalog:",
         "@uppy/dashboard": "catalog:",
         "@uppy/react": "catalog:",
         "@uppy/xhr-upload": "catalog:",
-        "@use-gesture/react": "catalog:",
         "effect": "catalog:",
         "embla-carousel-react": "catalog:",
         "lucide-react": "catalog:",
@@ -19,7 +22,6 @@
         "pdfjs-dist": "catalog:",
         "react": "catalog:",
         "react-aria-components": "catalog:",
-        "react-dom": "catalog:",
         "react-error-boundary": "catalog:",
         "react-zoom-pan-pinch": "catalog:",
         "tailwindcss": "catalog:",
@@ -33,22 +35,19 @@
         "@tailwindcss/vite": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
-        "@types/react-dom": "catalog:",
         "@types/validator": "catalog:",
         "@vitejs/plugin-react": "catalog:",
+        "cf": "catalog:",
         "oxc-transform-react": "catalog:",
-        "vite": "catalog:",
-        "vite-plugin-static-copy": "catalog:",
-        "wrangler": "catalog:"
+        "vite": "catalog:"
     },
     "nx": {
         "targets": {
             "db:setup": {
-                "command": "wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to ../../../.cache/wrangler/apps/web/portfolio --file worker/schema.sql",
+                "command": "cf d1 raw DB-{projectName} --local --persist-to ../../../.cache/cloudflare/apps/web/portfolio --sql @worker/schema.sql",
                 "options": {
                     "cwd": "{projectRoot}"
                 },
-                "dependsOn": [ "build" ],
                 "parallelism": false
             }
         }

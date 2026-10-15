@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collected-join
+language: rust
+severity: error
+utils:
+    literal-separator:
+        has: {stopBy: end, kind: string_literal, pattern: $S}
+rule:
+    kind: call_expression
+    any:
+        - all: [{pattern: '$I.intersperse($S.to_owned()).collect::<String>()'}, {matches: literal-separator}]
+        - all: [{pattern: '$I.intersperse($S.to_string()).collect::<String>()'}, {matches: literal-separator}]
+        - all: [{pattern: '$I.intersperse(String::from($S)).collect::<String>()'}, {matches: literal-separator}]
+        - all: [{pattern: '$I.intersperse(Cow::from($S)).collect::<String>()'}, {matches: literal-separator}]
+        - all: [{pattern: '$I.intersperse(Cow::Borrowed($S)).collect::<String>()'}, {matches: literal-separator}]
+        - pattern: $I.map(ToString::to_string).collect::<Vec<$_>>().join($S)
+        - pattern: $I.map(String::from).collect::<Vec<$_>>().join($S)
+        - pattern: '$I.map(|$X| $X.to_string()).collect::<Vec<$_>>().join($S)'
+        - pattern: '$J.map(|$P| format!($$$A)).collect::<Vec<$_>>().join($T)'
+constraints:
+    S: {not: {regex: '^""$'}}
+    T: {not: {regex: '^""$'}}
+transform:
+    OPEN: {replace: {source: $I, replace: '^[\s\S]+$', by: '.join('}}
+    CLOSE: {replace: {source: $I, replace: '^[\s\S]+$', by: ')'}}
+    FOPEN: {replace: {source: $J, replace: '^[\s\S]+$', by: '.format_with('}}
+    FPARAM: {replace: {source: $T, replace: '^[\s\S]+$', by: ', |'}}
+    FBODY: {replace: {source: $P, replace: '^[\s\S]+$', by: ', sink| sink(&format_args!('}}
+    FCLOSE: {replace: {source: $J, replace: '^[\s\S]+$', by: '))).to_string()'}}
+fix: '$I$OPEN$S$CLOSE$J$FOPEN$T$FPARAM$P$FBODY$$$A$FCLOSE'
+message: 'Items become `String`s only to be joined through an intermediate collection'
+note: 'Call `Itertools::join(<iterator>, <separator>)` (`use itertools::Itertools as _`), it writes each `Display` item into one `String` with no owned separator per gap or `Vec` between. A `format!` map becomes `<iterator>.format_with(<separator>, |<item>, sink| sink(&format_args!(..))).to_string()`, which builds no `String` per item. Clippy `unnecessary_join` owns the empty separator'

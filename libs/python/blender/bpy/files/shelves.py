@@ -8,7 +8,7 @@ from expression import Error, Nothing, Option, Some
 import msgspec
 
 from blender.bpy.commands.operators import Call, Empty, Operator, Outcome
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
@@ -96,7 +96,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
                     },
                     "asset_poll": classmethod(lambda _cls, asset: asset.metadata.get(identity.manifest.id) in self.marks),
                     **dict.fromkeys(filters, True),
-                    **self.condition.map(lambda condition: {"poll": classmethod(lambda _cls, context: holds(condition, context))}).default_value({}),
+                    **polled(self.condition),
                     **self.active.map(lambda active: {"get_active_asset": classmethod(lambda _cls: active(bpy.context).to_optional())}).default_value({}),
                     **({"draw_context_menu": classmethod(lambda _cls, context, _asset, layout: paint(layout, context))} if self.menu else {}),
                     **{f"bl_{role}_operator": name for role, _, name in operators},

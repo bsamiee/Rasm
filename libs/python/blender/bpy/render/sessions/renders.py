@@ -17,7 +17,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Acquired, Call, Done, Operator, Properties, Stock
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.snapshots import NativeValue, Scenes, Snapshot
+from blender.bpy.data.rna.snapshots import Scenes, Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -29,7 +29,7 @@ from blender.bpy.render.outputs.framing import Framed, FrameSize
 from blender.bpy.render.outputs.paths import OutputPath
 from blender.bpy.render.sessions import execution
 from blender.bpy.render.view_layers.passes import PassRouting, PassSet
-from blender.bpy.settings.attachments import Attached, Attachment, Stored
+from blender.bpy.settings.attachments import Attached, Attachment, endpoints, Stored
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import Member, OperatorButton, Property, Pulldown
@@ -138,8 +138,8 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                     def restored(after: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[None]:
                         missing = Tree(roots=tuple(key for key in before.roots if key not in after.owners), owners={key: held for key, held in before.owners.items() if key not in after.owners})
                         return (
-                            paired(Snapshot.decoded(before), Snapshot.decoded(after))
-                            .bind(lambda values: Snapshot.restore(*values).outcome)
+                            Snapshot
+                            .reverted(before, after)
                             .bind(lambda _: routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()))
                             .bind(lambda path: routing.reconciled(scene, bpy.context, path))
                             .bind(
@@ -175,7 +175,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                 pending.clear()
                 return accumulated(restored(scene) for scene in bpy.data.scenes).map(lambda _: None)
 
-            scope.callback(lambda: identity.reports.reported(lambda: accumulated(restored(scene) for scene in tuple(pending)).map(lambda _: None))().default_value(None))
+            scope.callback(lambda: identity.reports.reported(lambda: accumulated(restored(scene) for scene in tuple(pending)).map(lambda _: None))().to_optional())
 
             def launched(call: Call[Launch], viewport: bool) -> BlenderResult[Done]:
                 def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
@@ -202,11 +202,6 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                         def overridden(owned: tuple[tuple[Snapshot, ...], tuple[tuple[bpy.types.Object, Snapshot], ...]]) -> BlenderResult[None]:
                             owners = (scene, *(owner for owner, _ in owned[1]))
 
-                            def captured() -> BlenderResult[Tree[NativeValue]]:
-                                return accumulated(Snapshot.capture(owner, native=True) for owner in owners).map(
-                                    lambda trees: Tree(roots=tuple(key for tree in trees for key in tree.roots), owners={key: value for tree in trees for key, value in tree.owners.items()})
-                                )
-
                             def changed(before: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[None]:
                                 pending.add(scene)
                                 applied = paired(
@@ -215,11 +210,16 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                                 ).bind(lambda _: routing.reconciled(scene, call.context, path))
                                 final = tuple(Snapshot.capture(owner, native=True) for owner in owners)
                                 trees = tuple(tree for answer in final for tree in answer.to_option().to_list())
-                                after = Tree(roots=tuple(key for tree in trees for key in tree.roots), owners={key: held for tree in trees for key, held in tree.owners.items()})
+                                after = Tree.joined(trees)
                                 endpoint = Snapshot.persisted(after).bind(lambda projected: recovery.write(scene, (before, projected)))
                                 return paired(applied, paired(accumulated(final), endpoint)).map(lambda _: None)
 
-                            return captured().bind(Snapshot.persisted).bind(lambda before: recovery.write(scene, (before, None)).bind(lambda _: changed(before)))
+                            return (
+                                accumulated(Snapshot.capture(owner, native=True) for owner in owners)
+                                .map(Tree.joined)
+                                .bind(Snapshot.persisted)
+                                .bind(lambda before: recovery.write(scene, (before, None)).bind(lambda _: changed(before)))
+                            )
 
                         return (
                             paired(presets, isolated)
@@ -316,9 +316,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
             ))
 
         try:
-            recovery = identity.name(Name.ATTACHMENT, "render_restore").map(
-                lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
-            )
+            recovery = identity.name(Name.ATTACHMENT, "render_restore").map(endpoints)
             yield paired(paired(paired(self.override.bound(identity), FrameSize().bound(identity)), PassSet().bound(identity)), recovery).bind(built)
         finally:
 

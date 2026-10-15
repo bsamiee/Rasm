@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-domain-span
+language: rust
+rule:
+    any:
+        - matches: rust-domain-shape
+        - inside: {stopBy: end, matches: rust-domain-shape}

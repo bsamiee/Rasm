@@ -18,7 +18,7 @@ public sealed class GuidedDenoise : JobEffect<GuidedDenoise, DenoiseState, Denoi
             static passes => passes.Map(rgb: "None", rgbAlbedo: "Albedo", rgbAlbedoNormal: "Albedo and Normal")),
         prefilter: ParameterText.Enumeration<GuidePrefilter>(
             "Prefilter", "Cleans noise from the guide passes before they guide the image",
-            static prefilter => prefilter == GuidePrefilter.Off ? "None" : prefilter.ToString()),
+            static prefilter => prefilter is GuidePrefilter.Off ? "None" : prefilter.ToString()),
         quality: ParameterText.Choice<DenoiseQuality, InvalidDenoise>(
             "Quality", "Denoiser model, slower and sharper at higher quality",
             static quality => quality.Map(high: "High", balanced: "Balanced", fast: "Fast")),

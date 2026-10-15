@@ -62,8 +62,8 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         try:
             value = msgspec.json.decode(source.read_bytes(), type=self.form)
         except (OSError, msgspec.DecodeError) as error:
-            return Error((BlenderReadFault(request=str(source), error=error),))
-        return self.admitted.map(lambda admit: admit(value).map_error(lambda faults: (BlenderImagingFault(faults=faults),))).default_value(Ok(value))
+            return Error((BlenderReadFault(request=source, error=error),))
+        return self.admitted.map(lambda admit: admit(value).map_error(BlenderImagingFault.lifted)).default_value(Ok(value))
 
     @staticmethod
     def written(target: Path, value: msgspec.Struct) -> BlenderResult[Path]:
@@ -72,7 +72,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(msgspec.json.encode(value, order="deterministic"))
         except OSError as error:
-            return Error((BlenderWriteFault(request=str(target), error=error),))
+            return Error((BlenderWriteFault(request=target, error=error),))
         return Ok(target)
 
     def saved(self, identity: Identity, name: PresetName, value: T) -> BlenderResult[Path]:
@@ -83,9 +83,9 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             with target.open("xb") as destination:
                 destination.write(msgspec.json.encode(value, order="deterministic"))
         except FileExistsError:
-            return Error((BlenderCollisionFault(request=name, error=str(target)),))
+            return Error((BlenderCollisionFault(request=name, error=target),))
         except OSError as error:
-            return Error((BlenderWriteFault(request=str(target), error=error),))
+            return Error((BlenderWriteFault(request=target, error=error),))
         return Ok(target)
 
     @staticmethod
@@ -95,7 +95,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         try:
             move_atomic(str(source), str(target))
         except FileExistsError:
-            return Error((BlenderCollisionFault(request=name, error=str(target)),))
+            return Error((BlenderCollisionFault(request=name, error=target),))
         except OSError as error:
             return Error((BlenderWriteFault(request=f"{source} -> {target}", error=error),))
         return Ok(target)
@@ -108,13 +108,13 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Exports a user file, returning the target or read, admission, or write faults."""
         return self.read(source).bind(lambda value: self.written(target, value))
 
-    @staticmethod
-    def removed(source: Path) -> BlenderResult[None]:
-        """Removes a user file, returning None or its native write fault."""
-        return catch(source.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(source), error=error),))
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def removed(source: Path) -> BlenderResult[None]:
+    """Removes a file, returning None or its native write fault."""
+    return catch(source.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=source, error=error),))
 
 
 def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
@@ -131,7 +131,7 @@ def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct
     return accumulated(
         Snapshot
         .capture(owner)
-        .map(lambda target: Snapshot(struct=clip.struct, tree=merge(target.tree, transfer(target.tree, clip.tree))).apply(owner))
+        .map(lambda target: msgspec.structs.replace(clip, tree=merge(target.tree, transfer(target.tree, clip.tree))).apply(owner))
         .bind(lambda applied: applied.outcome.map(lambda _: applied))
         for owner in owners
     )
@@ -139,4 +139,4 @@ def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Preset", "PresetName", "Stock", "copied", "pasted"]
+__all__ = ["Preset", "PresetName", "Stock", "copied", "pasted", "removed"]

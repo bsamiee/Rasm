@@ -1,8 +1,4 @@
 {
-    // --- [INDENTATION] -----------------------------------------------------------------
-    "indentRainbow.ignoreErrorLanguages": [ "markdown", "yaml" ],
-    "indentRainbow.colorOnWhiteSpaceOnly": true,
-
     // --- [EXPLORER_VISIBILITY] ---------------------------------------------------------
     "explorer.compactFolders": false,
     "files.exclude": {
@@ -17,7 +13,8 @@
     "files.watcherExclude": {
         "**/.artifacts/**": true,
         "**/.cache/**": true,
-        "**/.venv/**": true
+        "**/.venv/**": true,
+        "**/node_modules/**": true
     },
 
     // --- [FILE_NESTING] ----------------------------------------------------------------
@@ -26,7 +23,7 @@
     "explorer.fileNesting.patterns": {
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "README.md": "LICENSE",
-        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, Directory.Build.rsp, global.json, NuGet.config, Workspace.slnx",
         "*.cts": "${capture}.spec.cts, ${capture}.test.cts",
         "*.mts": "${capture}.spec.mts, ${capture}.test.mts",
         "*.ts": "${capture}.spec.ts, ${capture}.test.ts",
@@ -35,12 +32,12 @@
         "pyproject.toml": "uv.lock",
         "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",
         "nx.json": ".editorconfig, .lldbinit, .swift-format, .swiftlint.yml, .yamlfmt, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, Xcode.xcconfig",
-        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts",
-        "*.json": "${capture}.schema.json"
+        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts"
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
     "mypy-type-checker.importStrategy": "fromEnvironment",
+    "python.terminal.activateEnvironment": false,
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
@@ -51,16 +48,25 @@
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true,
     "dotnet.defaultSolution": "Workspace.slnx",
-    "dotnet.preferCSharpExtension": true,
+    "dotnet.projects.enableAutomaticRestore": false,
 
     // --- [RUST] ------------------------------------------------------------------------
+    "rust-analyzer.cargo.targetDir": true,
+    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer" },
     "rust-analyzer.check.command": "clippy",
     "rust-analyzer.rustc.source": "discover",
+
+    // --- [SWIFT] -----------------------------------------------------------------------
+    "swift.buildPath": "${workspaceFolder}/.cache/swiftpm/vscode",
+    "swift.searchSubfoldersForPackages": true,
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.jdt.ls.java.home": "~/.local/share/mise/installs/java/latest",
     "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],
     "java.project.referencedLibraries": [ "/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar" ],
     "java.format.settings.google.extra": "--aosp",
-    "[java]": { "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code" }
+    "[java]": { "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code" },
+
+    // --- [TOML] ------------------------------------------------------------------------
+    "[toml]": { "editor.defaultFormatter": "tombi-toml.tombi" }
 }

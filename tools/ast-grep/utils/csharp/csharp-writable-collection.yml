@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-writable-collection
+language: csharp
+rule:
+    any:
+        - kind: 'generic_name, qualified_name'
+          matches:
+            csharp-type-name:
+                name:
+                    regex: |-
+                        (?x)^(List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|IList|ICollection|IDictionary|ISet
+                        |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)$
+          has: {stopBy: end, kind: type_argument_list}
+          not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections\.(Generic|ObjectModel|Concurrent)$'}}}
+        - kind: 'generic_name, qualified_name'
+          matches: {csharp-type-name: {name: {regex: '^ArraySegment$'}}}
+          not: {has: {field: qualifier, not: {regex: '^(global::)?System$'}}}
+        - kind: qualified_name
+          matches: {csharp-type-name: {name: {regex: '^HashSet$'}}}
+          has: {field: qualifier, regex: '^(global::)?System\.Collections\.Generic$'}
+        - kind: 'identifier, qualified_name'
+          matches: {csharp-type-name: {name: {regex: '^(ArrayList|Hashtable)$'}}}
+          not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections$'}}}

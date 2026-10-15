@@ -2,7 +2,6 @@
 id: no-error-code-by-hand
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 utils:
     error-type:
         regex: '^((rmcp::)?(model::)?)?(ErrorData|McpError)$'

@@ -4,6 +4,7 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rhino.Runtime;
 using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI.Rows;
@@ -35,29 +36,30 @@ public sealed record RowLine(Option<string> Caption, Control Value, Option<Contr
 
 public sealed record RowCells(
     Control Value, Option<Control> Gate, Option<Control> Pick, Option<FieldFit> Field, Seq<RowLine> Heads, Seq<RowLine> Lines, RowHelp Help, IO<Unit> Show,
-    Option<RowEdit> Edit, Option<Func<Option<Label>, Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<Unit>>> Menu) {
+    Option<RowEdit> Edit, Option<Func<Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<ContextMenu>>> Menu) {
     public IO<bool> NestedEditing { get; init; } = IO.pure(value: false);
     public Option<ComponentControl> Plot { get; init; }
     public Option<Func<bool, IO<Unit>>> Availability { get; init; }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class RowGrid : Panel {
+public sealed class RowGrid : Drawable {
     // --- [STATE]
     private const float LabelShare = 0.4f;
 
     private readonly RowScope scope;
     private readonly Seq<RowPlace> places;
     private readonly RowMetrics metrics;
+    private readonly StackLayout stack;
     private readonly HashMap<EntryKey, Seq<RowPlace>> index;
-    private readonly Atom<RowForm> form;
+    private readonly Atom<RowForm> form = Atom(RowForm.Initial);
+    private readonly Atom<RowMarks> marks = Atom(RowMarks.Initial);
     private readonly Ref<Seq<IDisposable>> acquired;
-    private Seq<IDisposable> layouts;
 
-    private RowGrid(RowScope scope, Seq<RowPlace> places, RowMetrics metrics, Ref<Seq<IDisposable>> acquired) {
-        (Sink, this.scope, this.places, this.metrics, this.acquired) = (scope.Sink, scope, places, metrics, acquired);
+    private RowGrid(RowScope scope, Seq<RowPlace> places, RowMetrics metrics, StackLayout stack, Ref<Seq<IDisposable>> acquired) {
+        (Sink, this.scope, this.places, this.metrics, this.stack, this.acquired) = (scope.Sink, scope, places, metrics, stack, acquired);
         index = RuleIndex.Of(places.Map(static place => (place.Reads, place)));
-        form = Atom(RowForm.Stacked);
+        Content = stack;
     }
 
     public static string HandlerStyle { get; } = ComponentControl.StyleName(typeof(RowGrid));
@@ -76,10 +78,14 @@ public sealed class RowGrid : Panel {
             }).Bind(DisposalOps.Release),
             static release => release.Run())
         from grid in DisposalOps.OnFailure(
-            from cells in rows.TraverseM(row => Cells(row, scope, keep)).As()
-            from placed in rows.Zip(cells).TraverseM(row => Placed(row.First, row.Second, scope, keep)).As()
-            from metrics in Measured(column, placed, scope.Sink)
-            from created in DisposalOps.Acquire(IO.lift(() => new RowGrid(scope, placed, metrics, acquired)), static owned => IO.lift(owned.Dispose), owned => {
+            from placed in rows.Map(static (row, at) => (Row: row, At: at)).TraverseM(row => Placed(row.At, row.Row, scope, keep)).As()
+            from metrics in Measured(column, placed, scope.Sink, keep)
+            from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout {
+                Orientation = Orientation.Vertical,
+                Spacing = metrics.Spacing.Height,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            }), static held => IO.lift(held.Dispose), keep)
+            from created in DisposalOps.Acquire(IO.lift(() => new RowGrid(scope, placed, metrics, stack, acquired)), static owned => IO.lift(owned.Dispose), owned => {
                 prefix.Relinquish();
                 retain(owned);
             })
@@ -88,101 +94,105 @@ public sealed class RowGrid : Panel {
         from attached in DisposalOps.OnFailure(IO.lift(() => grid.Style = HandlerStyle).Bind(_ => grid.Attached), IO.lift(grid.Dispose))
         select grid;
 
-    public Option<Label> Caption(Control value) =>
-        places.Find(place => ReferenceEquals(place.Cells.Value, value)).Bind(static place => place.Label);
+    public Option<string> Caption(Control value) =>
+        places.Find(place => place.Cells.Exists(cells => ReferenceEquals(cells.Value, value))).Bind(static place => place.Caption);
 
     public Option<ComponentControl> Plot(Seq<EntryKey> keys) =>
-        toHashSet(keys) switch { var selected => places.Choose(place => place.Cells.Plot.Filter(_ => place.Row.Keys.Exists(selected.Contains))).Head };
+        toHashSet(keys) switch { var selected => places.Choose(place => place.Cells.Bind(static cells => cells.Plot).Filter(_ => place.Row.Keys.Exists(selected.Contains))).Head };
 
-    private static IO<RowCells> Cells(ControlRow row, RowScope scope, Action<IDisposable> retain) =>
-        row.Switch(
-            (Scope: scope, Retain: retain),
-            field: static (held, field) => field.Realize(held.Scope, held.Retain),
-            readout: static (held, readout) => readout.Realize(held.Scope, held.Retain),
-            command: static (held, command) => command.Realize(held.Scope, held.Retain),
-            group: static (held, @group) =>
-                from separator in DisposalOps.Acquire(IO.lift(static () => new LabelSeparator()), static separator => IO.lift(separator.Dispose), held.Retain)
-                from caption in IO.lift(() => separator.Text = @group.Wording.Shown(@group.Caption, held.Scope.Sink))
-                select new RowCells(separator, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None));
+    private static IO<RowPlace> Placed(int at, ControlRow row, RowScope scope, Action<IDisposable> retain) =>
+        row.Switch<(RowScope Scope, Action<IDisposable> Retain), Option<IO<RowCells>>>(
+                (scope, retain),
+                field: static (held, field) => Some(field.Realize(held.Scope, held.Retain)),
+                readout: static (held, readout) => Some(readout.Realize(held.Scope, held.Retain)),
+                command: static (held, command) => Some(command.Realize(held.Scope, held.Retain)),
+                group: static (_, _) => None)
+            .Traverse(static cells => cells).As()
+            .Bind(cells => Lined(at, row, cells, scope, retain));
 
-    private static IO<RowPlace> Placed(ControlRow row, RowCells cells, RowScope scope, Action<IDisposable> retain) =>
-        from label in row.Layout
-            .Filter(shape => shape.Labeled && (!shape.Spans || cells.Heads.IsEmpty))
-            .Traverse(shape => DisposalOps.Acquire(IO.lift(() => row.Wording.Shown(row.Caption, scope.Sink) switch {
-                var caption => shape.Spans ? RhinoLayout.NewLabelSeparator(caption) : RhinoLayout.NewLabel(caption),
-            }), static label => IO.lift(label.Dispose), retain)).As()
-        let help = row.Help.Map(text => cells.Help.Text(text, row.Wording, scope.Sink))
-        from tipped in IO.lift(() => label.Map(static held => (Control)held).ToSeq().Add(cells.Value).Iter(control => control.ToolTip = help.ValueUnsafe()))
-        from first in (from keys in row.Keys.AsIterableNE() from source in row.Bound from edit in cells.Edit select Trailed(source, keys, edit, scope, retain)).Traverse(static trailed => trailed).As()
-        from head in cells.Heads.Head.Traverse(line => GridLine.Of(line, row.Wording, scope.Sink, first, retain)).As()
-        from tail in cells.Heads.Tail.TraverseM(line => GridLine.Of(line, row.Wording, scope.Sink, None, retain)).As()
-        let heads = head.ToSeq() + tail
-        from lines in cells.Lines.TraverseM(line => GridLine.Of(line, row.Wording, scope.Sink, None, retain)).As()
-        let laid = row.Layout.Match(
-            Some: shape => shape.Spans
-                ? label.Map(caption => new GridLine(None, Columned: false, cells.Gate, caption, cells.Pick, first, Trailing: true, Fills: false)).ToSeq()
-                  + heads
-                  + Seq(new GridLine(None, Columned: false, None, cells.Value, None, None, Trailing: false, shape.Fills))
-                  + lines
-                : Seq(new GridLine(label, Columned: true, cells.Gate, cells.Value, cells.Pick, first, Trailing: true, Fills: false)),
-            None: () => Seq(new GridLine(None, Columned: false, None, cells.Value, None, None, Trailing: false, Fills: false)))
-        select new RowPlace(row, cells, label, laid, first);
+    private static IO<RowPlace> Lined(int at, ControlRow row, Option<RowCells> cells, RowScope scope, Action<IDisposable> retain) =>
+        cells.Match(
+            Some: held =>
+                from tipped in IO.lift(() => held.Value.ToolTip = Helped(row, held, scope.Sink).ValueUnsafe())
+                from first in (from keys in row.Keys.AsIterableNE() from source in row.Bound from edit in held.Edit select Trailed(source, keys, edit, scope, retain)).Traverse(static trailed => trailed).As()
+                let caption = row.Layout.Filter(shape => shape.Labeled && (!shape.Spans || held.Heads.IsEmpty)).Map(_ => row.Wording.Shown(row.Caption, scope.Sink))
+                let heads = held.Heads.Map((line, index) => Headed(line, row.Wording, scope.Sink, first.Filter(_ => index is 0)))
+                let lines = row.Layout.Match(
+                    Some: shape => shape.Spans
+                        ? caption.Map(text => new LineSpec(Some(new LineCaption(text, CaptionCell.Span, Own: true)), Columned: false, held.Gate, None, held.Pick, first, Trailing: true, Fills: false)).ToSeq()
+                          + heads
+                          + Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, shape.Fills))
+                          + held.Lines.Map(line => Headed(line, row.Wording, scope.Sink, None))
+                        : Seq(new LineSpec(caption.Map(static text => new LineCaption(text, CaptionCell.Column, Own: true)), Columned: true, held.Gate, Some(held.Value), held.Pick, first, Trailing: true, Fills: false)),
+                    None: () => Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, Fills: false)))
+                from hosted in lines.TraverseM(spec => Hosted(spec, retain)).As()
+                select new RowPlace(at, row, cells, caption, Helped(row, held, scope.Sink), hosted, first),
+            None: () =>
+                from hosted in Hosted(new LineSpec(Some(new LineCaption(row.Wording.Shown(row.Caption, scope.Sink), CaptionCell.Rule, Own: true)), Columned: false, None, None, None, None, Trailing: false, Fills: false), retain)
+                select new RowPlace(at, row, None, None, row.Help.Map(text => row.Wording.Shown(text, scope.Sink)), Seq(hosted), None));
+
+    private static Option<string> Helped(ControlRow row, RowCells cells, IPlugInSink sink) => row.Help.Map(text => cells.Help.Text(text, row.Wording, sink));
+
+    private static LineSpec Headed(RowLine line, Wording wording, IPlugInSink sink, Option<RowTrail> trail) =>
+        new(line.Caption.Map(caption => new LineCaption(wording.Shown(caption, sink), CaptionCell.Column, Own: false)), line.Caption.IsSome, None, Some(line.Value), line.Pick, trail, Trailing: true, Fills: false);
+
+    private static IO<GridLine> Hosted(LineSpec spec, Action<IDisposable> retain) =>
+        from host in DisposalOps.Acquire(IO.lift(static () => new Panel()), static held => IO.lift(() => { held.Content = null; held.Dispose(); }), retain)
+        from content in spec.Gate.IsNone && spec.Pick.IsNone
+            ? IO.pure(spec.Value)
+            : DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(spec.Cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }),
+                static held => IO.lift(() => { held.Rows.Clear(); held.Dispose(); }), retain).Map(static table => Some<Control>(table))
+        from placed in IO.lift(() => host.Content = content.ValueUnsafe())
+        select new GridLine(spec, host);
 
     private static IO<RowTrail> Trailed(RowSource source, IterableNE<EntryKey> keys, RowEdit edit, RowScope scope, Action<IDisposable> retain) =>
         from bound in IO.lift(() => new BindingGroup(Seq(source.Values(scope))))
         from restore in IO.lift(static () => new Command { MenuText = RowText.Localize("Reset").Local })
         from copy in IO.lift(static () => new Command { MenuText = RowText.Localize("Copy").Local })
         from paste in IO.lift(static () => new Command { MenuText = RowText.Localize("Paste").Local })
-        from reset in Sized(GlyphRole.Reset, retain)
-        from assigned in IO.lift(() => reset.Command = restore)
-        from padlock in scope.Locks
-            .Traverse(_ => Sized(GlyphRole.LockOpen, retain).Map(static button => (Command: new CheckCommand { MenuText = RowText.Localize("Lock").Local }, Button: button)))
-            .As()
-        from held in (Seq((Command: restore, Run: edit.Reset), (Command: copy, Run: Transfer.Copy(bound, Some(keys), scope)), (Command: paste, Run: Transfer.Paste(bound, Some(keys), scope).Map(static _ => unit)))
+        let padlock = scope.Locks.Map(static _ => new CheckCommand { MenuText = RowText.Localize("Lock").Local })
+        from held in (Seq((Command: restore, Run: edit.Reset), (Command: copy, Run: Transfer.Copy(bound, Some(keys), scope)), (Command: paste, Run: Transfer.Paste(bound, Some(keys), scope).Map(unit)))
                 .Map(row => Subscriptions.Host<EventArgs>(typeof(Command), h => row.Command.Executed += h, h => row.Command.Executed -= h, nameof(Command.Executed)).Inline(_ => row.Run, scope.Sink, retain))
-            + padlock.ToSeq().Bind(row => Seq(
-                Subscriptions.Host<EventArgs>(typeof(CheckCommand), h => row.Command.Executed += h, h => row.Command.Executed -= h, nameof(CheckCommand.Executed))
-                    .Inline(_ => scope.Lock(toSeq(keys), row.Command.Checked), scope.Sink, retain),
-                Subscriptions.Host<EventArgs>(typeof(ImageButton), h => row.Button.Click += h, h => row.Button.Click -= h, nameof(ImageButton.Click))
-                    .Inline(_ => scope.Lock(toSeq(keys), !row.Command.Checked), scope.Sink, retain))))
+            + padlock.ToSeq().Map(command => Subscriptions.Host<EventArgs>(typeof(CheckCommand), h => command.Executed += h, h => command.Executed -= h, nameof(CheckCommand.Executed))
+                .Inline(_ => scope.Lock(toSeq(keys), command.Checked), scope.Sink, retain)))
             .TraverseM(static attached => attached).As()
-        select new RowTrail(keys, reset, restore, copy, paste, padlock);
-
-    private static IO<ImageButton> Sized(GlyphRole glyph, Action<IDisposable> retain) =>
-        from icon in Icons.Frames((glyph, IconSlot.PanelButton.Master), IconSlot.PanelButton)
-        from button in DisposalOps.Acquire(IO.lift(static () => new ImageButton()), static button => IO.lift(button.Dispose), retain)
-        from assigned in IO.lift(() => button.Image = icon)
-        select button;
+        select new RowTrail(keys, restore, copy, paste, padlock);
 
     // --- [FORM]
     private static bool Beside(float width, float labels, float values, float trailing, float spacing) =>
         labels <= LabelShare * width && labels + spacing + values + trailing <= width;
 
-    private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink) =>
-        from labels in Callbacks.Each(column
+    private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink, Action<IDisposable> retain) =>
+        from regular in DisposalOps.Acquire(IO.lift(static () => SystemFonts.Label()), static font => IO.lift(font.Dispose), retain)
+        from emphasis in DisposalOps.Acquire(IO.lift(() => SystemFonts.Bold(regular.Size)), static font => IO.lift(font.Dispose), retain)
+        let labels = column
             .Filter(static row => row.Layout.Exists(static shape => shape.Labeled && !shape.Spans))
-            .Map(row => DisposalOps.Within(() => RhinoLayout.NewLabel(row.Wording.Shown(row.Caption, sink)), static label => IO.lift(() => label.GetPreferredSize().Width), static label => IO.lift(label.Dispose))))
-        let fields = places.Bind(static place => place.Cells.Field.ToSeq() + (place.Cells.Heads + place.Cells.Lines).Choose(static line => line.Field))
+            .Map(row => emphasis.MeasureString(row.Wording.Shown(row.Caption, sink)).Width)
+            .Fold(0f, MathF.Max)
+        let fields = places.Bind(static place => place.Cells.ToSeq()).Bind(static cells => cells.Field.ToSeq() + (cells.Heads + cells.Lines).Choose(static line => line.Field))
         let field = fields.Fold(0f, static (widest, fit) => MathF.Max(widest, fit.Width))
         from sized in IO.lift(() => fields.Iter(fit => fit.Field.Width = (int)MathF.Ceiling(field)))
-        let lines = places.Bind(static place => place.Lines)
+        let lines = places.Bind(static place => place.Lines).Map(static line => line.Spec)
+        from slot in IconSlot.PanelButton.Size()
         from widths in IO.lift(() => (
-            Values: Widest(lines.Filter(static line => line.Columned).Map(static line => line.Value)),
+            Values: Widest(lines.Filter(static line => line.Columned).Choose(static line => line.Value)),
             Gate: Widest(lines.Choose(static line => line.Gate)),
             Pick: Widest(lines.Choose(static line => line.Pick))))
-        from fonts in IO.lift(static () => SystemFonts.Label() switch {
-            var regular => (Regular: regular, Emphasis: SystemFonts.Bold(regular.Size)),
+        from aligned in IO.lift(() => {
+            _ = lines.Choose(static line => line.Gate).Iter(gate => gate.Width = (int)MathF.Ceiling(widths.Gate.IfNone(0f)));
+            _ = lines.Choose(static line => line.Pick).Iter(pick => pick.Width = (int)MathF.Ceiling(widths.Pick.IfNone(0f)));
         })
         select new RowMetrics(
-            labels.Fold(0f, MathF.Max),
+            MathF.Ceiling(labels),
             widths.Gate,
             widths.Pick,
-            places.Choose(static place => place.Trail).Head.Map(static trail => (float)trail.Reset.Width),
-            places.Choose(static place => place.Trail).Choose(static trail => trail.Lock).Head.Map(static held => (float)held.Button.Width),
+            Some((float)slot).Filter(_ => places.Exists(static place => place.Trail.IsSome)),
+            Some((float)slot).Filter(_ => places.Exists(static place => place.Trail.Exists(static trail => trail.Lock.IsSome))),
             widths.Values.IfNone(0f),
             RhinoLayout.Spacing(RhinoLayout.SpacingType.Table),
-            fonts.Regular,
-            fonts.Emphasis);
+            MathF.Ceiling(regular.LineHeight),
+            regular,
+            emphasis);
 
     private static Option<float> Widest(Seq<Control> controls) =>
         controls.Map(static control => control.GetPreferredSize().Width).Fold(Option<float>.None, static (widest, width) => Some(MathF.Max(widest.IfNone(width), width)));
@@ -191,94 +201,29 @@ public sealed class RowGrid : Panel {
         IO.lift(() => (float)Width).Bind(width => Shaped(held => held with { Beside = Beside(width, metrics.Labels, metrics.Values, metrics.Trailing, metrics.Spacing.Width) }));
 
     private IO<Unit> Shaped(Func<RowForm, RowForm> step) =>
-        form.ValueIO.Bind(held => step(held) switch {
-            var next => when(held != next, Laid(held, next)).As(),
+        form.SwapIO(step).Bind(Laid);
+
+    private IO<Unit> Laid(RowForm shaped) =>
+        IO.lift(() => {
+            Seq<GridLine> shown = places.Filter(place => !shaped.Hidden.Contains(place.At)).Bind(static place => place.Lines);
+            if (!stack.Items.Select(static item => item.Control).SequenceEqual(shown.Map(static line => (Control)line.Host))) {
+                stack.Items.Clear();
+                _ = shown.Iter(line => stack.Items.Add(new StackLayoutItem(line.Host, expand: line.Spec.Fills)));
+            }
+            _ = places.Bind(static place => place.Lines).Iter(line => (line.Host.Padding, line.Host.MinimumSize) = metrics.Spaced(line.Spec, shaped.Beside));
+            Invalidate();
         });
-
-    private IO<Unit> Laid(RowForm before, RowForm shaped) =>
-        from laid in DisposalOps.Replace(
-                retain =>
-                    from rows in places.Filter(place => !shaped.Hidden.Contains(place)).Bind(static place => place.Lines)
-                        .TraverseM(line => Rendered(line, shaped.Beside, retain).Map(held => (Item: new StackLayoutItem(held.Control, expand: line.Fills), held.Attach))).As()
-                    from stack in Stacked(rows.Map(static held => held.Item), retain)
-                    select (Root: stack, Attach: Callbacks.Each(rows.Map(static held => held.Attach)).Map(static _ => unit)),
-                (next, release) => {
-                    Seq<IDisposable> prior = layouts;
-                    Seq<(Control Part, Panel? Parent)> parents = places.Bind(static place => place.Parts).Distinct()
-                        .Map(static part => (part, (Panel?)part.Parent));
-                    Control? content = Content;
-                    layouts = prior.Add(release);
-                    IO<Unit> rejected = IO.lift(() => layouts = prior).Bind(_ => IO.lift(release.Dispose));
-                    IO<Unit> restore = Callbacks.Each(parents.Map(static held => IO.lift(() => {
-                        held.Part.Detach();
-                        if (held.Parent is { } parent)
-                            parent.Content = held.Part;
-                    }))).Map(static _ => unit)
-                        .Bind(_ => IO.lift(() => Content = content)).Bind(_ => form.SwapIO(_ => before)).Map(static _ => unit);
-                    IO<Unit> apply = form.SwapIO(_ => shaped)
-                        .Bind(_ => Callbacks.Each(parents.Map(static held => IO.lift(held.Part.Detach))))
-                        .Bind(_ => next.Attach).Bind(_ => IO.lift(() => Content = next.Root))
-                        .Map(static _ => unit);
-                    return DisposalOps.OnFailure(apply, restore.Bind(_ => rejected))
-                        .Bind(_ => IO.lift(() => layouts = Seq(release)))
-                        .Bind(_ => DisposalOps.Release(prior));
-                })
-        select unit;
-
-    private IO<(Control Control, IO<Unit> Attach)> Rendered(GridLine line, bool beside, Action<IDisposable> retain) =>
-        from attachments in IO.lift(static () => new List<IO<Unit>>())
-        from caption in Fixed(line.Caption.Map(static caption => (Control)caption), Some(metrics.Labels).Filter(_ => line.Columned && beside), retain)
-        from gate in Fixed(line.Gate, metrics.Gate.Filter(_ => line.Columned || line.Gate.IsSome), retain)
-        from pick in Fixed(line.Pick, metrics.Pick.Filter(_ => line.Trailing), retain)
-        from reset in Fixed(line.Trail.Map(static trail => (Control)trail.Reset), metrics.Reset.Filter(_ => line.Trailing), retain)
-        from padlock in Fixed(line.Trail.Bind(static trail => trail.Lock).Map(static held => (Control)held.Button), metrics.Lock.Filter(_ => line.Trailing), retain)
-        from value in DisposalOps.Acquire(IO.lift(static () => new Panel()), static panel => IO.lift(panel.Dispose), retain)
-        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), static table => IO.lift(table.Dispose), retain)
-        from arranged in IO.lift(() => {
-            table.Spacing = metrics.Spacing;
-            table.Padding = 0;
-            table.Rows.Add(new TableRow(caption.Map(static held => held.Cell) + gate.Map(static held => held.Cell) + Seq(new TableCell(value, scaleWidth: true))
-                + pick.Map(static held => held.Cell) + reset.Map(static held => held.Cell) + padlock.Map(static held => held.Cell)) { ScaleHeight = line.Fills });
-            attachments.AddRange((caption + gate + pick + reset + padlock).Map(static held => held.Attach));
-            attachments.Add(IO.lift(() => value.Content = line.Value).Map(static _ => unit));
-        })
-        from rendered in line.Caption.Filter(_ => line.Columned && !beside).Match(
-            Some: label => Headed(label, table, attachments, retain),
-            None: () => IO.pure<Control>(table))
-        select (rendered, Callbacks.Each(toSeq(attachments)).Map(static _ => unit));
-
-    private IO<Control> Headed(Control label, TableLayout table, List<IO<Unit>> attachments, Action<IDisposable> retain) =>
-        from panel in DisposalOps.Acquire(IO.lift(static () => new Panel()), static panel => IO.lift(panel.Dispose), retain)
-        from assigned in IO.lift(() => attachments.Add(IO.lift(() => panel.Content = label).Map(static _ => unit)))
-        from stack in Stacked(Seq(new StackLayoutItem(panel) { HorizontalAlignment = HorizontalAlignment.Left }, new StackLayoutItem(table)), retain)
-        select (Control)stack;
-
-    private static IO<Seq<(TableCell Cell, IO<Unit> Attach)>> Fixed(Option<Control> control, Option<float> width, Action<IDisposable> retain) =>
-        width.Traverse(held => DisposalOps.Acquire(IO.lift(static () => new Panel()), static panel => IO.lift(panel.Dispose), retain)
-            .Bind(panel => IO.lift(() => {
-                panel.Width = (int)MathF.Ceiling(held);
-                return (Cell: new TableCell(panel), Attach: IO.lift(() => panel.Content = control.ValueUnsafe()).Map(static _ => unit));
-            }))).As().Map(static cell => cell.ToSeq());
-
-    private IO<StackLayout> Stacked(Seq<StackLayoutItem> items, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(static () => new StackLayout()), static stack => IO.lift(stack.Dispose), retain).Bind(stack => IO.lift(() => {
-            stack.Orientation = Orientation.Vertical;
-            stack.Spacing = metrics.Spacing.Height;
-            stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            _ = items.Iter(stack.Items.Add);
-            return stack;
-        }));
 
     // --- [REFRESH]
     public IO<bool> Editing =>
-        Callbacks.Each(places.Bind(static place => place.Cells.Edit.Map(static edit => edit.Editing).ToSeq().Add(place.Cells.NestedEditing)))
+        Callbacks.Each(places.Bind(static place => place.Cells.ToSeq()).Bind(static cells => cells.Edit.Map(static edit => edit.Editing).ToSeq().Add(cells.NestedEditing)))
             .Map(static held => held.Exists(static editing => editing));
 
     public IO<Unit> Refresh(Seq<EntryKey> changed) => Refreshed(RuleIndex.Affected(index, changed));
 
     private IO<Unit> Attached =>
         from held in Registrations.TraverseM(static attach => attach).As()
-        from laid in form.ValueIO.Bind(shaped => Laid(shaped, shaped))
+        from laid in form.ValueIO.Bind(Laid)
         from formed in Formed
         from shown in Refreshed(places)
         select unit;
@@ -286,8 +231,13 @@ public sealed class RowGrid : Panel {
     private Seq<IO<Unit>> Registrations =>
         Seq(scope.Listen(Refresh, Retain),
             HostTheme.Changed.Inline(_ => Refreshed(places), Sink, Retain),
-            Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, Retain))
-        + places.Choose(place => place.Cells.Menu.Map(attach => attach(place.Label, place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), Retain)))
+            Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, Retain),
+            Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, Retain),
+            Subscriptions.Attach<AtomChangedEvent<RowMarks>>(h => marks.Change += h, h => marks.Change -= h,
+                held => Callbacks.Run(Marked(held), new CallbackSite(Sink, typeof(Atom<RowMarks>), nameof(marks.Change))), Retain))
+        + places.Choose(place => place.Cells.Bind(static cells => cells.Menu).Map(attach =>
+            attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), Retain)
+                .Bind(menu => marks.SwapIO(held => held with { Menus = held.Menus.AddOrUpdate(place.At, menu) })).Map(unit)))
         + places.Bind(static place => place.Sources).Distinct()
             .Filter(source => !places.Exists(place => place.Row.Bound.Exists(bound => bound == source)))
             .Map(Watched);
@@ -304,81 +254,237 @@ public sealed class RowGrid : Panel {
     private void Retain(IDisposable held) => atomic(() => acquired.Value = acquired.Value.Add(held));
 
     private IO<Unit> Refreshed(Seq<RowPlace> targets) =>
-        from parts in targets.Map<K<IO, (RowPlace Place, bool Shown)>>(place => Restated(place).Map(shown => (place, shown))).PartitionFallible().As()
+        from parts in targets.Map<K<IO, (RowPlace Place, bool Shown, RowPaint Paint)>>(place => Restated(place).Map(state => (place, state.Shown, state.Paint))).PartitionFallible().As()
+        from painted in marks.SwapIO(held => held with { Paints = parts.Succs.Fold(held.Paints, static (paints, row) => paints.AddOrUpdate(row.Place.At, row.Paint)) })
         from finished in Callbacks.Each(Seq(
-            Shaped(held => held with { Hidden = parts.Succs.Fold(held.Hidden, static (hidden, row) => row.Shown ? hidden.Remove(row.Place) : hidden.TryAdd(row.Place)) }),
+            Shaped(held => held with { Hidden = parts.Succs.Fold(held.Hidden, static (hidden, row) => row.Shown ? hidden.Remove(row.Place.At) : hidden.TryAdd(row.Place.At)) }),
             unless(parts.Fails.IsEmpty, IO.fail<Unit>(Error.Many(parts.Fails))).As()))
         select unit;
 
-    private IO<bool> Restated(RowPlace place) =>
+    private IO<(bool Shown, RowPaint Paint)> Restated(RowPlace place) =>
         from enabled in place.Row.Rules.Enables(scope)
         from shown in place.Row.Rules.Shows(scope)
-        from modified in place.Cells.Edit.Match(Some: static edit => edit.Modified, None: static () => IO.pure(value: false))
+        from modified in place.Cells.Bind(static cells => cells.Edit).Match(Some: static edit => edit.Modified, None: static () => IO.pure(value: false))
         from locked in place.Trail.Match(Some: trail => scope.Locked.Map(held => trail.Keys.ForAll(held.Contains)), None: static () => IO.pure(value: false))
-        let ink = (enabled, modified) switch {
-            (false, _) => PaintSlot.ContentTextDisabled,
-            (true, true) => PaintSlot.ContentHighlight,
-            (true, false) => PaintSlot.ContentTextEnabled,
-        }
-        from reset in place.Trail.Filter(_ => modified).Traverse(static _ => Icons.Frames((GlyphRole.Reset, IconSlot.PanelButton.Master), IconSlot.PanelButton)).As()
-        from padlock in place.Trail.Bind(static trail => trail.Lock).Traverse(_ => Icons.Frames((locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, IconSlot.PanelButton.Master), IconSlot.PanelButton)).As()
-        from painted in IO.lift(() => Painted(place, enabled, modified, locked, ink, reset, padlock))
-        from available in place.Cells.Availability.Traverse(changed => changed(shown && enabled)).As()
-        from showed in place.Cells.Show
-        select shown;
+        from painted in IO.lift(() => Activated(place, enabled, modified))
+        from available in place.Cells.Bind(static cells => cells.Availability).Traverse(changed => changed(shown && enabled)).As()
+        from showed in place.Cells.Match(Some: static cells => cells.Show, None: static () => IO.pure(unit))
+        select (shown, new RowPaint(enabled, modified, locked));
 
-    private Unit Painted(RowPlace place, bool enabled, bool modified, bool locked, PaintSlot ink, Option<Icon> reset, Option<Icon> padlock) {
-        _ = place.Lines.Bind(static line => line.Controls).Iter(control => control.Enabled = enabled);
-        _ = place.Label.Iter(label => (label.Font, label.TextColor) = (modified ? metrics.Emphasis : metrics.Regular, ink.Read()));
-        _ = place.Trail.Iter(trail => (trail.Reset.Image, trail.Restore.Enabled, trail.Copy.Enabled, trail.Paste.Enabled) = (reset.ValueUnsafe(), enabled && modified, enabled, enabled && Clipboard.Instance.ContainsText));
-        return place.Trail.Bind(static trail => trail.Lock).Iter(held => (held.Button.Image, held.Button.Enabled, held.Command.Enabled, held.Command.Checked) = (padlock.ValueUnsafe(), enabled, enabled, locked));
+    private static Unit Activated(RowPlace place, bool enabled, bool modified) {
+        _ = place.Lines.Bind(static line => line.Spec.Controls).Iter(control => control.Enabled = enabled);
+        return place.Trail.Iter(trail => {
+            (trail.Restore.Enabled, trail.Copy.Enabled, trail.Paste.Enabled) = (enabled && modified, enabled, enabled && Clipboard.Instance.ContainsText);
+            _ = trail.Lock.Iter(command => command.Enabled = enabled);
+        });
     }
 
+    // --- [PAINT]
+    protected override void OnPaint(PaintEventArgs e) {
+        Callbacks.Run(IO.lift(() => Painted(e.Graphics, marks.Value, form.Value.Beside)), new CallbackSite(Sink, typeof(RowGrid), nameof(OnPaint)));
+        base.OnPaint(e);
+    }
+
+    private Unit Painted(Graphics graphics, RowMarks held, bool beside) =>
+        Placements(beside).Iter(drawn => {
+            RowPaint paint = held.Paints.Find(drawn.Place.At).IfNone(RowPaint.Plain);
+            _ = drawn.Caption.Iter(caption => {
+                Font font = caption.Text.Own && paint.Modified ? metrics.Emphasis : metrics.Regular;
+                Color ink = (paint.Enabled, caption.Text.Own && paint.Modified) switch {
+                    (false, _) => PaintSlot.ContentTextDisabled.Read(),
+                    (true, true) => PaintSlot.ContentHighlight.Read(),
+                    (true, false) => PaintSlot.ContentTextEnabled.Read(),
+                };
+                SizeF measured = font.MeasureString(caption.Text.Text);
+                float x = caption.Text.Cell is CaptionCell.Column && beside && HostUtils.RunningOnOSX ? caption.Bounds.Right - measured.Width : caption.Bounds.X;
+                PointF origin = new(x, caption.Bounds.Y + ((caption.Bounds.Height - measured.Height) / 2f));
+                graphics.DrawText(font, ink, origin, caption.Text.Text);
+                if (caption.Text.Cell is CaptionCell.Rule)
+                    graphics.DrawLine(PaintSlot.FrameEdge.Read(), new PointF(origin.X + measured.Width + metrics.Spacing.Width, caption.Bounds.Center.Y), new PointF(caption.Bounds.Right, caption.Bounds.Center.Y));
+            });
+            _ = drawn.Reset.Filter(_ => paint.Enabled && paint.Modified).Iter(bounds => Glyph(graphics, held, new RowHit(drawn.Place.At, HitCell.Reset), GlyphRole.Reset, bounds));
+            _ = drawn.Lock.Iter(bounds => Glyph(graphics, held, new RowHit(drawn.Place.At, HitCell.Lock), paint.Locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, bounds));
+        });
+
+    private static Unit Glyph(Graphics graphics, RowMarks held, RowHit hit, GlyphRole glyph, RectangleF bounds) {
+        if (held.Hovered == Some(hit) || held.Pressed == Some(hit))
+            graphics.FillRectangle(new Color(PaintSlot.ControlText.Read(), held.Pressed == Some(hit) ? 0.25f : 0.12f), bounds);
+        graphics.DrawImage(Icons.Frame(glyph, IconSlot.PanelButton.Master, new System.Drawing.Size((int)MathF.Ceiling(bounds.Width), (int)MathF.Ceiling(bounds.Height))), bounds);
+        return unit;
+    }
+
+    private Seq<DrawnLine> Placements(bool beside) =>
+        from place in places
+        where !form.Value.Hidden.Contains(place.At)
+        from line in place.Lines
+        select metrics.Drawn(place, line, beside);
+
+    // --- [POINTER]
+    private Option<RowHit> Hit(PointF at) =>
+        Placements(form.Value.Beside).Bind(drawn =>
+            drawn.Caption.Filter(caption => caption.Bounds.Contains(at)).Map(_ => new RowHit(drawn.Place.At, HitCell.Caption)).ToSeq()
+            + drawn.Reset.Filter(bounds => bounds.Contains(at) && marks.Value.Paints.Find(drawn.Place.At).Exists(static paint => paint.Enabled && paint.Modified)).Map(_ => new RowHit(drawn.Place.At, HitCell.Reset)).ToSeq()
+            + drawn.Lock.Filter(bounds => bounds.Contains(at)).Map(_ => new RowHit(drawn.Place.At, HitCell.Lock)).ToSeq())
+        .Head;
+
+    private IO<Unit> Pointed(Func<RowMarks, RowMarks> step) =>
+        marks.SwapMaybeIO(held => Some(step(held)).Filter(next => next.Hovered != held.Hovered || next.Pressed != held.Pressed)).Map(unit);
+
+    private IO<Unit> Marked(RowMarks held) =>
+        IO.lift(() => {
+            ToolTip = held.Hovered.Bind(Tip).ValueUnsafe();
+            Invalidate();
+        });
+
+    private Option<string> Tip(RowHit hit) =>
+        places.Find(place => place.At == hit.Place).Bind(place => hit.Cell switch {
+            HitCell.Caption => place.Help,
+            HitCell.Reset => Some(RowText.Localize("Reset").Local),
+            HitCell.Lock => Some(RowText.Localize("Lock").Local),
+        });
+
+    protected override void OnMouseMove(MouseEventArgs e) {
+        Callbacks.Run(Pointed(held => held with { Hovered = Hit(e.Location) }), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseMove)));
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e) {
+        Callbacks.Run(Pointed(static held => held with { Hovered = None, Pressed = None }), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseLeave)));
+        base.OnMouseLeave(e);
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e) {
+        Callbacks.Run(
+            from hit in IO.lift(() => Hit(e.Location))
+            from claimed in IO.lift(() => { e.Handled = hit.IsSome; })
+            from acted in hit.Traverse(found => e.Buttons is MouseButtons.Alternate
+                ? IO.lift(() => marks.Value.Menus.Find(found.Place).Iter(menu => menu.Show(this, e.Location)))
+                : Pointed(held => held with { Pressed = Some(found).Filter(static pressed => pressed.Cell is not HitCell.Caption) })).As()
+            select unit, new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseDown)));
+        if (!e.Handled)
+            base.OnMouseDown(e);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e) {
+        Callbacks.Run(
+            from released in IO.lift(() => marks.Value.Pressed.Filter(pressed => Hit(e.Location) == Some(pressed)))
+            from cleared in Pointed(static held => held with { Pressed = None })
+            from acted in released.Traverse(Acted).As()
+            select unit, new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseUp)));
+        base.OnMouseUp(e);
+    }
+
+    private IO<Unit> Acted(RowHit hit) =>
+        places.Find(place => place.At == hit.Place).Bind(static place => place.Trail).Match(
+            Some: trail => hit.Cell switch {
+                HitCell.Caption => IO.pure(unit),
+                HitCell.Reset => IO.lift(trail.Restore.Execute),
+                HitCell.Lock => scope.Locked.Bind(held => scope.Lock(toSeq(trail.Keys), !trail.Keys.ForAll(held.Contains))),
+            },
+            None: static () => IO.pure(unit));
+
+    // --- [RELEASE]
     protected override void Dispose(bool disposing) {
         if (disposing)
             _ = IO.lift(() => { Content = null; })
-                .Bind(_ => Callbacks.Each(places.Bind(static place => place.Parts).Distinct().Map(static part => IO.lift(part.Detach))))
                 .Bind(_ => IO.lift(() => base.Dispose(disposing)))
-                .Bind(_ => IO.lift(() => {
-                    Seq<IDisposable> released = layouts;
-                    layouts = [];
-                    return atomic(() => {
-                        Seq<IDisposable> held = acquired.Value;
-                        acquired.Value = [];
-                        return held;
-                    }) + released;
+                .Bind(_ => atomicIO(() => {
+                    Seq<IDisposable> held = acquired.Value;
+                    acquired.Value = [];
+                    return held;
                 })).Bind(DisposalOps.Release).Uninterruptible().Run();
         else
             base.Dispose(disposing);
     }
 
-    private sealed record GridLine(Option<Label> Caption, bool Columned, Option<Control> Gate, Control Value, Option<Control> Pick, Option<RowTrail> Trail, bool Trailing, bool Fills) {
-        public Seq<Control> Controls => Caption.Map(static caption => (Control)caption).ToSeq() + Gate.ToSeq().Add(Value) + Pick.ToSeq();
-
-        public static IO<GridLine> Of(RowLine line, Wording wording, IPlugInSink sink, Option<RowTrail> trail, Action<IDisposable> retain) =>
-            line.Caption.Traverse(caption => DisposalOps.Acquire(IO.lift(() => RhinoLayout.NewLabel(wording.Shown(caption, sink))), static label => IO.lift(label.Dispose), retain)).As()
-                .Map(caption => new GridLine(caption, line.Caption.IsSome, None, line.Value, line.Pick, trail, Trailing: true, Fills: false));
+    // --- [ROWS]
+    private enum CaptionCell {
+        Column,
+        Span,
+        Rule,
     }
 
-    private sealed record RowTrail(IterableNE<EntryKey> Keys, ImageButton Reset, Command Restore, Command Copy, Command Paste, Option<(CheckCommand Command, ImageButton Button)> Lock) {
-        public Seq<Seq<Command>> Groups => Seq(Restore.Cons(Lock.Map(static held => (Command)held.Command).ToSeq()), Seq(Copy, Paste));
-
-        public Seq<Control> Buttons => Seq<Control>(Reset) + Lock.Map(static held => (Control)held.Button).ToSeq();
+    private enum HitCell {
+        Caption,
+        Reset,
+        Lock,
     }
 
-    private sealed record RowPlace(ControlRow Row, RowCells Cells, Option<Label> Label, Seq<GridLine> Lines, Option<RowTrail> Trail) {
+    private sealed record LineCaption(string Text, CaptionCell Cell, bool Own);
+
+    private sealed record LineSpec(Option<LineCaption> Caption, bool Columned, Option<Control> Gate, Option<Control> Value, Option<Control> Pick, Option<RowTrail> Trail, bool Trailing, bool Fills) {
+        public Seq<Control> Controls => Gate.ToSeq() + Value.ToSeq() + Pick.ToSeq();
+
+        public Seq<TableCell> Cells =>
+            Gate.Map(static gate => new TableCell(gate)).ToSeq()
+                .Add(Value.Match(Some: static value => new TableCell(value, scaleWidth: true), None: static () => new TableCell { ScaleWidth = true }))
+            + Pick.Map(static pick => new TableCell(pick)).ToSeq();
+    }
+
+    private sealed record GridLine(LineSpec Spec, Panel Host);
+
+    private sealed record RowTrail(IterableNE<EntryKey> Keys, Command Restore, Command Copy, Command Paste, Option<CheckCommand> Lock) {
+        public Seq<Seq<Command>> Groups => Seq(Restore.Cons(Lock.Map(static held => (Command)held).ToSeq()), Seq(Copy, Paste));
+    }
+
+    private sealed record RowPlace(int At, ControlRow Row, Option<RowCells> Cells, Option<string> Caption, Option<string> Help, Seq<GridLine> Lines, Option<RowTrail> Trail) {
         public Seq<EntryKey> Reads => Row.Keys + Row.Rules.Each.Bind(static rule => rule.Reads);
 
         public Seq<RowSource> Sources => Row.Rules.Each.Bind(static rule => rule.Sources);
-
-        public Seq<Control> Parts => Lines.Bind(static line => line.Controls) + Trail.ToSeq().Bind(static trail => trail.Buttons);
     }
 
-    private sealed record RowMetrics(float Labels, Option<float> Gate, Option<float> Pick, Option<float> Reset, Option<float> Lock, float Values, Size Spacing, Font Regular, Font Emphasis) {
+    private sealed record RowPaint(bool Enabled, bool Modified, bool Locked) {
+        public static RowPaint Plain { get; } = new(Enabled: true, Modified: false, Locked: false);
+    }
+
+    private readonly record struct RowHit(int Place, HitCell Cell);
+
+    private sealed record RowMarks(HashMap<int, RowPaint> Paints, HashMap<int, ContextMenu> Menus, Option<RowHit> Hovered, Option<RowHit> Pressed) {
+        public static RowMarks Initial { get; } = new([], [], None, None);
+    }
+
+    private sealed record DrawnLine(RowPlace Place, Option<(LineCaption Text, RectangleF Bounds)> Caption, Option<RectangleF> Reset, Option<RectangleF> Lock);
+
+    private sealed record RowForm(bool Beside, LanguageExt.HashSet<int> Hidden) {
+        public static RowForm Initial { get; } = new(Beside: false, []);
+    }
+
+    private sealed record RowMetrics(
+        float Labels, Option<float> Gate, Option<float> Pick, Option<float> Reset, Option<float> Lock, float Values, Size Spacing, float CaptionHeight, Font Regular, Font Emphasis) {
         public float Trailing => Seq(Gate, Pick, Reset, Lock).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width);
-    }
 
-    private sealed record RowForm(bool Beside, LanguageExt.HashSet<RowPlace> Hidden) {
-        public static RowForm Stacked { get; } = new(Beside: false, []);
+        private float Glyphs => Seq(Reset, Lock).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width);
+
+        private bool Gated(LineSpec line) => Gate.IsSome && (line.Columned || line.Gate.IsSome);
+
+        public (Padding Padding, Size Minimum) Spaced(LineSpec line, bool beside) =>
+            (new Padding(
+                    (int)MathF.Ceiling((line.Columned && beside ? Labels + Spacing.Width : 0f) + (Gated(line) && line.Gate.IsNone ? Gate.IfNone(0f) + Spacing.Width : 0f)),
+                    (int)MathF.Ceiling(line.Columned && !beside && line.Caption.IsSome ? CaptionHeight + Spacing.Height : 0f),
+                    (int)MathF.Ceiling(line.Trailing ? (line.Pick.IsNone ? Pick.Map(width => width + Spacing.Width).IfNone(0f) : 0f) + Glyphs : 0f),
+                    0),
+                new Size(0, (int)MathF.Ceiling(MathF.Max(
+                    line.Caption.IsSome && !(line.Columned && !beside) ? CaptionHeight : 0f,
+                    line.Trailing ? Reset.IfNone(0f) : 0f))));
+
+        public DrawnLine Drawn(RowPlace place, GridLine line, bool beside) =>
+            (Bounds: (RectangleF)line.Host.Bounds, line.Host.Padding) switch {
+                var (bounds, padding) => new RectangleF(bounds.X + padding.Left, bounds.Y + padding.Top, bounds.Width - padding.Horizontal, bounds.Height - padding.Vertical) switch {
+                    var content => new DrawnLine(
+                        place,
+                        line.Spec.Caption.Map(caption => (caption, caption.Cell switch {
+                            CaptionCell.Column when beside => new RectangleF(bounds.X, content.Y, Labels, content.Height),
+                            CaptionCell.Column => new RectangleF(bounds.X, bounds.Y, bounds.Width, CaptionHeight),
+                            CaptionCell.Span or CaptionCell.Rule => (Gated(line.Spec) && line.Spec.Gate.IsSome ? Gate.IfNone(0f) + Spacing.Width : 0f) switch {
+                                var lead => new RectangleF(content.X + lead, content.Y,
+                                    content.Width - lead - (line.Spec.Pick.IsSome ? Pick.IfNone(0f) + Spacing.Width : 0f), content.Height),
+                            },
+                        })),
+                        Reset.Filter(_ => line.Spec.Trailing && line.Spec.Trail.IsSome)
+                            .Map(width => new RectangleF(bounds.Right - Lock.Map(held => held + Spacing.Width).IfNone(0f) - width, content.Y + ((content.Height - width) / 2f), width, width)),
+                        Lock.Filter(_ => line.Spec.Trailing && line.Spec.Trail.Exists(static trail => trail.Lock.IsSome))
+                            .Map(width => new RectangleF(bounds.Right - width, content.Y + ((content.Height - width) / 2f), width, width))),
+                },
+            };
     }
 }

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ply-header-by-hand
+language: rust
+severity: error
+rule:
+    kind: string_literal
+    pattern: $TEXT
+    regex: '^b?"\s*(ply(\\r)?\\n|end_header|element vertex\b|format (ascii|binary_little_endian|binary_big_endian) 1\.0)'
+message: '`$TEXT` spells a PLY header by hand'
+note: 'Read through `ply_rs_bw::parser::Parser::<ply_rs_bw::ply::DefaultElement>::new().read_ply(&mut reader)` and write through `ply_rs_bw::writer::Writer::new().write_ply(&mut out, &mut ply)`, parser and writer own header and element layout'

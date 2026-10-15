@@ -2,7 +2,6 @@
 id: no-cancellation-race-by-hand
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 rule:
     matches: rust-two-arm-select
     has:

@@ -1,4 +1,5 @@
 import Foundation
+import RasmMacOS
 import Subprocess
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -172,7 +173,7 @@ nonisolated extension ClaudeFailure {
         let maximumRetryDelay: TimeInterval = 86_400
         let delay: TimeInterval? = header.flatMap { value in
             UInt(value).map(TimeInterval.init)
-                ?? (try? Date(value, strategy: .http)).map { date in date.timeIntervalSince(now) }
+                ?? (try? Date(value, strategy: .http))?.timeIntervalSince(now)
         }
         let wait: TimeInterval =
             switch delay {

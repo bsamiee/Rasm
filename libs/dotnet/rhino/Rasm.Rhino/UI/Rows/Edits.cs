@@ -35,11 +35,10 @@ public abstract class RowEdit {
         from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), static timer => IO.lift(timer.Dispose), retain)
         let edit = new RowEdit<TRecord>(source, fields, scope, state, timer, made => handler(made) switch {
             var attached => (keep => Subscriptions.Attach(add, remove, attached, keep), value => Subscriptions.Detached(add, remove, attached, show(value))),
-        })
-        from attached in edit.Attached(retain)
-        from idle in Subscriptions.Attach(
+        }, (opened, keep) => Subscriptions.Attach(
             static h => RhinoApp.Idle += h, static h => RhinoApp.Idle -= h,
-            new EventHandler(Callbacks.Handler<EventArgs>(_ => edit.Flush, site).Invoke), retain)
+            new EventHandler(Callbacks.Handler<EventArgs>(_ => opened.Flush, site).Invoke), keep))
+        from attached in edit.Attached(retain)
         from elapsed in Subscriptions.Attach(
             h => timer.Elapsed += h, h => timer.Elapsed -= h,
             Callbacks.Handler<EventArgs>(_ => edit.Elapsed, site), retain)
@@ -56,11 +55,14 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     private readonly Ref<Option<OpenEdit<TRecord>>> state;
     private readonly UITimer timer;
     private readonly Func<Option<TRecord>, IO<Unit>> show;
+    private readonly Func<RowEdit<TRecord>, Action<IDisposable>, IO<Unit>> pace;
+    private readonly Ref<Option<IDisposable>> pacing = Ref(Option<IDisposable>.None);
 
     internal RowEdit(
         RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, RowScope scope, Ref<Option<OpenEdit<TRecord>>> state, UITimer timer,
-        Func<RowEdit<TRecord>, (Func<Action<IDisposable>, IO<Unit>> Attach, Func<Option<TRecord>, IO<Unit>> Show)> controls) {
-        (this.source, this.fields, this.scope, this.state, this.timer) = (source, toSeq(fields), scope, state, timer);
+        Func<RowEdit<TRecord>, (Func<Action<IDisposable>, IO<Unit>> Attach, Func<Option<TRecord>, IO<Unit>> Show)> controls,
+        Func<RowEdit<TRecord>, Action<IDisposable>, IO<Unit>> pace) {
+        (this.source, this.fields, this.scope, this.state, this.timer, this.pace) = (source, toSeq(fields), scope, state, timer, pace);
         (Attached, show) = controls(this);
     }
 
@@ -70,10 +72,10 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     public IO<Seq<TRecord>> Take<TValue>(Edit<TValue> edit, Func<TValue, TRecord, Fin<TRecord>> into) where TValue : notnull =>
         edit.Switch(
             (Edit: this, Into: into),
-            preview: static (taken, preview) => taken.Edit.Opened.Bind(open => taken.Edit.Preview(taken.Into(preview.Value, open.Latest), None)).Map(static _ => Seq<TRecord>()),
-            step: static (taken, step) => taken.Edit.Opened.Bind(open => taken.Edit.Preview(taken.Into(step.Value, open.Latest), Some(Accessors.StepEventsDelay))).Map(static _ => Seq<TRecord>()),
+            preview: static (taken, preview) => taken.Edit.Opened.Bind(open => taken.Edit.Preview(taken.Into(preview.Value, open.Latest), None)).Map(Seq<TRecord>()),
+            step: static (taken, step) => taken.Edit.Opened.Bind(open => taken.Edit.Preview(taken.Into(step.Value, open.Latest), Some(Accessors.StepEventsDelay))).Map(Seq<TRecord>()),
             commit: static (taken, commit) => taken.Edit.Opened.Bind(open => taken.Edit.Commit(taken.Into(commit.Value, open.Latest))),
-            cancel: static (taken, _) => taken.Edit.Cancel.Map(static _ => Seq<TRecord>()));
+            cancel: static (taken, _) => taken.Edit.Cancel.Map(Seq<TRecord>()));
 
     public IO<Unit> Preview(Fin<TRecord> value, Option<IO<double>> delay) =>
         value.Match(
@@ -137,7 +139,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
 
     internal IO<Unit> Released =>
         state.ValueIO.Bind(held => held.Match(
-            Some: open => (open.Stepping ? Close(stepped => Committed(stepped.Latest, stepped)) : Close(Restored)).Map(static _ => unit),
+            Some: open => (open.Stepping ? Close(stepped => Committed(stepped.Latest, stepped)) : Close(Restored)).Map(unit),
             None: static () => IO.pure(unit)));
 
     public IO<OpenEdit<TRecord>> Opened =>
@@ -150,6 +152,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         let diff = scope.History.Filter(_ => records).Map(static _ => ValueDiff.Empty)
         let open = new OpenEdit<TRecord>(targets, targets.Head.Bind(static target => target.Start).IfNone(source.Default), Stepping: false, diff, None)
         from opened in atomicIO(() => state.Value = Some(open))
+        from paced in DisposalOps.Acquire(keep => pace(this, keep), lease => atomic(() => pacing.Value = Some(lease)))
         select open;
 
     private IO<Seq<TRecord>> Close(Func<OpenEdit<TRecord>, IO<Seq<TRecord>>> closing) =>
@@ -162,6 +165,12 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         from stopped in IO.lift(timer.Stop)
         from written in IO.liftVAsync(() => closing(open).RunAsync(environment))
         from closed in atomicIO(() => state.Value = None)
+        from lease in atomicIO(() => {
+            Option<IDisposable> held = pacing.Value;
+            pacing.Value = None;
+            return held;
+        })
+        from released in IO.lift(() => lease.Iter(static held => held.Dispose()))
         select written;
 
     private IO<Seq<TRecord>> Committed(TRecord value, OpenEdit<TRecord> open) =>
@@ -179,10 +188,10 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         (from diff in applied
          from history in scope.History
          select history.Commit(diff))
-        .Match(Some: static record => record.Map(static _ => unit), None: static () => IO.pure(unit));
+        .Match(Some: static record => record.Map(unit), None: static () => IO.pure(unit));
 
     private IO<Unit> Paced(OpenEdit<TRecord> open) =>
-        Callbacks.Each(open.Targets.Map(target => Edit(target.Store, open.Latest))).Map(static _ => unit);
+        Callbacks.Each(open.Targets.Map(target => Edit(target.Store, open.Latest))).Map(unit);
 
     private IO<(TRecord Value, Option<IO<Unit>> Owed)> Edit(ValueStore<TRecord> store, TRecord value) =>
         envIO.Bind(environment =>

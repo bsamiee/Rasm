@@ -1,12 +1,12 @@
 import type { D1Client } from '@effect/sql-d1';
-import { Array, Crypto, Effect, Exit, flow, type Layer, Match, Option, Schema, Sink, Stream } from 'effect';
-import { HttpRouter, HttpServerRequest, HttpServerResponse, type Multipart } from 'effect/http';
+import { unavailable } from '@rasm/hosting/http.ts';
+import { putObject, releaseObject, serveObject } from '@rasm/hosting/storage.ts';
+import { Array, Crypto, Effect, type Layer, Match, Option, Schema, Stream } from 'effect';
+import { HttpRouter, type HttpServerRequest, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError, type HttpApiGroup } from 'effect/http-api';
-import { r2Store } from 'partial-content/r2';
-import { serveObjectRaw } from 'partial-content/web';
 import { Api, type Owner } from '../model/api.ts';
 import { Asset, Id } from '../model/asset.ts';
-import { readAsset, unavailable } from './database.ts';
+import { readAsset } from './database.ts';
 import { authorize } from './session.ts';
 import { attachUpload, beginUpload, completeUpload, finishRelease, readPendingUploads, releaseUploads } from './storage.ts';
 
@@ -25,35 +25,17 @@ type Upload =
 
 const releaseObjects = Effect.fnUntraced(function* (bucket: R2Bucket, target: Parameters<typeof releaseUploads>[0]) {
     const objects = yield* releaseUploads(target);
-    const [, failures] = yield* Effect.partition(
-        objects,
-        Effect.fnUntraced(function* ({ key, uploadId }) {
-            yield* Option.match(uploadId, { onNone: () => Effect.void, onSome: (id) => Effect.tryPromise(() => bucket.resumeMultipartUpload(key, id).abort()) });
-            yield* Effect.tryPromise(() => bucket.delete(key));
-            yield* finishRelease(key);
-        }),
-        { concurrency: 'unbounded' },
-    );
+    const [, failures] = yield* Effect.partition(objects, ({ key, uploadId }) => Effect.andThen(releaseObject(bucket, key, uploadId), finishRelease(key)), { concurrency: 'unbounded' });
     if (Array.isReadonlyArrayNonEmpty(failures)) {
         yield* Effect.logError(...failures);
-        return yield* new HttpApiError.ServiceUnavailable();
+        return yield* HttpApiError.ServiceUnavailable.make();
     }
-});
-const putObject = Effect.fnUntraced(function* (bucket: R2Bucket, object: { readonly key: string; readonly mime: string; readonly size: number }, content: Stream.Stream<Uint8Array, Multipart.MultipartError>) {
-    const upload = yield* Effect.acquireRelease(
-        Effect.tryPromise(() => bucket.createMultipartUpload(object.key, { httpMetadata: { contentType: object.mime } })),
-        (handle, exit) => (Exit.isSuccess(exit) ? Effect.void : Effect.tryPromise(() => handle.abort()).pipe(Effect.catchTag('UnknownError', Effect.logError))),
-    );
-    yield* attachUpload({ key: object.key, uploadId: upload.uploadId });
-    const body = new FixedLengthStream(object.size);
-    const [, part] = yield* Effect.all([Stream.run(content, Sink.fromWritableStream({ evaluate: () => body.writable, onError: () => new HttpApiError.BadRequest() })), Effect.tryPromise(() => upload.uploadPart(1, body.readable))], { concurrency: 'unbounded' });
-    yield* Effect.tryPromise(() => upload.complete([part]));
 });
 const advance = Effect.fnUntraced(function* (bucket: R2Bucket, current: Upload, part: Multipart.Part) {
     return yield* Match.value({ current, part }).pipe(
         Match.when({ current: { stage: 'asset' }, part: { _tag: 'Field', key: 'asset' } }, ({ part: field }) =>
             Effect.gen(function* () {
-                const asset = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => new HttpApiError.BadRequest()));
+                const asset = yield* Schema.decodeEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => HttpApiError.BadRequest.make()));
                 const crypto = yield* Crypto.Crypto;
                 const attemptId = yield* crypto.randomUUIDv4();
                 const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [
@@ -73,29 +55,26 @@ const advance = Effect.fnUntraced(function* (bucket: R2Bucket, current: Upload, 
         ),
         Match.when({ current: { stage: Match.is('files', 'stored') }, part: { _tag: 'File' } }, ({ current: state, part: file }) =>
             Effect.gen(function* () {
-                const object = yield* Option.match(Array.head(state.files), { onNone: () => Effect.fail(new HttpApiError.BadRequest()), onSome: Effect.succeed });
+                const object = yield* Effect.fromOption(Array.head(state.files), () => HttpApiError.BadRequest.make());
                 if (file.key !== object.field || (object.name !== undefined && file.name !== object.name)) {
-                    return yield* new HttpApiError.BadRequest();
+                    return yield* HttpApiError.BadRequest.make();
                 }
-                yield* state.stage === 'stored' ? Stream.runDrain(file.content) : putObject(bucket, object, file.content);
+                yield* state.stage === 'stored' ? Stream.runDrain(file.content) : putObject(bucket, object, file.content, { started: (uploadId) => attachUpload({ key: object.key, uploadId }), onError: () => HttpApiError.BadRequest.make() });
                 return { ...state, files: state.files.slice(1) } satisfies Upload;
             }),
         ),
-        Match.orElse(() => Effect.fail(new HttpApiError.BadRequest())),
+        Match.orElse(() => Effect.fail(HttpApiError.BadRequest.make())),
     );
 });
 const readMedia = Effect.fn('readMedia')(
     function* (bucket: R2Bucket, email: string, request: HttpServerRequest.HttpServerRequest) {
-        const asset = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id, width: Schema.OptionFromOptionalKey(Schema.NumberFromString) })).pipe(Effect.flatMap(readAsset));
+        const asset = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id, width: Schema.OptionFromOptionalKey(Schema.FiniteFromString) })).pipe(Effect.flatMap(readAsset));
         if (!asset.published) {
             yield* authorize(email);
         }
-        const requested = yield* HttpServerRequest.toWeb(request);
-        const run = Effect.runSyncWith(yield* Effect.context());
-        const response = yield* Effect.promise(() => serveObjectRaw(r2Store({ bucket, reservedPrefix: '' }), { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }), onError: flow(Effect.logError, run) })(requested, { key: asset.objectKey, mime: asset.mime }));
-        return HttpServerResponse.raw(response.body instanceof ReadableStream ? response.body.pipeThrough(new FixedLengthStream(Number(response.headers['Content-Length']))) : response.body, response);
+        return yield* serveObject(bucket, request, { key: asset.objectKey, mime: asset.mime });
     },
-    Effect.catchTag('SchemaError', () => Effect.fail(new HttpApiError.NotFound())),
+    Effect.catchTag('SchemaError', () => Effect.fail(HttpApiError.NotFound.make())),
 );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -111,7 +90,7 @@ const media = (bucket: R2Bucket): Layer.Layer<HttpApiGroup.ToService<typeof Api.
                         (current, part) => advance(bucket, current, part),
                     );
                     if (uploaded.stage === 'asset' || uploaded.files.length > 0) {
-                        return yield* new HttpApiError.BadRequest();
+                        return yield* HttpApiError.BadRequest.make();
                     }
                     if (uploaded.stage === 'files') {
                         yield* completeUpload(uploaded.attemptId);
@@ -119,8 +98,8 @@ const media = (bucket: R2Bucket): Layer.Layer<HttpApiGroup.ToService<typeof Api.
                     return { id: uploaded.asset.id };
                 },
                 Effect.scoped,
-                Effect.catchTag('MultipartError', () => Effect.fail(new HttpApiError.BadRequest())),
-                Effect.catchTag(['UnknownError', 'PlatformError'], unavailable),
+                Effect.catchTag('MultipartError', () => Effect.fail(HttpApiError.BadRequest.make())),
+                Effect.catchTag(['StorageError', 'PlatformError'], unavailable),
             ),
             pending: () => readPendingUploads(),
             discard: ({ params }) => releaseObjects(bucket, { assetId: params.id, remove: false }),

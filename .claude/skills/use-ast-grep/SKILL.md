@@ -1,6 +1,6 @@
 ---
 name: use-ast-grep
-description: "Use when listing a file's declarations, reading, searching, or rewriting code by syntax tree, or deriving ast-grep rules from diffs, code, or principles."
+description: "Use when outlining, searching, or rewriting code with ast-grep or deriving rules, covering patterns, rules, utils, fixes, and grammars."
 ---
 
 # [AST_GREP]
@@ -123,7 +123,18 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 - `ruleDirs` and `utilDirs` resolve relative to `sgconfig.yml`
 - `languageGlobs.<language>` maps file globs to a language ahead of extension detection
 - `customLanguages.<name>` holds `libraryPath` and `extensions`, with optional `expandoChar`, `languageSymbol`, and `outlineRules`
-- `AST_GREP_CONFIG` names root `sgconfig.yml`, an `ast-grep` call without `--custom-languages allow` exits 33 with `Language xml is not supported`
+- Custom language names are alphanumeric, names resolve built-in languages first and extensions custom languages first
+- Newer grammars of a built-in language take a new name
+- Swift parses as custom `swiftlang` from the newest tree-sitter-swift
+- `-l` and MCP `language` match files only under the language `sgconfig.yml` maps their extension to, `swift` walks no `.swift` file
+- `ast-grep` loads the `sgconfig.yml` the nearest ancestor of the working directory holds, a run outside the tree reads none
+- Calls under root without `--custom-languages allow` exit 33 with ``Language `xml` is not supported``
+- Missing paths print `ERROR: <path>: No such file or directory` at `scan` exit 0, exit 1 under `run`, `No matches found` from MCP
+- `--filter` matching no rule id exits 3 with `Rule not found`
+- `scan` exits 1 on an `error` match, 0 on a miss with `[]` under `--json`, and 8 on a rule that fails to load
+- Rules below `error` print `warning[<id>]`, `note[<id>]` under `info`, or `help[<id>]` under `hint`, at exit 0
+- `--inline-rules` with `--stdin` reports every inline rule, `--filter` selects among them
+- `--inspect entity` prints `entity|rule|<id>:` on stderr per registered rule, `--inspect summary` prints `scannedFileCount`
 - `files:` and `ignores:` globs match paths relative to the config directory with no `./` prefix, `ignores:` reads first
 - `files:` and `ignores:` drop a rule per path after the file parses, CLI `--globs` alone skips parsing
 - `scan -r` reads `files:` from the rule file

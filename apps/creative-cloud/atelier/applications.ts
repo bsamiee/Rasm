@@ -1,5 +1,5 @@
-import { type Extension, make, READING, ranked, register, type routed } from '@rasm/ai/extension';
-import { fitted, Tokens } from '@rasm/ai/vision';
+import { type Extension, make, READING, ranked, register, type routed } from '@rasm/mcp/extension';
+import { fitted, Tokens } from '@rasm/mcp/vision';
 import { CHARACTERS, Font, FontError, Options, read } from '@rasm/typography/font';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
@@ -26,7 +26,7 @@ const Atelier = make(
         ),
         preview: Schema.Never,
         runs: {},
-        verbs: {
+        tools: {
             screenshot: Tool.make('screenshot', {
                 description: 'Captures a window of the application as a JPEG: the given one, else its open dialog or alert, else its front window',
                 parameters: Schema.Struct({ window: Schema.OptionFromOptionalKey(Shown.fields.id.annotate({ description: 'Window id from a previous screenshot result' })), tokens: Tokens }),
@@ -41,7 +41,7 @@ const Atelier = make(
         const [scripting, files, path] = yield* Effect.all([Scripting, FileSystem.FileSystem, Path.Path]);
         return {
             runs: {},
-            verbs: {
+            tools: {
                 screenshot: Effect.fn('screenshot')(function* (application: typeof Application.Type, { window, tokens }: { readonly window: Option.Option<number>; readonly tokens: number }) {
                     const listed = yield* scripting.call((sender) => sender.windows({ application: application.url }));
                     const chosen = yield* Effect.fromOption(
@@ -53,7 +53,7 @@ const Atelier = make(
                                 ),
                             onSome: (id) => Array.findFirst(listed, (each) => each.id === id),
                         }),
-                        () => new ScriptingError({ reason: { _tag: 'Missing', subject: `window of ${application.name}`, candidates: Array.map(listed, ({ id, title }) => Array.join([String(id), ...Option.toArray(title)], ' ')) } }),
+                        () => ScriptingError.make({ reason: { _tag: 'Missing', subject: `window of ${application.name}`, candidates: Array.map(listed, ({ id, title }) => Array.join([String(id), ...Option.toArray(title)], ' ')) } }),
                     );
                     const fit = fitted(tokens, chosen.width, chosen.height);
                     const file = yield* Effect.orDie(files.makeTempFileScoped({ suffix: '.jpg' }));
@@ -67,7 +67,7 @@ const Atelier = make(
                 const faces = yield* scripting.call((sender) => sender.faces());
                 const face = yield* Effect.fromOption(
                     Array.findFirst(faces, (each) => Array.some([each.postscriptName, each.fullName, ...(each.style === 'Regular' ? [each.family] : [])], (known) => known.toLowerCase() === name.toLowerCase())),
-                    () => new ScriptingError({ reason: { _tag: 'Missing', subject: `installed face ${name}`, candidates: ranked(name, Array.map(faces, Struct.get('postscriptName'))) } }),
+                    () => ScriptingError.make({ reason: { _tag: 'Missing', subject: `installed face ${name}`, candidates: ranked(name, Array.map(faces, Struct.get('postscriptName'))) } }),
                 );
                 return [face, Option.some({ file: face.file, postscriptName: face.postscriptName, coordinates: Option.none() })] as const;
             }),
@@ -146,7 +146,7 @@ const applications = Effect.fn('applications')(function* (extensions: readonly E
                             Effect.catchReason('ScriptingError', 'Refused', () =>
                                 Effect.flatMap(installed(false), (rows) =>
                                     Effect.fail(
-                                        new ScriptingError({
+                                        ScriptingError.make({
                                             reason: {
                                                 _tag: 'Missing',
                                                 subject: `installed application ${given.href}`,
@@ -165,12 +165,12 @@ const applications = Effect.fn('applications')(function* (extensions: readonly E
                         const linked = Array.filter(rows, ({ extension }) => Option.exists(extension, Struct.get('linked')));
                         return Effect.fromOption(
                             Option.filter(Array.head(linked), () => linked.length === 1),
-                            () => new ScriptingError({ reason: { _tag: 'Missing', subject: 'single application with a linked extension', candidates: Array.map(Array.isReadonlyArrayNonEmpty(linked) ? linked : rows, ({ url }) => url.href) } }),
+                            () => ScriptingError.make({ reason: { _tag: 'Missing', subject: 'single application with a linked extension', candidates: Array.map(Array.isReadonlyArrayNonEmpty(linked) ? linked : rows, ({ url }) => url.href) } }),
                         );
                     }),
             }),
-        unserved: ({ name }: typeof Application.Type) => new ScriptingError({ reason: { _tag: 'Unserved', application: name } }),
-        unpreviewable: ({ name }: typeof Application.Type) => new ScriptingError({ reason: { _tag: 'Unpreviewable', application: name } }),
+        unserved: ({ name }: typeof Application.Type) => ScriptingError.make({ reason: { _tag: 'Unserved', application: name } }),
+        unpreviewable: ({ name }: typeof Application.Type) => ScriptingError.make({ reason: { _tag: 'Unpreviewable', application: name } }),
     };
 });
 const font = Effect.fn('font')(function* ({ faces, resolve }: Effect.Success<ReturnType<typeof routed>>, { fields, failure, route, unserved }: Effect.Success<ReturnType<typeof applications>>) {

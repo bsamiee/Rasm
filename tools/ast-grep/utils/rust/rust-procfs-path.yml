@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-procfs-path
+language: rust
+rule:
+    kind: string_literal
+    regex: '^"/proc/((meminfo|cpuinfo|stat|loadavg|uptime|swaps|mounts|diskstats|net/dev)|(self|\d+|\{\w*\})/(stat|statm|status|cmdline|environ|exe|cwd|root|io|mounts))"$'

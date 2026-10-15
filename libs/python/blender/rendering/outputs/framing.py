@@ -8,15 +8,14 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 
-from blender.imaging.parameters import Case, Choice, Presentation, Quantity
+from blender.imaging.parameters import Case, Choice, Positive, Presentation, Quantity, Unit
 from blender.rendering.faults import RenderingResult, RenderingSizeFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Extents = Whole | Region
-type Inset = tuple[Annotated[float, msgspec.Meta(ge=0.0, le=1.0)], Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]]
+type Inset = tuple[Unit, Unit]
 type Side = Annotated[int, msgspec.Meta(ge=1)]
-type Aspect = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 
 
 class Fit(Choice):
@@ -68,8 +67,8 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
     resolution_percentage: Annotated[int, msgspec.Meta(ge=1, title="Resolution Scale", description="Percentage of the full size rendered"), Presentation(soft=Some((1.0, 100.0)), step=Some(10.0))] = (
         100
     )
-    pixel_aspect_x: Annotated[Aspect, msgspec.Meta(description="Horizontal pixel aspect")] = 1.0
-    pixel_aspect_y: Annotated[Aspect, msgspec.Meta(description="Vertical pixel aspect")] = 1.0
+    pixel_aspect_x: Annotated[Positive, msgspec.Meta(description="Horizontal pixel aspect")] = 1.0
+    pixel_aspect_y: Annotated[Positive, msgspec.Meta(description="Vertical pixel aspect")] = 1.0
     density: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Pixel Density", description="Pixels per meter written into files that store a density")] = 72 / 0.0254
     extent: Annotated[Extents, msgspec.Meta(description="Whole frame with its overscan, or a region rendered alone")] = Whole()
 
@@ -151,4 +150,4 @@ class SafeAreas(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Aspect", "Broadcast", "Extents", "Fit", "Framing", "Inset", "Region", "SafeAreas", "Side", "Whole"]
+__all__ = ["Broadcast", "Extents", "Fit", "Framing", "Inset", "Region", "SafeAreas", "Side", "Whole"]

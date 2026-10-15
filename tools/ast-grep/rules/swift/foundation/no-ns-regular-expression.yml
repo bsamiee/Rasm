@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ns-regular-expression
+language: swiftlang
+severity: error
+rule:
+    pattern: $SITE
+    any:
+        - kind: type_identifier
+          regex: '^NSRegularExpression$'
+        - kind: simple_identifier
+          regex: '^NSRegularExpression$'
+        - kind: value_argument
+          all:
+            - has: {field: name, regex: '^options$'}
+            - has: {field: value, regex: '\bregularExpression\b'}
+message: '`$SITE` compiles a pattern string through `NSRegularExpression` at run time'
+note: 'Write a regex literal `/<pattern>/` or a `RegexBuilder` `Regex { … }` the compiler checks, and search with `firstMatch(of:)`, `wholeMatch(of:)`, `firstRange(of:)`, `ranges(of:)`, or `replacing(_:with:)`, `Regex(<string>)` where the pattern arrives at run time'

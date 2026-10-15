@@ -115,9 +115,9 @@ class Exposing(msgspec.Struct, frozen=True, kw_only=True):
         """Writes absolute metered stops and names one undo step when the stops changed."""
         return paired(self.stack.config(), self.attached.read(scene)).bind(
             lambda pair: Result[Option[float], BlenderFaults].bind(
-                pair[1].meter.stops(pair[0], file.pixels).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-                lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_with(
-                    lambda: Ok(Nothing)
+                pair[1].meter.stops(pair[0], file.pixels).map_error(BlenderImagingFault.lifted),
+                lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_value(
+                    Ok(Nothing)
                 ),
             )
         )
@@ -157,7 +157,7 @@ class Follower(msgspec.Struct, kw_only=True):
                     ).default_value(Ok(Nothing))
                 case Result(error=faults):
                     return Error(faults)
-            return inverse.map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(
+            return inverse.map_error(BlenderImagingFault.lifted).map(
                 lambda inverse: Following(scene=Handle.of(scene), meter=metering.meter, bias=metering.bias, tolerance=metering.follow.value.tolerance, config=config, inverse=inverse)
             )
 
@@ -189,7 +189,7 @@ class Follower(msgspec.Struct, kw_only=True):
                 def metered(plane: npt.NDArray[np.float32]) -> Option[float]:
                     return (
                         self.exposing.identity.reports
-                        .reported(lambda: state.meter.stops(state.config, plane).map_error(lambda faults: (BlenderImagingFault(faults=faults),)))()
+                        .reported(lambda: state.meter.stops(state.config, plane).map_error(BlenderImagingFault.lifted))()
                         .bind(lambda value: value)
                         .map(lambda value: value + state.bias)
                     )

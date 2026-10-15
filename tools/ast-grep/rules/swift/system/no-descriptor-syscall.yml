@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-descriptor-syscall
+language: swiftlang
+severity: error
+utils:
+    arguments:
+        kind: value_arguments
+        inside: {kind: call_suffix}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    any:
+        - all:
+            - has: {nthChild: 1, kind: simple_identifier, regex: '^open$'}
+            - has: {kind: call_suffix, has: {matches: arguments, has: {kind: value_argument, nthChild: 2, regex: '^O_[A-Z_]+'}}}
+        - all:
+            - has: {nthChild: 1, kind: simple_identifier, regex: '^(read|write|pread|pwrite)$'}
+            - has: {kind: call_suffix, has: {matches: arguments, has: {kind: value_argument, nthChild: 3}}}
+        - all:
+            - has: {nthChild: 1, kind: simple_identifier, regex: '^(close|fsync)$'}
+            - has: {kind: call_suffix, has: {matches: arguments, all: [{has: {kind: value_argument, nthChild: 1}}, {not: {has: {kind: value_argument, nthChild: 2}}}]}}
+        - has: {nthChild: 1, kind: simple_identifier, regex: '^(ftruncate|lseek|dup|dup2)$'}
+        - all:
+            - has: {nthChild: 1, kind: simple_identifier, regex: '^(pipe|stat|lstat|fstat)$'}
+            - has: {kind: call_suffix, has: {matches: arguments, has: {kind: value_argument, regex: '^&'}}}
+message: '`$SITE` calls the C descriptor API that `FileDescriptor` and `FilePath` from System wrap'
+note: 'Call `FileDescriptor.open(_:_:options:)`, `read(into:)`, `writeAll(_:)`, `closeAfter(_:)`, `resize(to:)`, `seek(offset:from:)`, `duplicate(as:)`, `FileDescriptor.pipe(options:)`, or `FilePath.stat(followTargetSymlink:)`, each throws a typed `Errno` in place of a return code and `errno`, and retries an interrupted call'

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-spelled-inline-array
+language: swiftlang
+severity: error
+utils:
+    spelled:
+        kind: user_type
+        all:
+            - has: {nthChild: 1, kind: type_identifier, regex: '^InlineArray$'}
+            - has: {nthChild: 2, kind: type_arguments, not: {has: {nthChild: 3}}}
+            - not: {has: {nthChild: 3}}
+rule:
+    matches: spelled
+    pattern: $SPELLED
+    has: {kind: type_arguments, all: [{has: {nthChild: 1, pattern: $N}}, {has: {nthChild: 2, pattern: $T}}]}
+    not: {inside: {stopBy: end, matches: spelled}}
+rewriters:
+    - id: sugar
+      rule:
+        matches: spelled
+        has: {kind: type_arguments, all: [{has: {nthChild: 1, pattern: $COUNT}}, {has: {nthChild: 2, pattern: $ELEMENT}}]}
+      transform:
+        SUGARED: {rewrite: {source: $ELEMENT, rewriters: [sugar]}}
+      fix: '[$COUNT of $SUGARED]'
+transform:
+    SUGARED: {rewrite: {source: $T, rewriters: [sugar]}}
+fix: '[$N of $SUGARED]'
+message: '`$SPELLED` spells out the inline array type'
+note: '`[<count> of <element>]` names `InlineArray<<count>, <element>>` in type and constructor position'

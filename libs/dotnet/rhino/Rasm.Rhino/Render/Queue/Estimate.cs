@@ -56,7 +56,7 @@ public sealed record QueueEstimate(long Landed, long Total, Option<Duration> Rem
 
     // --- [MEMORY]
     public static RenderWindow.StandardChannels Channels(RenderChannelsState requested) =>
-        (requested.Mode == RenderChannels.Modes.Custom ? toSeq(requested.CustomList) : Seq<Guid>()).Fold(
+        (requested.Mode is RenderChannels.Modes.Custom ? toSeq(requested.CustomList) : Seq<Guid>()).Fold(
             RenderWindow.StandardChannels.Red | RenderWindow.StandardChannels.Green | RenderWindow.StandardChannels.Blue | RenderWindow.StandardChannels.Alpha,
             static (held, id) => held | RenderWindow.StandardChannelForGuid(id));
 

@@ -22,7 +22,7 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes import changes
 from blender.bpy.nodes.graphs import End, Graph, Link, Node
-from blender.bpy.nodes.trees import socket_at, tree_of
+from blender.bpy.nodes.trees import emptied, socket_at, tree_of
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned
 from blender.bpy.settings.attachments import Attachment, reconciling
 from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
@@ -291,7 +291,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
 
         def retained(material: bpy.types.Material) -> BlenderResult[bpy.types.Material]:
             rollback.callback(bpy.data.batch_remove, ids=(material,))
-            return tree_of(material).map(lambda tree: tree.nodes.clear()).map(lambda _: material)
+            return emptied(material)
 
         def built() -> BlenderResult[bpy.types.Material]:
             try:

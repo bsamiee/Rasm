@@ -30,10 +30,10 @@ function ProjectIndex({ portfolio, navigation }: { portfolio: typeof Portfolio.T
                                 ref={
                                     current
                                         ? (node: HTMLAnchorElement | null): void => {
-                                              const scrollport = node?.parentElement;
-                                              if (!(node && scrollport)) {
+                                              if (node === null || node.parentElement === null) {
                                                   return;
                                               }
+                                              const scrollport = node.parentElement;
                                               const item = node.getBoundingClientRect();
                                               const bounds = scrollport.getBoundingClientRect();
                                               if (item.top < bounds.top || item.bottom > bounds.bottom) {
@@ -68,7 +68,7 @@ function StickyBar({ portfolio, navigation, children, ref }: { portfolio: typeof
                         className="control min-w-0 flex-1 truncate border-0 shadow-none"
                         onChange={(event): void => {
                             const entry = portfolio.entries.find((item) => item.id === event.target.value);
-                            if (entry) {
+                            if (entry !== undefined) {
                                 navigation.jump(entry);
                             }
                         }}

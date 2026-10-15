@@ -29,16 +29,17 @@ utils:
                 kind: field_expression
                 all:
                     - has: {field: value, matches: target}
-                    - has: {field: field, regex: '^(push|push_str|push_back|push_front|insert|insert_str|extend|append|clear|remove|retain|truncate|drain|sort|sort_by|sort_by_key|sort_unstable|dedup|replace|take|get_or_insert|get_or_insert_with|entry|pop|resize|swap_remove|reserve)$'}
+                    - has: {field: field, regex: '^(push|push_mut|push_str|push_back|push_back_mut|push_front|push_front_mut|insert|insert_mut|insert_str|try_insert|extend|append|clear|remove|try_remove|remove_matches|retain|retain_mut|extract_if|truncate|drain|split_off|split_off_first|split_off_last|sort|sort_by|sort_by_key|sort_unstable|dedup|replace|take|take_if|get_or_insert|get_or_insert_with|get_or_insert_default|entry|pop|pop_if|pop_back|pop_back_if|pop_front|pop_front_if|resize|swap_remove|reserve)$'}
 rule:
-    kind: function_item
-    all:
-        - has: {field: name, pattern: $NAME}
-        - has:
-            field: parameters
-            has:
-                matches: out-parameter
-                inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, matches: write, pattern: $WRITE}}}}
-        - not: {matches: rust-fixed-signature}
+    kind: parameter
+    matches: out-parameter
+    inside:
+        kind: parameters
+        inside:
+            kind: function_item
+            all:
+                - has: {field: name, pattern: $NAME}
+                - not: {matches: rust-fixed-signature}
+                - has: {field: body, has: {stopBy: end, matches: write, pattern: $WRITE}}
 message: '`$WRITE` writes the result of `$NAME` into its parameter `$P`'
 note: 'Return the value, or a `Result` holding it, and let the caller bind it, a `&mut` flag, option, string, or collection argument shares mutable state between caller and callee'

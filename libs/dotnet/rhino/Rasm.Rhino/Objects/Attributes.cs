@@ -174,6 +174,7 @@ internal static partial class AttributeMapper {
 }
 
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source, AllowNullPropertyAssignment = false, AutoUserMappings = false)]
+[UseStaticMapper(typeof(Patches))]
 public static partial class AttributeEdits {
     // --- [PROPERTIES]
     [MapProperty(nameof(AttributePatch.HatchBoundaryPlotWeight), nameof(ObjectAttributes.HatchBoundaryPlotWeightMillimeters))]
@@ -185,15 +186,6 @@ public static partial class AttributeEdits {
                 staged.ClearRenderingAttributes();
             UpdateFields(patch, staged);
         });
-
-    [UserMapping(Default = true)]
-    private static int Integer(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static double Scalar(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    private static Color Tint(Option<Color> value, [MappingTargetOriginalValue] Color original) => value.IfNone(original);
 
     [UserMapping]
     private static T Retained<T>(Option<T> value, [MappingTargetOriginalValue] T original) => value.IfNone(original);
@@ -248,7 +240,7 @@ public static partial class AttributeEdits {
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> Groups(RowsEdit<ComponentRef<Group>, ComponentRef<Group>> edit) =>
         (doc, staged) => Edited(edit, IO.lift(() => staged.RemoveFromAllGroups()),
-            Membership(doc, staged.AddToGroup), keys => keys.TraverseM(Membership(doc, staged.RemoveFromGroup)).As().Map(static _ => unit))
+            Membership(doc, staged.AddToGroup), keys => keys.TraverseM(Membership(doc, staged.RemoveFromGroup)).As().Map(unit))
             .Map(static _ => unit);
 
     private static Func<ComponentRef<Group>, IO<Unit>> Membership(RhinoDoc doc, Action<int> write) =>
@@ -322,7 +314,7 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
                 made => IO.lift(made).Bind(created => IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))),
                 static made => IO.lift(() => { _ = made.IfSucc(static created => created.Dispose()); })),
             keys => IO.lift(() => keys.Iter(key => staged.MaterialRefs.Remove(key))))
-            .Map(static _ => unit);
+            .Map(unit);
 
     private static IO<Seq<TAdded>> Edited<TRow, TKey, TAdded>(RowsEdit<TRow, TKey> edit, IO<Unit> clear, Func<TRow, IO<TAdded>> add, Func<Seq<TKey>, IO<Unit>> remove) =>
         edit.Switch(
@@ -332,7 +324,7 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
                 from added in replace.Rows.TraverseM(state.Add).As()
                 select added,
             add: static (state, added) => added.Rows.TraverseM(state.Add).As(),
-            remove: static (state, removed) => state.Remove(removed.Keys).Map(static _ => Seq<TAdded>()));
+            remove: static (state, removed) => state.Remove(removed.Keys).Map(Seq<TAdded>()));
 }
 
 public static class AttributeOps {
@@ -358,7 +350,7 @@ public static class AttributeOps {
 
     // --- [FOLD]
     public static IO<Unit> Apply(RhinoDoc doc, ObjectAttributes staged, Seq<Func<RhinoDoc, ObjectAttributes, IO<Unit>>> edits) =>
-        edits.TraverseM(edit => edit(doc, staged)).As().Map(static _ => unit);
+        edits.TraverseM(edit => edit(doc, staged)).As().Map(unit);
 
     public static TableOp Modify(RhinoDoc doc, ObjectTarget target, Seq<Func<RhinoDoc, ObjectAttributes, IO<Unit>>> edits, bool quiet) =>
         new TableOp.ModifyAttributes(target, staged => Apply(doc, staged, edits), quiet);

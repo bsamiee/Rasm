@@ -19,23 +19,23 @@ public static class Generators {
         (14, Gen.Double[1.0e-30, 1.0e-3]),
         (14, Gen.Double[1.0e15, 1.0e300]),
         (12, Gen.Double[double.Epsilon, 2.0e-308]),
-        (12, Gen.OneOfConst(0.0, -0.0, 1.0, Math.BitIncrement(1.0), Math.BitDecrement(1.0), Math.PI, double.Epsilon, double.MaxValue / 4.0)));
+        (12, Gen.OneOf(0.0, -0.0, 1.0, Math.BitIncrement(1.0), Math.BitDecrement(1.0), Math.PI, double.Epsilon, double.MaxValue / 4.0)));
     public static readonly Gen<double> Finite = MagnitudeDistribution.Select(Gen.Bool, static (magnitude, negative) => negative ? -magnitude : magnitude);
-    public static readonly Gen<double> NonFinite = Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity);
+    public static readonly Gen<double> NonFinite = Gen.OneOf(double.NaN, double.PositiveInfinity, double.NegativeInfinity);
     public static readonly Gen<double> AnyDouble = Gen.Frequency((95, Finite), (5, NonFinite));
     public static readonly Gen<double> Positive = MagnitudeDistribution.Where(static x => x > 0.0);
     public static readonly Gen<double> ModerateMagnitude = Gen.Double[-1.0e6, 1.0e6];
     public static readonly Gen<double> UnitInterval = Gen.Frequency(
         (92, Gen.Double.Unit),
-        (8, Gen.OneOfConst(0.0, 1.0, Math.BitIncrement(0.0), Math.BitDecrement(1.0))));
+        (8, Gen.OneOf(0.0, 1.0, Math.BitIncrement(0.0), Math.BitDecrement(1.0))));
     public static readonly Gen<(double X, double Y)> CancellationPair = Finite.Select(Gen.Double[1.0e-16, 1.0e-8], static (value, relativeDifference) => (X: value, Y: value * (1.0 + relativeDifference)));
     public static readonly Gen<double> Angle = Gen.Frequency(
         (70, Gen.Double[-Math.Tau, Math.Tau]),
-        (30, Gen.OneOfConst(0.0, -0.0, Math.PI, -Math.PI, Math.Tau, -Math.Tau, Math.PI / 2.0, -Math.PI / 2.0,
+        (30, Gen.OneOf(0.0, -0.0, Math.PI, -Math.PI, Math.Tau, -Math.Tau, Math.PI / 2.0, -Math.PI / 2.0,
             Math.BitDecrement(Math.Tau), Math.BitIncrement(-Math.Tau), Math.BitIncrement(0.0), Math.BitDecrement(Math.PI))));
     public static readonly Gen<int> IntBoundaryValues = Gen.Frequency(
         (70, Gen.Int[-1_000_000, 1_000_000]),
-        (30, Gen.OneOfConst(int.MinValue, int.MinValue + 1, -1, 0, 1, (1 << 30) - 1, 1 << 30, int.MaxValue - 1, int.MaxValue)));
+        (30, Gen.OneOf(int.MinValue, int.MinValue + 1, -1, 0, 1, (1 << 30) - 1, 1 << 30, int.MaxValue - 1, int.MaxValue)));
 
     // --- [COLLECTIONS]
     public static Gen<T[]> SortedArray<T>(Gen<T> element) where T : IComparable<T> => element.Array[0, 32].Select(static a => a.Order().ToArray());
@@ -110,7 +110,7 @@ public static class Generators {
         (40, Gen.Char[' ', '~'].Array[0, 24].Select(static chars => new string(chars))),
         (20, Gen.Char['\u0080', '\uD7FF'].Array[1, 12].Select(static chars => new string(chars))),
         (14, Gen.Int[0x10000, 0x10FFFF].Array[1, 4].Select(static codes => string.Concat(codes.Select(char.ConvertFromUtf32)))),
-        (14, Gen.OneOfConst("", "\"", "\\", "\r\n", "\t", "{", "}", "\u0000", "\u001B", "\uFFFD", "\U0001D518\U0001D52B\U0001D526")),
+        (14, Gen.OneOf("", "\"", "\\", "\r\n", "\t", "{", "}", "\u0000", "\e", "\uFFFD", "\U0001D518\U0001D52B\U0001D526")),
         (12, Gen.Char['\u0000', '\u001F'].Array[1, 4].Select(static chars => new string(chars))));
     public static readonly Gen<byte[]> Bytes = Gen.Frequency(
         (40, Gen.Byte.Array[1, 64]),
@@ -126,8 +126,8 @@ public static class Generators {
 
     // --- [RESULT]
     private const int Weights = 100;
-    public static readonly Gen<Error> Errors = Gen.OneOfConst<Error>(new GeneratedError.Missing(), new GeneratedError.Rejected(), new GeneratedError.Canceled(), new GeneratedError.Conflict());
-    public static readonly Gen<Error> ErrorsFromExceptions = Gen.OneOfConst<Exception>(
+    public static readonly Gen<Error> Errors = Gen.OneOf<Error>(new GeneratedError.Missing(), new GeneratedError.Rejected(), new GeneratedError.Canceled(), new GeneratedError.Conflict());
+    public static readonly Gen<Error> ErrorsFromExceptions = Gen.OneOf<Exception>(
             new InvalidOperationException("generated invalid operation"),
             new ArithmeticException("generated arithmetic failure"),
             new IOException("generated I/O failure"),

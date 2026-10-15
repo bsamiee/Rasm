@@ -98,7 +98,7 @@ public static class MomentRows {
             h => picker.ValueChanged += h, h => picker.ValueChanged -= h,
             edit => Callbacks.Handler<EventArgs>(_ => Answered(edit, source, picker, merged, scope), site),
             held => IO.lift(() => {
-                picker.Value = held.Bind(static value => value).Map(static value => value.ToValue().ToDateTimeUnspecified()).ToNullable();
+                picker.Value = held.Flatten().Map(static value => value.ToValue().ToDateTimeUnspecified()).ToNullable();
             }),
             scope, site, owned)
         select new RowCells(
@@ -110,7 +110,7 @@ public static class MomentRows {
         from held in scope.Read(source)
         from answered in Optional(picker.Value).Match(
             Some: picked => edit.Preview(merged(held, LocalDateTime.FromDateTime(picked)), Some(Accessors.StepEventsDelay)),
-            None: () => edit.Commit(Fin.Succ(Option<TValue>.None)).Map(static _ => unit))
+            None: () => edit.Commit(Fin.Succ(Option<TValue>.None)).Map(unit))
         select answered;
 
     private static IO<RowCells> Ranged<TRecord>(
@@ -171,5 +171,5 @@ public static class MomentRows {
         select written;
 
     private static IO<Unit> Cycled(ValueStore<ClockFormat> format) =>
-        format.Read.Bind(held => format.Write(Some(held.IfNone(ClockFormat.Default).Next()))).Map(static _ => unit);
+        format.Read.Bind(held => format.Write(Some(held.IfNone(ClockFormat.Default).Next()))).Map(unit);
 }

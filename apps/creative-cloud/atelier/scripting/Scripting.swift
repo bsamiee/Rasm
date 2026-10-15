@@ -1,5 +1,7 @@
 import CoreText
 import Foundation
+import RasmMacOS
+import System
 import UniformTypeIdentifiers
 import os
 
@@ -75,13 +77,13 @@ enum Request: Decodable {
                 Application.at(url).map(\.self)
             case .definition(let url):
                 Application.at(url).flatMap(ScriptingDictionary.definition(of:)).flatMap { definition in
-                    String(bytes: definition, encoding: .utf8).map(Result.success) ?? .failure(AggregateError(.unreadable(CocoaError(.fileReadInapplicableStringEncoding))))
+                    String(bytes: definition, encoding: .utf8).map(Result.success) ?? .failure(AggregateError(first: .unreadable(CocoaError(.fileReadInapplicableStringEncoding))))
                 }
             case .execute(let url, let command, let arguments):
                 Application.at(url).flatMap { application in application.execute(command, arguments: arguments) }.map(\.self)
             case .contentType(let url):
                 Result { try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType }
-                    .mapError { error in AggregateError(.unreadable(error)) }
+                    .mapError { error in AggregateError(first: .unreadable(error)) }
                     .map(\.self)
             case .windows(let url):
                 Application.at(url).flatMap { application in application.runningApplication() }.flatMap(Window.onScreen(of:)).map(\.self)
@@ -118,7 +120,10 @@ struct Answer: Encodable {
         case unencodable(any Error)
     }
 
-    private enum Key: CodingKey { case jsonrpc, id, result, error, code, message, data }
+    private enum Key: String, CodingKey {
+        case jsonrpc, id, result, error, code, message, reason, failures
+        case tag = "_tag"
+    }
 
     let id: Int
     let outcome: Result<any Encodable, Fault>
@@ -132,15 +137,20 @@ struct Answer: Encodable {
                 try container.encode(value, forKey: .result)
             case .failure(let fault):
                 var error: KeyedEncodingContainer<Key> = container.nestedContainer(keyedBy: Key.self, forKey: .error)
-                let (code, message, data): (Int, String, [String]?) =
+                let (code, message, failures): (Int, String, [String]?) =
                     switch fault {
                         case .invalid(let cause): (-32_600, String(describing: cause), nil)
-                        case .refused(let failures): (1, "Refused", ([failures.first] + failures.remaining).map(\.localizedDescription))
+                        case .refused(let failures): (1, "Refused", failures.errors.map(\.localizedDescription))
                         case .unencodable(let cause): (-32_603, String(describing: cause), nil)
                     }
                 try error.encode(code, forKey: .code)
                 try error.encode(message, forKey: .message)
-                try error.encodeIfPresent(data, forKey: .data)
+                if let failures {
+                    var reason: KeyedEncodingContainer<Key> = error.nestedContainer(keyedBy: Key.self, forKey: .reason)
+                    try error.encode("ScriptingError", forKey: .tag)
+                    try reason.encode("Refused", forKey: .tag)
+                    try reason.encode(failures, forKey: .failures)
+                }
         }
     }
 }
@@ -152,14 +162,14 @@ private func responsibility(_ pid: pid_t, _: UnsafeMutablePointer<pid_t>?, _: Un
 @_silgen_name("responsibility_spawnattrs_setdisclaim")
 private func disclaim(_ attributes: UnsafeMutablePointer<posix_spawnattr_t?>, _ disclaim: Int32) -> Int32
 
-private func takeResponsibility() throws(POSIXError) {
+private func takeResponsibility() throws(Errno) {
     var executable: [CChar] = Array(repeating: 0, count: Int(MAXPATHLEN))
     var responsible: [CChar] = executable
     var length: Int = responsible.count
     guard unsafe proc_pidpath(getpid(), &executable, UInt32(executable.count)) > 0, unsafe responsibility(getpid(), nil, nil, &length, &responsible) == 0, unsafe strcmp(executable, responsible) != 0
     else { return }
     var attributes: posix_spawnattr_t?
-    func check(_ status: Int32) throws(POSIXError) { if let code: POSIXErrorCode = .init(rawValue: status) { throw POSIXError(code) } }
+    func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }
     try check(unsafe posix_spawnattr_init(&attributes))
     try check(unsafe disclaim(&attributes, 1))
     try check(unsafe posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC)))
@@ -171,7 +181,7 @@ private func takeResponsibility() throws(POSIXError) {
 @main
 enum Scripting {
     static func main() async {
-        let logger: Logger = Logger()
+        let logger: Logger = Logger(subsystem: Bundle.identity, category: "Scripting")
         let (replies, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
         do {
             try takeResponsibility()

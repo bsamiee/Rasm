@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-error-code-by-cast
-language: swift
+language: swiftlang
 severity: error
 utils:
     error-type:
@@ -24,6 +24,14 @@ utils:
                 all:
                     - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
                     - has: {field: name, matches: error-type}
+            - kind: switch_entry
+              has:
+                kind: switch_pattern
+                has:
+                    kind: pattern
+                    all:
+                        - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+                        - has: {field: name, matches: error-type}
     member:
         has: {field: suffix, has: {field: suffix, regex: '^(code|errorCode|domain)$'}}
     code-read:
@@ -42,6 +50,10 @@ rule:
     pattern: $MATCH
     any:
         - kind: equality_expression
+          all:
+            - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}}
+            - has: {kind: simple_identifier, regex: '^E[A-Z0-9]+$', not: {regex: '^ENOENT$'}}
+        - kind: equality_expression
           has: {matches: code-read}
         - kind: switch_statement
           has: {field: expr, any: [{matches: code-read}, {kind: tuple_expression, has: {matches: code-read}}]}
@@ -52,5 +64,5 @@ rule:
         - matches: code-read
           inside: {kind: 'if_statement, guard_statement, while_statement'}
           follows: {regex: '^=$'}
-message: '`$MATCH` classifies an error by casting it and comparing its code'
-note: 'Match each code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch` or `catch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`)'
+message: '`$MATCH` classifies an error by comparing its code after a cast or through its raw value'
+note: 'Match each code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch` or `catch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`), and an `Errno` compares by case (`error.underlyingError == .permissionDenied`)'

@@ -17,7 +17,7 @@ public static class HistoryOps {
                         .As()
                         .Bind(_ => IO.lift(() => history.Redo(node))),
                 (Grasshopper2.Undo.State.Undo, var firstUndo, _, var child) =>
-                    IO.lift(() => child.Filter(static next => next.Record.State == Grasshopper2.Undo.State.Undo).Iter(next => {
+                    IO.lift(() => child.Filter(static next => next.Record.State is Grasshopper2.Undo.State.Undo).Iter(next => {
                         if (firstUndo.Exists(first => first == next))
                             history.Undo();
                         else
@@ -69,7 +69,7 @@ public static class HistoryOps {
              from committed in when(changed(edited.Value),
                  IO.lift(() => target.AddUndoRecord(name, edited.Action)).Bind(_ =>
                      Callbacks.Each(Seq(
-                         IO.lift(() => target.RequestAutoSave(reason)).Map(static _ => unit),
+                         IO.lift(() => target.RequestAutoSave(reason)).Map(unit),
                          when(edited.Action.Response.HasFlag(Effects.ExpireSolution), IO.lift(() => Optional(target.Document).Iter(document => document.Solution.DelayedExpire(target)))).As(),
                          when(edited.Action.Response.HasFlag(Effects.ExpireLayout), IO.lift(target.OnLayoutChanged)).As(),
                          when(edited.Action.Response.HasFlag(Effects.ExpireLayout), IO.lift(() => Optional(target.Attributes).Iter(static attributes => attributes.InvalidateLayout()))).As(),

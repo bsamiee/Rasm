@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-default-value
+language: rust
+rule:
+    any:
+        - kind: 'call_expression, scoped_identifier'
+          regex: '^(\w+::)*([A-Z]\w*(::<[^>]*>)?::default|(String|Vec|VecDeque|BTreeMap|BTreeSet|HashMap|HashSet|BinaryHeap|LinkedList|OsString|PathBuf)::new)(\(\))?$'
+        - kind: macro_invocation
+          regex: '^vec!\s*(\(\s*\)|\[\s*\]|\{\s*\})$'
+        - kind: closure_expression
+          all:
+            - has: {field: parameters, regex: '^\|\s*(_\w*)?\s*\|$'}
+            - has: {field: body, matches: rust-default-value}

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-variant-name-match
+language: rust
+severity: error
+rule:
+    kind: match_expression
+    all:
+        - matches: rust-variant-name-match
+        - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}}
+        - inside: {kind: impl_item, stopBy: end, has: {field: type, pattern: $T}}
+message: '`$METHOD` of `$T` spells one string literal per unit variant'
+note: 'Derive `strum::Display` (for `fmt`), `strum::IntoStaticStr` (for `as_str` and `name`), or `strum::AsRefStr` (for `as_ref`) on `<enum>` and move each literal into `#[strum(serialize = "<text>")]` or one `#[strum(serialize_all = "<case>")]`, the derive states the variant table once and stays exhaustive with it. A `const fn` a `const` or `static` initializer or `const {}` block of the file calls and an error type thiserror renders stay as written'

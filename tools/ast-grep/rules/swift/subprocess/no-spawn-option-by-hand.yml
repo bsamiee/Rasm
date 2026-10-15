@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-spawn-option-by-hand
+language: swiftlang
+severity: error
+utils:
+    configurator:
+        kind: lambda_literal
+        inside: {stopBy: end, kind: assignment, has: {field: target, regex: '\.preSpawnProcessConfigurator$'}}
+rule:
+    kind: call_expression
+    pattern: $SITE
+    all:
+        - any:
+            - has: {nthChild: 1, regex: '^posix_spawnattr_setpgroup$'}
+            - all:
+                - has: {nthChild: 1, regex: '^posix_spawnattr_set_qos_class_np$'}
+                - has: {stopBy: end, regex: '^QOS_CLASS_(UTILITY|BACKGROUND)$'}
+            - all:
+                - has: {nthChild: 1, regex: '^posix_spawnattr_setflags$'}
+                - has: {stopBy: end, regex: '^POSIX_SPAWN_(SETSID|SETPGROUP)$'}
+            - all:
+                - has: {nthChild: 1, regex: '^posix_spawn_file_actions_adddup2$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 3, regex: '^(((Darwin|Glibc|Musl)\.)?STD(IN|OUT|ERR)_FILENO|[012])$'}}}
+            - has: {nthChild: 1, regex: '^posix_spawn_file_actions_addchdir(_np)?$'}
+        - inside: {stopBy: end, matches: configurator}
+message: '`$SITE` restates a swift-subprocess platform option inside `preSpawnProcessConfigurator`'
+note: 'Set the field Subprocess applies itself: `processGroupID` for a process group, `createSession` for a session, `qualityOfService` for `.utility` or `.background`, `workingDirectory:` on the run, and `output: .fileDescriptor(_:closeAfterSpawningProcess:)` or `input:` for a standard stream'

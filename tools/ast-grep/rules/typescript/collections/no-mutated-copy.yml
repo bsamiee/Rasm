@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutated-copy
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(reverse|sort)$', pattern: $MUTATE}
+                - has:
+                    field: object
+                    kind: call_expression
+                    all:
+                        - has: {field: function, kind: member_expression, not: {has: {kind: optional_chain}}, all: [{has: {field: property, regex: '^slice$'}}, {has: {field: object, pattern: $LIST}}]}
+                        - has: {field: arguments, regex: '^\(\s*(0\s*)?\)$'}
+        - has: {field: arguments, pattern: $ARGUMENTS}
+transform:
+    REVERSED: {replace: {source: $MUTATE, replace: '^reverse$', by: toReversed}}
+    COPYING: {replace: {source: $REVERSED, replace: '^sort$', by: toSorted}}
+fix: $LIST.$COPYING$ARGUMENTS
+message: '`$CALL` copies the list to `$MUTATE` the copy in place'
+note: '`<list>.toReversed()` and `<list>.toSorted(<compare>)` return the reordered copy in one call on every array and typed array, the only receivers of `slice` with `reverse` and `sort`'

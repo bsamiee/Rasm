@@ -111,7 +111,7 @@ public sealed partial class PhosphorMask {
         ERational third = ERational.One.Divide(3);
         return (Channel(0), Channel(1), Channel(2));
 
-        double Channel(int channel) => (_rowStagger == 0d
+        double Channel(int channel) => (_rowStagger is 0d
             ? Area(u, 2, channel, 0, third).Multiply(Area(v, 1, 0, 0, width))
                 .Add(Area(u, 2, channel, 1, third).Multiply(Area(v.Add(ERational.FromDouble(_columnStagger)), 1, 0, 0, width)))
             : Area(u, 1, channel, 0, third).Multiply(Area(v, 2, 0, 0, width))
@@ -221,7 +221,7 @@ public sealed record CrtDisplay(
             double average = 0.5d + (double.CosPi(2d * beam) * sinc);
             double lit = power * (1d - (depth * average)) / (1d - (depth / 2d));
             for (int x = 0; x < row.Length; x++) {
-                (double R, double G, double B) = mask == 0d ? (1d, 1d, 1d) : state.Mask.Coverage(column + x, y, state.Pitch, extent);
+                (double R, double G, double B) = mask is 0d ? (1d, 1d, 1d) : state.Mask.Coverage(column + x, y, state.Pitch, extent);
                 row[x] = new Vector4(
                     (float)(row[x].X * (1d - mask + (mask * R)) * lit),
                     (float)(row[x].Y * (1d - mask + (mask * G)) * lit),
@@ -356,7 +356,7 @@ public sealed record AnalogVideo(
                     double* weights = (double*)storage.data_ptr().ToPointer();
                     long count = taps.size(0);
                     for (long tap = 0; tap < count; tap++)
-                        draw += weights[tap] * CoordinateHash.Normals(EInteger.Zero, line.Add(EInteger.FromInt64(tap - (count / 2))), jitterDraws).X;
+                        draw += weights[tap] * CoordinateHash.Normals(EInteger.Zero, line.Add(tap - (count / 2)), jitterDraws).X;
                     foreach (ref (double X, double Y) point in points) {
                         ERational row = ERational.FromDouble(point.Y);
                         ERational distance = row.Subtract(crest);
@@ -525,9 +525,9 @@ public sealed record AnalogVideo(
                         ? state.Snow * ERational.One.Subtract(local).ToDouble()
                         : 0d;
                 }
-                if (lit == 0d && state.Hum == Mix.MinValue)
+                if (lit is 0d && state.Hum == Mix.MinValue)
                     continue;
-                (double r, double g, double b) = lit == 0d ? (row[x].X, row[x].Y, row[x].Z)
+                (double r, double g, double b) = lit is 0d ? (row[x].X, row[x].Y, row[x].Z)
                     : (double.Lerp(row[x].X, 1d, lit), double.Lerp(row[x].Y, 1d, lit), double.Lerp(row[x].Z, 1d, lit));
                 if (state.Hum != Mix.MinValue) {
                     double hum = (dim - 1d) * ((r * X) + (g * Y) + (b * Z));
@@ -848,9 +848,9 @@ public sealed record Glitch(
                 Vector256<double> color = Vector256.Create(row[x].X, row[x].Y, row[x].Z, 0d);
                 (double yValue, double cb, double cr) = (Vector256.Dot(color, yAxis), Vector256.Dot(color, cbAxis), Vector256.Dot(color, crAxis));
                 Vector256<double> delta = Vector256.Create(
-                    luma == 0f ? 0d : luma * (double.CopySign(double.Pow(double.Abs(yValue), yPower), yValue) - yValue),
-                    chroma == 0f ? 0d : chroma * (double.CopySign(0.5d * double.Pow(double.Abs(2d * cb), cPower), cb) - cb),
-                    chroma == 0f ? 0d : chroma * (double.CopySign(0.5d * double.Pow(double.Abs(2d * cr), cPower), cr) - cr), 0d);
+                    luma is 0f ? 0d : luma * (double.CopySign(double.Pow(double.Abs(yValue), yPower), yValue) - yValue),
+                    chroma is 0f ? 0d : chroma * (double.CopySign(0.5d * double.Pow(double.Abs(2d * cb), cPower), cb) - cb),
+                    chroma is 0f ? 0d : chroma * (double.CopySign(0.5d * double.Pow(double.Abs(2d * cr), cPower), cr) - cr), 0d);
                 row[x] = new Vector4(
                     (float)(row[x].X + Vector256.Dot(delta, rAxis)),
                     (float)(row[x].Y + Vector256.Dot(delta, gAxis)),
@@ -947,11 +947,11 @@ file static class VideoKernels {
         double fraction = delay - integral;
         double nearest = Math.Abs(fraction);
         torch.Tensor offsets = torch.ones(count, dtype: torch.ScalarType.Int64, device: torch.CPU).cumsum(0) - ((count / 2) + 1);
-        torch.Tensor distance = ((offsets + integral).to_type(torch.ScalarType.Float64) + fraction).abs();
+        torch.Tensor distance = ((offsets + integral).@double() + fraction).abs();
         torch.Tensor shape = sigma > 0d
             ? ((distance - nearest) * (distance + nearest) * -0.5d / sigma / sigma).exp()
             : (1d - distance).clamp_min(0d);
-        return (share * shape / shape.sum()) + (offsets.eq(0L).to_type(torch.ScalarType.Float64) * (1d - share));
+        return (share * shape / shape.sum()) + (offsets.eq(0L).@double() * (1d - share));
     });
 
     public static Mat Transform(Matrix<double> rows) {

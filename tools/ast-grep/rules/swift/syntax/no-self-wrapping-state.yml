@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-self-wrapping-state
+language: swiftlang
+severity: error
+utils:
+    scope:
+        kind: 'function_declaration, lambda_literal, init_declaration, computed_property'
+    wrap:
+        kind: call_expression
+        all:
+            - has:
+                nthChild: 1
+                any:
+                    - {kind: prefix_expression, has: {field: target, pattern: $CASE}}
+                    - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, pattern: $CASE}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {stopBy: end, kind: simple_identifier, pattern: $STATE}}}
+    equality:
+        any:
+            - kind: equality_expression
+            - {kind: infix_expression, has: {field: op, regex: '^[!=]=$'}}
+    fixpoint:
+        kind: 'while_statement, repeat_while_statement'
+        has: {stopBy: end, matches: equality, has: {kind: simple_identifier, pattern: $STATE}}
+    fixpoint-next:
+        kind: 'while_statement, repeat_while_statement'
+        has: {stopBy: end, matches: equality, has: {kind: simple_identifier, any: [{pattern: $STATE}, {pattern: $NEXT}]}}
+rule:
+    any:
+        - kind: assignment
+          all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: target, has: {kind: simple_identifier, pattern: $STATE}}
+            - has: {field: result, matches: wrap}
+            - inside: {stopBy: {matches: scope}, matches: fixpoint}
+        - kind: property_declaration
+          all:
+            - has: {field: name, has: {field: bound_identifier, pattern: $NEXT}}
+            - inside:
+                kind: statements
+                has: {kind: assignment, all: [{has: {field: operator, regex: '^=$'}}, {has: {field: target, has: {kind: simple_identifier, pattern: $STATE}}}, {has: {field: result, kind: simple_identifier, pattern: $NEXT}}]}
+            - has: {field: value, matches: wrap}
+            - inside: {stopBy: {matches: scope}, matches: fixpoint-next}
+    inside:
+        kind: source_file
+        stopBy: end
+        has: {stopBy: end, matches: {swift-recursive-case: {case: {pattern: $CASE}}}}
+message: '`$STATE` is nested inside `.$CASE` on every pass of a loop that stops once it stops changing, so it never stops changing'
+note: 'Map each pass into a finite lattice, join or union the parts (`union`, `formUnion`, the set of roots) or wrap only a value holding no earlier wrap, so the loop reaches its fixpoint'

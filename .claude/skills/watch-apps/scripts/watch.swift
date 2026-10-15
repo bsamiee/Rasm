@@ -1,76 +1,145 @@
 import AppKit
 import ApplicationServices
+import System
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+let newline: UInt8 = UInt8(ascii: "\n")
+let opening: [String] = [kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification]
+let closing: [String] = [kAXUIElementDestroyedNotification, kAXMenuClosedNotification]
 
 // --- [MODELS] --------------------------------------------------------------------------
-enum Kind: String, Encodable { case watch, launch, exit, window, dialog, menu, closed, fail }
-struct Event: Encodable {
+enum Kind: String, Codable { case watch, launch, exit, window, dialog, menu, closed, answered, fail }
+enum Sink {
+    case output
+    case log(FileHandle)
+}
+struct Key: Hashable {
+    let pid: pid_t
+    let role: String?
+    let title: String?
+    let text: [String]?
+}
+struct Event: Codable {
     let app: String?
     var pid: pid_t?
     let event: Kind
     var role: String?
+    var title: String?
     var text: [String]?
     var buttons: [String]?
     var pressed: String?
     var status: Int?
+    var key: Key? { pid.map { pid in Key(pid: pid, role: role, title: title, text: text) } }
+    var closed: Self { Self(app: app, pid: pid, event: .closed, role: role, title: title, text: text) }
+}
+struct Answer {
+    let text: String
+    let button: String
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 @MainActor final class Watch {
-    let (app, log, follow): (String, Int32, any DispatchSourceFileSystemObject)
-    var (held, observers, shown): (Bool, [pid_t: AXObserver], [AXUIElement: Event]) = (false, [:], [:])
+    let (app, log, reader): (String, FileHandle, FileHandle)
+    let follow: any DispatchSourceFileSystemObject
+    var (held, buffer): (Bool, Data) = (false, Data())
+    var (observers, shown, visible): ([pid_t: AXObserver], [AXUIElement: Event], [Key: Event]) = ([:], [:], [:])
     init(app: String) {
-        let path: String = FileManager.default.temporaryDirectory.appending(path: "\(app).events").path(percentEncoded: false)
-        let reader: Int32 = unsafe open(path, O_RDONLY | O_CREAT, 0o600)
-        (self.app, log) = (app, unsafe open(path, O_WRONLY | O_APPEND))
-        follow = DispatchSource.makeFileSystemObjectSource(fileDescriptor: reader, eventMask: .extend)
-        lseek(reader, 0, SEEK_END)
-        follow.setEventHandler { output.continuation.yield((FileHandle(fileDescriptor: reader).availableData, STDOUT_FILENO)) }
-        if !once { follow.activate() }
-        contend()
-    }
-    func emit(_ event: Event) { send(event, held ? log : STDOUT_FILENO) }
-    func contend() {
-        var lock: flock = flock(l_start: 0, l_len: 0, l_pid: 0, l_type: Int16(F_WRLCK), l_whence: Int16(SEEK_SET))
-        held = unsafe fcntl(log, once ? F_GETLK : F_SETLK, &lock) == 0 && !once
-        if !once { emit(Event(app: app, event: .watch, text: held ? flags : nil)) }
-        for instance: NSRunningApplication in NSRunningApplication.runningApplications(withBundleIdentifier: app) { change(instance, .watch) }
-        guard !held, !once, unsafe fcntl(log, F_GETLK, &lock) == 0 else { return }
-        if lock.l_type == F_WRLCK { exited(lock.l_pid, contend) } else { contend() }
-    }
-    func change(_ instance: NSRunningApplication, _ kind: Kind, _ status: Int? = nil) {
-        let (pid, application): (pid_t, AXUIElement) = (instance.processIdentifier, AXUIElementCreateApplication(instance.processIdentifier))
-        var created: AXObserver?
-        unsafe AXObserverCreate(pid, observed, &created)
-        observers[pid] = held && kind != .exit ? created : nil
-        let refcon: UnsafeMutableRawPointer = unsafe Unmanaged.passUnretained(self).toOpaque()
-        let failed: [String] = (held && kind != .exit ? notifications.keys.sorted() : []).filter { name in
-            observers[pid].map { observer in
-                unsafe ApplicationServices.AXObserverAddNotification(observer, application, name as CFString, refcon)
-            } != .success
+        (self.app, log, reader) = (app, logHandle(app, O_WRONLY | O_APPEND), logHandle(app, O_RDONLY))
+        follow = DispatchSource.makeFileSystemObjectSource(fileDescriptor: reader.fileDescriptor, eventMask: .extend, queue: .main)
+        _ = try? FileDescriptor(rawValue: reader.fileDescriptor).seek(offset: 0, from: .end)
+        let opened: [Event] = NSRunningApplication.runningApplications(withBundleIdentifier: app).flatMap { instance in
+            AXUIElementCreateApplication(instance.processIdentifier).elements.map { element in element.described(app, instance.processIdentifier).event }
         }
-        if held, kind != .watch { emit(Event(app: app, pid: pid, event: kind, status: status)) }
-        if !failed.isEmpty { emit(Event(app: app, pid: pid, event: .fail, text: failed)) }
-        observers[pid].map { observer in CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode) }
-        for element: AXUIElement in kind == .exit ? [] : application.elements { report(element, pid, acting: held || once) }
+        for event: Event in [Event(app: app, event: .watch)] + opened { show(event) }
+        follow.setEventHandler { MainActor.assumeIsolated { self.drain() } }
+        follow.activate()
+        Task {
+            if let failure: Errno = await locked(log) { show(Event(app: app, event: .fail, text: ["Waiting on the log lock returned \(failure)"])) } else { take() }
+        }
     }
-    func report(_ element: AXUIElement, _ pid: pid_t, acting: Bool) {
-        let role: String? = element[kAXSubroleAttribute] ?? element.role
-        let kind: Kind = role.flatMap { role in kinds[role] } ?? element.role.flatMap { role in kinds[role] } ?? .window
-        let nodes: [AXUIElement] = kind == .dialog ? element.descendants : []
-        let lines: [String?] =
-            [(kind == .menu ? element[kAXParentAttribute] : element)?.label]
-            + nodes.map { node in node.role == kAXStaticTextRole ? node[kAXValueAttribute] : nil }
-        let text: [String] = lines.compactMap(\.self).filter { line in !line.isEmpty }
-        let close: [(AXUIElement, String)] =
-            kind == .menu ? [(element, kAXCancelAction)] : element[kAXCloseButtonAttribute].map { [($0, kAXCloseButtonAttribute)] } ?? []
-        let buttons: [(AXUIElement, String)] = nodes.compactMap { node in node.role == kAXButtonRole ? node.label.map { (node, $0) } : nil } + close
-        let choice: (AXUIElement, String)? =
-            (dismiss && kind == .dialog && buttons.count == 1 ? buttons.first : nil)
-            ?? buttons.first { _, label in answers.contains { pair in pair.last == label[...] && text.contains { line in line.contains(pair[0]) } } }
-        let action: CFString = (kind == .menu ? kAXCancelAction : kAXPressAction) as CFString
-        let pressed: Bool = acting && choice.map { button, _ in AXUIElementPerformAction(button, action) == .success } == true
-        shown[element] = Event(app: app, pid: pid, event: kind, role: role, text: text, buttons: buttons.map(\.1), pressed: pressed ? choice?.1 : nil)
-        shown[element].map(emit)
+    func take() {
+        held = true
+        for instance: NSRunningApplication in NSRunningApplication.runningApplications(withBundleIdentifier: app) { attach(instance, visible) }
+        let seen: Set<Key> = Set(shown.values.compactMap(\.key))
+        for (key, event): (Key, Event) in visible where !seen.contains(key) { output.yield((event.closed, .log(log))) }
+    }
+    func drain() {
+        buffer.append(reader.availableData)
+        while let end: Data.Index = buffer.firstIndex(of: newline) {
+            let line: Data = buffer[..<end]
+            buffer.removeSubrange(...end)
+            let event: Event =
+                switch Result(catching: { try JSONDecoder().decode(Event.self, from: line) }) {
+                    case .success(let event): event
+                    case .failure(let error): Event(app: app, event: .fail, text: [String(describing: error)])
+                }
+            show(event)
+        }
+    }
+    func show(_ event: Event) {
+        switch (event.event, event.key) {
+            case (.window, let key?), (.dialog, let key?), (.menu, let key?): visible[key] = event
+            case (.closed, let key?): visible[key] = nil
+            case (.exit, _): visible = visible.filter { key, _ in key.pid != event.pid }
+            default: break
+        }
+        output.yield((event, .output))
+    }
+    func changed(_ instance: NSRunningApplication, _ kind: Kind, _ status: Int?) {
+        let pid: pid_t = instance.processIdentifier
+        output.yield((Event(app: app, pid: pid, event: kind, status: status), .log(log)))
+        if kind == .launch {
+            attach(instance, [:])
+        } else {
+            (observers[pid], shown) = (nil, shown.filter { _, event in event.pid != pid })
+        }
+    }
+    func attach(_ instance: NSRunningApplication, _ known: [Key: Event]) {
+        let pid: pid_t = instance.processIdentifier
+        observers[pid] = observe(instance, opening + closing, self, .log(log))
+        for element: AXUIElement in AXUIElementCreateApplication(pid).elements { report(element, pid, known) }
+    }
+    func report(_ element: AXUIElement, _ pid: pid_t, _ known: [Key: Event]) {
+        guard shown[element] == nil else { return }
+        let event: Event = element.described(app, pid).event
+        shown[element] = event
+        if event.key.flatMap({ key in known[key] }) == nil { output.yield((event, .log(log))) }
+    }
+    func ended(_ element: AXUIElement) {
+        guard let event: Event = shown.removeValue(forKey: element) else { return }
+        output.yield((event.closed, .log(log)))
+    }
+}
+@MainActor final class Answering {
+    var pending: Answer?
+    var observers: [pid_t: AXObserver] = [:]
+    init(answer: Answer, ids: [String]) {
+        pending = answer
+        for instance: NSRunningApplication in ids.flatMap(NSRunningApplication.runningApplications(withBundleIdentifier:)) { attach(instance) }
+    }
+    func attach(_ instance: NSRunningApplication) {
+        let pid: pid_t = instance.processIdentifier
+        observers[pid] = observe(instance, opening, self, .output)
+        for element: AXUIElement in AXUIElementCreateApplication(pid).elements { consider(element, pid) }
+    }
+    func consider(_ element: AXUIElement, _ pid: pid_t) {
+        guard let answer: Answer = pending, let app: String = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier else { return }
+        let (event, buttons): (Event, [(AXUIElement, String)]) = element.described(app, pid)
+        guard ([event.title] + (event.text ?? [])).contains(where: { line in line?.contains(answer.text) == true }) else { return }
+        let action: String = event.event == .menu ? kAXCancelAction : kAXPressAction
+        let result: AXError? = buttons.first { _, label in label == answer.button }.map { button, _ in AXUIElementPerformAction(button, action as CFString) }
+        let outcome: Event =
+            switch result {
+                case .success:
+                    Event(app: app, pid: pid, event: .answered, role: event.role, title: event.title, text: event.text, buttons: event.buttons, pressed: answer.button)
+                case let result?:
+                    Event(app: app, pid: pid, event: .fail, title: event.title, text: ["Pressing \(answer.button) returned AXError \(result.rawValue)"], buttons: event.buttons)
+                case nil: Event(app: app, pid: pid, event: .fail, title: event.title, text: ["No button \(answer.button) in this element"], buttons: event.buttons)
+            }
+        pending = nil
+        output.yield((outcome, .log(logHandle(app, O_WRONLY | O_APPEND))))
+        output.yield((outcome, .output))
+        output.finish()
     }
 }
 
@@ -80,49 +149,75 @@ extension AXUIElement {
         var value: CFTypeRef?
         return unsafe AXUIElementCopyAttributeValue(self, attribute as CFString, &value) == .success ? value as? Value : nil
     }
+    var pid: pid_t? {
+        var pid: pid_t = 0
+        return unsafe AXUIElementGetPid(self, &pid) == .success ? pid : nil
+    }
     var role: String? { self[kAXRoleAttribute] }
     var children: [AXUIElement] { self[kAXChildrenAttribute] ?? [] }
-    var descendants: [AXUIElement] { [self] + children.flatMap(\.descendants) }
+    var descendants: [AXUIElement] {
+        let collections: Set<String?> = [kAXScrollAreaRole, kAXOutlineRole, kAXTableRole, kAXListRole, kAXBrowserRole]
+        return [self] + children.filter { child in !collections.contains(child.role) }.flatMap(\.descendants)
+    }
     var elements: [AXUIElement] {
         children.filter { top in top.role != kAXMenuBarRole }.flatMap { top in [top] + top.children.filter { child in child.role == kAXSheetRole } }
     }
     var label: String? { [kAXTitleAttribute, kAXDescriptionAttribute].lazy.compactMap { self[$0] as String? }.first { label in !label.isEmpty } }
+    func described(_ app: String, _ pid: pid_t) -> (event: Event, buttons: [(AXUIElement, String)]) {
+        let kinds: [String: Kind] = [
+            kAXMenuRole: .menu, kAXSheetRole: .dialog, kAXLayoutAreaRole: .dialog, kAXDialogSubrole: .dialog, kAXSystemDialogSubrole: .dialog,
+        ]
+        let subrole: String? = self[kAXSubroleAttribute]
+        let kind: Kind = subrole.flatMap { subrole in kinds[subrole] } ?? role.flatMap { role in kinds[role] } ?? .window
+        let nodes: [AXUIElement] = kind == .dialog ? descendants : []
+        let text: [String] = nodes.compactMap { node in node.role == kAXStaticTextRole ? node[kAXValueAttribute] as String? : nil }.filter { line in !line.isEmpty }
+        let close: [(AXUIElement, String)] =
+            kind == .menu ? [(self, kAXCancelAction)] : (self[kAXCloseButtonAttribute] as AXUIElement?).map { button in [(button, kAXCloseButtonAttribute)] } ?? []
+        let buttons: [(AXUIElement, String)] = nodes.compactMap { node in node.role == kAXButtonRole ? node.label.map { label in (node, label) } : nil } + close
+        let title: String? = kind == .menu ? (self[kAXParentAttribute] as AXUIElement?)?.label : label
+        return (Event(app: app, pid: pid, event: kind, role: subrole ?? role, title: title, text: text.isEmpty ? nil : text, buttons: buttons.isEmpty ? nil : buttons.map(\.1)), buttons)
+    }
 }
-func send(_ event: Event, _ sink: Int32) { output.continuation.yield(with: Result { (try encoder.encode(event) + [10], sink) }) }
-func exited(_ pid: pid_t, _ then: @escaping @MainActor () -> Void) {
-    let source: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: .main)
-    source.setEventHandler { source.cancel() }
-    source.setCancelHandler { MainActor.assumeIsolated(then) }
-    source.activate()
+func logHandle(_ app: String, _ mode: Int32) -> FileHandle {
+    FileHandle(fileDescriptor: unsafe open(URL.temporaryDirectory.appending(path: "\(app).events").path(percentEncoded: false), mode | O_CREAT, S_IRUSR | S_IWUSR), closeOnDealloc: true)
+}
+@concurrent func locked(_ log: FileHandle) async -> Errno? {
+    var lock: flock = flock(l_start: 0, l_len: 0, l_pid: 0, l_type: Int16(F_WRLCK), l_whence: Int16(SEEK_SET))
+    return unsafe fcntl(log.fileDescriptor, F_SETLKW, &lock) == 0 ? nil : Errno(rawValue: errno)
+}
+@MainActor func observe(_ instance: NSRunningApplication, _ names: [String], _ owner: AnyObject, _ sink: Sink) -> AXObserver? {
+    let (pid, refcon): (pid_t, UnsafeMutableRawPointer) = (instance.processIdentifier, unsafe Unmanaged.passUnretained(owner).toOpaque())
+    let application: AXUIElement = AXUIElementCreateApplication(pid)
+    var created: AXObserver?
+    unsafe AXObserverCreate(pid, observed, &created)
+    let failed: [String] = created.map { observer in names.filter { name in unsafe AXObserverAddNotification(observer, application, name as CFString, refcon) != .success } } ?? names
+    if let created { CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(created), .defaultMode) }
+    if !failed.isEmpty { output.yield((Event(app: instance.bundleIdentifier, pid: pid, event: .fail, text: failed), sink)) }
+    return created
 }
 let observed: AXObserverCallback = { _, element, notification, info in
     MainActor.assumeIsolated {
-        let watch: Watch? = unsafe info.map { info in unsafe Unmanaged<Watch>.fromOpaque(info).takeUnretainedValue() }
-        let (closing, ended): (Bool, Event?) = (notifications[notification as String] == true, watch?.shown[element])
-        var pid: pid_t = 0
-        if closing, let ended { watch?.emit(Event(app: ended.app, pid: ended.pid, event: .closed, role: ended.role, text: ended.text)) }
-        if closing { watch?.shown[element] = nil }
-        if !closing, ended == nil, unsafe AXUIElementGetPid(element, &pid) == .success { watch?.report(element, pid, acting: true) }
+        let owner: AnyObject? = unsafe info.map { pointer in unsafe Unmanaged<AnyObject>.fromOpaque(pointer).takeUnretainedValue() }
+        switch (owner, closing.contains(notification as String), element.pid) {
+            case (let watch as Watch, true, _): watch.ended(element)
+            case (let watch as Watch, false, let pid?): watch.report(element, pid, [:])
+            case (let answering as Answering, false, let pid?): answering.consider(element, pid)
+            default: break
+        }
     }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-let notifications: [String: Bool] = [
-    kAXWindowCreatedNotification: false, kAXSheetCreatedNotification: false, kAXMenuOpenedNotification: false,
-    kAXUIElementDestroyedNotification: true, kAXMenuClosedNotification: true,
-]
-let kinds: [String: Kind] = [
-    kAXMenuRole: .menu, kAXSheetRole: .dialog, kAXLayoutAreaRole: .dialog, kAXDialogSubrole: .dialog, kAXSystemDialogSubrole: .dialog,
-]
-let flags: [String] = Array(CommandLine.arguments.dropFirst())
-let (dismiss, once): (Bool, Bool) = (flags.contains("--dismiss"), flags.contains("--once"))
-let answers: [[Substring]] = zip(flags, flags.dropFirst()).filter { flag, _ in flag == "--answer" }.map { _, answer in answer.split(separator: "=") }
+let (lines, output): (AsyncStream<(Event, Sink)>, AsyncStream<(Event, Sink)>.Continuation) = AsyncStream.makeStream(of: (Event, Sink).self)
 let encoder: JSONEncoder = JSONEncoder()
-let output: (stream: AsyncThrowingStream<(Data, Int32), any Error>, continuation: AsyncThrowingStream<(Data, Int32), any Error>.Continuation) =
-    AsyncThrowingStream.makeStream()
 encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-let apps: [(name: String, ids: [String])] = zip([""] + flags, flags).filter { previous, flag in !flag.hasPrefix("--") && previous != "--answer" }
-    .map { _, name in
+let arguments: ArraySlice<String> = CommandLine.arguments.dropFirst()
+let flag: Int? = arguments.firstIndex(of: "--answer")
+let answer: Answer? = flag.flatMap { at in arguments[(at + 1)...].first }
+    .flatMap { pair in pair.lastIndex(of: "=").map { at in Answer(text: String(pair[..<at]), button: String(pair[pair.index(after: at)...])) } }
+let names: ArraySlice<String> = flag.map { at in arguments[..<at] + arguments[(at + 1)...].dropFirst() } ?? arguments
+let apps: [(name: String, ids: [String])] = names.filter { name in !name.hasPrefix("--") }
+    .map { name in
         let match: String =
             "kMDItemContentType == 'com.apple.application-bundle'"
             + " && (kMDItemCFBundleIdentifier == '\(name)' || kMDItemDisplayName == '\(name)')"
@@ -133,9 +228,12 @@ let apps: [(name: String, ids: [String])] = zip([""] + flags, flags).filter { pr
 let failures: [Event] =
     (AXIsProcessTrusted() ? [] : [Event(app: nil, event: .fail, text: ["Accessibility access is off for this process"])])
     + (apps.isEmpty ? [Event(app: nil, event: .fail, text: ["No application named"])] : [])
+    + names.filter { name in name.hasPrefix("--") }.map { flag in Event(app: nil, event: .fail, text: ["Unknown flag \(flag)"]) }
+    + (flag != nil && answer == nil ? [Event(app: nil, event: .fail, text: ["--answer takes '<text>=<button>'"])] : [])
     + apps.filter(\.ids.isEmpty).map { app in Event(app: app.name, event: .fail, text: ["No installed application has this bundle id or name"]) }
-for event: Event in failures { send(event, STDOUT_FILENO) }
-let watches: [Watch] = failures.isEmpty ? Set(apps.flatMap(\.ids)).sorted().map(Watch.init) : []
+let ids: [String] = failures.isEmpty ? Set(apps.flatMap(\.ids)).sorted() : []
+let answering: Answering? = answer.map { answer in Answering(answer: answer, ids: ids) }
+let watches: [Watch] = answering == nil ? ids.map(Watch.init) : []
 let lifecycle: [any NSObjectProtocol] = [
     NSWorkspace.didLaunchApplicationNotification: Kind.launch, NSWorkspace.didTerminateApplicationNotification: .exit,
 ]
@@ -144,12 +242,24 @@ let lifecycle: [any NSObjectProtocol] = [
         let instance: NSRunningApplication? = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
         let status: Int? = note.userInfo?["NSWorkspaceExitStatusKey"] as? Int
         MainActor.assumeIsolated {
-            let watch: Watch? = watches.first { watch in watch.held && watch.app == instance?.bundleIdentifier }
-            instance.map { instance in watch?.change(instance, kind, status) }
+            guard let instance, let app: String = instance.bundleIdentifier, ids.contains(app) else { return }
+            if kind == .launch { answering?.attach(instance) }
+            watches.first { watch in watch.held && watch.app == app }?.changed(instance, kind, status)
         }
     }
 }
-exited(getppid()) { exit(0) }
-if once || !failures.isEmpty { output.continuation.finish() }
-for try await (data, sink): (Data, Int32) in output.stream { try FileHandle(fileDescriptor: sink).write(contentsOf: data) }
-exit(watches.contains { watch in watch.shown.values.contains { event in event.pressed != nil } } ? 0 : 1)
+let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
+parent.setEventHandler { MainActor.assumeIsolated { output.finish() } }
+parent.activate()
+for event: Event in failures { output.yield((event, .output)) }
+if !failures.isEmpty { output.finish() }
+var last: Kind?
+for await (event, sink): (Event, Sink) in lines {
+    let line: Data = try encoder.encode(event) + [newline]
+    switch sink {
+        case .output: try FileHandle.standardOutput.write(contentsOf: line)
+        case .log(let log): try log.write(contentsOf: line)
+    }
+    last = event.event
+}
+exit(failures.isEmpty && (answer == nil || last == .answered) ? EXIT_SUCCESS : EXIT_FAILURE)

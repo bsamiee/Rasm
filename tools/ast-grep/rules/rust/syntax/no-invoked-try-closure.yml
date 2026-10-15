@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-invoked-try-closure
+language: rust
+severity: error
+utils:
+    try-closure:
+        kind: closure_expression
+        all:
+            - not: {regex: '^(async|static)\b'}
+            - has: {field: parameters, regex: '^\|\s*\|$'}
+            - has: {field: body, has: {stopBy: {kind: closure_expression}, kind: try_expression}}
+            - not: {has: {field: body, has: {stopBy: {kind: closure_expression}, kind: return_expression}}}
+    wrapped-value:
+        kind: call_expression
+        has: {field: function, kind: identifier, regex: '^(Some|Ok)$'}
+rule:
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has: {field: function, kind: parenthesized_expression, has: {matches: try-closure}}
+            - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - kind: block
+          all:
+            - has: {kind: label, pattern: $LABEL}
+            - has: {nthChild: {position: 1, reverse: true}, matches: wrapped-value}
+            - has:
+                stopBy: {kind: closure_expression}
+                kind: break_expression
+                all:
+                    - has: {kind: label, pattern: $LABEL}
+                    - has: {any: [{kind: identifier, regex: '^None$'}, {kind: call_expression, has: {field: function, kind: identifier, regex: '^Err$'}}]}
+            - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+message: 'Closure called in place or labeled block stands in for a `try` block'
+note: 'Write `try { <statements>; <value> }` (`#![feature(try_blocks)]`), `?` exits the block with the tail wrapped in `Ok` or `Some`. Write `try bikeshed <Result type> { .. }` (`#![feature(try_blocks_heterogeneous)]`) where `?` converts errors through `From`. A closure taking arguments, holding `return`, or `async` stays as written'

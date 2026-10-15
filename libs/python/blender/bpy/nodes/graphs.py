@@ -244,7 +244,7 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
             `Ok` of the group, each unread menu input linked into a Menu Switch keyed `inputs_<item key>` holding its items, since
             a group menu input holds items only while linked to one; `Error` of the faults `node` answers.
         """
-        entered = {INPUTS: Node(kind=bpy.types.NodeGroupInput)} if interface.inputs or interface.panels else {}
+        entered: dict[Key, Node | FrameNode] = {INPUTS: Node(kind=bpy.types.NodeGroupInput)} if interface.inputs or interface.panels else {}
 
         def held(body: Fragment) -> BlenderResult[Fragment]:
             read = frozenset(link.source.socket for link in body.links if link.source.node == INPUTS)
@@ -261,7 +261,7 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
         return (
             node(OUTPUTS, bpy.types.NodeGroupOutput, outputs, {"is_active_output": True})
             .bind(held)
-            .map(lambda body: cls(key=key, name=name, interface=interface, graph=Graph(kind=kind, nodes={**entered, **body.nodes}, links=body.links)))
+            .map(lambda body: cls(key=key, name=name, interface=interface, graph=Graph(kind=kind, nodes=entered | body.nodes, links=body.links)))
         )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:

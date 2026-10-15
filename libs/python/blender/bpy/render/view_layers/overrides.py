@@ -160,7 +160,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
         bound = paired(self.layer.bound(identity), flags())
 
         def config() -> BlenderResult[PyOpenColorIO.Config]:
-            return admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            return admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
 
         def built(
             parts: tuple[
@@ -220,7 +220,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                 )
 
             def renaming(call: Call[Renaming]) -> BlenderResult[Outcome]:
-                grammar: BlenderResult[OutputName] = OutputName.of(call.record.template).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+                grammar: BlenderResult[OutputName] = OutputName.of(call.record.template).map_error(BlenderRenderingFault.lifted)
                 return (
                     paired(grammar, scoped(call))
                     .bind(lambda pair: accumulated(renamed(scene, pair[0], name) for scene in pair[1]))
@@ -418,7 +418,7 @@ def renamed(scene: bpy.types.Scene, grammar: OutputName, name: Descriptor[bpy.ty
 
     def named(index: int, layer: bpy.types.ViewLayer) -> BlenderResult[bool]:
         base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.words.get(Word.LAYER))).default_value(layer.name)
-        wanted: BlenderResult[str] = grammar.compose(Fields(words={Word.LAYER: base}, counts={Count.ORDER: index + 1})).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+        wanted: BlenderResult[str] = grammar.compose(Fields(words={Word.LAYER: base}, counts={Count.ORDER: index + 1})).map_error(BlenderRenderingFault.lifted)
         return Result[str, BlenderFaults].bind(wanted, lambda value: name.write(layer, value)).map(Option.is_some)
 
     return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(sum)

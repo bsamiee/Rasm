@@ -28,6 +28,8 @@ import java.util.stream.Stream;
 final class Arguments {
     // --- [OPERANDS]
 
+    private static final Pattern COUNT = Pattern.compile("\\d{1,9}");
+
     enum Setting {
         CALLERS("depth", 0, 0),
         CALLEES("depth", 0, 0),
@@ -178,7 +180,7 @@ final class Arguments {
             Setting setting, String argument, String script, Set<Setting> accepted) {
         Optional<Integer> value =
                 Optional.of(argument.substring(setting.key().length()))
-                        .filter(Pattern.compile("\\d{1,9}").asMatchPredicate())
+                        .filter(COUNT.asMatchPredicate())
                         .map(Integer::valueOf)
                         .filter(count -> count >= setting.minimum);
         return accepted.contains(setting)

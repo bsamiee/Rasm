@@ -73,12 +73,12 @@ public sealed class PixelFrame {
         PixelExtent.Validate(width, height, out PixelExtent extent) is { } error ? error : extent;
 
     private static Fin<(PixelFrame Frame, Option<Gamut> Gamut)> Layer(Seq<Part> parts, string layer) =>
-        from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length == 0)).ToFin(new LayerAbsent(layer))
+        from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0)).ToFin(new LayerAbsent(layer))
         from _ in guard<Error>(!part.Header.IsDeep, new CodecRefused(ExrResult.Unsupported, None))
-        let samples = layer.Length == 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part)
+        let samples = layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part)
         from header in (
                 Optional(part.Header.Chromaticities).Traverse(static stated => Gamut.Of(stated).ToFin(new GamutUnmatched(stated))).As().ToValidation(),
-                ExtentOf(int.CreateSaturating(part.Header.DataWindow.Width), int.CreateSaturating(part.Header.DataWindow.Height)).ToValidation(),
+                ExtentOf(int.CreateSaturating(part.Width), int.CreateSaturating(part.Height)).ToValidation(),
                 ExtentOf(int.CreateSaturating(part.Header.DisplayWindow.Width), int.CreateSaturating(part.Header.DisplayWindow.Height)).ToValidation(),
                 Components(samples.ChannelNames, layer).ToValidation())
             .Apply(static (gamut, size, extent, layout) => (Gamut: gamut, Size: size, Extent: extent, Layout: layout))
@@ -158,9 +158,9 @@ public static class PixelSampling {
             (double across, double down) = (x - left, y - top);
             for (int row = 0; row < 2; row++) {
                 Option<int> wrappedRow = wrap.Down.Index(top + row, boundsHeight);
-                double vertical = row == 0 ? 1d - down : down;
+                double vertical = row is 0 ? 1d - down : down;
                 for (int column = 0; column < 2; column++) {
-                    double weight = horizontalWeight * verticalWeight * vertical * (column == 0 ? 1d - across : across);
+                    double weight = horizontalWeight * verticalWeight * vertical * (column is 0 ? 1d - across : across);
                     sum = (wrappedRow, wrap.Across.Index(left + column, boundsWidth)) switch {
                         ( { IsSome: true } atRow, { IsSome: true } atColumn)
                             when weight > 0d && (long)(int)atRow + boundsY - origin.Y is var storedRow and >= 0 && storedRow < storedHeight

@@ -12,7 +12,7 @@ import numpy as np
 
 from blender.bpy.data.rna.descriptors import Descriptor, effective, id_path, LEADING, Native, sequenced, struct_at, Value
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
-from blender.imaging.faults import accumulated
+from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case
 from blender.rendering.edits import Owner, revert, transfer, Tree
 
@@ -62,6 +62,11 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
             skipped=tuple(path for outcome in outcomes for path in outcome.skipped),
             outcome=accumulated(outcome.outcome for outcome in outcomes).map(lambda _: None),
         )
+
+    @classmethod
+    def refused(cls, faults: BlenderFaults) -> Self:
+        """Holds the faults that refused every write."""
+        return cls(outcome=Error(faults))
 
 
 class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
@@ -143,7 +148,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             prior: Option[Tree[W]] = Nothing,
             expanded: Option[Descriptor] = Nothing,
         ) -> Tree[W]:
-            owners: dict[str, Owner[W]] = prior.map(lambda tree: {key: Owner(values=dict(row.values), children=row.children) for key, row in tree.owners.items()}).default_with(dict)
+            owners: dict[str, Owner[W]] = prior.map(lambda tree: {key: msgspec.structs.replace(row, values=row.values.copy()) for key, row in tree.owners.items()}).default_with(dict)
             seen: set[tuple[int, str]] = set()
 
             def walked(struct: Native, path: str) -> Option[str]:
@@ -251,7 +256,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                             owners.setdefault(descriptor.path, Owner(values={}, children=nested))
                             nested = (descriptor.path,)
                         held = owners.setdefault(descriptor.owner, Owner(values={}))
-                        owners[descriptor.owner] = Owner(values=held.values, children=tuple(dict.fromkeys((*held.children, *nested))))
+                        owners[descriptor.owner] = msgspec.structs.replace(held, children=tuple(dict.fromkeys((*held.children, *nested))))
                         return (descriptor.owner,)
                     return nested
 
@@ -355,7 +360,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                     case Result(error=faults):
                         return Applied(outcome=Error(faults), restoration=before.map(lambda held: (held, Ok(held))))
             case Result(error=faults):
-                return Applied(outcome=Error(faults))
+                return Applied.refused(faults)
         applied = self._applied(owner, self.tree, lambda _, value: value)
         return msgspec.structs.replace(applied, restoration=before.map(lambda held: (held, self.capture(owner, Some(selected), native=True))))
 
@@ -487,12 +492,16 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 ordered = sequenced(
                     (descriptor.owner, holder, descriptor, value) for _, value, found in members for descriptor in found.to_list() for holder in struct_at(struct, descriptor.owner).to_list()
                 )
-                values = accumulated(member(holder, key, descriptor, value) for _, holder, descriptor, value in ordered).map(lambda outcomes: Applied.join((missing, *outcomes)))
-                result = values.bind(
-                    lambda applied: accumulated(
-                        resized(struct, key, prop) for prop in definitions if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID)
-                    ).map(lambda outcomes: Applied.join((applied, *outcomes)))
-                ).bind(lambda applied: accumulated(located(child) for child in tree.owners[key].children).map(lambda outcomes: Applied.join((applied, *outcomes))))
+                result = (
+                    accumulated(member(holder, key, descriptor, value) for _, holder, descriptor, value in ordered)
+                    .map(lambda outcomes: Applied.join((missing, *outcomes)))
+                    .bind(
+                        lambda applied: accumulated(
+                            resized(struct, key, prop) for prop in definitions if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID)
+                        ).map(lambda outcomes: Applied.join((applied, *outcomes)))
+                    )
+                    .bind(lambda applied: accumulated(located(child) for child in tree.owners[key].children).map(lambda outcomes: Applied.join((applied, *outcomes))))
+                )
                 if isinstance(struct, bpy.types.CurveMapping | bpy.types.CurveProfile):
                     struct.update()
                 return result
@@ -540,7 +549,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                         selected = (*(Descriptor(root=type(owner), owner="", prop=prop) for prop in self.members(owner.bl_rna)), *self.selection(owner))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                         captured = self.capture(owner, Some(selected), native=True)
                         prepared.append((owner, selected, captured, captured.bind(lambda before: publish(owner, before))))
-                    outcomes = tuple(publication.map(lambda _: self.apply(owner)).default_with(lambda faults: Applied(outcome=Error(faults))) for owner, _, _, publication in prepared)
+                    outcomes = tuple(publication.map(lambda _: self.apply(owner)).default_with(Applied.refused) for owner, _, _, publication in prepared)
                     return tuple(
                         msgspec.structs.replace(outcome, restoration=captured.to_option().map(lambda before: (before, self.capture(owner, Some(selected), native=True))))
                         for (owner, selected, captured, _), outcome in zip(prepared, outcomes)
@@ -620,6 +629,11 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             return Error((BlenderEditFault(request=repr(tree), error=error),))
 
     @staticmethod
+    def reverted(before: Tree[tuple[tuple[object, str], object]], after: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[None]:
+        """Decodes stored endpoints of one operation and restores the values still equal to its final state."""
+        return paired(Snapshot.decoded(before), Snapshot.decoded(after)).bind(lambda pair: Snapshot.restore(*pair).outcome)
+
+    @staticmethod
     def restore(before: Tree[NativeValue], after: Tree[NativeValue]) -> Applied:
         """Restores live values still equal to this operation's actual final state."""
 
@@ -638,10 +652,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         def actual(key: str, name: str, target: NativeOwner) -> tuple[Result[NativeValue, Applied], ...]:
             try:
                 return tuple(
-                    Snapshot
-                    .capture(struct, Some((descriptor,)), native=True)
-                    .map(lambda tree: next(row for held in tree.owners.values() for row in held.values.values()))
-                    .map_error(lambda faults: Applied(outcome=Error(faults)))
+                    Snapshot.capture(struct, Some((descriptor,)), native=True).map(lambda tree: next(row for held in tree.owners.values() for row in held.values.values())).map_error(Applied.refused)
                     for struct, descriptor in resolved(target, name)
                 )
             except ReferenceError:
@@ -669,10 +680,10 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             for report in absent(key, name, target)
         )
         captures = {key: tuple((name, actual(key, name, target)) for name, (target, _) in held.values.items()) for key, held in after.owners.items()}
-        current = Tree(
-            roots=after.roots,
+        current = msgspec.structs.replace(
+            after,
             owners={
-                key: Owner(values={name: value for name, results in captures[key] for result in results for value in result.to_option().to_list()}, children=held.children)
+                key: msgspec.structs.replace(held, values={name: value for name, results in captures[key] for result in results for value in result.to_option().to_list()})
                 for key, held in after.owners.items()
             },
         )
@@ -694,13 +705,13 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def _reported(path: str, answer: "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]") -> Applied:
         """Classifies one native write as changed, equal, or refused."""
-        return answer.map(lambda prior: Applied(written=(path,)) if prior.is_some() else Applied(unchanged=(path,))).default_with(lambda faults: Applied(outcome=Error(faults)))
+        return answer.map(lambda prior: Applied(written=(path,)) if prior.is_some() else Applied(unchanged=(path,))).default_with(Applied.refused)
 
     @staticmethod
     def _value[V](descriptor: Descriptor, value: V) -> float | tuple[float, ...] | V:
         """Projects exact captured float bits through their native scalar or array metadata."""
         match descriptor.prop, value:
-            case bpy.types.FloatProperty() as prop, bytes() as bits:
+            case bpy.types.FloatProperty() as prop, bytes(bits):
                 values = np.frombuffer(bits, dtype=_FLOAT_STORAGE)
                 return tuple(values.tolist()) if prop.is_array and descriptor.index.is_none() else float(values[0])
             case _:

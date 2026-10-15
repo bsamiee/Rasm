@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-undetached-listener-python
+language: python
+severity: error
+utils:
+    fresh:
+        any:
+            - kind: lambda
+            - kind: call
+              has: {field: function, regex: '^(functools\.)?partial(method)?$'}
+    made:
+        any:
+            - matches: fresh
+            - kind: call
+              not: {has: {field: function, regex: '(^|\.)persistent$'}}
+    registry:
+        kind: attribute
+        pattern: $REGISTRY
+        any:
+            - has: {field: object, kind: attribute, pattern: bpy.app.handlers}
+            - all:
+                - has: {field: object, kind: attribute, pattern: bpy.types}
+                - has: {field: attribute, regex: '_(MT|HT|PT)_'}
+    attach:
+        kind: call
+        all:
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(append|prepend)$'}}, {has: {field: object, matches: registry}}]}
+rule:
+    pattern: $CALL
+    any:
+        - all:
+            - matches: attach
+            - any:
+                - has: {field: arguments, has: {nthChild: 1, matches: made}}
+                - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, kind: attribute, pattern: $REGISTRY.remove}}}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(remove|discard|unregister|disconnect|unsubscribe|removeHandler|remove_listener|remove_handler|remove_callback|remove_done_callback|draw_handler_remove)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: fresh}}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^draw_handler_add$'}}
+            - inside: {kind: expression_statement}
+        - kind: call
+          all:
+            - has: {field: function, pattern: bpy.msgbus.subscribe_rna}
+            - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^owner$'}}, {has: {field: value, not: {kind: 'identifier, attribute, subscript'}}}]}}
+message: '`$CALL` attaches or detaches a handler no held name pairs with its release, the handler stays attached'
+note: 'Bind the callable, draw handle, or msgbus owner to a name and release that same value in the paired scope exit (`remove`, `draw_handler_remove`, `clear_by_owner`). A lambda, `partial`, or call made at the site is a new object no release can name, and a host registry outlives the code that attached to it'

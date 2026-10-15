@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-raw-value-comparison
+language: swiftlang
+severity: error
+utils:
+    raw-value:
+        kind: navigation_expression
+        pattern: $VALUE
+        has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}
+    text:
+        kind: line_string_literal
+        not: {has: {kind: interpolated_expression}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: equality_expression
+        - {kind: infix_expression, has: {field: op, regex: '^[!=]=$'}}
+    all:
+        - any:
+            - all: [{has: {field: lhs, matches: raw-value}}, {has: {field: rhs, matches: text}}]
+            - all: [{has: {field: lhs, matches: text}}, {has: {field: rhs, matches: raw-value}}]
+message: '`$SITE` compares `$VALUE` as text with a raw value that a case names'
+note: 'Compare the typed value with the case, `<value> == .<case>`, or with `<Type>(rawValue: <text>)` for a raw-representable struct, the compiler then checks the case where a misspelled literal compares false'

@@ -113,7 +113,7 @@ def dithered(shell: Shell[Dither]) -> BlenderResult[tuple[Fragment, End]]:
                         ownership=tiles,
                         content=content_hash(BlueNoise, providers=(OpenImageIO,)),
                         name="Blue Noise Tile",
-                        plane=lambda: BlueNoise.tile().map(Some).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                        plane=lambda: BlueNoise.tile().map(Some).map_error(BlenderImagingFault.lifted),
                         tag=Tag(space=Some(data)),
                     )
                 ),
@@ -173,13 +173,13 @@ def copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blender
                     lambda shown: (
                         ImageFile(pixels=Diffusion.quantize(unassociated(shown.pixels), settings.depth), colorspace=shown.colorspace, header=source.header)
                         .write(target, Storage(), stamped(identity), config)
-                        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                        .map_error(BlenderImagingFault.lifted)
                     )
                 )
                 .map(lambda _: None)
             )
 
-        return Result[ImageFile[np.float32], BlenderFaults].bind(read_file(file.path, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), formed)
+        return Result[ImageFile[np.float32], BlenderFaults].bind(read_file(file.path, config).map_error(BlenderImagingFault.lifted), formed)
 
     return (
         accumulated(dither.read(identity, entry) for entry in entries(identity, scene, Dither) if bool(Enabled.RENDER.descriptor.read(entry))).bind(

@@ -214,7 +214,7 @@ def exported(scene: bpy.types.Scene, form: SceneFormat, collection: bpy.types.Co
             properties: dict[str, object] = {"selected": False, "as_background_job": False}
         case SceneFormat.USD:
             properties = {"export_animation": True, "convert_scene_units": "CUSTOM", "meters_per_unit": scene.unit_settings.scale_length}
-    return called(form.value, {"filepath": str(path), "collection": collection.name, **properties}, override=Some(bpy.context.temp_override(scene=scene))).map(lambda _: path)
+    return called(form.value, {"filepath": str(path), "collection": collection.name} | properties, override=Some(bpy.context.temp_override(scene=scene))).map(lambda _: path)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

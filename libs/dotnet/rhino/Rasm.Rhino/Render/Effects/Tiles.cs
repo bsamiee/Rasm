@@ -144,7 +144,7 @@ public sealed class PreviewTiles {
             from worker in DisposalOps.Fork(tiles.Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())), owned)
             select tiles, (_, lease) => retain(lease));
 
-    private IO<Unit> Limit(TileLimits current) => bounds.SwapIO(_ => current).Map(static _ => unit);
+    private IO<Unit> Limit(TileLimits current) => writeIO(bounds, current).Map(unit);
 
     // --- [ASKS]
     public TileSource Source(IO<Option<TileRequest>> request, IO<Option<string>> file) =>
@@ -222,7 +222,7 @@ public sealed class PreviewTiles {
     // --- [FORMATION]
     private IO<Unit> Ticked =>
         (from reset in atomicIO(() => {
-            if (usage.Value.Running == 0) usage.Value = (0, Duration.Zero, 0);
+            if (usage.Value.Running is 0) usage.Value = (0, Duration.Zero, 0);
             return unit;
         })
          from _ in Monad.recur(unit, _ => Step).As()
@@ -248,16 +248,16 @@ public sealed class PreviewTiles {
             () => atomic(() => {
                 (int count, Duration spent, int running) = usage.Value;
                 TileLimits policy = bounds.Value;
-                bool accepted = count < policy.Batch && (count == 0 || spent < policy.Budget.Span);
+                bool accepted = count < policy.Batch && (count is 0 || spent < policy.Budget.Span);
                 if (accepted) usage.Value = (count + 1, spent, running + 1);
                 return accepted ? Some(clock.GetTimestamp()) : Option<long>.None;
             }),
             began => began.Match(Some: _ => request.Map(static value => Some(value)), None: static () => IO.pure(Option<T>.None)),
             began => began.Traverse(at => atomicIO(() => {
                 (int count, Duration spent, int running) = usage.Value;
-                usage.Value = (count, spent + clock.GetElapsedTime(at, clock.GetTimestamp()).ToDuration(), running - 1);
+                usage.Value = (count, spent + clock.GetElapsedTime(at).ToDuration(), running - 1);
                 return unit;
-            })).As().Map(static _ => unit));
+            })).As().Map(unit));
 
     private IO<Unit> Land(Pending running, HashMap<ContentKey, PixelFrame> proxies) =>
         (from proxy in Proxied(running, proxies)
@@ -292,7 +292,7 @@ public sealed class PreviewTiles {
     private sealed record Raster((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.Color.Transfer Encoding) Key, Bitmap Pixels, long Drawn);
 
     private sealed record Pending(ContentKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
-        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => rank == TileRank.Rest || recent(at));
+        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => rank is TileRank.Rest || recent(at));
 
         public bool Ranked(Func<long, bool> recent) => toSeq(Enum.GetValues<TileRank>()).Exists(rank => Holds(rank, recent));
     }
@@ -308,10 +308,10 @@ public sealed class PreviewTiles {
 
         public Ledger Asked(ContentKey key, TileRequest request, PixelExtent tile, TileRank rank, long now) =>
             this with {
-                Tiles = rank == TileRank.Rest ? Tiles : Tiles.TrySetItem(key, kept => kept with { Drawn = now }),
+                Tiles = rank is TileRank.Rest ? Tiles : Tiles.TrySetItem(key, kept => kept with { Drawn = now }),
                 Queue = Queue.Exists(pending => pending.Key == key)
                     ? Queue.Map(pending => pending.Key == key ? pending with { Asks = pending.Asks.AddOrUpdate(rank, now) } : pending)
-                    : Running.Exists(running => running.Key == key) || (rank != TileRank.Rest && Tiles.ContainsKey(key))
+                    : Running.Exists(running => running.Key == key) || (rank is not TileRank.Rest && Tiles.ContainsKey(key))
                         ? Queue
                         : Queue.Add(new Pending(key, request, tile, HashMap((rank, now)))),
             };

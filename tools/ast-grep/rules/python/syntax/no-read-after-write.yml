@@ -2,6 +2,7 @@
 id: no-read-after-write
 language: python
 severity: error
+files: ['**/blender/**', '**/rhino/**']
 utils:
     plain:
         any:

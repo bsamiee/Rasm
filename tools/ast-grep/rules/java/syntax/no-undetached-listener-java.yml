@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-undetached-listener-java
+language: java
+severity: error
+utils:
+    inline:
+        kind: lambda_expression, method_reference, object_creation_expression
+    global:
+        any:
+            - {kind: identifier, regex: '^[A-Z]'}
+            - {kind: field_access, has: {field: object, matches: global}}
+            - {kind: method_invocation, has: {field: object, matches: global}}
+    removal:
+        kind: method_invocation
+        all:
+            - has: {field: name, regex: '^(remove|unregister|deregister|unsubscribe|detach)\w*(Listener|Handler|Filter|Observer|Callback|Subscriber|Watcher|Hook)$'}
+            - has: {field: arguments, has: {pattern: $HANDLER}}
+    entry:
+        any:
+            - kind: static_initializer
+            - kind: method_declaration
+              all:
+                - has: {field: name, regex: '^main$'}
+                - has: {kind: modifiers, has: {regex: '^static$'}}
+rule:
+    kind: method_invocation
+    any:
+        - all:
+            - has: {field: name, regex: '^(remove|unregister|deregister|unsubscribe|detach)\w*(Listener|Handler|Filter|Observer|Callback|Subscriber|Watcher|Hook)$', pattern: $METHOD}
+            - has: {field: arguments, has: {matches: inline}}
+        - all:
+            - has: {field: name, regex: '^(add|register|subscribe|attach)\w*(Listener|Handler|Filter|Observer|Callback|Subscriber|Watcher|Hook)$', pattern: $METHOD}
+            - has: {field: object, matches: global}
+            - has: {field: arguments, has: {kind: 'lambda_expression, method_reference, object_creation_expression, identifier, field_access', not: {regex: '(^|\.)[A-Z][A-Z0-9_]*$'}, pattern: $HANDLER}}
+            - inside: {stopBy: end, kind: 'method_declaration, constructor_declaration, lambda_expression'}
+            - not: {inside: {stopBy: end, matches: entry}}
+            - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: removal, not: {has: {field: arguments, has: {matches: inline}}}}}}
+message: '`$METHOD` leaves its listener attached'
+note: 'Remove the listener with the instance it was added with when its owner closes. A removal given a new lambda, method reference, or object matches no listener, and a listener a method adds to a static target stays once per call'

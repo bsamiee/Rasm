@@ -30,6 +30,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Tools taking no directory or walking ignored trees (`yamlfmt`, `yamllint`) run as `fd --hidden --extension <ext> --exec-batch <tool>`
 - `fd --exec-batch` runs no process without a match
 - `dependsOn` names a target of the project (`build`), of its dependencies (`^build`), or of named projects (`{ projects, target }`)
+- Target names in `dependsOn` match as minimatch globs, `!(<name>)` leaves out a target the glob would include
 - `params: forward` on a `dependsOn` entry passes its arguments to the dependency
 - Commands that run `nx` inside a target name a dependency, `dependsOn` holds it
 - `configurations` holds named option sets merged over `options`, `--configuration <name>` selects one, `defaultConfiguration` the default

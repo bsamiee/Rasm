@@ -10,11 +10,6 @@ using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Generators;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-file static class Tracks {
-    public static Presentation<float> Share { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<InvalidGenerator>]
@@ -372,8 +367,8 @@ public sealed record Lightning(
     public static Option<PixelPass> Pass(Lightning state, PassContext context) {
         (uint field, float clock, double chord) = (CoordinateHash.Field(NoiseStream.Lightning, state.Seed, 0u), 2f * state.Speed * state.Hold.Held(state.Timing.At(context)), 2d * state.Length);
         Func<int, int, int, float> noise = (x, y, z) => 0.5f + (0.5f * NoiseDimensions.Four.Gradient(new Vector4((2f * x) + 0.5f, (2f * y) + 0.5f, (2f * z) + 0.5f, clock), field));
-        BoltPiece[] channel = BoltPiece.Path((0d, state.Length), (0d, -1d), chord, SubdivisionDepth.MaxValue, state, k => noise(k, 0, 0), _ => (double)state.Thickness / 2d);
-        BoltPiece[] pieces = [.. channel, .. Enumerable.Range(1, state.Branches).SelectMany(i => (BitOperations.Log2((uint)i), (i % 2 == 0 ? 1f : -1f) * state.Spread * (0.5f + noise(i, 0, 1))) switch {
+        BoltPiece[] channel = BoltPiece.Path((0d, state.Length), (0d, -1d), chord, SubdivisionDepth.MaxValue, state, k => noise(k, 0, 0), _ => state.Thickness / 2d);
+        BoltPiece[] pieces = [.. channel, .. Enumerable.Range(1, state.Branches).SelectMany(i => (BitOperations.Log2((uint)i), (i % 2 is 0 ? 1f : -1f) * state.Spread * (0.5f + noise(i, 0, 1))) switch {
             var (level, turn) => BoltPiece.Path(
                 channel[((2 * (i - (1 << level))) + 1) * channel.Length / (2 << level)].Start, double.SinCos(turn) switch { var (sin, cos) => (sin, -cos) },
                 state.Reach * chord * (0.5f + noise(i, 0, 2)), levels: 3, state, j => noise(j, i, 0), along => (double)state.Taper * state.Thickness * (1d - along) / 2d),
@@ -680,7 +675,7 @@ internal static class ShapeFields {
         (EFloat x, EFloat y) = length.Sign > 0 ? (point.X.Divide(length, math).Abs().Divide(extent.X, math), point.Y.Divide(length, math).Abs().Divide(extent.Y, math)) : (0, EFloat.One.Divide(extent.Y, math));
         EFloat largest = EFloat.Max(x, y);
         EFloat level = largest * (x.Divide(largest, math).Pow(exponent, math) + y.Divide(largest, math).Pow(exponent, math)).Pow(EFloat.One.Divide(exponent, math), math);
-        return (length * level, exponent.CompareTo(EFloat.One) == 0
+        return (length * level, exponent.CompareTo(EFloat.One) is 0
             ? Length((EFloat.One.Divide(extent.X, math), EFloat.One.Divide(extent.Y, math)), math)
             : Length((x.Divide(level, math).Pow(exponent - 1, math).Divide(extent.X, math), y.Divide(level, math).Pow(exponent - 1, math).Divide(extent.Y, math)), math));
     }
@@ -750,6 +745,6 @@ file sealed class RampFootprint {
         ERational next = ERational.FromInt32(first + 1);
         return (bins[first] * ERational.Min(high, next).Subtract(low).Divide(total).ToSingle())
             + (last > first + 1 ? (sums[last] - sums[first + 1]) * ERational.One.Divide(total).ToSingle() : Vector4.Zero)
-            + (last > first && high.CompareTo(last) > 0 ? bins[last] * high.Subtract(ERational.FromInt32(last)).Divide(total).ToSingle() : Vector4.Zero);
+            + (last > first && high.CompareTo(last) > 0 ? bins[last] * high.Subtract(last).Divide(total).ToSingle() : Vector4.Zero);
     }
 }

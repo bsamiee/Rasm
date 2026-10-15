@@ -108,13 +108,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             try:
                 specs = ((index, image.spec()) for index in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
                 parts = tuple(
-                    Part(
-                        index=index,
-                        width=spec.width,
-                        height=spec.height,
-                        channels=tuple(spec.channelnames),
-                        header={held.name: held.value for held in spec.extra_attribs if isinstance(held.value, str)},
-                    )
+                    Part(index=index, width=spec.width, height=spec.height, channels=spec.channelnames, header={held.name: held.value for held in spec.extra_attribs if isinstance(held.value, str)})
                     for index, spec in specs
                 )
             finally:
@@ -209,10 +203,10 @@ def rewritten(path: str, display: Option[Window], channels: Callable[[tuple[str,
     def parts(image: OpenImageIO.ImageInput) -> ImagingResult[Option[tuple[Subimage[np.float32], ...]]]:
         try:
             specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
-            renamed = tuple(channels(tuple(spec.channelnames)) for spec in specs)
+            renamed = tuple(channels(spec.channelnames) for spec in specs)
             read = (
                 Ok(Nothing)
-                if display.is_none() and all(names == tuple(spec.channelnames) for spec, names in zip(specs, renamed, strict=True))
+                if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed, strict=True))
                 else accumulated(
                     Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
                     for index, spec in enumerate(specs)

@@ -1,17 +1,17 @@
 {
     "name": "rasm",
-    "description": "Plugins of the Rasm monorepo, loaded in place from this directory",
+    "description": "Rasm monorepo's Claude Code and Codex plugins",
     "owner": {
         "name": "Bardia Samiee"
     },
     "plugins": [
         {
-            "name": "function-hooks",
-            "source": "./function-hooks"
-        },
-        {
             "name": "argus",
             "source": "./argus"
+        },
+        {
+            "name": "function-hooks",
+            "source": "./function-hooks"
         },
         {
             "name": "playwright",

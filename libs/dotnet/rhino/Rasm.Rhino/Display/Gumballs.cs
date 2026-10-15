@@ -30,7 +30,7 @@ public static partial class Gumballs {
              select enabled, static gumball => IO.lift(gumball.Dispose))
         from answer in body(conduit)
         select answer,
-         static conduit => Callbacks.Each(Seq(IO.lift(() => { conduit.Enabled = false; }), IO.lift(conduit.Dispose))).Map(static _ => unit));
+         static conduit => Callbacks.Each(Seq(IO.lift(() => { conduit.Enabled = false; }), IO.lift(conduit.Dispose))).Map(unit));
 
     // --- [DRAG]
     public static IO<Option<GumballMode>> Pick(GumballDisplayConduit conduit, PickContext context, Option<GetPoint> point) =>

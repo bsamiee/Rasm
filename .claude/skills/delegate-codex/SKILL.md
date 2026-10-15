@@ -1,6 +1,6 @@
 ---
 name: delegate-codex
-description: "Use when a task, review, or analysis is delegated to Codex, covering the command, sandbox, prompt, resume, result, and failure."
+description: "Use when a task, review, or analysis is delegated to Codex, covering the command, sandbox, prompt, resume, result, and review options."
 argument-hint: "[task]"
 ---
 

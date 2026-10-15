@@ -30,5 +30,6 @@ rule:
                 - matches: state-write
                 - matches: valued-return
                 - matches: valued-break
+    not: {matches: rust-owned-span}
 message: 'Loop iterates by statement to produce `$STATE`'
-note: 'Bind the result to one adapter chain, `.map(<f>).collect()` builds a collection, `.filter(<test>)` keeps elements, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.any(<test>)`, `.all(<test>)`, `.find(<test>)`, `.position(<test>)`, or `.find_map(<f>)` stops at the first match, and `collect::<Result<_, _>>()?` stops a fallible traversal at the first error'
+note: 'Bind the result to one adapter chain, `.map(<f>).collect()` builds a collection, `.filter(<test>)` keeps elements, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.max()`, `.min()`, or `.reduce(<f>)` selects an extreme with `None` for no items, `.any(<test>)`, `.all(<test>)`, `.find(<test>)`, `.position(<test>)`, or `.find_map(<f>)` stops at the first match, and a fallible traversal over independent elements collects into `validated::Validated` to keep every error'

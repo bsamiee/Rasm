@@ -121,7 +121,7 @@ public static class DisposalOps {
 
     // --- [RELEASE]
     public static IO<Unit> Release<T>(Seq<T> held) where T : IDisposable =>
-        Callbacks.Each(held.Rev().Map(static item => IO.lift(item.Dispose))).Map(static _ => unit).Uninterruptible();
+        Callbacks.Each(held.Rev().Map(static item => IO.lift(item.Dispose))).Map(unit).Uninterruptible();
 
     public static IDisposable Composite(Seq<IDisposable> held) =>
         new Disposal<Seq<IDisposable>>(held, static items => Release(items).Run());

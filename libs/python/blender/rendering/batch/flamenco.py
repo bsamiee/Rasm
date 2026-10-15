@@ -220,7 +220,7 @@ def placed(client: httpx2.Client, manager: Manager, queue: RenderQueue) -> Rende
             shutil.copy2(job.file, target)
             return job.file, f"{{jobs}}/{relative.as_posix()}"
 
-        return catch(copy, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=str(target), error=error),))
+        return catch(copy, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=target, error=error),))
 
     def specified(name: str, job: Job) -> RenderingResult[ShamanFileSpec]:
         return (
@@ -236,13 +236,13 @@ def placed(client: httpx2.Client, manager: Manager, queue: RenderQueue) -> Rende
             try:
                 source = Path(local[spec.path].file)
             except KeyError:
-                return Error((RenderingSendFault(request=str(requirements.url), error=Cause.UNREADABLE),))
+                return Error((RenderingSendFault(request=requirements.url, error=Cause.UNREADABLE),))
             try:
                 data = source.read_bytes()
             except FileNotFoundError:
-                return Error((RenderingSendFault(request=str(source), error=424),))
+                return Error((RenderingSendFault(request=source, error=424),))
             except OSError as error:
-                return Error((RenderingReadFault(request=str(source), error=error),))
+                return Error((RenderingReadFault(request=source, error=error),))
             return sent(client, requested(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
 
         return (

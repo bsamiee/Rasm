@@ -77,7 +77,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     public override bool LoadMultiple(RhinoDoc? doc, IEnumerable<string> fileNames, RenderContentKind contentKind, LoadMultipleFlags flags) =>
         Callbacks.Succeeded(
             from load in row.LoadMultiple
-            select Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, file => Loaded(load, Optional(doc), contentKind, flags, file)))).Map(static _ => unit),
+            select Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, file => Loaded(load, Optional(doc), contentKind, flags, file)))).Map(unit),
             static () => false,
             new CallbackSite(sink, GetType(), nameof(LoadMultiple)));
 

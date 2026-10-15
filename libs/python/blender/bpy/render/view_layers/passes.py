@@ -9,7 +9,7 @@ from typing import Annotated, ClassVar, Literal, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.collections import Block, Map
+from expression.collections import Map
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -26,7 +26,7 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderCollisionFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.nodes.changes import Added, Changes, changes, made, owned, reconciled
-from blender.bpy.nodes.graphs import End, ended, FileItem, FileItems, Fragment, FrameNode, INPUTS, Link, math, mixed, nested, Node, node, NodeGroup, summed
+from blender.bpy.nodes.graphs import DataType, End, ended, FileItem, FileItems, Fragment, FrameNode, INPUTS, Link, math, mixed, nested, Node, node, NodeGroup, summed
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.nodes.trees import socket_at
 from blender.bpy.render.outputs.finishing import Finish, stamped, Written
@@ -41,7 +41,6 @@ from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import Caption, Flow, joined, Label, Line, Member, OperatorButton, placed, Property, Row, RowDraw
 from blender.bpy.ui.layout.sections import Hosted, Listing, Single, Store
 from blender.imaging.color.processors import unassociated
-from blender.imaging.effects.quantization import codes
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.files import multilayer
 from blender.imaging.files.cryptomatte import Matte
@@ -56,6 +55,8 @@ from blender.rendering.outputs.conventions import Axis, Blender, Conventions, Sp
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type ItemKind = Literal["FLOAT", "RGBA"]
 
 
 class Family(Choice):
@@ -92,10 +93,10 @@ class Family(Choice):
 class Derived(Choice):
     """Layer built from the render passes beside the family totals, each member holding its item kind and output class."""
 
-    kind: Literal["FLOAT", "RGBA"]
+    kind: ItemKind
     output: Output
 
-    def __new__(cls, value: int, label: str, kind: Literal["FLOAT", "RGBA"], output: Output) -> Self:
+    def __new__(cls, value: int, label: str, kind: ItemKind, output: Output) -> Self:
         """Creates a member from its persistent number, label, item kind, and output class."""
         member = int.__new__(cls, value)
         member._value_, member.label, member.kind, member.output = value, label, kind, output
@@ -290,7 +291,7 @@ class Source(msgspec.Struct, frozen=True, kw_only=True):
 
     name: str
     end: End
-    kind: Literal["FLOAT", "VECTOR", "RGBA"]
+    kind: DataType
     dimensions: Option[int]
     output: Output
 
@@ -378,7 +379,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 accumulated(filed(self.pathed, path, layer.name, filing, key, routing.convention, self.dimensions) for key, filing in plan.items())
                 .bind(lambda parts: Fragment.merged((render, built, *parts)))
-                .map(lambda body: (FrameNode(members={self.label: layer.name, self.custom: True, self.tint: shown}, nodes=dict(body.nodes)), body.links, LayerPlan(frame=prefix, filings=plan)))
+                .map(lambda body: (FrameNode(members={self.label: layer.name, self.custom: True, self.tint: shown}, nodes=body.nodes), body.links, LayerPlan(frame=prefix, filings=plan)))
             )
 
         def routed(read: tuple[Routing, Layer], render: Fragment) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
@@ -486,7 +487,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
         return self.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(
             lambda path: (
-                self.held(scene).map(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: pending(tree, *planned))).default_with(lambda: Ok(Some("Update builds the routing group")))
+                self.held(scene).map(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: pending(tree, *planned))).default_value(Ok(Some("Update builds the routing group")))
             )
         )
 
@@ -746,11 +747,11 @@ class PassSet(Line, frozen=True):
                             if isinstance(live, bpy.types.CompositorNodeOutputFile)
                         )
                     )
-                    .map(lambda parts: tuple(file for part in parts for file in part))
+                    .map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
                 )
 
             def gathered(_: NodeGroup, plans: dict[str, LayerPlan]) -> BlenderResult[tuple[Written, ...]]:
-                return accumulated(layer_files(plans, layer) for layer in routing.used(scene)).map(lambda parts: tuple(file for part in parts for file in part))
+                return accumulated(layer_files(plans, layer) for layer in routing.used(scene)).map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
 
             return routing.planned(scene, tree, path).bind(lambda planned: gathered(*planned))
 
@@ -784,7 +785,7 @@ class PassSet(Line, frozen=True):
             members: dict[Entity, Descriptor[bpy.types.FloatProperty]], mattes: tuple[Matte, ...], coded: Callable[[npt.NDArray[np.float32]], npt.NDArray[np.uint8 | np.uint16 | np.float32]]
         ) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
             def covered(matte: Matte, name: str, color: Rgb) -> BlenderResult[tuple[str, Rgb, npt.NDArray[np.float32]]]:
-                return matte.coverage(frozenset({name})).map(lambda plane: (name, color, plane)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                return matte.coverage(frozenset({name})).map(lambda plane: (name, color, plane)).map_error(BlenderImagingFault.lifted)
 
             def grouped(index: int, matte: Matte) -> BlenderResult[tuple[Group[np.uint8 | np.uint16 | np.float32], npt.NDArray[np.float32]]]:
                 def listed(layer: bpy.types.ViewLayer, entity: Entity) -> BlenderResult[tuple[tuple[str, Rgb, npt.NDArray[np.float32]], ...]]:
@@ -821,16 +822,7 @@ class PassSet(Line, frozen=True):
                 )
             )
 
-        def documented(routing: PassRouting, mattes: tuple[Matte, ...]) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
-            match depth:
-                case Depth.UINT8:
-                    return built(routing.id_colors, mattes, lambda plane: codes(plane, 8))
-                case Depth.UINT16:
-                    return built(routing.id_colors, mattes, lambda plane: codes(plane, 16))
-                case Depth.HALF | Depth.FLOAT:
-                    return built(routing.id_colors, mattes, lambda plane: plane)
-
-        return paired(self.bound(identity), Matte.found(frame).map_error(lambda faults: (BlenderImagingFault(faults=faults),))).bind(lambda pair: documented(*pair))
+        return paired(self.bound(identity), Matte.found(frame).map_error(BlenderImagingFault.lifted)).bind(lambda pair: built(pair[0].id_colors, pair[1], depth.coded))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Realizes the film, stale, update, ID, file, and preset rows."""
@@ -1088,7 +1080,7 @@ def sources(
         `Ok` of the built nodes and the sources in socket order, derived layers and ID images after; `Error` of `absent` for an unoffered total or depth, a missing camera, `collision`, `choice` for a gate on the preview class, and node faults.
     """
     render, convention = f"{prefix}_render", routing.convention
-    kinds: dict[str, Literal["FLOAT", "VECTOR", "RGBA"]] = {"VALUE": "FLOAT", "VECTOR": "VECTOR", "RGBA": "RGBA"}
+    kinds: dict[str, DataType] = {"VALUE": "FLOAT", "VECTOR": "VECTOR", "RGBA": "RGBA"}
     offered = {socket.name: socket for socket in live.outputs if socket.enabled and socket.name != "Alpha" and socket.type in kinds}
     identifiers = {name: socket.identifier for name, socket in offered.items()}
     spaces = {"Normal": convention.normals, "Position": Space.WORLD, DataPass.POSITION.name.lower(): Space.WORLD, DataPass.REFERENCE.name.lower(): Space.WORLD}
@@ -1158,7 +1150,7 @@ def sources(
             lambda pair: (pair[1], tuple(source for option in pair[0] for source in option.to_list()))
         )
 
-    def sourced(built: tuple[Fragment, End], name: str, kind: Literal["FLOAT", "VECTOR", "RGBA"], dimensions: Option[int], output: Output) -> tuple[Fragment, Source]:
+    def sourced(built: tuple[Fragment, End], name: str, kind: DataType, dimensions: Option[int], output: Output) -> tuple[Fragment, Source]:
         fragment, end = built
         return fragment, Source(name=name, end=end, kind=kind, dimensions=dimensions, output=output)
 
@@ -1185,8 +1177,8 @@ def sources(
     totals = accumulated(map(totaled, sorted(routing.totals)))
     derived = accumulated(map(derived_of, sorted(routing.derived)))
     ids = accumulated(map(identified, sorted(routing.ids)))
-    return accumulated((passes, totals, derived.map(lambda found: tuple(pair for part in found for pair in part)), ids.map(lambda found: tuple(pair for part in found for pair in part)))).bind(
-        lambda parts: joined_sources(tuple(pair for part in parts for pair in part))
+    return accumulated((passes, totals, derived.map(lambda found: tuple(itertools.chain.from_iterable(found))), ids.map(lambda found: tuple(itertools.chain.from_iterable(found))))).bind(
+        lambda parts: joined_sources(tuple(itertools.chain.from_iterable(parts)))
     )
 
 
@@ -1280,7 +1272,7 @@ def formatted(tree: bpy.types.NodeTree, group: NodeGroup, plans: dict[str, Layer
         if filing.kind is Kind.EXR
     }
     gained = accumulated(
-        OutputFormat.typed(stated[item.name]).bind(lambda typed: typed.map(lambda settings: settings.applied(item)).default_with(lambda: Ok(None)))
+        OutputFormat.typed(stated[item.name]).bind(lambda typed: typed.map(lambda settings: settings.applied(item)).default_value(Ok(None)))
         for key, stated in kinds.items()
         for live in (held[key],)
         if isinstance(live, bpy.types.CompositorNodeOutputFile)
@@ -1328,15 +1320,17 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
         override = Option.of_optional(layer.material_override)
         materials = override.map(lambda material: (material,)).default_with(lambda: tuple(slot.material for item in scene.objects for slot in item.material_slots if slot.material))
         trees = tuple(tree for tree in (*(material.node_tree for material in materials), *(world.node_tree for world in Option.of_optional(scene.world).to_list())) if tree)
-        return override.filter(lambda material: Mark.read(identity, material).filter(lambda mark: mark.key == Utility.ownership.key).is_some()).map(setup).default_with(lambda: scanned(trees))
+        return override.filter(lambda material: Utility.ownership.marked(identity, material).is_some()).map(setup).default_with(lambda: scanned(trees))
 
     def aovs(layer: bpy.types.ViewLayer, names: dict[str, str]) -> BlenderResult[None]:
         held = {aov.name: aov for aov in layer.aovs}
 
         def synced_aov(name: str, kind: str) -> BlenderResult[None]:
             aov = held.get(name) or layer.aovs.add()
-            answer = paired(written(aov, "name", name), written(aov, "type", kind)).bind(
-                lambda _: Ok(None) if aov.name == name and aov.is_valid else Error((BlenderCollisionFault(request=name, error=aov.name),))
+            answer = (
+                paired(written(aov, "name", name), written(aov, "type", kind))
+                .filter_with(lambda _: aov.name == name and aov.is_valid, lambda _: (BlenderCollisionFault(request=name, error=aov.name),))
+                .map(lambda _: None)
             )
             if answer.is_error() and name not in held:
                 layer.aovs.remove(aov)
@@ -1375,7 +1369,7 @@ def named(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy.typ
     shown = tuple(item for item in layer.objects if not item.hide_render and item.data is not None)
 
     def root(item: bpy.types.Object) -> bpy.types.Object:
-        return Block.unfold(lambda held: held.map(lambda each: (each, Option.of_optional(each.parent))), Some(item)).fold(lambda _, each: each, item)
+        return root(item.parent) if item.parent else item
 
     blocks: dict[str, bpy.types.ID]
     match entity:
@@ -1415,7 +1409,7 @@ def colored(prefix: str, scene: bpy.types.Scene, layer: bpy.types.ViewLayer, ent
         routes = {"Image": summed(f"{key}_colors", tuple(tint for tint, _ in pairs)), "Alpha": summed(f"{key}_mattes", tuple(cover for _, cover in pairs))}
         return (
             accumulated(routes.values())
-            .bind(lambda ends: node(f"{key}_ids", bpy.types.CompositorNodeSetAlpha, {**dict(zip(routes, ends)), "Type": "Replace Alpha"}, {}))
+            .bind(lambda ends: node(f"{key}_ids", bpy.types.CompositorNodeSetAlpha, dict(zip(routes, ends)) | {"Type": "Replace Alpha"}, {}))
             .map(ended(f"{key}_ids", "Image"))
             .map(Some)
         )
@@ -1470,7 +1464,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blend
             (matte.file.parts[0].width, matte.file.parts[0].height),
             stamped(identity),
             lambda held: matte.filled(frozenset({held.layer}), known[held.layer]),
-        ).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        ).map_error(BlenderImagingFault.lifted)
 
     def painted(members: dict[Entity, Descriptor[bpy.types.FloatProperty]], path: OutputPath, matte: Matte, layer: bpy.types.ViewLayer, entity: Entity) -> BlenderResult[str]:
         known = {name: color for name, _, color in named(layer, entity, members[entity])}
@@ -1498,10 +1492,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blend
         .bound(identity)
         .bind(
             lambda routing: Result[tuple[OutputPath, tuple[Matte, ...]], BlenderFaults].bind(
-                paired(
-                    routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()),
-                    Multilayer.read(file.path).bind(Matte.found).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
-                ),
+                paired(routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()), Multilayer.read(file.path).bind(Matte.found).map_error(BlenderImagingFault.lifted)),
                 lambda found: wrote(routing, *found),
             )
         )

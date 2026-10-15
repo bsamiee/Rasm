@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-tolerance-assert
+language: rust
+severity: error
+utils:
+    difference:
+        kind: token_tree
+        regex: '^\('
+        has: {regex: '^-$', follows: {pattern: $_}}
+    abs-call:
+        regex: '^\.$'
+        precedes: {regex: '^abs$', precedes: {kind: token_tree, regex: '^\(\s*\)$'}}
+rule:
+    kind: macro_invocation
+    pattern: $ASSERT
+    all:
+        - has: {field: macro, regex: '^((::)?(std|core)::)?(debug_)?assert$'}
+        - has:
+            kind: token_tree
+            any:
+                - has: {nthChild: 1, matches: difference, precedes: {matches: abs-call, precedes: {stopBy: end, regex: '^<=?$'}}}
+                - has: {matches: difference, follows: {regex: '^abs$', follows: {regex: '^::$', follows: {regex: '^f(32|64)$'}}}, precedes: {regex: '^<=?$'}}
+                - has: {matches: difference, follows: {regex: '^>=?$'}, precedes: {matches: abs-call}}
+message: '`$ASSERT` compares a float difference to a tolerance by hand'
+note: 'Write `approx::assert_abs_diff_eq!(<a>, <b>, epsilon = <eps>)` or `approx::assert_relative_eq!(<a>, <b>, max_relative = <tolerance>)`, the approx macros print both values on failure. A strict `<` becomes the `<=` approx applies. A message argument has no slot in the approx macros'

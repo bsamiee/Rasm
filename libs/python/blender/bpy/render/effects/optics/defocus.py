@@ -10,7 +10,7 @@ import msgspec
 from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchanged
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderAbsentFault, BlenderReadFault, BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels
+from blender.bpy.nodes.coordinates import framed, FrameSpace, lensed, pixels
 from blender.bpy.nodes.graphs import End, ended, Fragment, math, menu, node, Operand, switched, vector
 from blender.bpy.render.effects.stack import CompositorEffect, Coverage, Named, Shell
 from blender.bpy.render.effects.viewers import inspection
@@ -187,11 +187,7 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
             .bind(lambda edge: math("band_ramp", "DIVIDE", edge, inlet(focus, TiltShift, feather_band), clamp=True))
             .bind(lambda ramp: math("tilted", "MULTIPLY", ramp, cap))
         )
-        optical = (
-            node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {})
-            .bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": ended("camera", "Active Camera")(camera)}, {}))
-            .bind(lambda lens: depth(at, lens))
-        )
+        optical = lensed().bind(lambda lens: depth(at, lens))
         radius = (
             accumulated((optical if isinstance(case, DepthOfField) else curved if isinstance(case, FieldCurvature) else tilted).map(lambda field: (case.title, field)) for case in shell.cases[focus,])
             .bind(lambda fields: menu("select", "FLOAT", inlet(focus), shell.items[focus,], dict(fields)))

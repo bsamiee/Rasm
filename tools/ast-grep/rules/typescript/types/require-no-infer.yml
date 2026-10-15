@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-no-infer
+language: tsx
+severity: error
+rule:
+    kind: type_parameter
+    all:
+        - not: {has: {regex: '^const$'}}
+        - has: {field: name, pattern: $U}
+        - has: {field: constraint, has: {kind: type_identifier, pattern: $T}}
+        - not: {has: {field: value, not: {has: {kind: type_identifier, pattern: $T}}}}
+        - inside:
+            kind: type_parameters
+            has: {kind: type_parameter, has: {field: name, pattern: $T}}
+            inside:
+                kind: function_declaration, function_expression, arrow_function, generator_function, generator_function_declaration, method_definition, function_signature, method_signature, abstract_method_signature, call_signature, construct_signature, function_type, constructor_type
+                pattern: $OWNER
+                all:
+                    - has:
+                        field: parameters
+                        has:
+                            kind: required_parameter, optional_parameter
+                            pattern: $PARAMETER
+                            has:
+                                field: type
+                                has:
+                                    any:
+                                        - {kind: type_identifier, pattern: $U}
+                                        - {kind: array_type, has: {kind: type_identifier, pattern: $U}}
+                                        - {kind: readonly_type, has: {kind: array_type, has: {kind: type_identifier, pattern: $U}}}
+                                        - kind: generic_type
+                                          all:
+                                            - has: {field: name, regex: '^(ReadonlyArray|Iterable)$'}
+                                            - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_identifier, pattern: $U}}, {not: {has: {nthChild: 2}}}]}
+                    - not:
+                        has:
+                            stopBy: end
+                            kind: type_identifier
+                            pattern: $U
+                            not:
+                                any:
+                                    - inside: {kind: type_parameter, field: name}
+                                    - inside:
+                                        stopBy: end
+                                        kind: required_parameter, optional_parameter
+                                        pattern: $PARAMETER
+                                        inside: {kind: formal_parameters, inside: {pattern: $OWNER}}
+message: '`$U extends $T` exists to block inference from `$PARAMETER`, the one parameter reading `$U`'
+note: 'Type the parameter `NoInfer<T>` over the constraint `T`, delete the type parameter, and drop its argument at each call passing explicit type arguments'

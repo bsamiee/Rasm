@@ -80,7 +80,11 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def held(self, identity: Identity) -> tuple[tuple[T, Mark], ...]:
         """Returns matching data-blocks and their admitted marks in native collection order."""
-        return tuple((block, mark) for block in blocks(bpy.data, self.kind) for mark in Mark.read(identity, block).filter(lambda mark: mark.key == self.key).to_list())
+        return tuple((block, mark) for block in blocks(bpy.data, self.kind) for mark in self.marked(identity, block).to_list())
+
+    def marked(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Mark]:
+        """Returns the holder's admitted mark when it carries this purpose."""
+        return Mark.read(identity, holder).filter(lambda mark: mark.key == self.key)
 
     def owned(self, identity: Identity, block: T, mark: Mark, filled: Callable[[T], BlenderResult[T]] = Ok) -> BlenderResult[T]:
         """Sets a new block's mark and lifetime, then fills it, removing the block on any refusal."""
@@ -136,16 +140,16 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     ) -> BlenderResult[T | Option[T]]:
         """Reuses equal content before building, fills the reused or built block, removes a built block its fill refuses, and retains optional absence without an ID."""
         mark = Mark(key=self.key, of=of, content=content)
+
+        def shaped(block: T) -> T | Option[T]:
+            return Some(block) if optional else block
+
         return (
             (Option.of_optional(earliest(self.held(identity)).get(mark)) if self.single else Nothing)
-            .map(lambda block: filled(block).map(lambda block: Some(block) if optional else block))
+            .map(lambda block: filled(block).map(shaped))
             .default_with(
                 lambda: build().bind(
-                    lambda block: (
-                        (block if isinstance(block, Option) else Some(block))
-                        .map(lambda block: self.owned(identity, block, mark, filled).map(lambda block: Some(block) if optional else block))
-                        .default_with(lambda: Ok(Nothing))
-                    )
+                    lambda block: (block if isinstance(block, Option) else Some(block)).map(lambda block: self.owned(identity, block, mark, filled).map(shaped)).default_value(Ok(Nothing))
                 )
             )
         )

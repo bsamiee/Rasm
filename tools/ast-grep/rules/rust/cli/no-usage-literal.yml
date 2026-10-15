@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-usage-literal
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $USAGE
+    regex: '(^[br]*#*"|\\n|\n)(?i:usage):'
+message: '`$USAGE` spells command-line usage text by hand'
+note: 'Derive the command with `#[derive(clap::Parser)]` and describe it through `#[command(about = <text>)]` and each argument through `#[arg(help = <text>)]`. Clap renders `Usage:` and `--help` from the definition and prints the usage line with each parse error'

@@ -2,10 +2,12 @@
 
 import datetime
 from enum import auto, Enum
+from pathlib import Path
 import re
 from typing import Self
 
 from expression import Option, Result
+import httpx2
 import msgspec
 
 from blender.imaging.faults import Faults, ImagingFaults, Refusal
@@ -55,19 +57,19 @@ class RenderingNameFault(Refusal[str, re.Pattern[str]], frozen=True):
     """Name text outside its declared grammar."""
 
 
-class RenderingRootFault(Refusal[str, str], frozen=True):
+class RenderingRootFault(Refusal[Path, Path], frozen=True):
     """Resolved output path outside its root."""
 
 
-class RenderingReadFault(Refusal[str, msgspec.DecodeError | OSError], frozen=True):
+class RenderingReadFault(Refusal[str | Path, msgspec.DecodeError | OSError], frozen=True):
     """Stored record or file its reader refused."""
 
 
-class RenderingWriteFault(Refusal[str, OSError], frozen=True):
+class RenderingWriteFault(Refusal[Path, OSError], frozen=True):
     """Record write or file copy its writer refused."""
 
 
-class RenderingSendFault(Refusal[str, Cause | int | OverflowError], frozen=True):
+class RenderingSendFault(Refusal[str | httpx2.URL | Path, Cause | int | OverflowError], frozen=True):
     """HTTP request refused by transport or response status."""
 
 
@@ -122,6 +124,11 @@ class RenderingImagingFault(msgspec.Struct, frozen=True, kw_only=True):
     """Complete fault tuple from an imaging operation."""
 
     faults: ImagingFaults
+
+    @classmethod
+    def lifted(cls, faults: ImagingFaults) -> RenderingFaults:
+        """Carries the imaging faults as one rendering fault."""
+        return (cls(faults=faults),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

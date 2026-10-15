@@ -23,8 +23,7 @@ public interface IRenderSettingsRecord<TSelf> : IStateRecord<TSelf> where TSelf 
 
 public interface IRenderSettingsRecord<TSelf, TParameter> : IRenderSettingsRecord<TSelf>, IStateRecord<TSelf, TParameter, InvalidRhinoValue>
     where TSelf : IRenderSettingsRecord<TSelf, TParameter>
-    where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, InvalidRhinoValue> {
-    public static abstract ParameterText Text(TParameter parameter);
+    where TParameter : class, IRowParameter<TSelf>, ISmartEnum<string, TParameter, InvalidRhinoValue> {
     public static abstract RowRules Rules(RowSource<TSelf> source, TParameter parameter);
 }
 
@@ -130,7 +129,7 @@ public static class RenderSettingsSources {
         select diff;
 
     public static IO<Unit> Reset(RenderSettingsSource source) =>
-        Edit(source, static staged => Callbacks.Each(Rows(staged).Map(static row => row.Reset)).Map(static _ => unit));
+        Edit(source, static staged => Callbacks.Each(Rows(staged).Map(static row => row.Reset)).Map(unit));
 
     private static Seq<(ValueBinding Binding, IO<Unit> Reset)> Rows(RenderSettingsSource source) =>
         Seq(Row<ImageOutputState, ImageOutputParameter>(source), Row<RenderSourceState, RenderSourceParameter>(source), Row<FrameState, FrameParameter>(source),
@@ -143,19 +142,19 @@ public static class RenderSettingsSources {
 
     private static (ValueBinding Binding, IO<Unit> Reset) Row<TRecord, TParameter>(RenderSettingsSource source)
         where TRecord : IRenderSettingsRecord<TRecord, TParameter>
-        where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
+        where TParameter : class, IRowParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
         Store<TRecord>(source) switch {
             var store => (
-                ValueBinding.Fields(TRecord.Owner, store, TRecord.Default, ParameterText.Join<TRecord, TParameter, InvalidRhinoValue>(TRecord.Text)
-                    .Map<(IStateParameter<TRecord> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption))),
-                store.Write(None).Map(static _ => unit)),
+                ValueBinding.Fields(TRecord.Owner, store, TRecord.Default, toSeq(TParameter.Items)
+                    .Map<(IStateParameter<TRecord> Parameter, string Caption)>(static parameter => (parameter, parameter.Text.Caption))),
+                store.Write(None).Map(unit)),
         };
 
     // --- [ROWS]
     public static Seq<ControlRow> Fields<TRecord, TParameter>(Seq<TParameter> items)
         where TRecord : IRenderSettingsRecord<TRecord, TParameter>
-        where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
-        items.Map(static item => (Parameter: item, Text: TRecord.Text(item))).Strict() switch {
+        where TParameter : class, IRowParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
+        items.Map(static item => (Parameter: item, item.Text)).Strict() switch {
             var texts => SectionRows.Source(TRecord.Owner, texts, static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord>(doc)))) switch {
                 var source => SectionRows.Of(source, texts, None, item => TRecord.Rules(source, item)),
             },

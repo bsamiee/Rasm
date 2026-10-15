@@ -152,6 +152,6 @@ public static class Meshing {
             static made => from accepted in Conversions.FromResult(made.Result, nameof(RhinoObject.MeshObjects))
                            from closed in made.Interface
                            from meshes in Measurements.Valid(toSeq<Mesh?>(made.Meshes), nameof(RhinoObject.MeshObjects))
-                           select new MeshBatch(meshes.Zip(Conversions.Rows(made.Attributes), static (mesh, attributes) => (Mesh: mesh, Attributes: attributes)), closed),
+                           select new MeshBatch(meshes.Zip(Conversions.Rows(made.Attributes)), closed),
             static made => DisposalOps.Release(Conversions.Rows<IDisposable>(made.Meshes) + Conversions.Rows<IDisposable>(made.Attributes)), retain);
 }

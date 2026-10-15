@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-pointer-difference-offset
+language: rust
+severity: error
+rule:
+    kind: binary_expression
+    all:
+        - has: {field: operator, regex: '^-$'}
+        - any:
+            - pattern: $PART.as_ptr() as usize - $WHOLE.as_ptr() as usize
+            - pattern: $PART.as_ptr().addr() - $WHOLE.as_ptr().addr()
+message: '`$PART` locates itself inside `$WHOLE` by subtracting pointer addresses'
+note: 'Call `<text>.substr_range(<part>)` for `str` or `<slice>.subslice_range(<part>)` for `[T]`, each returns the part''s range with `start` as its offset and `None` for a part outside the whole'

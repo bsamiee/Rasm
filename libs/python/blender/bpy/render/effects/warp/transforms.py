@@ -1,5 +1,7 @@
 """Native affine maps, camera re-aiming, and covered warp reconstruction."""
 
+from itertools import chain
+
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
@@ -135,7 +137,7 @@ def keyed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     return (
         sampled_channel(scene, "render.motion_blur_shutter", frames)
         .bind(lambda lengths: accumulated(channels(lengths, *row) for row in pose_inputs()))
-        .map(lambda groups: tuple(channel for group in groups for channel in group))
+        .map(lambda groups: tuple(chain.from_iterable(groups)))
     )
 
 
@@ -172,13 +174,13 @@ def extended(
             size = ended(f"{key}_dimensions", name)(dimensions)
             prefix = item_key(key, name.lower())
             folded = math(f"{prefix}_folded", "PINGPONG", coordinate, 1.0).bind(
-                lambda reflected: switched(f"{prefix}_coordinate", "FLOAT", End(node=border[1].node, socket=Extension.MIRROR.label), coordinate, reflected)
+                lambda reflected: switched(f"{prefix}_coordinate", "FLOAT", msgspec.structs.replace(border[1], socket=Extension.MIRROR.label), coordinate, reflected)
             )
             edge = (
                 math(f"{prefix}_opposite", "SUBTRACT", 1.0, coordinate)
                 .bind(lambda opposite: math(f"{prefix}_edge", "MINIMUM", coordinate, opposite))
                 .bind(lambda distance: math(f"{prefix}_support", "MULTIPLY_ADD", distance, size, 0.5, clamp=True))
-                .bind(lambda support: switched(f"{prefix}_coverage", "FLOAT", End(node=border[1].node, socket=Extension.CLIP.label), 1.0, support))
+                .bind(lambda support: switched(f"{prefix}_coverage", "FLOAT", msgspec.structs.replace(border[1], socket=Extension.CLIP.label), 1.0, support))
             )
             return paired(folded, edge)
 
@@ -293,19 +295,21 @@ def placed(key: Key, source: Operand, frame: FrameSpace, matrix: Operand) -> Ble
     Returns:
         Native content transformed about its current center, or transparent singular content.
     """
-    axes = node(f"{key}_pixel_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.scale}, {})
     basis = (
-        axes
+        node(f"{key}_pixel_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.scale}, {})
         .bind(lambda axes: node(f"{key}_pixel_scale", bpy.types.ShaderNodeCombineXYZ, {"X": ended(f"{key}_pixel_axes", "X")(axes), "Y": End(node=f"{key}_pixel_axes", socket="Y"), "Z": 1.0}, {}))
         .bind(lambda scale: node(f"{key}_pixel_basis", bpy.types.FunctionNodeCombineTransform, {"Scale": ended(f"{key}_pixel_scale", "Vector")(scale)}, {}))
         .map(ended(f"{key}_pixel_basis", "Transform"))
     )
-    inverse_basis = basis.bind(lambda basis: node(f"{key}_inverse_basis", bpy.types.FunctionNodeInvertMatrix, {"Matrix": basis}, {})).map(ended(f"{key}_inverse_basis", "Matrix"))
-    pixel = inverse_basis.bind(lambda inverse: node(f"{key}_in_pixel_units", bpy.types.FunctionNodeMatrixMultiply, {"Matrix": matrix, "Matrix_001": inverse}, {})).map(
-        ended(f"{key}_in_pixel_units", "Matrix")
+    in_pixel_units = (
+        basis
+        .bind(lambda basis: node(f"{key}_inverse_basis", bpy.types.FunctionNodeInvertMatrix, {"Matrix": basis}, {}))
+        .map(ended(f"{key}_inverse_basis", "Matrix"))
+        .bind(lambda inverse: node(f"{key}_in_pixel_units", bpy.types.FunctionNodeMatrixMultiply, {"Matrix": matrix, "Matrix_001": inverse}, {}))
+        .map(ended(f"{key}_in_pixel_units", "Matrix"))
     )
     pixel = (
-        paired(basis, pixel)
+        paired(basis, in_pixel_units)
         .bind(lambda parts: node(f"{key}_pixel_matrix", bpy.types.FunctionNodeMatrixMultiply, dict(zip(("Matrix", "Matrix_001"), parts)), {}))
         .map(ended(f"{key}_pixel_matrix", "Matrix"))
     )

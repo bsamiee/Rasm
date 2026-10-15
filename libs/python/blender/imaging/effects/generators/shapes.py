@@ -10,7 +10,7 @@ import msgspec
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.effects.generators.noise import Basis, Cut, Emission, Fractal, Interpolation, Octaves, Perlin, Profile, Tint
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Case, Choice, Finite, Gated, GraphForm, Motion, Position, Presentation, Quantity, Ramp, Rgb, Seed
+from blender.imaging.parameters import Case, Choice, Finite, FrameExtent, FrameLength, Gated, GraphForm, Motion, Position, Positive, Presentation, Quantity, Ramp, Rgb, Seed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -43,9 +43,6 @@ type Field = Frame | Figure | Boolean | Morph | Lightning | Window
 type Geometry = Linear | Radial | Angular | Diamond | Rectangular
 type Paint = Solid | Gradient | Corners | Cells
 
-type _Length = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
-type _Extent = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -54,8 +51,8 @@ class Box(Case, frozen=True, kw_only=True, tag=1):
     """Rectangle with corners rounded by a share of its shorter half side."""
 
     title = "Box"
-    width: Annotated[_Length, msgspec.Meta(title="Width", description="Full width as a share of the frame's greater side")] = 0.4
-    height: Annotated[_Length, msgspec.Meta(title="Height", description="Full height as a share of the frame's greater side")] = 0.2
+    width: Annotated[FrameLength, msgspec.Meta(title="Width", description="Full width as a share of the frame's greater side")] = 0.4
+    height: Annotated[FrameLength, msgspec.Meta(title="Height", description="Full height as a share of the frame's greater side")] = 0.2
     roundness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Roundness", description="Corner radius as a share of the shorter half side")] = 0.0
 
 
@@ -63,8 +60,8 @@ class Ellipse(Case, frozen=True, kw_only=True, tag=2):
     """Ellipse inside the given width and height."""
 
     title = "Ellipse"
-    width: Annotated[_Length, msgspec.Meta(title="Width", description="Full width as a share of the frame's greater side")] = 0.4
-    height: Annotated[_Length, msgspec.Meta(title="Height", description="Full height as a share of the frame's greater side")] = 0.2
+    width: Annotated[FrameLength, msgspec.Meta(title="Width", description="Full width as a share of the frame's greater side")] = 0.4
+    height: Annotated[FrameLength, msgspec.Meta(title="Height", description="Full height as a share of the frame's greater side")] = 0.2
     exponent: Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max, title="Exponent", description="Superellipse power, 1 a diamond and 2 an ellipse"), Presentation(soft=Some((1.0, 8.0)))] = 2.0
 
 
@@ -88,7 +85,7 @@ class Cross(Case, frozen=True, kw_only=True, tag=4):
     """Plus sign of two crossing bars, an X when turned 45 degrees."""
 
     title = "Cross"
-    length: Annotated[_Length, msgspec.Meta(title="Length", description="Arm-to-arm length as a share of the frame's greater side")] = 0.2
+    length: Annotated[FrameLength, msgspec.Meta(title="Length", description="Arm-to-arm length as a share of the frame's greater side")] = 0.2
     thickness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Thickness", description="Bar width as a share of the length")] = 0.3
     aspect: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Aspect", description="Horizontal arm length over vertical arm length")] = 1.0
     roundness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Roundness", description="Corner radius as a share of the arm half width")] = 0.0
@@ -98,15 +95,15 @@ class Heart(Case, frozen=True, kw_only=True, tag=5):
     """Heart centered on the figure position."""
 
     title = "Heart"
-    height: Annotated[_Length, msgspec.Meta(title="Height", description="Tip-to-lobe height as a share of the frame's greater side")] = 0.2
+    height: Annotated[FrameLength, msgspec.Meta(title="Height", description="Tip-to-lobe height as a share of the frame's greater side")] = 0.2
 
 
 class Segment(Case, frozen=True, kw_only=True, tag=6):
     """Straight line with round caps, drawn between two shares of its length."""
 
     title = "Segment"
-    length: Annotated[_Length, msgspec.Meta(title="Length", description="Full length as a share of the frame's greater side")] = 0.4
-    thickness: Annotated[_Length, msgspec.Meta(title="Thickness", description="Line width as a share of the frame's greater side")] = 0.005
+    length: Annotated[FrameLength, msgspec.Meta(title="Length", description="Full length as a share of the frame's greater side")] = 0.4
+    thickness: Annotated[FrameLength, msgspec.Meta(title="Thickness", description="Line width as a share of the frame's greater side")] = 0.005
     start: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Start", description="Share of the length where the line begins")] = 0.0
     end: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="End", description="Share of the length where the line ends")] = 1.0
 
@@ -124,9 +121,9 @@ class Grid(Case, frozen=True, kw_only=True, tag=8):
     """Lines of a rectangular lattice through the figure position, every second course shifted."""
 
     title = "Grid"
-    width: Annotated[_Extent, msgspec.Meta(title="Cell Width", description="Line spacing across as a share of the frame's greater side")] = 0.1
-    height: Annotated[_Extent, msgspec.Meta(title="Cell Height", description="Line spacing up as a share of the frame's greater side")] = 0.1
-    line: Annotated[_Length, msgspec.Meta(title="Line", description="Line width as a share of the frame's greater side")] = 0.002
+    width: Annotated[FrameExtent, msgspec.Meta(title="Cell Width", description="Line spacing across as a share of the frame's greater side")] = 0.1
+    height: Annotated[FrameExtent, msgspec.Meta(title="Cell Height", description="Line spacing up as a share of the frame's greater side")] = 0.1
+    line: Annotated[FrameLength, msgspec.Meta(title="Line", description="Line width as a share of the frame's greater side")] = 0.002
     offset: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Offset", description="Share of a cell width every second course shifts")] = 0.0
 
 
@@ -134,7 +131,7 @@ class Polygon(Case, frozen=True, kw_only=True, tag=9):
     """Regular polygon or inset star with rounded vertices."""
 
     title = "Polygon"
-    radius: Annotated[_Length, msgspec.Meta(title="Radius", description="Distance from center to an outer vertex")] = 0.2
+    radius: Annotated[FrameLength, msgspec.Meta(title="Radius", description="Distance from center to an outer vertex")] = 0.2
     sides: Annotated[int, msgspec.Meta(ge=3, title="Sides", description="Outer vertices around the center"), GraphForm.SETTING] = 5
     inset: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Inset", description="Share each side midpoint moves toward the center")] = 0.0
     roundness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Roundness", description="Radius rounding each vertex as a share of the outer radius")] = 0.0
@@ -168,9 +165,7 @@ class Window(Case, frozen=True, kw_only=True, tag=6):
     """Centered aspect-fitted aperture with an inset and rounded corners."""
 
     title = "Window"
-    aspect: Annotated[
-        Gated[Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]], msgspec.Meta(title="Aspect", description="Aperture width over height, disabled to use the frame aspect")
-    ] = Gated(enabled=True, value=2.39)
+    aspect: Annotated[Gated[Positive], msgspec.Meta(title="Aspect", description="Aperture width over height, disabled to use the frame aspect")] = Gated(enabled=True, value=2.39)
     inset: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Inset", description="Distance inside each edge as a share of the fitted shorter half side")] = 0.0
     roundness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Roundness", description="Corner radius as a share of the shorter half side")] = 0.0
 
@@ -182,7 +177,7 @@ class Boolean(Case, frozen=True, kw_only=True, tag=3):
     operation: Annotated[Operation, msgspec.Meta(title="Operation", description="Union, base minus cutter, or overlap")] = Operation.SUBTRACT
     base: Annotated[Figure, msgspec.Meta(title="Base", description="Figure the operation starts from")] = Figure(primitive=Box())
     cutter: Annotated[Figure, msgspec.Meta(title="Cutter", description="Figure joined with the base")] = Figure(position=(0.6, 0.5))
-    smoothness: Annotated[_Length, msgspec.Meta(title="Smoothness", description="Blend radius of the seam as a share of the frame's greater side")] = 0.0
+    smoothness: Annotated[FrameLength, msgspec.Meta(title="Smoothness", description="Blend radius of the seam as a share of the frame's greater side")] = 0.0
 
 
 class Morph(Case, frozen=True, kw_only=True, tag=4):
@@ -200,7 +195,7 @@ class Lightning(Case, frozen=True, kw_only=True, tag=5):
     title = "Lightning"
     start: Annotated[Position, msgspec.Meta(title="Start", description="Point the bolt leaves as a share of each frame side")] = (0.2, 1.0)
     end: Annotated[Position, msgspec.Meta(title="End", description="Point the bolt strikes as a share of each frame side")] = (0.6, 0.4)
-    thickness: Annotated[_Length, msgspec.Meta(title="Thickness", description="Channel width as a share of the frame's greater side")] = 0.004
+    thickness: Annotated[FrameLength, msgspec.Meta(title="Thickness", description="Channel width as a share of the frame's greater side")] = 0.004
     depth: Annotated[int, msgspec.Meta(ge=1, title="Depth", description="Subdivision levels of the channel"), GraphForm.SETTING] = 5
     displacement: Annotated[
         float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Displacement", description="Midpoint offset as a share of the segment it splits"), Presentation(soft=Some((0.0, 1.0)))
@@ -219,7 +214,7 @@ class Linear(Case, frozen=True, kw_only=True, tag=1):
     title = "Linear"
     origin: Annotated[Position, msgspec.Meta(title="Origin", description="Point at the first stop as a share of each frame side")] = (0.0, 0.5)
     angle: Annotated[Finite, msgspec.Meta(title="Angle", description="Direction toward the last stop, 0 running left to right"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    length: Annotated[_Extent, msgspec.Meta(title="Length", description="Distance from the first stop to the last as a share of the frame's greater side")] = 1.0
+    length: Annotated[FrameExtent, msgspec.Meta(title="Length", description="Distance from the first stop to the last as a share of the frame's greater side")] = 1.0
     sweep: Annotated[
         float,
         msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Sweep", description="Slope the bands bend back at either side of the axis, 0 straight and 1 at 45 degrees"),
@@ -232,7 +227,7 @@ class Radial(Case, frozen=True, kw_only=True, tag=2):
 
     title = "Radial"
     origin: Annotated[Position, msgspec.Meta(title="Origin", description="Center as a share of each frame side")] = (0.5, 0.5)
-    radius: Annotated[_Extent, msgspec.Meta(title="Radius", description="Distance to the last stop as a share of the frame's greater side")] = 0.5
+    radius: Annotated[FrameExtent, msgspec.Meta(title="Radius", description="Distance to the last stop as a share of the frame's greater side")] = 0.5
     aspect: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Aspect", description="Horizontal radius over vertical radius")] = 1.0
     angle: Annotated[Finite, msgspec.Meta(title="Angle", description="Turn of the ellipse"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
@@ -251,7 +246,7 @@ class Diamond(Case, frozen=True, kw_only=True, tag=4):
     title = "Diamond"
     origin: Annotated[Position, msgspec.Meta(title="Origin", description="Center as a share of each frame side")] = (0.5, 0.5)
     angle: Annotated[Finite, msgspec.Meta(title="Angle", description="Turn of the rings"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    radius: Annotated[_Extent, msgspec.Meta(title="Radius", description="Distance to the last stop as a share of the frame's greater side")] = 0.5
+    radius: Annotated[FrameExtent, msgspec.Meta(title="Radius", description="Distance to the last stop as a share of the frame's greater side")] = 0.5
 
 
 class Rectangular(Case, frozen=True, kw_only=True, tag=5):
@@ -260,8 +255,8 @@ class Rectangular(Case, frozen=True, kw_only=True, tag=5):
     title = "Rectangular"
     origin: Annotated[Position, msgspec.Meta(title="Origin", description="Center of the rings")] = (0.5, 0.5)
     angle: Annotated[Finite, msgspec.Meta(title="Angle", description="Turn of the rings"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    width: Annotated[_Extent, msgspec.Meta(title="Width", description="Horizontal distance to the last stop")] = 0.5
-    height: Annotated[_Extent, msgspec.Meta(title="Height", description="Vertical distance to the last stop")] = 0.5
+    width: Annotated[FrameExtent, msgspec.Meta(title="Width", description="Horizontal distance to the last stop")] = 0.5
+    height: Annotated[FrameExtent, msgspec.Meta(title="Height", description="Vertical distance to the last stop")] = 0.5
 
 
 class Solid(Case, frozen=True, kw_only=True, tag=1):
@@ -308,8 +303,8 @@ class Cells(Case, frozen=True, kw_only=True, tag=4):
 class Outline(msgspec.Struct, frozen=True, kw_only=True):
     """Ring outside the field."""
 
-    width: Annotated[_Length, msgspec.Meta(title="Width", description="Ring width as a share of the frame's greater side")] = 0.01
-    offset: Annotated[_Length, msgspec.Meta(title="Offset", description="Gap between the field and the ring as a share of the frame's greater side")] = 0.0
+    width: Annotated[FrameLength, msgspec.Meta(title="Width", description="Ring width as a share of the frame's greater side")] = 0.01
+    offset: Annotated[FrameLength, msgspec.Meta(title="Offset", description="Gap between the field and the ring as a share of the frame's greater side")] = 0.0
     color: Annotated[Rgb[Finite], msgspec.Meta(title="Color", description="Scene-linear color of the ring")] = Rgb(red=1.0, green=0.0, blue=0.0)
 
 
@@ -323,8 +318,8 @@ class Shapes(Effect, frozen=True, kw_only=True, tag=34):
     fill: Annotated[Gated[Paint], msgspec.Meta(title="Fill", description="Color covering the field")] = Gated(enabled=True, value=Solid())
     outline: Annotated[Gated[Outline], msgspec.Meta(title="Outline", description="Ring outside the field")] = Gated(enabled=False, value=Outline())
     emission: Annotated[Gated[Emission], msgspec.Meta(title="Emission", description="Light the field adds")] = Gated(enabled=False, value=Emission(spectrum=Tint()))
-    softness: Annotated[_Length, msgspec.Meta(title="Softness", description="Edge ramp width beyond one pixel as a share of the frame's greater side")] = 0.0
-    roughness: Annotated[_Length, msgspec.Meta(title="Roughness", description="Noise amplitude displacing the geometric edge")] = 0.0
+    softness: Annotated[FrameLength, msgspec.Meta(title="Softness", description="Edge ramp width beyond one pixel as a share of the frame's greater side")] = 0.0
+    roughness: Annotated[FrameLength, msgspec.Meta(title="Roughness", description="Noise amplitude displacing the geometric edge")] = 0.0
     edge_noise: Annotated[Basis, msgspec.Meta(title="Edge Noise", description="Texture displacing the field before coverage")] = Perlin(
         size=0.4, stretch=1.0, fractal=Fractal.RIDGED_MULTIFRACTAL, octaves=Octaves(detail=15.0, roughness=0.9), distortion=1.9, gain=74.5, cut=Cut(interpolation=Interpolation.LINEAR)
     )

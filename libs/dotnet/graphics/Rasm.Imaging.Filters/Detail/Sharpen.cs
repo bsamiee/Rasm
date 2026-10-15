@@ -91,7 +91,7 @@ public sealed record LocalContrast(AxisFraction Highlights, AxisFraction Shadows
         double grid = 64d / ReferenceFrame.Height * context.Extent.ShortSide;
         int pitch = (int)double.Ceiling(grid);
         return (Spread(grid), Spread(0.5d * ReferenceFrame.GreaterSide / 6d * context.Extent.ShortSide))
-            .Apply((fine, broad) => Filter(state, context, frame, progress, pitch, fine, broad)).As().Bind(identity);
+            .Apply((fine, broad) => Filter(state, context, frame, progress, pitch, fine, broad)).As().Flatten();
 
         Fin<(double Sigma, long Taps)> Spread(double sigma) =>
             (double.Sqrt(double.Max((sigma * sigma) - ((double)pitch * pitch / 4d), 0d)) / pitch) switch { var spread => PixelSampling.GaussianTaps<long>(spread).Map(taps => (spread, taps)) };

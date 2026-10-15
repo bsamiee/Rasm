@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-second-count-arithmetic
+language: rust
+severity: error
+rule:
+    kind: 'binary_expression, compound_assignment_expr'
+    pattern: $SITE
+    matches: rust-second-count-split
+message: '`$SITE` splits a second count into hours, days, or weeks by hand'
+note: 'Build a `jiff::SignedDuration::from_secs(<seconds>)` and read `as_hours`, `as_mins`, or `jiff::Span::total(jiff::Unit::Day)`, or print it with `{:#}` (jiff''s friendly format), the literal restates a calendar fact jiff owns. A day is not 86400 seconds across a zone transition'

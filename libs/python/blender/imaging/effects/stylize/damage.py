@@ -180,8 +180,8 @@ class Hairs(msgspec.Struct, frozen=True, kw_only=True):
             warped = at.copy()
             warped[:, :2] += self.curl * self.length * (2.0 * np.column_stack(tuple(field[:, 0] for field in fields)) - 1.0)
             warped[:, 3] = clock * self.rate
-            return cellular(Voronoi(dimensions=3, spacing=self.length, feature=Feature.DISTANCE_TO_EDGE), warped, seed=seed, stream=Noise.HAIRS).bind(
-                lambda edge: strands.map(lambda trim: composed(edge.value, edge.color, trim[:, 0]))
+            return cellular(Voronoi(dimensions=3, spacing=self.length, feature=Feature.DISTANCE_TO_EDGE), warped, seed=seed, stream=Noise.HAIRS).map2(
+                strands, lambda edge, trim: composed(edge.value, edge.color, trim[:, 0])
             )
 
         def composed(distance: npt.NDArray[np.float64], color: npt.NDArray[np.float64], trim: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -354,15 +354,12 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
             Native result RGBA and scalar damage key, with joint replicate error or provider faults.
         """
 
-        def buffered(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
-            return Error((ImagingBufferFault(request=image, error=image.geterror()),)) if image.has_error else Ok(image)
-
         def located(values: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
             image = OpenImageIO.ImageBuf(values)
             image.copy_metadata(source)
             image.set_origin(source.xbegin, source.ybegin, source.zbegin)
             image.roi_full = source.roi_full
-            return buffered(image)
+            return ImagingBufferFault.checked(image)
 
         def pixels(image: OpenImageIO.ImageBuf) -> ImagingResult[npt.NDArray[np.float32]]:
             return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=image, error=image.geterror()),))
@@ -390,7 +387,9 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
                 transform = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, float(shift[0] / step_x), float(-shift[1] / step_y), 1.0)
                 moved = (
                     accumulated(
-                        located(replicate.astype(np.float32)).bind(lambda image: buffered(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, False, "clamp"))).bind(pixels)
+                        located(replicate.astype(np.float32))
+                        .bind(lambda image: ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, False, "clamp")))
+                        .bind(pixels)
                         for replicate in marked
                     )
                     if self.weave.enabled

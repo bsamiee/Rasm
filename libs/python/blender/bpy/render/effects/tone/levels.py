@@ -45,7 +45,7 @@ def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneC
         .bind(lambda config: samples_of(config, file.pixels))
         .map(Samples.extent)
         .map(option.bind(lambda extent: Levels.of(extent.low, extent.white)))
-        .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+        .map_error(BlenderImagingFault.lifted)
     )
     return (
         paired(found, levels.read(identity, entry))

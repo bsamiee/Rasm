@@ -25,11 +25,11 @@ public static class CanvasChrome {
         DisposalOps.Acquire(keep =>
         from projected in groups.TraverseM(@group => @group.TraverseM(command => Project(command, scope)).As().Map(static entries => entries.Flatten())).As()
         from bar in IO.lift(() => new Bar([.. projected
-            .Map(static (@group, index) => (index == 0 ? Seq<BarItem>() : Seq<BarItem>(Spacer.Default())).Concat(@group.Map(static entry => entry.Item)))
+            .Map(static (@group, index) => (index is 0 ? Seq<BarItem>() : Seq<BarItem>(Spacer.Default())).Concat(@group.Map(static entry => entry.Item)))
             .Flatten()]) { Style = BarStyle.DefaultWithoutCategories })
         from control in DisposalOps.Acquire(IO.lift(() => new BarControl(bar)), static held => IO.lift(held.Dispose), keep)
         from refreshes in projected.Flatten().TraverseM(entry => entry.Link(control, keep)).As()
-        let refresh = Callbacks.Each(refreshes.Add(IO.lift(bar.Invalidate))).Map(static _ => unit)
+        let refresh = Callbacks.Each(refreshes.Add(IO.lift(bar.Invalidate))).Map(unit)
         from shown in refresh
         select (Control: control, Refresh: refresh), (_, release) => retain(release));
 
@@ -101,7 +101,7 @@ public static class CanvasChrome {
         Seq<(FloatingCommand Command, Seq<FloatingAction> Actions)> rows = commands.Map(command => (Command: command, Actions: Actions(command.Command, scope.Sink)));
         return DisposalOps.Acquire(keep =>
             from held in rows.TraverseM(row => row.Actions.TraverseM(action => Added(control, row, action, scope, keep)).As()).As()
-            let refresh = Callbacks.Each(from row in rows from action in row.Actions select Shown(control.FloatingButtons, row.Command, action, scope)).Map(static _ => unit)
+            let refresh = Callbacks.Each(from row in rows from action in row.Actions select Shown(control.FloatingButtons, row.Command, action, scope)).Map(unit)
             from shown in refresh
             select refresh, (_, release) => retain(release));
     }
@@ -126,7 +126,7 @@ public static class CanvasChrome {
             FloatingButtonHandler click = (button, _) => Callbacks.Answer(
                 scope, at => action.Execute(at)
                     .Bind(_ => Callbacks.Each(row.Actions.Map(member => Shown(button.Control.FloatingButtons, row.Command, member, scope))))
-                    .Map(static _ => Response.Handled),
+                    .Map(Response.Handled),
                 static () => Response.Handled,
                 new CallbackSite(scope.Sink, typeof(FloatingButton), action.Face.Name));
             _ = row.Command.Placement.Match(

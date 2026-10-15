@@ -20,7 +20,7 @@ from blender.imaging.color.processors import matching
 from blender.imaging.effects.optics.defocus import Aperture
 from blender.imaging.faults import ImagingDiffractionFault, ImagingResult, ImagingSpecksFault
 from blender.imaging.hashing import content_hash, rng
-from blender.imaging.parameters import Gated, GraphForm, Presentation, Quantity, Rgb, Seed
+from blender.imaging.parameters import Gated, GraphForm, Positive, Presentation, Quantity, Rgb, Seed
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -46,9 +46,7 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
         """Optional diffraction computation, absent at zero core or a closed iris."""
         return Nothing if self.core == 0.0 or self.iris.obstruction == 1.0 else Some(self._kernel)
 
-    def _kernel(
-        self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
-    ) -> ImagingResult[npt.NDArray[np.float32]]:
+    def _kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Positive) -> ImagingResult[npt.NDArray[np.float32]]:
         """Returns spectral diffraction weights over every frame displacement.
 
         Args:

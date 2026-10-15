@@ -78,12 +78,20 @@ With CAD2Cube scaling by `$INSUNITS` in `units_mode="AUTO"` and reading unitless
 ```python
 import bpy
 import ezdxf
+from ezdxf.enums import InsertUnits
+from ezdxf.units import conversion_factor
 
-meters = {1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1.0, 21: 1200 / 3937}
-units = ezdxf.readfile("<file>.dxf").header.get("$INSUNITS", 0)
-bpy.ops.import_scene.cad2cube_dxf(filepath="<file>.dxf", units_mode="MANUAL", manual_scale=meters.get(units, <meters per the drawing's stated unit>), recenter_mode="NONE", frame_after_import=False, color_by_layer=False, import_text=True)
+match InsertUnits(ezdxf.readfile("<file>.dxf").header.get("$INSUNITS", 0)):
+    case InsertUnits.Unitless:
+        scale = <meters per the drawing's stated unit>
+    case InsertUnits.USSurveyFeet:
+        scale = 1200 / 3937
+    case units:
+        scale = conversion_factor(units, InsertUnits.Meters)
+bpy.ops.import_scene.cad2cube_dxf(filepath="<file>.dxf", units_mode="MANUAL", manual_scale=scale, recenter_mode="NONE", frame_after_import=False, color_by_layer=False, import_text=True)
 ```
 
+- `conversion_factor` raises `TypeError` for units with no meter factor in `ezdxf.units.METER_FACTOR` (US survey units, microinches, mils)
 - `recenter_mode="NONE"` keeps coordinates, the default `BBOX` moving the drawing's box center to the origin
 - `frame_after_import=False` and `color_by_layer=False` leave viewports as found, the defaults reframing and recoloring every 3D view
 - Layers become collections under `<file stem>`

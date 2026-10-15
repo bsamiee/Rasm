@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bezier-basis-by-hand
+language: rust
+severity: error
+utils:
+    product:
+        kind: binary_expression
+        has: {field: operator, regex: '^\*$'}
+    complement:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^-$'}
+            - has: {field: left, kind: float_literal, regex: '^1(\.0*)?(_?f(32|64))?$'}
+            - has: {field: right, kind: identifier, pattern: $T}
+    complement-factor:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: complement}
+            - kind: identifier
+              pattern: $M
+              inside:
+                kind: function_item
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $M}}, {has: {field: value, matches: complement}}]}
+    parameter-factor:
+        any:
+            - kind: identifier
+              pattern: $T
+            - kind: call_expression
+              pattern: $T.powi($_)
+rule:
+    matches: product
+    pattern: $TERM
+    all:
+        - not: {inside: {matches: product}}
+        - has: {stopBy: {not: {matches: product}}, kind: float_literal, regex: '^3(\.0*)?(_?f(32|64))?$'}
+        - has: {stopBy: {not: {matches: product}}, matches: complement-factor}
+        - has: {stopBy: {not: {matches: product}}, matches: parameter-factor}
+message: '`$TERM` spells a cubic Bernstein term in `$T` by hand'
+note: 'Build `kurbo::CubicBez::new(p0, p1, p2, p3)` and call `eval(t)` from `kurbo::ParamCurve`. `kurbo::ParamCurveDeriv` and `kurbo::ParamCurveArclen` give tangent and arc length'

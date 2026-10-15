@@ -79,14 +79,14 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
     def files(self, identity: Identity) -> BlenderResult[tuple[Path, ...]]:
         """Lists every published effect file in the extension's asset folder."""
         folder = self.library.located(identity)
-        return catch(lambda: tuple(folder.glob("effects_*.blend")), exception=OSError)().map_error(lambda error: (BlenderReadFault(request=str(folder), error=error),))
+        return catch(lambda: tuple(folder.glob("effects_*.blend")), exception=OSError)().map_error(lambda error: (BlenderReadFault(request=folder, error=error),))
 
     def retired(self, identity: Identity) -> BlenderResult[None]:
         """Removes published files of rows the stack no longer offers."""
         kinds = tuple(f"effects_{row.kind}." for row in self.stack.standalone)
         return self.files(identity).bind(
             lambda files: accumulated(
-                catch(file.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(file), error=error),)) for file in files if not file.name.startswith(kinds)
+                catch(file.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=file, error=error),)) for file in files if not file.name.startswith(kinds)
             ).map(lambda _: None)
         )
 
@@ -127,9 +127,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
             def stale(path: Path) -> BlenderResult[Option[Path]]:
                 return accumulated(
-                    catch(file.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(file), error=error),))
-                    for file in files
-                    if file != path and file.name.startswith(prefix)
+                    catch(file.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=file, error=error),)) for file in files if file != path and file.name.startswith(prefix)
                 ).map(lambda _: Some(path))
 
             return Ok(Nothing) if target in files else entry(record, group).bind(lambda asset: published(identity, folder, stem, (asset,))).bind(stale)

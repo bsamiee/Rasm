@@ -1,8 +1,10 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import { D1Client } from '@effect/sql-d1';
+import type { InferEnv, UnwrapConfig } from 'cf/config';
 import { Function, Layer, String } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
+import type config from '../cloudflare.config.ts';
 import { Api } from '../model/api.ts';
 import { content } from './content.ts';
 import { download, media } from './media.ts';
@@ -11,12 +13,7 @@ import { owner } from './session.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Bindings {
-    DB: D1Database;
-    BUCKET: R2Bucket;
-    ASSETS: Fetcher;
-    OWNER_EMAIL: string;
-}
+type Bindings = InferEnv<UnwrapConfig<UnwrapConfig<typeof config>['worker']>>;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

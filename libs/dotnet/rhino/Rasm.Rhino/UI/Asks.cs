@@ -53,7 +53,7 @@ public static class HostDialogs {
             .ToFin(Errors.Cancelled));
 
     public static IO<Seq<(T Item, bool Checked)>> ShowCheckListBox<T>(LocalizeStringPair title, LocalizeStringPair message, Seq<(Captioned<T> Row, bool Checked)> rows) where T : notnull =>
-        IO.lift(() => Optional(Dialogs.ShowCheckListBox(title.Local, message.Local, rows.Map(static row => row.Row).ToArray(), rows.Map(static row => row.Checked).ToArray()))
+        IO.lift(() => Optional(Dialogs.ShowCheckListBox(title.Local, message.Local, rows.Map(static row => row.Row).ToArray(), [.. rows.Map(static row => row.Checked)]))
             .Map(states => rows.Zip(toSeq(states), static (row, state) => (Item: row.Row.Value, Checked: state)).Strict())
             .ToFin(Errors.Cancelled));
 
@@ -184,7 +184,7 @@ public static class HostDialogs {
             () => new Eto.Forms.SelectFolderDialog { Title = title.Local },
             dialog =>
                 from seeded in IO.lift(() => directory.Iter(path => dialog.Directory = path))
-                from chosen in IO.lift(() => Accepted(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc)) == Eto.Forms.DialogResult.Ok, dialog.Directory))
+                from chosen in IO.lift(() => Accepted(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc)) is Eto.Forms.DialogResult.Ok, dialog.Directory))
                 select chosen,
             static dialog => IO.lift(dialog.Dispose))
         select folder;
@@ -200,7 +200,7 @@ public static class HostDialogs {
                 static () => new Eto.Forms.CheckBox { Text = RowText.Localize("Do not show this dialog again").Local },
                 box =>
                     from answer in show(box)
-                    from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(static _ => unit)).As()
+                    from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(unit)).As()
                     select (Suppressible<T>)new Suppressible<T>.Shown(answer.Value),
                 static box => IO.lift(box.Dispose))
             : IO.pure<Suppressible<T>>(new Suppressible<T>.Suppressed())

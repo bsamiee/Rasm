@@ -1,7 +1,6 @@
 """Tone curves, rendering primaries, and frame-adapted photoreceptor parameters."""
 
 import math
-import sys
 from typing import Annotated, ClassVar, override
 
 from expression import Error, Nothing, Ok, Option, Some
@@ -14,7 +13,7 @@ import PyOpenColorIO
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.color.processors import basis, matrix
 from blender.imaging.faults import ImagingBaseFault, ImagingContrastFault, ImagingResult, ImagingWhiteFault
-from blender.imaging.parameters import Case, ColorSpace, Finite, Gated, Presentation, Stops
+from blender.imaging.parameters import Case, ColorSpace, Finite, Gated, Positive, Presentation, Stops
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -151,9 +150,7 @@ class Photoreceptor(Effect, frozen=True, kw_only=True, tag=6):
         Finite, msgspec.Meta(title="Intensity", description="Brightness, scaling adaptation by e to the negative intensity"), Presentation(soft=Some((-8.0, 8.0)), decimals=Some(3))
     ] = 0.0
     contrast: Annotated[
-        Gated[Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]],
-        msgspec.Meta(title="Contrast", description="Response exponent, off deriving it from the frame's luminance range"),
-        Presentation(soft=Some((0.3, 1.0)), decimals=Some(3)),
+        Gated[Positive], msgspec.Meta(title="Contrast", description="Response exponent, off deriving it from the frame's luminance range"), Presentation(soft=Some((0.3, 1.0)), decimals=Some(3))
     ] = Gated(enabled=False, value=1.0)
     light_adaptation: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Light Adaptation", description="Blend from frame adaptation at 0 to pixel adaptation at 1")] = 0.0
     chromatic_adaptation: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Chromatic Adaptation", description="Blend from luminance at 0 to each channel at 1")] = 0.0

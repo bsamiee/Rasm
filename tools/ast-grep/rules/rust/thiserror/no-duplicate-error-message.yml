@@ -2,7 +2,6 @@
 id: no-duplicate-error-message
 language: rust
 severity: error
-files: ['libs/rust/**', 'tools/bridge/**']
 rule:
     kind: attribute_item
     pattern: $ATTRIBUTE

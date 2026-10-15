@@ -19,7 +19,7 @@ internal sealed record GradingTone(ZoneSpan Blacks, ZoneSpan Shadows, ZoneSpan M
     private static readonly Func<float, float> Identity = static lane => lane;
 
     public Option<Action<Span<Vector4>>> Kernel(GradingStyle style) =>
-        toSeq([Blacks, Shadows, Midtones, Highlights, Whites]).ForAll(static zone => zone.Values == Vector4.One) && SContrast == 1f
+        toSeq([Blacks, Shadows, Midtones, Highlights, Whites]).ForAll(static zone => zone.Values == Vector4.One) && SContrast is 1f
             ? None
             : Composed(style);
 
@@ -53,7 +53,7 @@ internal sealed record GradingTone(ZoneSpan Blacks, ZoneSpan Shadows, ZoneSpan M
         };
 
     private static Func<float, float> Middle(GradingStyle style, float value, float start, float width) =>
-        value == 1f
+        value is 1f
             ? Identity
             : float.Min(width, (style.Top - style.Bottom) * 0.95f) switch {
                 var span => float.Clamp(start, style.Bottom + (span * 0.51f), style.Top - (span * 0.51f)) switch {
@@ -102,7 +102,7 @@ internal sealed record GradingTone(ZoneSpan Blacks, ZoneSpan Shadows, ZoneSpan M
         };
 
     private static Func<float, float> Contrasted(GradingStyle style, float contrast) =>
-        contrast == 1f
+        contrast is 1f
             ? Identity
             : (contrast > 1f ? 1f / (1.8125f - (0.8125f * contrast)) : 0.28125f + (0.71875f * contrast)) switch {
                 var slope => (Lower(style, slope), Upper(style, slope)) switch {

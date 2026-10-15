@@ -10,7 +10,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Save
-from blender.bpy.data.ids.images import Production, production, productions, read, render_result, saved, viewer_image
+from blender.bpy.data.ids.images import built, Production, production, productions, read, saved
 from blender.bpy.data.rna.conditions import AllOf, Job, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity, Key
@@ -121,13 +121,9 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True):
         if scene is None:
             return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
         return (
-            paired(saved(scene).bind(lambda path: Multilayer.read(path).map_error(lambda faults: (BlenderImagingFault(faults=faults),))), config_of())
-            .bind(
-                lambda pair: self.source.document(call.identity, scene, pair[0], call.record.depth).bind(
-                    lambda document: document.written(target, pair[1]).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-                )
-            )
-            .map(lambda _: Done(notes=(("INFO", f"Wrote {target}"),)))
+            paired(saved(scene).bind(lambda path: Multilayer.read(path).map_error(BlenderImagingFault.lifted)), config_of())
+            .bind(lambda pair: self.source.document(call.identity, scene, pair[0], call.record.depth).bind(lambda document: document.written(target, pair[1]).map_error(BlenderImagingFault.lifted)))
+            .map(lambda _: Done.wrote((target,)))
         )
 
 
@@ -158,8 +154,12 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
                 optics = Nothing
 
         def wrote(frame: npt.NDArray[np.float32], exposure: float, config: PyOpenColorIO.Config) -> BlenderResult[Done]:
-            raw = LinearRaw(make="Blender", model=bpy.app.version_string, exposure=exposure, optics=optics)
-            return raw.written(target, frame, config).map_error(lambda faults: (BlenderImagingFault(faults=faults),)).map(lambda _: Done(notes=(("INFO", f"Wrote {target}"),)))
+            return (
+                LinearRaw(make="Blender", model=bpy.app.version_string, exposure=exposure, optics=optics)
+                .written(target, frame, config)
+                .map_error(BlenderImagingFault.lifted)
+                .map(lambda _: Done.wrote((target,)))
+            )
 
         view: BlenderResult[bpy.types.ColorManagedViewSettings] = Option.of_optional(scene.view_settings).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),))
         exposure = paired(view, self.gain.stops(call.identity, scene)).map(lambda pair: pair[0].exposure + pair[1])
@@ -183,14 +183,14 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
                     written = ImageFile(pixels=codes(unassociated(file.pixels), 16), colorspace=file.colorspace).write(target, Storage(compression=compressed), metadata, config)
                 case Depth.HALF | Depth.FLOAT as floated:
                     written = file.write(target, Storage(depth=16 if floated is Depth.HALF else 32, compression=compressed), metadata, config)
-            return written.map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+            return written.map_error(BlenderImagingFault.lifted)
 
         def encoded(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
             def converted(space: str) -> BlenderResult[ImageFile[np.float32]]:
                 return (
                     processor(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=space))
                     .map(lambda built: ImageFile(pixels=applied(built.getDefaultCPUProcessor(), file.pixels), colorspace=space))
-                    .map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                    .map_error(BlenderImagingFault.lifted)
                 )
 
             return Ok(file) if config.getColorSpace(file.colorspace).isData() else display_space(config, record.display).bind(converted)
@@ -200,19 +200,21 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
                 def viewed(settings: tuple[DisplayView, float, float]) -> BlenderResult[ImageFile[np.float32]]:
                     view, exposure, gamma = settings
                     return paired(
-                        view.form(config, pixels, source=origin.space, exposure=exposure, gamma=gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                        view.form(config, pixels, source=origin.space, exposure=exposure, gamma=gamma).map_error(BlenderImagingFault.lifted),
                         view.colorspace(config).to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"{view.display}/{view.view}"),)),
                     ).map(lambda values: ImageFile(pixels=values[0], colorspace=values[1].getName()))
 
                 return origin.view.map(viewed).default_value(Ok(ImageFile(pixels=pixels, colorspace=origin.space))) if record.save_as_render else Ok(ImageFile(pixels=pixels, colorspace=origin.space))
 
             def sourced(native: bpy.types.Image, origin: Production) -> BlenderResult[ImageFile[np.float32]]:
-                pixels = origin.layer.map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: plane(path, (layer,), ("R", "G", "B", "A")))).default_with(
-                    lambda: read(native, config).map(lambda file: file.pixels)
+                return (
+                    origin.layer
+                    .map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: plane(path, (layer,), ("R", "G", "B", "A"))))
+                    .default_with(lambda: read(native, config).map(lambda file: file.pixels))
+                    .bind(lambda values: formed(values, origin))
                 )
-                return pixels.bind(lambda values: formed(values, origin))
 
-            return (render_result() if record.source is Source.RESULT else viewer_image()).bind(lambda native: production(native).bind(lambda origin: sourced(native, origin)))
+            return built("RENDER_RESULT" if record.source is Source.RESULT else "COMPOSITING").bind(lambda native: production(native).bind(lambda origin: sourced(native, origin)))
 
         selected: BlenderResult[Format] = writer(record.format).to_result_with(lambda: (BlenderAbsentFault(owner="OpenImageIO.extension_list", key=record.format),))
         return (
@@ -220,7 +222,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
             .bind(selected, lambda chosen: sample(chosen, record.depth))
             .bind(lambda _: config_of())
             .bind(lambda config: image(config).bind(lambda file: encoded(file, config)).bind(lambda file: stored(file, config)))
-            .map(lambda _: Done(notes=(("INFO", f"Wrote {target}"),)))
+            .map(lambda _: Done.wrote((target,)))
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
@@ -299,7 +301,7 @@ def image_type(kinds: tuple[str, ...]) -> Setting:
 
 def config_of() -> BlenderResult[PyOpenColorIO.Config]:
     """Returns Blender's admitted OCIO configuration or its complete imaging faults."""
-    return admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_SCENE_LINEAR,)).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+    return admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_SCENE_LINEAR,)).map_error(BlenderImagingFault.lifted)
 
 
 def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> BlenderResult[npt.NDArray[np.float32]]:
@@ -315,11 +317,11 @@ def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Blend
         return Result[Layer, BlenderFaults].bind(
             chosen,
             lambda found: Result[tuple[Channel, ...], BlenderFaults].bind(
-                accumulated(channel(found.channels, found.name, name) for name in channels), lambda chosen: file.plane(found, chosen).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
+                accumulated(channel(found.channels, found.name, name) for name in channels), lambda chosen: file.plane(found, chosen).map_error(BlenderImagingFault.lifted)
             ),
         )
 
-    return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path).map_error(lambda faults: (BlenderImagingFault(faults=faults),)), picked)
+    return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path).map_error(BlenderImagingFault.lifted), picked)
 
 
 def displayed(viewing: Viewing, identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
@@ -340,7 +342,7 @@ def displayed(viewing: Viewing, identity: Identity, scene: bpy.types.Scene, plan
                     Result[bpy.types.ColorManagedViewSettings, BlenderFaults]
                     .bind(
                         Option.of_optional(scene.view_settings).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),)),
-                        lambda held: view.form(config, plane, source=source, exposure=held.exposure, gamma=held.gamma).map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                        lambda held: view.form(config, plane, source=source, exposure=held.exposure, gamma=held.gamma).map_error(BlenderImagingFault.lifted),
                     )
                     .bind(lambda pixels: named(view, pixels))
                 )
@@ -351,7 +353,7 @@ def displayed(viewing: Viewing, identity: Identity, scene: bpy.types.Scene, plan
             lambda view: Result[npt.NDArray[np.float32], BlenderFaults].bind(
                 processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
                 .map(lambda built: applied(built.getDefaultCPUProcessor(), plane))
-                .map_error(lambda faults: (BlenderImagingFault(faults=faults),)),
+                .map_error(BlenderImagingFault.lifted),
                 lambda pixels: named(view, pixels),
             )
         ).default_with(native)

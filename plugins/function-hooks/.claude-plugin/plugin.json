@@ -1,48 +1,16 @@
 {
     "name": "function-hooks",
-    "description": "Tool policies, edit formatting and diagnostics through Nx targets, service status, and optional event records and finding delivery",
+    "version": "1.0.0",
+    "description": "Mod that runs Bash commands through repository Nx targets and refuses unsafe forms",
     "author": {
         "name": "Bardia Samiee"
     },
-    "types": "./hooks/state.d.ts",
     "userConfig": {
         "project": {
             "type": "string",
             "title": "Project",
-            "description": "Nx project owning the repository's format, lint, and rewrite targets",
+            "description": "Nx project owning the repository's clean, format, lint, and rewrite targets",
             "default": "rasm"
-        },
-        "observation": {
-            "type": "boolean",
-            "title": "Observation",
-            "description": "Recording of hook events and refused calls as database rows, agent spawns and finding delivery at stop boundaries",
-            "default": false
-        },
-        "editThreshold": {
-            "type": "number",
-            "title": "Edit threshold",
-            "description": "Unjudged in-tree files edited on a lineage that spawn the edit agent at a quiet boundary, 0 off",
-            "default": 20,
-            "min": 0
-        },
-        "editAgent": {
-            "type": "string",
-            "title": "Edit agent",
-            "description": "Agent under .claude/agents/ that judges the unjudged edits of one lineage's range",
-            "default": "shape-cataloger"
-        },
-        "categoryThreshold": {
-            "type": "number",
-            "title": "Category threshold",
-            "description": "Confirmed sites a recurring category needs to spawn the category agent at a quiet boundary, 0 off",
-            "default": 2,
-            "min": 0
-        },
-        "categoryAgent": {
-            "type": "string",
-            "title": "Category agent",
-            "description": "Agent under .claude/agents/ that builds a checker rule for one recurring category",
-            "default": "ast-grep-rule-builder"
         }
     }
 }

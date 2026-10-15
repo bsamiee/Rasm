@@ -1,4 +1,5 @@
 import Foundation
+import RasmMacOS
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,7 +15,6 @@ nonisolated struct SavedAccount: Sendable {
 nonisolated enum AccountStorageError: Error {
     case invalidAccount(id: UUID, error: IdentityError)
     case invalidUsage(id: UUID, kind: QuotaKind, failure: QuotaFailure)
-    case duplicateAccount(id: UUID)
 }
 
 nonisolated enum AccountStorageFailure: LocalizedError {
@@ -76,34 +76,7 @@ actor AccountStorage {
         }
 
         func savedAccounts(at now: Date) -> Result<[SavedAccount], AccountStorageFailure> {
-            let checked: [Result<SavedAccount, AggregateError<AccountStorageError>>] = records.map { record in
-                record.savedAccount(at: now)
-            }
-            let identities: [AccountIdentity?] = checked.map { result in
-                if case .success(let saved) = result { saved.account.identity } else { nil }
-            }
-            let accounts: Result<[SavedAccount], AggregateError<AccountStorageError>> = traverse(checked, \.self)
-            let duplicates: [AccountStorageError] = records.indices
-                .filter { index in isDuplicate(index, identities: identities) }
-                .map { index in .duplicateAccount(id: records[index].id) }
-            let uniqueness: Result<Void, AggregateError<AccountStorageError>> =
-                AggregateError(collecting: duplicates).map(Result.failure)
-                ?? .success(())
-            return combine(accounts, uniqueness)
-                .map { accounts, _ in accounts }
-                .mapError(AccountStorageFailure.invalidData)
-        }
-
-        private func isDuplicate(_ index: Int, identities: [AccountIdentity?]) -> Bool {
-            let record: Record = records[index]
-            let repeatedID: Bool = records[..<index].contains { earlier in earlier.id == record.id }
-            let repeatedIdentity: Bool =
-                identities[index].map { identity in
-                    zip(records[..<index], identities[..<index]).contains { earlier, candidate in
-                        earlier.provider == record.provider && candidate?.isSameAccount(as: identity) == true
-                    }
-                } ?? false
-            return repeatedID || repeatedIdentity
+            traverse(records) { record in record.savedAccount(at: now) }.mapError(AccountStorageFailure.invalidData)
         }
     }
 
@@ -140,7 +113,7 @@ actor AccountStorage {
                 plan: plan,
             ).mapError { failure in failure.map { error in .invalidAccount(id: id, error: error) } }
             let snapshot: Result<AccountUsage?, AggregateError<AccountStorageError>> =
-                usage.map { value in value.accountUsage(id: id).map(Optional.some) } ?? .success(nil)
+                usage?.accountUsage(id: id).map(Optional.some) ?? .success(nil)
             return combine(identity, snapshot).map { identity, snapshot in
                 SavedAccount(
                     account: Account(
@@ -172,7 +145,7 @@ actor AccountStorage {
 
         func quotaWindow(id: UUID) -> Result<QuotaWindow, AggregateError<AccountStorageError>> {
             UsageAmount.make(percent: percent)
-                .mapError { failure in AggregateError(first: .invalidUsage(id: id, kind: kind, failure: failure), remaining: []) }
+                .mapError { failure in AggregateError(first: .invalidUsage(id: id, kind: kind, failure: failure)) }
                 .map { amount in QuotaWindow(kind: kind, used: amount, resetsAt: resetsAt, rejected: rejected) }
         }
     }

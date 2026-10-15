@@ -14,6 +14,11 @@ using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI.Rows;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+public interface IRowParameter<TRecord> : IStateParameter<TRecord> {
+    public ParameterText Text { get; }
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommitMode {
@@ -432,7 +437,7 @@ public sealed class RowScope {
     public IO<bool> Visibility => visibility.ValueIO.Map(static held => held.Visible);
 
     public IO<Unit> Shown(bool visible) => visibility.SwapIO(held => held with { Visible = visible })
-        .Bind(held => Callbacks.Each(toSeq(held.Listeners).Map(listener => listener(visible)))).Map(static _ => unit);
+        .Bind(held => Callbacks.Each(toSeq(held.Listeners).Map(listener => listener(visible)))).Map(unit);
 
     public IO<Unit> OnVisibility(Func<bool, IO<Unit>> heard, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => {
@@ -453,7 +458,7 @@ public sealed class RowScope {
                 _ = ignore(listeners.Swap(held => held.TryAdd(heard)));
                 return new Disposal<Func<Seq<EntryKey>, IO<Unit>>>(heard, released => ignore(listeners.Swap(held => held.Remove(released))));
             }),
-            static lease => IO.lift(lease.Dispose), retain).Map(static _ => unit);
+            static lease => IO.lift(lease.Dispose), retain).Map(unit);
 
     // --- [STORES]
     public IO<Seq<ValueStore<T>>> Objects<T>(Func<RhinoObject, ValueStore<T>> store) where T : notnull =>
@@ -600,7 +605,7 @@ public sealed class RowScope {
             targets: static _ => ValueSet.Empty,
             contents: static _ => ValueSet.Empty));
 
-    private IO<Unit> Swapped(CommitMode next) => mode.SwapIO(_ => next).Map(static _ => unit);
+    private IO<Unit> Swapped(CommitMode next) => writeIO(mode, next).Map(unit);
 
     private IO<ValueDiff> Drafted(BindingGroup bound, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
         from before in bound.Capture

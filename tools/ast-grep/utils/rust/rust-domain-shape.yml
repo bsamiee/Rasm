@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-domain-shape
+language: rust
+rule:
+    any:
+        - matches: {rust-angle-conversion: {receiver: {pattern: $_}, denominator: {pattern: $_}, degrees: {pattern: $_}, radians: {pattern: $_}}}
+        - matches: {rust-duration-unit-factor: {path: {pattern: $_}, count: {pattern: $_}, secs: {pattern: $_}, millis: {pattern: $_}, micros: {pattern: $_}, nanos: {pattern: $_}}}
+        - matches: rust-binary-header-read
+        - matches: rust-byte-hash-constant
+        - matches: rust-calendar-rule
+        - matches: rust-constant-time-compare
+        - matches: rust-conversion-factor
+        - matches: rust-earth-radius
+        - matches: rust-entity-escape
+        - matches: rust-field-display
+        - matches: rust-geojson-text
+        - matches: rust-hex-by-byte
+        - matches: rust-hex-pair-parse
+        - matches: rust-html-tag-scan
+        - matches: rust-json-pointer-escape
+        - matches: rust-luminance-weight
+        - matches: rust-machine-path
+        - matches: rust-markdown-fence-scan
+        - matches: rust-obj-face
+        - matches: rust-procfs-path
+        - matches: rust-second-count-split
+        - matches: rust-simpson-weight
+        - matches: rust-split-borrow-pair
+        - matches: rust-squared-deviation-sum
+        - matches: rust-srgb-transfer
+        - matches: rust-star-literal-glob
+        - matches: rust-stl-text
+        - matches: rust-template-replace
+        - matches: rust-trace-context-header
+        - matches: rust-utf8-int-parse
+        - matches: rust-variant-name-match
+        - matches: rust-variant-parse-match
+        - matches: rust-verbatim-prefix
+        - matches: rust-cross-product

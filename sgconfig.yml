@@ -18,6 +18,12 @@ customLanguages:
         extensions: [sql]
         expandoChar: _
         outlineRules: tools/ast-grep/outline/sql.yml
+    swiftlang:
+        libraryPath: .cache/ast-grep/swift.so
+        languageSymbol: tree_sitter_swift
+        extensions: [swift]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/swift.yml
 languageInjections:
     - hostLanguage: tsx
       rule:

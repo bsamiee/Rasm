@@ -1,17 +1,19 @@
-import type { SgRoot } from '@ast-grep/napi';
-import { NodeFileSystem, NodePath } from '@effect/platform-node';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ProjectConfiguration, type StaticDependency } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, String, Trie, Tuple } from 'effect';
+import python from '@ast-grep/lang-python';
+import { parseAsync, registerDynamicLanguage } from '@ast-grep/napi';
+import { NodeChildProcessSpawner, NodeFileSystem, NodePath } from '@effect/platform-node';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type Optional, type ProjectConfiguration, parseJson, type StaticDependency, type TargetConfiguration } from '@nx/devkit';
+import { Array, Cause, Effect, FileSystem, Formatter, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, Stream, Trie } from 'effect';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { XMLParser } from 'fast-xml-parser';
+import { globWithWorkspaceContext, hashMultiGlobWithWorkspaceContext, PluginCache, workspaceDataDirectory } from 'nx/src/devkit-internals';
 import { parse as parseToml } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _CRATE = 'Cargo.toml';
-const _DECLARATION = 'pyproject.toml';
-const _PYTHON_LOWER_BOUND = /^>=\s*(?<version>\d+\.\d+)$/u;
+const _CARGO_MANIFEST = 'Cargo.toml';
+const _SWIFT_MANIFEST = 'Package.swift';
+const _PYPROJECT = 'pyproject.toml';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -23,20 +25,32 @@ const _Parsed = (expected: string, decode: (text: string) => unknown): Schema.de
         }),
     );
 const _Toml = _Parsed('TOML', parseToml);
-const _Declaration = _Toml.pipe(
+const _Yaml = _Parsed('YAML', parseYaml);
+const _Version = (pattern: RegExp, expected: string): Schema.decodeTo<Schema.String, Schema.String> =>
+    Schema.String.pipe(
+        Schema.decodeTo(Schema.String, {
+            decode: SchemaGetter.transformEffect((text: string, options) => Effect.fromOption(Option.fromNullishOr(pattern.exec(text)?.groups?.version), () => new SchemaIssue.InvalidValue({ expected }, text, options))),
+            encode: SchemaGetter.forbiddenEncoding,
+        }),
+    );
+const _Mise = _Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
-            project: Schema.Struct({
-                version: Schema.String.pipe(
-                    Schema.decodeTo(Schema.String, {
-                        decode: SchemaGetter.transformEffect((specifier: string, options) => Effect.fromOption(Option.fromNullishOr(_PYTHON_LOWER_BOUND.exec(specifier)?.groups?.version), () => new SchemaIssue.InvalidValue({ expected: 'a >=<major>.<minor> lower bound' }, specifier, options))),
-                        encode: SchemaGetter.forbiddenEncoding,
-                    }),
-                ),
-            }).pipe(Schema.encodeKeys({ version: 'requires-python' })),
+            tools: Schema.Struct({ python: _Version(/^(?<version>\d+\.\d+)\.\d+/u, 'a <major>.<minor>.<patch> release') }),
+            bootstrap: Schema.Struct({ macos: Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Record(Schema.String, Schema.Struct({ args: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })) }) }) }),
         }),
     ),
 );
+const _Sgconfig = _Yaml.pipe(Schema.decodeTo(Schema.Struct({ ruleDirs: Schema.Array(Schema.String) })));
+const _Rule = _Yaml.pipe(
+    Schema.decodeTo(
+        Schema.Struct({
+            id: Schema.String,
+            metadata: Schema.OptionFromOptionalKey(Schema.Struct({ below: _Version(/^(?<version>\d+\.\d+)$/u, 'a <major>.<minor> release') }).pipe(Schema.encodeKeys({ below: 'python-below' }))),
+        }),
+    ),
+);
+const _Host = _Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Schema.Struct({ minimum: _Version(/^>=\s*(?<version>\d+\.\d+)$/u, 'a >=<major>.<minor> lower bound') }).pipe(Schema.encodeKeys({ minimum: 'requires-python' })) })));
 const _Root = _Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
@@ -48,94 +62,167 @@ const _Root = _Toml.pipe(
     ),
 );
 const _Manifest = _Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
-const _Dependencies = Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
-const _TABLES = { dependencies: _Dependencies, devDependencies: _Dependencies, buildDependencies: _Dependencies };
-const _TABLE_KEYS = { devDependencies: 'dev-dependencies', buildDependencies: 'build-dependencies' } as const;
-const _Crate = _Toml.pipe(
+const _Metadata = Schema.fromJsonString(
+    Schema.Struct({
+        packages: Schema.Array(
+            Schema.Struct({
+                name: Schema.String,
+                manifest: Schema.String,
+                targets: Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.Array(Schema.String), types: Schema.Array(Schema.String), test: Schema.Boolean }).pipe(Schema.encodeKeys({ types: 'crate_types' }))),
+                dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.OptionFromOptionalKey(Schema.String) })),
+            }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
+        ),
+        output: Schema.String,
+    }).pipe(Schema.encodeKeys({ output: 'target_directory' })),
+);
+const _SwiftPackage = Schema.fromJsonString(
+    Schema.Struct({
+        targets: Schema.Array(Schema.Struct({ type: Schema.String })),
+        dependencies: Schema.Array(Schema.Struct({ fileSystem: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ path: Schema.String }))) })),
+    }),
+);
+const _XcodeProject = _Parsed('JSON', parseJson).pipe(
     Schema.decodeTo(
         Schema.Struct({
-            package: Schema.Struct({ name: Schema.String }),
-            bin: Schema.Array(Schema.Struct({ name: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            target: Schema.Record(Schema.String, Schema.Struct(_TABLES).pipe(Schema.encodeKeys(_TABLE_KEYS))).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-            ..._TABLES,
-        }).pipe(Schema.encodeKeys(_TABLE_KEYS)),
+            packages: Schema.Array(Schema.Union([Schema.Struct({ kind: Schema.Literal('local'), path: Schema.String }), Schema.Struct({ kind: Schema.Literal('remote') })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        }),
     ),
 );
-const _Row = Schema.Struct({ path: Schema.OptionFromOptionalKey(Schema.String) });
-const _Catalog = _Toml.pipe(Schema.decodeTo(Schema.Struct({ workspace: Schema.Struct({ dependencies: Schema.Record(Schema.String, Schema.Union([Schema.String.pipe(Schema.decodeTo(_Row, { decode: SchemaGetter.transform(() => ({})), encode: SchemaGetter.forbiddenEncoding })), _Row])) }) })));
 const _MSBuildProject = _Parsed('MSBuild XML', (text) => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text)).pipe(
     Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) })),
 );
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+const _Reason = Schema.TaggedUnion({
+    Unglobbed: { patterns: Schema.Array(Schema.String), cause: Schema.Defect() },
+    Unhashed: { patterns: Schema.Array(Schema.String), cause: Schema.Defect() },
+    Unparsed: { file: Schema.String, cause: Schema.Defect() },
+    Exited: { command: Schema.String, args: Schema.Array(Schema.String), code: Schema.Finite },
+});
+class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand: unique symbol }>()('WorkspaceError', { reason: _Reason }) {
+    override get message(): string {
+        return _Reason.match(this.reason, {
+            Unglobbed: ({ patterns, cause }) => `cannot glob ${patterns.join(' ')} in the Nx workspace context: ${Formatter.format(cause)}`,
+            Unhashed: ({ patterns, cause }) => `cannot hash ${patterns.join(' ')} in the Nx workspace context: ${Formatter.format(cause)}`,
+            Unparsed: ({ file, cause }) => `${file} did not parse as Python: ${Formatter.format(cause)}`,
+            Exited: ({ command, args, code }) => `${[command, ...args].join(' ')} exited with code ${code}`,
+        });
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const _glob = (workspace: string, patterns: string[]): Effect.Effect<string[], WorkspaceError> => Effect.tryPromise({ try: () => globWithWorkspaceContext(workspace, patterns), catch: (cause) => WorkspaceError.make({ reason: { _tag: 'Unglobbed', patterns, cause } }) });
+const _hash = (workspace: string, groups: string[][]): Effect.Effect<string[], WorkspaceError> => Effect.tryPromise({ try: () => hashMultiGlobWithWorkspaceContext(workspace, groups), catch: (cause) => WorkspaceError.make({ reason: { _tag: 'Unhashed', patterns: groups.flat(), cause } }) });
 const _decode = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, workspace: string, file: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     return yield* Effect.flatMap(fs.readFileString(path.join(workspace, file)), Schema.decodeEffect(schema));
 });
 const _root = Effect.fnUntraced(function* (workspace: string) {
-    const { tool } = yield* _decode(_Root, workspace, _DECLARATION);
+    const { tool } = yield* _decode(_Root, workspace, _PYPROJECT);
     return { moduleRoot: tool.uv.buildBackend.moduleRoot, ...tool.pytest };
 });
 const _python = Effect.fnUntraced(function* (dir: string, workspace: string, root: ReturnType<typeof _root>) {
     const [path, { moduleRoot, pythonFiles, testPaths }] = yield* Effect.all([Path.Path, root]);
-    const mirrors = Array.map(testPaths, (testPath) => path.join(testPath, dir.startsWith(`${moduleRoot}/`) ? path.join(path.dirname(moduleRoot), path.relative(moduleRoot, dir)) : dir));
-    const tests = yield* Effect.tryPromise(() =>
-        globWithWorkspaceContext(
-            workspace,
-            Array.flatMap(mirrors, (mirror) => Array.map(pythonFiles, (pattern) => `${mirror}/**/${pattern}`)),
-        ),
+    const mirrors = testPaths.map((testPath) => path.join(testPath, dir.startsWith(`${moduleRoot}/`) ? path.join(path.dirname(moduleRoot), path.relative(moduleRoot, dir)) : dir));
+    const tests = yield* _glob(
+        workspace,
+        mirrors.flatMap((mirror) => pythonFiles.map((pattern) => `${mirror}/**/${pattern}`)),
     );
-    const suites = Array.filter(mirrors, (mirror) => Array.some(tests, String.startsWith(`${mirror}/`)));
-    return Array.isReadonlyArrayNonEmpty(suites) ? { check: {}, test: { command: `pytest ${Array.map(suites, (suite) => `"${suite}"`).join(' ')} --cov`, inputs: Array.map(suites, (suite) => `{workspaceRoot}/${suite}/**/*`) } } : {};
+    const suites = mirrors.filter((mirror) => tests.some((test) => test.startsWith(`${mirror}/`)));
+    return suites.length > 0 ? { check: {}, test: { command: 'pytest', options: { args: [...suites, '--cov'] }, inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`) } } : {};
+});
+const _memo = Effect.fnUntraced(function* <A, E, R>(name: string, entries: ReadonlyArray<readonly [key: string, compute: Effect.Effect<A, E, R>]>) {
+    const path = yield* Path.Path;
+    const file = path.join(workspaceDataDirectory, `workspace-${name}.hash`);
+    const cache = yield* Effect.sync(() => new PluginCache<A>(file));
+    const values = yield* Effect.validate(entries, ([key, compute]) => Option.match(Option.fromNullishOr(cache.get(key)), { onNone: () => compute, onSome: Effect.succeed }), { concurrency: 'unbounded' });
+    yield* Effect.sync(() => new PluginCache(file, Object.fromEntries(Array.zipWith(entries, values, ([key], value) => [key, value] as const))).writeToDisk());
+    return values;
 });
 const _sources = Effect.fnUntraced(function* (workspace: string, root: ReturnType<typeof _root>) {
-    const [path, { moduleRoot }, files, parse, rule] = yield* Effect.all([Path.Path, root, Effect.tryPromise(() => globWithWorkspaceContext(workspace, ['**/*.py'])), _parse, Effect.map(_decode(Schema.String, workspace, 'tools/ast-grep/utils/python/python-static-imported-module.yml'), parseYaml)], {
-        concurrency: 'unbounded',
-    });
-    const sources = yield* Effect.validate(
-        files,
-        (file) =>
-            Effect.map(
-                Effect.flatMap(_decode(Schema.String, workspace, file), (text) => Effect.tryPromise(() => parse(text))),
-                (tree) => {
-                    const source = path.parse(path.relative(file.startsWith(`${moduleRoot}/`) ? moduleRoot : '.', file));
-                    const parts = (source.name === '__init__' && source.dir !== '' ? source.dir : path.join(source.dir, source.name)).split(path.sep);
-                    const statements = Array.flatMap(tree.root().findAll(rule), (module) => {
-                        const runtime = !module.inside({ rule: { kind: 'block', inside: { kind: 'if_statement', field: 'consequence', has: { field: 'condition', any: [{ pattern: 'TYPE_CHECKING' }, { pattern: 'typing.TYPE_CHECKING' }] } } } });
-                        const members = pipe(
-                            Option.fromNullishOr(module.getMatch('FROM')),
-                            Option.toArray,
-                            Array.flatMap((statement) => statement.fieldChildren('name')),
-                            Array.flatMap((name) => name.findAll({ rule: { kind: 'dotted_name' } })),
-                        );
-                        return Array.map([module.text(), ...Array.map(members, (member) => `${module.text()}.${member.text()}`)], (name) => ({ name, runtime }));
-                    });
-                    return { file, name: parts.join('.'), imports: [...Array.map(parts.slice(0, -1), (_, position) => ({ name: parts.slice(0, position + 1).join('.'), runtime: true })), ...statements] };
-                },
-            ),
-        { concurrency: 'unbounded' },
+    const rules = 'tools/ast-grep/utils/python/python-static-imported-module.yml';
+    const [path, { moduleRoot }, files, rule] = yield* Effect.all([Path.Path, root, _glob(workspace, ['**/*.py']), Effect.cached(Effect.map(_decode(Schema.String, workspace, rules), parseYaml))], { concurrency: 'unbounded' });
+    const hashes = yield* _hash(
+        workspace,
+        files.map((file) => [file, rules, path.relative(workspace, import.meta.filename)]),
     );
-    return Graph.directed<string, boolean>((mutable) => {
-        const nodes = Array.map(sources, (source) => ({ ...source, index: Graph.addNode(mutable, source.file) }));
-        const modules = Trie.fromIterable(Array.map(nodes, ({ name, index }) => [`${name}.`, index] as const));
-        Array.flatMap(nodes, ({ index, imports }) => Array.flatMap(imports, ({ name, runtime }) => Option.toArray(Option.map(Trie.longestPrefixOf(modules, `${name}.`), ([, target]) => [index, target, runtime] as const)))).forEach(([source, target, runtime]) => {
-            Graph.addEdge(mutable, source, target, runtime);
-        });
+    const statements = yield* _memo(
+        'imports',
+        Array.zipWith(hashes, files, (hash, file) => [
+            hash,
+            Effect.flatMap(Effect.all([_decode(Schema.String, workspace, file), rule]), ([text, query]) =>
+                Effect.map(Effect.tryPromise({ try: () => parseAsync('python', text), catch: (cause) => WorkspaceError.make({ reason: { _tag: 'Unparsed', file, cause } }) }), (tree) =>
+                    tree
+                        .root()
+                        .findAll(query)
+                        .flatMap((module) => [module.text(), ...(module.getMatch('FROM')?.fieldChildren('name') ?? []).flatMap((name) => name.findAll({ rule: { kind: 'dotted_name' } })).map((member) => `${module.text()}.${member.text()}`)]),
+                ),
+            ),
+        ]),
+    );
+    const sources = Array.zipWith(files, statements, (file, imports) => {
+        const source = path.parse(path.relative(file.startsWith(`${moduleRoot}/`) ? moduleRoot : '.', file));
+        const parts = (source.name === '__init__' && source.dir !== '' ? source.dir : path.join(source.dir, source.name)).split(path.sep);
+        return { file, name: parts.join('.'), imports: [...parts.slice(0, -1).map((_, position) => parts.slice(0, position + 1).join('.')), ...imports] };
     });
+    return Graph.directed<string, undefined>((mutable) => {
+        const nodes = sources.map((source) => ({ ...source, index: Graph.addNode(mutable, source.file) }));
+        const modules = Trie.fromIterable(nodes.map(({ name, index }) => [`${name}.`, index] as const));
+        nodes
+            .flatMap(({ index, imports }) => imports.flatMap((name) => Option.toArray(Option.map(Trie.longestPrefixOf(modules, `${name}.`), ([, target]) => [index, target] as const))))
+            .forEach(([source, target]) => {
+                Graph.addEdge(mutable, source, target, undefined);
+            });
+    });
+});
+const _run = Effect.fnUntraced(function* (workspace: string, command: string, args: string[]) {
+    const handle = yield* ChildProcess.make(command, args, { cwd: workspace, stderr: 'inherit' });
+    const [output, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? output : yield* WorkspaceError.make({ reason: { _tag: 'Exited', command, args, code } });
+}, Effect.scoped);
+const _crates = Effect.fnUntraced(function* (workspace: string) {
+    const [path, hashes] = yield* Effect.all([Path.Path, _hash(workspace, [[`**/${_CARGO_MANIFEST}`, '.cargo/config.toml', '**/*.rs']])]);
+    const outputs = yield* _memo(
+        'cargo',
+        hashes.map((hash) => [hash, _run(workspace, 'cargo', ['metadata', '--format-version', '1', '--no-deps'])] as const),
+    );
+    const metadata = yield* Effect.forEach(outputs, (output) => Schema.decodeEffect(_Metadata)(output));
+    return metadata.flatMap(({ packages, output }) => packages.map((crate) => ({ ...crate, manifest: path.relative(workspace, crate.manifest), output: path.relative(workspace, output) })));
+});
+const _packages = Effect.fnUntraced(function* (workspace: string) {
+    const [path, manifests] = yield* Effect.all([Path.Path, _glob(workspace, [`*/**/${_SWIFT_MANIFEST}`])]);
+    const hashes = yield* _hash(
+        workspace,
+        manifests.map((manifest) => [manifest]),
+    );
+    const outputs = yield* _memo(
+        'swiftpm',
+        Array.zipWith(hashes, manifests, (hash, manifest) => [hash, _run(workspace, 'swift', ['package', 'dump-package', '--package-path', path.dirname(manifest), '--scratch-path', path.join('.cache/swiftpm/build', path.dirname(manifest))])]),
+    );
+    const described = yield* Effect.forEach(outputs, (output) => Schema.decodeEffect(_SwiftPackage)(output));
+    return Array.zipWith(manifests, described, (manifest, { targets, dependencies }) => ({
+        manifest,
+        tested: targets.some(({ type }) => type === 'test'),
+        locals: dependencies.flatMap(({ fileSystem }) => Option.getOrElse(fileSystem, () => []).map((local) => path.join(path.relative(workspace, local.path), _SWIFT_MANIFEST))),
+    }));
+});
+const _swift = (build: string, targets: Record<string, TargetConfiguration>): Required<Pick<ProjectConfiguration, 'tags' | 'targets'>> => ({
+    tags: ['language:swift', 'host:macos', `build:${build}`],
+    targets: { build: {}, upgrade: {}, lint: {}, 'lint:swift-format': {}, 'lint:swiftlint': {}, check: {}, ...targets },
 });
 
 const _PROJECTS = {
-    '*.csproj': Effect.fnUntraced(function* ({ dir }, { file, workspace }) {
+    '*.csproj': Effect.fnUntraced(function* (_, { file, workspace }) {
         const { Project } = yield* _decode(_MSBuildProject, workspace, file);
-        const plugin = Array.some(Project.PropertyGroup, ({ TargetExt }) => TargetExt === '.rhp');
-        const outputs = (pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${pivot}*`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${pivot}*`] : [])];
+        const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
+        const outputs = (target: string, pivot: string): string[] => [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/{projectName}/${pivot}*`, `{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target}.binlog`, ...(plugin ? [`{workspaceRoot}/.artifacts/dotnet/{bin,obj}/*/{projectName}_${pivot}*`] : [])];
         return {
-            root: dir,
             tags: ['language:dotnet', ...(plugin ? ['output:rhp'] : [])],
             targets: {
-                build: { outputs: outputs('debug') },
-                'build:release': { outputs: outputs('release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
+                build: { outputs: outputs('build', 'debug') },
+                'build:release': { outputs: outputs('build:release', 'release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
                 typecheck: {},
                 check: {},
                 ...(plugin ? { pack: {}, install: {} } : {}),
@@ -143,184 +230,201 @@ const _PROJECTS = {
         };
     }),
     '*.cs': Effect.fnUntraced(function* ({ dir, base }, { file, workspace }) {
-        yield* Effect.filterOrFail(_decode(Schema.String, workspace, file), String.startsWith('#!'));
+        yield* Effect.filterOrFail(_decode(Schema.String, workspace, file), (text) => text.startsWith('#!'));
         const inputs = ['default', '{workspaceRoot}/.editorconfig'];
+        const binlog = (target: string): string => `{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target}:${base}.binlog`;
         return {
-            root: dir,
             name: dir,
             tags: ['language:dotnet'],
             targets: {
                 build: { executor: 'nx:noop', dependsOn: [{ target: 'build:*.cs', params: 'forward' }] },
                 format: { executor: 'nx:noop', dependsOn: [{ target: 'format:*.cs', params: 'forward' }] },
                 lint: { executor: 'nx:noop', dependsOn: [{ target: 'lint:*.cs', params: 'forward' }] },
-                [`restore:${base}`]: { inputs: ['default', 'dotnet'], outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`], options: { args: [file] } },
-                [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs, outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`], options: { args: [file, '--no-restore'] } },
-                [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--no-restore', '--'] } },
+                [`restore:${base}`]: { inputs: ['default', 'dotnet'], outputs: [`{workspaceRoot}/.artifacts/dotnet/obj/${base}/project.assets.json`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*.nuget.*`, binlog('restore')], options: { args: [file] } },
+                [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs, outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`, binlog('build')], options: { args: [file, '--no-restore'] } },
+                [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--'] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
-                [`lint:${base}`]: { options: { args: [file, '--no-restore', '--verify-no-changes'] }, dependsOn: [`build:${base}`], cache: true, inputs: [...inputs, 'dotnet'] },
+                [`lint:${base}`]: { options: { args: [file, '--no-restore', '--verify-no-changes'] }, dependsOn: [`restore:${base}`], cache: true, inputs: [...inputs, 'dotnet'], outputs: [binlog('lint')] },
                 typecheck: {},
                 check: {},
             },
         };
     }),
-    '.swcrc': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:extendscript'], targets: { build: {} } }),
-    [_CRATE]: ({ dir }, { file, workspace }) =>
-        Effect.map(_decode(_Crate, workspace, file), (crate) => ({
-            root: dir,
-            name: crate.package.name,
-            tags: ['language:rust', ...('dylint_linting' in crate.dependencies ? ['tool:dylint'] : [])],
-            targets: { typecheck: {}, test: {}, lint: {}, check: {}, ...(Array.isReadonlyArrayNonEmpty(crate.bin) ? { build: { outputs: Array.map(crate.bin, (bin) => `{workspaceRoot}/.artifacts/rust/debug/${bin.name}`) }, install: {} } : {}) },
-        })),
-    'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, { file, workspace, root, sources }) {
-        const [path, { moduleRoot }, { id }, targets, runtime] = yield* Effect.all([Path.Path, root, _decode(_Manifest, workspace, file), _python(dir, workspace, root), sources], { concurrency: 'unbounded' });
-        const archive = '.artifacts/blender/{projectName}/extension.zip';
-        const modules = pipe(Graph.dfs(runtime, { start: Graph.findNodes(runtime, String.startsWith(`${dir}/`)) }), Graph.values, Array.fromIterable, Array.filter(String.startsWith(`${moduleRoot}/`)));
-        const folders = Array.dedupe(Array.map(modules, path.dirname));
+    '.swcrc': () => Effect.succeed({ tags: ['host:extendscript'], targets: { build: {} } }),
+    [_CARGO_MANIFEST]: Effect.fnUntraced(function* (_, { file, crates, mise }) {
+        const [all, { bootstrap }] = yield* Effect.all([crates, mise], { concurrency: 'unbounded' });
+        const crate = yield* Effect.fromOption(Array.findFirst(all, ({ manifest }) => manifest === file));
+        const bins = crate.targets.filter(({ kind }) => kind.includes('bin'));
+        const binary = bins.length > 0;
+        const launched = Object.values(bootstrap.macos.launchd.agents).some(({ args }) => bins.some(({ name }) => args.includes(name)));
+        const tested = crate.targets.some(({ test }) => test);
+        const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
         return {
-            root: dir,
+            name: crate.name,
+            tags: ['language:rust', ...(dylint ? ['host:dylint'] : [])],
+            targets: {
+                typecheck: { options: { args: dylint ? ['--lib', '--tests'] : ['--all-targets'] } },
+                'lint:cargo-modules': {},
+                'lint:dylint': { options: { args: Object.keys(Record.filter({ '--lib': crate.targets.some(({ types }) => !types.includes('bin')), '--bins': binary, '--tests': tested }, identity)) } },
+                check: {},
+                ...(tested ? { test: {}, ...(dylint ? {} : { coverage: {} }) } : {}),
+                ...(binary ? { build: { outputs: bins.map(({ name }) => `{workspaceRoot}/${crate.output}/debug/${name}`) } } : {}),
+                ...(launched ? { install: {}, 'install:cargo': {} } : {}),
+            },
+        };
+    }),
+    'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, { file, workspace, root }) {
+        const [{ moduleRoot }, { id }, targets] = yield* Effect.all([root, _decode(_Manifest, workspace, file), _python(dir, workspace, root)], { concurrency: 'unbounded' });
+        const archive = '.artifacts/blender/{projectName}/extension.zip';
+        return {
             name: id,
             tags: ['language:python'],
             targets: {
-                pack: {
-                    command: `python -m eng.python.fitout pack "{projectRoot}" "${archive}" ${Array.map(modules, (module) => `"${path.relative(moduleRoot, module)}"`).join(' ')}`,
-                    inputs: Array.map(
-                        Array.filter(folders, (folder) => !Array.some(folders, (other) => folder.startsWith(`${other}/`))),
-                        (folder) => `{workspaceRoot}/${folder}/**/*`,
-                    ),
-                    outputs: [`{workspaceRoot}/${archive}`],
-                },
-                install: { command: `python -m eng.python.fitout install "${archive}"` },
+                pack: { command: 'python -m eng.python.fitout pack', options: { args: ['{projectRoot}', archive] }, inputs: [`{workspaceRoot}/${moduleRoot}/**/*`], outputs: [`{workspaceRoot}/${archive}`] },
+                install: { command: 'python -m eng.python.fitout install', options: { args: [archive] } },
                 ...targets,
             },
         };
     }),
-    'project.xcproj': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), name: path.parse(dir).name, tags: ['language:swift', 'host:macos'], targets: { build: {}, install: {}, upgrade: {}, lint: {}, check: {} } })),
-    'py.typed': ({ dir }, { workspace, root }) => Effect.map(Effect.all([Path.Path, root, _python(dir, workspace, root)]), ([path, { moduleRoot }, targets]) => ({ root: dir, name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
-    'tsconfig.json': ({ dir }) => Effect.succeed({ root: dir, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
-    'vite.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['bundler:vite'], targets: { build: {}, serve: {} } }),
-    'uxp.config.ts': ({ dir }) => Effect.succeed({ root: dir, tags: ['host:uxp'], targets: { build: {}, install: {} } }),
-} as const satisfies Record<string, (file: Path.Path.Parsed, context: { readonly file: string; readonly workspace: string; readonly root: ReturnType<typeof _root>; readonly sources: ReturnType<typeof _sources> }) => Effect.Effect<ProjectConfiguration, unknown, FileSystem.FileSystem | Path.Path>>;
+    'project.xcproj': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), name: path.parse(dir).name, ..._swift('xcode', { install: {} }) })),
+    [_SWIFT_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { file, packages }) {
+        const { tested } = yield* Effect.fromOption(Array.findFirst(yield* packages, ({ manifest }) => manifest === file));
+        return { name: dir, ..._swift('swiftpm', tested ? { test: {} } : {}) };
+    }),
+    'py.typed': ({ dir }, { workspace, root }) => Effect.map(Effect.all([Path.Path, root, _python(dir, workspace, root)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
+    'tsconfig.json': () => Effect.succeed({ tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
+    'vite.config.ts': () => Effect.succeed({ tags: ['bundler:vite'], targets: { build: {}, serve: {} } }),
+    'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
+    'cloudflare.config.ts': () => Effect.succeed({ tags: ['output:cloudflare'], targets: { build: {} } }),
+} as const satisfies Record<
+    string,
+    (
+        file: Path.Path.Parsed,
+        context: {
+            readonly file: string;
+            readonly workspace: string;
+            readonly root: ReturnType<typeof _root>;
+            readonly mise: ReturnType<typeof _decode<typeof _Mise.Type>>;
+            readonly crates: ReturnType<typeof _crates>;
+            readonly packages: ReturnType<typeof _packages>;
+        },
+    ) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>
+>;
 
-const _pythonVersions = Effect.fnUntraced(function* (workspace: string) {
-    const [path, declarations] = yield* Effect.all([Path.Path, Effect.tryPromise(() => globWithWorkspaceContext(workspace, [`*/**/${_DECLARATION}`]))]);
-    const versions = pipe(
-        yield* Effect.validate(declarations, (file) => Effect.map(_decode(_Declaration, workspace, file), ({ project }) => ({ version: project.version, root: path.dirname(file) })), { concurrency: 'unbounded' }),
-        Array.groupBy(({ version }) => version),
-        Record.map(Array.map(({ root }) => root)),
-        Record.toEntries,
+const _pythonVersions = Effect.fnUntraced(function* (workspace: string, mise: ReturnType<typeof _decode<typeof _Mise.Type>>) {
+    const path = yield* Path.Path;
+    const [{ tools }, hosts, gated] = yield* Effect.all(
+        [
+            mise,
+            Effect.flatMap(_glob(workspace, [`*/**/${_PYPROJECT}`]), (files) => Effect.validate(files, (file) => Effect.map(_decode(_Host, workspace, file), ({ project }) => ({ scope: path.dirname(file), version: project.minimum })), { concurrency: 'unbounded' })),
+            Effect.flatMap(_decode(_Sgconfig, workspace, 'sgconfig.yml'), ({ ruleDirs }) =>
+                Effect.flatMap(
+                    _glob(
+                        workspace,
+                        ruleDirs.map((dir) => `${dir}/python/**/*.yml`),
+                    ),
+                    (files) => Effect.validate(files, (file) => Effect.map(_decode(_Rule, workspace, file), ({ id, metadata }) => Option.map(metadata, ({ below }) => ({ id, below }))), { concurrency: 'unbounded' }),
+                ),
+            ),
+        ],
+        { concurrency: 'unbounded' },
     );
-    const roots = Array.flatMap(versions, ([, scope]) => scope);
+    const covered =
+        (version: string) =>
+        ({ below }: { readonly below: string }): boolean =>
+            version.localeCompare(below, 'en', { numeric: true }) >= 0;
+    const off = Array.getSomes(gated).filter(covered(tools.python));
+    const groups = Object.entries(Array.groupBy(hosts, ({ version }) => version)).map(([version, members]) => ({ version, scoped: members.map(({ scope }) => `"${scope}"`).join(' ') }));
+    const scan = 'ast-grep scan --custom-languages allow';
+    const tree = `${scan} --no-ignore hidden --globs '!pnpm-lock.yaml' --globs '!tools/*/examples/**' --error=no-suppress-all ${off.map(({ id }) => `--off=${id}`).join(' ')}`;
+    const versioned = (whole: string, hosted: readonly string[]): TargetConfiguration => ({
+        executor: 'nx:run-commands',
+        options: { commands: [whole, ...hosted.map((command) => ({ command, forwardAllArgs: false }))], parallel: false },
+    });
     return {
         projects: {
             '.': {
                 root: '.',
                 targets: {
-                    ...Record.fromEntries(
-                        Array.flatMap(versions, ([version, scope]) => {
-                            const paths = Array.map(scope, (root) => `"${root}"`).join(' ');
-                            return [
-                                [`typecheck:ty-${version}`, { command: `ty check --python-version ${version} ${paths}` }],
-                                [`typecheck:mypy-${version}`, { command: `mypy --python-version ${version} ${paths}` }],
-                            ] as const;
+                    'lint:ast-grep': versioned(
+                        tree,
+                        groups.flatMap(({ version, scoped }) => {
+                            const below = off.filter((rule) => !covered(version)(rule));
+                            return below.length > 0 ? [`${scan} --filter '^(${below.map(({ id }) => id).join('|')})$' ${scoped}`] : [];
                         }),
                     ),
-                    'typecheck:ty': { options: { args: Array.map(roots, (root) => `--exclude "${root}"`).join(' ') } },
-                    'typecheck:mypy': { options: { args: Array.map(roots, (root) => `--exclude '^${RegExp.escape(`${root}/`)}'`).join(' ') } },
+                    rewrite: { command: `lockf -k .cache/ast-grep/rewrite.lock ${tree} --update-all` },
+                    'typecheck:ty': versioned(
+                        `ty check ${hosts.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`,
+                        groups.map(({ version, scoped }) => `ty check --python-version ${version} ${scoped}`),
+                    ),
+                    'typecheck:mypy': versioned(
+                        `mypy ${hosts.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ')}`,
+                        groups.map(({ version, scoped }) => `mypy --python-version ${version} ${scoped}`),
+                    ),
                 },
             },
         },
     };
 });
-const _dependencies = Effect.fnUntraced(function* ({ projects, workspaceRoot }: CreateDependenciesContext) {
-    const roots = createProjectRootMappingsFromProjectConfigurations(projects);
-    const [graph, { workspace }, crates] = yield* Effect.all(
+const _dependencies = Effect.fnUntraced(function* ({ fileMap, workspaceRoot }: CreateDependenciesContext) {
+    const path = yield* Path.Path;
+    const [graph, crates, swift, xcode] = yield* Effect.all(
         [
             _sources(workspaceRoot, _root(workspaceRoot)),
-            _decode(_Catalog, workspaceRoot, _CRATE),
-            Effect.flatMap(
-                Effect.tryPromise(() => globWithWorkspaceContext(workspaceRoot, [`*/**/${_CRATE}`])),
-                (files) => Effect.validate(files, (file) => Effect.map(_decode(_Crate, workspaceRoot, file), (crate) => [file, crate] as const), { concurrency: 'unbounded' }),
+            _crates(workspaceRoot),
+            _packages(workspaceRoot),
+            Effect.flatMap(_glob(workspaceRoot, ['*/**/project.xcproj']), (files) =>
+                Effect.validate(files, (file) => Effect.map(_decode(_XcodeProject, workspaceRoot, file), ({ packages }) => packages.flatMap((row) => (row.kind === 'local' ? [[file, path.join(path.dirname(path.dirname(file)), row.path, _SWIFT_MANIFEST)] as const] : []))), { concurrency: 'unbounded' }),
             ),
         ],
         { concurrency: 'unbounded' },
     );
-    const owner = (file: string): Option.Option<string> => Option.fromNullishOr(findProjectForPath(file, roots));
-    return Array.flatMap(
-        [
-            ...pipe(
-                graph,
-                Graph.edges,
-                Graph.values,
-                Array.fromIterable,
-                Array.map(({ source, target }) => Option.product(Graph.getNode(graph, source), Graph.getNode(graph, target))),
-                Array.getSomes,
-            ),
-            ...Array.flatMap(crates, ([file, crate]) =>
-                pipe(
-                    [crate, ...Record.values(crate.target)],
-                    Array.flatMap((tables) => Array.flatMap([tables.dependencies, tables.devDependencies, tables.buildDependencies], Record.keys)),
-                    Array.flatMap((key) => Option.toArray(Option.flatMap(Record.get(workspace.dependencies, key), ({ path }) => path))),
-                    Array.map((path) => Tuple.make(file, path)),
-                ),
-            ),
-        ],
-        ([sourceFile, file]) =>
-            pipe(
-                Option.product(owner(sourceFile), owner(file)),
-                Option.filter(([source, target]) => source !== target),
-                Option.map(([source, target]): StaticDependency => ({ source, target, sourceFile, type: DependencyType.static })),
-                Option.toArray,
-            ),
+    const owners = Object.fromEntries(Object.entries(fileMap.projectFileMap).flatMap(([project, files]) => files.map(({ file }) => [file, project] as const)));
+    return [
+        ...Array.getSomes([...Graph.values(Graph.edges(graph))].map(({ source, target }) => Option.product(Graph.getNode(graph, source), Graph.getNode(graph, target)))),
+        ...crates.flatMap(({ manifest, dependencies }) => Array.getSomes(dependencies.map((dependency) => dependency.path)).map((member) => [manifest, path.join(path.relative(workspaceRoot, member), _CARGO_MANIFEST)] as const)),
+        ...swift.flatMap(({ manifest, locals }) => locals.map((local) => [manifest, local] as const)),
+        ...xcode.flat(),
+    ].flatMap(([sourceFile, file]) =>
+        pipe(
+            Option.product(Record.get(owners, sourceFile), Record.get(owners, file)),
+            Option.filter(([source, target]) => source !== target),
+            Option.map(([source, target]): StaticDependency => ({ source, target, sourceFile, type: DependencyType.static })),
+            Option.toArray,
+        ),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const _parse = Effect.runSync(
-    Effect.cached(
-        Effect.tryPromise(async () => {
-            const grammar = import('@ast-grep/lang-python');
-            const { parseAsync, registerDynamicLanguage } = await import('@ast-grep/napi');
-            registerDynamicLanguage({ python: (await grammar).default });
-            return (text: string): Promise<SgRoot> => parseAsync('python', text);
-        }),
-    ),
-);
-const _services = Layer.merge(NodeFileSystem.layer, NodePath.layerPosix);
+registerDynamicLanguage({ python });
+const _runtime = ManagedRuntime.make(Layer.provideMerge(NodeChildProcessSpawner.layer, Layer.merge(NodeFileSystem.layer, NodePath.layerPosix)));
 const _rendered = Effect.catchCause((cause: Cause.Cause<unknown>) => Effect.die(new Error(Cause.pretty(cause))));
 const createNodes: CreateNodes = [
-    `{${_DECLARATION},*/**/{${Record.keys(_PROJECTS).join(',')}}}`,
-    async (files, options, context): Promise<CreateNodesResultArray> => {
-        await using runtime = ManagedRuntime.make(_services);
-        const workspace = context.workspaceRoot;
-        const [path, root] = runtime.runSync(Effect.all([Path.Path, Effect.cached(_root(workspace))]));
-        const [sources, hosts] = runtime.runSync(
-            Effect.all([
-                Effect.cached(
-                    Effect.map(_sources(workspace, root), (graph) =>
-                        Graph.mutate(graph, (mutable) => {
-                            Graph.filterEdges(mutable, identity);
-                        }),
-                    ),
-                ),
-                Effect.cached(Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readDirectory(path.join(workspace, 'apps')))),
-            ]),
-        );
-        const project = Effect.fnUntraced(
-            function* (file: string) {
-                const parsed = path.parse(file);
-                const [, configure] = yield* Effect.fromOption(Array.findFirst(Record.toEntries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
-                const configuration = yield* configure(parsed, { file, workspace, root, sources });
-                const tags = Array.map(Array.intersection(configuration.root.split('/'), yield* hosts), (host) => `host:${host}`);
-                return { projects: { [configuration.root]: { ...configuration, tags: Array.union(configuration.tags, tags) } } };
-            },
-            Effect.catchNoSuchElement,
-            Effect.map(Option.getOrElse(() => ({}))),
-        );
-        return await createNodesFromFiles((file) => runtime.runPromise(_rendered(file === _DECLARATION ? _pythonVersions(workspace) : project(file))), files, options, context);
-    },
+    `{${_PYPROJECT},*/**/{${Object.keys(_PROJECTS).join(',')}}}`,
+    (files, options, context): Promise<CreateNodesResultArray> =>
+        _runtime.runPromise(
+            Effect.gen(function* () {
+                const workspace = context.workspaceRoot;
+                const [path, root, mise] = yield* Effect.all([Path.Path, Effect.cached(_root(workspace)), Effect.cached(_decode(_Mise, workspace, 'mise.toml'))]);
+                const [hosts, crates, packages] = yield* Effect.all([Effect.cached(Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readDirectory(path.join(workspace, 'apps')))), Effect.cached(_crates(workspace)), Effect.cached(_packages(workspace))]);
+                const project = Effect.fnUntraced(
+                    function* (file: string) {
+                        const parsed = path.parse(file);
+                        const [, configure] = yield* Effect.fromOption(Array.findFirst(Object.entries(_PROJECTS), ([key]) => key === parsed.base || key === `*${parsed.ext}`));
+                        const configuration = { root: parsed.dir, ...(yield* configure(parsed, { file, workspace, root, mise, crates, packages })) };
+                        const tags = Array.intersection(configuration.root.split('/'), yield* hosts).map((host) => `host:${host}`);
+                        return { projects: { [configuration.root]: { ...configuration, tags: Array.union(configuration.tags, tags) } } };
+                    },
+                    Effect.catchNoSuchElement,
+                    Effect.map(Option.getOrElse(() => ({}))),
+                );
+                return yield* Effect.promise(() => createNodesFromFiles((file) => _runtime.runPromise(_rendered(file === _PYPROJECT ? _pythonVersions(workspace, mise) : project(file))), files, options, context));
+            }),
+        ),
 ];
-const createDependencies: CreateDependencies = (_options, context) => _dependencies(context).pipe(Effect.provide(_services, { local: true }), _rendered, Effect.runPromise);
+const createDependencies: CreateDependencies = (_options, context) => _runtime.runPromise(_rendered(_dependencies(context)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -26,7 +26,7 @@ internal sealed partial class ClfBitDepth {
 
     public OutputDepth Depth { get; }
 
-    public float Scale => Depth.Levels.Map(static levels => levels.MaxCode).IfNone(1f);
+    public float Scale => Depth.Levels.Match(Some: static levels => levels.MaxCode, None: 1f);
 }
 
 [SmartEnum<string>]
@@ -474,8 +474,9 @@ public static class LutFiles {
     private static LutTable Chained(Seq<LutTable> steps) => steps is [var step] ? step : new LutTable.Sequence(steps);
 
     private static (Vector3 Minimum, Vector3 Maximum) Domain(Option<(Vector2 Value, int Line)> range, Option<(Vector3 Value, int Line)> low, Option<(Vector3 Value, int Line)> high) =>
-        range.Map(static held => (new Vector3(held.Value.X), new Vector3(held.Value.Y)))
-            .IfNone((low.Map(static held => held.Value).IfNone(Vector3.Zero), high.Map(static held => held.Value).IfNone(Vector3.One)));
+        range.Match(
+            Some: static held => (new Vector3(held.Value.X), new Vector3(held.Value.Y)),
+            None: (low.Match(Some: static held => held.Value, None: Vector3.Zero), high.Match(Some: static held => held.Value, None: Vector3.One)));
 
     private static Fin<Lut1D> Curve(XElement node, LutFormat format, float scale) =>
         from array in (

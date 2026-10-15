@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-shuffle-by-hand
+language: rust
+severity: error
+utils:
+    covering-range:
+        kind: range_expression
+        any:
+            - pattern: $_..=$I
+            - pattern: ..=$I
+            - pattern: $_..$I + 1
+            - pattern: $I..$_
+            - pattern: $I..=$_
+    draw:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(random_range|gen_range)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: covering-range}}
+    drawn:
+        any:
+            - matches: draw
+            - kind: identifier
+              pattern: $J
+              inside:
+                kind: block
+                stopBy: end
+                has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $J}}, {has: {field: value, matches: draw}}]}
+rule:
+    kind: call_expression
+    pattern: $SWAP
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^swap$'}}
+        - any:
+            - all:
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $I}}
+                - has: {field: arguments, has: {nthChild: 2, matches: drawn}}
+            - all:
+                - has: {field: arguments, has: {nthChild: 2, kind: identifier, pattern: $I}}
+                - has: {field: arguments, has: {nthChild: 1, matches: drawn}}
+message: '`$SWAP` steps a Fisher-Yates shuffle by hand'
+note: 'Shuffle through rand: `values.shuffle(&mut rng)` from `rand::seq::SliceRandom`, or `values.partial_shuffle(&mut rng, amount)` for a prefix. A swap with an index below `i` alone is a cyclic permutation and stays as written'

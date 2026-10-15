@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-alias-declaration-swift
-language: swift
+language: swiftlang
 severity: error
 rule:
     kind: typealias_declaration

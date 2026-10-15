@@ -6,24 +6,19 @@ utils:
     mutable-collection:
         any:
             - kind: array_type
+            - kind: 'generic_name, qualified_name, identifier'
+              matches: csharp-writable-collection
             - kind: 'generic_name, qualified_name'
-              matches:
-                csharp-type-name:
-                    name:
-                        regex: |-
-                            (?x)^(List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|PriorityQueue|IList|ICollection|IDictionary|ISet
-                            |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)$
+              matches: {csharp-type-name: {name: {regex: '^PriorityQueue$'}}}
               has: {stopBy: end, kind: type_argument_list}
-              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections\.(Generic|ObjectModel|Concurrent)$'}}}
+              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections\.Generic$'}}}
             - kind: 'generic_name, qualified_name'
-              matches: {csharp-type-name: {name: {regex: '^(Memory|ArraySegment)$'}}}
+              matches: {csharp-type-name: {name: {regex: '^Memory$'}}}
               not: {has: {field: qualifier, not: {regex: '^(global::)?System$'}}}
-            - kind: qualified_name
-              matches: {csharp-type-name: {name: {regex: '^HashSet$'}}}
-              has: {field: qualifier, regex: '^(global::)?System\.Collections\.Generic$'}
-            - kind: 'identifier, qualified_name'
-              matches: {csharp-type-name: {name: {regex: '^(ArrayList|Hashtable)$'}}}
-              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections$'}}}
+    exposed-array:
+        matches: csharp-visible-member
+        kind: 'property_declaration, parameter'
+        has: {field: type, any: [{kind: array_type}, {kind: nullable_type, has: {field: type, kind: array_type}}]}
     generic-type:
         kind: generic_name
         has: {kind: type_argument_list, has: {matches: mutable-within}}
@@ -128,6 +123,6 @@ rule:
             field: type
             pattern: $TYPE
             matches: mutable-within
-        - not: {any: [{matches: pinned-array}, {matches: confined-array}, {inside: {stopBy: end, matches: csharp-wire-record}}]}
+        - not: {any: [{matches: pinned-array}, {matches: confined-array}, {matches: exposed-array}, {inside: {stopBy: end, matches: csharp-wire-record}}]}
 message: 'Field of type `$TYPE` holds a mutable collection'
 note: Use `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>`, with input copied through `toSeq` at the boundary

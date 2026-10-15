@@ -43,7 +43,9 @@ public static class TextFieldOps {
             evaluator: static evaluator => $"%<{evaluator.Method.Name}({string.Join(',', evaluator.Arguments.Map(static argument => argument.Match(Quoted, "None")))})>%")));
 
     private static string Quoted(string text) =>
-        $"u\"{(Enum.GetNames<UnitSystem>().Contains(text, StringComparer.OrdinalIgnoreCase) ? text : string.Concat(text.Select(static codeUnit => char.IsAsciiHexDigit(codeUnit) || codeUnit is '-' ? codeUnit.ToString() : $"\\u{(int)codeUnit:x4}")))}\"";
+        $"""
+        u"{(Enum.GetNames<UnitSystem>().Contains(text, StringComparer.OrdinalIgnoreCase) ? text : string.Concat(text.Select(static codeUnit => char.IsAsciiHexDigit(codeUnit) || codeUnit is '-' ? codeUnit.ToString() : $"\\u{(int)codeUnit:x4}")))}"
+        """;
 
     // --- [EVALUATION]
     public static IO<string> Format(RhinoDoc doc, string text, Option<RhinoObject> obj = default, Option<RhinoObject> topParent = default, Option<InstanceObject> immediateParent = default) =>

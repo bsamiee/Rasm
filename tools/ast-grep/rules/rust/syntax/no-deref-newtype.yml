@@ -40,24 +40,28 @@ utils:
               has: {kind: field_declaration, all: [{has: {field: name, pattern: $F}}, {has: {field: type, matches: pointer-type}}]}
             - kind: ordered_field_declaration_list
               has: {field: type, matches: pointer-type}
+    plain-struct:
+        kind: struct_item
+        all:
+            - has: {field: name, pattern: $NAME}
+            - not: {has: {field: type_parameters, has: {kind: lifetime_parameter}}}
+            - not: {has: {field: body, matches: pointer-field}}
+            - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*repr\s*\(.*\balign\s*\('}}
+    undropped:
+        inside: {kind: source_file, stopBy: end, not: {has: {stopBy: end, kind: impl_item, has: {field: trait, regex: '^((std|core)::)?(ops::)?Drop$'}, matches: own-type}}}
 rule:
-    kind: impl_item
-    all:
-        - has: {field: trait, regex: '^((std|core)::)?(ops::)?(Deref|DerefMut)$', pattern: $TRAIT}
-        - matches: own-type
-        - has: {field: body, has: {kind: function_item, all: [{has: {field: name, regex: '^(deref|deref_mut)$'}}, {has: {field: body, matches: forwarding-body}}]}}
-        - inside:
-            kind: source_file
-            stopBy: end
-            all:
-                - has:
-                    stopBy: end
-                    kind: struct_item
-                    all:
-                        - has: {field: name, pattern: $NAME}
-                        - not: {has: {field: type_parameters, has: {kind: lifetime_parameter}}}
-                        - not: {has: {field: body, matches: pointer-field}}
-                        - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*repr\s*\(.*\balign\s*\('}}
-                - not: {has: {stopBy: end, kind: impl_item, has: {field: trait, regex: '^((std|core)::)?(ops::)?Drop$'}, matches: own-type}}
+    any:
+        - kind: impl_item
+          all:
+            - has: {field: trait, regex: '^((std|core)::)?(ops::)?(Deref|DerefMut)$', pattern: $TRAIT}
+            - matches: own-type
+            - has: {field: body, has: {kind: function_item, all: [{has: {field: name, regex: '^(deref|deref_mut)$'}}, {has: {field: body, matches: forwarding-body}}]}}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: plain-struct}}
+            - matches: undropped
+        - kind: attribute_item
+          all:
+            - has: {kind: attribute, all: [{has: {nthChild: 1, kind: identifier, regex: '^derive$'}}, {has: {field: arguments, has: {kind: identifier, regex: '^(Deref|DerefMut)$', pattern: $TRAIT}}}]}
+            - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: plain-struct}
+            - matches: undropped
 message: '`$TRAIT` for `$NAME` converts it implicitly into its inner value'
-note: 'Expose the inner value through named methods of `$NAME` stating its domain operations, `Deref` belongs to smart pointers, guards, views, and alignment wrappers, and an implicit conversion exposes every method of the wrapped type past the newtype''s invariant'
+note: 'Expose the inner value through named methods of the newtype stating its domain operations, `Deref` belongs to smart pointers, guards, views, and alignment wrappers, and an implicit conversion exposes every method of the wrapped type past the newtype''s invariant. A newtype whose every member forwards goes, the `redundant_indirection` dylint owns it'

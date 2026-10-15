@@ -70,7 +70,7 @@ public static class ChartRows {
 
     private static IO<RowCells> Realized(
         string caption, IterableNE<ScopeSource> sources, RowSource<ScopeState> source, IterableNE<RowField<ScopeState>> fields, Option<FrameLink> link, RowScope scope, Action<IDisposable> retain) =>
-        from held in IO.lift(() => Atom(new ScopeHeld(sources.Head, None, None)))
+        from held in atomIO(new ScopeHeld(sources.Head, None, None))
         from view in DisposalOps.Acquire(IO.lift(() => new ScopeView(
             scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(shown => shown.Source.Frames(scope)))), static control => IO.lift(control.Dispose), retain)
         from label in DisposalOps.Acquire(IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) }), static control => IO.lift(control.Dispose), retain)
@@ -120,11 +120,11 @@ public static class ChartRows {
         select state.Options.Kind.Map(histogram: histogram, waveformLuma: brightness, waveformRgb: brightness, parade: brightness, vectorscope: brightness, chromaticity: Seq<MenuPick>())
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Source").Local, Picks(
                     sources, entry => Wording.English.Shown(entry.Caption, scope.Sink), shown.Source,
-                    picked => held.SwapIO(current => current with { Source = picked }).Map(static _ => unit))))
+                    picked => held.SwapIO(current => current with { Source = picked }).Map(unit))))
                 .Filter(_ => sources.Count > 1)
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Sample").Local, Picks(
                 toSeq(SampleSquare.Items), static square => RowText.Localize("{0} × {0}", arguments: [square.Key]).Local,
-                state.Sample, square => edit.Take(new Edit<SampleSquare>.Commit(square), static (picked, record) => record with { Sample = picked }).Map(static _ => unit))));
+                state.Sample, square => edit.Take(new Edit<SampleSquare>.Commit(square), static (picked, record) => record with { Sample = picked }).Map(unit))));
 
     private static Seq<MenuPick> Picks<TValue>(Seq<TValue> items, Func<TValue, string> caption, TValue marked, Func<TValue, IO<Unit>> run) =>
         items.Map(item => (MenuPick)new MenuPick.Item(caption(item), EqualityComparer<TValue>.Default.Equals(item, marked), run(item)));
@@ -164,7 +164,7 @@ public static class ChartRows {
         from enabled in IO.lift(() => padlock.Iter(command => command.Enabled = shown.Pointed.IsSome))
         from masked in link.Match(
             Some: linked => frames.Map(formed => Masks(marks, formed)).IfNone(Seq<FrameMask>()) switch {
-                var next => linked.Masks.SwapMaybeIO(current => Some(next).Filter(fresh => fresh != current)).Map(static _ => unit),
+                var next => linked.Masks.SwapMaybeIO(current => Some(next).Filter(fresh => fresh != current)).Map(unit),
             },
             None: static () => IO.pure(unit))
         select unit;

@@ -283,6 +283,10 @@ def diverged(
 
 def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
     """Returns each change's dependent host writes."""
+
+    def refused(error: RuntimeError) -> BlenderFaults:
+        return (BlenderEditFault(request=repr(item), error=error),)
+
     match change:
         case Swapped(data=data):
             return (lambda: written(item, "data", data).map(lambda _: None),)
@@ -296,11 +300,11 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
                 for _ in range(before - after):
                     materials.pop()
 
-            return (lambda: catch(resized, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(item), error=error),)),)
+            return (lambda: catch(resized, exception=RuntimeError)().map_error(refused),)
         case Layered(view_layer=layer, hidden=hidden, selected=selected):
             return (
                 lambda: accumulated(
-                    result.map_error(lambda error: (BlenderEditFault(request=repr(item), error=error),))
+                    result.map_error(refused)
                     for result in (
                         *(catch(lambda: item.hide_set(hide, view_layer=layer), exception=RuntimeError)() for hide in hidden.to_list()),
                         *(catch(lambda: item.select_set(select, view_layer=layer), exception=RuntimeError)() for select in selected.to_list()),
@@ -321,7 +325,7 @@ def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object,
     )
 
     def live[T: bpy.types.ID](handle: Option[Handle[T]]) -> BlenderResult[Option[T]]:
-        return handle.map(lambda held: held.resolve().map(Some)).default_with(lambda: Ok(Nothing))
+        return handle.map(lambda held: held.resolve().map(Some)).default_value(Ok(Nothing))
 
     def each(found: tuple[Option[bpy.types.ID], Option[bpy.types.Object]], item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
         def applied(rows: tuple[ObjectChange, ...]) -> BlenderResult[Reconciled]:

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collected-windows
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - pattern: $R.collect::<Vec<$_>>().windows($N)
+constraints:
+    N: {kind: integer_literal}
+message: '`$R` collects into a `Vec` only to read windows of `$N` items'
+note: 'Call `<iterator>.map_windows(|[left, right]: &[_; N]| ..)` (`#![feature(iter_map_windows)]`), `map_windows` reads each window from a ring buffer of `N` items with no `Vec`. Closure output cannot borrow the window'

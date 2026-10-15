@@ -323,6 +323,9 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
         def pointer(built: BlenderResult[type[bpy.types.PropertyGroup]]) -> BlenderResult[bpy.props._PropertyDeferred]:
             return built.map(lambda struct: bpy.props.PointerProperty(type=struct, override={"LIBRARY_OVERRIDABLE"}))
 
+        def updating(member: str) -> Mapping[str, object]:
+            return changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[member])}).default_value({})
+
         def defined(
             field: msgspec.structs.FieldInfo, declared: Declared[PropertyShape], path: Key, annotation: object, title: str | None = None, summary: str = ""
         ) -> BlenderResult[bpy.props._PropertyDeferred]:
@@ -470,14 +473,14 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                         def flag(member: Enum) -> bpy.props._PropertyDeferred:
                             leaf = bpy.props.BoolProperty(name=member.label if isinstance(member, Choice) else member.name.replace("_", " ").title(), override={"LIBRARY_OVERRIDABLE"})
                             leaf.keywords.update({} if default is msgspec.NODEFAULT else {"default": member in default})
-                            leaf.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[member.name])}).default_value({}))
+                            leaf.keywords.update(updating(member.name))
                             return leaf
 
                         return pointer(group(path, {member.name: flag(member) for member in enum}))
                     case Pointer(block=block):
                         prop = bpy.props.PointerProperty(type=block)
                         prop.keywords.update(binding.poll.map(lambda poll: {"poll": lambda holder, block: poll(identity, holder, block)}).default_value({}))
-                        prop.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[field.name])}).default_value({}))
+                        prop.keywords.update(updating(field.name))
                         return Ok(prop)
                     case Tagged(tag_field=tag_field, cases=cases):
                         branches = accumulated(
@@ -488,7 +491,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                         selector.keywords["items"] = [(case.__name__, case.title, case.__doc__ or "", tag) for case, tag in cases]
                         if default is not msgspec.NODEFAULT:
                             selector.keywords["default"] = type(default).__name__
-                        selector.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[tag_field])}).default_value({}))
+                        selector.keywords.update(updating(tag_field))
                         return pointer(branches.bind(lambda props: group(path, {tag_field: selector} | dict(props))))
 
             def described(prop: bpy.props._PropertyDeferred) -> bpy.props._PropertyDeferred:
@@ -496,7 +499,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                 prop.keywords.setdefault("override", {"LIBRARY_OVERRIDABLE"})
                 prop.keywords.setdefault("options", set(binding.options))
                 if prop.function not in {bpy.props.CollectionProperty, bpy.props.PointerProperty}:
-                    prop.keywords.update(changed.map(lambda body: {"update": lambda holder, context: body(holder, context, holder.bl_rna.properties[field.name])}).default_value({}))
+                    prop.keywords.update(updating(field.name))
                 if not presentation.quantity.map(lambda quantity: quantity in {Quantity.LENGTH, Quantity.ANGLE}).default_value(False):
                     bounds = tuple(f"{key.title()}: {value:g}" for key, value in prop.keywords.items() if key in {"min", "max"})
                     default_text = (f"Default: {shown(blank)}",) if blank is not msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT else ()

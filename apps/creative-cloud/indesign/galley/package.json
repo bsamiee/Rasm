@@ -1,23 +1,15 @@
 {
     "name": "@rasm/galley",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "private": true,
     "description": "InDesign UXP plugin serving InDesign through Atelier as MCP tools",
     "type": "module",
-    "exports": {
-        "./extension": "./extension.ts"
-    },
     "main": "panel.ts",
     "dependencies": {
-        "@exodus/bytes": "catalog:",
-        "@rasm/ai": "workspace:*",
-        "acorn": "catalog:",
-        "acorn-walk": "catalog:",
-        "effect": "catalog:",
-        "image-size": "catalog:",
-        "magic-string": "catalog:",
-        "regjsparser": "catalog:",
-        "unicode-property-value-aliases": "catalog:"
+        "@rasm/indesign": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

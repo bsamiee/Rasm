@@ -20,7 +20,7 @@ public sealed partial class NoticeServer {
     static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
         validationError = Uri.TryCreate(value, UriKind.Absolute, out Uri? address)
             && (string.Equals(address.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal) || string.Equals(address.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal))
-            && address.Query.Length == 0 && address.Fragment.Length == 0
+            && address.Query.Length is 0 && address.Fragment.Length is 0
                 ? null
                 : new InvalidRhinoValue();
 }
@@ -124,7 +124,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
         IO.lift(() => queued.Notice(clock.ToZonedClock().Zone, options.Glyph, options.Reveal))
             .OnUiThread()
             .Bind(notice => Callbacks.Each(Seq(Noticed(queued.Fresh, notice).OnUiThread(), Notifications.Show(notice).OnUiThread(), Configured(queued, notice))))
-            .Map(static _ => unit)
+            .Map(unit)
             .Catch(static error => !error.Is(Errors.Cancelled), error => IO.lift(() => sink.Report(error, typeof(NoticeSender), nameof(Notify))));
 
     private IO<Unit> Noticed(bool fresh, Notice notice) =>

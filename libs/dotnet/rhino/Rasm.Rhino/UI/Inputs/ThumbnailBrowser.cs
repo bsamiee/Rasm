@@ -40,11 +40,9 @@ public readonly record struct TileFlow(int Columns, SizeF Cell) {
 }
 
 public readonly record struct TileFace(RectangleF Image, RectangleF Caption, RectangleF Band, Option<RectangleF> Number, FormattedTextAlignment Align, bool Ruled) {
-    public const float Inset = 4f;
-
     public RectangleF Star =>
         IconSlot.ListCell.Master switch {
-            var side => new RectangleF(Image.Right - Inset - side, Image.Top + Inset, side, side),
+            var side => new RectangleF(Image.Right - Plots.Inset - side, Image.Top + Plots.Inset, side, side),
         };
 }
 
@@ -64,11 +62,11 @@ public sealed partial class BrowserMode {
             (flow.Row(pointer.Y) * flow.Columns) + int.Clamp((int)MathF.Round((pointer.X - TileFlow.Spacing) / (flow.Cell.Width + TileFlow.Spacing), MidpointRounding.ToEven), 0, flow.Columns),
         static width => TileSize.Clamped(((width - TileFlow.Spacing) / 3f) - TileFlow.Spacing));
     public static readonly BrowserMode List = new("list", GlyphRole.List,
-        static (width, image) => new TileFlow(1, new SizeF(width - (2f * TileFlow.Spacing), image.Height + (2f * TileFace.Inset))),
-        static (cell, image, number) => (cell.X + TileFace.Inset + image.Width + 8f) switch {
+        static (width, image) => new TileFlow(1, new SizeF(width - (2f * TileFlow.Spacing), image.Height + (2f * Plots.Inset))),
+        static (cell, image, number) => (cell.X + Plots.Inset + image.Width + 8f) switch {
             var start => new TileFace(
-                new RectangleF(cell.X + TileFace.Inset, cell.Y + TileFace.Inset, image.Width, image.Height),
-                RectangleF.FromSides(number > 0f ? start + number + 5f : start, cell.Y, cell.Right - TileFace.Inset, cell.Bottom),
+                new RectangleF(cell.X + Plots.Inset, cell.Y + Plots.Inset, image.Width, image.Height),
+                RectangleF.FromSides(number > 0f ? start + number + 5f : start, cell.Y, cell.Right - Plots.Inset, cell.Bottom),
                 cell,
                 number > 0f ? Some(new RectangleF(start, cell.Y, number, cell.Height)) : Option<RectangleF>.None,
                 FormattedTextAlignment.Left,
@@ -342,7 +340,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         };
 
     private BrowserState<TItem, TKey> Picked(BrowserState<TItem, TKey> state, TKey key, Keys modifiers) =>
-        ((modifiers & Application.Instance.CommonModifier) != Keys.None, modifiers.HasFlag(Keys.Shift)) switch {
+        ((modifiers & Application.Instance.CommonModifier) is not Keys.None, modifiers.HasFlag(Keys.Shift)) switch {
             (true, _) => state with { Selected = state.Selected.Contains(key) ? state.Selected.Remove(key) : state.Selected.Add(key), Anchor = Some(key), Lead = Some(key) },
             (_, true) => state with { Selected = Spanned(Order(state), state.Anchor, key), Anchor = state.Anchor | Some(key), Lead = Some(key) },
             _ when state.Selected.Contains(key) => state with { Anchor = Some(key), Lead = Some(key) },
@@ -373,7 +371,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     protected override Option<Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>> Pressed(
         BrowserState<TItem, TKey> state, SizeF size, float scale, Option<BrowserPart<TKey>> part, MouseEventArgs e) =>
         from pressed in part
-        where e.Buttons == MouseButtons.Primary
+        where e.Buttons is MouseButtons.Primary
         select new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(
             pressed.Item.Match(Some: key => Picked(state, key, e.Modifiers), None: () => state with { Selected = [], Anchor = None }) with { Exported = None },
             None);
@@ -395,7 +393,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
 
     protected override Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>> Released(
         BrowserState<TItem, TKey> state, SizeF size, float scale, Option<BrowserPart<TKey>> part, MouseEventArgs e) =>
-        part.Filter(_ => state.Gap.IsNone && state.Exported.IsNone && e.Modifiers == Keys.None)
+        part.Filter(_ => state.Gap.IsNone && state.Exported.IsNone && e.Modifiers is Keys.None)
             .Map(pressed => pressed.Switch(
                 (Browser: this, State: state),
                 ground: static (held, _) => new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(held.State, None),
@@ -417,9 +415,9 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                         : Chosen(state, key, Step)),
                 Keys.Enter => state.Lead.Map(lead => Chosen(state, lead, Commit)),
                 Keys.F2 when source.Renames => state.Lead.Map(lead => new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(state with { Renaming = Some(lead) }, None)),
-                >= Keys.D1 and <= Keys.D9 when source.Numbered && e.Modifiers == Keys.None =>
+                >= Keys.D1 and <= Keys.D9 when source.Numbered && e.Modifiers is Keys.None =>
                     state.Items.At(e.Key - Keys.D1).Filter(state.Filter).Map(item => Chosen(state, source.Key(item), Commit)),
-                Keys.A when (e.Modifiers & Application.Instance.CommonModifier) != Keys.None =>
+                Keys.A when (e.Modifiers & Application.Instance.CommonModifier) is not Keys.None =>
                     Some(new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(state with { Selected = toHashSet(keys) }, None)),
                 _ => None,
             },
@@ -488,7 +486,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                         this, after.Items.Filter(item => keys.Contains(source.Key(item))), after.Lead.Bind(after.Loaded.Find).Bind(static thumbnail => thumbnail.Held)),
                 })
             .Somes())
-            .Map(static _ => unit);
+            .Map(unit);
 
     private Option<IO<Unit>> Loading(BrowserState<TItem, TKey> before, BrowserState<TItem, TKey> after) =>
         from box in RequestBox(after)
@@ -545,7 +543,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         IO.lift(static () => new object()).Bind(request =>
             DisposalOps.Acquire(owned => DisposalOps.Fork(
                 IO.yieldFor(TimeSpan.FromSeconds(0.2)).Bind(_ => Previewed(request, key, preview, owned).OnUiThread()).Catch(Reported).As(), owned)
-                .Map(static _ => unit), lease => dwell = Some((request, key, lease))));
+                .Map(unit), lease => dwell = Some((request, key, lease))));
 
     private IO<Unit> Previewed(object request, TKey key, Func<TItem, Action<IDisposable>, IO<Unit>> preview, Action<IDisposable> retain) =>
         from admitted in IO.lift(() =>
@@ -625,7 +623,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                      where canvas.Enabled
                      select Starred(canvas, placed, hovered, favourite))
                  .Somes())
-                 .Map(static _ => unit),
+                 .Map(unit),
          };
 
     private static IO<Unit> Tiled(PlotCanvas canvas, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
@@ -634,14 +632,14 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                 .Choose(at => state.Loaded.Find(at.Entry.Key).Bind(static loaded => loaded.Held).Map(thumbnail => (Thumbnail: thumbnail, Box: Contained(thumbnail, at.Face.Image))))
                 .TraverseM(tile => Thumbnails.Checker(canvas, tile.Box, Checkerboard.Content).Bind(_ => tile.Thumbnail.Paint(canvas, tile.Box, PaintSlot.ContentListEnabledText)))
                 .As())
-            .Map(static _ => unit);
+            .Map(unit);
 
     private IO<Unit> Lettered(PlotCanvas canvas, RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
         DisposalOps.Within(() => new FormattedText {
             Font = canvas.Font,
             ForegroundBrush = Brushes.Cached(Plots.Resolve(canvas, new MarkStyle.Fill(PaintSlot.ContentListEnabledText, 1f))),
             Trimming = FormattedTextTrimming.CharacterEllipsis,
-        }, text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))).Map(static _ => unit),
+        }, text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))).Map(unit),
             static text => IO.lift(text.Dispose));
 
     private Seq<(string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap)> Runs(RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>

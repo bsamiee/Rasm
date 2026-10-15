@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
+using Rasm.Rhino.Document.Tables;
 using Rhino.Commands;
+using Rhino.DocObjects;
 
 namespace Rasm.Rhino;
 
@@ -18,6 +20,10 @@ internal enum Codes {
     Ended = 11,
     InvalidRhinoValue = 12,
     UnrepresentableSpan = 13,
+    MissingComponent = 14,
+    NonUniqueName = 15,
+    UnparsedText = 16,
+    TypeMismatch = 17,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -74,3 +80,15 @@ public sealed record InvalidRhinoValue() : Expected("value out of range", (int)C
 }
 
 public sealed record UnrepresentableSpan(Duration Span, Duration Unit) : Expected("{Span} is no whole count of {Unit}", (int)Codes.UnrepresentableSpan);
+
+public sealed record MissingComponent<T>(ComponentRef<T> Address) : Expected("No {Type} matches {Address}", (int)Codes.MissingComponent) {
+    public string Type => typeof(T).Name;
+}
+
+public sealed record NonUniqueName(ModelComponentType Type) : Expected("{Type} names do not identify one row", (int)Codes.NonUniqueName);
+
+public sealed record UnparsedText(Type Owner, string Member, string Text) : Expected("{Owner}.{Member} parsed no whole value from {Text}", (int)Codes.UnparsedText);
+
+public sealed record TypeMismatch(string Key, Type Stored, Type Requested) : Expected("Key {Key} holds a {Stored} where a {Requested} is read", (int)Codes.TypeMismatch) {
+    public static Fin<T> Unless<T>(object value, string key) where T : notnull => value is T typed ? typed : new TypeMismatch(key, value.GetType(), typeof(T));
+}

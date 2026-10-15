@@ -1,27 +1,18 @@
-using Rhino.DocObjects;
 using Rhino.Render;
 
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal enum Codes {
-    MissingComponent = 1,
-    NonUniqueName = 2,
-    UndoRecordOpen = 3,
-    InvalidLayerSegment = 4,
-    MissingLayerPath = 5,
-    LayerCycle = 6,
-    ForeignContent = 7,
-    LayerPathTaken = 8,
+    UndoRecordOpen = 1,
+    InvalidLayerSegment = 2,
+    MissingLayerPath = 3,
+    LayerCycle = 4,
+    ForeignContent = 5,
+    LayerPathTaken = 6,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record MissingComponent<T>(ComponentRef<T> Address) : Expected("No {Type} matches {Address}", (int)Codes.MissingComponent) {
-    public string Type => typeof(T).Name;
-}
-
-public sealed record NonUniqueName(ModelComponentType Type) : Expected("{Type} names do not identify one row", (int)Codes.NonUniqueName);
-
 public sealed record UndoRecordOpen(uint Serial) : Expected("Undo record {Serial} is open", (int)Codes.UndoRecordOpen) {
     public static Fin<Unit> Unless(Option<uint> open) => open.Case is uint serial ? new UndoRecordOpen(serial) : unit;
 }

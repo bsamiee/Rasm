@@ -14,7 +14,7 @@ Covers declaring the types `Thinktecture.Runtime.Extensions` generates (value ob
 
 Every package name omits the prefix `Thinktecture.Runtime.Extensions.` and every analyzer code omits the prefix `TTRESG`:
 - `Analyzers` reports 048, 049, 098, 100 to 110, and 1000 as warnings, 1001 as information, and every other rule as an error
-- Every generated type and every type that encloses one is `partial` (006)
+- Every generated type is `partial` (006), a non-partial enclosing type fails with `CS0260`
 
 ## [01]-[VALUE_OBJECTS]
 
@@ -60,7 +60,8 @@ internal sealed partial class Bounds {
 Declaration rules the analyzer enforces:
 - Every field is read-only (001), every property has no setter (003), an `init` accessor is private (042), a primary constructor is rejected (043)
 - Key member is non-nullable
-- String keys need both comparer attributes (048), a complex value object with string members sets `DefaultStringComparison` (049)
+- String keys without `[KeyMemberEqualityComparer]` are 048 unless `SkipEqualityComparison` is set
+- Complex value objects with string members set `DefaultStringComparison` (049)
 - `[IgnoreMember]` removes a member from equality, the factories, and every other generated member
 - Complex form accepts one member or none, and with one member it receives no key-derived members
 - `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`
@@ -79,7 +80,7 @@ Declaration rules the analyzer enforces:
 |  [06]   | `IComparable<T>`, `IFormattable`     | Present when the key is comparable or formattable, simple form only                     |
 |  [07]   | `IParsable<T>`, `ISpanParsable<T>`   | Present when the key is parsable or a `string`, `Parse` throws `FormatException`        |
 |  [08]   | Conversions                          | To the key implicit, from the key explicit through `Create`, unsafe to a value-type key |
-|  [09]   | `[TypeConverter]`                    | Emitted on every simple value object that has factory methods                           |
+|  [09]   | `[TypeConverter]`                    | Emitted on a non-generic simple value object with factory methods                       |
 
 - Complex value objects take one argument per member in declaration order
 - `null` arguments for a non-nullable key or member return an error before the hook runs, the hook never repeats that null check
@@ -116,8 +117,8 @@ internal readonly partial struct Amount {
 
 - Rounding runs once inside the hook whichever factory is called
 - Multiplication by `decimal` stays disabled, the product needs a rounding decision
-- Hooks declared `private static partial string ValidateFactoryArguments(...)` return a value for the constructed instance
-- Generated `Validate` passes that value to `partial void FactoryPostInit(string value)` after validation succeeded
+- Hooks declared `private static partial TValue ValidateFactoryArguments(...)` with a non-void `TValue` return a value for the instance
+- Generated factories pass that value to instance method `partial void FactoryPostInit(TValue factoryArgumentsValidationError)`
 - Receiving field has `[IgnoreMember]` and an initializer, a `readonly` struct cannot hold it, that form belongs to a class
 
 ### [01.3]-[COMPARERS_AND_SETTINGS]
@@ -192,7 +193,7 @@ Generator emits one private constructor per base constructor with parameters in 
 - Derived classes that are neither abstract nor a base are `sealed` (037), a derived class can be generic, `Items` lists the permitted implementations
 - Keyless smart enums have no key member, `Get`, conversion operators, comparer settings, or generated `ToString`
 - Only `[ObjectFactory<string>]` serializes or binds a keyless smart enum
-- Keyless smart enums inherit `object.ToString()`, the generated `Switch` and `Map` interpolate in their unreachable arm alone
+- Keyless smart enums inherit `object.ToString()`
 
 ### [02.1]-[GENERATED_API]
 
@@ -206,7 +207,7 @@ Generator emits one private constructor per base constructor with parameters in 
 |  [06]   | Equality                            | Identity, `GetHashCode` computed once from the key with the configured comparer                 |
 |  [07]   | `IParsable<T>`, `ISpanParsable<T>`  | Present when the key implements them, which includes `string`, `Parse` throws `FormatException` |
 |  [08]   | `IComparable<T>`, `IFormattable`    | Present for a comparable or formattable key, with the comparison operators                      |
-|  [09]   | `ToString()`, `[TypeConverter]`     | Key's string form, and `ThinktectureTypeConverter<T, TKey, TValidationError>`                   |
+|  [09]   | `ToString()`, `[TypeConverter]`     | Key's string form, `ThinktectureTypeConverter<T, TKey, TValidationError>` when non-generic      |
 
 - `UnknownSmartEnumIdentifierException` is a `KeyNotFoundException` with the message `There is no item of type 'Kind' with the identifier 'nope'.`
 - Lookups use a `FrozenDictionary`
@@ -271,10 +272,12 @@ internal sealed partial class TextOrCount {
 - `string` members compare with `OrdinalIgnoreCase` unless `DefaultStringComparison` says otherwise
 - Members of type `object` or an interface receive a constructor and no operator
 - Every member type is at least as accessible as the union (077), a union has at least 2 members (067) and one union attribute (066)
-- `CreateX` factories replace the constructor for a member typed as a type parameter, an interface, `object`, or a duplicate of another member
-- Type parameter members get no operator, `T` equal to another member's type makes every conversion ambiguous (`CS0457`)
+- Members typed as a type parameter, an interface, `object`, or a duplicate type add `CreateX` for every member beside the constructors
+- Duplicate member types take a private indexed constructor
+- Type parameter members get no operator
 - Interface arguments never apply an operator (`CS0029`), an `object` argument boxes the union or routes into the more specific member
 - Hand-written operators for a type parameter member return `CreateT(value)` to keep normalization running
+- Hand-written type parameter operators make conversions ambiguous (`CS0457`) where `T` closes over another member's type
 - `TypeParamRef` past the parameter count is 071, on a non-generic union 072, an `allows ref struct` parameter 073, no referenced parameter 107
 - At most one reference-type member keeps typed fields, more share one `object?` field with value types unboxed
 - `UseSingleBackingField` boxes everything into one field, `SingleBackingFieldType` names a base or interface for that field and `Value` (075, 079)
@@ -322,7 +325,7 @@ internal static class Transitions {
 - Class cases with `[Union]` become nested unions with their own cases, records cannot nest a union
 - Outer `Switch` prefixes nested arm names with the parent (`failureNotFound`)
 - `NestedUnionParameterNames = Simple` drops the prefix and collides when nested unions share a case name
-- `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
+- `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds an exhaustive overload with one arm per `StopAt` type in place of its cases
 - Cases can be value objects or smart enums, the union names the kind and each case owns its value and rules
 - `Unknown` cases are a `[ComplexValueObject(SkipFactoryMethods = true)]` with one `Instance` in place of `null`
 - Shared data sits on the base with a private constructor that the record cases pass it to
@@ -352,7 +355,7 @@ internal static class Matching {
 - On an ad hoc union `@default` receives the current member as `object?`, on a regular union the base type
 - Partial forms serve an intended fallback alone, the exhaustive form turns a new case into a compile error at every call
 - Every generated `Switch` and `Map` ends in an unreachable arm that throws `InvalidOperationException`
-- Smart enum arm message is `Unknown item 'Rogue'.`, regular union arm message is `Unexpected type '...'.`
+- Smart enum arm message is `The instance is not a known item of 'Kind'.`, regular union arm message is `Unexpected type '...'.`
 - Ad hoc `Map` arm message is `Unexpected value index '...'.`, ad hoc `Switch` throws `IndexOutOfRangeException` in that arm
 
 ## [05]-[OBJECT_FACTORIES]

@@ -135,7 +135,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
     protected override Option<Transition<HueRangeBarState, HueRange>> Pressed(HueRangeBarState state, SizeF size, float scale, Option<RangeHandle> part, MouseEventArgs e) =>
         from range in state.Range
         from hit in part
-        where e.Buttons == MouseButtons.Primary
+        where e.Buttons is MouseButtons.Primary
         select new Transition<HueRangeBarState, HueRange>(state with { Grip = new RangeGrip(hit.Under(e.Modifiers), axis.Band.Get(range), 0f) }, None);
 
     protected override Transition<HueRangeBarState, HueRange> Dragged(HueRangeBarState state, SizeF size, float scale, Option<RangeHandle> part, PointF origin, PointF previous, MouseEventArgs e) =>

@@ -339,7 +339,7 @@ def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", st
             case BlenderRenderingFault(faults=inner):
                 return "ERROR", tuple(text for fault in inner for text in rendering(fault))
 
-    return tuple((kind, text) for fault in faults for kind, texts in [blender(fault)] for text in texts)
+    return tuple((kind, text) for fault in faults for kind, texts in (blender(fault),) for text in texts)
 
 
 def redrawn() -> BlenderResult[Option[str]]:

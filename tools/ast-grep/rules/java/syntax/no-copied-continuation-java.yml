@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-copied-continuation-java
+language: java
+severity: error
+utils:
+    method:
+        kind: method_declaration, constructor_declaration
+    branch:
+        kind: enhanced_for_statement, for_statement, while_statement, lambda_expression
+    tail:
+        kind: identifier
+        pattern: $NEXT
+        inside: {stopBy: {matches: method}, matches: method, has: {field: parameters, has: {kind: formal_parameter, has: {field: name, pattern: $NEXT}}}}
+    holds-tail:
+        any:
+            - matches: tail
+            - has: {stopBy: end, matches: tail}
+    appended:
+        kind: method_invocation
+        any:
+            - all:
+                - has: {field: name, regex: '^concat$'}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: holds-tail}}
+                - not: {has: {field: arguments, has: {nthChild: 1, matches: holds-tail}}}
+            - all:
+                - has: {field: name, regex: '^(addAll|appendAll|plusAll)$'}
+                - has: {field: arguments, has: {matches: holds-tail}}
+                - has: {field: object, kind: method_invocation, has: {field: name, regex: '^(add|append|plus)$'}}
+            - all:
+                - has: {field: name, regex: '^(prepend|prependAll)$'}
+                - has: {field: object, matches: tail}
+    extended:
+        any:
+            - matches: appended
+            - has: {stopBy: end, matches: appended}
+            - kind: identifier
+              pattern: $CHAIN
+              inside:
+                stopBy: {matches: method}
+                matches: branch
+                has:
+                    stopBy: end
+                    kind: expression_statement
+                    has: {kind: method_invocation, pattern: $CHAIN.addAll($$$), has: {field: arguments, has: {matches: holds-tail}}}
+                    follows: {stopBy: end, kind: expression_statement, has: {kind: method_invocation, pattern: $CHAIN.add($$$)}}
+    recursion:
+        kind: method_invocation
+        all:
+            - has: {field: name, pattern: $NAME}
+            - any:
+                - not: {has: {field: object, pattern: $_OBJECT}}
+                - has: {field: object, regex: '^this$'}
+            - has: {field: arguments, has: {matches: extended}}
+            - inside: {stopBy: {matches: method}, matches: branch}
+    consumed:
+        kind: method_invocation
+        all:
+            - has: {field: object, kind: identifier, pattern: $NEXT}
+            - any:
+                - has: {field: name, regex: '^(getFirst|peek|peekFirst|element|head|tail|subList|pop|poll|pollFirst|removeFirst)$'}
+                - all: [{has: {field: name, regex: '^get$'}}, {has: {field: arguments, has: {kind: decimal_integer_literal, regex: '^0$'}}}]
+rule:
+    kind: method_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, has: {stopBy: {matches: method}, matches: recursion}}
+        - has: {field: body, has: {stopBy: {matches: method}, matches: consumed}}
+message: '`$NAME` appends `$NEXT` to every branch and recurses on each, the shared tail is processed once per branch'
+note: 'Recurse on each branch alone and continue with `$NEXT` once at a join point after the branches'

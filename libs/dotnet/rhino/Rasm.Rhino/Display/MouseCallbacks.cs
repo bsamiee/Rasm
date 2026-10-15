@@ -56,7 +56,7 @@ public static class MouseCallbacks {
                 static callback => IO.lift(() => { callback.Enabled = false; }), callback => {
                     callback.Enabled = true;
                     retain(new Disposal<MouseCallback>(callback, static held => held.Enabled = false));
-                }).Map(static _ => unit),
+                }).Map(unit),
             static args => Conversions.Serial(args.View.Document));
 
     // --- [ROWS]

@@ -1,3 +1,4 @@
+import { sessionPath } from '@rasm/hosting/sites.ts';
 import type { ReactNode } from 'react';
 import { MediaFigure } from '../media/figure.tsx';
 import type { AssetCollection } from '../model/asset.ts';
@@ -28,7 +29,14 @@ function Identity({
             <Field label="Introduction" multiline={true} onChange={(introduction): void => onChange((current) => ({ ...current, introduction }))} placeholder="Optional short introduction" value={portfolio.introduction} />
             <Field description="Enter a complete email address, or leave this blank." id={emailId} label="Public contact email" onChange={(email): void => onChange((current) => ({ ...current, email }))} placeholder="Optional" type="email" value={portfolio.email} />
             <h3 className="mt-2 text-[26px] tracking-[-0.035em]">Hero placement</h3>
-            {portfolio.hero ? (
+            {portfolio.hero === undefined ? (
+                <div className="actions">
+                    <p className="hint">Choose an existing file or add a new hero. No extra copy is created.</p>
+                    <button className="button button-outline" onClick={onChooseHero} type="button">
+                        Choose hero file
+                    </button>
+                </div>
+            ) : (
                 <>
                     <div className="flex justify-center [--media-height:320px]">
                         <MediaFigure active={true} placement={portfolio.hero} presentation="full" priority={false} renderMedia={true} />
@@ -38,15 +46,8 @@ function Identity({
                         Clear hero
                     </button>
                 </>
-            ) : (
-                <div className="actions">
-                    <p className="hint">Choose an existing file or add a new hero. No extra copy is created.</p>
-                    <button className="button button-outline" onClick={onChooseHero} type="button">
-                        Choose hero file
-                    </button>
-                </div>
             )}
-            <a className="mt-[35px] text-sm underline" href="/signout-with-chatgpt?return_to=%2F" target="_top">
+            <a className="mt-[35px] text-sm underline" href={sessionPath('signout', '/')} target="_top">
                 Sign out
             </a>
         </>

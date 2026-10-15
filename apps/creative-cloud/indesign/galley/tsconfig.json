@@ -2,8 +2,8 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "allowJs": true,
-        "maxNodeModuleJsDepth": 1,
-        "lib": [ "esnext", "dom" ],
+        "maxNodeModuleJsDepth": 2,
+        "lib": [ "es2023", "es2024.arraybuffer", "es2024.collection", "es2024.object", "es2024.regexp", "es2024.sharedmemory", "es2024.string", "dom" ],
         "types": [ "node", "vite/client", "@adobe-uxp-types/uxp/with-protocol" ],
         "paths": { "adobe:indesign": [ "./node_modules/indesign-uxp-types/flat/module.d.ts" ] }
     }

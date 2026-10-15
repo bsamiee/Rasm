@@ -1,4 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Foundation for building any technical drawing app or plug-in on ISO, ASME, and national CAD drafting standards as validated values</Description>
+    </PropertyGroup>
+
     <ItemGroup Label="Core">
         <PackageReference Include="NodaTime" />
     </ItemGroup>

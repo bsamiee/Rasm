@@ -26,7 +26,7 @@ nonisolated enum UsagePresentation {
     }
 
     static func resetTooltip(_ reset: Date?) -> String {
-        reset.map { reset in reset.formatted(detailStyle) } ?? "No reset"
+        reset?.formatted(detailStyle) ?? "No reset"
     }
 
     static func sessionReading(_ usage: UsageState, at now: Date) -> String? {

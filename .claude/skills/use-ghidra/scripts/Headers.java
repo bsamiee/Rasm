@@ -41,6 +41,24 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Headers extends GhidraScript {
+    // --- [PATTERNS]
+
+    private static final Pattern DEFINE = Pattern.compile("-D[A-Za-z_]\\w*(=.*)?");
+
+    private static final Pattern HAS_INCLUDE =
+            Pattern.compile("__has_include(_next)?\\s*\\(\\s*[<\"]([^>\"]+)[>\"]\\s*\\)");
+
+    private static final Pattern SCOPED_CONDITION =
+            Pattern.compile("(?m)^(\\s*#\\s*(?:el)?if)\\b.*::.*$");
+
+    private static final Pattern ARRAY_PARAMETER =
+            Pattern.compile(
+                    "(\\*(?:\\s*(?:(?:__)?(?:const|volatile|restrict)|_Atomic)\\b)*)\\s*\\[[^\\]]*\\](?=\\s*[,)])");
+
+    private static final Pattern FLOAT_SUFFIX =
+            Pattern.compile(
+                    "(?<![\\w.])((?:\\d+\\.\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)(?:[lL]|[fF]16)\\b");
+
     // --- [ARGUMENTS]
 
     sealed interface Argument permits Header, Include, Define, Macros {}
@@ -68,7 +86,7 @@ public class Headers extends GhidraScript {
     private static Report.Result<Argument> argument(String token) {
         return switch (token) {
             case String include when include.startsWith("-I") -> include(include.substring(2));
-            case String define when define.matches("-D[A-Za-z_]\\w*(=.*)?") ->
+            case String define when DEFINE.matcher(define).matches() ->
                     new Report.Success<>(new Define(define));
             case String header when !header.startsWith("-") -> header(header);
             default ->
@@ -109,6 +127,10 @@ public class Headers extends GhidraScript {
     // --- [PREPROCESSOR]
 
     static final class Defines extends DefineTable {
+        private static final Pattern TOKEN =
+                Pattern.compile(
+                        "\"(?:\\\\.|[^\"\\\\])*\"?|'(?:\\\\.|[^'\\\\])*'?|[(),]|[^\"'(),]+");
+
         /** Returns macro argument text at {@code start}, remaining text for a variadic argument */
         @Override
         public String getParams(StringBuffer buf, int start, char endChar) {
@@ -124,12 +146,7 @@ public class Headers extends GhidraScript {
         }
 
         private static String argument(String text, char endChar) {
-            List<MatchResult> tokens =
-                    Pattern.compile(
-                                    "\"(?:\\\\.|[^\"\\\\])*\"?|'(?:\\\\.|[^'\\\\])*'?|[(),]|[^\"'(),]+")
-                            .matcher(text)
-                            .results()
-                            .toList();
+            List<MatchResult> tokens = TOKEN.matcher(text).results().toList();
             int[] depths =
                     tokens.stream()
                             .mapToInt(
@@ -194,14 +211,20 @@ public class Headers extends GhidraScript {
     private static String resolve(String text, Path file, List<Path> includes, int index) {
         List<Path> current = Stream.concat(includes.stream(), Stream.of(file.getParent())).toList();
         List<Path> later = includes.subList(index + 1, includes.size());
-        return Pattern.compile("__has_include(_next)?\\s*\\(\\s*[<\"]([^>\"]+)[>\"]\\s*\\)")
-                .matcher(text)
-                .replaceAll(
-                        check ->
-                                found(check.group(1) == null ? current : later, check.group(2))
-                                        ? "1"
-                                        : "0")
-                .replaceAll("(?m)^(\\s*#\\s*(?:el)?if)\\b.*::.*$", "$1 0");
+        return SCOPED_CONDITION
+                .matcher(
+                        HAS_INCLUDE
+                                .matcher(text)
+                                .replaceAll(
+                                        check ->
+                                                found(
+                                                                check.group(1) == null
+                                                                        ? current
+                                                                        : later,
+                                                                check.group(2))
+                                                        ? "1"
+                                                        : "0"))
+                .replaceAll("$1 0");
     }
 
     private static boolean found(List<Path> directories, String name) {
@@ -222,13 +245,14 @@ public class Headers extends GhidraScript {
             parser.setParseFileName(header.toString());
             parser.parse(
                     new ByteArrayInputStream(
-                            source.toString(StandardCharsets.ISO_8859_1)
-                                    .replaceAll(
-                                            "(\\*(?:\\s*(?:(?:__)?(?:const|volatile|restrict)|_Atomic)\\b)*)\\s*\\[[^\\]]*\\](?=\\s*[,)])",
-                                            "$1 *")
-                                    .replaceAll(
-                                            "(?<![\\w.])((?:\\d+\\.\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?|\\d+[eE][-+]?\\d+)(?:[lL]|[fF]16)\\b",
-                                            "$1")
+                            FLOAT_SUFFIX
+                                    .matcher(
+                                            ARRAY_PARAMETER
+                                                    .matcher(
+                                                            source.toString(
+                                                                    StandardCharsets.ISO_8859_1))
+                                                    .replaceAll("$1 *"))
+                                    .replaceAll("$1")
                                     .getBytes(StandardCharsets.ISO_8859_1)));
             return new Report.Success<>("parsed " + header);
         } catch (ParseException

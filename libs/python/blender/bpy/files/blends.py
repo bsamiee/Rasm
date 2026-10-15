@@ -153,7 +153,7 @@ class Difference(msgspec.Struct, frozen=True, kw_only=True):
 
 def folder_made(folder: Path) -> BlenderResult[Path]:
     """Returns an existing or created folder, or its native write refusal."""
-    return catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map(lambda _: folder).map_error(lambda error: (BlenderWriteFault(request=str(folder), error=error),))
+    return catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map(lambda _: folder).map_error(lambda error: (BlenderWriteFault(request=folder, error=error),))
 
 
 def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path, ...]]:
@@ -163,7 +163,7 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
     def one(source: Path, target: Path) -> BlenderResult[Path]:
-        return folder_made(target.parent).bind(lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(target), error=error),)))
+        return folder_made(target.parent).bind(lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=target, error=error),)))
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 
@@ -179,7 +179,7 @@ def sourced[T](
                 setattr(target, name, list(names))
         return Ok((value, {name: tuple(getattr(target, name)) for name in chosen}))
     except (OSError, ValueError) as error:
-        return Error((BlenderReadFault(request=str(path), error=error),))
+        return Error((BlenderReadFault(request=path, error=error),))
 
 
 # --- [SAVE]
@@ -327,11 +327,11 @@ def projected(project: Project) -> BlenderResult[None]:
                 match variable.value:
                     case Path() as path:
                         kind, values = "STRING", {"subtype": "FILEPATH", "value": str(path)}
-                    case str() as text:
+                    case str(text):
                         kind, values = "STRING", {"subtype": "NONE", "value": text}
-                    case int() as number:
+                    case int(number):
                         kind, values = "INTEGER", {"value": number}
-                    case float() as number:
+                    case float(number):
                         kind, values = "FLOAT", {"value": number}
                 match Option.of_optional(variables.get(name)):
                     case Option(tag="some", some=item) if item.type == kind:
@@ -460,7 +460,7 @@ def compared(left: Path, right: Path) -> BlenderResult[tuple[Difference, ...]]:
                 shape = header.create_block_header_struct()  # type: ignore[func-returns-value]
                 blocks = tuple(takewhile(lambda block: block[0].code != b"ENDB", ((head, file.read(head.size)) for head in (BlockHeader(file, shape) for _ in count()))))  # type: ignore[call-arg]  # ty: ignore[too-many-positional-arguments]
         except OSError as error:
-            return Error((BlenderReadFault(request=str(path), error=error),))
+            return Error((BlenderReadFault(request=path, error=error),))
         except BlendHeaderError:  # type: ignore[misc]  # ty: ignore[invalid-exception-caught]
             return Error((BlenderAbsentFault(owner=str(path), key=BlendFileHeader.__name__),))
         shapes = layouts(next(data for head, data in blocks if head.code == b"DNA1"), "<" if header.is_little_endian else ">", header.pointer_size)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]

@@ -1,12 +1,14 @@
 ---
 name: playwright-cli
-description: "Use when a task needs a browser, Playwright test, or trace through `playwright cli`, the MCP servers, or test agents, covering sessions, snapshots, actions, and devtools."
+description: "Use when a browser or Playwright test runs through `playwright cli` or the `playwright-test` server, covering sessions, snapshots, actions, and devtools."
 allowed-tools: Bash(playwright:*)
 ---
 
 # [PLAYWRIGHT_CLI]
 
-`playwright cli` drives a browser through named sessions. Replies hold the Playwright code a command ran and an open modal state, add the page URL, title, and console counts when the command takes a snapshot or one of them changed, and add an absolute snapshot link when it takes a snapshot.
+`playwright cli` drives a browser through named sessions. Replies hold the Playwright code a command ran and an open modal state:
+- Page URL, title, and console counts join a reply when its command takes a snapshot or one of them changed
+- Absolute snapshot links join a reply when its command takes a snapshot
 
 [REFERENCES]:
 - [01]-[PLAYWRIGHT_TESTS](references/playwright-tests.md): Running Playwright tests and attaching to one paused under `--debug=cli`
@@ -14,49 +16,45 @@ allowed-tools: Bash(playwright:*)
 - [03]-[RUNNING_CODE](references/running-code.md): `run-code` snippets for permissions, waits, frames, API requests, and flows
 - [04]-[SESSION_MANAGEMENT](references/session-management.md): Default session, workspaces, idle shutdown, profiles, and attaching to running browsers
 - [05]-[STORAGE_STATE](references/storage-state.md): Storage state files, cookies, localStorage, sessionStorage, and IndexedDB
-- [06]-[TEST_GENERATION](references/test-generation.md): Planning, generating, and healing tests from recorded actions
+- [06]-[TEST_GENERATION](references/test-generation.md): Plan, test file, and healing rules of the test agents
 - [07]-[VIDEO_RECORDING](references/video-recording.md): Video recording with chapters, action callouts, and scripts
 - [08]-[PR_ATTACHMENTS](references/pr-attachments.md): Attaching screenshots and videos to pull requests with `gh --attach`
 
-[SURFACES]:
+[INTERFACES]:
 
-| [INDEX] | [SURFACE]                | [TASK]                                                                |
-| :-----: | :----------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `playwright cli`         | Shell-driven flow with outputs piped into files and other tools       |
-|  [02]   | `playwright` MCP server  | Step-by-step work with each call reading the last snapshot in context |
-|  [03]   | `playwright-test` server | Test plan, test file, or failing suite                                |
-|  [04]   | `playwright-trace` skill | Recorded trace                                                        |
+| [INDEX] | [INTERFACE]              | [TASK]                                                                          |
+| :-----: | :----------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `playwright cli`         | Pages, screenshots, PDFs, video, mocking, storage, recording, and ad hoc traces |
+|  [02]   | `playwright test`        | Test runs and step-debugging under `--debug=cli`                                |
+|  [03]   | `playwright-test` server | Test plans, test files, and healing through the `playwright-test-*` agents      |
+|  [04]   | `playwright trace`       | Trace reading through playwright-trace                                          |
 
-`playwright-test` server serves agents `playwright:playwright-test-planner`, `playwright:playwright-test-generator`, and `playwright:playwright-test-healer`. `playwright` server tools are `mcp__plugin_playwright_playwright__browser_<tool>` with schemas `ToolSearch` loads, one persistent context serves every client:
-- `--user-data-dir` on the server's `mise.toml` row keeps the profile and its sign-ins as user state at the path it names, the default hashes the first client's root into the name
-- Browsers install to Playwright's per-user `~/Library/Caches/ms-playwright`, shared by every checkout and pruned when no Playwright install links them
-- `browser_close` fails `The browser context is shared between clients and cannot be closed.`
-- Unnamed files go in `$PLAYWRIGHT_MCP_OUTPUT_DIR` with absolute links
-- `browser_get_config` prints the resolved config
-- Pages registering WebMCP tools add one `webmcp_<tool>` server tool per page tool
-- Storage families `cookie_*`, `localstorage_*`, and `sessionstorage_*` take `list`, `get`, `set`, `delete`, and `clear`
+Browsers install to `~/Library/Caches/ms-playwright`, shared by every checkout:
+- Sessions and test runs launch the Chromium headless shell
+- `show --annotate` opens full Chromium
+- Video recordings encode through Playwright's ffmpeg
 
-| [INDEX] | [CAPABILITY]    | [TOOLS]                                                                                                    |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | Core reads      | `snapshot`, `find`, `take_screenshot`, `console_messages`, `network_requests`, `network_request`           |
-|  [02]   | Core actions    | `click`, `hover`, `drag`, `drop`, `fill_form`, `select_option`, `file_upload`, `handle_dialog`, `wait_for` |
-|  [03]   | Core page       | `evaluate`, `run_code_unsafe`, `resize`, `emulate_media`, `close`                                          |
-|  [04]   | Core input      | `type`, `press_key`                                                                                        |
-|  [05]   | Core navigation | `navigate`, `navigate_back`                                                                                |
-|  [06]   | Core tabs       | `tabs`                                                                                                     |
-|  [07]   | Config          | `get_config`                                                                                               |
-|  [08]   | Network         | `route`, `route_list`, `unroute`, `network_state_set`                                                      |
-|  [09]   | Storage         | `storage_state`, `set_storage_state`, `cookie_*`, `localstorage_*`, `sessionstorage_*`                     |
-|  [10]   | Testing         | `generate_locator`, `verify_element_visible`, `verify_text_visible`, `verify_list_visible`, `verify_value` |
-|  [11]   | Vision          | `mouse_move_xy`, `mouse_click_xy`, `mouse_drag_xy`, `mouse_down`, `mouse_up`, `mouse_wheel`                |
-|  [12]   | PDF             | `pdf_save`                                                                                                 |
-|  [13]   | Devtools files  | `start_tracing`, `stop_tracing`, `start_video`, `stop_video`, `start_recording`, `stop_recording`          |
-|  [14]   | Devtools video  | `video_chapter`, `video_show_actions`, `video_hide_actions`                                                |
-|  [15]   | Devtools page   | `highlight`, `hide_highlight`, `annotate`, `resume`                                                        |
+`playwright-test` server pauses a seed or failing test for the `browser_*` tools of the plugin's `playwright:playwright-test-*` agents:
+- Server loads the config `-c` on its `mise.toml` row names
+- Setup tools and `test_debug` run on one worker with no test timeout, headless under `--headless` on the row
+- MCP sessions hold one paused test and one generator log, a later setup or `test_debug` stops the paused test, generators run one at a time
+- Setup tools pause the seed at its end, `### Paused at end of test. ready for interaction` and `### Page state` holding URL, title, and snapshot
+- Setup results ending `Error: seed test not found.` or `Error while running the seed test.` hold no page
+- `project` names a config's `projects[].name`, the first top-level project without it, a missing name fails `Project <name> not found`
+- `seedFile` resolves against the project's `testDir`, the config directory, then the client root, a miss fails `seed test not found.`
+- Setup without `seedFile` takes the project's first test file with `seed` in its name, or writes `<testDir>/seed.spec.ts` with one empty test
+- Action, assertion, and input tools require `intent`, read tools take none
+- Action results link a snapshot as `page-<stamp>.yml` in `.playwright-mcp/` of the client root, `browser_type` without `submit` links none
+- `.playwright-mcp/` takes no setting, `browserBackend.js` gives the paused test the config `{ capabilities: ["testing"] }` with no `outputDir`
+- Refs resolve against the latest snapshot
+- `browser_snapshot` with `target` leaves refs outside its subtree failing `Ref <ref> not found in the current page snapshot`
+- `browser_tabs` with `action: "new"` opens a tab in the test's context, `select` with `index` makes one current, results list `### Open tabs`
+- `browser_tabs` with `isolatedContext` detaches the paused page until the next setup, `browser_*` calls fail `MCP backend is not initialized`
+- `browser_wait_for` waits for `text` or `textGone` up to the action timeout, `time` in seconds up to 30 replaces it or waits alone
 
 ## [01]-[SESSIONS]
 
-`plugins/playwright/cli.config.json`, named by `PLAYWRIGHT_MCP_CONFIG`, launches every session as headless Chromium with an in-memory profile:
+`.playwright/cli.config.json`, named by `PLAYWRIGHT_MCP_CONFIG` for every directory, launches every session as headless Chromium:
 - `open [url]` starts a session, `-s=<name>` names the session a command addresses, `close` closes it
 - `--mobile` emulates Pixel 10 at 360x732, `--device="<name>"` a Playwright device name in its exact case
 - Mobile layouts give smaller snapshots
@@ -79,10 +77,13 @@ Snapshots serve page reads and hold the refs that target elements:
 - `snapshot <target>` captures one subtree, `--depth=<n>` limits depth, `--boxes` adds `[box=x,y,width,height]` in viewport CSS pixels
 - `find <text>` matches a case-insensitive substring and prints each match under its ancestor path with 3 lines of context
 - `find --regex` matches case-sensitive, `"/<pattern>/i"` takes flags, `--max-results=<n>` caps the matches, `--filename` saves them
-- `eval "<expression>"` evaluates on the page, `eval "el => <expression>" <target>` on an element, a returned promise is awaited, `--filename` saves the result as JSON
+- `eval "<expression>"` evaluates on the page and `eval "el => <expression>" <target>` on an element, awaiting a returned promise
+- `eval --filename` saves the result as JSON
 - `--raw` prints the result and snapshot without headers and nothing for a reply holding neither, a failed command prints its error and exits 1
+- Cookie, `localstorage-*`, and `sessionstorage-*` reads, `route-list`, and request and response part commands print raw without `--raw`
 - `--raw eval` prints the value as JSON, an object (`performance.timing.toJSON()`) feeds `jq`, a string prints quoted for `jq -r`
-- `--json` prints `result`, `snapshot`, and `error` with `isError: true`, `snapshot` as `role`, `name`, `ref`, and `children` nodes, an action's as `file`
+- `--json` prints `result`, `snapshot`, and `error` with `isError: true`
+- `--json` snapshots hold `role`, `name`, `ref`, and `children` nodes, an action's snapshot holds `file`
 
 ```bash
 playwright cli snapshot
@@ -103,12 +104,15 @@ playwright cli --json snapshot e1 --depth=2 | jq '.snapshot'
 
 ## [03]-[ELEMENTS]
 
-`eval` with a target runs a function on that element and prints its return value, for the `id`, `class`, `data-*`, ARIA, and computed style facts a snapshot omits. One function returning an object reads the facts together.
+`eval` with a target reads the `id`, `class`, `data-*`, ARIA, and computed style facts a snapshot omits, one object return reads them together.
 
 ```bash
 playwright cli snapshot
 
-playwright cli eval "el => ({ id: el.id, className: el.className, ariaLabel: el.getAttribute('aria-label'), display: getComputedStyle(el).display, dataset: { ...el.dataset } })" e7
+playwright cli eval "el => ({
+    id: el.id, className: el.className, ariaLabel: el.getAttribute('aria-label'),
+    display: getComputedStyle(el).display, dataset: { ...el.dataset },
+})" e7
 playwright cli eval "el => el.getAttribute('data-testid')" "#main > button.submit"
 
 playwright cli --raw eval "el => el.getAttribute('href')" e7 | jq -r .
@@ -171,7 +175,7 @@ playwright cli reload
 
 ## [05]-[OUTPUTS]
 
-Unnamed outputs go in `$PLAYWRIGHT_MCP_OUTPUT_DIR` as `page-<timestamp>.<ext>` or `element-<timestamp>.<ext>`, named outputs take `$PLAYWRIGHT_MCP_OUTPUT_DIR/<name>`, `outputMaxSize` in `plugins/playwright/cli.config.json` evicts the oldest files past its byte total:
+Unnamed outputs go in `$PLAYWRIGHT_MCP_OUTPUT_DIR` as `page-<timestamp>.<ext>` or `element-<timestamp>.<ext>`, named outputs at `<name>` there:
 - `screenshot [target]` captures the viewport or one element, `--full-page` the whole scrollable page of a screenshot without a target
 - `--type=png|jpeg|webp` sets the format, the `--filename` extension sets it without `--type`
 - `--hires` captures device pixels in place of CSS pixels, larger by the device pixel ratio under `--mobile` or `--device`
@@ -204,7 +208,7 @@ playwright cli tab-close
 
 ## [07]-[EMULATION]
 
-Each `set-*` command emulates one media feature on the current tab through `page.emulateMedia`, the value holds across its navigations and a new tab starts without it:
+`set-*` commands emulate one media feature on the current tab through `page.emulateMedia`, held across its navigations and absent in a new tab:
 - `set-color-scheme light|dark`
 - `set-reduced-motion reduce|no-preference`
 - `set-forced-colors active|none`
@@ -233,10 +237,9 @@ playwright cli clear-media
 - `generate-locator <ref>` prints the locator a test uses, a CSS selector prints back as `locator('<selector>')`
 - `highlight <target>` keeps a labeled overlay on an element in screenshots and video, `--style` sets its CSS, `--hide` removes it
 - `highlight --hide` removes every overlay
-- `show` opens the dashboard where a person watches and drives every session, `--port=<n>` serves it at the printed URL and blocks until `show --kill`, `0` picks a port
 - `show --annotate` opens the dashboard where a person marks regions and types notes on one or more screenshots
 - Annotation replies hold the notes, each region's box and text, `annotations-<timestamp>.png`, and the page snapshot as `.yaml`
-- `show --kill` stops the dashboard daemon and a served dashboard
+- `show --kill` stops the dashboard daemon
 
 ```bash
 playwright cli console
@@ -249,17 +252,16 @@ playwright cli --raw generate-locator e5
 playwright cli highlight e5 --style="outline: 3px dashed red"
 playwright cli highlight e5 --hide
 playwright cli highlight --hide
-playwright cli show --port=0
 playwright cli show --annotate
 playwright cli show --kill
 ```
 
 ## [09]-[TRACING]
 
-Traces record every action between `tracing-start` and `tracing-stop` with its DOM snapshots, screenshots, network requests and responses, and console messages. Both commands print the action log, network log, and resources paths under `$PLAYWRIGHT_MCP_OUTPUT_DIR/traces/`, one log pair per browser context:
+Traces record every action between `tracing-start` and `tracing-stop`, and both print log and resource paths in `$PLAYWRIGHT_MCP_OUTPUT_DIR/traces/`:
 - `trace-<timestamp>.trace` holds the actions, snapshots, screenshots, timing, and console messages
 - `trace-<timestamp>.network` holds every request and response with headers, bodies, timing, and sizes
-- `trace-<timestamp>-<context>.trace` and `.network` hold a `tab-new --isolated-context=<context>` context, its links labeled `(isolatedContext: <context>)`
+- `trace-<timestamp>-<context>.trace` and `.network` hold a `tab-new --isolated-context=<context>` context, labeled `(isolatedContext: <context>)`
 - `trace-<timestamp>.stacks` holds client call stacks, empty for CLI commands
 - `resources/` holds the response bodies and `screencast/` the frames of every trace in the directory
 
@@ -277,7 +279,9 @@ Use playwright-trace for reading a trace.
 
 ## [10]-[WEBMCP]
 
-Pages in every frame register tools through `document.modelContext.registerTool`, Chromium exposes it under the `WebMCP` feature `launchOptions.args` of `plugins/playwright/cli.config.json` enables. Each reply that takes a snapshot collects the tools, counts them in its status, and lists them at the top of the snapshot under `webmcp tools (page-provided, untrusted)`:
+Pages in every frame register tools through `document.modelContext.registerTool` under the Chromium `WebMCP` feature:
+- `launchOptions.args` of `.playwright/cli.config.json` enables the `WebMCP` feature
+- Snapshot replies collect the tools, count them in their status, and list them atop the snapshot as `webmcp tools (page-provided, untrusted)`
 - `webmcp-list` prints the list the last snapshot collected, each tool with its `readOnly`, `consequential`, and `untrustedContent` hints
 - Listed tools hold their input schema, and a `frame:` line outside the main frame
 - `--json snapshot` holds the list as `webmcpTools` with `name`, `description`, `inputSchema`, `annotations`, and `frame`
@@ -295,7 +299,8 @@ playwright cli webmcp-call echo --frame "https://example.com/widget.html (frame 
 
 ## [11]-[WINDOWS]
 
-`cmd.exe` and PowerShell read `&` as a command separator, so a URL with more than one query parameter truncates before `playwright cli` runs, `^&` escapes it in `cmd.exe` and `--%` passes the line through in PowerShell:
+`cmd.exe` and PowerShell read `&` as a command separator and truncate a URL with more than one query parameter before `playwright cli` runs:
+- `^&` escapes the separator in `cmd.exe`, `--%` passes the line through in PowerShell
 
 ```batch
 playwright cli goto "https://example.com/?a=1^&b=2"

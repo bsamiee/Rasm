@@ -75,7 +75,7 @@ public sealed class PlugInSession(IO<Unit> flush) {
             .RunSafe();
 
     // --- [CLOSE]
-    public IO<Unit> Close => Callbacks.Each(Seq(Released, flush)).Map(static _ => unit).Uninterruptible();
+    public IO<Unit> Close => Callbacks.Each(Seq(Released, flush)).Map(unit).Uninterruptible();
 
     private IO<Unit> Released =>
         (from taken in atomicIO(() => {
@@ -119,7 +119,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         Callbacks.Answer(
             Loading(plugIn)
                 .Map(static _ => (LoadReturnCode.Success, ""))
-                .Catch(static error => error.Count == 1 && error.Is(Errors.Cancelled), static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
+                .Catch(static error => error.Count is 1 && error.Is(Errors.Cancelled), static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
                 .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Localize(error))))
                 .As(),
             static () => (LoadReturnCode.ErrorShowDialog, ""),

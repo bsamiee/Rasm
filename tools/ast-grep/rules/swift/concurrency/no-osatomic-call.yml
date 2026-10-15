@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-osatomic-call
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    has:
+        nthChild: 1
+        kind: simple_identifier
+        regex: '^(OSAtomic(Add|Increment|Decrement|Or|And|Xor|CompareAndSwap|TestAndSet|TestAndClear)\w*|OSMemoryBarrier)$'
+        pattern: $CALL
+message: '`$CALL` updates a plain integer through a libkern atomic'
+note: 'Store the value in `Atomic<Value>` from `Synchronization` and call `wrappingAdd`, `wrappingSubtract`, `compareExchange`, `bitwiseOr`, `bitwiseAnd`, or `bitwiseXor` with an explicit ordering, `atomicMemoryFence(ordering:)` replacing `OSMemoryBarrier`'

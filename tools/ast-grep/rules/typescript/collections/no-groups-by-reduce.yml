@@ -1,0 +1,187 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-groups-by-reduce
+language: tsx
+severity: error
+ignores: ['plugins/function-hooks/**']
+utils:
+    effect-iterable:
+        matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}
+    effect-record:
+        matches: {effect-module: {name: {regex: '\bRecord$'}}}
+    empty:
+        any:
+            - kind: object
+              regex: '^\{\s*\}$'
+            - kind: call_expression
+              pattern: Object.create(null)
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^empty$'}}]}
+                - has: {field: arguments, regex: '^\(\s*\)$'}
+            - kind: new_expression
+              all:
+                - has: {field: constructor, regex: '^Map$'}
+                - not: {has: {field: arguments, not: {regex: '^\(\s*\)$'}}}
+            - kind: parenthesized_expression, as_expression, satisfies_expression
+              has: {nthChild: 1, matches: empty}
+    bucket:
+        any:
+            - kind: subscript_expression
+              all:
+                - has: {field: object, kind: identifier, pattern: $ACC}
+                - has: {field: index, pattern: $K}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^(get|getOrInsert|getOrInsertComputed)$'}}]}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $K}}
+    alias:
+        kind: identifier
+        pattern: $ALIAS
+        inside:
+            kind: statement_block
+            stopBy: end
+            has:
+                kind: lexical_declaration
+                has: {kind: variable_declarator, all: [{has: {field: name, pattern: $ALIAS}}, {has: {field: value, matches: receiver}}]}
+    receiver:
+        any:
+            - matches: bucket
+            - kind: parenthesized_expression, non_null_expression
+              has: {nthChild: 1, matches: receiver}
+            - kind: assignment_expression, augmented_assignment_expression
+              has: {field: left, matches: bucket}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(\?\?|\|\|)$'}
+                - has: {field: left, matches: bucket}
+                - has: {field: right, matches: receiver, not: {matches: bucket}}
+            - matches: alias
+    extended:
+        all:
+            - any:
+                - kind: array
+                  all: [{has: {kind: spread_element}}, {has: {kind: identifier, pattern: $X}}]
+                - kind: call_expression
+                  all:
+                    - has:
+                        field: function
+                        kind: member_expression
+                        any:
+                            - has: {field: property, regex: '^concat$'}
+                            - all: [{has: {field: object, matches: effect-iterable}}, {has: {field: property, regex: '^append$'}}]
+                    - has: {field: arguments, has: {any: [{kind: identifier, pattern: $X}, {kind: array, has: {kind: identifier, pattern: $X}}]}}
+            - has: {stopBy: end, matches: bucket}
+    append:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^push$'}}, {has: {field: object, matches: receiver}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $X}}, {not: {has: {nthChild: 2}}}]}
+            - kind: assignment_expression
+              all: [{has: {field: left, matches: bucket}}, {has: {field: right, matches: extended}}]
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $K}}, {has: {nthChild: 2, matches: extended}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $ACC}}, {has: {nthChild: 2, pattern: $K}}, {has: {nthChild: 3, matches: extended}}]}
+            - kind: pair
+              all: [{has: {field: key, kind: computed_property_name, has: {pattern: $K}}}, {has: {field: value, matches: extended}}]
+            - kind: array
+              all:
+                - has: {nthChild: 1, pattern: $K}
+                - has: {nthChild: 2, matches: extended}
+                - not: {has: {nthChild: 3}}
+                - inside: {kind: array, has: {kind: spread_element, has: {kind: identifier, pattern: $ACC}}}
+    tested:
+        any:
+            - kind: identifier
+              pattern: $ACC
+            - kind: identifier
+              pattern: $TESTED
+              inside:
+                kind: statement_block
+                stopBy: end
+                has:
+                    kind: lexical_declaration
+                    has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TESTED}}, {has: {field: value, has: {stopBy: end, kind: identifier, pattern: $ACC}}}]}
+    bucket-test:
+        any:
+            - matches: tested
+            - has: {stopBy: end, matches: tested}
+    filtered:
+        inside:
+            stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}
+            any:
+                - kind: if_statement, ternary_expression
+                  has: {field: condition, not: {matches: bucket-test}}
+                - kind: binary_expression
+                  all: [{has: {field: operator, regex: '^(&&|\|\||\?\?)$'}}, {has: {field: left, not: {matches: bucket-test}}}]
+    accumulator:
+        any:
+            - kind: identifier
+              pattern: $ACC
+            - kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression
+              has: {nthChild: 1, matches: accumulator}
+            - kind: sequence_expression
+              has: {nthChild: {position: 1, reverse: true}, matches: accumulator}
+            - kind: call_expression
+              any:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^set$'}}]}
+                - all:
+                    - has: {field: function, any: [{pattern: Object.assign}, {kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^set$'}}]}]}
+                    - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
+            - kind: object
+              has: {kind: spread_element, has: {kind: identifier, pattern: $ACC}}
+            - kind: new_expression
+              all:
+                - has: {field: constructor, regex: '^Map$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: array, has: {nthChild: 1, kind: spread_element, has: {kind: identifier, pattern: $ACC}}}}
+    bucketing:
+        kind: arrow_function, function_expression
+        all:
+            - not: {regex: '^async\b'}
+            - has:
+                field: parameters
+                all:
+                    - has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ACC}}
+                    - has: {nthChild: 2, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $X}}
+                    - not: {has: {nthChild: 4}}
+            - has:
+                field: body
+                any:
+                    - matches: accumulator
+                    - kind: statement_block
+                      has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, has: {matches: accumulator}}
+            - has:
+                field: body
+                any:
+                    - matches: append
+                    - has: {stopBy: *boundary, matches: append, not: {matches: filtered}}
+            - not:
+                has:
+                    field: body
+                    kind: statement_block
+                    pattern: $BLOCK
+                    has: {stopBy: *boundary, kind: return_statement, not: {inside: {kind: statement_block, pattern: $BLOCK}}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^reduce$'}}
+        - any:
+            - all:
+                - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: bucketing}}, {has: {nthChild: 2, matches: empty}}, {not: {has: {nthChild: 3}}}]}
+            - all:
+                - has: {field: function, has: {field: object, matches: effect-iterable}}
+                - has:
+                    field: arguments
+                    any:
+                        - all: [{has: {nthChild: 2, matches: empty}}, {has: {nthChild: 3, matches: bucketing}}, {not: {has: {nthChild: 4}}}]
+                        - all: [{has: {nthChild: 1, matches: empty}}, {has: {nthChild: 2, matches: bucketing}}, {not: {has: {nthChild: 3}}}]
+constraints:
+    K: {not: {any: [{kind: identifier, pattern: $ACC}, {has: {stopBy: end, kind: identifier, pattern: $ACC}}]}}
+message: '`reduce` collects each `$X` into a bucket of `$ACC` under a computed key by hand'
+note: '`Object.groupBy(<list>, <key>)` builds the buckets of a record accumulator and `Map.groupBy(<list>, <key>)` of a `Map` in one call, and `effect` `Array.groupBy(<list>, <key>)` returns `NonEmptyArray` buckets where the reduce or append is an `effect` call'

@@ -68,9 +68,9 @@ public static class Selections {
     private static Func<ObjRef, int, Fin<Unit>> Selected(SelectionOptions options) =>
         (reference, index) => Conversions.Present(reference.GeometryComponentIndex).Match(
             Some: component => RefusedElement.Unless(
-                reference.Object().SelectSubObject(component, select: true, options.SyncHighlight, options.Persistent) != 0, nameof(RhinoObject.SelectSubObject), index),
+                reference.Object().SelectSubObject(component, select: true, options.SyncHighlight, options.Persistent) is not 0, nameof(RhinoObject.SelectSubObject), index),
             None: () => RefusedElement.Unless(
-                reference.Object().Select(on: true, options.SyncHighlight, options.Persistent, options.IgnoreGrips, options.IgnoreLayerLocks, options.IgnoreLayerVisibility) != 0,
+                reference.Object().Select(on: true, options.SyncHighlight, options.Persistent, options.IgnoreGrips, options.IgnoreLayerLocks, options.IgnoreLayerVisibility) is not 0,
                 nameof(RhinoObject.Select), index));
 }
 

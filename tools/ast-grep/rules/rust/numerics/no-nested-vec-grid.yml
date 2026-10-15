@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-vec-grid
+language: rust
+severity: error
+utils:
+    filled-row:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^vec$'}
+            - has: {kind: token_tree, has: {regex: '^;$'}}
+rule:
+    kind: 'macro_invocation, call_expression'
+    pattern: $GRID
+    any:
+        - kind: macro_invocation
+          all:
+            - has: {field: macro, regex: '^vec$'}
+            - has:
+                kind: token_tree
+                all:
+                    - has: {nthChild: 1, kind: identifier, regex: '^vec$', precedes: {regex: '^!$', precedes: {kind: token_tree, has: {regex: '^;$'}}}}
+                    - has: {regex: '^;$'}
+        - kind: call_expression
+          all:
+            - any:
+                - pattern: ($RANGE).map($ROW).collect()
+                - pattern: ($RANGE).map($ROW).collect::<$TYPE>()
+            - has: {stopBy: end, kind: range_expression, pattern: $RANGE}
+            - has:
+                stopBy: end
+                kind: closure_expression
+                pattern: $ROW
+                all:
+                    - has: {field: parameters, regex: '^\|\s*_\w*\s*\|$'}
+                    - has: {field: body, matches: filled-row}
+message: '`$GRID` builds a rectangular grid as a vector of row vectors'
+note: 'Allocate the 2D type the catalog owns: ndarray `Array2::zeros((rows, cols))` or `Array2::from_elem((rows, cols), value)`, nalgebra `DMatrix::zeros(rows, cols)`, or faer `Mat::zeros(rows, cols)`. One allocation holds every row at one length and indexes as `grid[[row, col]]`'

@@ -1,99 +1,132 @@
+import { createHash } from 'node:crypto';
 import { findPackageJSON, isBuiltin } from 'node:module';
-import { homedir, userInfo } from 'node:os';
-import { sep } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { Lang, parse as parseSource } from '@ast-grep/napi';
-import { NodeRuntime, NodeServices, NodeSocket } from '@effect/platform-node';
-import { cacheDir, createProjectGraphAsync, getOutputsForTargetAndConfiguration, workspaceRoot } from '@nx/devkit';
-import { Array, Config, Console, Data, Effect, FileSystem, flow, HashMap, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Stream, String, Struct, Tuple } from 'effect';
-import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
+import { Array, Config, Console, Effect, Exit, Fiber, FileSystem, Formatter, flow, HashMap, identity, Option, Path, type PlatformError, Predicate, Schedule, Schema, Stream, String, Struct } from 'effect';
+import { ChildProcess } from 'effect/process';
+import { parse as parsePlist } from 'plist';
 import { parse as parseYaml } from 'yaml';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Process = typeof Listed.Type & { readonly files: Option.Option<readonly { readonly descriptor: string; readonly device: Option.Option<string>; readonly path: string }[]> };
+interface Observed {
+    readonly processes: HashMap.HashMap<number, Process>;
+    readonly jobs: HashMap.HashMap<number, string>;
+    readonly descendants: (pid: number) => Process[];
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\?|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
-const JOB_ROW = /^(?<pid>\d+|-)\t\S+\t(?<label>.+)$/u;
-const OPEN_PROCESS = /^p(?<pid>\d+)\0\n(?<files>[\s\S]*)$/u;
-const OPEN_BLOCK = /(?<=\0\n)(?=p\d+\0)/u;
-const GLOBAL_PACKAGES = /^global-packages: (?<path>.+)$/mu;
-const XCODEBUILD_PATH = /(?:^|\s)-(?:derivedDataPath|packageCachePath)\s+(?<path>\S+)/gu;
-const ROOTS = ['.cache', '.artifacts'];
-const SUCCESS_CODES = [0];
-const MATCH_CODES = [...SUCCESS_CODES, 1];
+const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<pgid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\?|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
+const XCODEBUILD_PATH = /(?:^|\s)-derivedDataPath\s+(?<path>\S+)/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Installed = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String }))));
-const Agents = Schema.fromJsonString(Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Array(Schema.Struct({ loaded: Schema.Boolean, label: Schema.String, path: Schema.String })) }) }));
-const Registered = Schema.fromJsonString(Schema.Struct({ connection_uri: Schema.URLFromString }));
+const Agents = Schema.fromJsonString(Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Array(Schema.Struct({ name: Schema.String, loaded: Schema.Boolean, label: Schema.String, path: Schema.String })) }) }));
+const Launched = Schema.Struct({ WorkingDirectory: Schema.OptionFromOptionalKey(Schema.String), StandardOutPath: Schema.OptionFromOptionalKey(Schema.String), StandardErrorPath: Schema.OptionFromOptionalKey(Schema.String) });
+const Plist = Schema.TemplateLiteralParser(['dev.mise.', Schema.String, '.plist']);
+const Derived = Schema.Struct({ WorkspacePath: Schema.String });
 const Plugins = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.String, version: Schema.String })));
 const Provider = Schema.fromJsonString(Schema.Struct({ pulumi: Schema.Struct({ resource: Schema.Literal(true), name: Schema.String }) }));
-const Listed = Schema.Struct({ pid: Schema.NumberFromString, ppid: Schema.NumberFromString, uid: Schema.NumberFromString, state: Schema.String, terminal: Schema.OptionFromUndefinedOr(Schema.String), started: Schema.String, command: Schema.String });
-const OpenProcess = Schema.Struct({ pid: Schema.NumberFromString, files: Schema.String });
-const OpenFile = Schema.Struct({ descriptor: Schema.String, path: Schema.String });
-const Located = Schema.Struct({ path: Schema.String });
-const Configs = Schema.fromJsonString(Schema.Array(Located));
+const Metadata = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })) }));
+const Product = Schema.TemplateLiteralParser([Schema.String, ' v', Schema.String, ' (', Schema.String, '):']);
+const Listed = Schema.Struct({ pid: Schema.FiniteFromString, ppid: Schema.FiniteFromString, pgid: Schema.FiniteFromString, uid: Schema.FiniteFromString, state: Schema.String, terminal: Schema.OptionFromUndefinedOr(Schema.String), started: Schema.String, command: Schema.String });
+const Opened = Schema.Union([Schema.Struct({ p: Schema.FiniteFromString }), Schema.Struct({ f: Schema.String, d: Schema.OptionFromOptionalKey(Schema.String), n: Schema.String })]);
+const Job = Schema.Tuple([Schema.Union([Schema.Literal('-'), Schema.FiniteFromString]), Schema.String, Schema.String]);
+const Connection = Schema.TemplateLiteralParser([Schema.String, '->', Schema.String]);
+const Worktree = Schema.TemplateLiteralParser(['worktree ', Schema.String]);
+const Registration = Schema.TemplateLiteralParser(['lldb-mcp-', Schema.FiniteFromString, '.json']);
 const Grammars = Schema.Struct({ customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String })) });
-const Workspace = Schema.Struct({ storeDir: Schema.String, cacheDir: Schema.String, enableGlobalVirtualStore: Schema.optionalKey(Schema.Boolean) });
 const Invocation = Schema.Struct({ cwd: Schema.optionalKey(Schema.String), command: Schema.optionalKey(Schema.String), commands: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Schema.Struct({ command: Schema.String })]))) });
-
-interface Process extends Schema.Schema.Type<typeof Listed> {
-    readonly files: Option.Option<readonly { readonly descriptor: string; readonly path: string }[]>;
-}
-interface Snapshot {
-    readonly processes: HashMap.HashMap<number, Process>;
-    readonly jobs: HashMap.HashMap<number, string>;
-}
-interface Plan {
-    readonly candidates: readonly string[];
-    readonly kept: readonly string[];
-    readonly dropped: readonly string[];
-}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class Exited extends Data.TaggedError('Exited')<{ readonly command: ChildProcess.StandardCommand; readonly code: number }> {}
-class Unsignaled extends Data.TaggedError('Unsignaled')<{ readonly pid: number; readonly cause: unknown }> {}
-class Unparsed extends Data.TaggedError('Unparsed')<{ readonly source: string; readonly cause: unknown }> {}
-class Undeclared extends Data.TaggedError('Undeclared')<{ readonly config: string }> {}
-class UnsupportedEndpoint extends Data.TaggedError('UnsupportedEndpoint')<{ readonly uri: URL }> {}
+const CleanupReason = Schema.TaggedUnion({
+    Exited: { command: Schema.String, args: Schema.Array(Schema.String), code: Schema.Finite },
+    Unparsed: { source: Schema.String, cause: Schema.Defect() },
+    Ungraphed: { cause: Schema.Defect() },
+    Unsignaled: { pid: Schema.Finite, cause: Schema.Defect() },
+});
+class CleanupError extends Schema.TaggedError<CleanupError, { readonly brand: unique symbol }>()('CleanupError', { reason: CleanupReason }) {
+    override get message(): string {
+        return CleanupReason.match(this.reason, {
+            Exited: ({ command, args, code }) => `${[command, ...args].join(' ')} exited with code ${code}`,
+            Unparsed: ({ source, cause }) => `${source} did not parse: ${Formatter.format(cause)}`,
+            Ungraphed: ({ cause }) => `the cached Nx project graph is unreadable: ${Formatter.format(cause)}`,
+            Unsignaled: ({ pid, cause }) => `cannot signal process ${pid}: ${Formatter.format(cause)}`,
+        });
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [COMMANDS]
-const execute = (command: ChildProcess.StandardCommand, accepted: readonly number[]): Effect.Effect<string, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> =>
-    Effect.scoped(
-        Effect.flatMap(ChildProcess.make(command.command, command.args, { ...command.options, stdin: 'ignore', stderr: 'inherit', env: { ...command.options.env, LC_ALL: 'C' }, extendEnv: true }), (handle) =>
-            Effect.flatMap(Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' }), ([text, code]) => (accepted.includes(code) ? Effect.succeed(text) : Effect.fail(new Exited({ command, code })))),
+// --- [EFFECTS]
+const execute = Effect.fn('execute')(function* (command: string, args: readonly string[], options?: ChildProcess.CommandOptions) {
+    const handle = yield* ChildProcess.make(command, args, { ...options, stdin: 'ignore', stderr: 'inherit', env: { ...options?.env, LC_ALL: 'C' }, extendEnv: true });
+    const [text, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? text : yield* CleanupError.make({ reason: { _tag: 'Exited', command, args, code } });
+}, Effect.scoped);
+const read = <A>(file: string, parse: (text: string) => A): Effect.Effect<A, CleanupError | PlatformError.PlatformError, FileSystem.FileSystem> =>
+    Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.flatMap(fs.readFileString(file), (text) => Effect.try({ try: () => parse(text), catch: (cause) => CleanupError.make({ reason: { _tag: 'Unparsed', source: file, cause } }) })));
+const entries = Effect.fn('entries')(function* (directory: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    return (yield* fs.readDirectory(directory).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])))).map((name) => ({ name, path: path.join(directory, name) }));
+});
+const accumulate = <A, E, R>(items: Iterable<A>, f: (item: A) => Effect.Effect<unknown, E, R>): Effect.Effect<void, E, R> => Effect.forEach(items, flow(f, Effect.exit), { concurrency: 'unbounded' }).pipe(Effect.flatMap(Exit.asVoidAll));
+const send = (pid: number, signal: NodeJS.Signals | 0): Effect.Effect<boolean, CleanupError> =>
+    Effect.try({ try: () => process.kill(pid, signal), catch: (cause) => CleanupError.make({ reason: { _tag: 'Unsignaled', pid, cause } }) }).pipe(
+        Effect.catchIf(
+            ({ reason }) => CleanupReason.guards.Unsignaled(reason) && Predicate.hasProperty(reason.cause, 'code') && reason.cause.code === 'ESRCH',
+            () => Effect.succeed(false),
         ),
     );
-const under = (entry: string, roots: readonly string[]): boolean => roots.some((root) => entry === root || entry.startsWith(`${root}${sep}`));
+const exited = (pids: readonly number[]): Effect.Effect<Option.Option<number[]>, CleanupError> => Effect.filter(pids, (pid) => send(pid, 0)).pipe(Effect.repeat({ schedule: Schedule.spaced('50 millis'), until: (alive) => alive.length === 0 }), Effect.timeoutOption('5 seconds'));
+const under = (sep: string, entry: string, roots: readonly string[]): boolean => roots.some((root) => entry === root || entry.startsWith(`${root}${sep}`));
+const lineage = (path: Path.Path, entry: string): string[] => Array.unfold(entry, (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
 const lines = (text: string): string[] => text.split('\n').filter(String.isNonEmpty);
 
 // --- [SNAPSHOT]
-const opened = Effect.fn('opened')(function* (text: string) {
-    return HashMap.fromIterable(
-        yield* Effect.forEach(text.split(OPEN_BLOCK).filter(String.isNonEmpty), (block) =>
-            Effect.gen(function* () {
-                const { pid, files } = yield* Schema.decodeUnknownEffect(OpenProcess)(OPEN_PROCESS.exec(block)?.groups);
-                const named = yield* Schema.decodeUnknownEffect(Schema.Array(OpenFile))([...files.matchAll(/(?:^|\0\n)f(?<descriptor>[^\0]+)\0n(?<path>[^\0]*)/gu)].map(Struct.get('groups')));
-                return [pid, named] as const;
-            }),
-        ),
-    );
-});
-const listed = execute(ChildProcess.make('ps', ['-axww', '-o', 'pid=,ppid=,uid=,stat=,tty=,lstart=,command=']), SUCCESS_CODES).pipe(Effect.flatMap((text) => Effect.forEach(lines(text), (line) => Schema.decodeUnknownEffect(Listed)(PS_ROW.exec(line)?.groups))));
-const snapshot = Effect.gen(function* () {
+const observe = (processes: HashMap.HashMap<number, Process>, jobs: HashMap.HashMap<number, string>): Observed => {
+    const children = Map.groupBy(HashMap.values(processes), Struct.get('ppid'));
+    const descendants = (pid: number): Process[] => (children.get(pid) ?? []).flatMap((child) => [child, ...descendants(child.pid)]);
+    return { processes, jobs, descendants };
+};
+const listing = execute('ps', ['-axww', '-o', 'pid=,ppid=,pgid=,uid=,stat=,tty=,lstart=,command=']).pipe(Effect.flatMap((text) => Schema.decodeUnknownEffect(Schema.Array(Listed))(lines(text).map((line) => PS_ROW.exec(line)?.groups))));
+const snapshot = Effect.fn('snapshot')(function* (darwin: boolean) {
     const [processes, files, jobs] = yield* Effect.all(
         [
-            listed,
-            execute(ChildProcess.make('lsof', ['-nP', '-F0pfn']), MATCH_CODES).pipe(Effect.flatMap(opened)),
-            execute(ChildProcess.make('launchctl', ['list']), SUCCESS_CODES).pipe(Effect.flatMap((text) => Effect.forEach(lines(text).slice(1), (line) => Schema.decodeUnknownEffect(Schema.Struct({ pid: Schema.String, label: Schema.String }))(JOB_ROW.exec(line)?.groups)))),
+            listing,
+            execute('lsof', ['-nP', '-F0pfdn']).pipe(
+                Effect.flatMap((text) =>
+                    Schema.decodeUnknownEffect(Schema.Array(Opened))(
+                        text
+                            .split('\0\n')
+                            .filter(String.isNonEmpty)
+                            .map((record) => Object.fromEntries(record.split('\0').map((field) => [field.slice(0, 1), field.slice(1)]))),
+                    ),
+                ),
+                Effect.map((records) => Map.groupBy(Array.getSomes(Array.mapAccum(records, 0, (pid, record) => ('p' in record ? ([record.p, Option.none()] as const) : ([pid, Option.some({ pid, descriptor: record.f, device: record.d, path: record.n })] as const)))[1]), Struct.get('pid'))),
+            ),
+            darwin
+                ? execute('launchctl', ['list']).pipe(
+                      Effect.flatMap((text) =>
+                          Schema.decodeUnknownEffect(Schema.Array(Job))(
+                              lines(text)
+                                  .slice(1)
+                                  .map((line) => line.split('\t')),
+                          ),
+                      ),
+                  )
+                : Effect.succeed([]),
         ],
         { concurrency: 'unbounded' },
     );
-    return { processes: HashMap.fromIterable(processes.map((running) => [running.pid, { ...running, files: HashMap.get(files, running.pid) }] as const)), jobs: HashMap.fromIterable(jobs.filter(({ pid }) => pid !== '-').map(({ pid, label }) => [Number(pid), label] as const)) } satisfies Snapshot;
+    return observe(HashMap.fromIterable(processes.map((running) => [running.pid, { ...running, files: Option.fromUndefinedOr(files.get(running.pid)) }] as const)), HashMap.fromIterable(jobs.flatMap(([pid, , label]) => (typeof pid === 'number' ? [[pid, label] as const] : []))));
 });
 const ancestors = (processes: HashMap.HashMap<number, Process>, pid: number): number[] =>
     Array.unfold(pid, (current) =>
@@ -102,146 +135,95 @@ const ancestors = (processes: HashMap.HashMap<number, Process>, pid: number): nu
             (running) => [running.pid, running.ppid],
         ),
     );
-const descendants = (processes: HashMap.HashMap<number, Process>, pid: number): Process[] => {
-    const children = Array.groupBy(HashMap.values(processes), (running) => `${running.ppid}`);
-    const walk = (current: number): Process[] => Option.match(Record.get(children, `${current}`), { onNone: () => [], onSome: (members) => members.flatMap((child) => [child, ...walk(child.pid)]) });
-    return walk(pid);
-};
-const stale = ({ processes, jobs }: Snapshot, roots: readonly string[], installed: readonly string[], tools: readonly string[], self: number, uid: number): Process[] => {
-    const running = Array.fromIterable(HashMap.values(processes));
-    const kept = new Set([
-        ...ancestors(processes, self),
-        ...Array.flatMap(Array.fromIterable(HashMap.keys(jobs)), (pid) => [pid, ...descendants(processes, pid).map(Struct.get('pid'))]),
-        ...Array.flatMap(
-            running.filter((candidate) => Option.isSome(candidate.terminal)),
-            (candidate) => ancestors(processes, candidate.pid),
-        ),
-    ]);
-    return Array.flatMap(
-        running.filter(
-            (candidate) =>
-                candidate.ppid === 1 &&
-                Option.exists(
-                    candidate.files,
-                    (files) => files.some(({ descriptor, path }) => descriptor === 'txt' && under(path, installed)) || (files.some(({ descriptor, path }) => descriptor === 'txt' && under(path, tools)) && files.some(({ descriptor, path }) => descriptor === 'cwd' && under(path, [...roots, ...tools]))),
-                ),
-        ),
-        (candidate) => {
-            const subtree = [candidate, ...descendants(processes, candidate.pid)];
-            return subtree.some((member) => kept.has(member.pid) || member.uid !== uid) ? [] : subtree.filter((member) => !member.state.startsWith('Z'));
-        },
+const stale = (sep: string, { processes, jobs, descendants }: Observed, worktrees: readonly string[], local: readonly string[], toolchains: readonly string[], self: Process): Process[] => {
+    const running = [...HashMap.values(processes)];
+    const kept = new Set([...ancestors(processes, self.pid), ...[...HashMap.keys(jobs)].flatMap((pid) => [pid, ...descendants(pid).map(Struct.get('pid'))]), ...running.filter((candidate) => Option.isSome(candidate.terminal)).flatMap((candidate) => ancestors(processes, candidate.pid))]);
+    const owned = ({ files }: Process): boolean =>
+        Option.exists(
+            files,
+            (handles) => handles.some(({ descriptor, path }) => descriptor === 'txt' && under(sep, path, local)) || (handles.some(({ descriptor, path }) => descriptor === 'txt' && under(sep, path, toolchains)) && handles.some(({ descriptor, path }) => descriptor === 'cwd' && under(sep, path, worktrees))),
+        );
+    const opened = running.flatMap(({ pid, files }) => Option.getOrElse(files, () => []).map((file) => ({ ...file, pid })));
+    const ends = Array.groupBy(
+        opened.flatMap(({ device, path, pid }) => [...Option.toArray(device), path].map((key) => ({ key, pid }))),
+        Struct.get('key'),
     );
+    const peers = Map.groupBy(
+        opened.flatMap(({ path, pid }) =>
+            Option.match(Schema.decodeUnknownOption(Connection)(path), {
+                onNone: () => [],
+                onSome: ([source, , remote]) => (ends[source === '' ? remote : `${remote}->${source}`] ?? []).flatMap((end) => [[pid, end.pid] as const, [end.pid, pid] as const]),
+            }),
+        ),
+        ([pid]) => pid,
+    );
+    return running
+        .filter((root) => root.ppid === 1 && !(root.pgid === root.pid && owned(root)))
+        .flatMap((root) => {
+            const subtree = [root, ...descendants(root.pid)];
+            const members = new Set(subtree.map(Struct.get('pid')));
+            return subtree.some(owned) && !subtree.some((member) => kept.has(member.pid) || member.uid !== self.uid || (peers.get(member.pid) ?? []).some(([, peer]) => !members.has(peer))) ? subtree.filter((member) => !member.state.startsWith('Z')) : [];
+        });
 };
 const zombies = (processes: HashMap.HashMap<number, Process>): string[] =>
-    Record.toEntries(
-        Array.groupBy(
-            Array.fromIterable(HashMap.values(processes)).filter((running) => running.state.startsWith('Z')),
-            (zombie) => `${zombie.ppid}`,
+    [
+        ...Map.groupBy(
+            [...HashMap.values(processes)].filter((running) => running.state.startsWith('Z')),
+            Struct.get('ppid'),
         ),
-    ).map(([ppid, members]) => [`zombie ${members.map(Struct.get('pid')).join(',')} parent ${ppid}`, ...Option.toArray(Option.map(HashMap.get(processes, Number(ppid)), Struct.get('command')))].join(' '));
-const held = ({ processes }: Snapshot, targets: readonly string[], candidates: readonly string[], dirname: (path: string) => string): { readonly directory: string; readonly holder: string }[] =>
+    ].map(([ppid, members]) => [`zombie ${members.map(Struct.get('pid')).join(',')} parent ${ppid}`, ...Option.toArray(Option.map(HashMap.get(processes, ppid), Struct.get('command')))].join(' '));
+const held = ({ processes }: Observed, inside: (file: string) => boolean, dirname: (path: string) => string): { readonly directory: string; readonly holder: Process }[] =>
     Array.dedupeWith(
-        Array.fromIterable(HashMap.values(processes)).flatMap((running) =>
-            Array.flatten(Option.toArray(running.files))
-                .filter(({ path }) => under(path, targets))
-                .map(({ descriptor, path }) => ({ directory: descriptor === 'cwd' || candidates.some((candidate) => under(candidate, [dirname(path)])) ? path : dirname(path), holder: `${running.pid} ${running.command}` })),
+        [...HashMap.values(processes)].flatMap((holder) =>
+            Option.getOrElse(holder.files, () => [])
+                .filter(({ path }) => inside(path))
+                .map(({ descriptor, path }) => ({ directory: descriptor === 'cwd' ? path : dirname(path), holder })),
         ),
-        (left, right) => left.directory === right.directory,
+        (left, right) => left.directory === right.directory && left.holder.pid === right.holder.pid,
     );
 
 // --- [RECOVERY]
-const wait = (pids: readonly number[]): Effect.Effect<string, Exited | PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> => execute(ChildProcess.make('lsof', ['-nP', '-p', pids.join(','), '+r', '1'], { stdout: 'ignore' }), MATCH_CODES);
-const terminate = Effect.fn('terminate')(function* (roots: readonly string[], installed: readonly string[], tools: readonly string[], uid: number) {
-    const signal = (pid: number, name: 'SIGTERM' | 'SIGKILL'): Effect.Effect<void, Unsignaled> =>
-        Effect.try({ try: () => process.kill(pid, name), catch: (cause) => new Unsignaled({ pid, cause }) }).pipe(
-            Effect.asVoid,
-            Effect.catchIf(
-                (error) => error.cause instanceof Error && 'code' in error.cause && error.cause.code === 'ESRCH',
-                () => Effect.void,
-            ),
-        );
-    const state = yield* snapshot;
+const terminate = Effect.fn('terminate')(function* (sep: string, state: Observed, worktrees: readonly string[], local: readonly string[], toolchains: readonly string[], self: Process) {
     yield* Effect.forEach(zombies(state.processes), Console.log, { discard: true });
-    const targets = stale(state, roots, installed, tools, process.pid, uid);
-    yield* Effect.validate(targets, (target) => Console.log(`terminate ${target.pid} ${target.command}`).pipe(Effect.andThen(signal(target.pid, 'SIGTERM'))), { discard: true });
-    if (targets.length > 0 && Option.isNone(yield* wait(targets.map(Struct.get('pid'))).pipe(Effect.timeoutOption('1 minute')))) {
-        const after = yield* listed;
-        yield* Effect.validate(
-            targets.filter((target) => after.some((running) => running.pid === target.pid && running.started === target.started)),
-            (target) => Console.log(`kill ${target.pid} ${target.command}`).pipe(Effect.andThen(signal(target.pid, 'SIGKILL'))),
-            { discard: true },
-        );
-    }
-});
-const withoutAgents = <A, E, R>(agents: Schema.Schema.Type<typeof Agents>['launchd']['agents'], uid: number, work: Effect.Effect<A, E, R>): Effect.Effect<A, E | Exited | PlatformError.PlatformError, R | ChildProcessSpawner.ChildProcessSpawner> =>
-    agents.reduceRight<Effect.Effect<A, E | Exited | PlatformError.PlatformError, R | ChildProcessSpawner.ChildProcessSpawner>>(
-        (use, agent) =>
-            Effect.acquireUseRelease(
-                Console.log(`bootout ${agent.label}`).pipe(Effect.andThen(execute(ChildProcess.make('launchctl', ['bootout', `gui/${uid}/${agent.label}`]), SUCCESS_CODES))),
-                () => use,
-                () => execute(ChildProcess.make('launchctl', ['bootstrap', `gui/${uid}`, agent.path]), SUCCESS_CODES).pipe(Effect.asVoid),
-            ),
-        work,
-    );
-const unreachable = Effect.fn('unreachable')(function* (directory: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    return yield* Effect.filter(
-        (yield* fs.glob('lldb-mcp-*.json', { root: directory })).map((entry) => path.resolve(directory, entry)),
-        (entry) =>
-            Effect.gen(function* () {
-                const { connection_uri: uri } = yield* fs.readFileString(entry).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Registered)));
-                if (!['connection:', 'connect:', 'tcp-connect:'].includes(uri.protocol) || uri.hostname === '' || uri.port === '') {
-                    return yield* Effect.fail(new UnsupportedEndpoint({ uri }));
-                }
-                return yield* Effect.scoped(
-                    NodeSocket.makeNet({ host: uri.hostname.replace(/^\[|\]$/gu, ''), port: Number(uri.port) }).pipe(
-                        Effect.flatMap(Struct.get('reader')),
-                        Effect.as(false),
-                        Effect.catchIf(
-                            (error) => error.reason._tag === 'SocketOpenError' && error.reason.cause instanceof Error && 'code' in error.reason.cause && error.reason.cause.code === 'ECONNREFUSED',
-                            () => Effect.succeed(true),
+    const targets = stale(sep, state, worktrees, local, toolchains, self);
+    yield* Effect.forEach(targets, (target) => Console.log(`terminate ${target.pid} ${target.command}`), { discard: true });
+    yield* accumulate(targets, (target) => send(target.pid, 'SIGTERM'));
+    const pids = targets.map(Struct.get('pid'));
+    yield* exited(pids).pipe(
+        Effect.flatMap(
+            Option.match({
+                onSome: () => Effect.void,
+                onNone: () =>
+                    Effect.flatMap(listing, (after) =>
+                        accumulate(
+                            targets.filter((target) => after.some((running) => running.pid === target.pid && running.started === target.started)),
+                            (target) => Console.log(`kill ${target.pid} ${target.command}`).pipe(Effect.andThen(send(target.pid, 'SIGKILL'))),
                         ),
                     ),
-                );
             }),
-        { concurrency: 'unbounded' },
+        ),
     );
+    return observe(HashMap.removeMany(state.processes, pids), state.jobs);
 });
 
 // --- [FILES]
 const plan = Effect.fn('plan')(function* (root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const read = (file: string): Effect.Effect<unknown, Unparsed | PlatformError.PlatformError> => fs.readFileString(path.join(root, file)).pipe(Effect.flatMap((text) => Effect.try({ try: () => parseYaml(text), catch: (cause) => new Unparsed({ source: file, cause }) })));
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const program = path.join(root, 'infra', 'cli.ts');
-    const [graph, { customLanguages }, workspace, store, packages, uv, pulumi, ghidra, plugins, providers] = yield* Effect.all(
+    const [graph, { customLanguages }, pulumi, plugins, providers] = yield* Effect.all(
         [
-            Effect.tryPromise(() => createProjectGraphAsync({ exitOnError: false })),
-            read('sgconfig.yml').pipe(Effect.flatMap(Schema.decodeUnknownEffect(Grammars))),
-            read('pnpm-workspace.yaml').pipe(Effect.flatMap(Schema.decodeUnknownEffect(Workspace))),
-            execute(ChildProcess.make('pnpm', ['store', 'path'], { cwd: root }), SUCCESS_CODES).pipe(Effect.map(String.trim)),
-            execute(ChildProcess.make('dotnet', ['nuget', 'locals', 'global-packages', '--list'], { cwd: root }), SUCCESS_CODES).pipe(Effect.flatMap((text) => Schema.decodeUnknownEffect(Located)(GLOBAL_PACKAGES.exec(text)?.groups))),
-            Config.String('UV_CACHE_DIR'),
+            Effect.try({ try: readCachedProjectGraph, catch: (cause) => CleanupError.make({ reason: { _tag: 'Ungraphed', cause } }) }),
+            read(path.join(root, 'sgconfig.yml'), parseYaml).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Grammars))),
             Config.String('PULUMI_HOME'),
-            Config.String('GHIDRA_PROJECT_DIR'),
-            execute(ChildProcess.make('pulumi', ['plugin', 'ls', '--json']), SUCCESS_CODES).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Plugins))),
-            fs.readFileString(program).pipe(
-                Effect.flatMap((text) =>
-                    Effect.try({
-                        try: () =>
-                            parseSource(Lang.TypeScript, text)
-                                .root()
-                                .findAll({ rule: { kind: 'string_fragment', inside: { kind: 'string', inside: { kind: 'import_statement' } } } }),
-                        catch: (cause) => new Unparsed({ source: program, cause }),
-                    }),
-                ),
-                Effect.flatMap((sources) =>
-                    Effect.forEach(
-                        sources.filter((source) => !isBuiltin(source.text())),
-                        (source) => Effect.try({ try: () => Option.fromNullishOr(findPackageJSON(source.text(), pathToFileURL(program))), catch: (cause) => new Unparsed({ source: source.text(), cause }) }),
-                    ),
-                ),
+            execute('pulumi', ['plugin', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Plugins))),
+            read(program, (text) =>
+                parseSource(Lang.TypeScript, text)
+                    .root()
+                    .findAll({ rule: { kind: 'string_fragment', inside: { kind: 'string', inside: { kind: 'import_statement' } } } })
+                    .map((source) => source.text())
+                    .filter((source) => !isBuiltin(source)),
+            ).pipe(
+                Effect.flatMap((sources) => Effect.forEach(sources, (source) => Effect.try({ try: () => Option.fromNullishOr(findPackageJSON(source, pathToFileURL(program))), catch: (cause) => CleanupError.make({ reason: { _tag: 'Unparsed', source, cause } }) }))),
                 Effect.flatMap((manifests) =>
                     Effect.forEach(Array.dedupe(Array.getSomes(manifests)), (manifest) =>
                         Effect.map(
@@ -259,153 +241,187 @@ const plan = Effect.fn('plan')(function* (root: string) {
         { concurrency: 'unbounded' },
     );
     const nodes = Object.values(graph.nodes);
-    const derived = nodes.flatMap((node) =>
-        Object.values(node.data.targets ?? {}).flatMap(({ options }) =>
-            Option.toArray(Schema.decodeUnknownOption(Invocation)(options)).flatMap(({ cwd, command, commands }) =>
-                [...Option.toArray(Option.fromNullishOr(command)), ...(commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))].flatMap((text) =>
-                    Array.getSomes([...text.matchAll(XCODEBUILD_PATH)].map((match) => Option.fromNullishOr(match.groups?.path))).map((entry) => path.resolve(root, cwd ?? '.', entry.replace('$NX_WORKSPACE_ROOT', root))),
-                ),
-            ),
-        ),
-    );
-    const roots = ROOTS.map((entry) => path.join(root, entry));
-    const outputs = nodes.flatMap((node) =>
-        Object.entries(node.data.targets ?? {}).flatMap(([target, definition]) =>
-            definition.outputs === undefined ? [] : [undefined, ...Object.keys(definition.configurations ?? {})].flatMap((configuration) => getOutputsForTargetAndConfiguration({ project: node.name, target, ...(configuration === undefined ? {} : { configuration }) }, {}, node)),
-        ),
-    );
-    const wrangler = nodes.filter((node) => (graph.dependencies[node.name] ?? []).some(({ target }) => target === 'npm:@cloudflare/vite-plugin')).flatMap((node) => ['deploy', 'registry', 'tmp'].map((entry) => path.join(root, node.data.root, '.wrangler', entry)));
     return {
-        candidates: Array.dedupe([
-            ...roots,
-            ghidra,
-            ...outputs
-                .filter(Predicate.not(String.startsWith('!')))
-                .map((output) => path.resolve(root, output))
-                .filter((output) => !under(output, roots)),
-            ...wrangler,
-        ]),
-        kept: Array.dedupe(
-            [...Record.values(customLanguages).map(Struct.get('libraryPath')), workspace.storeDir, workspace.cacheDir, packages.path, uv, cacheDir, ...derived, ...plugins.filter(({ name }) => providers.includes(name)).map(({ kind, name, version }) => path.join(pulumi, 'plugins', `${kind}-${name}-v${version}`))].map(
-                (entry) => path.resolve(root, entry),
+        grammars: Object.values(customLanguages).map(({ libraryPath }) => path.resolve(root, libraryPath)),
+        derived: nodes
+            .flatMap((node) => Object.values(node.data.targets ?? {}))
+            .flatMap(({ options }) => Option.toArray(Schema.decodeUnknownOption(Invocation)(options)))
+            .flatMap(({ cwd, command, commands }) =>
+                [...Array.fromNullishOr(command), ...(commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))]
+                    .flatMap((text) => [...text.matchAll(XCODEBUILD_PATH)].flatMap((match) => Array.fromNullishOr(match.groups?.path)))
+                    .map((entry) => path.resolve(root, cwd ?? '.', entry.replace('$NX_WORKSPACE_ROOT', root))),
+            ),
+        providers: plugins.filter(({ name }) => providers.includes(name)).map(({ kind, name, version }) => path.join(pulumi, 'plugins', `${kind}-${name}-v${version}`)),
+        outputs: nodes.flatMap((node) =>
+            Object.entries(node.data.targets ?? {}).flatMap(([target, definition]) =>
+                definition.outputs === undefined
+                    ? []
+                    : [undefined, ...Object.keys(definition.configurations ?? {})]
+                          .flatMap((configuration) => getOutputsForTargetAndConfiguration({ project: node.name, target, ...(configuration === undefined ? {} : { configuration }) }, {}, node))
+                          .filter((output) => !output.startsWith('!'))
+                          .map((output) => path.resolve(root, output)),
             ),
         ),
-        dropped: workspace.enableGlobalVirtualStore === true ? [] : [path.join(store, 'links')],
-    } satisfies Plan;
+        cloudflare: nodes.filter((node) => node.data.tags?.includes('output:cloudflare') === true).map((node) => path.join(root, node.data.root, '.cloudflare')),
+    };
 });
-const sweep = Effect.fn('sweep')(function* ({ candidates, kept, dropped }: Plan, spared: readonly string[]) {
-    const fs = yield* FileSystem.FileSystem;
+const collect = Effect.fn('collect')(function* (candidates: readonly string[], retained: readonly string[], spared: readonly string[]) {
     const path = yield* Path.Path;
-    const retained = [...kept, ...spared];
-    const descend = (entry: string): Effect.Effect<string[], PlatformError.PlatformError> =>
-        fs.readDirectory(entry).pipe(
-            Effect.catchIf(
-                (error) => error.reason._tag === 'NotFound',
-                () => Effect.succeed([]),
-            ),
-            Effect.flatMap((names) => Effect.forEach(names, (name) => visit(path.join(entry, name)), { concurrency: 'unbounded' })),
-            Effect.map(Array.flatten),
-        );
-    const visit = (entry: string): Effect.Effect<string[], PlatformError.PlatformError> => {
-        if (under(entry, retained)) {
+    const kept = new Set([...retained, ...spared]);
+    const above = new Set([...kept].flatMap((entry) => lineage(path, path.dirname(entry))));
+    const visit = (entry: string): Effect.Effect<string[], PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> => {
+        if (kept.has(entry)) {
             return Effect.succeed([]);
         }
-        return retained.some((keep) => under(keep, [entry])) ? descend(entry) : Effect.succeed([entry]);
+        return above.has(entry)
+            ? entries(entry).pipe(
+                  Effect.flatMap((found) => Effect.forEach(found, ({ path: child }) => visit(child), { concurrency: 'unbounded' })),
+                  Effect.map((visited) => visited.flat()),
+              )
+            : Effect.succeed([entry]);
     };
-    return [...Array.flatten(yield* Effect.forEach(candidates, visit, { concurrency: 'unbounded' })), ...dropped.filter((entry) => !spared.some((directory) => under(directory, [entry])))];
+    return (yield* Effect.forEach(candidates, visit, { concurrency: 'unbounded' })).flat();
 });
 const discard = Effect.fn('discard')(function* (targets: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
-    yield* Effect.validate(targets, (target) => Console.log(`remove ${target}`).pipe(Effect.andThen(fs.remove(target, { recursive: true, force: true }))), { concurrency: 'unbounded', discard: true });
-});
-const prune = Effect.fn('prune')(function* (config: string) {
-    yield* execute(ChildProcess.make('mise', ['config', 'ls', '--json']), SUCCESS_CODES).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Configs)),
-        Effect.filterOrFail(
-            (loaded) => loaded.some(({ path }) => path === config),
-            () => new Undeclared({ config }),
-        ),
-    );
-    yield* Effect.validate(
-        [
-            [ChildProcess.make('mise', ['prune', '--yes'], { stdout: 'inherit' }), ChildProcess.make('mise', ['install'], { stdout: 'inherit' }), ChildProcess.make('mise', ['cache', 'prune'], { stdout: 'inherit' })],
-            [ChildProcess.make('uv', ['cache', 'prune'], { stdout: 'inherit' })],
-            [ChildProcess.make('pnpm', ['store', 'prune'], { stdout: 'inherit' }), ChildProcess.make('pnpm', ['cache', 'prune'], { stdout: 'inherit' })],
-        ],
-        (commands) => Effect.forEach(commands, (command) => execute(command, SUCCESS_CODES), { discard: true }),
-        { concurrency: 'unbounded', discard: true },
-    );
+    const present = yield* Effect.filter(targets, (target) => fs.exists(target), { concurrency: 'unbounded' });
+    yield* Effect.forEach(present, (target) => Console.log(`remove ${target}`), { discard: true });
+    return yield* accumulate(present, (target) => fs.remove(target, { recursive: true }));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const cleanup = Effect.fn('cleanup')(function* () {
-    const path = yield* Path.Path;
+const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
+    const [fs, path, home, ghidra] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Config.String('GHIDRA_PROJECT_DIR')]);
     const root = path.resolve(workspaceRoot);
-    const workspace = yield* Effect.result(plan(root));
-    const pruning = prune(path.join(root, 'mise.toml'));
-    const work = <E, R>(removal: Effect.Effect<void, E, R>): Effect.Effect<void, Array.NonEmptyArray<E | Effect.Error<typeof pruning>>, R | Effect.Services<typeof pruning>> =>
-        Effect.validate([pruning, removal], identity<Effect.Effect<void, E | Effect.Error<typeof pruning>, R | Effect.Services<typeof pruning>>>, { concurrency: 'unbounded', discard: true });
-    if (process.platform !== 'darwin') {
-        return yield* work(
-            Effect.fromResult(workspace).pipe(
-                Effect.flatMap((planned) => sweep(planned, [])),
-                Effect.flatMap(discard),
-            ),
-        );
-    }
-    const { uid } = userInfo();
-    const [worktrees, managed, developer, agents] = yield* Effect.all(
+    const residues = ['.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
+    const workspaceKey = 16;
+    const [drivers, sessions, launchAgents] = [path.join(home, '.dylint_drivers'), path.join(home, 'Library', 'Caches', 'ms-playwright', 'daemon'), path.join(home, 'Library', 'LaunchAgents')];
+    const shown = { stdout: 'inherit' } as const;
+    const pruning = yield* Effect.forkChild(
+        accumulate(
+            [
+                execute('mise', ['prune', '--yes'], shown).pipe(Effect.andThen(execute('mise', ['cache', 'prune'], shown))),
+                execute('uv', ['cache', 'prune'], shown),
+                execute('pnpm', ['store', 'prune'], shown).pipe(Effect.andThen(execute('pnpm', ['cache', 'prune'], shown))),
+                execute('playwright', ['install', 'chromium'], shown),
+            ],
+            identity,
+        ),
+    );
+    const planning = yield* Effect.forkChild(plan(root));
+    const [worktrees, installed, developer, agents, rustup, products, members] = yield* Effect.all(
         [
-            execute(ChildProcess.make('git', ['-C', root, 'worktree', 'list', '--porcelain', '-z']), SUCCESS_CODES).pipe(
-                Effect.map((text) =>
-                    text
-                        .split('\0')
-                        .filter(String.startsWith('worktree '))
-                        .map((field) => field.slice('worktree '.length)),
-                ),
-            ),
-            execute(ChildProcess.make('mise', ['ls', '--installed', '--json']), SUCCESS_CODES).pipe(
+            execute('git', ['worktree', 'list', '--porcelain', '-z']).pipe(Effect.map((text) => Array.getSomes(text.split('\0').map((field) => Option.map(Schema.decodeUnknownOption(Worktree)(field), ([, worktree]) => worktree))))),
+            execute('mise', ['ls', '--installed', '--json']).pipe(
                 Effect.flatMap(Schema.decodeUnknownEffect(Installed)),
-                Effect.map((installs) => Array.flatten(Record.values(installs)).map(Struct.get('install_path'))),
+                Effect.flatMap((installs) => Effect.forEach(Object.values(installs).flat(), ({ install_path }) => fs.realPath(install_path).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(install_path))), { concurrency: 'unbounded' })),
             ),
-            execute(ChildProcess.make('xcode-select', ['--print-path']), SUCCESS_CODES).pipe(Effect.map(String.trim)),
-            execute(ChildProcess.make('mise', ['bootstrap', 'macos', 'launchd-agents', 'status', '--json']), SUCCESS_CODES).pipe(
-                Effect.flatMap(Schema.decodeUnknownEffect(Agents)),
-                Effect.map((status) => status.launchd.agents.filter(Struct.get('loaded'))),
+            darwin ? execute('xcode-select', ['--print-path']).pipe(Effect.map((text) => [text.trim()])) : Effect.succeed([]),
+            darwin
+                ? execute('mise', ['bootstrap', 'macos', 'launchd-agents', 'status', '--json']).pipe(
+                      Effect.flatMap(Schema.decodeUnknownEffect(Agents)),
+                      Effect.map(({ launchd }) => launchd.agents),
+                  )
+                : Effect.succeed([]),
+            execute('rustup', ['show', 'home']).pipe(Effect.flatMap((text) => entries(path.join(text.trim(), 'toolchains')))),
+            execute('cargo', ['install', '--list']).pipe(Effect.map((text) => Array.getSomes(lines(text).map((line) => Schema.decodeUnknownOption(Product)(line))))),
+            execute('cargo', ['metadata', '--no-deps', '--format-version', '1']).pipe(
+                Effect.flatMap(Schema.decodeUnknownEffect(Metadata)),
+                Effect.map(({ packages }) => packages.map(Struct.get('name'))),
             ),
         ],
         { concurrency: 'unbounded' },
     );
-    yield* execute(ChildProcess.make('dotnet', ['build-server', 'shutdown'], { cwd: root, stdout: 'inherit' }), SUCCESS_CODES);
-    yield* terminate(
-        worktrees,
-        worktrees.flatMap((worktree) => ['node_modules', '.venv', ...ROOTS].map((entry) => path.join(worktree, entry))),
-        [...managed, developer],
-        uid,
+    const [loaded, orphaned] = yield* Effect.all(
+        [
+            Effect.forEach(
+                agents.filter(Struct.get('loaded')),
+                (agent) =>
+                    read(agent.path, parsePlist).pipe(
+                        Effect.flatMap(Schema.decodeUnknownEffect(Launched)),
+                        Effect.map(({ StandardOutPath, StandardErrorPath }) => ({ ...agent, logs: [...Option.toArray(StandardOutPath), ...Option.toArray(StandardErrorPath)] })),
+                    ),
+                { concurrency: 'unbounded' },
+            ),
+            entries(launchAgents).pipe(
+                Effect.map((found) => Array.getSomes(found.map(({ name, path: plist }) => Option.map(Schema.decodeUnknownOption(Plist)(name), ([, agent]) => ({ agent, plist })))).filter(({ agent }) => !agents.some(({ name }) => name === agent))),
+                Effect.flatMap(
+                    Effect.filter(
+                        ({ plist }) =>
+                            read(plist, parsePlist).pipe(
+                                Effect.flatMap(Schema.decodeUnknownEffect(Launched)),
+                                Effect.map(({ WorkingDirectory }) => Option.exists(WorkingDirectory, (directory) => under(path.sep, directory, worktrees))),
+                            ),
+                        { concurrency: 'unbounded' },
+                    ),
+                ),
+                Effect.map(Array.map(Struct.get('agent'))),
+            ),
+        ],
+        { concurrency: 'unbounded' },
     );
-    const registry = yield* Effect.result(unreachable(path.join(homedir(), '.lldb')));
-    const initial = Array.flatten(Option.toArray(Result.getSuccess(yield* Effect.result(Effect.fromResult(workspace).pipe(Effect.flatMap((planned) => sweep(planned, [])))))));
-    const state = yield* snapshot;
-    const busy = new Set(
-        Array.fromIterable(HashMap.entries(state.jobs))
-            .filter(([pid]) => Option.exists(Option.flatMap(HashMap.get(state.processes, pid), Struct.get('files')), (files) => files.some(({ descriptor, path: directory }) => descriptor === 'cwd' && under(directory, worktrees))))
-            .map(Tuple.get(1)),
-    );
-    const participating = agents.filter((agent) => busy.has(agent.label));
-    const labels = new Set(participating.map(Struct.get('label')));
-    const pids = Array.fromIterable(HashMap.entries(state.jobs))
-        .filter(([, label]) => labels.has(label))
-        .flatMap(([pid]) => [pid, ...descendants(state.processes, pid).map(Struct.get('pid'))]);
-    const sparing = Effect.gen(function* () {
-        const planned = yield* Effect.fromResult(workspace);
-        const holders = held(yield* snapshot, initial, planned.candidates, path.dirname);
-        yield* Effect.forEach(holders, ({ directory, holder }) => Console.log(`spare ${directory} held by ${holder}`), { discard: true });
-        return yield* discard(yield* sweep(planned, holders.map(Struct.get('directory'))));
+    yield* accumulate(orphaned, (agent) => execute('mise', ['bootstrap', 'services', 'remove', agent, '--yes'], shown));
+    const observed = yield* snapshot(darwin);
+    const owner = yield* Effect.fromOption(HashMap.get(observed.processes, self));
+    const state = yield* terminate(path.sep, observed, worktrees, Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), [...installed, ...developer, ...rustup.map(Struct.get('path'))], owner);
+    const removal = Effect.gen(function* () {
+        const planned = yield* Fiber.join(planning);
+        const toolchains = rustup.map(Struct.get('name'));
+        const strays = yield* Effect.all(
+            [
+                entries(drivers).pipe(Effect.flatMap(Effect.filter(({ name, path: entry }) => (toolchains.includes(name) ? Effect.succeed(false) : Effect.map(fs.stat(entry), ({ type }) => type === 'Directory')), { concurrency: 'unbounded' }))),
+                entries(path.join(home, 'Library', 'Developer', 'Xcode', 'DerivedData')).pipe(
+                    Effect.flatMap(
+                        Effect.filter(
+                            ({ path: entry }) =>
+                                read(path.join(entry, 'info.plist'), parsePlist).pipe(
+                                    Effect.map(
+                                        flow(
+                                            Schema.decodeUnknownOption(Derived),
+                                            Option.exists(({ WorkspacePath }) => under(path.sep, WorkspacePath, worktrees)),
+                                        ),
+                                    ),
+                                    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(false)),
+                                ),
+                            { concurrency: 'unbounded' },
+                        ),
+                    ),
+                ),
+                entries(path.join(home, '.lldb')).pipe(Effect.map((found) => found.filter(({ name }) => Option.exists(Schema.decodeUnknownOption(Registration)(name), ([, pid]) => !HashMap.has(state.processes, pid))))),
+            ],
+            { concurrency: 'unbounded' },
+        ).pipe(Effect.map((found) => found.flat().map(Struct.get('path'))));
+        const retained = Array.dedupe([...loaded.flatMap(Struct.get('logs')), ...planned.grammars, cacheDir, ...planned.derived, ...planned.providers, ...worktrees.map((worktree) => path.join(sessions, createHash('sha1').update(worktree).digest('hex').slice(0, workspaceKey)))]);
+        const listed = Array.dedupe([...residues.map((entry) => path.join(root, entry)), ghidra, sessions, ...planned.outputs, ...planned.cloudflare, ...strays]);
+        const candidates = listed.filter((candidate) => !(under(path.sep, candidate, retained) || listed.some((other) => other !== candidate && under(path.sep, candidate, [other]))));
+        const [kept, targeted] = [new Set(retained), new Set(candidates)];
+        const holders = held(
+            state,
+            (file) =>
+                Option.exists(
+                    Array.findFirst(lineage(path, file), (at) => kept.has(at) || targeted.has(at)),
+                    (at) => targeted.has(at),
+                ),
+            path.dirname,
+        );
+        const owned = loaded.flatMap((agent) => {
+            const pids = [...HashMap.entries(state.jobs)].flatMap(([pid, label]) => (label === agent.label ? [pid, ...state.descendants(pid).map(Struct.get('pid'))] : []));
+            return holders.some(({ holder }) => pids.includes(holder.pid)) ? [{ ...agent, pids }] : [];
+        });
+        const spared = holders.filter(({ holder }) => !owned.some(({ pids }) => pids.includes(holder.pid)));
+        yield* Effect.forEach(spared, ({ directory, holder }) => Console.log(`spare ${directory} held by ${holder.pid} ${holder.command}`), { discard: true });
+        const clearing = discard(yield* collect(candidates, retained, Array.dedupe(spared.map(Struct.get('directory')))));
+        return yield* owned.length === 0
+            ? clearing
+            : Effect.acquireUseRelease(
+                  Effect.forEach(owned, ({ label }) => Console.log(`bootout ${label}`), { discard: true }).pipe(Effect.andThen(accumulate(owned, ({ label }) => execute('launchctl', ['bootout', `gui/${owner.uid}/${label}`]))), Effect.result),
+                  (bootout) => Effect.fromResult(bootout).pipe(Effect.andThen(exited(owned.flatMap(Struct.get('pids')))), Effect.andThen(clearing)),
+                  () => execute('mise', ['bootstrap', 'macos', 'launchd-agents', 'apply', '--yes'], shown),
+              );
     });
-    const forgetting = Effect.fromResult(registry).pipe(Effect.flatMap(discard));
-    const clearing = Effect.validate([sparing, forgetting], identity<Effect.Effect<void, Effect.Error<typeof sparing> | Effect.Error<typeof forgetting>, Effect.Services<typeof sparing> | Effect.Services<typeof forgetting>>>, { discard: true });
-    return yield* withoutAgents(participating, uid, (pids.length === 0 ? Effect.void : wait(pids).pipe(Effect.asVoid)).pipe(Effect.andThen(work(clearing))));
+    const strayed = Array.dedupe(products.flatMap(([name, , , , source]) => (under(path.sep, source, worktrees) && !members.includes(name) ? [name] : [])));
+    return yield* accumulate([removal, strayed.length === 0 ? Effect.void : execute('cargo', ['uninstall', ...strayed], shown), execute('cargo', ['insta', 'reject', '--workspace', '--quiet'], shown), Fiber.join(pruning)], identity);
 });
 
-cleanup().pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
+cleanup(process.pid, process.platform === 'darwin').pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

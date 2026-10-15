@@ -142,11 +142,11 @@ internal sealed class CanvasSparkle(
     Func<PlotCanvas, double, IO<Unit>> marks, CallbackSite site) : ISparkle {
     private readonly Animated<double> progress = Animators.Unfinished(0.0, 1.0, duration, motion);
 
-    public bool Sparkling { get => field && progress.State != Grasshopper2.UI.Animation.State.Finished; private set; } = true;
+    public bool Sparkling { get => field && progress.State is not Grasshopper2.UI.Animation.State.Finished; private set; } = true;
 
     public void Draw(ControlGraphics graphics) => Sparkling = Callbacks.Answer(
         from at in IO.lift(() => control.Animate(progress))
-        from drawn in unless(progress.State == Grasshopper2.UI.Animation.State.Finished,
+        from drawn in unless(progress.State is Grasshopper2.UI.Animation.State.Finished,
             CanvasPainting.Plotted(control, graphics, attachedToContent, Skin.Current.Shape.FontWord, plot => marks(plot, at))).As()
         select true,
         static () => false,
@@ -215,7 +215,7 @@ public static class CanvasPainting {
         Overlay(GrasshopperEvents.BeforePaintWires(canvas), (plot, args) =>
             IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
                 .Bind(found => found.TraverseM(wire => Halo(plot, args.Skin.Wires, color, wire)).As())
-                .Map(static _ => unit), sink, retain);
+                .Map(unit), sink, retain);
 
     private static Option<(IParameter Source, IParameter Target)> Ends(Document document, WireEnds ends) =>
         from source in Optional(document.Objects.FindParameter(ends.Source))

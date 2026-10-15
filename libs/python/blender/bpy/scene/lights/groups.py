@@ -1,6 +1,7 @@
 """Light group membership by rule, member selection, and lobe split children."""
 
 from contextlib import ExitStack
+from itertools import chain
 from typing import Annotated, ClassVar
 
 import bpy
@@ -348,7 +349,7 @@ def unsplit(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResul
         return Ok(Unchanged(reason="No split light selected"))
     shown = Snapshot.of(bpy.types.Object, {"hide_render": False})
     try:
-        bpy.data.batch_remove(ids=tuple(item for children in held.values() for item in children))
+        bpy.data.batch_remove(ids=tuple(chain.from_iterable(held.values())))
     except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
         return Error((BlenderEditFault(request=repr(tuple(held)), error=error),))
     return accumulated(reconciled(ObjectState(values=Some(shown)), master, ()) for master in held).map(lambda _: Done(notes=(("INFO", f"Removed {sum(map(len, held.values()))} children"),)))

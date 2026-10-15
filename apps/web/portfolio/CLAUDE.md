@@ -7,7 +7,6 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 [ORDER]: Each feature takes the first available form: web platform API, then owning dependency member, then app code
 - `Intl` formats numbers and lists, CSS counters number list items, and History holds page location
 - Views read dependency state through its hooks and events, hydration reads the dependency's server snapshot
-- ALWAYS fill a dependency gap through an extension point the dependency exposes
 - Editor, viewers, upload inspection, and PDF code load as lazy chunks at first need
 - React Compiler memoizes every component, code holds no manual memoization
 
@@ -49,7 +48,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [RENDER]: Worker renders `Site` into built `index.html` through `HTMLRewriter`, browsers hydrate the same `Site`
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
-- `Bootstrap` encodes in Worker and decodes in browser through one `Schema.fromJsonString`, hydration removes its script
+- `shell` names the root, data script, and `Bootstrap` schema `@rasm/hosting` renders in Worker and hydrates in browser
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
 
@@ -74,7 +73,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `react-error-boundary` fallbacks catch chunk and render failures
 - `react-zoom-pan-pinch` owns image zoom
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
-- `Atom.family` keyed by URL shares one PDF.js document across every sheet of a PDF, scoped through `Effect.acquireRelease`
+- `@rasm/media` `pdfDocument` shares one PDF.js document across every sheet of a PDF
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
 ## [06]-[EDITOR]
@@ -98,13 +97,15 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 ## [07]-[HOSTING]
 
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names
+- `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
+- Worker binding types infer from `cloudflare.config.ts` through `InferEnv`
 - Worker `fetch` supplies bindings to memoized handler construction inside request context
 - Sites forwards signed-in user id and email headers, requests without an id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks compare user ids alone
-- Hosted configuration supplies `OWNER_EMAIL`, `vite.config.ts` sets it to the `sites()` local sign-in email for `serve` alone
+- Hosted configuration supplies the `OWNER_EMAIL` secret, `development` mode binds it to the `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
 [STORAGE]: `worker/schema.sql` declares document, asset, and owner tables
-- `db:setup` creates local tables through Wrangler, hosted tables retain their existing structure
+- `db:setup` creates local tables through `cf` in the Vite plugin's persisted state, hosted tables retain their existing structure
 - Effect schemas define JSON content, D1 updates each document or asset in place
 - Schema history, numbered SQL, and request-time table creation are absent

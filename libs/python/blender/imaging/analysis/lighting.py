@@ -166,8 +166,8 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             center_mean, border_mean, ring_mean = (
                 Some(group).filter(lambda held: held.size > 0).map(lambda held: float(held.mean(dtype=np.float64))) for group in (center_levels, border_levels, ring_levels)
             )
-            backlight = border_mean.bind(lambda outside: center_mean.map(lambda inside: math.log2(outside / inside)))
-            backlit = border_mean.bind(lambda outside: center_mean.map(lambda inside: outside > 1.35 * inside and inside <= 1.08 * frame_mean)).default_value(False) or ring_mean.map(
+            backlight = border_mean.map2(lambda outside, inside: math.log2(outside / inside), center_mean)
+            backlit = border_mean.map2(lambda outside, inside: outside > 1.35 * inside and inside <= 1.08 * frame_mean, center_mean).default_value(False) or ring_mean.map(
                 lambda ring: ring > 1.25 * subject_mean and subject_mean < 1.05 * frame_mean
             ).default_value(False)
             centers, _ = kmeans(colors, np.stack(tuple(colors[band].mean(axis=0) for band in bands[6:])), thresh=0.0, check_finite=False)

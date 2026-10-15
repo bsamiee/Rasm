@@ -10,11 +10,10 @@ Change the input or setting under measurement alone. Hold command, properties, n
 | :-----: | :------------ | :-------------------------------------------------------------------- | :--------------------------------------- |
 |  [01]   | Clean build   | `nx run <project>:build --skip-nx-cache -- -t:Rebuild`                | Every target and task from empty outputs |
 |  [02]   | Changed input | One successful build, one representative edit, the same command again | Work one edit causes                     |
-|  [03]   | No change     | One successful build, then the same command again                     | Targets that run with nothing changed    |
+|  [03]   | No change     | One successful build, then the same command with `--skip-nx-cache`    | Targets that run with nothing changed    |
 |  [04]   | Build only    | `nx run rasm:restore --skip-nx-cache`, then `nx run <project>:build`  | Execution without restore                |
 
 - `dotnet build-server shutdown` stops the MSBuild and compiler servers before a capture, `--disable-build-servers` keeps them out of one capture
-- `-nr:false` stops node reuse, the next capture starts its worker nodes again
 - Record server and node state with the capture, a warm server and reused nodes remove process startup from measured duration
 - When another session builds into the shared `ArtifactsPath`, restore and capture both with `-- --artifacts-path <dir>`
 - `mcp__binlog__binlog_compare` shows property and package drift between captures

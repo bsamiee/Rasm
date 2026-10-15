@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-calendar-rule
+language: rust
+utils:
+    four-hundred:
+        kind: integer_literal
+        regex: '^400(_?[iu](8|16|32|64|128|size))?$'
+    zero:
+        kind: integer_literal
+        regex: '^0(_?[iu](8|16|32|64|128|size))?$'
+    remainder:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^%$'}
+            - has: {field: right, matches: four-hundred}
+rule:
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - any:
+                - all: [{has: {field: left, matches: remainder}}, {has: {field: right, matches: zero}}]
+                - all: [{has: {field: right, matches: remainder}}, {has: {field: left, matches: zero}}]
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^is_multiple_of$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: four-hundred}}
+        - kind: array_expression
+          regex: '^\[\s*(31\s*,\s*2[89]\s*,\s*31\s*,\s*30|0\s*,\s*31\s*,\s*(59\s*,\s*90|60\s*,\s*91))\b'
+        - kind: match_pattern
+          regex: '^4\s*\|\s*6\s*\|\s*9\s*\|\s*11$'

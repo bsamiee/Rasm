@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-html-tag-scan
+language: rust
+utils:
+    tag-text:
+        kind: string_literal
+        regex: '^"</?((?i:abbr|article|aside|blockquote|body|br|button|caption|code|dd|del|div|dl|dt|em|footer|form|h[1-6]|head|header|hr|html|iframe|img|input|ins|label|li|link|main|meta|nav|ol|option|pre|script|section|select|small|span|strong|style|sub|sup|svg|table|tbody|td|textarea|th|thead|title|tr|ul)|[abipsu])(\s[^"]*|/?>)"$'
+    tag-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(find|rfind|contains|starts_with|ends_with|strip_prefix|strip_suffix|split|split_once|rsplit_once|match_indices|replace|replacen|trim_start_matches|trim_end_matches)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: tag-text}}
+rule:
+    kind: call_expression
+    any:
+        - matches: tag-call
+          not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: tag-call}}}
+        - all:
+            - has: {field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$'}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    kind: 'string_literal, raw_string_literal'
+                    all:
+                        - regex: '<[^"]*(\[\^<?>\]|\.[*+]\?)[^"]*>'
+                        - regex: '(^|[^?P])<\\?/?(?i:abbr|article|aside|blockquote|body|br|button|caption|code|dd|del|div|dl|dt|em|footer|form|h[1-6]|head|header|hr|html|iframe|img|input|ins|label|li|link|main|meta|nav|ol|option|pre|script|section|select|small|span|strong|style|sub|sup|svg|table|tbody|td|textarea|th|thead|title|tr|ul|[abipsu])[\s>\\/(]'

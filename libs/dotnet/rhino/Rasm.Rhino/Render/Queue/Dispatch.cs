@@ -284,7 +284,7 @@ public static class Dispatch {
                     Queues.Resolve(state.Doc, state.Plan, state.Resumed).OnUiThread()
                         .Bind(queue => Queues.Run(state.Context, state.Doc, queue, None, state.Resumed)),
                 handoff: static (state, handoff) => Handed(state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, handoff.Package),
-                jobFile: static (state, file) => Packed(state.Doc, state.Plan, state.Resumed, file.Package, state.Stamp).OnUiThread().Map(static _ => unit),
+                jobFile: static (state, file) => Packed(state.Doc, state.Plan, state.Resumed, file.Package, state.Stamp).OnUiThread().Map(unit),
                 flamenco: static (state, farm) =>
                     from arguments in IO.lift(FarmArguments(farm.WorkerPlatform, state.Context.FarmScript))
                     from paths in Packed(state.Doc, state.Plan, state.Resumed, farm.Package, state.Stamp).OnUiThread()
@@ -293,7 +293,7 @@ public static class Dispatch {
                     select unit)
             select sent) switch {
                 var send => target.Map(local: true, handoff: false, jobFile: false, flamenco: false)
-                    ? DisposalOps.Fork(Reported(context, nameof(Send), send), retain).Map(static _ => unit)
+                    ? DisposalOps.Fork(Reported(context, nameof(Send), send), retain).Map(unit)
                     : send,
             };
 
@@ -318,7 +318,11 @@ public static class Dispatch {
 
     private static Fin<string[]> FarmArguments(OSPlatform platform, string script) =>
         platform == OSPlatform.OSX ? Fin.Succ(new[] { "-runscript", script })
-            : platform == OSPlatform.Windows ? Fin.Succ(new[] { $"/runscript=\"{script}\"" })
+            : platform == OSPlatform.Windows ? Fin.Succ(new[] {
+                $"""
+                /runscript="{script}"
+                """,
+            })
             : Fin.Fail<string[]>(new FarmPlatformUnsupported(platform));
 
     public static IO<bool> FarmStartup(Seq<string> farmScripts) =>
@@ -345,7 +349,7 @@ public static class Dispatch {
                     OperatingSystem.IsMacOS() ? "darwin" : "windows", new FlamencoJob.Parameters(copy, arguments), farm.WorkerTag.ToNullable()),
                     FlamencoContext.Default.FlamencoJob);
                 using HttpResponseMessage response = await client.PostAsync(new Uri(farm.Manager, "/api/v3/jobs"), content, environment.Token).ConfigureAwait(false);
-                return response.StatusCode == HttpStatusCode.OK
+                return response.StatusCode is HttpStatusCode.OK
                     ? Missing.Unless(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false), nameof(HttpContentJsonExtensions.ReadFromJsonAsync))
                         .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
                     : Fin.Fail<Uri>(new FlamencoRefused(response.StatusCode));
@@ -378,21 +382,23 @@ public static class Dispatch {
             select unit, DisposalOps.Release);
 
     private static IO<Unit> SaveAll =>
-        IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments(includeHeadless: false)))
+        IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments()))
             .Bind(static open => open.TraverseM(Exchange.Save).As())
-            .Map(static _ => unit);
+            .Map(unit);
 
     private static IO<Unit> Relay(QueueContext context, string job, string command) =>
         IO.lift(() => Launch(job, command, JobVariable(context)))
             .Bind(static start => DisposalOps.Within(() => Process.Start(start),
-                static child => IO.lift(Missing.Unless(child, nameof(Process.Start))).Map(static _ => unit),
+                static child => IO.lift(Missing.Unless(child, nameof(Process.Start))).Map(unit),
                 static child => IO.lift(() => Optional(child).Iter(static held => held.Dispose()))));
 
     private static Fin<ProcessStartInfo> Launch(string job, string command, string variable) =>
         OperatingSystem.IsMacOS()
             ? new ProcessStartInfo("sh") {
                 ArgumentList = {
-                    "-c", "pid=$1; shift; caffeinate -w \"$pid\"; exec open \"$@\"", "sh",
+                    "-c", """
+                        pid=$1; shift; caffeinate -w "$pid"; exec open "$@"
+                        """, "sh",
                     Environment.ProcessId.ToString(CultureInfo.InvariantCulture),
                     "-g", "-b", string.Create(CultureInfo.InvariantCulture, $"com.mcneel.rhinoceros.{RhinoApp.ExeVersion}"),
                     "--env", $"{variable}={job}", "--args", "-runscript=_NoEcho", $"_{command}",
@@ -418,38 +424,28 @@ public static class Dispatch {
         };
 
     public static IO<Unit> FarmJob(QueueContext context, RhinoDoc doc, IO<Unit> close) =>
-        IO.lift(parent => {
-            IO<Unit> work =
-                from path in IO.lift(() => Exchange.QualifiedPath(Path.ChangeExtension(doc.Path, PackageFile.Job.Extension))).OnUiThread()
-                from job in Read(path)
-                from record in IO.lift(Conversions.Validated<OutputPath, string, InvalidFileValue>(Path.ChangeExtension(path, ".progress.json")))
-                let worker = context with { Record = record, Settings = context.Settings.Map(static settings => settings with { ShutDownAfterSuccess = false }) }
-                from prior in QueueProgress.Read(worker.Record)
-                from queue in JobMapper.FromJob(doc, job).OnUiThread()
-                from ran in Queues.Run(worker, doc, queue, Some(path), prior.Filter(held => held.Job == Some(path) && !held.Succeeded))
-                select unit;
-            _ = Task.Run(async () => {
-                EnvIO environment = EnvIO.New(token: parent.Token, syncContext: parent.SyncContext);
-                Fin<Unit> outcome = await DisposalOps.Within(static () => unit, _ => work, _ => close.OnUiThread())
-                    .Try().Run().As().Uninterruptible().RunAsync(environment).ConfigureAwait(false);
-                Fin<Unit> result = (outcome.ToValidation(),
-                        Try.lift(environment.DisposeResources).ToFin().ToValidation(),
-                        Try.lift(environment.DisposeNonResources).ToFin().ToValidation())
-                    .Apply(static (_, _, _) => unit).As().ToFin();
-                int status = result.Match(Succ: static _ => 0, Fail: static error => {
-                    Console.Error.WriteLine(error);
-                    return Queues.Stopping(error) ? 2 : 1;
-                });
-                Environment.Exit(status);
-            }, parent.Token);
-            return unit;
-        });
+        (from outcome in DisposalOps.Within(static () => unit, _ => Farmed(context, doc), _ => close.OnUiThread()).Bracket().Try().Run().As().Uninterruptible()
+         from exited in IO.lift(() => Environment.Exit(outcome.Match(Succ: static _ => 0, Fail: static error => {
+             Console.Error.WriteLine(error);
+             return Queues.Stopping(error) ? 2 : 1;
+         }))).OnUiThread()
+         select exited).Fork().Map(unit);
+
+    private static IO<Unit> Farmed(QueueContext context, RhinoDoc doc) =>
+        from path in IO.lift(() => Exchange.QualifiedPath(Path.ChangeExtension(doc.Path, PackageFile.Job.Extension))).OnUiThread()
+        from job in Read(path)
+        from record in IO.lift(Conversions.Validated<OutputPath, string, InvalidFileValue>(Path.ChangeExtension(path, ".progress.json")))
+        let worker = context with { Record = record, Settings = context.Settings.Map(static settings => settings with { ShutDownAfterSuccess = false }) }
+        from prior in QueueProgress.Read(worker.Record)
+        from queue in JobMapper.FromJob(doc, job).OnUiThread()
+        from ran in Queues.Run(worker, doc, queue, Some(path), prior.Filter(held => held.Job == Some(path) && !held.Succeeded))
+        select unit;
 
     public static IO<Unit> Startup(QueueContext context, Action<IDisposable> retain, Seq<string> farmScripts) =>
         FarmStartup(farmScripts).Bind(farm => unless(farm,
             IO.lift(() => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable(context))))
                 .Bind(job => job.Match(
-                    Some: path => DisposalOps.Fork(Launched(context, nameof(Startup), Run(context, path)), retain).Map(static _ => unit),
+                    Some: path => DisposalOps.Fork(Launched(context, nameof(Startup), Run(context, path)), retain).Map(unit),
                     None: () => Relaunched(context, retain)))).As());
 
     public static IO<Unit> Relaunched(QueueContext context, Action<IDisposable> retain) =>
@@ -457,7 +453,7 @@ public static class Dispatch {
                     error => IO.lift(() => context.Sink.Report(error, typeof(Dispatch), nameof(Relaunched))))
                     .Bind(found => found.Traverse(relaunch =>
                         Launched(context, nameof(Relaunched), IO.yieldFor(relaunch.Delay.Span.ToTimeSpan()).Bind(_ => Run(context, relaunch.Job)))).As())
-                    .Map(static _ => unit), retain).Map(static _ => unit);
+                    .Map(unit), retain).Map(static _ => unit);
 
     private static IO<Unit> Launched(QueueContext context, string member, IO<Unit> run) =>
         DisposalOps.Within(static () => unit, _ => Reported(context, member, run), _ => Reported(context, member, Quit.OnUiThread()));
@@ -480,12 +476,12 @@ public static class Dispatch {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class QueueJobCommand(IPlugInSink sink, Guid id, string englishName) : HostCommand(sink, id, englishName, None) {
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
-        IO.lift(() => QueueContext.Current.Of(site.Sink)).Bind(Dispatch.Job).Map(static _ => unit);
+        IO.lift(() => QueueContext.Current.Of(site.Sink)).Bind(Dispatch.Job).Map(unit);
 }
 
 public sealed class QueueFarmJobCommand(IPlugInSink sink, Guid id, string englishName) : HostCommand(sink, id, englishName, None) {
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
-        mode == RunMode.Scripted
+        mode is RunMode.Scripted
             ? from context in IO.lift(() => QueueContext.Current.Of(site.Sink))
               from session in IO.lift(() => PlugInSession.Of(site.Sink))
               from ran in Dispatch.FarmJob(context, doc, session.Close)

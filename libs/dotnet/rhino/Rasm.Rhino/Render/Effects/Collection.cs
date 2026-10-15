@@ -85,9 +85,11 @@ internal static class EffectMapper {
 
 public static class EffectRegistry {
     // --- [DEFINITIONS]
-    public static Seq<EffectKind> Add<TEffect>(this Seq<EffectKind> chain, Option<BuiltinEffect> replaces = default)
-        where TEffect : PostEffect, IEffectDefinition =>
-        chain.Add(TEffect.Kind with { Replaces = replaces });
+    extension(Seq<EffectKind> chain) {
+        public Seq<EffectKind> Add<TEffect>(Option<BuiltinEffect> replaces = default)
+            where TEffect : PostEffect, IEffectDefinition =>
+            chain.Add(TEffect.Kind with { Replaces = replaces });
+    }
 
     // --- [SCOPE]
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
@@ -97,13 +99,7 @@ public static class EffectRegistry {
         }));
 
     public static IO<Unit> Apply(RenderSettings settings, Seq<EffectRequest> requests) =>
-        Within(settings, (effects, held) => IO.lift(() => Callbacks.Each(requests, (request, _) => Applied(effects, held, request))).Map(static _ => unit));
-
-    public static IO<BindingGroup> Bindings(RhinoDoc doc, Seq<EffectKind> kinds) =>
-        RenderSettingsSources.Read(doc, source => Within(source.Settings, (_, held) => IO.lift(() => {
-            LanguageExt.HashSet<Guid> present = toHashSet(held.Map(static data => data.Id));
-            return new BindingGroup(kinds.Filter(kind => present.Contains(kind.Id)).Map(kind => kind.Binding(doc)).Strict());
-        })));
+        Within(settings, (effects, held) => IO.lift(() => Callbacks.Each(requests, (request, _) => Applied(effects, held, request))).Map(unit));
 
     public static IO<TState> State<TEffect, TState>(RenderSettings settings, Option<TState> factory = default) where TEffect : PostEffect where TState : IStateRecord<TState> =>
         Entry(settings, typeof(TEffect).GUID, data => FieldTexts.Recalled(EntryKey.TypeOwner(typeof(TEffect).GUID), toSeq(TState.Parameters), path => Stored(data, EntryKey.Name(path)), factory.IfNone(TState.Default)));
@@ -190,21 +186,24 @@ public static class EffectRegistry {
         select unit;
 
     private static Option<Seq<EffectRequest>> Arrangement(Seq<EffectKind> kinds, Seq<EffectEntry> entries) =>
-        from placed in kinds.Traverse(kind => entries.Find(entry => entry.Id == kind.Id).Map(entry => (Kind: kind, Entry: entry))).As()
-        from replaced in kinds.Bind(static kind => kind.Replaces.ToSeq()).Traverse(builtin => entries.Find(entry => entry.Id == builtin.Id)).As()
-        let named = toHashSet(placed.Map(static held => held.Entry.Id).Add(BuiltinEffect.Despeckle.Id))
-        let staged = fun((PostEffectType stage) => placed.Filter(held => held.Kind.Stage == stage).Map(static held => held.Entry))
-        select placed.Filter(static held => held.Kind.Replaces.IsSome).Choose(static held => held.Entry.Switch(
-                listed: static entry => Some<EffectRequest>(new EffectRequest.Listing(entry with { On = true, Shown = true })),
-                selectable: static _ => Option<EffectRequest>.None))
-            + placed.Choose(static held => held.Entry.Switch(
-                listed: static _ => Option<EffectRequest>.None,
-                selectable: static entry => Some<EffectRequest>(new EffectRequest.Selecting(entry))))
-            + replaced.Choose(static entry => entry.Switch(
-                listed: static held => Some<EffectRequest>(new EffectRequest.Listing(held with { On = false })),
-                selectable: static _ => Option<EffectRequest>.None))
-            + Seq<EffectRequest>(new EffectRequest.Ordering(
-                staged(PostEffectType.Early)
-                + entries.Filter(entry => !named.Contains(entry.Id) && entry.Switch(listed: static _ => true, selectable: static _ => false))
-                + staged(PostEffectType.Late)));
+        toHashMap(entries.Map(static entry => (entry.Id, entry))) switch {
+            var listed =>
+                from placed in kinds.Traverse(kind => listed.Find(kind.Id).Map(entry => (Kind: kind, Entry: entry))).As()
+                from replaced in kinds.Bind(static kind => kind.Replaces.ToSeq()).Traverse(builtin => listed.Find(builtin.Id)).As()
+                let named = toHashSet(placed.Map(static held => held.Entry.Id).Add(BuiltinEffect.Despeckle.Id))
+                let staged = fun((PostEffectType stage) => placed.Filter(held => held.Kind.Stage == stage).Map(static held => held.Entry))
+                select placed.Filter(static held => held.Kind.Replaces.IsSome).Choose(static held => held.Entry.Switch(
+                        listed: static entry => Some<EffectRequest>(new EffectRequest.Listing(entry with { On = true, Shown = true })),
+                        selectable: static _ => Option<EffectRequest>.None))
+                    + placed.Choose(static held => held.Entry.Switch(
+                        listed: static _ => Option<EffectRequest>.None,
+                        selectable: static entry => Some<EffectRequest>(new EffectRequest.Selecting(entry))))
+                    + replaced.Choose(static entry => entry.Switch(
+                        listed: static held => Some<EffectRequest>(new EffectRequest.Listing(held with { On = false })),
+                        selectable: static _ => Option<EffectRequest>.None))
+                    + Seq<EffectRequest>(new EffectRequest.Ordering(
+                        staged(PostEffectType.Early)
+                        + entries.Filter(entry => !named.Contains(entry.Id) && entry.Switch(listed: static _ => true, selectable: static _ => false))
+                        + staged(PostEffectType.Late))),
+        };
 }

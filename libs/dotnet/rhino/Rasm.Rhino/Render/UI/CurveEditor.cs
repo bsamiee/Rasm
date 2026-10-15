@@ -305,11 +305,11 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
                 .Fold(HashMap<int, int>(), static (held, bin) => held.AddOrUpdate(bin.Column, total => total + bin.Count, bin.Count)) switch {
                     var counts => counts.Fold(1, int.Max) switch {
                         var tallest => new MarkShape.Polygon([
-                            new PointF(Placed.Plot.Left, Placed.Plot.Bottom),
+                            Placed.Plot.BottomLeft,
                         .. toSeq(Range(0, columns)).Map(column => new PointF(
                             Placed.Plot.Left + ((column + 0.5f) * Placed.Plot.Width / columns),
                             Placed.Plot.Bottom - ((float)counts.Find(column).IfNone(0) / tallest * Placed.Plot.Height))),
-                        new PointF(Placed.Plot.Right, Placed.Plot.Bottom),
+                        Placed.Plot.BottomRight,
                     ]),
                     },
                 };
@@ -349,7 +349,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
         public Option<Transition<CurveEditorState, PlottedCurve>> Nudged(Orientation along, int steps, Keys modifiers) =>
             from anchor in Anchor
-            let horizontal = along == Orientation.Horizontal
+            let horizontal = along is Orientation.Horizontal
             let value = (float)(horizontal ? anchor.X : anchor.Y)
             let travel = Snaps(modifiers)
                 ? (horizontal ? Placed.X.Snap(value, steps, LeastX) : Placed.Y.Snap(value, steps, LeastY)) - value
@@ -434,9 +434,9 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     protected override Option<Transition<CurveEditorState, PlottedCurve>> Pressed(CurveEditorState state, SizeF size, float scale, Option<CurvePart> part, MouseEventArgs e) =>
         from editing in Editing(state)
         from hit in part
-        where e.Buttons == MouseButtons.Primary
+        where e.Buttons is MouseButtons.Primary
         from next in hit.Switch(
-            (Editing: editing, Size: size, At: e.Location, Toggles: (e.Modifiers & Application.Instance.CommonModifier) != Keys.None),
+            (Editing: editing, Size: size, At: e.Location, Toggles: (e.Modifiers & Application.Instance.CommonModifier) is not Keys.None),
             ground: static (held, _) => Some(new Transition<CurveEditorState, PlottedCurve>(held.Editing with { Selected = Seq<int>() }, None)),
             fitted: static (held, _) =>
                 from plotted in Plotted.Of(held.Editing, held.Size)

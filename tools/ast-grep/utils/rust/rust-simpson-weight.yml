@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-simpson-weight
+language: rust
+utils:
+    parity:
+        kind: binary_expression
+        any:
+            - all: [{has: {field: operator, regex: '^%$'}}, {has: {field: right, kind: integer_literal, regex: '^2(_?[iu](8|16|32|64|128|size))?$'}}]
+            - all: [{has: {field: operator, regex: '^&$'}}, {has: {field: right, kind: integer_literal, regex: '^1(_?[iu](8|16|32|64|128|size))?$'}}]
+    parity-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - has: {field: left, matches: parity}
+            - has: {field: right, kind: integer_literal, regex: '^[01](_?[iu](8|16|32|64|128|size))?$'}
+    weight:
+        kind: 'float_literal, integer_literal'
+        regex: '^[24](\.0*)?(_?(f32|f64|[iu](8|16|32|64|128|size)))?$'
+    first-weight:
+        kind: block
+        all:
+            - has: {nthChild: 1, matches: weight, pattern: $W}
+            - not: {has: {nthChild: 2}}
+    other-weight:
+        kind: block
+        all:
+            - has: {nthChild: 1, matches: weight, not: {pattern: $W}}
+            - not: {has: {nthChild: 2}}
+rule:
+    any:
+        - kind: if_expression
+          all:
+            - has: {field: condition, matches: parity-test}
+            - has: {field: consequence, matches: first-weight}
+            - has: {field: alternative, kind: else_clause, has: {matches: other-weight}}
+        - kind: match_expression
+          all:
+            - has: {field: value, matches: parity}
+            - has:
+                field: body
+                all:
+                    - has: {kind: match_arm, has: {field: value, matches: weight, pattern: $W}}
+                    - has: {kind: match_arm, has: {field: value, matches: weight, not: {pattern: $W}}}
+                    - not: {has: {kind: match_arm, nthChild: 3}}
+    not: {matches: rust-test-scope}

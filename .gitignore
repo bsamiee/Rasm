@@ -6,9 +6,11 @@ node_modules/
 
 .cache/
 dist/
-.wrangler/
-**/.artifacts/
+.cloudflare/
+.artifacts/
 .vs/
+.playwright-cli/
+.playwright-mcp/
 buildServer.json
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
@@ -54,7 +56,6 @@ Thumbs.db
 # --- [AI_TOOLING] -----------------------------------------------------------------------
 
 .claude/agent-memory-local/
-.claude/observation/
 .claude/settings.local.json
 .claude/worktrees/
 docs/research

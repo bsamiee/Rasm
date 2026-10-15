@@ -51,7 +51,7 @@ internal sealed class RealizedView : Panel {
     public new IO<Unit> Shown(bool visible) =>
         IO.lift(() => showing = visible).Bind(_ => Callbacks.Each(Seq(
             listeners.Shown(visible),
-            visible ? Scope.Changed(Keys(row)).Bind(_ => Evaluated) : Evaluated))).Map(static _ => unit);
+            visible ? Scope.Changed(Keys(row)).Bind(_ => Evaluated) : Evaluated))).Map(unit);
 
     public IO<Unit> Reread => Scope.Changed(ViewCatalog.Tree(row).Bind(Keys)).Bind(_ => Evaluated);
 
@@ -161,7 +161,7 @@ public abstract class ViewPanel : Panel {
     private protected Option<RealizedView> Realized { get; private set; }
 
     // --- [EDGES]
-    private protected new IO<Unit> Shown(bool visible) => Realized.Traverse(view => view.Shown(visible)).As().Map(static _ => unit);
+    private protected new IO<Unit> Shown(bool visible) => Realized.Traverse(view => view.Shown(visible)).As().Map(unit);
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
@@ -186,53 +186,69 @@ public abstract class DefinedPanel(RhinoDoc? document, View.Panel row) : ViewPan
     public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => Callbacks.Run(Shown(visible: false), CallbackSite.Of(this));
 }
 
-public abstract class DefinedSection(View.Section row) : EtoCollapsibleSection3 {
+public abstract class DefinedSection : EtoCollapsibleSection3 {
     // --- [STATE]
-    private readonly Atom<Option<SectionBody>> realized = Atom(Option<SectionBody>.None);
-    private Seq<IDisposable> owned;
+    private readonly View.Section row;
+    private readonly SectionLifetime lifetime;
+    private Option<Func<Action<IDisposable>, IO<SectionBody>>> source;
+    private Option<SectionBody> body;
+    private bool visible;
 
-    private Option<SectionBody> Current => realized.Value;
+    protected DefinedSection(View.Section row) {
+        this.row = row;
+        lifetime = new SectionLifetime(this, IPlugInSink.Of(this), None, static () => false, Realized);
+    }
 
     // --- [IDENTITY]
     public override LocalizeStringPair Caption => RowText.Localize(row.Caption, table: Some<object>(IPlugInSink.Of(this)));
 
     public override Guid PlugInId => IPlugInViews.Of(this).PlugIn.Id;
 
-    public override int SectionHeight => Current.Match(Some: static held => held.Height, None: static () => 0);
+    public override int SectionHeight => body.Match(Some: static held => held.Height, None: static () => 0);
 
-    public override bool Hidden => Current.Exists(static held => held.Hidden);
+    public override bool Hidden => body.Exists(static held => held.Hidden);
 
-    public override IHeaderButtonHandler NewHeaderButtonHandler() => Current.Bind(static held => held.Header).IfNone(base.NewHeaderButtonHandler);
+    public override IHeaderButtonHandler NewHeaderButtonHandler() =>
+        SectionBody.Header(row, lifetime.Demanded.Bind(_ => IO.lift(() => body)), IPlugInSink.Of(this)).IfNone(base.NewHeaderButtonHandler);
 
     // --- [REALIZATION]
-    public IO<Unit> Attach(Func<Action<IDisposable>, IO<SectionBody>> body) =>
-        DisposalOps.Replace(body, (value, release) => {
-            Seq<IDisposable> prior = owned;
-            Control? content = Content;
-            owned = prior.Add(release);
-            IO<Unit> rejected = IO.lift(() => owned = prior).Bind(_ => IO.lift(release.Dispose));
-            IO<Unit> restore = IO.lift(() => { Content = content; });
-            return from assigned in DisposalOps.OnFailure(IO.lift(() => { Content = value.Content; }), restore.Bind(_ => rejected))
-                   from published in IO.lift(() => { _ = realized.Swap(_ => Some(value)); owned = Seq(release); })
-                   from released in DisposalOps.Release(prior)
-                   select unit;
-        }).Map(static _ => unit);
+    public IO<Unit> Attach(Func<Action<IDisposable>, IO<SectionBody>> realize) => IO.lift(() => { source = Some(realize); });
+
+    private IO<Unit> Realized(Action<IDisposable> retain) =>
+        from realize in IO.lift(() => source.ToFin(new Missing(nameof(Attach))))
+        from held in realize(retain)
+        from placed in DisposalOps.Change(() => (body, Content), next => (body, Content) = next, (Some(held), held.Content), retain)
+        from shown in IO.lift(() => visible).Bind(held.Shown)
+        select unit;
 
     // --- [EDGES]
+    protected override void OnLoad(System.EventArgs e) {
+        base.OnLoad(e);
+        Callbacks.Run(lifetime.Loaded, CallbackSite.Of(this));
+    }
+
+    protected override void OnUnLoad(System.EventArgs e) {
+        Callbacks.Run(lifetime.Unloaded, CallbackSite.Of(this));
+        base.OnUnLoad(e);
+    }
+
     public override void HolderVisible(bool visible) =>
-        Callbacks.Run(Current.Traverse(held => held.Shown(visible)).As(), CallbackSite.Of(this));
+        Callbacks.Run(IO.lift(() => {
+            this.visible = visible;
+            return body;
+        }).Bind(held => held.Traverse(current => current.Shown(visible)).As()), CallbackSite.Of(this));
 
     public override void UpdateView(uint flags) =>
-        Callbacks.Run(Current.Map(static held => held.Reread), CallbackSite.Of(this));
+        Callbacks.Run(body.Map(static held => held.Reread), CallbackSite.Of(this));
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
-        if (disposing) {
-            _ = IO.lift(() => { Content = null; base.Dispose(disposing); })
-                .Finally(IO.lift(() => { _ = realized.Swap(static _ => None); Seq<IDisposable> released = owned; owned = []; return released; })
-                    .Bind(DisposalOps.Release)).Uninterruptible().Run();
-        } else
+        try {
+            if (disposing)
+                lifetime.Dispose();
+        } finally {
             base.Dispose(disposing);
+        }
     }
 }
 
@@ -240,21 +256,12 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
     // --- [STATE]
     private readonly View.Section row;
     private readonly ContentScope scope;
-    private readonly Option<(RowScope Rows, SectionBody Body)> realized;
-    private readonly ShownSubscription listeners;
-    private Seq<IDisposable> owned;
+    private readonly SectionLifetime lifetime;
+    private Option<SectionBody> body;
 
     protected DefinedContentSection(View.Section row, ContentScope scope) {
-        IPlugInViews owner = IPlugInViews.Of(this);
         (this.row, this.scope) = (row, scope);
-        realized = Callbacks.Answer(
-            from rows in RowScope.Open(owner, None, new CommitMode.Contents(this))
-            from body in SectionBody.Realize(owner, row, rows, resource => owned = owned.Add(resource))
-            from configured in IO.lift(() => Content = body.Content)
-            select Some((Rows: rows, Body: body)),
-            static () => Option<(RowScope Rows, SectionBody Body)>.None, CallbackSite.Of(this));
-        listeners = new ShownSubscription(retain => realized.Traverse(value => FieldChanges(value.Rows, owner, retain)
-            .Bind(_ => SelectionChanges(value.Body, owner, retain))).As().Map(static _ => unit));
+        lifetime = new SectionLifetime(this, IPlugInSink.Of(this), Some(ProviderIds.ContentSelection), () => Excluded, Realized);
     }
 
     // --- [IDENTITY]
@@ -262,21 +269,43 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
 
     public override Guid PlugInId => IPlugInViews.Of(this).PlugIn.Id;
 
-    public override int SectionHeight => realized.Match(Some: static held => held.Body.Height, None: static () => 0);
+    public override int SectionHeight => body.Match(Some: static held => held.Height, None: static () => 0);
 
-    public override bool Hidden => base.Hidden || realized.ForAll(held => held.Body.Hidden || !Selected.Head.ForAll(scope.Covers));
+    public override bool Hidden => Excluded || body.Exists(static held => held.Hidden);
 
-    public override IHeaderButtonHandler NewHeaderButtonHandler() => realized.Bind(static held => held.Body.Header).IfNone(base.NewHeaderButtonHandler);
+    public override IHeaderButtonHandler NewHeaderButtonHandler() =>
+        SectionBody.Header(row, lifetime.Demanded.Bind(_ => IO.lift(() => body)), IPlugInSink.Of(this)).IfNone(base.NewHeaderButtonHandler);
+
+    private bool Excluded => base.Hidden || !Selected.Head.ForAll(scope.Covers);
 
     private Seq<RenderContent> Selected => toSeq(GetSelection()).Strict();
 
     // --- [EDGES]
-    public override void HolderVisible(bool visible) =>
-        Callbacks.Run(Callbacks.Each(Seq(
-            realized.Traverse(held => held.Body.Shown(visible)).As().Map(static _ => unit), listeners.Shown(visible))), CallbackSite.Of(this));
+    protected override void OnLoad(System.EventArgs e) {
+        base.OnLoad(e);
+        Callbacks.Run(lifetime.Loaded, CallbackSite.Of(this));
+    }
+
+    protected override void OnUnLoad(System.EventArgs e) {
+        Callbacks.Run(lifetime.Unloaded, CallbackSite.Of(this));
+        base.OnUnLoad(e);
+    }
 
     public override void UpdateView(uint flags) =>
-        Callbacks.Run(realized.Map(static held => held.Body.Reread), CallbackSite.Of(this));
+        Callbacks.Run(body.Map(static held => held.Reread), CallbackSite.Of(this));
+
+    // --- [REALIZATION]
+    private IO<Unit> Realized(Action<IDisposable> retain) =>
+        IPlugInViews.Of(this) switch {
+            var owner =>
+                from rows in RowScope.Open(owner, None, new CommitMode.Contents(this))
+                from held in SectionBody.Realize(owner, row, rows, retain)
+                from placed in DisposalOps.Change(() => (body, Content), next => (body, Content) = next, (Some(held), held.Content), retain)
+                from fields in FieldChanges(rows, owner, retain)
+                from selections in SelectionChanges(held, owner, retain)
+                from shown in held.Shown(visible: true)
+                select unit,
+        };
 
     private IO<Unit> FieldChanges(RowScope rows, IPlugInSink sink, Action<IDisposable> retain) =>
         EventKind.ContentFieldChanged
@@ -284,24 +313,20 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
             .Through(Subscriptions.Idle<EntryKey, Guid>(changed => IO.lift(() => toHashSet(Selected.Map(static content => content.Id)))
                 .Bind(selected => rows.Changed(toSeq(changed.Filter(selected.Contains).Keys)))), sink, retain);
 
-    private IO<Unit> SelectionChanges(SectionBody body, IPlugInSink sink, Action<IDisposable> retain) =>
+    private IO<Unit> SelectionChanges(SectionBody held, IPlugInSink sink, Action<IDisposable> retain) =>
         Subscriptions.Attach(
             handler => DataChanged += handler,
             handler => DataChanged -= handler,
-            Callbacks.Handler<NativeDataSourceEventArgs>(args => when(args.DataType == ProviderIds.ContentSelection, body.Reread).As(), new CallbackSite(sink, GetType(), nameof(DataChanged))), retain);
+            Callbacks.Handler<NativeDataSourceEventArgs>(args => when(args.DataType == ProviderIds.ContentSelection, held.Reread).As(), new CallbackSite(sink, GetType(), nameof(DataChanged))), retain);
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
-        if (disposing) {
-            try {
-                listeners.Dispose();
-            } finally {
-                _ = IO.lift(() => { Content = null; base.Dispose(disposing); })
-                    .Finally(IO.lift(() => { Seq<IDisposable> released = owned; owned = []; return released; })
-                        .Bind(DisposalOps.Release)).Uninterruptible().Run();
-            }
-        } else
+        try {
+            if (disposing)
+                lifetime.Dispose();
+        } finally {
             base.Dispose(disposing);
+        }
     }
 }
 
@@ -334,7 +359,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
 
     public override bool ShowDefaultsButton => row.Store.IsSome;
 
-    public IO<Unit> ForDocument(RhinoDoc held) => document.SwapIO(_ => Some(held)).Map(static _ => unit);
+    public IO<Unit> ForDocument(RhinoDoc held) => document.SwapIO(_ => Some(held)).Map(unit);
 
     public IO<Unit> Navigate(PageTarget target) => Showing.SetActivePageTo(this, target);
 
@@ -352,7 +377,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
         Callbacks.Run(page.Value.Map(static held => held.View.Scope.Revert(held.View.Group)), CallbackSite.Of(this));
 
     public override void OnDefaults() =>
-        Callbacks.Run(page.Value.Map(static held => held.View.Scope.Commit(held.View.Group, held.View.Group.Defaults).Map(static _ => unit)), CallbackSite.Of(this));
+        Callbacks.Run(page.Value.Map(static held => held.View.Scope.Commit(held.View.Group, held.View.Group.Defaults).Map(unit)), CallbackSite.Of(this));
 
     // --- [SCRIPTS]
     public override Result RunScript(RhinoDoc doc, RunMode mode) =>
@@ -412,7 +437,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
 
     public override object? PageControl => Realized.Map(static object (view) => view).ValueUnsafe();
 
-    private bool ViewPage => row.PageType.Exists(static type => type == PropertyPageType.View);
+    private bool ViewPage => row.PageType.Exists(static type => type is PropertyPageType.View);
 
     // --- [EDGES]
     public override bool ShouldDisplay(ObjectPropertiesPageEventArgs e) =>
@@ -459,7 +484,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
                     .Bind(static document => Seq(
                         EventKind.ModifyObjectAttributes.In(document.RuntimeSerialNumber).Choose(static _ => Some((unit, unit))),
                         EventKind.ReplaceRhinoObject.In(document.RuntimeSerialNumber).Choose(static _ => Some((unit, unit)))))
-                    .TraverseM(signal => signal.Through(Subscriptions.Idle<Unit, Unit>(_ => view.Reread), view.Scope.Sink, retain)).As().Map(static _ => unit));
+                    .TraverseM(signal => signal.Through(Subscriptions.Idle<Unit, Unit>(_ => view.Reread), view.Scope.Sink, retain)).As().Map(unit));
 
 }
 

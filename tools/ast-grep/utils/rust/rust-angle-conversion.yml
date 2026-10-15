@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-angle-conversion
+language: rust
+arguments: [receiver, denominator, degrees, radians]
+utils:
+    pi:
+        kind: 'identifier, scoped_identifier'
+        regex: '^((::)?(std|core)::)?((f32|f64)::)?(consts::)?(PI|TAU)$'
+    half-turn:
+        kind: 'float_literal, integer_literal'
+        regex: '^(180|360)(\.0*)?(_?f(32|64))?$'
+    term:
+        any: [{matches: pi}, {matches: half-turn}]
+    multiply:
+        kind: binary_expression
+        has: {field: operator, regex: '^\*$'}
+    divide:
+        kind: binary_expression
+        has: {field: operator, regex: '^/$'}
+    ratio:
+        matches: divide
+        all:
+            - has: {field: left, matches: term, pattern: $NUM}
+            - has: {field: right, all: [{matches: term}, {matches: denominator}]}
+    degree-factor:
+        kind: float_literal
+        regex: '^5_?7\.2_?9_?5[\d_]*(_?f(32|64))?$'
+    radian-factor:
+        kind: float_literal
+        regex: '^0\.0_?1_?7_?4_?5_?3[\d_]*(_?f(32|64))?$'
+rule:
+    kind: binary_expression
+    any:
+        - all:
+            - any:
+                - all:
+                    - matches: divide
+                    - has: {field: left, matches: multiply, all: [{has: {field: right, matches: term, pattern: $NUM}}, {has: {field: left, matches: receiver}}]}
+                    - has: {field: right, all: [{matches: term}, {matches: denominator}], regex: 'TAU$|^360'}
+                - all:
+                    - matches: divide
+                    - has: {field: left, matches: multiply, has: {field: left, matches: term, pattern: $NUM}}
+                    - has: {field: right, all: [{matches: term}, {matches: denominator}]}
+                    - has: {field: left, has: {field: right, matches: receiver}}
+                - all:
+                    - matches: multiply
+                    - has: {field: right, matches: term, pattern: $NUM}
+                    - has: {field: left, matches: divide, all: [{has: {field: right, all: [{matches: term}, {matches: denominator}]}}, {has: {field: left, matches: receiver}}]}
+                - all:
+                    - matches: multiply
+                    - has: {field: right, kind: parenthesized_expression, has: {matches: ratio}}
+                    - has: {field: left, matches: receiver}
+                - all:
+                    - matches: multiply
+                    - has: {field: left, any: [{matches: ratio}, {kind: parenthesized_expression, has: {matches: ratio}}]}
+                    - has: {field: right, matches: receiver}
+            - has: {stopBy: end, matches: pi}
+            - has: {stopBy: end, matches: half-turn}
+            - not: {regex: '\bPI\b[^;]*\b360|\b360[^;]*\bPI\b|\bTAU\b[^;]*\b180|\b180[^;]*\bTAU\b'}
+        - all:
+            - any:
+                - all: [{matches: multiply}, {has: {field: right, matches: degree-factor}}, {has: {field: left, matches: receiver}}]
+                - all: [{matches: multiply}, {has: {field: left, matches: degree-factor}}, {has: {field: right, matches: receiver}}]
+                - all: [{matches: divide}, {has: {field: right, matches: radian-factor}}, {has: {field: left, matches: receiver}}]
+            - matches: degrees
+        - all:
+            - any:
+                - all: [{matches: multiply}, {has: {field: right, matches: radian-factor}}, {has: {field: left, matches: receiver}}]
+                - all: [{matches: multiply}, {has: {field: left, matches: radian-factor}}, {has: {field: right, matches: receiver}}]
+                - all: [{matches: divide}, {has: {field: right, matches: degree-factor}}, {has: {field: left, matches: receiver}}]
+            - matches: radians

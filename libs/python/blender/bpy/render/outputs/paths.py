@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 import datetime
 from functools import reduce
-from itertools import count
+from itertools import chain, count
 from pathlib import Path
 import posixpath
 import re
@@ -32,7 +32,7 @@ from blender.bpy.settings.attachments import Attached, Attachment, Stored
 from blender.bpy.settings.properties import Changed
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Gated
-from blender.rendering.outputs.naming import Count, Fields, Number, Output, OutputName, Slot, stepped, stored_name, Word
+from blender.rendering.outputs.naming import Count, Field, Fields, Number, Output, OutputName, Slot, stepped, stored_name, Word
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -125,7 +125,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         """Retains acquired naming facts under the worker's mapped output directory."""
         return msgspec.structs.replace(self, base=base, root=base.as_posix())
 
-    def spelling(self, part: Slot | Number) -> Option[str]:
+    def spelling(self, part: Field) -> Option[str]:
         """Returns native variables for selected words and frame padding."""
         match part:
             case Slot(key=key):
@@ -144,9 +144,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
             words = frozenset(part.key for part in name.slots if isinstance(part, Slot)) & frozenset(part.key for part in stem.slots if isinstance(part, Slot))
             counted = all(any(isinstance(part, Number) and part.key is Count.VERSION for part in grammar.slots) for grammar in (name, stem))
             parsed = (
-                Result[Path, BlenderFaults].bind(
-                    blend.to_result_with(lambda: (BlenderUnmetFault(requirement=unsaved),)), lambda path: stem.parse(path.stem).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
-                )
+                Result[Path, BlenderFaults].bind(blend.to_result_with(lambda: (BlenderUnmetFault(requirement=unsaved),)), lambda path: stem.parse(path.stem).map_error(BlenderRenderingFault.lifted))
                 if words or counted
                 else Ok(Fields())
             )
@@ -167,11 +165,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return Result[tuple[OutputName, OutputName], BlenderFaults].bind(
-            paired(
-                OutputName.of(outputs.template).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)),
-                OutputName.of(outputs.stem).map_error(lambda faults: (BlenderRenderingFault(faults=faults),)),
-            ),
-            lambda pair: built(*pair),
+            paired(OutputName.of(outputs.template).map_error(BlenderRenderingFault.lifted), OutputName.of(outputs.stem).map_error(BlenderRenderingFault.lifted)), lambda pair: built(*pair)
         )
 
     def _filled(self, layer: str, output: Output, item: Option[str], frame: Option[int] = Nothing) -> Fields:
@@ -188,7 +182,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Error((BlenderUnmetFault(requirement=Undated()),))
             if spelled and Slot(key=Word.DATE) in self.name.slots
-            else self.name.compose(self._filled(layer, output, item), self.spelling if spelled else lambda _: Nothing).map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
+            else self.name.compose(self._filled(layer, output, item), self.spelling if spelled else lambda _: Nothing).map_error(BlenderRenderingFault.lifted)
         )
 
     def scene_output(self, scene: bpy.types.Scene) -> BlenderResult[str]:
@@ -197,12 +191,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
     def written(self, layer: str, output: Output, item: Option[str], frame: int, suffix: str) -> BlenderResult[Path]:
         """Composes a literal written-file path, retaining naming and containment refusals."""
-        return (
-            self.name
-            .path(self.base, self._filled(layer, output, item, Some(frame)))
-            .map(lambda path: path.with_name(f"{path.name}{suffix}"))
-            .map_error(lambda faults: (BlenderRenderingFault(faults=faults),))
-        )
+        return self.name.path(self.base, self._filled(layer, output, item, Some(frame))).map(lambda path: path.with_name(f"{path.name}{suffix}")).map_error(BlenderRenderingFault.lifted)
 
     def next_version(self) -> int:
         """Returns the take after matching scene-level files, excluding the calendar day."""
@@ -218,7 +207,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                     lambda error: (BlenderEditFault(request=repr(scene.render), error=error),)
                 ),
                 lambda file: (
-                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=str(file), error=error),))
+                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=file, error=error),))
                     if bpy.path.is_subdir(str(file), str(self.base))
                     else Ok(None)
                 ),
@@ -351,7 +340,7 @@ def planned(nodes: Iterable[bpy.types.Node], record: Replace) -> BlenderResult[t
             ),
             lambda pattern: accumulated(renames(pattern, node) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)),
         )
-        .map(lambda groups: tuple(rename for group in groups for rename in group))
+        .map(lambda groups: tuple(chain.from_iterable(groups)))
     )
 
 
@@ -483,6 +472,10 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns nested declarations whose bodies bind the registered attachment when called."""
+
+        def refreshed() -> BlenderResult[None]:
+            return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity))
+
         active = Setting(
             descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)
         )
@@ -506,10 +499,10 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
                 run=lambda call: self.bound(call.identity).bind(lambda pathed: pathed.taken(call)),
             ),
             Operator(key=self.folder, title="Open Output Folder", description="Opens the existing scene output folder", icon=Some("FILE_FOLDER"), form=Empty, run=opened, undo=False),
-            PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: self.bound(identity).bind(lambda pathed: pathed.refreshed(identity))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: self.bound(identity).bind(lambda pathed: pathed.refreshed(identity))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: refreshed()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             *(
-                Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=lambda: self.bound(identity).bind(lambda pathed: pathed.refreshed(identity)))
+                Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=refreshed)
                 for owner, key in ((bpy.types.ViewLayer, "name"), (bpy.types.Scene, "view_layers"), (bpy.types.PreferencesFilePaths, "render_output_directory"))
             ),
         ))

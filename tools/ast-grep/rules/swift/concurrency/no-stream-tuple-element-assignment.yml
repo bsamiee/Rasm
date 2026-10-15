@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-stream-tuple-element-assignment
-language: swift
+language: swiftlang
 severity: error
 utils:
     stream-tuple-value:

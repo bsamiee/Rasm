@@ -62,7 +62,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
     );
 ```
 
-`committed` plays a command list as one history state named `name`, or fails with the first refused command and leaves no change: `resumeHistory` commits on the body's success and drops every change on failure or interruption. `Failed` and `Busy` take `message` and `result` from the `Refused` case. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps, since a rejected body reaches its caller with no `message` or `number`.
+`committed` plays a command list as one history state named `name`, or fails with the first refused command and leaves no change: `resumeHistory` commits on the body's success and drops every change on failure or interruption. `Failed` takes `message` and `result` from the `Refused` case, and `Busy` takes `message`. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps, since a rejected body reaches its caller with no `message` or `number`.
 
 | [INDEX] | [CALL]                                         | [REPLY]                                                   |
 | :-----: | :--------------------------------------------- | :-------------------------------------------------------- |

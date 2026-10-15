@@ -12,7 +12,7 @@ import numpy as np
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchanged
-from blender.bpy.data.ids.images import intermediates, read, viewer_image
+from blender.bpy.data.ids.images import built, intermediates, read
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
@@ -334,8 +334,8 @@ def marked(identity: Identity, tree: bpy.types.NodeTree) -> Option[bpy.types.Nod
 
 def plane() -> BlenderResult[ImageFile[np.float32]]:
     """Reads the native compositor viewer with the current admitted OCIO config."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(lambda faults: (BlenderImagingFault(faults=faults),))
-    return Result[PyOpenColorIO.Config, BlenderFaults].bind(config, lambda config: viewer_image().bind(lambda image: read(image, config)))
+    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
+    return Result[PyOpenColorIO.Config, BlenderFaults].bind(config, lambda config: built("COMPOSITING").bind(lambda image: read(image, config)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

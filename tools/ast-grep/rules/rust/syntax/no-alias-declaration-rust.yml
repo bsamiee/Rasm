@@ -2,42 +2,12 @@
 id: no-alias-declaration-rust
 language: rust
 severity: error
-utils:
-    prelude:
-        regex: '^(Option|Some|None|Result|Ok|Err|String|Vec|Box|ToString|ToOwned|Clone|Copy|Send|Sync|Sized|Unpin|Drop|Fn|FnMut|FnOnce|Iterator|IntoIterator|DoubleEndedIterator|ExactSizeIterator|Extend|FromIterator|Default|Eq|PartialEq|Ord|PartialOrd|AsRef|AsMut|Into|From|TryFrom|TryInto|Future|IntoFuture|drop)$'
-    same-name-elsewhere:
-        inside:
-            kind: source_file
-            stopBy: end
-            has:
-                stopBy: end
-                any:
-                    - kind: 'struct_item, enum_item, union_item, trait_item, type_item, function_item, const_item, static_item, mod_item, macro_definition'
-                      has: {field: name, pattern: $TARGET}
-                    - kind: 'identifier, type_identifier'
-                      pattern: $TARGET
-                      inside: {kind: use_declaration, stopBy: end}
-                      not:
-                        any:
-                            - inside: {kind: use_as_clause, stopBy: end, has: {field: alias, pattern: $ALIAS}}
-                            - inside: {kind: scoped_identifier, field: path}
 rule:
-    any:
-        - kind: type_item
-          all:
-            - has: {field: name, pattern: $ALIAS}
-            - has: {field: type, kind: 'type_identifier, scoped_type_identifier, primitive_type', pattern: $TARGET}
-            - not: {has: {field: type_parameters, pattern: $_}}
-            - not: {inside: {kind: declaration_list}}
-            - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\s*\('}}
-        - kind: use_as_clause
-          all:
-            - has: {field: alias, kind: identifier, pattern: $ALIAS, not: {regex: '^_$'}}
-            - any:
-                - has: {field: path, kind: identifier, pattern: $TARGET}
-                - has: {field: path, kind: scoped_identifier, has: {field: name, pattern: $TARGET}}
-            - not: {has: {field: path, any: [{kind: identifier, matches: prelude}, {has: {field: name, matches: prelude}}]}}
-            - not: {matches: same-name-elsewhere}
-            - not: {inside: {kind: use_declaration, stopBy: end, follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\s*\('}}}
+    kind: type_item
+    all:
+        - has: {field: name, pattern: $ALIAS}
+        - has: {field: type, pattern: $TARGET}
+        - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
+        - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\s*\('}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell `<target>` at each use of `<alias>`, an alias exists only to resolve a collision between two imported names or with a local item, a `#[cfg]` alias names the type that differs per platform, and `use <trait> as _` imports methods with no name'
+note: 'Spell `<target>` at each use of `<alias>`. A `#[cfg]` alias names a type that differs per platform and stays as written'

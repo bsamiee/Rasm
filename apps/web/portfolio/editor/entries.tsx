@@ -1,18 +1,16 @@
-import { Struct } from 'effect';
+import { ReorderableList } from '@rasm/ui/reorderable.tsx';
+import { Record, Struct } from 'effect';
 import { type ReactNode, useState } from 'react';
 import { Button, type Key } from 'react-aria-components';
 import { entryTitle } from '../media/display.ts';
 import type { Entry } from '../model/document.ts';
 import { ConfirmDialog, Field, SelectField } from './controls.tsx';
 import { titleId } from './focus.ts';
-import { ReorderableList } from './reorderable.tsx';
+import { reorderable } from './presentation.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const kinds = [
-    { id: 'project', label: 'Project' },
-    { id: 'study', label: 'Independent study' },
-] as const;
+const kinds = Record.collect({ project: 'Project', study: 'Independent study' } satisfies Record.ReadonlyRecord<typeof Entry.Type.kind, string>, (id, label) => ({ id, label }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -41,6 +39,7 @@ function EntryList({
                     onConfirm={(): void => onRemove(keys)}
                 />
             )}
+            {...reorderable}
             items={entries}
             label="Projects and studies"
             onChange={onChange}

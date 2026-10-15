@@ -314,7 +314,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             cache = Cache.Empty with { Pick = held.Pick };
             return held with { Pick = None };
         }).Bind(static held => DisposalOps.Release(held.Owned))))
-            .Map(static _ => unit).Uninterruptible();
+            .Map(unit).Uninterruptible();
 
     private IO<Bitmap> Cached<TKey>(Lens<Cache, HashMap<TKey, Bitmap>> slot, TKey key, Func<Action<Bitmap>, IO<Bitmap>> build) =>
         IO.lift(() => slot.Get(cache).Find(key)).Bind(found => found.Match(
@@ -348,7 +348,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     }
 
     private readonly record struct Placement(RectangleF Pane, float Scale, Vector2 Extent, System.Drawing.Point Origin, float Fit, float Zoom, Vector2 Center) {
-        private Vector2 Middle => new(Pane.X + (Pane.Width / 2f), Pane.Y + (Pane.Height / 2f));
+        private Vector2 Middle => new(Pane.MiddleX, Pane.MiddleY);
 
         public RectangleF Frame => Mapped(new RectangleF(0f, 0f, Extent.X, Extent.Y));
         public RectangleF Seen => RectangleF.Intersect(Frame, Pane);
@@ -412,13 +412,13 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         return command;
     }
 
-    private static string Flipping(Orientation axis) => axis == Orientation.Horizontal ? "Flip Horizontal" : "Flip Vertical";
+    private static string Flipping(Orientation axis) => axis is Orientation.Horizontal ? "Flip Horizontal" : "Flip Vertical";
 
     private static Func<FrameViewState, Transition<FrameViewState, FrameEdit>> Selected(CompareMode mode) =>
         state => Viewed(state with { Comparing = !(state.Comparing && state.Mode == mode), Mode = mode });
 
     private static Transition<FrameViewState, FrameEdit> Flip(FrameViewState state, Orientation axis) =>
-        state.Quad.Map(quad => axis == Orientation.Horizontal ? quad.FlippedHorizontal : quad.FlippedVertical).Match(
+        state.Quad.Map(quad => axis is Orientation.Horizontal ? quad.FlippedHorizontal : quad.FlippedVertical).Match(
             Some: flipped => new Transition<FrameViewState, FrameEdit>(
                 state with { Quad = Some(flipped) }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Commit(new FrameEdit.QuadEdited(flipped)))),
             None: () => Viewed(state));
@@ -479,7 +479,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static float Ruled(Placement at, Orientation rule, AxisFraction split) =>
         at.View(at.Extent * (float)split) switch {
-            var view => rule == Orientation.Vertical ? view.X : view.Y,
+            var view => rule is Orientation.Vertical ? view.X : view.Y,
         };
 
     private static Option<FrameOverlay> Overlaid(FrameViewState state) =>
@@ -551,7 +551,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         .IfNone(() => Viewed(state));
 
     protected override Transition<FrameViewState, FrameEdit> Released(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
-        state.Picking && e.Buttons != MouseButtons.Primary && state.Drag.Exists(drag => Still(state.Transform, drag))
+        state.Picking && e.Buttons is not MouseButtons.Primary && state.Drag.Exists(drag => Still(state.Transform, drag))
             ? Cancelled(state)
             : Viewed(state with { Drag = None });
 
@@ -572,7 +572,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         select state.Drag.Bind(drag => Spreaded(state, drag, MathF.Pow(Spread, e.Delta.Height))).IfNone(() => Zoomed(state, at, e.Location, MathF.Pow(Notch, e.Delta.Height)));
 
     protected override Option<Transition<FrameViewState, FrameEdit>> KeyPressed(FrameViewState state, SizeF size, float scale, Option<FramePart> part, KeyEventArgs e) =>
-        e.KeyData == Keys.Escape && state.Picking
+        e.KeyData is Keys.Escape && state.Picking
             ? Some(Cancelled(state))
             : bindings.Find(binding => binding.Command.Enabled && binding.Command.Shortcut == e.KeyData).Map(binding => binding.Act(state));
 
@@ -597,7 +597,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private Cursor Grounded(FrameViewState state) =>
         ((state.Picking ? cache.Pick : None).Bind(static pick => pick.Shape)
-         | Compared(state).Bind(_ => state.Mode.Rule).Map(static rule => rule == Orientation.Vertical ? Cursors.VerticalSplit : Cursors.HorizontalSplit)
+         | Compared(state).Bind(_ => state.Mode.Rule).Map(static rule => rule is Orientation.Vertical ? Cursors.VerticalSplit : Cursors.HorizontalSplit)
          | Picked(state).Map(static _ => Cursors.Crosshair))
         .IfNone(Cursors.Default);
 
@@ -628,7 +628,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private static Transition<FrameViewState, FrameEdit> Wiped(FrameViewState state, Placement at, PointF pointer) =>
         Viewed((from rule in state.Mode.Rule
                 let fraction = at.Fraction(pointer)
-                from split in Conversions.Validated<AxisFraction, float, InvalidGrade>(rule == Orientation.Vertical ? fraction.X : fraction.Y).ToOption()
+                from split in Conversions.Validated<AxisFraction, float, InvalidGrade>(rule is Orientation.Vertical ? fraction.X : fraction.Y).ToOption()
                 select state with { Split = split })
             .IfNone(state));
 
@@ -678,12 +678,12 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static RectangleF Aspected(RectangleF edges, Vector2 anchor, PixelExtent aspect, Vector2 extent) =>
         ((float)aspect.Width / aspect.Height) switch {
-            var ratio when anchor.X != 0.5f => (edges.Width * extent.X / ratio / extent.Y) switch {
-                var height => anchor.Y == 0f
+            var ratio when anchor.X is not 0.5f => (edges.Width * extent.X / ratio / extent.Y) switch {
+                var height => anchor.Y is 0f
                     ? RectangleF.FromSides(edges.Left, edges.Bottom - height, edges.Right, edges.Bottom)
                     : RectangleF.FromSides(edges.Left, edges.Top, edges.Right, edges.Top + height),
             },
-            var ratio when anchor.Y != 0.5f => RectangleF.FromSides(edges.Left, edges.Top, edges.Left + (edges.Height * extent.Y * ratio / extent.X), edges.Bottom),
+            var ratio when anchor.Y is not 0.5f => RectangleF.FromSides(edges.Left, edges.Top, edges.Left + (edges.Height * extent.Y * ratio / extent.X), edges.Bottom),
             _ => edges,
         };
 
@@ -769,7 +769,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         new(new MarkShape.Band(RectangleF.FromCenter(centre, new SizeF(GripSide, GripSide))), Some(Knob), Some(new MarkPart<FramePart>(part, Plots.Reach)));
 
     private static MarkShape.Rule Ruler(Orientation along, float position, RectangleF bounds) =>
-        along == Orientation.Vertical
+        along is Orientation.Vertical
             ? new MarkShape.Rule(new PointF(position, bounds.Top), new PointF(position, bounds.Bottom))
             : new MarkShape.Rule(new PointF(bounds.Left, position), new PointF(bounds.Right, position));
 
@@ -836,7 +836,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             None: () => Placed(state, size, scale).ToSeq().Map(at => (at, state.Current, at.Pane)));
 
     private static RectangleF Portion(Placement at, Orientation along, float position, bool before) =>
-        RectangleF.Intersect(at.Pane, along == Orientation.Vertical
+        RectangleF.Intersect(at.Pane, along is Orientation.Vertical
             ? RectangleF.FromSides(before ? at.Frame.Left : position, at.Frame.Top, before ? position : at.Frame.Right, at.Frame.Bottom)
             : RectangleF.FromSides(at.Frame.Left, before ? at.Frame.Top : position, at.Frame.Right, before ? position : at.Frame.Bottom));
 
@@ -895,7 +895,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         IO.lift(() => (Extent: canvas.Graphics.MeasureString(canvas.Font, text), Inset: CaptionInset)).Bind(held => Lettered(
             canvas,
             text,
-            along == Orientation.Vertical
+            along is Orientation.Vertical
                 ? new PointF(before ? position - held.Inset - held.Extent.Width : position + held.Inset, bounds.Top + held.Inset)
                 : new PointF(bounds.Left + held.Inset, before ? position - held.Inset - held.Extent.Height : position + held.Inset),
             along));
@@ -913,7 +913,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             canvas.Graphics.DrawText(
                 canvas.Font,
                 Plots.Resolve(canvas, new MarkStyle.Fill(new MarkColor.Fixed(Colors.Black), Shade(canvas))),
-                location + (along == Orientation.Vertical ? new PointF(Wipe.Width, 0f) : new PointF(0f, Wipe.Width)),
+                location + (along is Orientation.Vertical ? new PointF(Wipe.Width, 0f) : new PointF(0f, Wipe.Width)),
                 text);
             canvas.Graphics.DrawText(canvas.Font, Plots.Resolve(canvas, Letter), location, text);
         });
@@ -924,7 +924,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         (from caged in Caged(state)
          from at in Placed(state, size, canvas.Scale)
          select Flips(at, QuadMapper.ToCorners(caged.Quad))).Match(
-            Some: flips => Icons.Frames((GlyphRole.Flip, IconSlot.PanelButton.Master), IconSlot.PanelButton).Bind(icon => flips.TraverseM(flip => Turned(canvas, icon, flip)).As()).Map(static _ => unit),
+            Some: flips => Icons.Frames((GlyphRole.Flip, IconSlot.PanelButton.Master), IconSlot.PanelButton).Bind(icon => flips.TraverseM(flip => Turned(canvas, icon, flip)).As()).Map(unit),
             None: static () => IO.pure(unit));
 
     private static IO<Unit> Turned(PlotCanvas canvas, Image icon, (Orientation Axis, RectangleF Band, float Degrees) flip) =>

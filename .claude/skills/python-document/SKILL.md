@@ -1,6 +1,6 @@
 ---
 name: python-document
-description: "Use when ruff reports a D or DOC violation, or a public Python module, class, or function needs a Google-style docstring written or converted."
+description: "Use when ruff reports D or DOC rules or a Python member needs a Google-style docstring, covering scope, format, sections, and classes."
 ---
 
 # [PYTHON_DOCUMENT]
@@ -206,7 +206,7 @@ class HTTPClient:
 
 ### [05.1]-[FIELDS]
 
-Field classes (`msgspec.Struct`, attrs classes, Pydantic models, TypedDicts) document fields by name and type alone with no `Attributes:` entry, ast-grep rule `no-attribute-docstring` reports a string after a field:
+Field classes (`msgspec.Struct`, attrs classes, Pydantic models, TypedDicts) document fields by name and type alone with no `Attributes:` entry, ast-grep rule `no-attribute-docstring` reports a string after an assignment or type alias:
 
 ```python
 class SearchResult(msgspec.Struct, frozen=True):

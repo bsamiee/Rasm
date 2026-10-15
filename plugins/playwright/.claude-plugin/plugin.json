@@ -1,6 +1,7 @@
 {
     "name": "playwright",
-    "description": "Playwright CLI and trace skills adapted from playwright-core, the browser and test MCP servers, and the test planner, generator, and healer agents",
+    "version": "1.0.0",
+    "description": "Playwright browser automation, trace reading, and test agents",
     "author": {
         "name": "Bardia Samiee"
     }

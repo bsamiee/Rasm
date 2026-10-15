@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-scoped-chunk-thread
+language: rust
+severity: error
+utils:
+    chunking:
+        regex: '\.(r?chunks(_exact)?(_mut)?)\s*\('
+    scope-call:
+        kind: call_expression
+        has: {field: function, regex: '^((::)?std::)?(thread::)?scope$'}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^spawn$'}}, {has: {field: value, kind: identifier, pattern: $S}}]}
+        - inside:
+            kind: closure_expression
+            stopBy: end
+            all:
+                - has: {field: parameters, has: {kind: identifier, pattern: $S}}
+                - inside: {kind: arguments, inside: {matches: scope-call}}
+        - any:
+            - inside:
+                kind: for_expression
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {field: value, matches: chunking, pattern: $CHUNKS}
+            - inside:
+                kind: closure_expression
+                stopBy: {kind: function_item}
+                inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: chunking, pattern: $CHUNKS}}}}
+message: '`$S.spawn` starts one scoped thread per chunk of `$CHUNKS`'
+note: 'Call rayon `<slice>.par_chunks(<n>)` (`par_chunks_mut`, `par_chunks_exact`) with `.for_each(<work>)` or `.map(<work>).collect()`, rayon splits disjoint chunks across its global thread pool and joins them in input order without one thread per chunk'

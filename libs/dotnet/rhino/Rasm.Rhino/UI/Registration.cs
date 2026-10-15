@@ -40,7 +40,7 @@ public sealed record ContentMenuRow(
 public static class ViewRegistration {
     // --- [FOLDS]
     private static IO<Unit> Each<TCase>(IPlugInViews plugIn, Func<TCase, IO<Unit>> register) where TCase : View =>
-        IO.lift(() => plugIn.Views.Listed<TCase>()).Bind(rows => Callbacks.Each(rows.Map(register))).Map(static _ => unit);
+        IO.lift(() => plugIn.Views.Listed<TCase>()).Bind(rows => Callbacks.Each(rows.Map(register))).Map(unit);
 
     private static IO<Unit> Hosted(Type view, Action register) =>
         IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new UnsupportedView(view, Some(error)) : error);
@@ -54,7 +54,7 @@ public static class ViewRegistration {
                 from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph.Glyph, glyph.Master, pixels)).As()
                 select icon;
             IO<Unit> refresh = Each<View.Panel>(plugIn, row => image(row)
-                .Bind(icon => IO.lift(() => icon.Iter(held => Panels.ChangePanelIcon(row.Identity, held)))).Map(static _ => unit));
+                .Bind(icon => IO.lift(() => icon.Iter(held => Panels.ChangePanelIcon(row.Identity, held)))).Map(unit));
             return DisposalOps.Acquire(owned =>
                 from registered in Each<View.Panel>(plugIn, row => image(row).Bind(icon => Hosted(row.Identity, () => Panels.RegisterPanel(
                     plugIn.PlugIn, row.Identity, RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local,
@@ -108,7 +108,7 @@ public static class ViewRegistration {
     public static IO<Unit> CustomSections(IPlugInViews plugIn, Seq<View.Section> rows, ICollection<ICollapsibleSection> sections) =>
         Documents.WithDocument(new DocumentSource.Active(), document =>
             from scope in RowScope.Open(plugIn, Some(document), new CommitMode.Immediate())
-            from _ in Callbacks.Each(rows.Map(row => SectionHolder.Section(plugIn, row, scope, sections.Add).Map(static _ => unit)))
+            from _ in Callbacks.Each(rows.Map(row => SectionHolder.Section(plugIn, row, scope, sections.Add).Map(unit)))
             select unit);
 
     // --- [CONTENT_SECTIONS]
@@ -117,7 +117,7 @@ public static class ViewRegistration {
             args => Each<View.Section>(plugIn, row => when(
                 row.Identity.IsSubclassOf(typeof(DefinedContentSection)),
                 DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity)!),
-                    static section => IO.lift(section.Dispose), args.ExpandableContentUI.AddSection).Map(static _ => unit)).As()),
+                    static section => IO.lift(section.Dispose), args.ExpandableContentUI.AddSection).Map(unit)).As()),
             plugIn, retain);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>
@@ -140,7 +140,7 @@ public static class ViewRegistration {
                     collection => Executed(row, collection, site),
                     (collection, context) => Enabled(row, collection, context, site)))
                 select added))
-            .Map(static _ => unit);
+            .Map(unit);
 
     private static Result Executed(ContentMenuRow row, RenderContentCollection collection, CallbackSite site) =>
         Callbacks.Answer(Conversions.ToResult(IO.lift(() => Conversions.Rows(collection)).Bind(row.Run)), static () => Result.Failure, site);

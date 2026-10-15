@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-format-signature
+language: rust
+rule:
+    any:
+        - kind: string_literal
+          regex: '^b"((?i:\\x89)PNG|(?i:\\xff\\xd8\\xff)|GIF8|%PDF|PK\\x0[135]\\x0[246]|(?i:\\x1f\\x8b)|(?i:(\\x28|\()\\xb5(\\x2f|/)\\xfd)|(?i:\\x7f)ELF|(?i:\\xef\\xbb\\xbf)|(?i:\\xff\\xfe)|(?i:\\xfe\\xff))'
+        - kind: array_expression
+          regex: '(?i)^\[\s*(0x89\s*,\s*0x50\s*,\s*0x4e\s*,\s*0x47|0xff\s*,\s*0xd8\s*,\s*0xff|0x47\s*,\s*0x49\s*,\s*0x46\s*,\s*0x38|0x25\s*,\s*0x50\s*,\s*0x44\s*,\s*0x46|0x50\s*,\s*0x4b\s*,\s*0x0[135]\s*,\s*0x0[246]|0x1f\s*,\s*0x8b|0x28\s*,\s*0xb5\s*,\s*0x2f\s*,\s*0xfd|0x7f\s*,\s*0x45\s*,\s*0x4c\s*,\s*0x46|0xef\s*,\s*0xbb\s*,\s*0xbf)\b'

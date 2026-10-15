@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-delimited-text-by-hand
+language: rust
+severity: error
+utils:
+    delimiter:
+        kind: 'char_literal, string_literal'
+        regex: '^[''"](,|\\t)[''"]$'
+    line-source:
+        regex: '\.lines\(\)'
+    line-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^split(_terminator)?$'}}, {has: {field: value, kind: identifier, pattern: $LINE}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: delimiter}}, {not: {has: {nthChild: 2}}}]}
+            - inside:
+                stopBy: {kind: 'function_item, closure_expression, for_expression'}
+                any:
+                    - kind: for_expression
+                      all: [{has: {field: pattern, pattern: $LINE}}, {has: {field: value, matches: line-source}}]
+                    - kind: closure_expression
+                      all:
+                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $LINE}}
+                        - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: line-source}}}}
+    formatter-parameter:
+        inside:
+            kind: function_item
+            stopBy: {kind: 'function_item, closure_expression'}
+            has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '\bFormatter\b'}}}
+    record-write:
+        kind: macro_invocation
+        all:
+            - any:
+                - all:
+                    - has: {field: macro, regex: '^((::)?std::)?(writeln|println|eprintln)$'}
+                    - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|\\t)){2,}\{[^{}]*\}(\\r)?(\\n)?"$'}}
+                - all:
+                    - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(write|print|eprint|format)$'}
+                    - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|\\t)){2,}\{[^{}]*\}(\\r)?\\n"$'}}
+            - not: {matches: formatter-parameter}
+rule:
+    pattern: $SITE
+    any:
+        - matches: line-split
+        - matches: record-write
+message: '`$SITE` reads or writes comma or tab separated records by hand'
+note: 'Decode rows with `csv::ReaderBuilder::new().delimiter(<byte>).has_headers(<bool>).from_reader(<reader>).deserialize::<<Row>>()` and write them with `csv::Writer::serialize`, csv quotes fields holding the delimiter, a quote, or a line break, and reports the record and field of a decode failure'
