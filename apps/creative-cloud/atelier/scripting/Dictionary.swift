@@ -34,23 +34,30 @@ struct ScriptingDictionary: Sendable {
         func inherited(_ element: XMLElement) -> [XMLElement] {
             element.elements(forName: "property") + (element.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? []).flatMap(inherited)
         }
-        commands = try elements("//command").compactMap { element in
-            guard let name: String = element.attribute(forName: "name")?.stringValue,
-                let code: String = element.attribute(forName: "code")?.stringValue,
-                let eventClass: AEEventClass = Self.code("'\(code.prefix(4))'"),
-                let eventID: AEEventID = Self.code("'\(code.dropFirst(4))'")
-            else { return nil }
-            let direct: [Term] = element.elements(forName: "direct-parameter").map { parameter in
-                Term(name: "direct", code: AEKeyword(keyDirectObject), types: Self.types(of: parameter))
-            }
-            return (
-                name: name,
-                eventClass: eventClass,
-                eventID: eventID,
-                parameters: Self.terms(element.elements(forName: "parameter")) + direct,
-                result: element.elements(forName: "result").first.map(Self.types(of:)) ?? [],
-            )
-        }
+        let specifier: Term = Term(name: "direct", code: AEKeyword(keyDirectObject), types: ["specifier"])
+        let language: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term], result: Set<String>)] = [
+            (name: "activate", eventClass: AEEventClass(kAEMiscStandards), eventID: AEEventID(kAEActivate), parameters: [], result: []),
+            (name: "get", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAEGetData), parameters: [specifier], result: []),
+            (name: "set", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAESetData), parameters: [specifier, Term(name: "to", code: AEKeyword(keyAEData), types: ["any"])], result: []),
+        ]
+        commands =
+            try elements("//command").compactMap { element in
+                guard let name: String = element.attribute(forName: "name")?.stringValue,
+                    let code: String = element.attribute(forName: "code")?.stringValue,
+                    let eventClass: AEEventClass = Self.code("'\(code.prefix(4))'"),
+                    let eventID: AEEventID = Self.code("'\(code.dropFirst(4))'")
+                else { return nil }
+                let direct: [Term] = element.elements(forName: "direct-parameter").map { parameter in
+                    Term(name: "direct", code: AEKeyword(keyDirectObject), types: Self.types(of: parameter))
+                }
+                return (
+                    name: name,
+                    eventClass: eventClass,
+                    eventID: eventID,
+                    parameters: Self.terms(element.elements(forName: "parameter")) + direct,
+                    result: element.elements(forName: "result").first.map(Self.types(of:)) ?? [],
+                )
+            } + language
         classes = Self.terms(declarations) { element in Self.terms(inherited(element)) }
         properties = try Self.terms(elements("//property"))
         enumerations = try Self.terms(elements("//enumeration")) { element in Self.terms(element.elements(forName: "enumerator")) }

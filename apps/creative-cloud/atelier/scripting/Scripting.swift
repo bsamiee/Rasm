@@ -29,7 +29,8 @@ struct Face: Encodable {
 }
 
 enum Request: Decodable {
-    case applications
+    case applications(running: Bool)
+    case application(url: URL)
     case definition(application: URL)
     case execute(application: URL, command: String, arguments: [String: Descriptor])
     case contentType(url: URL)
@@ -37,15 +38,16 @@ enum Request: Decodable {
     case capture(window: Int, url: URL, longest: Int)
     case faces
 
-    private enum Method: String, Decodable { case applications, definition, execute, contentType, windows, capture, faces }
-    private enum Key: CodingKey { case method, params, application, command, arguments, url, window, longest }
+    private enum Method: String, Decodable { case applications, application, definition, execute, contentType, windows, capture, faces }
+    private enum Key: CodingKey { case method, params, running, application, command, arguments, url, window, longest }
 
     init(from decoder: any Decoder) throws {
         let call: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
         let params: () throws -> KeyedDecodingContainer<Key> = { try call.nestedContainer(keyedBy: Key.self, forKey: .params) }
         self =
             switch try call.decode(Method.self, forKey: .method) {
-                case .applications: .applications
+                case .applications: try .applications(running: params().decode(Bool.self, forKey: .running))
+                case .application: try .application(url: params().decode(URL.self, forKey: .url))
                 case .definition: try .definition(application: params().decode(URL.self, forKey: .application))
                 case .execute:
                     try .execute(
@@ -67,8 +69,10 @@ enum Request: Decodable {
 
     func perform() async -> Result<any Encodable, AggregateError<Failure>> {
         switch self {
-            case .applications:
-                Application.all().map(\.self)
+            case .applications(let running):
+                Application.all(running: running).map(\.self)
+            case .application(let url):
+                Application.at(url).map(\.self)
             case .definition(let url):
                 Application.at(url).flatMap(ScriptingDictionary.definition(of:)).flatMap { definition in
                     String(bytes: definition, encoding: .utf8).map(Result.success) ?? .failure(AggregateError(.unreadable(CocoaError(.fileReadInapplicableStringEncoding))))

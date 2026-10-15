@@ -10,7 +10,8 @@ const Application = Schema.Struct({ name: Schema.String, identifier: Schema.Stri
 const Window = Schema.Struct({ id: Schema.Int, title: Schema.OptionFromOptionalKey(Schema.String), level: Schema.Literals(['normal', 'modal', 'other']), ...Struct.Record(['width', 'height'], Schema.Finite) });
 const Face = Schema.Struct(Struct.Record(['postscriptName', 'family', 'style', 'fullName', 'file'], Schema.String));
 const Sender = RpcGroup.make(
-    Rpc.make('applications', { success: Schema.Array(Application), error: Refusal }),
+    Rpc.make('applications', { payload: { running: Schema.Boolean }, success: Schema.Array(Application), error: Refusal }),
+    Rpc.make('application', { payload: { url: Schema.URL }, success: Application, error: Refusal }),
     Rpc.make('definition', { payload: { application: Schema.URL }, success: Schema.String, error: Refusal }),
     Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.JsonObject }, success: Schema.Json, error: Refusal }),
     Rpc.make('contentType', { payload: { url: Schema.URL }, success: Schema.OptionFromNullOr(Schema.String), error: Refusal }),

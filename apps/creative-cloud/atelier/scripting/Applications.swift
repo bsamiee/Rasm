@@ -42,17 +42,21 @@ struct Application: Encodable {
         .flatMap { application in application.map(Result.success) ?? .failure(AggregateError(.notApplication(url))) }
     }
 
-    static func all() -> Result<[Self], AggregateError<Failure>> {
+    static func all(running: Bool) -> Result<[Self], AggregateError<Failure>> {
         Result {
             let runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications
-            return try Set(
-                FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
-                    FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.isApplicationKey], options: [.skipsPackageDescendants, .skipsHiddenFiles])?
-                        .allObjects.compactMap { entry in (entry as? URL)?.resolvingSymlinksInPath() } ?? []
+            let keys: Set<URLResourceKey> = [.isApplicationKey, .isSymbolicLinkKey]
+            let bundles: [URL] =
+                running
+                ? runningApplications.compactMap(\.bundleURL)
+                : try FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
+                    try (FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsPackageDescendants, .skipsHiddenFiles])?.allObjects ?? [])
+                        .compactMap { entry in entry as? URL }
+                        .filter { url in try url.resourceValues(forKeys: keys).allValues.values.contains { value in value as? Bool == true } }
                 }
-            )
-            .compactMap { url in try url.resourceValues(forKeys: [.isApplicationKey]).isApplication == true ? Self(url: url, runningApplications: runningApplications) : nil }
-            .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
+            return try Set(bundles.map { url in url.resolvingSymlinksInPath() })
+                .compactMap { url in try url.resourceValues(forKeys: [.isApplicationKey]).isApplication == true ? Self(url: url, runningApplications: runningApplications) : nil }
+                .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
         }
         .mapError { error in AggregateError(.unreadable(error)) }
     }

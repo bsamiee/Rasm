@@ -50,7 +50,7 @@ extension ScriptingDictionary {
             ? [("set", ["direct": .record(["want": .text("'prop'"), "form": .text("'prop'"), "seld": .text("skip warnings")]), "to": .boolean(true)])] : []
         return collect(
             (skipWarnings + [(command, arguments)]).map { command, arguments in
-                let wanted: Set<String> = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { [want] } else { [] }
+                let wanted: Set<String> = if case .record(let fields) = arguments["direct"], case .text(let want) = fields["want"] { [want, "specifier"] } else { [] }
                 func fit(_ parameters: [Term]) -> Int {
                     let direct: Bool = parameters.contains { parameter in parameter.name == "direct" && !parameter.types.isDisjoint(with: wanted) }
                     return (Set(arguments.keys).isSubset(of: parameters.map(\.name)) ? 2 : 0) + (direct ? 1 : 0)

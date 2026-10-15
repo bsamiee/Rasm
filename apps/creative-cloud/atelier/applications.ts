@@ -77,23 +77,28 @@ const Atelier = make(
 const applications = Effect.fn('applications')(function* (extensions: readonly Extension<unknown, unknown>[]) {
     const [scripting, hosts] = yield* Effect.all([Scripting, Effect.forEach(extensions, ({ name, Service }) => Effect.map(Service, ({ linked }) => ({ name, linked })))]);
     const dictionary = ((segments: TemplateStringsArray, ..._: readonly string[]): TemplateStringsArray => segments)`adobe://dictionary/${'application'}`;
-    const installed = scripting.call((sender) => sender.applications());
-    const listed = Effect.flatMap(installed, (rows) =>
-        Effect.forEach(
-            rows,
-            (application) =>
-                Array.findFirst(hosts, ({ name, linked }) =>
-                    Option.map(
-                        linked(application),
-                        Effect.map((version) => ({ name, linked: Option.isSome(version), version })),
+    const installed = Effect.fnUntraced(function* (running: boolean) {
+        return yield* scripting.call((sender) => sender.applications({ running }));
+    });
+    const listed = Effect.fnUntraced(function* (running: boolean) {
+        const rows = yield* installed(running);
+        return Array.flatten(
+            yield* Effect.forEach(
+                rows,
+                (application) =>
+                    Array.findFirst(hosts, ({ name, linked }) =>
+                        Option.map(
+                            linked(application),
+                            Effect.map((version) => ({ name, linked: Option.isSome(version), version })),
+                        ),
+                    ).pipe(
+                        Effect.transposeOption,
+                        Effect.map((extension) => (application.scriptable || Option.exists(extension, Struct.get('linked')) ? [{ ...application, dictionary: Option.liftPredicate(String.raw(dictionary, encodeURIComponent(application.url.href)), () => application.scriptable), extension }] : [])),
                     ),
-                ).pipe(
-                    Effect.transposeOption,
-                    Effect.map((extension) => (application.scriptable || Option.exists(extension, Struct.get('linked')) ? [{ ...application, dictionary: Option.liftPredicate(String.raw(dictionary, encodeURIComponent(application.url.href)), () => application.scriptable), extension }] : [])),
-                ),
-            { concurrency: 'unbounded' },
-        ).pipe(Effect.map(Array.flatten)),
-    );
+                { concurrency: 'unbounded' },
+            ),
+        );
+    });
     yield* McpServer.registerResource(
         dictionary,
         McpSchema.param('application', Schema.URL),
@@ -103,7 +108,7 @@ const applications = Effect.fn('applications')(function* (extensions: readonly E
         mimeType: 'application/xml',
         completion: {
             application: (input) =>
-                Effect.map(Effect.orDie(installed), (rows) =>
+                Effect.map(Effect.orDie(installed(false)), (rows) =>
                     Array.map(
                         ranked(
                             input,
@@ -127,7 +132,7 @@ const applications = Effect.fn('applications')(function* (extensions: readonly E
             }),
             failure: ScriptingError,
         }).annotateMerge(READING),
-        () => Effect.succeed([Option.none(), Effect.map(listed, (rows) => [{ applications: rows }, []] as const)] as const),
+        () => Effect.succeed([Option.none(), Effect.map(listed(false), (rows) => [{ applications: rows }, []] as const)] as const),
     );
     return {
         fields: Schema.Struct({ application: Schema.OptionFromOptionalKey(Schema.URL.annotateKey({ description: 'url from applications; absent, the one application with a linked extension' })) }),
@@ -135,24 +140,28 @@ const applications = Effect.fn('applications')(function* (extensions: readonly E
         route: ({ application }: { readonly application: Option.Option<URL> }): Effect.Effect<typeof Application.Type, ScriptingError> =>
             Option.match(application, {
                 onSome: (given) =>
-                    Effect.flatMap(installed, (rows) =>
-                        Effect.fromOption(
-                            Array.findFirst(rows, ({ url }) => url.href === given.href),
-                            () =>
-                                new ScriptingError({
-                                    reason: {
-                                        _tag: 'Missing',
-                                        subject: `installed application ${given.href}`,
-                                        candidates: ranked(
-                                            given.href,
-                                            Array.map(rows, ({ url }) => url.href),
-                                        ),
-                                    },
-                                }),
+                    scripting
+                        .call((sender) => sender.application({ url: given }))
+                        .pipe(
+                            Effect.catchReason('ScriptingError', 'Refused', () =>
+                                Effect.flatMap(installed(false), (rows) =>
+                                    Effect.fail(
+                                        new ScriptingError({
+                                            reason: {
+                                                _tag: 'Missing',
+                                                subject: `installed application ${given.href}`,
+                                                candidates: ranked(
+                                                    given.href,
+                                                    Array.map(rows, ({ url }) => url.href),
+                                                ),
+                                            },
+                                        }),
+                                    ),
+                                ),
+                            ),
                         ),
-                    ),
                 onNone: () =>
-                    Effect.flatMap(listed, (rows) => {
+                    Effect.flatMap(listed(true), (rows) => {
                         const linked = Array.filter(rows, ({ extension }) => Option.exists(extension, Struct.get('linked')));
                         return Effect.fromOption(
                             Option.filter(Array.head(linked), () => linked.length === 1),
