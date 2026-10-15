@@ -11,7 +11,7 @@ import { grep } from './grep.ts';
 const Failure = Schema.Union([GalleyError, LinkError]);
 const Facts = Shot.mapFields(Struct.omit(['image']));
 const Seen = Schema.OptionFromOptionalKey(Facts);
-const Served = Schema.Struct({ identifier: Schema.Literal('com.adobe.InDesign'), version: Schema.Option(Schema.String) });
+const Served = Schema.Struct({ identifier: Schema.Literal('com.adobe.InDesign'), version: Schema.Option(Schema.String), running: Schema.Boolean });
 const Galley = make(
     {
         name: 'Galley',
@@ -86,9 +86,11 @@ const Galley = make(
             (peer: typeof Peer.Type): boolean =>
                 Option.match(Option.flatMap(version, Schema.decodeUnknownOption(Peer.fields.version)), { onNone: Function.constTrue, onSome: (major) => major === peer.version });
         const call =
-            (version: typeof Served.Type.version) =>
+            (target: Option.Option<typeof Served.Type>) =>
             <A>(use: (client: RpcClient.FromGroup<typeof Panel, RpcClientError.RpcClientError>) => Effect.Effect<A, GalleyError | LinkError | RpcClientError.RpcClientError>): Effect.Effect<A, GalleyError | LinkError> =>
-                panel.call(select(version), use).pipe(Effect.catchReason('GalleyError', 'Missing', (reason) => Effect.fail(new GalleyError({ reason: { ...reason, candidates: ranked(reason.query, reason.candidates) } }))));
+                panel
+                    .call(select(Option.flatMap(target, Struct.get('version'))), use, Option.match(target, { onNone: Function.constTrue, onSome: Struct.get('running') }))
+                    .pipe(Effect.catchReason('GalleyError', 'Missing', (reason) => Effect.fail(new GalleyError({ reason: { ...reason, candidates: ranked(reason.query, reason.candidates) } }))));
         const shown = <R extends { readonly preview: Option.Option<typeof Shot.Type> }>({ preview, ...rest }: R) => [{ ...rest, preview: Option.map(preview, Struct.omit(['image'])) }, Array.map(Option.toArray(preview), ({ image }) => McpSchema.ImageContent.make({ data: image, mimeType: 'image/jpeg' }))] as const;
         const stripped = (code: string): Effect.Effect<string, GalleyError> => {
             const [open, close] = ['async function body() {\n', '\n}'];
@@ -133,49 +135,41 @@ const Galley = make(
             runs: {
                 Script: (target, { code }, unit) =>
                     Effect.map(
-                        Effect.flatMap(stripped(code), (plain) =>
-                            call(target.version)((client) =>
-                                watched(
-                                    linked,
-                                    client.Execute({ ...unit, body: { _tag: 'Script', code: plain } }),
-                                    Effect.map(client.Enter(), (phase) => phase === 'Waiting'),
-                                ),
-                            ),
-                        ),
+                        Effect.flatMap(stripped(code), (plain) => call(Option.some(target))((client) => watched(linked, client.Execute({ ...unit, body: { _tag: 'Script', code: plain } }), client.Enter()))),
                         shown,
                     ),
                 Set: (target, body, unit) =>
                     Effect.map(
-                        call(target.version)((client) => client.Execute({ ...unit, body: { _tag: 'Set', ...body } })),
+                        call(Option.some(target))((client) => client.Execute({ ...unit, body: { _tag: 'Set', ...body } })),
                         shown,
                     ),
             },
             verbs: {
                 inspect: (target, request) =>
                     Effect.map(
-                        call(target.version)((client) => client.Inspect(request)),
+                        call(Option.some(target))((client) => client.Inspect(request)),
                         (found) => [found, []] as const,
                     ),
                 render: (target, request) =>
                     Effect.map(
-                        call(target.version)((client) => client.Render(request)),
+                        call(Option.some(target))((client) => client.Render(request)),
                         ({ image, ...facts }) => [facts, [McpSchema.ImageContent.make({ data: image, mimeType: 'image/jpeg' })]] as const,
                     ),
                 find_change: (target, request) =>
                     Effect.map(
-                        call(target.version)((client) => client.Find(request)),
+                        call(Option.some(target))((client) => client.Find(request)),
                         shown,
                     ),
             },
             face: Effect.fn('face')(function* (target: typeof Served.Type, name: string, characters: string) {
-                const face = yield* call(target.version)((client) => client.Face({ name }));
+                const face = yield* call(Option.some(target))((client) => client.Face({ name }));
                 const source = yield* Effect.transposeOption(
                     Option.map(face.installed, ({ location, postscriptName, coordinates }) =>
                         Effect.flatMap(Effect.orDie(files.exists(location)), (own) =>
                             own
                                 ? Effect.succeed({ file: location, postscriptName, coordinates: Option.liftPredicate(coordinates, Array.isReadonlyArrayNonEmpty) })
                                 : Effect.map(
-                                      call(target.version)((client) => client.Subset({ postscriptName, text: characters })),
+                                      call(Option.some(target))((client) => client.Subset({ postscriptName, text: characters })),
                                       (file) => ({ file, postscriptName, coordinates: Option.none() }),
                                   ),
                         ),

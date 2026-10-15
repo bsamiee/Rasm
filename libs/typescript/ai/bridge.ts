@@ -13,6 +13,10 @@ type Link = 'linked' | 'closed' | 'unreachable';
 const REDIAL = Duration.seconds(2);
 const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Phase = Schema.Literals(['Idle', 'Missed', 'Held', 'Entered']);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const defaulted = <S extends Schema.Top>(schema: S, value: S['Type'] & S['Encoded']): Schema.withDecodingDefaultKey<S['Rebuild']> => schema.annotate({ default: value }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(value)));
@@ -46,4 +50,4 @@ const serve = Effect.fn('serve')(function* <Rpcs extends Rpc.Any>(group: RpcGrou
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { defaulted, type Link, REDIAL, serve, unit, WIRE };
+export { defaulted, type Link, Phase, REDIAL, serve, unit, WIRE };

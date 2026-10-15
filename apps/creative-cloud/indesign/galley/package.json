@@ -2,6 +2,7 @@
     "name": "@rasm/galley",
     "version": "0.1.0",
     "private": true,
+    "description": "InDesign UXP plugin serving InDesign through Atelier as MCP tools",
     "type": "module",
     "exports": {
         "./extension": "./extension.ts"

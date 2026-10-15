@@ -2,12 +2,12 @@
     "name": "@rasm/atelier",
     "version": "0.1.0",
     "private": true,
+    "description": "Drives installed Adobe applications through their scripting dictionaries and linked UXP panels",
     "type": "module",
     "exports": {
         "./*": "./*.ts"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@rasm/ai": "workspace:*",
         "@rasm/galley": "workspace:*",
         "@rasm/typography": "workspace:*",

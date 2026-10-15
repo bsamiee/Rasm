@@ -1,4 +1,4 @@
-import { defaulted, unit } from '@rasm/ai/bridge';
+import { defaulted, Phase, unit } from '@rasm/ai/bridge';
 import { Tokens } from '@rasm/ai/vision';
 import { Array, Formatter, Option, Schema, SchemaTransformation, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
@@ -149,7 +149,7 @@ const Execute = Rpc.make('Execute', {
     success: Outcome.pipe(Schema.fieldsAssign({ result: Schema.OptionFromOptionalKey(Schema.Json) })),
     error: GalleyError,
 });
-const Enter = Rpc.make('Enter', { success: Schema.Literals(['Idle', 'Waiting', 'Running']) });
+const Enter = Rpc.make('Enter', { success: Phase });
 const Render = Rpc.make('Render', {
     payload: Schema.Struct({ target: Target, tokens: Tokens }),
     success: Shot,
@@ -280,4 +280,4 @@ const Panel = RpcGroup.make(Execute, Enter, Render, Inspect, Face, Subset, Find,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Body, Box, Enter, Execute, Face, Find, GalleyError, Inspect, Menu, PATH, Panel, Peer, Preflight, Queries, Refusal, Render, Shot, Specifier, Subset, Target };
+export { Body, Box, Execute, Face, Find, GalleyError, Inspect, Menu, PATH, Panel, Peer, Preflight, Queries, Refusal, Render, Shot, Specifier, Subset, Target };

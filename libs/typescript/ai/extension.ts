@@ -1,10 +1,10 @@
 import uFuzzy from '@leeoniya/ufuzzy';
-import { Array, Boolean, Clock, Context, Deferred, Duration, Effect, Equal, Filter, Formatter, Latch, Layer, Option, pipe, Record, Ref, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Boolean, Clock, Context, Deferred, Duration, Effect, Filter, Formatter, flow, Latch, Layer, Option, pipe, Queue, Record, Ref, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
-import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { type Rpc, RpcClient, RpcClientError, type RpcGroup } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import { REDIAL, unit, WIRE } from './bridge.ts';
+import { type Phase, REDIAL, unit, WIRE } from './bridge.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -50,6 +50,7 @@ interface Extension<E = never, R = never> {
 const STRICT = { onExcessProperty: 'error', errors: 'all' } as const;
 const READING = Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.Destructive, false), Context.add(Tool.OpenWorld, false));
 const WRITING = Context.make(Tool.Readonly, false).pipe(Context.add(Tool.Idempotent, false), Context.add(Tool.Destructive, true), Context.add(Tool.OpenWorld, false));
+const Progress = Context.Reference<(message: string) => Effect.Effect<void>>('@rasm/ai/extension/Progress', { defaultValue: () => () => Effect.void });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -72,39 +73,30 @@ class Executions extends Context.Service<Executions, { readonly keep: (call: { r
             this,
             Effect.gen(function* () {
                 const Row = Schema.Struct({ tool: Schema.String, arguments: Schema.Json, result: Schema.OptionFromOptionalKey(McpSchema.CallToolResult) });
-                const [server, scope, entries] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make(Array.empty<{ readonly session: Option.Option<string>; readonly row: Effect.Effect<typeof Row.Type> }>())]);
-                const session = Effect.map(
-                    Effect.serviceOption(HttpServerRequest.HttpServerRequest),
-                    Option.flatMap(({ headers }) => Headers.get(headers, 'mcp-session-id')),
-                );
+                const [server, scope, entries] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make(Array.empty<Effect.Effect<typeof Row.Type>>())]);
                 const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Array(Row))));
                 yield* McpServer.registerResource({
                     uri,
                     name: 'Executions',
-                    description: 'Calls of this session cancelled before their response, each with its arguments and, once finished, its result; a finished call is listed once',
+                    description: 'Calls cancelled before their response, each with its arguments and, once finished, its result; a finished call is listed once',
                     mimeType: 'application/json',
                     content: Effect.gen(function* () {
-                        const [own, held] = yield* Effect.all([session, Ref.get(entries)]);
-                        const mine = Array.filter(held, (entry) => Equal.equals(entry.session, own));
-                        const rows = yield* Effect.forEach(mine, Struct.get('row'));
-                        const finished = pipe(
-                            Array.zip(mine, rows),
-                            Array.filter(([, { result }]) => Option.isSome(result)),
-                            Array.map(([entry]) => entry),
-                        );
+                        const held = yield* Ref.get(entries);
+                        const rows = yield* Effect.all(held);
+                        const finished = Array.getSomes(Array.zipWith(held, rows, (row, { result }) => Option.as(result, row)));
                         yield* Ref.update(entries, Array.difference(finished));
                         return yield* Effect.orDie(encode(rows));
                     }),
                 });
                 return {
                     keep: ({ tool, arguments: given }, answer) =>
-                        Effect.flatMap(Effect.all([session, Deferred.make<McpSchema.CallToolResult>()]), ([own, done]) => {
+                        Effect.flatMap(Deferred.make<McpSchema.CallToolResult>(), (done) => {
                             const row = Effect.all({ tool: Effect.succeed(tool), arguments: given, result: Effect.flatMap(Deferred.poll(done), Effect.transposeOption) });
                             const settled = Effect.andThen(Deferred.await(done), server.notifications['notifications/resources/updated']({ uri }));
                             return Effect.uninterruptibleMask((restore) =>
                                 Effect.andThen(
                                     Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true }),
-                                    Effect.onInterrupt(restore(Deferred.await(done)), () => Effect.andThen(Ref.update(entries, Array.append({ session: own, row })), Effect.forkIn(settled, scope))),
+                                    Effect.onInterrupt(restore(Deferred.await(done)), () => Effect.andThen(Ref.update(entries, Array.append(row)), Effect.forkIn(settled, scope))),
                                 ),
                             );
                         }),
@@ -145,8 +137,8 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
     );
     return {
         links: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))),
-        call: <A, E, R>(select: (peer: Peer) => boolean, use: (client: Entry['client']) => Effect.Effect<A, E, R>): Effect.Effect<A, Exclude<E, RpcClientError.RpcClientError> | LinkError, R> =>
-            SubscriptionRef.changes(links).pipe(
+        call: <A, E, R>(select: (peer: Peer) => boolean, use: (client: Entry['client']) => Effect.Effect<A, E, R>, running: boolean): Effect.Effect<A, Exclude<E, RpcClientError.RpcClientError> | LinkError, R> =>
+            (running ? SubscriptionRef.changes(links) : Stream.fromEffect(SubscriptionRef.get(links))).pipe(
                 Stream.filterMap(Filter.fromPredicateOption(Array.findFirst((entry: Entry) => select(entry.peer)))),
                 Stream.timeout(REDIAL),
                 Stream.runHead,
@@ -156,18 +148,23 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
             ),
     };
 });
-const watched = <A, E, R, E2, R2>(peer: string, work: Effect.Effect<A, E, R>, waiting: Effect.Effect<boolean, E2, R2>): Effect.Effect<A, E | E2 | LinkError, R | R2> => {
+const watched = <A, E, R, E2, R2>(peer: string, work: Effect.Effect<A, E, R>, enter: Effect.Effect<typeof Phase.Type, E2, R2>): Effect.Effect<A, E | E2 | LinkError, R | R2> => {
     const seconds = 30;
-    const first = Duration.millis(2);
-    return Stream.fromSchedule(Schedule.min([Schedule.exponential(first), Schedule.spaced(Duration.seconds(1))])).pipe(
-        Stream.mapEffect(() => Effect.zip(waiting, Clock.currentTimeMillis), { concurrency: 'unbounded', unordered: true }),
-        Stream.mapAccum(Option.none<number>, (since, [held, at]) => {
-            const from = held ? Option.orElseSome(since, () => at) : Option.none();
-            return [from, Option.toArray(Option.filter(from, (start) => at - start >= Duration.toMillis(Duration.seconds(seconds))))] as const;
-        }),
-        Stream.runHead,
-        Effect.andThen(Effect.fail(new LinkError({ peer, reason: { _tag: 'Stalled', seconds } }))),
-        Effect.raceFirst(work),
+    return Effect.flatMap(Effect.all([Progress, Queue.unbounded<void>()]), ([report, missed]) =>
+        Stream.merge(Stream.fromSchedule(Schedule.min([Schedule.exponential(Duration.millis(2)), Schedule.spaced(Duration.seconds(1))])), Stream.fromQueue(missed)).pipe(
+            Stream.mapEffect(() => Effect.zip(enter, Clock.currentTimeMillis), { concurrency: 'unbounded', unordered: true }),
+            Stream.tap(([phase]) => (phase === 'Missed' ? Queue.offer(missed, undefined) : Effect.void)),
+            Stream.takeUntil(([phase]) => phase === 'Entered'),
+            Stream.mapAccum(Option.none<number>, (since, [phase, at]) => {
+                const from = phase === 'Held' ? Option.orElseSome(since, () => at) : Option.none();
+                return [from, [{ began: Option.isNone(since) && Option.isSome(from), stalled: Option.exists(from, (start) => at - start >= Duration.toMillis(Duration.seconds(seconds))) }]] as const;
+            }),
+            Stream.tap(({ began }) => (began ? report(`${peer} has not started the call: an open menu, dialog, or drag holds it`) : Effect.void)),
+            Stream.filter(Struct.get('stalled')),
+            Stream.runHead,
+            Effect.flatMap(Option.match({ onNone: () => Effect.never, onSome: () => Effect.fail(new LinkError({ peer, reason: { _tag: 'Stalled', seconds } })) })),
+            Effect.raceFirst(work),
+        ),
     );
 };
 
@@ -185,7 +182,16 @@ const register = Effect.fn('register')(function* <T extends Verb<Schema.Codec<un
     const hint = (reference: Context.Reference<boolean>): boolean => Context.get(tool.annotations, reference);
     const codec = Schema.toCodecJson(tool.parametersSchema);
     const [server, executions, inputSchema, outputSchema] = yield* Effect.all([McpServer.McpServer, Executions, Effect.orDie(Schema.decodeUnknownEffect(McpSchema.ToolJson)(document(tool.parametersSchema))), Effect.orDie(Schema.decodeUnknownEffect(McpSchema.ToolOutputJson)(document(tool.successSchema)))]);
-    const [decode, echo, encode, token] = [decoded(codec), Schema.encodeEffect(codec), Schema.encodeUnknownEffect(Schema.toCodecJson(tool.successSchema)), Schema.decodeUnknownOption(Schema.Struct({ progressToken: McpSchema.ProgressToken }))];
+    const [decode, echo, encode, token] = [
+        decoded(codec),
+        Schema.encodeEffect(codec),
+        Schema.encodeUnknownEffect(Schema.toCodecJson(tool.successSchema)),
+        flow(
+            (metadata: unknown) => ({ _meta: metadata }),
+            Schema.decodeUnknownOption(McpSchema.RequestMeta),
+            Option.flatMapNullishOr(({ _meta }) => _meta?.progressToken),
+        ),
+    ];
     yield* server.addTool({
         annotations: tool.annotations,
         tool: new McpSchema.Tool({
@@ -215,8 +221,16 @@ const register = Effect.fn('register')(function* <T extends Verb<Schema.Codec<un
                     return Effect.flatMap(McpSchema.McpRequestContext, ({ requestMetadata }) =>
                         Option.match(token(requestMetadata), {
                             onNone: () => kept,
-                            onSome: ({ progressToken }) =>
-                                Effect.flatMap(Schedule.CurrentMetadata, ({ attempt }) => server.notifications['notifications/progress']({ progressToken, progress: attempt, message: Option.getOrElse(activity, () => tool.name) })).pipe(Effect.repeat(Schedule.spaced(interval)), Effect.forkChild, Effect.andThen(kept)),
+                            onSome: (progressToken) =>
+                                Effect.flatMap(SubscriptionRef.make(Option.getOrElse(activity, () => tool.name)), (stage) =>
+                                    SubscriptionRef.changes(stage).pipe(
+                                        Stream.switchMap((message) => Stream.as(Stream.tick(interval), message)),
+                                        Stream.zipWithIndex,
+                                        Stream.runForEach(([message, progress]) => server.notifications['notifications/progress']({ progressToken, progress, message })),
+                                        Effect.forkChild,
+                                        Effect.andThen(Effect.provideService(kept, Progress, (message) => SubscriptionRef.set(stage, message))),
+                                    ),
+                                ),
                         }),
                     );
                 }),
@@ -374,4 +388,4 @@ const ranked = (query: string, candidates: readonly string[]): readonly string[]
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Executions, type Extension, LinkError, listen, make, publish, READING, ranked, register, routed, WRITING, watched };
+export { Executions, type Extension, LinkError, listen, make, Progress, publish, READING, ranked, register, routed, WRITING, watched };

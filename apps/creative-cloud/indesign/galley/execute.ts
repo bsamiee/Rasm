@@ -1,11 +1,12 @@
 import indesign from 'adobe:indesign';
+import type { Phase } from '@rasm/ai/bridge';
 import { HIGH_RESOLUTION } from '@rasm/ai/vision';
 import { type AnyNode, getLineInfo, parse } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
 import { Array, Cache, Deferred, Effect, flow, Match, MutableRef, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import MagicString from 'magic-string';
-import { type Enter, type Execute, GalleyError, type Refusal, Specifier, Target } from './contract.ts';
+import { type Execute, GalleyError, type Refusal, Specifier, Target } from './contract.ts';
 import { planned } from './document.ts';
 import { Callable, collection, encoded, host, LAST_STEP, Model, missing, plurals, prepared, read, record, resolve, scope, type Temporary, thrown, unwired, wired, write } from './dom.ts';
 import { grep } from './find.ts';
@@ -17,36 +18,46 @@ const LINE_BREAK = /\r\n?|[\n\p{Zl}\p{Zp}]/u;
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const entry = MutableRef.make(Option.none<() => void>());
-const phase = MutableRef.make<Rpc.Success<typeof Enter>>('Idle');
+const phase = MutableRef.make<typeof Phase.Type>('Idle');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const enter = Effect.sync(() => {
-    const seen = MutableRef.get(phase);
-    Option.map(MutableRef.getAndSet(entry, Option.none()), (run) => run());
-    return seen;
-});
+const enter = Effect.sync((): typeof Phase.Type =>
+    Option.match(MutableRef.getAndSet(entry, Option.none()), {
+        onNone: () => MutableRef.get(phase),
+        onSome: (run) => {
+            run();
+            return 'Entered';
+        },
+    }),
+);
 const nested = <A>(step: () => A): Effect.Effect<A, GalleyError> => {
     const { app, ScriptLanguage } = indesign;
     const holds = 2048;
     const ran = MutableRef.make(Option.none<Result.Result<A, GalleyError>>());
     const run = (): void => {
-        MutableRef.set(phase, 'Waiting');
+        MutableRef.set(phase, 'Held');
         MutableRef.set(ran, Option.some(Result.try({ try: step, catch: thrown })));
-        MutableRef.set(phase, 'Idle');
     };
-    return Effect.try({
-        try: () => {
-            MutableRef.set(entry, Option.some(run));
-            try {
-                app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT);
-            } finally {
-                MutableRef.set(entry, Option.none());
-            }
-            return MutableRef.get(ran);
-        },
-        catch: thrown,
-    }).pipe(Effect.tap(Effect.yieldNow), Effect.repeat({ until: Option.isSome, times: holds }), Effect.flatMap(Effect.fromOption(() => new GalleyError({ reason: { _tag: 'Unentered' } }))), Effect.flatMap(Effect.fromResult));
+    return Effect.sync(() => MutableRef.set(phase, 'Missed')).pipe(
+        Effect.andThen(
+            Effect.try({
+                try: () => {
+                    MutableRef.set(entry, Option.some(run));
+                    try {
+                        app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT);
+                    } finally {
+                        MutableRef.set(entry, Option.none());
+                    }
+                    return MutableRef.get(ran);
+                },
+                catch: thrown,
+            }).pipe(Effect.tap(Effect.yieldNow), Effect.repeat({ until: Option.isSome, times: holds })),
+        ),
+        Effect.flatMap(Effect.fromOption(() => new GalleyError({ reason: { _tag: 'Unentered' } }))),
+        Effect.flatMap(Effect.fromResult),
+        Effect.ensuring(Effect.sync(() => MutableRef.set(phase, 'Idle'))),
+    );
 };
 const ready = Effect.filterOrFail(
     Effect.sync(() => indesign.app.modalState),
@@ -285,7 +296,7 @@ const transact = Effect.fn('transact')(function* <A, R>({ description, preview }
             app.doScript(
                 () =>
                     Effect.andThen(
-                        Effect.sync(() => MutableRef.set(phase, 'Running')),
+                        Effect.sync(() => MutableRef.set(phase, 'Entered')),
                         Effect.exit(work),
                     ).pipe(
                         Effect.tap((exit) => Deferred.done(settled, exit)),
