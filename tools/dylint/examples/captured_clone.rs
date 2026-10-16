@@ -35,7 +35,7 @@ async fn awaited(name: String, given: Option<String>) -> Option<String> { given.
 
 fn copied(port: u16, given: Option<u16>) -> Option<u16> { given.or_else(|| Some(port.clone())) }
 
-fn leased(lease: Lease, given: Option<Lease>) -> Option<Lease> { given.or_else(|| Some(lease.clone())) }
+fn leased(lease: Lease, given: Option<Lease>) -> Lease { given.unwrap_or_else(|| lease.clone()) }
 
 fn reused(path: String, text: &str) -> (Result<u16, ReadError>, usize) {
     let parsed = text.parse().map_err(|source| ReadError { path: path.clone(), source });
@@ -71,7 +71,7 @@ fn main() {
         called(String::from("called"), None),
         block_on(awaited(String::from("awaited"), None)),
         copied(80, None),
-        leased(Lease(String::from("lease")), None).map(|lease| lease.0.len()),
+        leased(Lease(String::from("lease")), None).0.len(),
         reused(path.clone(), "81"),
         repeated("item", &[1, 2]),
         moved(path.clone(), "82"),

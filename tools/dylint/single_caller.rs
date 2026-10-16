@@ -107,7 +107,8 @@ impl<'tcx> LateLintPass<'tcx> for SingleCaller {
                     [(TokenKind::Ident, keyword, _), (TokenKind::Ident, name, _), (TokenKind::Semi, ..), ..] if *keyword == kw::Mod.as_str() =>
                         declared.extend(renamed.take().map_or_else(|| vec![nested.join(format!("{name}.rs")), nested.join(name).join("mod.rs")], |renamed| vec![directory.join(renamed)])),
                     [(TokenKind::Ident, attribute, _), (TokenKind::OpenParen, ..), arguments @ ..] if *attribute == sym::cfg_attr.as_str() =>
-                        opaque |= arguments.iter().take_while(|(kind, ..)| !matches!(kind, TokenKind::CloseBracket)).any(|&(kind, text, _)| matches!(kind, TokenKind::Ident) && text == sym::path.as_str()),
+                        opaque |=
+                            arguments.iter().take_while(|(kind, ..)| !matches!(kind, TokenKind::CloseBracket)).any(|&(kind, text, _)| matches!(kind, TokenKind::Ident) && text == sym::path.as_str()),
                     [(TokenKind::Semi | TokenKind::OpenBrace | TokenKind::CloseBrace, ..), ..] => renamed = None,
                     _ => {}
                 }

@@ -25,8 +25,18 @@ allow-renamed-params-for       = []    # `renamed_function_params` covers `From`
 allowed-duplicate-crates = [
     "syn",                   # 2 under proc macros not on `syn` 3
     "core-foundation",       # 0.9 under hyper-util's `system-configuration` for reqwest `system-proxy`
-    "getrandom",             # 0.2 under newest `ring`, locked for weak features of rustls-webpki and reqwest that no build compiles
+    "getrandom",             # 0.2 under newest `ring`, locked for weak features of rustls-webpki and reqwest that no build compiles, 0.3 under `rand_core` 0.9
     "windows-sys",           # 0.52 under newest `ring`
+    "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace`, its main branch still requires 0.9, 0.10 under rmcp `server-side-http`
+    "rand_core",             # 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
+    "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
+    "base64",                # 0.22 under newest `jsonwebtoken` 11.1.0 beside 0.23 under hyper-util
+    "untrusted",             # 0.7 under newest `aws-lc-rs` 1.18.2 beside 0.9 under rustls-webpki
+    "schemars",              # 0.9 as an optional integration newest `serde_with` 3.24.0 declares for tower-oauth2-resource-server
+    "indexmap",              # 1 as an optional integration newest `serde_with` 3.24.0 declares
+    "hashbrown",             # 0.12 under `indexmap` 1
+    "bitflags",              # 1 under `defmt`, an optional integration of `jiff` under `serde_with`
+    "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
 ]
 
 # --- [BANS]
@@ -35,6 +45,7 @@ disallowed-methods          = [
     { path = "std::time::SystemTime::elapsed", replacement = "jiff::Timestamp::duration_since", reason = "`jiff` owns wall-clock time, its `Timestamp` carries instant arithmetic and zone conversion" },
     { path = "std::time::SystemTime::duration_since", replacement = "jiff::Timestamp::try_from", reason = "Does epoch arithmetic by hand, `jiff` owns wall-clock instants and their arithmetic" },
     { path = "uuid::Timestamp::now", replacement = "uuid::Timestamp::from_unix", reason = "Reads the wall clock beside `jiff`, the seconds and nanoseconds of a `jiff::Timestamp` build the value" },
+    { path = "uuid::Uuid::now_v7", replacement = "uuid::Uuid::new_v7", reason = "Reads the wall clock beside `jiff`, a `uuid::Timestamp` built from a `jiff::Timestamp` feeds `new_v7`, the path resolves where `uuid` builds with `v7`", allow-invalid = true },
     { path = "std::time::Instant::now", replacement = "tokio::time::Instant::now", reason = "`tokio::time::Instant` owns monotonic time, tokio timers take it and its paused test clock drives it" },
     { path = "std::time::Instant::elapsed", replacement = "tokio::time::Instant::elapsed", reason = "`tokio::time::Instant` owns monotonic time, tokio timers take it and its paused test clock drives it" },
     { path = "std::env::var", reason = "Domain code takes each setting as an argument" },
@@ -55,6 +66,7 @@ disallowed-methods          = [
     { path = "etcetera::choose_base_strategy", reason = "Reads `HOME` and `XDG_*` from the environment, domain code takes each path as an argument" },
     { path = "etcetera::choose_app_strategy", reason = "Reads `HOME` and `XDG_*` from the environment, domain code takes each path as an argument" },
     { path = "etcetera::home_dir", reason = "Reads `HOME` from the environment, domain code takes each path as an argument" },
+    { path = "rand::make_rng", reason = "Seeds from the OS, domain code takes its generator as an argument, the path resolves under `rand` 0.10", allow-invalid = true },
     { path = "std::boxed::Box::leak", reason = "Leaks allocation for process lifetime, an owner outliving every reader holds the value and passes `&` or `Arc`" },
     { path = "std::vec::Vec::leak", reason = "Leaks allocation for process lifetime, an owner outliving every reader holds the value and passes `&` or `Arc`" },
     { path = "std::string::String::leak", reason = "Leaks allocation for process lifetime, an owner outliving every reader holds the value and passes `&` or `Arc`" },
@@ -86,7 +98,9 @@ disallowed-methods          = [
     { path = "std::fs::hard_link", replacement = "fs_err::hard_link", reason = "`io::Error` names no path, fs-err names operation and path" },
     { path = "std::fs::set_permissions", replacement = "fs_err::set_permissions", reason = "`io::Error` names no path, fs-err names operation and path" },
     { path = "std::fs::exists", replacement = "fs_err::exists", reason = "`io::Error` names no path, fs-err names operation and path" },
-    { path = "std::os::unix::fs::symlink", replacement = "fs_err::os::unix::fs::symlink", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::os::unix::fs::symlink", replacement = "fs_err::os::unix::fs::symlink", reason = "`io::Error` names no path, fs-err names operation and path, the path resolves on Unix alone", allow-invalid = true },
+    { path = "std::os::windows::fs::symlink_dir", replacement = "fs_err::os::windows::fs::symlink_dir", reason = "`io::Error` names no path, fs-err names operation and path, the path resolves on Windows alone", allow-invalid = true },
+    { path = "std::os::windows::fs::symlink_file", replacement = "fs_err::os::windows::fs::symlink_file", reason = "`io::Error` names no path, fs-err names operation and path, the path resolves on Windows alone", allow-invalid = true },
     { path = "std::fs::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold the verbatim prefix, `dunce::simplified(&fs_err::canonicalize(..)?)` names path and drops prefix" },
     { path = "dunce::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold the verbatim prefix, `dunce::simplified(&fs_err::canonicalize(..)?)` names path and drops prefix" },
     { path = "std::fs::File::open", replacement = "fs_err::File::open", reason = "`io::Error` names no path, fs-err names operation and path" },
@@ -168,6 +182,7 @@ disallowed-types            = [
     { path = "std::sync::RwLock", replacement = "std::sync::nonpoison::RwLock", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::RwLock` serves a guard held across an `.await` alone" },
     { path = "std::hash::DefaultHasher", replacement = "xxhash_rust::xxh3::Xxh3Default", reason = "SipHash keys and algorithm are unspecified across Rust releases, content identity needs a stable hash" },
     { path = "std::hash::RandomState", replacement = "xxhash_rust::xxh3::Xxh3DefaultBuilder", reason = "Hashes vary per instance, result order and identity stay deterministic" },
+    { path = "rand::rngs::SysRng", reason = "Seeds from the OS, domain code takes its generator as an argument, the path resolves under `rand` 0.10", allow-invalid = true },
     { path = "std::collections::HashMap", replacement = "indexmap::IndexMap", reason = "Default `RandomState` varies iteration order per instance, `IndexMap` keeps insertion order with hashed lookups" },
     { path = "std::collections::HashSet", replacement = "indexmap::IndexSet", reason = "Default `RandomState` varies iteration order per instance, `IndexSet` keeps insertion order with hashed lookups" },
     { path = "once_cell::sync::OnceCell", replacement = "std::sync::OnceLock", reason = "`std` owns the type, a `static` holds a `LazyLock` or takes its value from `main`" },

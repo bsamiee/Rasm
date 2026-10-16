@@ -8,12 +8,6 @@ const SHARED: usize = 2;
 
 static BANNER: &str = "ports";
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-trait Surface {
-    fn area(&self) -> usize;
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 mod geometry {
@@ -40,8 +34,8 @@ impl Window {
     fn squared(&self) -> usize { self.width.strict_mul(self.width) }
 }
 
-impl Surface for Window {
-    fn area(&self) -> usize { self.width.strict_mul(SHARED) }
+impl From<usize> for Window {
+    fn from(width: usize) -> Self { Self { width } }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -76,7 +70,11 @@ fn measuring(text: &str) -> usize { measured!(text) }
 
 pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) }
 
-fn hidden(text: &str) -> usize { text.len() }
+fn relayed(text: &str) -> usize { exported(text).strict_mul(2) }
+
+fn built(width: usize) -> Window { Window::from(width) }
+
+fn hidden(text: &str) -> usize { text.bytes().filter(u8::is_ascii_uppercase).count() }
 
 fn visible(text: &str) -> usize { hidden(text) }
 
@@ -84,7 +82,7 @@ fn visible(text: &str) -> usize { hidden(text) }
 fn stripped() -> usize { hidden("") }
 
 fn outer(text: &str) -> usize {
-    fn inner(text: &str) -> usize { text.len() }
+    fn inner(text: &str) -> usize { text.split_whitespace().count() }
     inner(text)
 }
 
@@ -95,5 +93,5 @@ fn sided(side: usize) -> usize { geometry::Square::new(side).side() }
 fn main() {
     let window = Window { width: 3 };
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
-    black_box(&(window.area(), exported("e"), visible("v"), outer("o"), sided(4)));
+    black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4)));
 }

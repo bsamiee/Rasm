@@ -33,7 +33,6 @@ fn tool_name(text: &str) -> Result<Option<String>, Error<serde_json::Error>> {
     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
 }
 
-#[expect(clippy::indexing_slicing, reason = "the fixture indexes a `Value`, whose missing keys read as `Null`")]
 fn tool_size(bytes: &[u8]) -> Result<u64, Error<serde_json::Error>> {
     let document = deserialize::<_, Value>(&mut Deserializer::from_slice(bytes))?;
     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())

@@ -1,4 +1,4 @@
-use core::hint::black_box;
+use core::{hint::black_box, mem::ManuallyDrop};
 use std::process::{ExitStatus, Output};
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -36,6 +36,23 @@ impl<F> Drop for Draining<F>
 where F: FnMut(u8) -> bool
 {
     fn drop(&mut self) { self.items.retain(|&item| (self.keep)(item)); }
+}
+
+struct Manual<F>(ManuallyDrop<F>)
+where F: FnMut();
+
+impl<F> Drop for Manual<F>
+where F: FnMut()
+{
+    fn drop(&mut self) { (*self.0)(); }
+}
+
+struct Buffer {
+    bytes: Vec<u8>,
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) { self.bytes.clear(); }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -76,6 +93,13 @@ fn reused(bytes: Vec<u8>) -> (String, usize) { (String::from_utf8_lossy(&bytes).
 
 fn lent(bytes: &[u8]) -> String { String::from_utf8_lossy(bytes).into_owned() }
 
+fn captured(bytes: Vec<u8>) -> String {
+    let decode = || String::from_utf8_lossy(&bytes).into_owned();
+    decode()
+}
+
+fn drained(buffer: Buffer) -> String { String::from_utf8_lossy(&buffer.bytes).into_owned() }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -86,10 +110,12 @@ fn main() {
     copied(&mut flag, false);
     drop(Guard(Some(|| ())));
     drop(Deferred(|| ()));
-    drop(Draining { keep: |item| item > 1, items: vec![1, 2] });
+    drop(Draining { keep: |item: u8| item > 1, items: vec![1, 2] });
+    drop(Manual(ManuallyDrop::new(|| ())));
     black_box((
         (squares(3), labels(2), viewed(&buffer).copied(), viewed_mut(&mut buffer).copied(), prefix(&buffer), suffix(&buffer)),
         (decoded(vec![104]), decoded_output(Output { status: ExitStatus::default(), stdout: vec![105], stderr: Vec::new() }), offset(3), zeroes(2), narrow(2)),
         (owned(vec![1, 2, 3, 4]), reused(vec![106]), lent(&[107]), flag, bits),
+        (captured(vec![108]), drained(Buffer { bytes: vec![109] })),
     ));
 }

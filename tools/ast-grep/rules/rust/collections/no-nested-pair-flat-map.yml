@@ -17,4 +17,4 @@ transform:
     OTHER: {replace: {source: $Y, replace: '^\(\s*([\s\S]*?)\s*\)$', by: '$1'}}
 fix: $X.cartesian_product($OTHER)
 message: '`$X` pairs each element with every element of `$Y` through a nested `flat_map`'
-note: 'Call `Itertools::cartesian_product(<other>)` (`use itertools::Itertools;`), the adapter yields identical `(<outer>, <inner>)` pairs in order and clones each outer element per pair'
+note: 'Call `Itertools::cartesian_product(<other>)` (`use itertools::Itertools as _;`), the adapter yields identical `(<outer>, <inner>)` pairs in order and clones each outer element per pair'

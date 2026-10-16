@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-generic-bound
+language: rust
+severity: error
+rule:
+    kind: trait_bounds
+    inside:
+        kind: 'type_parameter, lifetime_parameter'
+        field: bounds
+        inside:
+            kind: type_parameters
+            inside: {kind: 'impl_item, trait_item, struct_item, enum_item, union_item', field: type_parameters}
+message: 'Bound sits inside the generic parameter list'
+note: 'Move every bound into the `where` clause, Clippy `inline_trait_bounds` reports the function form alone'

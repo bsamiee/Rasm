@@ -1,10 +1,14 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, is_in_test, is_inside_always_const_context, macros::root_macro_call_first_node, paths::PathNS, sym};
+use clippy_utils::{
+    diagnostics::span_lint_hir_and_then,
+    is_in_test, is_inside_always_const_context,
+    macros::root_macro_call_first_node,
+    paths::{PathNS, lookup_path_str},
+    sym,
+};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{Expr, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::TyCtxt;
-
-use crate::resolve;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,7 +27,9 @@ pub(crate) struct Assertion {
 impl_lint_pass!(Assertion => [ASSERTION]);
 
 impl Assertion {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { matching: resolve(tcx, PathNS::Macro, &[("core::assert_matches", ()), ("core::debug_assert_matches", ())]).into_keys().collect() } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self { matching: ["core::assert_matches", "core::debug_assert_matches"].into_iter().flat_map(|path| lookup_path_str(tcx, PathNS::Macro, path)).collect() }
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for Assertion {

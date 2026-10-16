@@ -4,6 +4,7 @@ use core::{
     num::{ParseFloatError, ParseIntError},
     str::{self, Utf8Error},
 };
+use std::io;
 
 use thiserror::Error;
 
@@ -82,6 +83,16 @@ impl From<LocatedError> for ScaleError {
     fn from(value: LocatedError) -> Self { Self::Archive(Box::new(value)) }
 }
 
+#[derive(Debug, Error)]
+enum ReadError {
+    #[error("cannot read the port file")]
+    Io(#[source] io::Error),
+}
+
+impl From<io::Error> for ReadError {
+    fn from(value: io::Error) -> Self { Self::Io(value) }
+}
+
 #[derive(Debug)]
 struct ManualError(ParseIntError);
 
@@ -146,6 +157,8 @@ fn manual(text: &str) -> Result<u16, ManualError> {
     Ok(port)
 }
 
+fn read(path: &str) -> Result<String, ReadError> { Ok(fs_err::read_to_string(path)?) }
+
 fn scale(text: &str) -> Result<f64, ScaleError> {
     let scale = text.trim().parse().map_err(ScaleError::Parse)?;
     Ok(scale)
@@ -175,5 +188,5 @@ fn main() {
         scale("1.5").map_err(PortError::Scale)?;
         Ok(())
     };
-    black_box(run()).unwrap_or_default();
+    black_box((run(), read("port").map(|text| text.len()))).0.unwrap_or_default();
 }

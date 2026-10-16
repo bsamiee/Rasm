@@ -5,7 +5,7 @@ use clippy_utils::{
     eq_expr_value, fn_def_id, get_parent_expr,
     higher::{Range, RangeTy},
     is_integer_literal, path_to_local_with_projections,
-    paths::PathNS,
+    paths::{PathNS, lookup_path_str},
     res::{MaybeDef as _, MaybeResPath as _, MaybeTypeckRes as _},
     source::snippet,
     sugg::Sugg,
@@ -19,8 +19,6 @@ use rustc_errors::Applicability;
 use rustc_hir::{BorrowKind, Expr, ExprKind, ImplItem, ImplItemKind, Mutability, PatKind, UnOp, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, TyCtxt};
-
-use crate::resolve;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -39,7 +37,7 @@ pub(crate) struct ManualStdMethod {
 impl_lint_pass!(ManualStdMethod => [MANUAL_STD_METHOD]);
 
 impl ManualStdMethod {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { lossy: resolve(tcx, PathNS::Value, &[("alloc::string::String::from_utf8_lossy", ())]).into_keys().next() } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { lossy: lookup_path_str(tcx, PathNS::Value, "alloc::string::String::from_utf8_lossy").into_iter().next() } }
 }
 
 impl<'tcx> LateLintPass<'tcx> for ManualStdMethod {

@@ -9,6 +9,7 @@ use clippy_utils::{
     res::MaybeDef as _,
     sym,
 };
+use itertools::Itertools as _;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxIndexMap, FxIndexSet};
 use rustc_hir::{
@@ -128,7 +129,7 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
             if let ExprKind::MethodCall(segment, receiver, [subject], _) = expr.kind
                 && segment.ident.name == sym::contains
                 && let ExprKind::Array(items) = receiver.peel_borrows().kind
-                && let Some(listed) = items.iter().map(|item| tag(cx, item)).try_collect::<FxIndexSet<_>>()
+                && let Some(listed) = items.iter().map(|item| tag(cx, item)).collect::<Option<FxIndexSet<_>>>()
                 && is_text(cx, typeck.expr_ty(subject))
             {
                 branch(subject, site, listed);
@@ -195,7 +196,7 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
             let tags = closed.map_or_else(|| compared.clone(), |domain| compared.union(&domain.tags).copied().collect());
             let stored = matches!(held, Place::Field(_) | Place::Static(_));
             if tags.len() > 1 && (closed.is_some() || stored && compared.len() > 1) {
-                let listed = itertools::Itertools::format_with(tags.iter(), ", ", |tag, write| write(&format_args!("`\"{tag}\"`")));
+                let listed = tags.iter().format_with(", ", |tag, write| write(&format_args!("`\"{tag}\"`")));
                 let name = held.name(cx);
                 let message = match held {
                     Place::Field(_) => format!("field `{name}` holds one of the tags {listed} as text"),

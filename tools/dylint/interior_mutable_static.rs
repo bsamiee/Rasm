@@ -9,7 +9,6 @@ use clippy_utils::{
     sym,
     ty::InteriorMut,
 };
-use itertools::Itertools as _;
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
 use rustc_hir::{
     Expr, ExprKind, Item, ItemKind,
@@ -17,7 +16,7 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass, LintContext as _, declare_lint, impl_lint_pass};
-use rustc_middle::ty::{self, List, Ty, TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::{self, Ty, TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::{Ident, Span};
 
 use crate::{Place, place, resolve};
@@ -44,7 +43,7 @@ pub(crate) struct InteriorMutableStatic<'tcx> {
     cells: FxHashMap<DefId, Cell>,
     initialize: Option<DefId>,
     interior: InteriorMut<'tcx>,
-    statics: FxIndexMap<LocalDefId, (Ident, Ty<'tcx>, &'tcx List<Ty<'tcx>>)>,
+    statics: FxIndexMap<LocalDefId, (Ident, Ty<'tcx>, Ty<'tcx>, Ty<'tcx>)>,
     uses: FxHashMap<LocalDefId, Vec<Option<Span>>>,
 }
 
@@ -73,10 +72,10 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutableStatic<'tcx> {
                 (_, ty::Adt(key, args)) if key.is_diag_item(cx, sym::LocalKey) => Some(args.type_at(0)),
                 _ => None,
             }
-            && let Some(chain) = self.interior.interior_mut_ty_chain(cx, held)
+            && let Some(link) = self.interior.interior_mut_ty_chain(cx, held).and_then(|chain| chain.iter().find(|&link| held.walk().any(|written| written.as_type() == Some(link))))
             && !is_in_test(cx.tcx, item.hir_id())
         {
-            self.statics.insert(item.owner_id.def_id, (ident, declared, chain));
+            self.statics.insert(item.owner_id.def_id, (ident, declared, held, link));
         }
     }
 
@@ -103,7 +102,7 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutableStatic<'tcx> {
     }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        for (item, (ident, declared, chain)) in mem::take(&mut self.statics) {
+        for (item, (ident, declared, held, link)) in mem::take(&mut self.statics) {
             let once = if let ty::Adt(cell, args) = declared.kind()
                 && self.cells.get(&cell.did()) == Some(&Cell::Once)
                 && !cx.effective_visibilities.is_exported(item)
@@ -118,10 +117,11 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutableStatic<'tcx> {
                 INTERIOR_MUTABLE_STATIC,
                 cx.tcx.local_def_id_to_hir_id(item),
                 ident.span,
-                with_forced_trimmed_paths!(format!(
-                    "`static {ident}` holds {}, which mutates through a shared reference",
-                    chain.iter().rev().format_with(" in ", |link, write| write(&format_args!("`{link}`")))
-                )),
+                with_forced_trimmed_paths!(if link == held {
+                    format!("`static {ident}` holds `{held}`, which mutates through a shared reference")
+                } else {
+                    format!("`static {ident}` holds `{held}`, whose `{link}` mutates through a shared reference")
+                }),
                 |diag| {
                     match once.zip(initializer) {
                         Some((value, initializer)) => diag.help(with_forced_trimmed_paths!(format!(

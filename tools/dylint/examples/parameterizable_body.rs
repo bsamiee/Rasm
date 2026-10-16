@@ -136,6 +136,20 @@ const fn is_large(value: u32) -> bool { value > 100 }
 
 const fn is_huge(value: u32) -> bool { value > 1000 }
 
+const fn weight(level: u8) -> u32 {
+    match level {
+        0 => 1,
+        _ => 2,
+    }
+}
+
+const fn cost(level: u8) -> u32 {
+    match level {
+        0 => 10,
+        _ => 20,
+    }
+}
+
 fn uptime() -> Uptime { Default::default() }
 
 fn clock() -> Clock { Default::default() }
@@ -152,7 +166,7 @@ fn main() {
         (reads.attempts, writes.attempts, reads.timeout, writes.endpoint),
         (Page.render(), Banner.render(), trimmed_left(" a"), trimmed_right("b ")),
         measured,
-        (page_size(), banner_size(), red() != green()),
+        (page_size(), banner_size(), red() != green(), weight(1), cost(1)),
         (Footer.render(), is_large(5), is_huge(6), uptime().seconds, clock().ticks, BadScheme.to_string(), TimedOut.to_string()),
     ));
 }

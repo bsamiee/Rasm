@@ -58,7 +58,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Publishable packages inherit every `[workspace.package]` key
 - Publishable packages state their own `description`, `keywords`, and `categories`, Clippy's `cargo_common_metadata` fails a package lacking one
 - Unpublishable members state `publish = false` beside `edition.workspace = true` alone
-- Untested members set `test` and `bench` to `false` on `[lib]` and `[[bin]]` and `doctest = false` on `[lib]`, `clippy --all-targets` compiles no empty harness
+- Untested members set `test` and `bench` to `false` on `[lib]` and `[[bin]]` and `doctest = false` on `[lib]`, `clippy --tests` compiles no empty harness
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
 - Crate roots hold their crate's code until a measured split, a split crate's module paths are its API with no `pub use` at root
 - Crate-private functions, constants, and statics with one reader sit inside that reader, `single_caller` skips a reader that is the entry point
@@ -69,11 +69,12 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 ## [06]-[CHECKERS]
 
-- Clippy is each member's type check, a separate `cargo check` repeats its compile
-- Editors and harnesses run rust-analyzer checks through `clippy`, the harness reusing the compile `typecheck` writes
-- Each rust-analyzer client's settings state `check.command` and `rustc.source`, no project `rust-analyzer.toml` sets flycheck or Cargo keys
+- Clippy is each member's type check over its library, binary, and test targets, a separate `cargo check` repeats its compile
+- Editors and harnesses run rust-analyzer checks as one `check.overrideCommand` Clippy run over those targets, the harness reusing the compile `typecheck` writes
+- `check.allTargets` and `check.extraArgs` still check a saved example or binary alone through `--example` or `--bin`, an override runs one command on every save
+- Each rust-analyzer client's settings state `check.overrideCommand` and `rustc.source`, flycheck and Cargo keys in a project `rust-analyzer.toml` go unread
 - `rustc-dev` ships the lock at `rustc-src/rust/Cargo.lock`, a `mise.toml` `postinstall` hook copies it beside the compiler manifest
-- Editor rust-analyzer sets a `cargo.targetDir` and `cargo.extraEnv` `CARGO_BUILD_BUILD_DIR`, `--target-dir` alone shares `build-dir` with agents
+- Editor rust-analyzer sets `cargo.extraEnv` `CARGO_BUILD_TARGET_DIR` and `CARGO_BUILD_BUILD_DIR`, every Cargo run it starts then shares no directory with agents
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
 - `rustfmt.toml` holds the keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
 - `rustfmt.toml` sets `edition` and `style_edition`, plain `rustfmt` reads neither from `Cargo.toml`
@@ -107,8 +108,33 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `examples/` stays flat, Cargo discovers `examples/*.rs` and `examples/*/main.rs` alone and a nested fixture takes an `[[example]]` row
 - `tests/ui.rs` runs `cargo dylint` once over every fixture and compares every lint's diagnostics and suggestion applicability with `tests/ui.snap`
 - `cargo insta test -p lints` records a changed snapshot as pending, `cargo insta review` writes it
-- Fixtures compile under the `[workspace.lints]` rustc rows in that run, Clippy checks `lints` through `--lib --tests` and reads no fixture
-- `lint:dylint` runs per member over the library, binary, and test targets its metadata lists, and scans no example
+- Fixtures compile in that run alone under the `[workspace.lints]` rustc rows, `typecheck` and `lint:dylint` take the library, binary, and test targets each member's metadata lists and read no example
 - `host:dylint` members take no `coverage`, the dylint driver runs their lints outside instrumentation
 - Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes `.cache`
 - Diagnostic messages, help text, and suggestion labels read as one instruction
+
+## [09]-[MCP]
+
+MCP servers build on `rasm-mcp`, and `rasm-mcp-bridge` serves third-party stdio servers through the same host.
+
+- Servers start through `rasm_mcp::run` with a clap `Parser` deriving `#[command(version, about)]`, which names `serverInfo` and log service fields
+- `MCP_LISTEN` names the bound address, a non-loopback address takes `MCP_RESOURCE` and `MCP_AUTHORIZATION_SERVERS`
+- Loopback endpoints run unauthenticated on a single-user host, authorized endpoints validate bearer JWTs through `tower-oauth2-resource-server`
+- `Server::new` takes rmcp `#[tool_router]`, `PromptRouter`, and `ResourceRouter` values, the library implements `ServerHandler` and its versions
+- Parameters are structs with `#[serde(deny_unknown_fields)]`, descriptions go through `#[tool(description)]` and `#[schemars(description)]`
+- Tools return `Json<T>` on success, image tools return content blocks and declare no output schema
+- Failures return `Failure<E>` over a `#[serde(tag = "_tag")]` thiserror enum with a fact then an action, `ErrorData` holds protocol faults
+- Read tools set `read_only_hint = true`, local-host tools `open_world_hint = false`, additive writes `destructive_hint = false`
+- Destructive calls a client cancels run to completion and record their result in the `mcp://<server>/executions` resource
+- Long tools set stage text through `Extension<watch::Sender<Cow<'static, str>>>`, the first progress leaves at call start
+- Task results go to clients declaring `io.modelcontextprotocol/tasks` alone, progress keeps every other long call alive
+- Tools ask the user through `rasm_mcp::elicit` and return `Elicited<Json<T>>`, `Peer::elicit` alone breaks the 2026-07-28 revision
+- Resource templates use RFC 6570 level 1 `{var}` variables, reference data is a `ResourceRouter` row, and large outputs link a resource
+- Tool, prompt, and resource changes publish through `Server` watches, `server.changes().update(uri)` notifies subscribers of a resource
+- Instructions keep their first 512 characters self-contained and stay under 4,096, tool descriptions open with search words in one sentence
+- Tool outputs stay under 10,000 tokens, a larger result sets `Anthropic::MaxResultSizeChars` or moves to a resource
+- Request outcome fields sit on the `request` span, events hold `exception.*` alone, and errors render through `std::error::Report`
+- Debug filters write tool arguments into `.artifacts/logs`, and into OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set
+- Codex runs a stdio server on the 2026-07-28 lifecycle when its `env` sets `CODEX_MCP_PROTOCOL_VERSION`, HTTP servers take no setting
+- Codex `tool_timeout_sec` defaults to 300 seconds, Claude Code's first-byte timer stays at 60 seconds unless `.mcp.json` `timeout` raises it
+- Bridge rows in `mise.toml` pass `--listen 127.0.0.1:<port>` and one `--hide <glob>` per tool a skill replaces, with `MISE_PREFER_OFFLINE` set

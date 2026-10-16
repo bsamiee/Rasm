@@ -51,9 +51,8 @@
     "dotnet.projects.enableAutomaticRestore": false,
 
     // --- [RUST] ------------------------------------------------------------------------
-    "rust-analyzer.cargo.targetDir": true,
-    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer" },
-    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer" },
+    "rust-analyzer.check.overrideCommand": [ "cargo", "clippy", "--workspace", "--lib", "--bins", "--tests", "--message-format=json-diagnostic-rendered-ansi", "--keep-going" ],
     "rust-analyzer.rustc.source": "discover",
 
     // --- [SWIFT] -----------------------------------------------------------------------

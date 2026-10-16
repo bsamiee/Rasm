@@ -4,11 +4,11 @@ use clippy_utils::{
     desugar_await,
     diagnostics::span_lint_hir_and_then,
     higher::ForLoop,
-    paths::PathNS,
+    paths::{PathNS, lookup_path_str},
     peel_hir_expr_while,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
-    ty::implements_trait,
+    ty::{implements_trait, make_normalized_projection},
     visitors::for_each_expr_without_closures,
 };
 use rustc_data_structures::fx::FxHashSet;
@@ -16,7 +16,7 @@ use rustc_hir::{Expr, ExprKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::TyCtxt;
 
-use crate::resolve;
+use crate::result_parts;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -29,13 +29,13 @@ declare_lint! {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct SequentialJoin {
-    handle: Option<DefId>,
+    join_error: Option<DefId>,
 }
 
 impl_lint_pass!(SequentialJoin => [SEQUENTIAL_JOIN]);
 
 impl SequentialJoin {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { handle: resolve(tcx, PathNS::Type, &[("tokio::task::JoinHandle", ())]).into_keys().next() } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { join_error: lookup_path_str(tcx, PathNS::Type, "tokio::task::JoinError").into_iter().next() } }
 }
 
 impl<'tcx> LateLintPass<'tcx> for SequentialJoin {
@@ -53,8 +53,13 @@ impl<'tcx> LateLintPass<'tcx> for SequentialJoin {
                     .res_local_id()
                     .is_some_and(|local| bindings.contains(&local))
             };
-            let wrapped = |argument: &&'tcx Expr<'tcx>| {
-                bound(argument) && cx.tcx.get_diagnostic_item(sym::IntoFuture).is_some_and(|into_future| implements_trait(cx, typeck.expr_ty(argument), into_future, &[]))
+            let into_future = cx.tcx.get_diagnostic_item(sym::IntoFuture);
+            let wrapped = |argument: &&'tcx Expr<'tcx>| bound(argument) && into_future.is_some_and(|into_future| implements_trait(cx, typeck.expr_ty(argument), into_future, &[]));
+            let task = |future: &Expr<'_>| {
+                into_future
+                    .and_then(|into_future| make_normalized_projection(cx.tcx, cx.typing_env(), into_future, sym::Output, [typeck.expr_ty(future)]))
+                    .and_then(|output| result_parts(cx, output))
+                    .is_some_and(|(_, error)| error.opt_def_id().is_some_and(|error| Some(error) == self.join_error))
             };
             let joined = |future: &'tcx Expr<'tcx>| {
                 if bound(future) {
@@ -67,7 +72,7 @@ impl<'tcx> LateLintPass<'tcx> for SequentialJoin {
             };
             if let Some((awaited, future)) =
                 for_each_expr_without_closures(for_loop.body, |inner| desugar_await(inner).and_then(joined).map_or(ControlFlow::Continue(()), |future| ControlFlow::Break((inner, future))))
-                && typeck.expr_ty(future).peel_refs().opt_def_id().is_none_or(|spawned| Some(spawned) != self.handle)
+                && !task(future)
             {
                 span_lint_hir_and_then(cx, SEQUENTIAL_JOIN, expr.hir_id, for_loop.span.with_hi(for_loop.arg.span.hi()), "`for` loop awaits futures built before it one at a time", |diag| {
                     diag.span_note(awaited.span, "each future is awaited here before the next one");

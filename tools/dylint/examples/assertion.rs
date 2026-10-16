@@ -36,6 +36,22 @@ fn accepted(reply: &Reply) -> usize {
     if let Reply::Accepted(count) = reply { *count } else { 0 }
 }
 
+fn equal(left: usize, right: usize) -> usize {
+    assert_eq!(left, right, "lengths differ");
+    left
+}
+
+fn checked(values: &[usize]) -> usize {
+    debug_assert!(!values.is_empty(), "no values");
+    debug_assert_ne!(values.len(), LIMIT, "values fill the limit");
+    values.len()
+}
+
+fn rejected(reply: &Reply) -> bool {
+    core::debug_assert_matches!(reply, Reply::Rejected);
+    matches!(reply, Reply::Rejected)
+}
+
 fn compiled() -> usize {
     const { assert!(LIMIT.is_power_of_two()) };
     LIMIT
@@ -43,4 +59,17 @@ fn compiled() -> usize {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(POSITIVE, bounded(&[1, 2]), paired(&[1], &[2]), distinct(1, 2), accepted(&Reply::Accepted(1)), accepted(&Reply::Rejected), compiled())); }
+fn main() {
+    black_box(&(
+        POSITIVE,
+        bounded(&[1, 2]),
+        paired(&[1], &[2]),
+        distinct(1, 2),
+        accepted(&Reply::Accepted(1)),
+        accepted(&Reply::Rejected),
+        compiled(),
+        equal(1, 1),
+        checked(&[1]),
+        rejected(&Reply::Rejected),
+    ));
+}

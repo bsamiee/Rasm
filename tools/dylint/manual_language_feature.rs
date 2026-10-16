@@ -3,7 +3,7 @@ use core::iter;
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     fn_def_id, is_default_equivalent,
-    paths::PathNS,
+    paths::{PathNS, lookup_path_str},
     peel_blocks,
     res::{MaybeDef as _, MaybeResPath as _, MaybeTypeckRes as _},
     source::snippet_with_context,
@@ -24,7 +24,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, AdtDef, GenericArg, Ty, TyCtxt};
 use rustc_span::Span;
 
-use crate::{accessed_field, boxed_future, resolve};
+use crate::{accessed_field, boxed_future};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ impl ManualLanguageFeature {
             views: [sym::string_as_str, sym::vec_as_slice]
                 .into_iter()
                 .filter_map(|name| tcx.get_diagnostic_item(name))
-                .chain(resolve(tcx, PathNS::Value, &[("core::option::Option::as_deref", ())]).into_keys())
+                .chain(lookup_path_str(tcx, PathNS::Value, "core::option::Option::as_deref"))
                 .collect(),
         }
     }
@@ -122,34 +122,35 @@ impl<'tcx> LateLintPass<'tcx> for ManualLanguageFeature {
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx ImplItem<'tcx>) {
         if let ImplItemKind::Type(declared) = item.kind
             && !item.span.from_expansion()
-            && cx.tcx.trait_impl_of_assoc(item.owner_id.to_def_id()).is_some()
-            && !cx.effective_visibilities.is_exported(item.owner_id.def_id)
-            && boxed_future(cx, cx.tcx.normalize_erasing_regions(cx.typing_env(), cx.tcx.type_of(item.owner_id).instantiate_identity())).is_some()
         {
-            span_lint_hir_and_then(cx, MANUAL_LANGUAGE_FEATURE, item.hir_id(), declared.span, format!("associated type `{}` names a boxed `dyn Future`", item.ident), |diag| {
-                diag.help("declare the type as `impl Future` with the same bounds under `#![feature(impl_trait_in_assoc_type)]`");
-            });
-        }
-        if let ImplItemKind::Type(declared) = item.kind
-            && !item.span.from_expansion()
-            && let Some(iterator) = cx.tcx.get_diagnostic_item(sym::Iterator)
-            && cx.tcx.type_of(item.owner_id).instantiate_identity().skip_normalization().walk().filter_map(GenericArg::as_type).any(|adapter| {
-                matches!(adapter.kind(), ty::Adt(_, arguments)
-                    if arguments.types().any(Ty::is_fn_ptr)
-                        && implements_trait(cx, adapter, iterator, &[])
-                        && arguments.types().any(|argument| argument.is_fn_ptr() && get_iterator_item_ty(cx, adapter) != Some(argument)))
-            })
-        {
-            span_lint_hir_and_then(
-                cx,
-                MANUAL_LANGUAGE_FEATURE,
-                item.hir_id(),
-                declared.span,
-                format!("`{}` names an iterator adapter through a `fn` pointer in place of its closure", item.ident),
-                |diag| {
-                    diag.help("declare the type as `impl Iterator<Item = ..>` and build it with a closure under `#![feature(impl_trait_in_assoc_type)]`");
-                },
-            );
+            let held = cx.tcx.type_of(item.owner_id).instantiate_identity();
+            if cx.tcx.trait_impl_of_assoc(item.owner_id.to_def_id()).is_some()
+                && !cx.effective_visibilities.is_exported(item.owner_id.def_id)
+                && boxed_future(cx, cx.tcx.normalize_erasing_regions(cx.typing_env(), held)).is_some()
+            {
+                span_lint_hir_and_then(cx, MANUAL_LANGUAGE_FEATURE, item.hir_id(), declared.span, format!("associated type `{}` names a boxed `dyn Future`", item.ident), |diag| {
+                    diag.help("declare the type as `impl Future` with the same bounds under `#![feature(impl_trait_in_assoc_type)]`");
+                });
+            }
+            if let Some(iterator) = cx.tcx.get_diagnostic_item(sym::Iterator)
+                && held.skip_normalization().walk().filter_map(GenericArg::as_type).any(|adapter| {
+                    matches!(adapter.kind(), ty::Adt(_, arguments)
+                        if arguments.types().any(Ty::is_fn_ptr)
+                            && implements_trait(cx, adapter, iterator, &[])
+                            && arguments.types().any(|argument| argument.is_fn_ptr() && get_iterator_item_ty(cx, adapter) != Some(argument)))
+                })
+            {
+                span_lint_hir_and_then(
+                    cx,
+                    MANUAL_LANGUAGE_FEATURE,
+                    item.hir_id(),
+                    declared.span,
+                    format!("`{}` names an iterator adapter through a `fn` pointer in place of its closure", item.ident),
+                    |diag| {
+                        diag.help("declare the type as `impl Iterator<Item = ..>` and build it with a closure under `#![feature(impl_trait_in_assoc_type)]`");
+                    },
+                );
+            }
         }
     }
 

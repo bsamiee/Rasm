@@ -54,4 +54,4 @@ rule:
             - all: [{matches: negated-site}, {any: [{matches: earlier-negated}, {inside: {stopBy: end, matches: earlier-negated}}]}]
         - not: {matches: rust-domain-span}
 message: '`$LITERAL` repeats a value an earlier site of the file spells'
-note: 'Declare the value once at its owner, a `let` in the one function that repeats it, a `const` under `[CONSTANTS]`, an associated `const` of the type it measures, or the library constant stating it (`u16::MAX`, `f64::consts::PI`), and read it at every site'
+note: 'Declare the value once at its owner, a `let` in the one function that repeats it, a module `const`, an associated `const` of the type it measures, or the library constant stating it (`u16::MAX`, `f64::consts::PI`), and read it at every site'

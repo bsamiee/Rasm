@@ -1,33 +1,36 @@
-#![feature(error_reporter)]
+#![feature(error_reporter, nonpoison_mutex, sync_nonpoison)]
 
-use core::future::Future;
+use core::{future::ready, mem};
 use std::{
     borrow::Cow,
+    collections::BTreeMap,
     error::Report,
     ffi::OsString,
     io,
     process::{ExitCode, Stdio},
-    sync::{Arc, OnceLock},
+    sync::{Arc, Weak, nonpoison::Mutex},
 };
 
 use clap::Parser;
 use futures::{
-    FutureExt as _, StreamExt as _,
-    future::{BoxFuture, Shared},
+    FutureExt as _, StreamExt as _, TryFutureExt as _,
+    future::{BoxFuture, OptionFuture, Shared},
+    stream,
 };
 use globset::{Glob, GlobSet};
-use rasm_mcp::{Endpoint, PROTOCOL_VERSIONS, Target};
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
+use rasm_mcp::{Changes, Endpoint, PROTOCOL_VERSIONS, Subscriber, Target};
 use rmcp::{
     ClientHandler, ClientLifecycleMode, ErrorData, Peer, RoleClient, RoleServer, ServerHandler, ServiceError,
     handler::client::progress::ProgressDispatcher,
     model::{
-        CallToolRequest, CallToolRequestParams, CallToolResponse, CallToolResult, CancelTaskParams, CancelTaskRequest, ClientCapabilities, ClientConfig, ClientRequest, CompleteRequest,
-        CompleteRequestParams, CompleteResult, CustomRequest, CustomResult, GetMeta as _, GetPromptRequest, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskRequest, GetTaskResult,
-        Implementation, ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest, ListToolsResult,
+        CallToolRequest, CallToolRequestParams, CallToolResponse, CancelTaskParams, CancelTaskRequest, ClientCapabilities, ClientConfig, ClientRequest, CompleteRequest, CompleteRequestParams,
+        CompleteResult, CustomRequest, CustomResult, GetMeta as _, GetPromptRequest, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskRequest, GetTaskResult, Implementation,
+        ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest, ListToolsResult,
         PaginatedRequestParams, ProgressNotificationParam, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, RequestMetaObject, ServerConfig, ServerNotification,
-        ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
+        ServerResult, SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, Tool, UnsubscribeRequestParams, UpdateTaskParams, UpdateTaskRequest,
     },
-    service::{ClientInitializeError, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
+    service::{ClientInitializeError, MaybeSendFuture, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
     transport::TokioChildProcess,
 };
 use tokio::{
@@ -35,7 +38,11 @@ use tokio::{
     process::Command,
     sync::watch,
 };
-use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
+use tokio_stream::wrappers::WatchStream;
+use tokio_util::{
+    sync::{CancellationToken, DropGuard},
+    task::{AbortOnDropHandle, TaskTracker},
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -73,19 +80,17 @@ enum BridgeError {
 struct Upstream {
     config: ClientConfig,
     progress: ProgressDispatcher,
-    tools: watch::Sender<()>,
-    prompts: watch::Sender<()>,
-    resources: watch::Sender<()>,
+    marks: Changes<(), (), ()>,
 }
 
 impl ClientHandler for Upstream {
     async fn on_progress(&self, params: ProgressNotificationParam, _: NotificationContext<RoleClient>) { self.progress.handle_notification(params).await; }
 
-    async fn on_tool_list_changed(&self, _: NotificationContext<RoleClient>) { self.tools.send_replace(()); }
+    async fn on_tool_list_changed(&self, _: NotificationContext<RoleClient>) { self.marks.tools.send_modify(|_| ()); }
 
-    async fn on_prompt_list_changed(&self, _: NotificationContext<RoleClient>) { self.prompts.send_replace(()); }
+    async fn on_prompt_list_changed(&self, _: NotificationContext<RoleClient>) { self.marks.prompts.send_modify(|_| ()); }
 
-    async fn on_resource_list_changed(&self, _: NotificationContext<RoleClient>) { self.resources.send_replace(()); }
+    async fn on_resource_list_changed(&self, _: NotificationContext<RoleClient>) { self.marks.resources.send_modify(|_| ()); }
 
     fn get_info(&self) -> ClientConfig { self.config.clone() }
 }
@@ -96,12 +101,13 @@ struct Bridge {
     version: ProtocolVersion,
     hidden: GlobSet,
     progress: ProgressDispatcher,
-    tools: watch::Sender<Arc<[Tool]>>,
-    prompts: watch::Receiver<()>,
-    resources: watch::Receiver<()>,
+    marks: Changes<(), (), ()>,
+    changes: Changes<Option<Vec<Tool>>, (), ()>,
+    leases: Mutex<BTreeMap<String, Weak<DropGuard>>>,
+    tasks: TaskTracker,
     stop: CancellationToken,
     ended: Shared<BoxFuture<'static, ()>>,
-    _relays: [Option<AbortOnDropHandle<()>>; 3],
+    _stderr: Option<AbortOnDropHandle<()>>,
 }
 
 impl Bridge {
@@ -113,122 +119,110 @@ impl Bridge {
         let stderr = stderr.map(|stderr| {
             AbortOnDropHandle::new(tokio::spawn(async move {
                 let mut lines = BufReader::new(stderr).split(b'\n');
-                loop {
-                    match lines.next_segment().await {
-                        Ok(Some(line)) => tracing::info!(target: "upstream", message = %String::from_utf8_lossy(&line)),
-                        Ok(None) => break,
-                        Err(error) => break tracing::warn!(exception.message = %Report::new(error), "upstream stderr read failed"),
-                    }
+                while let Some(line) = lines.next_segment().await.inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "upstream stderr read failed")).ok().flatten() {
+                    tracing::info!(target: "upstream", message = %String::from_utf8_lossy(&line));
                 }
             }))
         });
-        let (progress, stop) = (ProgressDispatcher::new(), CancellationToken::new());
-        let ((tools, stale), (prompts, prompted), (resources, resourced)) = (watch::channel(()), watch::channel(()), watch::channel(()));
+        let (progress, tasks, stop) = (ProgressDispatcher::new(), TaskTracker::new(), CancellationToken::new());
+        let marks = Changes::new((), (), ());
+        let stale = marks.tools.subscribe();
         let lifecycle = ClientLifecycleMode::Auto {
             preferred_versions: PROTOCOL_VERSIONS.iter().rev().filter(|version| !version.has_initialize()).cloned().collect(),
             legacy_version: PROTOCOL_VERSIONS.iter().rev().find(|version| version.has_initialize()).cloned(),
         };
-        let upstream = Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), progress: progress.clone(), tools, prompts, resources };
-        let (marks, service) = ((upstream.tools.clone(), upstream.prompts.clone(), upstream.resources.clone()), serve_client_with_lifecycle_and_ct(upstream, transport, lifecycle, stop.clone()).await.map_err(|error| BridgeError::Lifecycle(Box::new(error)))?);
+        let handler = Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), progress: progress.clone(), marks: marks.clone() };
+        let service = serve_client_with_lifecycle_and_ct(handler, transport, lifecycle, stop.clone()).await.map_err(|error| BridgeError::Lifecycle(Box::new(error)))?;
         let (peer, ended) = (service.peer().clone(), service.waiting().map(|quit| tracing::info!(quit = ?quit, "upstream ended")).boxed().shared());
         let upstream = peer.peer_info().ok_or(BridgeError::Unidentified)?;
-        let visible = move |hidden: &GlobSet, listed: Vec<Tool>| listed.into_iter().filter(|tool| !hidden.is_match(tool.name.as_ref())).collect::<Arc<[Tool]>>();
-        let snapshot = upstream.capabilities.tools.as_ref().and_then(|tools| tools.list_changed).is_some_and(|changed| changed);
-        let tools = watch::Sender::new(if snapshot { visible(&hidden, peer.list_all_tools().await.map_err(BridgeError::Tools)?) } else { Arc::default() });
-        let refresh = snapshot.then(|| {
-            let (peer, hidden, tools, mut stale) = (peer.clone(), hidden.clone(), tools.clone(), stale);
-            AbortOnDropHandle::new(tokio::spawn(async move {
-                while stale.changed().await.is_ok() {
-                    match peer.list_all_tools().await {
-                        Ok(listed) => tools.send_if_modified(|current| {
-                            let fresh = visible(&hidden, listed);
-                            (*current != fresh).then(|| *current = fresh).is_some()
-                        }),
-                        Err(error) => tracing::warn!(exception.message = %Report::new(error), "tool list refresh failed"),
-                    };
+        let visible = {
+            let hidden = hidden.clone();
+            move |listed: Vec<Tool>| Arc::new(Some(listed.into_iter().filter(|tool| !hidden.is_match(tool.name.as_ref())).collect()))
+        };
+        let listing = upstream.capabilities.tools.as_ref().and_then(|tools| tools.list_changed) == Some(true);
+        let tools = watch::Sender::new(OptionFuture::from(listing.then(|| peer.list_all_tools())).await.transpose().map_err(BridgeError::Tools)?.map_or_default(&visible));
+        if listing {
+            let tools = tools.clone();
+            let listings = WatchStream::from_changes(stale).zip(stream::repeat(peer.clone())).then(async |(_, client)| client.list_all_tools().await);
+            tasks.spawn(stop.clone().run_until_cancelled_owned(listings.for_each(move |listed| {
+                match listed {
+                    Ok(listed) => drop(tools.send_if_modified(|current| mem::replace(current, visible(listed)) != *current)),
+                    Err(error) => tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "tool list refresh failed"),
                 }
-            }))
-        });
-        let changes = SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(&upstream.capabilities);
-        let follow = (!upstream.protocol_version.has_initialize() && changes != SubscriptionFilter::default()).then(|| {
-            let peer = peer.clone();
-            AbortOnDropHandle::new(tokio::spawn(async move {
-                let mark = |filter: &SubscriptionFilter| {
-                    [(filter.tools_list_changed, &marks.0), (filter.prompts_list_changed, &marks.1), (filter.resources_list_changed, &marks.2)]
-                        .into_iter()
-                        .filter(|(accepted, _)| *accepted == Some(true))
-                        .for_each(|(_, changed)| changed.send_replace(()));
-                };
-                let mut filter = changes;
-                loop {
-                    let mut subscription = match peer.listen(filter.clone()).await {
-                        Ok(subscription) => subscription,
-                        Err(error) => break tracing::warn!(exception.message = %Report::new(error), "list change subscription failed"),
-                    };
-                    loop {
-                        match (subscription.next().await, subscription.end()) {
-                            (Ok(Some(ServerNotification::ToolListChangedNotification(_))), _) => marks.0.send_replace(()),
-                            (Ok(Some(ServerNotification::PromptListChangedNotification(_))), _) => marks.1.send_replace(()),
-                            (Ok(Some(ServerNotification::ResourceListChangedNotification(_))), _) => marks.2.send_replace(()),
-                            (Ok(Some(_)), _) => (),
-                            (Ok(None), Some(SubscriptionEnd::Lagged { capacity: _ })) => break mark(subscription.acknowledged()),
-                            (Ok(None), end) => return tracing::debug!(end = ?end, "list change subscription ended"),
-                            (Err(error), _) => return tracing::warn!(exception.message = %Report::new(error), "list change subscription failed"),
-                        }
-                    }
-                    filter = subscription.acknowledged().clone();
-                }
-            }))
-        });
+                ready(())
+            })));
+        }
+        let filter = SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(&upstream.capabilities);
+        if !upstream.protocol_version.has_initialize() && filter != SubscriptionFilter::default() {
+            track(&tasks, &stop, follow(peer.clone(), marks.clone(), filter));
+        }
         let mut info = ServerConfig::new(upstream.capabilities.clone()).with_server_info(upstream.server_info.clone().unwrap_or(identity));
         info.capabilities.logging = None;
-        info.capabilities.resources.iter_mut().for_each(|resources| resources.subscribe = None);
+        info.capabilities.resources.iter_mut().filter(|_| upstream.protocol_version.has_initialize()).for_each(|capability| capability.subscribe = None);
         info.instructions.clone_from(&upstream.instructions);
         info.meta.clone_from(&upstream.meta);
-        Ok(Self { peer, info, version: upstream.protocol_version.clone(), hidden, progress, tools, prompts: prompted, resources: resourced, stop, ended, _relays: [stderr, refresh, follow] })
+        let changes = Changes { tools, prompts: marks.prompts.clone(), resources: marks.resources.clone(), updated: marks.updated.clone() };
+        Ok(Self { peer, info, version: upstream.protocol_version.clone(), hidden, progress, marks, changes, leases: Mutex::default(), tasks, stop, ended, _stderr: stderr })
+    }
+
+    fn lease(&self, uri: &String) -> Arc<DropGuard> {
+        let mut leases = self.leases.lock();
+        leases.retain(|_, held| held.strong_count() > 0);
+        leases.get(uri).and_then(Weak::upgrade).unwrap_or_else(|| {
+            let released = CancellationToken::new();
+            let held = Arc::new(released.clone().drop_guard());
+            leases.insert(uri.clone(), Arc::downgrade(&held));
+            let filter = SubscriptionFilter::builder().resource_subscriptions(vec![uri.clone()]).build();
+            track(&self.tasks, &self.stop, released.run_until_cancelled_owned(follow(self.peer.clone(), self.marks.clone(), filter)).map(|followed| followed.unwrap_or(Ok(()))));
+            held
+        })
     }
 }
 
 impl Endpoint for Bridge {
     type Error = BridgeError;
 
-    fn session(&self, stopping: &CancellationToken) -> impl ServerHandler + use<> { Proxy { bridge: Arc::clone(self), stopping: stopping.clone(), relay: OnceLock::new() } }
+    fn session(self: Arc<Self>, stopping: &CancellationToken, _: &TaskTracker) -> impl ServerHandler + use<> { Proxy { bridge: self, subscriber: Subscriber::new(stopping.clone()) } }
 
     async fn serve(self: Arc<Self>, stopping: CancellationToken) -> Result<(), BridgeError> {
-        let closed = tokio::select! {
-            () = self.ended.clone() => Err(BridgeError::Ended),
-            () = stopping.cancelled() => Ok(()),
+        let closed = match stopping.run_until_cancelled(self.ended.clone()).await {
+            Some(()) => Err(BridgeError::Ended),
+            None => Ok(()),
         };
         self.stop.cancel();
         self.ended.clone().await;
+        self.tasks.close();
+        self.tasks.wait().await;
         closed
     }
 }
 
 struct Proxy {
     bridge: Arc<Bridge>,
-    stopping: CancellationToken,
-    relay: OnceLock<AbortOnDropHandle<()>>,
+    subscriber: Subscriber<Arc<DropGuard>>,
 }
 
 impl Proxy {
     async fn forward(&self, mut request: ClientRequest, context: &RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
-        let fault = |error: ServiceError| match error {
-            ServiceError::McpError(data) => data,
-            other => ErrorData::internal_error(Report::new(other).to_string(), None),
+        let fault = |error: ServiceError| if let ServiceError::McpError(data) = error { data } else { ErrorData::internal_error(Report::new(error).to_string(), None) };
+        let target = if let ClientRequest::CallToolRequest(call) = &request {
+            Some(Target::Tool(call.params.name.clone()))
+        } else if let ClientRequest::GetPromptRequest(prompt) = &request {
+            Some(Target::Prompt(prompt.params.name.clone()))
+        } else if let ClientRequest::ReadResourceRequest(read) = &request {
+            Some(Target::Resource(read.params.uri.clone()))
+        } else {
+            None
         };
-        let target = match &request {
-            ClientRequest::CallToolRequest(call) => Some(Target::Tool(call.params.name.as_ref())),
-            ClientRequest::GetPromptRequest(prompt) => Some(Target::Prompt(prompt.params.name.as_str())),
-            ClientRequest::ReadResourceRequest(read) => Some(Target::Resource(read.params.uri.as_str())),
-            _ => None,
-        };
-        let hidden = matches!(target, Some(Target::Tool(name)) if self.bridge.hidden.is_match(name));
+        let hidden = matches!(&target, Some(Target::Tool(name)) if self.bridge.hidden.is_match(name.as_ref()));
         let method = request.method().to_owned();
-        let failed = |result: &ServerResult| matches!(result, ServerResult::CallToolResult(CallToolResult { is_error: Some(true), .. }));
+        let failed = |result: &ServerResult| matches!(result, ServerResult::CallToolResult(result) if result.is_error == Some(true));
         rasm_mcp::observe(&method, target, context, failed, async {
             if hidden {
                 return Err(ErrorData::invalid_params("tool not found", None));
+            }
+            if let (ClientRequest::ListToolsRequest(_), Some(tools)) = (&request, &**self.bridge.changes.tools.borrow()) {
+                return Ok(ServerResult::ListToolsResult(ListToolsResult::with_all_items(tools.clone())));
             }
             *request.get_meta_mut() = RequestMetaObject(context.meta.0.clone());
             request.get_meta_mut().retain(|key, _| !key.starts_with("io.modelcontextprotocol/"));
@@ -239,27 +233,27 @@ impl Proxy {
                     meta.set_client_info(client);
                     PeerRequestOptions::no_options().with_meta(meta)
                 }
-                _ => PeerRequestOptions::no_options(),
+                (true | false, _, _) => PeerRequestOptions::no_options(),
             };
             let downstream = context.meta.get_progress_token();
             if let Some(token) = &downstream
                 && let Err(error) = context.peer.notify_progress(ProgressNotificationParam::new(token.clone(), 0.0)).await
             {
-                tracing::debug!(exception.message = %Report::new(error), "progress relay failed");
+                tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed");
             }
             let mut handle = self.bridge.peer.send_cancellable_request(request, options).await.map_err(fault)?;
-            let mut progress = self.bridge.progress.subscribe(handle.progress_token.clone()).await;
-            let mut relayed = 0.0;
+            let mut progress = stream::iter(OptionFuture::from(downstream.as_ref().map(|_| self.bridge.progress.subscribe(handle.progress_token.clone()))).await).flatten();
+            let mut relayed = 0.0_f64;
             let mut response = loop {
                 tokio::select! {
                     biased;
-                    received = &mut handle.rx => break received.map_err(|_closed| ServiceError::TransportClosed).and_then(core::convert::identity).map_err(fault),
+                    received = &mut handle.rx => break received.map_err(|_closed| ServiceError::TransportClosed).flatten().map_err(fault),
                     () = context.ct.cancelled() => break handle.cancel(None).await.map_err(fault).and(Err(ErrorData::internal_error("request cancelled", None))),
-                    Some(mut update) = progress.next(), if downstream.is_some() => if update.progress > relayed && let Some(token) = &downstream {
+                    Some(mut update) = progress.next() => if update.progress > relayed && let Some(token) = &downstream {
                         relayed = update.progress;
                         update.progress_token = token.clone();
                         if let Err(error) = context.peer.notify_progress(update).await {
-                            tracing::debug!(exception.message = %Report::new(error), "progress relay failed");
+                            tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed");
                         }
                     },
                 }
@@ -312,33 +306,65 @@ impl ServerHandler for Proxy {
             ServerResult::TaskAckResult(_) | ServerResult::EmptyResult(_) => ();
         on_custom_request(request: CustomRequest) -> CustomResult = request =>
             ServerResult::CustomResult(result) => result;
-    }
-
-    async fn list_tools(&self, request: Option<PaginatedRequestParams>, context: RequestContext<RoleServer>) -> Result<ListToolsResult, ErrorData> {
-        match self.bridge.info.capabilities.tools.as_ref().and_then(|tools| tools.list_changed) {
-            Some(true) => rasm_mcp::observe("tools/list", None, &context, |_| false, async { Ok(ListToolsResult::with_all_items(self.bridge.tools.borrow().to_vec())) }).await,
-            Some(false) | None => match self.forward(ListToolsRequest { params: request, ..ListToolsRequest::default() }.into(), &context).await? {
-                ServerResult::ListToolsResult(listed) => Ok(listed),
-                _ => Err(ErrorData::internal_error(Report::new(ServiceError::UnexpectedResponse).to_string(), None)),
-            },
-        }
+        list_tools(request: Option<PaginatedRequestParams>) -> ListToolsResult = ListToolsRequest { params: request, ..ListToolsRequest::default() } =>
+            ServerResult::ListToolsResult(result) => result;
     }
 
     fn get_info(&self) -> ServerConfig { self.bridge.info.clone() }
 
     fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> { Cow::Borrowed(PROTOCOL_VERSIONS) }
 
-    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
-        let changes = rasm_mcp::changes(self.bridge.tools.subscribe(), self.bridge.prompts.clone(), self.bridge.resources.clone());
-        self.relay.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(rasm_mcp::relay(context.peer, changes))));
+    async fn on_initialized(&self, context: NotificationContext<RoleServer>) { self.bridge.changes.initialized(&self.subscriber, context.peer); }
+
+    fn subscribe(&self, request: SubscribeRequestParams, _: RequestContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + MaybeSendFuture + '_ {
+        match self.bridge.info.capabilities.resources.as_ref().and_then(|resources| resources.subscribe) {
+            Some(true) => self.subscriber.subscribe(request.uri, |uri| self.bridge.lease(uri)),
+            Some(false) | None => ready(Err(ErrorData::method_not_found::<SubscribeRequestMethod>())),
+        }
+    }
+
+    fn unsubscribe(&self, request: UnsubscribeRequestParams, _: RequestContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + MaybeSendFuture + '_ {
+        self.subscriber.unsubscribe(&request.uri)
     }
 
     fn accepted_subscription_filter(&self, requested: &SubscriptionFilter) -> Option<SubscriptionFilter> { Some(requested.clone()) }
 
-    fn listen(&self, context: SubscriptionContext) -> impl Future<Output = Result<(), ErrorData>> + Send + '_ {
-        let changes = rasm_mcp::changes(self.bridge.tools.subscribe(), self.bridge.prompts.clone(), self.bridge.resources.clone());
-        async move { rasm_mcp::listen(&context, changes, &self.stopping).await }
+    async fn listen(&self, context: SubscriptionContext) -> Result<(), ErrorData> {
+        let _leases = context.accepted().resource_subscriptions.iter().flatten().map(|uri| self.bridge.lease(uri)).collect::<Vec<_>>();
+        self.bridge.changes.listen(&self.subscriber, context).await;
+        Ok(())
     }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+async fn follow(peer: Peer<RoleClient>, marks: Changes<(), (), ()>, filter: SubscriptionFilter) -> Result<(), ServiceError> {
+    let mut subscription = peer.listen(filter).await?;
+    loop {
+        match (subscription.next().await?, subscription.end()) {
+            (Some(ServerNotification::ToolListChangedNotification(_)), _) => marks.tools.send_modify(|_| ()),
+            (Some(ServerNotification::PromptListChangedNotification(_)), _) => marks.prompts.send_modify(|_| ()),
+            (Some(ServerNotification::ResourceListChangedNotification(_)), _) => marks.resources.send_modify(|_| ()),
+            (Some(ServerNotification::ResourceUpdatedNotification(updated)), _) => marks.update(updated.params.uri),
+            (Some(_), _) => {}
+            (None, Some(SubscriptionEnd::Lagged { capacity: _ })) => {
+                subscription = peer.listen(subscription.acknowledged().clone()).await?;
+                let acknowledged = subscription.acknowledged();
+                [(acknowledged.tools_list_changed, &marks.tools), (acknowledged.prompts_list_changed, &marks.prompts), (acknowledged.resources_list_changed, &marks.resources)]
+                    .into_iter()
+                    .filter(|(kind, _)| *kind == Some(true))
+                    .for_each(|(_, mark)| mark.send_modify(|_| ()));
+                acknowledged.resource_subscriptions.iter().flatten().for_each(|uri| marks.update(uri.clone()));
+            }
+            (None, end) => break tracing::debug!(end = ?end, "upstream subscription ended"),
+        }
+    }
+    Ok(())
+}
+
+fn track<F>(tasks: &TaskTracker, stop: &CancellationToken, task: F)
+where F: Future<Output = Result<(), ServiceError>> + Send + 'static {
+    tasks.spawn(stop.clone().run_until_cancelled_owned(task.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "upstream subscription failed"))));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

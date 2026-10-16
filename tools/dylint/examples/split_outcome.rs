@@ -77,7 +77,17 @@ struct Pending {
     slot: Option<u16>,
 }
 
+#[derive(Debug)]
+struct Reply {
+    value: Option<u16>,
+    refusal: Option<Closed>,
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("port is closed")]
+struct Closed;
 
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read {path:?}")]
@@ -133,6 +143,8 @@ fn parsed(text: &str) -> Parsed {
     }
 }
 
+fn reply(outcome: Result<u16, Closed>) -> Reply { Reply { value: outcome.ok(), refusal: outcome.err() } }
+
 fn read(path: &str) -> Result<String, ReadError> { fs_err::read_to_string(path).map_err(|source| ReadError { path: Some(path.to_owned()), source }) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -149,5 +161,6 @@ fn main() {
         toggles().iter().all(|toggle| toggle.on && toggle.last.is_none_or(|last| last == 8080)) && pending(true).slot.is_some() != pending(true).ready,
     ];
     let parsed = parsed("8080");
-    black_box((ports, checks, read("port").map(|text| text.len()).unwrap_or_default(), parsed.port, parsed.failure.is_some()));
+    let replied = [reply(Ok(8080)), reply(Err(Closed))].map(|reply| reply.value.is_some() && reply.refusal.is_none());
+    black_box((ports, checks, read("port").map(|text| text.len()).unwrap_or_default(), parsed.port, parsed.failure.is_some(), replied));
 }

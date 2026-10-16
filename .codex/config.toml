@@ -99,16 +99,17 @@ NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"",
 [mcp_servers.rhino-mcp-platform]
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7406/"
-tool_timeout_sec            = 180
+tool_timeout_sec            = 600
 
 [mcp_servers.blender]
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7407/"
+tool_timeout_sec            = 600
 
 [mcp_servers.mcp-for-blender]
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7408/"
-tool_timeout_sec            = 180
+tool_timeout_sec            = 600
 
 # --- [PLUGINS] --------------------------------------------------------------------------
 

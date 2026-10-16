@@ -1,4 +1,4 @@
-use core::hint::black_box;
+use core::{hint::black_box, num::ParseIntError};
 use std::io::{self, Read};
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -30,6 +30,14 @@ impl From<io::Error> for JournalError {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[error("port text {text:?} is not a number")]
+struct PortText {
+    text: String,
+    #[source]
+    source: ParseIntError,
+}
+
+#[derive(Debug, thiserror::Error)]
 enum LoadError {
     #[error("cannot read {path}")]
     Read {
@@ -50,6 +58,8 @@ fn io_text(text: &str) -> io::Result<u16> {
     }
 }
 
+fn typed_io(text: &str) -> io::Result<u16> { text.parse().map_err(|source| io::Error::new(io::ErrorKind::InvalidData, PortText { text: text.to_owned(), source })) }
+
 fn loaded(path: &str) -> Result<String, LoadError> {
     if path.is_empty() {
         Err(LoadError::Read { path: path.to_owned(), source: io::Error::other("path is empty") })
@@ -64,4 +74,4 @@ fn journaled(path: &str) -> Result<String, JournalError> { Ok(fs_err::read_to_st
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(io_text("8080"), loaded("port"), stored("port"), journaled("port"), Magic.read(&mut [0; 4]))); }
+fn main() { black_box(&(io_text("8080"), typed_io("8081"), loaded("port"), stored("port"), journaled("port"), Magic.read(&mut [0; 4]))); }

@@ -53,4 +53,4 @@ rule:
             - has: {field: body, matches: single-field}
             - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derive-more-from}
 message: '`$S` converts from its one field through a hand `From` impl or `derive_more::From`'
-note: 'Write `#[derive(From)]` with `use core::from::From;` (`#![feature(derive_from)]`), the derive converts a single-field struct from its field. An impl transforming the value and a multi-field or enum derive stay as written. The `redundant_error_conversion` and `untyped_error` dylints own a conversion into an error type, the error type takes `#[from]` on its thiserror field'
+note: 'Write `#[derive(From)]` with `use core::from::From;` (`#![feature(derive_from)]`), the derive converts a single-field struct from its field. An impl transforming the value and a multi-field or enum derive stay as written. The `redundant_error_conversion` and `contextless_io_error` dylints own a conversion into an error type, the error type takes `#[from]` on its thiserror field'

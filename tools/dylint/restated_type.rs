@@ -170,6 +170,27 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
             shared: bool,
         }
 
+        fn substituted<'tcx, T, W>(tcx: TyCtxt<'tcx>, value: T, item: DefId, with: W) -> T
+        where
+            T: TypeFoldable<TyCtxt<'tcx>>,
+            W: Fn(GenericArgsRef<'tcx>) -> Ty<'tcx>,
+        {
+            value.fold_with(&mut BottomUpFolder {
+                tcx,
+                ty_op: |ty: Ty<'tcx>| {
+                    if let ty::Adt(adt, args) = ty.kind()
+                        && adt.did() == item
+                    {
+                        with(args)
+                    } else {
+                        ty
+                    }
+                },
+                lt_op: |region| region,
+                ct_op: |constant| constant,
+            })
+        }
+
         fn unit(shape: &Shape<'_>) -> bool { !shape.record() && shape.cases.iter().all(|case| case.fields.is_empty()) }
 
         fn shape(tcx: TyCtxt<'_>, item: DefId) -> Option<Shape<'_>> {
@@ -610,24 +631,6 @@ fn converted<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> &'tcx Exp
         } else {
             None
         }
-    })
-}
-
-fn substituted<'tcx, T>(tcx: TyCtxt<'tcx>, value: T, item: DefId, with: impl Fn(GenericArgsRef<'tcx>) -> Ty<'tcx>) -> T
-where T: TypeFoldable<TyCtxt<'tcx>> {
-    value.fold_with(&mut BottomUpFolder {
-        tcx,
-        ty_op: |ty: Ty<'tcx>| {
-            if let ty::Adt(adt, args) = ty.kind()
-                && adt.did() == item
-            {
-                with(args)
-            } else {
-                ty
-            }
-        },
-        lt_op: |region| region,
-        ct_op: |constant| constant,
     })
 }
 

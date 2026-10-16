@@ -143,6 +143,8 @@ enum ReportError {
 
 fn spelled(text: &str) -> Result<u16, String> { if text.is_empty() { Err(String::from("port text is empty")) } else { Digits::try_from(text).map(|digits| digits.0) } }
 
+pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
+
 fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
 
 fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) }
@@ -244,6 +246,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let ports = [
         spelled(text)?,
         borrowed(text)?,
+        probed(text).unwrap_or_default(),
         boxed(text)?,
         local_alias(text)?,
         generic_default(text)?,

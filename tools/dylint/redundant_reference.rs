@@ -28,19 +28,6 @@ enum FieldUse {
     Other,
 }
 
-struct OtherLifetimeUse {
-    param: LocalDefId,
-    field: HirId,
-}
-
-impl<'tcx> Visitor<'tcx> for OtherLifetimeUse {
-    type Result = ControlFlow<()>;
-
-    fn visit_lifetime(&mut self, lifetime: &'tcx Lifetime) -> Self::Result {
-        if lifetime.kind == LifetimeKind::Param(self.param) && lifetime.hir_id != self.field { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
-    }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 #[derive(Default)]
@@ -78,6 +65,19 @@ impl<'tcx> LateLintPass<'tcx> for RedundantReference {
     }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
+        struct OtherLifetimeUse {
+            param: LocalDefId,
+            field: HirId,
+        }
+
+        impl<'tcx> Visitor<'tcx> for OtherLifetimeUse {
+            type Result = ControlFlow<()>;
+
+            fn visit_lifetime(&mut self, lifetime: &'tcx Lifetime) -> Self::Result {
+                if lifetime.kind == LifetimeKind::Param(self.param) && lifetime.hir_id != self.field { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
+            }
+        }
+
         let findings = mem::take(&mut self.fields).into_iter().filter_map(|(field, field_use)| {
             if let FieldUse::Subfield { subfield, reads } = field_use
                 && let item = cx.tcx.hir_expect_item(cx.tcx.local_parent(field))

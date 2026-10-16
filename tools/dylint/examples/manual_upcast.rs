@@ -114,6 +114,13 @@ impl Boxed for Circle {
     fn into_display(self: Box<Self>) -> Box<dyn Display> { self }
 }
 
+impl Erased for Circle {
+    fn as_erased(&self) -> &dyn Erased {
+        const UNIT: Circle = Circle { radius: 1 };
+        &UNIT
+    }
+}
+
 impl Defaulted for Circle {}
 
 impl Viewed for Circle {
@@ -139,7 +146,7 @@ fn main() {
         [square.view().to_string(), Circle { radius: 7 }.view().to_string()],
         {
             let mut circle = Circle { radius: 1 };
-            [circle.as_display().to_string(), circle.label().to_string(), circle.as_shown().to_string(), circle.as_named_display().to_string(), circle.name()]
+            [circle.as_display().to_string(), circle.label().to_string(), circle.as_erased().to_string(), circle.as_shown().to_string(), circle.as_named_display().to_string(), circle.name()]
         },
         (Box::new(Circle { radius: 4 }).into_display().to_string(), Circle { radius: 5 }.area(), square.as_any().is::<Square>(), Circle { radius: 6 }.as_any().is::<Circle>()),
     ));

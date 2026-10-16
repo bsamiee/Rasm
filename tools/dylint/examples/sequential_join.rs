@@ -64,6 +64,14 @@ async fn guarded(handles: Vec<JoinHandle<u64>>) -> Result<u64, JoinError> {
     Ok(total)
 }
 
+async fn aborting(handles: Vec<AbortOnDropHandle<u64>>) -> Result<Vec<u64>, JoinError> {
+    let mut results = Vec::new();
+    for handle in handles {
+        results.push(handle.await?);
+    }
+    Ok(results)
+}
+
 async fn received(receivers: Vec<oneshot::Receiver<u64>>) -> Result<u64, oneshot::error::RecvError> {
     let mut total = 0;
     for receiver in receivers {
@@ -127,6 +135,7 @@ async fn main() -> Result<(), JoinError> {
     reversed(spawned(2)).await?;
     fielded(vec![Task { name: "first", handle: tokio::spawn(async { 1 }) }]).await?;
     guarded(spawned(2)).await?;
+    aborting(spawned(2).into_iter().map(AbortOnDropHandle::new).collect()).await?;
     received(vec![receiver]).await.unwrap_or_default();
     pending(vec![1, 2]).await?;
     per_id(vec![1, 2]).await?;

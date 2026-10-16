@@ -26,7 +26,10 @@
         "args": [ "exec", "--", "rust-analyzer" ],
         "extensionToLanguage": { ".rs": "rust" },
         "diagnostics": false,
-        "initializationOptions": { "check": { "command": "clippy" }, "rustc": { "source": "discover" } }
+        "initializationOptions": {
+            "check": { "overrideCommand": [ "cargo", "clippy", "--workspace", "--lib", "--bins", "--tests", "--message-format=json", "--keep-going" ] },
+            "rustc": { "source": "discover" }
+        }
     },
     "swift": {
         "command": "sourcekit-lsp",

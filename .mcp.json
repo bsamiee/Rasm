@@ -84,15 +84,18 @@
         },
         "rhino-mcp-platform": {
             "type": "http",
-            "url": "http://127.0.0.1:7406/"
+            "url": "http://127.0.0.1:7406/",
+            "timeout": 600000
         },
         "blender": {
             "type": "http",
-            "url": "http://127.0.0.1:7407/"
+            "url": "http://127.0.0.1:7407/",
+            "timeout": 600000
         },
         "mcp-for-blender": {
             "type": "http",
-            "url": "http://127.0.0.1:7408/"
+            "url": "http://127.0.0.1:7408/",
+            "timeout": 600000
         }
     }
 }

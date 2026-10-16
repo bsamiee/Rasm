@@ -8,7 +8,7 @@ edition.workspace    = true
 keywords             = ["mcp", "modelcontextprotocol", "stdio", "streamable-http", "proxy"]
 license.workspace    = true
 repository.workspace = true
-description          = "Bridges a stdio MCP server to loopback Streamable HTTP, hiding tools by glob"
+description          = "Bridges a stdio MCP server to Streamable HTTP, hiding tools by glob"
 
 # --- [BIN] ------------------------------------------------------------------------------
 
@@ -26,11 +26,14 @@ workspace = true
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-tokio      = { workspace = true }
-tokio-util = { workspace = true }
-thiserror  = { workspace = true }
-globset    = { workspace = true }
-rmcp       = { workspace = true }
-tracing    = { workspace = true }
-clap       = { workspace = true }
-rasm-mcp   = { workspace = true }
+futures                            = { workspace = true }
+tokio                              = { workspace = true }
+tokio-util                         = { workspace = true }
+tokio-stream                       = { workspace = true }
+thiserror                          = { workspace = true }
+globset                            = { workspace = true }
+rmcp                               = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+clap                               = { workspace = true }
+rasm-mcp                           = { workspace = true }

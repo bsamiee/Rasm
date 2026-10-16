@@ -72,6 +72,8 @@ mod units {
         pub(crate) fn new(value: u8) -> Option<Self> { (value <= 10).then_some(Self { value, label: "level" }) }
 
         pub(crate) fn lowered(&self) -> Self { raw(self.value.saturating_sub(1)) }
+
+        pub(crate) fn raised(&self) -> Self { raw(self.value.saturating_add(1).min(10)) }
     }
 
     fn raw(value: u8) -> Level { Level { value, label: "raw" } }
@@ -89,7 +91,7 @@ fn main() -> ExitCode {
     let port = Port::try_from(8080).map_or(0, |port| port.0);
     let area = Window::new(2, 3).map_or([0, 0], |window| [window.area(), window.width]);
     let weights = [Weight::try_from(10).map_or(0, |weight| weight.get()), Weight::unchecked(1).halved().get(), weighed(3).get(), Meters::from(4).0];
-    let level = Level::new(3).map(|level| (level.lowered().value, level.label));
+    let level = Level::new(3).map(|level| (level.lowered().value, level.raised().value, level.label));
     black_box((area, weights, level, Packet::decode(&[7]).map(|packet| packet.payload)));
     ExitCode::from(u8::from(port == 0))
 }

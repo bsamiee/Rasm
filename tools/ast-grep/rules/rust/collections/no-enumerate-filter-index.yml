@@ -19,4 +19,4 @@ rule:
             - pattern: '$I.enumerate().filter_map(|($IDX, $ITEM)| $TEST.then(|| $IDX))'
             - matches: index-free-test
 message: '`$CHAIN` numbers every element to keep the indexes that pass a test'
-note: 'Call `Itertools::positions(<test>)` on the iterator (`use itertools::Itertools;`), `positions` yields the index of each element the test accepts. The test takes each element by value in place of a reference to the numbered pair'
+note: 'Call `Itertools::positions(<test>)` on the iterator (`use itertools::Itertools as _;`), `positions` yields the index of each element the test accepts. The test takes each element by value in place of a reference to the numbered pair'

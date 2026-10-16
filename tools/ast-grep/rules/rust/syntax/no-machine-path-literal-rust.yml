@@ -7,4 +7,4 @@ rule:
     pattern: $PATH
     matches: rust-machine-path
 message: '`$PATH` hardcodes a path from one machine, one platform''s home layout, or the build checkout into the product'
-note: 'Take the location as an argument the boundary resolves at run time (a `clap` value, `etcetera` base directories, `std::env::current_exe`) and append segments with `Path::join`, or embed checkout content at build time with `include_str!`, an installed binary runs where no checkout exists'
+note: 'Take the location as an argument the boundary resolves at run time (a `clap` value, `std::env::current_exe`) and append segments with `Path::join`, or embed checkout content at build time with `include_str!`, an installed binary runs where no checkout exists'

@@ -35,6 +35,38 @@ warning: `assert_matches!` checks a fact of the program's own code at run time
    |
    = help: return a typed error for a failure the input causes, state the invariant in the types, or check it in a test or a `const` block
 
+warning: `assert_eq!` checks a fact of the program's own code at run time
+  --> tools/dylint/examples/assertion.rs:40:5
+   |
+40 |     assert_eq!(left, right, "lengths differ");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or check it in a test or a `const` block
+
+warning: `debug_assert!` checks a fact of the program's own code at run time
+  --> tools/dylint/examples/assertion.rs:45:5
+   |
+45 |     debug_assert!(!values.is_empty(), "no values");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or check it in a test or a `const` block
+
+warning: `debug_assert_ne!` checks a fact of the program's own code at run time
+  --> tools/dylint/examples/assertion.rs:46:5
+   |
+46 |     debug_assert_ne!(values.len(), LIMIT, "values fill the limit");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or check it in a test or a `const` block
+
+warning: `debug_assert_matches!` checks a fact of the program's own code at run time
+  --> tools/dylint/examples/assertion.rs:51:5
+   |
+51 |     core::debug_assert_matches!(reply, Reply::Rejected);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or check it in a test or a `const` block
+
 warning: this `tokio::sync::Mutex` never holds a guard across an `.await`
   --> tools/dylint/examples/async_mutex_without_await.rs:23:5
    |
@@ -404,9 +436,9 @@ warning: `chosen` returns a boxed `dyn Future`
    = help: move the branch inside one `async move` block and return `impl Future`
 
 warning: closure clones `path`, which nothing reads after the closure
-  --> tools/dylint/examples/captured_clone.rs:17:113
+  --> tools/dylint/examples/captured_clone.rs:24:113
    |
-17 | ...se().map_err(|source| ReadError { path: path.clone(), source }) }
+24 | ...se().map_err(|source| ReadError { path: path.clone(), source }) }
    |                                      ------^^^^^^^^^^^^
    |                                      |
    |                                      help: move `path` into the closure: `path`
@@ -415,17 +447,31 @@ warning: closure clones `path`, which nothing reads after the closure
 applicability MachineApplicable: move `path` into the closure
 
 warning: closure clones `name`, which nothing reads after the closure
-  --> tools/dylint/examples/captured_clone.rs:19:92
+  --> tools/dylint/examples/captured_clone.rs:26:92
    |
-19 | fn fallback(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.clone())) }
+26 | fn fallback(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.clone())) }
    |                                                                                            ^^^^^^^^^^^^ help: move `name` into the closure: `name`
 applicability MachineApplicable: move `name` into the closure
 
 warning: closure clones `name`, which nothing reads after the closure
-  --> tools/dylint/examples/captured_clone.rs:21:56
+  --> tools/dylint/examples/captured_clone.rs:28:56
    |
-21 | fn deferred(name: String) -> String { block_on(async { name.clone() }) }
+28 | fn deferred(name: String) -> String { block_on(async { name.clone() }) }
    |                                                        ^^^^^^^^^^^^ help: move `name` into the closure: `name`
+applicability MachineApplicable: move `name` into the closure
+
+warning: closure clones `name`, which nothing reads after the closure
+  --> tools/dylint/examples/captured_clone.rs:30:89
+   |
+30 | fn owned(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.to_owned())) }
+   |                                                                                         ^^^^^^^^^^^^^^^ help: move `name` into the closure: `name`
+applicability MachineApplicable: move `name` into the closure
+
+warning: closure clones `name`, which nothing reads after the closure
+  --> tools/dylint/examples/captured_clone.rs:32:90
+   |
+32 | fn called(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(Clone::clone(&name))) }
+   |                                                                                          ^^^^^^^^^^^^^^^^^^^ help: move `name` into the closure: `name`
 applicability MachineApplicable: move `name` into the closure
 
 warning: field `0` lets code outside the module write `Port` past the `u16` check of `Port::try_from`
@@ -439,7 +485,7 @@ note: `Port::try_from` checks the `u16` here
    |
 17 | ...   fn try_from(value: u16) -> Result<Self, Self::Error> { if value < 1024 { Err(RangeError(u32::from(value))) } else { Ok(Self(va...
    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: make the field private and read it through an accessor
+   = help: make the field private and give code outside the module an accessor that reads it
    = note: `#[warn(construction_invariant)]` on by default
 
 warning: field `width` lets code outside the module write `Window` past the `u32` check of `Window::new`
@@ -453,7 +499,7 @@ note: `Window::new` checks the `u32` here
    |
 27 | ...   pub(crate) const fn new(width: u32, height: u32) -> Option<Self> { if width == 0 || height == 0 { None } else { Some(Self { wi...
    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: make the field private and read it through an accessor
+   = help: make the field private and give code outside the module an accessor that reads it
 
 warning: field `height` lets code outside the module write `Window` past the `u32` check of `Window::new`
   --> tools/dylint/examples/construction_invariant.rs:23:9
@@ -466,7 +512,7 @@ note: `Window::new` checks the `u32` here
    |
 27 | ...   pub(crate) const fn new(width: u32, height: u32) -> Option<Self> { if width == 0 || height == 0 { None } else { Some(Self { wi...
    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: make the field private and read it through an accessor
+   = help: make the field private and give code outside the module an accessor that reads it
 
 warning: `Weight` built from a `u32` parameter that skips `Weight::try_from`
   --> tools/dylint/examples/construction_invariant.rs:42:62
@@ -481,10 +527,23 @@ note: `Weight::try_from` checks the `u32` here
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: build `Weight` through `Weight::try_from`
 
-warning: `Weight` built from a `u32` parameter that skips `Weight::try_from`
-  --> tools/dylint/examples/construction_invariant.rs:69:57
+warning: field `value` lets code outside the module write `Level` past the `u8` check of `Level::new`
+  --> tools/dylint/examples/construction_invariant.rs:67:9
    |
-69 |     pub(crate) const fn weighed(value: u32) -> Weight { Weight(value) }
+67 |         pub value: u8,
+   |         ^^^^^^^^^^^^^
+   |
+note: `Level::new` checks the `u8` here
+  --> tools/dylint/examples/construction_invariant.rs:72:9
+   |
+72 |         pub(crate) fn new(value: u8) -> Option<Self> { (value <= 10).then_some(Self { value, label: "level" }) }
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: make the field private and give code outside the module an accessor that reads it
+
+warning: `Weight` built from a `u32` parameter that skips `Weight::try_from`
+  --> tools/dylint/examples/construction_invariant.rs:85:57
+   |
+85 |     pub(crate) const fn weighed(value: u32) -> Weight { Weight(value) }
    |                                                         ^^^^^^^^^^^^^
    |
 note: `Weight::try_from` checks the `u32` here
@@ -520,25 +579,25 @@ warning: `JournalError` takes every `io::Error` through `From` and keeps no oper
    = help: declare a variant per operation holding its subject beside the `io::Error` source and map at the call
 
 warning: `io::Error` built from text holds a failure callers cannot match
-  --> tools/dylint/examples/contextless_io_error.rs:46:19
+  --> tools/dylint/examples/contextless_io_error.rs:54:19
    |
-46 |         "" => Err(io::Error::new(io::ErrorKind::InvalidData, "port text is empty")),
+54 |         "" => Err(io::Error::new(io::ErrorKind::InvalidData, "port text is empty")),
    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: pass a typed error as the payload: `io::Error::new(kind, <thiserror value>)`
 
 warning: `io::Error` built from text holds a failure callers cannot match
-  --> tools/dylint/examples/contextless_io_error.rs:47:20
+  --> tools/dylint/examples/contextless_io_error.rs:55:20
    |
-47 |         "-" => Err(io::Error::other(format!("port text {text} is a dash"))),
+55 |         "-" => Err(io::Error::other(format!("port text {text} is a dash"))),
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: pass a typed error as the payload: `io::Error::new(kind, <thiserror value>)`
 
 warning: `io::Error` built from text holds a failure callers cannot match
-  --> tools/dylint/examples/contextless_io_error.rs:55:62
+  --> tools/dylint/examples/contextless_io_error.rs:65:62
    |
-55 |         Err(LoadError::Read { path: path.to_owned(), source: io::Error::other("path is empty") })
+65 |         Err(LoadError::Read { path: path.to_owned(), source: io::Error::other("path is empty") })
    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: return a `thiserror` variant holding the subject and its typed source
@@ -549,7 +608,7 @@ warning: `main` returns `Failure` to `Termination`, which prints its derived `De
 13 | fn main() -> Result<(), Failure> {
    |              ^^^^^^^^^^^^^^^^^^^
    |
-   = help: return `Result<_, std::error::Report<E>>`, its `Debug` prints the error's `Display` and `sources()` chain
+   = help: return `Result<_, std::error::Report<Failure>>` under `#![feature(error_reporter)]`, its `Debug` prints the error's `Display` and `sources()` chain
    = note: `#[warn(debug_main_error)]` on by default
 
 warning: dropping `tokio::task::JoinHandle` detaches its work
@@ -674,9 +733,17 @@ warning: dropping `tokio::task::JoinHandle` detaches its work
     = help: spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown
 
 warning: dropping `std::thread::JoinHandle` detaches its work
-   --> tools/dylint/examples/detached_task.rs:123:5
+   --> tools/dylint/examples/detached_task.rs:122:23
     |
-123 |     thread::Builder::new().spawn(|| 1_i32)?;
+122 | async fn threaded() { let _worker = thread::spawn(|| 1_i32); }
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: run the work through `tokio::task::spawn_blocking` and await its handle
+
+warning: dropping `std::thread::JoinHandle` detaches its work
+   --> tools/dylint/examples/detached_task.rs:125:5
+    |
+125 |     thread::Builder::new().spawn(|| 1_i32)?;
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: spawn the thread inside `std::thread::scope`
@@ -866,34 +933,58 @@ warning: `static ROOT` holds `OnceLock<String>`, which mutates through a shared 
    |
    = help: declare `static ROOT: LazyLock<String> = LazyLock::new(|| GREETING.to_owned())`, its one use initializes it from no input
 
-warning: `static COUNTER` holds `Atomic<u32>`, which mutates through a shared reference
+warning: `static PREFIX` holds `OnceLock<String>`, which mutates through a shared reference
+  --> tools/dylint/examples/interior_mutable_static.rs:21:8
+   |
+21 | static PREFIX: OnceLock<String> = OnceLock::new();
+   |        ^^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+warning: `static LABEL` holds `OnceLock<String>`, which mutates through a shared reference
   --> tools/dylint/examples/interior_mutable_static.rs:23:8
    |
-23 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+23 | static LABEL: OnceLock<String> = OnceLock::new();
+   |        ^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+warning: `static ORIGIN` holds `OnceLock<String>`, which mutates through a shared reference
+  --> tools/dylint/examples/interior_mutable_static.rs:25:12
+   |
+25 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+   |            ^^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+warning: `static COUNTER` holds `Atomic<u32>`, which mutates through a shared reference
+  --> tools/dylint/examples/interior_mutable_static.rs:29:8
+   |
+29 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
    |        ^^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static SHARED` holds `Arc<Mutex<Vec<u8>>>`, which mutates through a shared reference
-  --> tools/dylint/examples/interior_mutable_static.rs:25:8
+warning: `static SHARED` holds `Arc<Mutex<Vec<u8>>>`, whose `Mutex<Vec<u8>>` mutates through a shared reference
+  --> tools/dylint/examples/interior_mutable_static.rs:31:8
    |
-25 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+31 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
    |        ^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 warning: `static VISITS` holds `Cell<u32>`, which mutates through a shared reference
-  --> tools/dylint/examples/interior_mutable_static.rs:32:12
+  --> tools/dylint/examples/interior_mutable_static.rs:38:12
    |
-32 |     static VISITS: Cell<u32> = const { Cell::new(0) };
+38 |     static VISITS: Cell<u32> = const { Cell::new(0) };
    |            ^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 warning: `static CALLS` holds `Atomic<u32>`, which mutates through a shared reference
-  --> tools/dylint/examples/interior_mutable_static.rs:36:10
+  --> tools/dylint/examples/interior_mutable_static.rs:42:10
    |
-36 | counter!(CALLS);
+42 | counter!(CALLS);
    |          ^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
@@ -954,7 +1045,7 @@ note: the loop polls the flag here
    |
 28 |         while !self.stop.load(Ordering::Acquire) && steps < 8 {
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and await `token.cancelled()` or drive the loop through `token.run_until_cancelled(..)`
+   = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and poll `token.is_cancelled()` in the loop condition
    = note: `#[warn(manual_cancellation_token)]` on by default
 
 warning: `stop` is a one-way stop flag, every write sets `true` and a `while` loop polls it
@@ -973,7 +1064,7 @@ note: the loop polls the flag here
    |
 66 |         while !flag.load(Ordering::Acquire) {
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and await `token.cancelled()` or drive the loop through `token.run_until_cancelled(..)`
+   = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and poll `token.is_cancelled()` in the loop condition
 
 warning: `done` is a one-way stop flag, every write sets `true` and a `while` loop polls it
   --> tools/dylint/examples/manual_cancellation_token.rs:77:9
@@ -991,7 +1082,25 @@ note: the loop polls the flag here
    |
 80 |             while !done.load(Ordering::Acquire) {
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and await `token.cancelled()` or drive the loop through `token.run_until_cancelled(..)`
+   = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and poll `token.is_cancelled()` in the loop condition
+
+warning: `stop` is a one-way stop flag, every write sets `true` and a `while` loop polls it
+   --> tools/dylint/examples/manual_cancellation_token.rs:104:9
+    |
+104 |     let stop = AtomicBool::new(false);
+    |         ^^^^
+    |
+note: the flag is set here
+   --> tools/dylint/examples/manual_cancellation_token.rs:106:5
+    |
+106 |     stop.store(true, Ordering::Release);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: the loop polls the flag here
+   --> tools/dylint/examples/manual_cancellation_token.rs:107:12
+    |
+107 |     while !stop.load(Ordering::Acquire) && steps < 8 {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: hold a `tokio_util::sync::CancellationToken`, call `cancel()` where the flag is set, and await `token.cancelled()` or drive the loop through `token.run_until_cancelled(..)`
 
 warning: `Manual` implements `core::error::Error` by hand
   --> tools/dylint/examples/manual_error_impl.rs:12:1
@@ -1100,81 +1209,89 @@ warning: `Deferred` runs its one closure on drop
    |
    = help: hold `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where the guard is disarmed
 
-warning: assignment negates the `bool` it writes
-  --> tools/dylint/examples/manual_std_method.rs:43:31
+warning: `Manual` runs its one closure on drop
+  --> tools/dylint/examples/manual_std_method.rs:41:1
    |
-43 | fn flipped(flag: &mut bool) { *flag = !*flag; }
+41 | struct Manual<F>(ManuallyDrop<F>)
+   | ^^^^^^^^^^^^^^^^
+   |
+   = help: hold `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where the guard is disarmed
+
+warning: assignment negates the `bool` it writes
+  --> tools/dylint/examples/manual_std_method.rs:60:31
+   |
+60 | fn flipped(flag: &mut bool) { *flag = !*flag; }
    |                               ^^^^^^^^^^^^^^ help: call `bool::toggle`: `flag.toggle()`
 applicability MachineApplicable: call `bool::toggle`
 
 warning: assignment negates the `bool` it writes
-  --> tools/dylint/examples/manual_std_method.rs:45:29
+  --> tools/dylint/examples/manual_std_method.rs:62:29
    |
-45 | fn xored(flag: &mut bool) { *flag ^= true; }
+62 | fn xored(flag: &mut bool) { *flag ^= true; }
    |                             ^^^^^^^^^^^^^ help: call `bool::toggle`: `flag.toggle()`
 applicability MachineApplicable: call `bool::toggle`
 
 warning: `(0..n).map(f).collect()` builds a `Vec` from each index
-  --> tools/dylint/examples/manual_std_method.rs:47:42
+  --> tools/dylint/examples/manual_std_method.rs:64:42
    |
-47 | fn squares(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(index)).collect::<Vec<_>>() }
+64 | fn squares(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(index)).collect::<Vec<_>>() }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Vec::from_fn`: `Vec::from_fn(count, |index| index.strict_mul(index))`
 applicability MachineApplicable: call `Vec::from_fn`
 
 warning: `(0..n).map(f).collect()` builds a `Vec` from each index
-  --> tools/dylint/examples/manual_std_method.rs:49:42
+  --> tools/dylint/examples/manual_std_method.rs:66:42
    |
-49 | fn labels(count: usize) -> Vec<String> { (0..count).map(|index| index.to_string()).collect() }
+66 | fn labels(count: usize) -> Vec<String> { (0..count).map(|index| index.to_string()).collect() }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Vec::from_fn`: `Vec::from_fn(count, |index| index.to_string())`
 applicability MachineApplicable: call `Vec::from_fn`
 
 warning: a fallible conversion checks the length of a slice to view it as an array
-  --> tools/dylint/examples/manual_std_method.rs:51:47
+  --> tools/dylint/examples/manual_std_method.rs:68:47
    |
-51 | fn viewed(slice: &[u8]) -> Option<&[u8; 4]> { <&[u8; 4]>::try_from(slice).ok() }
+68 | fn viewed(slice: &[u8]) -> Option<&[u8; 4]> { <&[u8; 4]>::try_from(slice).ok() }
    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
    |                                               |
    |                                               help: view the slice through the method returning `Option`: `slice.as_array()`
 applicability MachineApplicable: view the slice through the method returning `Option`
 
 warning: a fallible conversion checks the length of a slice to view it as an array
-  --> tools/dylint/examples/manual_std_method.rs:53:59
+  --> tools/dylint/examples/manual_std_method.rs:70:59
    |
-53 | fn viewed_mut(slice: &mut [u8]) -> Option<&mut [u8; 2]> { slice.try_into().ok() }
+70 | fn viewed_mut(slice: &mut [u8]) -> Option<&mut [u8; 2]> { slice.try_into().ok() }
    |                                                           ^^^^^^^^^^^^^^^^-----
    |                                                           |
    |                                                           help: view the slice through the method returning `Option`: `slice.as_mut_array()`
 applicability MachineApplicable: view the slice through the method returning `Option`
 
 warning: a fallible conversion checks the length of a slice to view it as an array
-  --> tools/dylint/examples/manual_std_method.rs:55:46
+  --> tools/dylint/examples/manual_std_method.rs:72:46
    |
-55 | fn prefix(slice: &[u8]) -> Option<[u8; 2]> { slice[..2].try_into().ok() }
+72 | fn prefix(slice: &[u8]) -> Option<[u8; 2]> { slice[..2].try_into().ok() }
    |                                              ^^^^^^^^^^^^^^^^^^^^^-----
    |                                              |
    |                                              help: view the slice through the method returning `Option`: `slice.first_chunk().copied()`
 applicability MaybeIncorrect: view the slice through the method returning `Option`
 
 warning: a fallible conversion checks the length of a slice to view it as an array
-  --> tools/dylint/examples/manual_std_method.rs:57:46
+  --> tools/dylint/examples/manual_std_method.rs:74:46
    |
-57 | fn suffix(slice: &[u8]) -> Option<[u8; 2]> { slice[slice.len() - 2..].try_into().ok() }
+74 | fn suffix(slice: &[u8]) -> Option<[u8; 2]> { slice[slice.len() - 2..].try_into().ok() }
    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
    |                                              |
    |                                              help: view the slice through the method returning `Option`: `slice.last_chunk().copied()`
 applicability MaybeIncorrect: view the slice through the method returning `Option`
 
 warning: lossy decoding copies a byte buffer nothing reads afterwards
-  --> tools/dylint/examples/manual_std_method.rs:59:40
+  --> tools/dylint/examples/manual_std_method.rs:76:40
    |
-59 | fn decoded(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into_owned() }
+76 | fn decoded(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into_owned() }
    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: decode the buffer in place: `String::from_utf8_lossy_owned(bytes)`
 applicability MachineApplicable: decode the buffer in place
 
 warning: lossy decoding copies a byte buffer nothing reads afterwards
-  --> tools/dylint/examples/manual_std_method.rs:61:47
+  --> tools/dylint/examples/manual_std_method.rs:78:47
    |
-61 | fn decoded_output(output: Output) -> String { String::from_utf8_lossy(&output.stdout).into_owned() }
+78 | fn decoded_output(output: Output) -> String { String::from_utf8_lossy(&output.stdout).into_owned() }
    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: decode the buffer in place: `String::from_utf8_lossy_owned(output.stdout)`
 applicability MachineApplicable: decode the buffer in place
 
@@ -1203,38 +1320,21 @@ warning: `into_display` returns `self` as `dyn Display`, which trait upcasting c
    |
    = help: delete the method and coerce `dyn Boxed` to `dyn Display` where it is called, trait upcasting converts the object
 
-warning: `as_any` returns `self` as `dyn Any`, which trait upcasting converts from `dyn Plugin`
-  --> tools/dylint/examples/manual_upcast.rs:32:25
+warning: `as_any` returns `self` as `dyn Any`, which trait upcasting converts from `dyn Plugin` once `Any` is a supertrait
+  --> tools/dylint/examples/manual_upcast.rs:36:25
    |
-32 |     fn as_any(&self) -> &dyn Any;
+36 |     fn as_any(&self) -> &dyn Any;
    |                         ^^^^^^^^
    |
    = help: add `Any` to the supertraits of `Plugin`, delete the method, and coerce `dyn Plugin` to `dyn Any` where it is called
 
 warning: `as_shown` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Defaulted`
-  --> tools/dylint/examples/manual_upcast.rs:36:27
+  --> tools/dylint/examples/manual_upcast.rs:40:27
    |
-36 |     fn as_shown(&self) -> &dyn Display
+40 |     fn as_shown(&self) -> &dyn Display
    |                           ^^^^^^^^^^^^
    |
    = help: delete the method and coerce `dyn Defaulted` to `dyn Display` where it is called, trait upcasting converts the object
-
-warning: every `Erased` impl repeats one body for `as_erased`
-   --> tools/dylint/examples/manual_upcast.rs:28:5
-    |
- 28 |     fn as_erased(&self) -> &dyn Erased;
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-note: each impl holds the same body
-   --> tools/dylint/examples/manual_upcast.rs:75:5
-    |
- 75 |     fn as_erased(&self) -> &dyn Erased { self }
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-...
-110 |     fn as_erased(&self) -> &dyn Erased { self }
-    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    = help: move `as_erased` into a default method of `Erased` and remove it from each impl
-    = note: `#[warn(duplicate_body)]` on by default
 
 warning: `Cell` renames `UnsafeCell`, which collides with no other item in scope
  --> tools/dylint/examples/needless_import_rename.rs:2:5
@@ -1294,18 +1394,31 @@ warning: `Span` renames `Duration`, which collides with no other item in scope
    = help: import `Duration` under its own name
 
 warning: spawned task only awaits a `tokio::task::JoinHandle<u8>` it did not create
-  --> tools/dylint/examples/nested_task.rs:10:82
-   |
-10 | fn rewrapped_direct(task: JoinHandle<u8>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(task) }
-   |                                                                                  ^^^^^^^^^^^^^^^^^^
-   |
+ --> tools/dylint/examples/nested_task.rs:8:82
+  |
+8 | fn rewrapped_direct(task: JoinHandle<u8>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(task) }
+  |                                                                                  ^^^^^^^^^^^^^^^^^^
+  |
 note: the task awaits the `tokio::task::JoinHandle<u8>` here
-  --> tools/dylint/examples/nested_task.rs:10:95
+ --> tools/dylint/examples/nested_task.rs:8:95
+  |
+8 | fn rewrapped_direct(task: JoinHandle<u8>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(task) }
+  |                                                                                               ^^^^
+  = help: drop the task and await the `tokio::task::JoinHandle<u8>` where its result is read
+  = note: `#[warn(nested_task)]` on by default
+
+warning: spawned task only awaits a `tokio::task::JoinHandle<std::result::Result<u8, tokio::task::JoinError>>` it did not create
+  --> tools/dylint/examples/nested_task.rs:10:100
    |
-10 | fn rewrapped_direct(task: JoinHandle<u8>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(task) }
-   |                                                                                               ^^^^
-   = help: drop the task and await the `tokio::task::JoinHandle<u8>` where its result is read
-   = note: `#[warn(nested_task)]` on by default
+10 | ...r>>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(async move { task.await? }) }
+   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: the task awaits the `tokio::task::JoinHandle<std::result::Result<u8, tokio::task::JoinError>>` here
+  --> tools/dylint/examples/nested_task.rs:10:126
+   |
+10 | fn rewrapped_tried(task: JoinHandle<Result<u8, JoinError>>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(async move { task.aw...
+   |                                                                                                                              ^^^^
+   = help: drop the task and await the `tokio::task::JoinHandle<std::result::Result<u8, tokio::task::JoinError>>` where its result is read
 
 warning: spawned task only awaits a `tokio::task::JoinHandle<u8>` it did not create
   --> tools/dylint/examples/nested_task.rs:12:96
@@ -1364,128 +1477,137 @@ note: repeats the body here
     = help: make one function generic over `S: Shape` in place of `total_squares` and `total_circles`
 
 warning: `clock` repeats the body of `uptime` with another type in place of `Uptime`
-   --> tools/dylint/examples/parameterizable_body.rs:139:1
+   --> tools/dylint/examples/parameterizable_body.rs:153:1
     |
-139 | fn uptime() -> Uptime { Default::default() }
+153 | fn uptime() -> Uptime { Default::default() }
     | ^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeats the body here
-   --> tools/dylint/examples/parameterizable_body.rs:141:1
+   --> tools/dylint/examples/parameterizable_body.rs:155:1
     |
-141 | fn clock() -> Clock { Default::default() }
+155 | fn clock() -> Clock { Default::default() }
     | ^^^^^^^^^^^^^^^^^^^
     = help: call `Default::default` directly in place of `uptime` and `clock`
 
 warning: `impl From<ParseFloatError> for ScaleError` wraps the source in `Parse` by hand
-  --> tools/dylint/examples/redundant_error_conversion.rs:65:1
+  --> tools/dylint/examples/redundant_error_conversion.rs:66:1
    |
-65 | impl From<ParseFloatError> for ScaleError {
+66 | impl From<ParseFloatError> for ScaleError {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: this field holds the source
-  --> tools/dylint/examples/redundant_error_conversion.rs:47:21
+  --> tools/dylint/examples/redundant_error_conversion.rs:48:21
    |
-47 |     Parse(#[source] ParseFloatError),
+48 |     Parse(#[source] ParseFloatError),
    |                     ^^^^^^^^^^^^^^^
    = help: mark the field `#[from]` and remove the impl
    = note: `#[warn(redundant_error_conversion)]` on by default
 
 warning: `impl From<Utf8Error> for ScaleError` wraps the source in `Text` by hand
-  --> tools/dylint/examples/redundant_error_conversion.rs:69:1
+  --> tools/dylint/examples/redundant_error_conversion.rs:70:1
    |
-69 | impl From<Utf8Error> for ScaleError {
+70 | impl From<Utf8Error> for ScaleError {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: this field holds the source
-  --> tools/dylint/examples/redundant_error_conversion.rs:51:9
+  --> tools/dylint/examples/redundant_error_conversion.rs:52:9
    |
-51 |         source: Utf8Error,
+52 |         source: Utf8Error,
    |         ^^^^^^^^^^^^^^^^^
    = help: mark the field `#[from]` and remove the impl
 
+warning: `ReadError` takes every `io::Error` through `From` and keeps no operation or subject
+  --> tools/dylint/examples/redundant_error_conversion.rs:89:5
+   |
+89 |     Io(#[source] io::Error),
+   |     ^^
+   |
+   = help: declare a variant per operation holding its subject beside the `io::Error` source and map at the call
+   = note: `#[warn(contextless_io_error)]` on by default
+
 warning: `ManualError` implements `core::error::Error` by hand
-  --> tools/dylint/examples/redundant_error_conversion.rs:92:1
-   |
-92 | impl error::Error for ManualError {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: derive `thiserror::Error` with an `#[error(..)]` message and `#[source]` on the wrapped error
-   = note: `#[warn(manual_error_impl)]` on by default
+   --> tools/dylint/examples/redundant_error_conversion.rs:103:1
+    |
+103 | impl error::Error for ManualError {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: derive `thiserror::Error` with an `#[error(..)]` message and `#[source]` on the wrapped error
+    = note: `#[warn(manual_error_impl)]` on by default
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:103:37
+   --> tools/dylint/examples/redundant_error_conversion.rs:114:37
     |
-103 |     let text = str::from_utf8(bytes).map_err(Into::<PortError>::into)?;
+114 |     let text = str::from_utf8(bytes).map_err(Into::<PortError>::into)?;
     |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MachineApplicable: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:104:35
+   --> tools/dylint/examples/redundant_error_conversion.rs:115:35
     |
-104 |     let port = text.trim().parse().map_err(PortError::from)?;
+115 |     let port = text.trim().parse().map_err(PortError::from)?;
     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MaybeIncorrect: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:109:37
+   --> tools/dylint/examples/redundant_error_conversion.rs:120:37
     |
-109 |     let text = str::from_utf8(bytes).map_err(PortError::Text)?;
+120 |     let text = str::from_utf8(bytes).map_err(PortError::Text)?;
     |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MachineApplicable: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:119:37
+   --> tools/dylint/examples/redundant_error_conversion.rs:130:37
     |
-119 |     let text = str::from_utf8(bytes).map_err(LocatedError)?;
+130 |     let text = str::from_utf8(bytes).map_err(LocatedError)?;
     |                                     ^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MachineApplicable: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:129:28
+   --> tools/dylint/examples/redundant_error_conversion.rs:140:28
     |
-129 |     let text = text!(bytes).map_err(PortError::from)?;
+140 |     let text = text!(bytes).map_err(PortError::from)?;
     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MachineApplicable: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:135:37
+   --> tools/dylint/examples/redundant_error_conversion.rs:146:37
     |
-135 |     let text = str::from_utf8(bytes).map_err(E::from)?;
+146 |     let text = str::from_utf8(bytes).map_err(E::from)?;
     |                                     ^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MachineApplicable: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:140:85
+   --> tools/dylint/examples/redundant_error_conversion.rs:151:85
     |
-140 |     let ports = lines.iter().map(|line| line.parse()).collect::<Result<Vec<_>, _>>().map_err(PortError::Parse)?;
+151 |     let ports = lines.iter().map(|line| line.parse()).collect::<Result<Vec<_>, _>>().map_err(PortError::Parse)?;
     |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MaybeIncorrect: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:145:35
+   --> tools/dylint/examples/redundant_error_conversion.rs:156:35
     |
-145 |     let port = text.parse::<u16>().map_err(ManualError)?;
+156 |     let port = text.parse::<u16>().map_err(ManualError)?;
     |                                   ^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MaybeIncorrect: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:150:36
+   --> tools/dylint/examples/redundant_error_conversion.rs:163:36
     |
-150 |     let scale = text.trim().parse().map_err(ScaleError::Parse)?;
+163 |     let scale = text.trim().parse().map_err(ScaleError::Parse)?;
     |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MaybeIncorrect: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:159:43
+   --> tools/dylint/examples/redundant_error_conversion.rs:172:43
     |
-159 |             let port = text.trim().parse().map_err(<PortError as From<_>>::from)?;
+172 |             let port = text.trim().parse().map_err(<PortError as From<_>>::from)?;
     |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MaybeIncorrect: remove the `map_err` call
 
 warning: `map_err` repeats the `From` conversion `?` applies
-   --> tools/dylint/examples/redundant_error_conversion.rs:163:48
+   --> tools/dylint/examples/redundant_error_conversion.rs:176:48
     |
-163 |             let port: u16 = text.trim().parse().map_err(PortError::Parse)?;
+176 |             let port: u16 = text.trim().parse().map_err(PortError::Parse)?;
     |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
 applicability MaybeIncorrect: remove the `map_err` call
 
@@ -1675,98 +1797,106 @@ warning: `Result` error `String` is text that callers cannot match
    |
    = help: return a `thiserror` enum with a variant per failure and its typed source
 
-warning: error `std::num::ParseIntError` rendered to text is returned where callers cannot match its cause
-  --> tools/dylint/examples/rendered_error.rs:74:75
+warning: `Result` error `String` is text that callers cannot match
+  --> tools/dylint/examples/rendered_error.rs:74:38
    |
-74 | fn collected(errors: &[ParseIntError]) -> Vec<String> { errors.iter().map(ToString::to_string).collect() }
+74 | fn errored(error: &ParseIntError) -> Result<u16, String> { Err(error.to_string()) }
+   |                                      ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: error `std::num::ParseIntError` rendered to text is returned where callers cannot match its cause
+  --> tools/dylint/examples/rendered_error.rs:76:75
+   |
+76 | fn collected(errors: &[ParseIntError]) -> Vec<String> { errors.iter().map(ToString::to_string).collect() }
    |                                                                           ^^^^^^^^^^^^^^^^^^^
    |
    = help: hold the error as the `#[source]` of a `thiserror` variant and render it where a log or view prints it
 
 warning: error `std::num::ParseIntError` rendered to text is returned where callers cannot match its cause
-  --> tools/dylint/examples/rendered_error.rs:76:49
+  --> tools/dylint/examples/rendered_error.rs:78:49
    |
-76 | fn described(error: &ParseIntError) -> String { error.to_string() }
+78 | fn described(error: &ParseIntError) -> String { error.to_string() }
    |                                                 ^^^^^^^^^^^^^^^^^
    |
    = help: hold the error as the `#[source]` of a `thiserror` variant and render it where a log or view prints it
 
 warning: error `std::num::ParseIntError` rendered to text is returned where callers cannot match its cause
-  --> tools/dylint/examples/rendered_error.rs:81:19
+  --> tools/dylint/examples/rendered_error.rs:83:19
    |
-81 |         message = error.to_string();
+83 |         message = error.to_string();
    |                   ^^^^^^^^^^^^^^^^^
    |
    = help: hold the error as the `#[source]` of a `thiserror` variant and render it where a log or view prints it
 
 warning: error `std::num::ParseIntError` rendered to text is compared by its wording
-  --> tools/dylint/examples/rendered_error.rs:86:43
+  --> tools/dylint/examples/rendered_error.rs:88:43
    |
-86 | fn equal(error: &ParseIntError) -> bool { error.to_string() == "invalid digit found in string" }
+88 | fn equal(error: &ParseIntError) -> bool { error.to_string() == "invalid digit found in string" }
    |                                           ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 warning: error `std::io::Error` rendered to text is compared by its wording
-  --> tools/dylint/examples/rendered_error.rs:88:43
+  --> tools/dylint/examples/rendered_error.rs:90:43
    |
-88 | fn contained(error: &io::Error) -> bool { ToString::to_string(error).contains("denied") }
+90 | fn contained(error: &io::Error) -> bool { ToString::to_string(error).contains("denied") }
    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 warning: error `std::num::ParseIntError` rendered to text is compared by its wording
-  --> tools/dylint/examples/rendered_error.rs:91:11
+  --> tools/dylint/examples/rendered_error.rs:93:11
    |
-91 |     match format!("{error}") {
+93 |     match format!("{error}") {
    |           ^^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 warning: error `std::num::ParseIntError` rendered to text is compared by its wording
-  --> tools/dylint/examples/rendered_error.rs:97:77
+  --> tools/dylint/examples/rendered_error.rs:99:77
    |
-97 | fn tested(error: &ParseIntError) -> usize { if let Some(("cannot", rest)) = error.to_string().split_once(' ') { rest.len() } else { ...
+99 | fn tested(error: &ParseIntError) -> usize { if let Some(("cannot", rest)) = error.to_string().split_once(' ') { rest.len() } else { ...
    |                                                                             ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 warning: error `std::num::ParseIntError` rendered to text is compared by its wording
-   --> tools/dylint/examples/rendered_error.rs:100:19
+   --> tools/dylint/examples/rendered_error.rs:102:19
     |
-100 |     let message = error.to_string();
+102 |     let message = error.to_string();
     |                   ^^^^^^^^^^^^^^^^^
     |
     = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 warning: error `std::num::ParseIntError` rendered to text is compared by its wording
-   --> tools/dylint/examples/rendered_error.rs:104:84
+   --> tools/dylint/examples/rendered_error.rs:106:84
     |
-104 | fn seen(error: &ParseIntError, known: &BTreeSet<String>) -> bool { known.contains(&error.to_string()) }
+106 | fn seen(error: &ParseIntError, known: &BTreeSet<String>) -> bool { known.contains(&error.to_string()) }
     |                                                                                    ^^^^^^^^^^^^^^^^^
     |
     = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 warning: `Mode` rendered to text is compared by its wording
-   --> tools/dylint/examples/rendered_error.rs:138:31
+   --> tools/dylint/examples/rendered_error.rs:140:31
     |
-138 | fn fast(mode: Mode) -> bool { mode.to_string() == "fast" }
+140 | fn fast(mode: Mode) -> bool { mode.to_string() == "fast" }
     |                               ^^^^^^^^^^^^^^^^
     |
     = help: compare or match the value itself in place of its text
 
 warning: error `std::num::ParseIntError` rendered to text is stored where callers cannot match its cause
-   --> tools/dylint/examples/rendered_error.rs:142:62
+   --> tools/dylint/examples/rendered_error.rs:144:62
     |
-142 | fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) }
+144 | fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) }
     |                                                              ^^^^^^^^^^^^^^^^^
     |
     = help: hold the error as the `#[source]` of a `thiserror` variant and render it where a log or view prints it
 
 warning: `io::Error` built from text holds a failure callers cannot match
-   --> tools/dylint/examples/rendered_error.rs:144:49
+   --> tools/dylint/examples/rendered_error.rs:146:49
     |
-144 | fn handed(error: &ParseIntError) -> io::Error { io::Error::other(error.to_string()) }
+146 | fn handed(error: &ParseIntError) -> io::Error { io::Error::other(error.to_string()) }
     |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` variant holding the subject and its typed source
@@ -2000,56 +2130,43 @@ note: `AddressDto` declares the same shape here
     = help: use `AddressDto` in place of `Shim`
 
 warning: `for` loop awaits futures built before it one at a time
-  --> tools/dylint/examples/sequential_join.rs:69:5
+  --> tools/dylint/examples/sequential_join.rs:77:5
    |
-69 |     for receiver in receivers {
+77 |     for receiver in receivers {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: each future is awaited here before the next one
-  --> tools/dylint/examples/sequential_join.rs:70:17
+  --> tools/dylint/examples/sequential_join.rs:78:17
    |
-70 |         total = receiver.await?.strict_add(total);
+78 |         total = receiver.await?.strict_add(total);
    |                 ^^^^^^^^^^^^^^
    = help: await `futures::future::join_all` over the futures, its results keep input order, or drive `futures::stream::iter(..).buffered(n)` to bound how many run at once
    = note: `#[warn(sequential_join)]` on by default
 
-warning: `for` loop awaits futures built before it one at a time
-  --> tools/dylint/examples/sequential_join.rs:83:5
-   |
-83 |     for reply in replies {
-   |     ^^^^^^^^^^^^^^^^^^^^
-   |
-note: each future is awaited here before the next one
-  --> tools/dylint/examples/sequential_join.rs:84:18
-   |
-84 |         out.push(reply.await?);
-   |                  ^^^^^^^^^^^
-   = help: await `futures::future::join_all` over the futures, its results keep input order, or drive `futures::stream::iter(..).buffered(n)` to bound how many run at once
-
 warning: `bound` has one reader, `clamped`
-  --> tools/dylint/examples/single_caller.rs:20:5
+  --> tools/dylint/examples/single_caller.rs:32:5
    |
-20 |     fn bound(&self) -> usize { self.width.strict_mul(SHARED) }
+32 |     fn bound(&self) -> usize { self.width.strict_mul(SHARED) }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/single_caller.rs:18:49
+  --> tools/dylint/examples/single_caller.rs:30:49
    |
-18 |     fn clamped(&self) -> usize { self.width.min(self.bound()) }
+30 |     fn clamped(&self) -> usize { self.width.min(self.bound()) }
    |                                                 ^^^^^^^^^^^^
    = help: move `bound` into `clamped` as a nested item
    = note: `#[warn(single_caller)]` on by default
 
 warning: `digits` has one reader, `parsed`
-  --> tools/dylint/examples/single_caller.rs:27:1
+  --> tools/dylint/examples/single_caller.rs:43:1
    |
-27 | fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
+43 | fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/single_caller.rs:29:34
+  --> tools/dylint/examples/single_caller.rs:45:34
    |
-29 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
+45 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
    |                                  ^^^^^^
    = help: move `digits` into `parsed` as a nested item
 
@@ -2060,22 +2177,22 @@ warning: `LIMIT` has one reader, `parsed`
    | ^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/single_caller.rs:29:51
+  --> tools/dylint/examples/single_caller.rs:45:51
    |
-29 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
+45 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
    |                                                   ^^^^^
    = help: move `LIMIT` into `parsed` as a nested item
 
 warning: `countdown` has one reader, `started`
-  --> tools/dylint/examples/single_caller.rs:31:1
+  --> tools/dylint/examples/single_caller.rs:47:1
    |
-31 | fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
+47 | fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/single_caller.rs:33:37
+  --> tools/dylint/examples/single_caller.rs:49:37
    |
-33 | fn started(steps: usize) -> usize { countdown(steps) }
+49 | fn started(steps: usize) -> usize { countdown(steps) }
    |                                     ^^^^^^^^^
    = help: move `countdown` into `started` as a nested item
 
@@ -2086,9 +2203,9 @@ warning: `BANNER` has one reader, `titled`
    | ^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/single_caller.rs:41:35
+  --> tools/dylint/examples/single_caller.rs:57:35
    |
-41 | fn titled() -> String { format!("{BANNER}:") }
+57 | fn titled() -> String { format!("{BANNER}:") }
    |                                   ^^^^^^
    = help: move `BANNER` into `titled` as a nested item
 
@@ -2159,6 +2276,19 @@ note: every construction sets exactly one of `port` and `failure`
    |     ^^^^^^^^^^^^^^^^^
    = help: replace `port` and `failure` with one `Result`
 
+warning: `Reply` holds failure `refusal` beside success `value`
+  --> tools/dylint/examples/split_outcome.rs:83:5
+   |
+83 |     refusal: Option<Closed>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: every construction sets exactly one of `value` and `refusal`
+  --> tools/dylint/examples/split_outcome.rs:82:5
+   |
+82 |     value: Option<u16>,
+   |     ^^^^^^^^^^^^^^^^^^
+   = help: replace `value` and `refusal` with one `Result`
+
 warning: array lists every variant of `Mode` in declaration order
   --> tools/dylint/examples/split_table.rs:32:24
    |
@@ -2198,67 +2328,67 @@ note: each column matches every variant here
 ...
 46 |     const fn offset(self) -> f64 {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: replace `Unit` with a struct holding `factor` and `offset` and one `const` per variant
+   = help: return every column from one match on `Unit`
 
 warning: field `kind` holds one of the tags `"build"`, `"test"` as text
-  --> tools/dylint/examples/string_tag.rs:10:5
+  --> tools/dylint/examples/string_tag.rs:26:5
    |
-10 |     kind: String,
+26 |     kind: String,
    |     ^^^^^^^^^^^^
    |
 note: branched on by its text here
-  --> tools/dylint/examples/string_tag.rs:38:5
+  --> tools/dylint/examples/string_tag.rs:62:5
    |
-38 | /     match &job.kind {
-39 | |         "build" => build(job),
-40 | |         "test" => test(job),
-41 | |         _ => 0,
-42 | |     }
+62 | /     match &job.kind {
+63 | |         "build" => build(job),
+64 | |         "test" => test(job),
+65 | |         _ => 0,
+66 | |     }
    | |_____^
    = help: declare an enum with a variant per tag deriving `strum::EnumString`, parse the text once where it enters, and match the variants
    = note: `#[warn(string_tag)]` on by default
 
 warning: field `state` holds one of the tags `"done"`, `"pending"` as text
-  --> tools/dylint/examples/string_tag.rs:16:5
+  --> tools/dylint/examples/string_tag.rs:36:5
    |
-16 |     state: &'static str,
+36 |     state: &'static str,
    |     ^^^^^^^^^^^^^^^^^^^
    |
 note: branched on by its text here
-  --> tools/dylint/examples/string_tag.rs:47:67
+  --> tools/dylint/examples/string_tag.rs:71:67
    |
-47 | fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == DONE).count() }
+71 | fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == DONE).count() }
    |                                                                   ^^^^^^^^^^^^^^^^^^
    = help: declare an enum with a variant per tag deriving `strum::EnumString`, parse the text once where it enters, and match the variants
 
 warning: `level` holds one of the tags `"warn"`, `"info"` as text
-  --> tools/dylint/examples/string_tag.rs:51:11
+  --> tools/dylint/examples/string_tag.rs:75:11
    |
-51 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+75 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
    |           ^^^^^
    |
 note: branched on by its text here
-  --> tools/dylint/examples/string_tag.rs:51:51
+  --> tools/dylint/examples/string_tag.rs:75:51
    |
-51 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+75 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
    |                                                   ^^^^^^^^^^^^^^^
    = help: declare an enum with a variant per tag deriving `strum::EnumString`, parse the text once where it enters, and match the variants
 
 warning: `mode` holds one of the tags `"fast"`, `"slow"`, `"pause"` as text
-  --> tools/dylint/examples/string_tag.rs:64:9
+  --> tools/dylint/examples/string_tag.rs:88:9
    |
-64 |     let mode = "fast";
+88 |     let mode = "fast";
    |         ^^^^
    |
 note: branched on by its text here
-  --> tools/dylint/examples/string_tag.rs:65:5
+  --> tools/dylint/examples/string_tag.rs:89:5
    |
-65 | /     match mode {
-66 | |         "fast" => input.len(),
-67 | |         "slow" => input.len().strict_mul(2),
-68 | |         PAUSE => input.len().strict_add(1),
-69 | |         _ => 0,
-70 | |     }
+89 | /     match mode {
+90 | |         "fast" => input.len(),
+91 | |         "slow" => input.len().strict_mul(2),
+92 | |         PAUSE => input.len().strict_add(1),
+93 | |         _ => 0,
+94 | |     }
    | |_____^
    = help: declare an enum with a variant per tag deriving `strum::EnumString`, parse the text once where it enters, and match the variants
 
@@ -2305,57 +2435,57 @@ warning: `Value::as_str` reads an untyped JSON document by variant
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: `Value::as_u64` reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_document.rs:39:34
+  --> tools/dylint/examples/untyped_document.rs:38:34
    |
-39 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
+38 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
    |                                  ^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: indexing accesses an untyped JSON document by a fixed key
-  --> tools/dylint/examples/untyped_document.rs:39:8
+  --> tools/dylint/examples/untyped_document.rs:38:8
    |
-39 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
+38 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: `Map::get` accesses an untyped JSON document by a fixed key
-  --> tools/dylint/examples/untyped_document.rs:47:72
+  --> tools/dylint/examples/untyped_document.rs:46:72
    |
-47 | fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") }
+46 | fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") }
    |                                                                        ^^^^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: `Map::get` accesses an untyped JSON document by a fixed key
-  --> tools/dylint/examples/untyped_document.rs:49:67
+  --> tools/dylint/examples/untyped_document.rs:48:67
    |
-49 | fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
+48 | fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
    |                                                                   ^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: `Map::insert` accesses an untyped JSON document by a fixed key
-  --> tools/dylint/examples/untyped_document.rs:51:71
+  --> tools/dylint/examples/untyped_document.rs:50:71
    |
-51 | fn renamed(object: &mut Map<String, Value>) -> Option<Value> { object.insert("name".to_owned(), Value::Null) }
+50 | fn renamed(object: &mut Map<String, Value>) -> Option<Value> { object.insert("name".to_owned(), Value::Null) }
    |                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: `Value::pointer` accesses an untyped JSON document by a fixed key
-  --> tools/dylint/examples/untyped_document.rs:53:57
+  --> tools/dylint/examples/untyped_document.rs:52:57
    |
-53 | fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") }
+52 | fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") }
    |                                                         ^^^^^^^^^^^^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
 
 warning: `Value::String` pattern reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_document.rs:55:55
+  --> tools/dylint/examples/untyped_document.rs:54:55
    |
-55 | fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } }
+54 | fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } }
    |                                                       ^^^^^^^^^^^^^^^^^^^
    |
    = help: declare a `#[derive(Deserialize, Serialize)]` record for the document and decode into it
@@ -2389,6 +2519,14 @@ warning: `Result` error `String` is text that callers cannot match
   --> tools/dylint/examples/untyped_error.rs:33:18
    |
 33 |     type Error = String;
+   |                  ^^^^^^
+   |
+   = help: return a `thiserror` enum with a variant per failure and its typed source
+
+warning: `Result` error `String` is text that callers cannot match
+  --> tools/dylint/examples/untyped_error.rs:49:18
+   |
+49 |     type Error = String;
    |                  ^^^^^^
    |
    = help: return a `thiserror` enum with a variant per failure and its typed source
@@ -2442,41 +2580,41 @@ warning: `Result` error `String` is text that callers cannot match
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `&str` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:146:28
+   --> tools/dylint/examples/untyped_error.rs:148:28
     |
-146 | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
+148 | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:148:25
+   --> tools/dylint/examples/untyped_error.rs:150:25
     |
-148 | fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) }
+150 | fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) }
     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `String` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:152:35
+   --> tools/dylint/examples/untyped_error.rs:154:35
     |
-152 | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
+154 | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
     |                                   ^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `String` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:154:33
+   --> tools/dylint/examples/untyped_error.rs:156:33
     |
-154 | async fn awaited(text: &str) -> Result<u16, String> {
+156 | async fn awaited(text: &str) -> Result<u16, String> {
     |                                 ^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Code` is a `Display` type that implements no `core::error::Error`
-   --> tools/dylint/examples/untyped_error.rs:159:25
+   --> tools/dylint/examples/untyped_error.rs:161:25
     |
-159 | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
+161 | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
     |                         ^^^^^^^^^^^^^^^^^
     |
 note: the type is declared here
@@ -2487,9 +2625,9 @@ note: the type is declared here
     = help: derive `thiserror::Error` on the type in place of its hand-written `Display`
 
 warning: `Result` error `Code` is a `Display` type that implements no `core::error::Error`
-   --> tools/dylint/examples/untyped_error.rs:161:39
+   --> tools/dylint/examples/untyped_error.rs:163:39
     |
-161 | fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
+163 | fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
     |                                       ^^^^^^^^^^^^^^^^^
     |
 note: the type is declared here
@@ -2500,81 +2638,81 @@ note: the type is declared here
     = help: derive `thiserror::Error` on the type in place of its hand-written `Display`
 
 warning: `Result` error `Box<str>` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:165:30
+   --> tools/dylint/examples/untyped_error.rs:167:30
     |
-165 | fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a nu...
+167 | fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a nu...
     |                              ^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Arc<str>` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:167:31
+   --> tools/dylint/examples/untyped_error.rs:169:31
     |
-167 | fn shared_text(text: &str) -> Result<u16, Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a ...
+169 | fn shared_text(text: &str) -> Result<u16, Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a ...
     |                               ^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Rc<str>` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:169:32
+   --> tools/dylint/examples/untyped_error.rs:171:32
     |
-169 | fn counted_text(text: &str) -> Result<u16, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a ...
+171 | fn counted_text(text: &str) -> Result<u16, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a ...
     |                                ^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Cow<'static, str>` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:171:33
+   --> tools/dylint/examples/untyped_error.rs:173:33
     |
-171 | fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port i...
+173 | fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port i...
     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Arc<dyn Error + Send + Sync>` is an erased `dyn Error` that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:173:32
+   --> tools/dylint/examples/untyped_error.rs:175:32
     |
-173 | fn shared_error(text: &str) -> Result<u16, Arc<dyn Error + Send + Sync>> { text.parse().map_err(|error: ParseIntError| -> Arc<dyn E...
+175 | fn shared_error(text: &str) -> Result<u16, Arc<dyn Error + Send + Sync>> { text.parse().map_err(|error: ParseIntError| -> Arc<dyn E...
     |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Rc<dyn Error>` is an erased `dyn Error` that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:175:33
+   --> tools/dylint/examples/untyped_error.rs:177:33
     |
-175 | fn counted_error(text: &str) -> Result<u16, Rc<dyn Error>> { text.parse().map_err(|error: ParseIntError| -> Rc<dyn Error> { Rc::new...
+177 | fn counted_error(text: &str) -> Result<u16, Rc<dyn Error>> { text.parse().map_err(|error: ParseIntError| -> Rc<dyn Error> { Rc::new...
     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `String` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:177:30
+   --> tools/dylint/examples/untyped_error.rs:179:30
     |
-177 | fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
+179 | fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
     |                              ^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Vec<PortError>` is a collection of errors that can be empty, a failure holding no error
-   --> tools/dylint/examples/untyped_error.rs:181:31
+   --> tools/dylint/examples/untyped_error.rs:183:31
     |
-181 | fn planned(texts: &[&str]) -> Result<Vec<u16>, Vec<PortError>> {
+183 | fn planned(texts: &[&str]) -> Result<Vec<u16>, Vec<PortError>> {
     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return `Result<T, NEVec<E>>` built by collecting into `validated::Validated`
 
 warning: function returns `Vec<PortError>`, where an empty collection stands for success
-   --> tools/dylint/examples/untyped_error.rs:186:31
+   --> tools/dylint/examples/untyped_error.rs:188:31
     |
-186 | fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() }
+188 | fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() }
     |                               ^^^^^^^^^^^^^^
     |
     = help: return `Result<(), NEVec<E>>` built by collecting into `validated::Validated`
 
 warning: `Result` error `Code` is a `Display` type that implements no `core::error::Error`
-   --> tools/dylint/examples/untyped_error.rs:196:24
+   --> tools/dylint/examples/untyped_error.rs:198:24
     |
-196 | fn kept(text: &str) -> Result<u16, Code> { text.trim().parse().map_err(|_error: ParseIntError| Code::Invalid) }
+198 | fn kept(text: &str) -> Result<u16, Code> { text.trim().parse().map_err(|_error: ParseIntError| Code::Invalid) }
     |                        ^^^^^^^^^^^^^^^^^
     |
 note: the type is declared here
@@ -2585,57 +2723,57 @@ note: the type is declared here
     = help: derive `thiserror::Error` on the type in place of its hand-written `Display`
 
 warning: `Result` error `String` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:198:77
+   --> tools/dylint/examples/untyped_error.rs:200:77
     |
-198 | fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typ...
+200 | fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typ...
     |                                                                             ^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `&str` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:213:40
+   --> tools/dylint/examples/untyped_error.rs:215:40
     |
-213 |     let present = if text.is_empty() { Err("port text is empty") } else { Ok(text) };
+215 |     let present = if text.is_empty() { Err("port text is empty") } else { Ok(text) };
     |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `String` is text that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:214:19
+   --> tools/dylint/examples/untyped_error.rs:216:19
     |
-214 |     let spelled = |digits: &str| if digits.is_empty() { Err(String::from("port text is empty")) } else { digits.parse::<u16>().map_...
+216 |     let spelled = |digits: &str| if digits.is_empty() { Err(String::from("port text is empty")) } else { digits.parse::<u16>().map_...
     |                   ^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `anyhow::Error` is a report erasing each failure's type, which callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:232:28
+   --> tools/dylint/examples/untyped_error.rs:234:28
     |
-232 | fn reported(path: &str) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
+234 | fn reported(path: &str) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
     |                            ^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `anyhow::Error` is a report erasing each failure's type, which callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:234:56
+   --> tools/dylint/examples/untyped_error.rs:236:56
     |
-234 | fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
+236 | fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
     |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` that callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:241:20
+   --> tools/dylint/examples/untyped_error.rs:243:20
     |
-241 | async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+243 | async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source
 
 warning: `Result` error `()` is a unit that names no failure
-   --> tools/dylint/examples/untyped_error.rs:274:49
+   --> tools/dylint/examples/untyped_error.rs:277:49
     |
-274 |         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
+277 |         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
     |                                                 ^^^^
     |
     = help: return a `thiserror` enum with a variant per failure and its typed source

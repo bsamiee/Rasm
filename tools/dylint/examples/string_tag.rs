@@ -3,6 +3,22 @@
 use core::hint::black_box;
 use std::io::{self, BufRead};
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+trait Severity {
+    fn base(&self) -> usize;
+
+    fn weight(&self, level: &str) -> usize {
+        if level == "warn" {
+            self.base().strict_mul(2)
+        } else if level == "info" {
+            self.base()
+        } else {
+            0
+        }
+    }
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug)]
@@ -11,10 +27,18 @@ struct Job {
     name: String,
 }
 
+impl Severity for Job {
+    fn base(&self) -> usize { self.name.len() }
+}
+
 #[derive(Debug)]
 struct Step {
     state: &'static str,
     label: &'static str,
+}
+
+impl Severity for Step {
+    fn base(&self) -> usize { self.label.len() }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -92,6 +116,25 @@ fn chained(text: &str) -> Color {
 
 fn named(job: &Job) -> bool { job.name == "lints" }
 
+fn returned(text: &str) -> Option<Color> {
+    match text {
+        "red" => return Some(Color::Red),
+        "blue" => return Some(Color::Blue),
+        _ => {}
+    }
+    None
+}
+
+fn leveled(level: &str, text: &str) -> usize {
+    if level == "warn" {
+        text.len()
+    } else if level == "info" {
+        text.len().strict_mul(2)
+    } else {
+        0
+    }
+}
+
 fn answered(input: &mut dyn BufRead) -> bool {
     let mut answer = String::from("n");
     input.read_line(&mut answer).unwrap_or_default();
@@ -115,6 +158,9 @@ fn main() {
         parsed(&input),
         chained(&input),
         named(&job),
+        returned(&input),
+        (leveled("warn", &input), (leveled as fn(&str, &str) -> usize)("info", &input)),
+        (job.weight("warn"), job.weight("info"), steps()[0].weight("warn")),
         answered(&mut io::stdin().lock()),
         (PAUSE, build(&job), test(&job)),
     ));

@@ -15,7 +15,7 @@ rule:
                     kind: 'function_item, function_signature_item'
                     field: parameters
                     all:
-                        - not: {has: {kind: visibility_modifier, regex: '^pub$'}}
+                        - any: [{not: {has: {kind: visibility_modifier, regex: '^pub$'}}}, {matches: rust-test-scope}]
                         - not: {inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '\S'}}}}
                         - not: {inside: {kind: declaration_list, inside: {kind: trait_item, has: {kind: visibility_modifier}}}}
 message: '`impl Trait` parameter leaves its type unnamed'
