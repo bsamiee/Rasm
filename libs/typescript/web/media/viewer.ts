@@ -1,5 +1,5 @@
 import { usePinch } from '@use-gesture/react';
-import { Effect, Fiber, Layer, type Scope } from 'effect';
+import { Array, Effect, Fiber, Layer, type Scope } from 'effect';
 import { AnnotationMode, type PDFDocumentProxy, PixelsPerInch, RenderingCancelledException } from 'pdfjs-dist';
 import { EventBus, PDFFindController, PDFLinkService, PDFPageView, PDFSinglePageViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { useEffect, useRef, useState } from 'react';
@@ -105,11 +105,8 @@ const usePdfViewer = (
             nativeViewer.currentScaleValue = scale;
             resize.observe(container);
         });
-        const read = (): void => setView({ page: nativeViewer.currentPageNumber, fit: nativeViewer.currentScaleValue });
-        eventBus.on('pagechanging', read);
-        eventBus.on('scalechanging', read);
-        eventBus.on('updatefindmatchescount', ({ matchesCount }: { matchesCount: Matches }) => setMatches(matchesCount));
-        eventBus.on('updatefindcontrolstate', ({ matchesCount }: { matchesCount: Matches }) => setMatches(matchesCount));
+        Array.forEach(['pagechanging', 'scalechanging'], (name) => eventBus.on(name, () => setView({ page: nativeViewer.currentPageNumber, fit: nativeViewer.currentScaleValue })));
+        Array.forEach(['updatefindmatchescount', 'updatefindcontrolstate'], (name) => eventBus.on(name, ({ matchesCount }: { matchesCount: Matches }) => setMatches(matchesCount)));
         eventBus.on('pagerendered', ({ error }: { error: unknown }) => {
             if (error !== null) {
                 onError(error);

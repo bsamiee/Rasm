@@ -11,7 +11,7 @@ utils:
         kind: 'const_item, static_item'
         all:
             - has: {field: name, pattern: $GOLDEN}
-            - has: {field: value, kind: macro_invocation, has: {field: macro, regex: '^((::)?(std|core)::)?include_(str|bytes)$'}}
+            - has: {field: value, matches: {rust-std-macro: {name: {regex: '^include_(str|bytes)$'}}}}
 rule:
     kind: macro_invocation
     pattern: $ASSERT

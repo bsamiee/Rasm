@@ -11,7 +11,7 @@ utils:
             - kind: member_expression
               has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
             - kind: identifier
-              matches: {syntax-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
+              matches: {typescript-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
     empty-value:
         any:
             - kind: 'array, object'
@@ -32,7 +32,7 @@ utils:
                 - not: {has: {field: arguments, has: {pattern: $_}}}
             - kind: call_expression
               all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^succeed$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^succeed$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: empty-value}}, {not: {has: {nthChild: 2}}}]}
 rule:
     kind: call_expression
@@ -47,7 +47,7 @@ rule:
             field: arguments
             has:
                 any:
-                    - matches: {effect-constant-handler: {result: {matches: empty-value, pattern: $D}}}
+                    - matches: {typescript-constant-function: {result: {matches: empty-value, pattern: $D}}}
                     - kind: call_expression
                       all:
                         - has: {field: function, matches: function-reference, regex: '(^|\.)constant$'}

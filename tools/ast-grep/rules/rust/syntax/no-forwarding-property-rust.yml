@@ -3,8 +3,6 @@ id: no-forwarding-property-rust
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     inherent-method:
         inside:
             kind: declaration_list
@@ -29,7 +27,7 @@ utils:
                 - has: {field: arguments, not: {has: {pattern: $_}}}
     sole:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     reachable-visibility:
         kind: visibility_modifier
         any:
@@ -83,8 +81,8 @@ rule:
                 - has:
                     field: body
                     all:
-                        - has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: assigned-parameter}
-                        - has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}, kind: self}
-                        - not: {has: {nthChild: {position: 3, ofRule: {not: {matches: comment}}}}}
+                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: assigned-parameter}
+                        - has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}, kind: self}
+                        - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement-slot}}}}
 message: 'Method `$NAME` reads or writes field `$F` of `$TYPE` unchanged'
 note: 'Read `<value>.<field>` or assign it at each use, and build the value with a struct literal or `..<base>` update, a method that copies a field unchanged adds a name and no check'

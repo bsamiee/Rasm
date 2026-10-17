@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-package-reference
+language: tsx
+rule:
+    any:
+        - matches: {typescript-import-reference: {source: {regex: '^[^.]'}, exported: {regex: '.'}}}
+        - kind: member_expression
+          has: {field: object, matches: typescript-package-reference}

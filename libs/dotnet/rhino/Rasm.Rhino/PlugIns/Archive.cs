@@ -1,6 +1,9 @@
+using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI;
 using Rhino;
+using Rhino.Collections;
 using Rhino.FileIO;
 
 namespace Rasm.Rhino.PlugIns;
@@ -20,14 +23,33 @@ public sealed record DocumentFrame<T>(
     T Empty,
     Func<RhinoDoc, FileWriteOptions, IO<T>> Held,
     Func<RhinoDoc, T, IO<Unit>> Restore) : DocumentFrame where T : IEquatable<T> {
+    public IO<Unit> Writable(RhinoDoc doc) =>
+        Newer(doc).Bind(newer => newer.Match(Some: raw => IO.fail<Unit>(Codec.Refusal(raw)), None: static () => IO.pure(unit)));
+
     internal override IO<bool> Filled(RhinoDoc doc, FileWriteOptions options) =>
-        Held(doc, options).Map(held => !held.Equals(Empty));
+        from newer in Newer(doc)
+        from held in Held(doc, options)
+        select newer.IsSome || !held.Equals(Empty);
 
     internal override IO<Unit> Write(RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) =>
-        Held(doc, options).Bind(held => AttachedData.Write(writer, TypeCode, Codec, held));
+        Newer(doc).Bind(newer => newer.Match(
+            Some: raw => AttachedData.Write(writer, TypeCode, raw),
+            None: () => Held(doc, options).Bind(held => AttachedData.Write(writer, TypeCode, Codec, held))));
 
     internal override IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader) =>
-        AttachedData.Read(reader, TypeCode, Codec).Bind(read => Restore(doc, read));
+        from cleared in IO.lift(() => ignore(doc.RuntimeData.Remove(Key)))
+        from stored in AttachedData.Read(reader, TypeCode, Codec)
+        from restored in stored.Switch(
+            (Frame: this, Doc: doc),
+            held: static (state, held) => state.Frame.Restore(state.Doc, held.Value),
+            absent: static (_, _) => IO.pure(unit),
+            newer: static (state, newer) => IO.lift(() => { state.Doc.RuntimeData[state.Frame.Key] = newer.Raw; }))
+        select restored;
+
+    private (Type Frame, uint TypeCode) Key => (typeof(DocumentFrame), TypeCode);
+
+    private IO<Option<ArchivableDictionary>> Newer(RhinoDoc doc) =>
+        IO.lift(() => Optional(doc.RuntimeData.TryGetValue<ArchivableDictionary>(Key)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -58,4 +80,8 @@ internal static class DocumentArchive {
             IO.lift(() => options.OpenMode || options.NewMode)
                 .Bind(opened => when(opened, Histories.Cons(frames).TraverseM(frame => frame.Read(doc, reader)).As().Map(unit)).As()),
             site);
+
+    // --- [SAVES]
+    public static IO<Unit> Rewrites(IPlugInViews plugIn, Action<IDisposable> retain) =>
+        EventKind.BeginSaveDocument.Inline(static args => Optional(args.Document).Traverse(ArchivableDictionaries.Rewrite).As().Map(unit), plugIn, retain);
 }

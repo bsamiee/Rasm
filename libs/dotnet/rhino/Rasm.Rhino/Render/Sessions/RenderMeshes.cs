@@ -16,7 +16,6 @@ public sealed record MeshRequest(MeshType Type, ViewportInfo Viewport, RenderMes
 public sealed record MeshBuild(Seq<Instance> Instances, ContentKey Inputs, RenderMeshProvider.Flags Flags);
 
 [SmartEnum<int>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class MeshInterface {
     public static readonly MeshInterface NoInterface = new(-1);
     public static readonly MeshInterface SimpleDialog = new(0);
@@ -37,7 +36,7 @@ public sealed record MeshBatch(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Row
 [Mapper(UseDeepCloning = true)]
 public abstract partial class DefinedMeshProvider(IPlugInViews sink, string name) : RenderMeshProvider {
     // --- [IDENTITY]
-    public sealed override string Name => RowText.Localize(name, table: Some<object>(sink)).Local;
+    public sealed override string Name => RowText.Localize(name, sink).Local;
 
     public sealed override Guid ProviderId =>
         ContentKey.Of(KeyDomain.RenderMeshes, stream => stream.Id(sink.PlugIn.Id).Id(GetType().GUID)).Id;
@@ -78,7 +77,7 @@ public abstract partial class DefinedMeshProvider(IPlugInViews sink, string name
         Callbacks.Answer(
             from ids in IO.lift(() => Conversions.Rows(optional_objectIds))
             from found in Progressing(doc, ids)
-            select found.Map(progress => ToProgress(progress, RowText.Localize(progress.Text, table: Some<object>(sink)).Local, ProviderId)),
+            select found.Map(progress => ToProgress(progress, RowText.Localize(progress.Text, sink).Local, ProviderId)),
             static () => Option<RenderMeshProviderProgress>.None, new(sink, GetType(), nameof(Progress))).ValueUnsafe();
 
     private static partial RenderMeshProviderProgress ToProgress(RenderMeshProviderProgress progress, string text, Guid providerId);
@@ -95,11 +94,10 @@ public abstract partial class DefinedMeshProvider(IPlugInViews sink, string name
     // --- [REGISTRATION]
     public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register(Func<IPlugInViews, DefinedMeshProvider> create) =>
         (sink, retain) => DisposalOps.Acquire(
-            owned => from provider in DisposalOps.Acquire(IO.lift(() => create(sink)), static held => IO.lift(held.Dispose), owned)
-                     from identified in IO.lift(() => MissingGuid.Unless(provider.GetType()))
+            owned => from provider in DisposalOps.Acquire(IO.lift(() => create(sink)), owned)
                      from accepted in IO.lift(() => Refused.Unless(RegisterProvider(provider, sink.PlugIn), nameof(RegisterProvider)))
                      select accepted,
-            (_, lease) => retain(lease));
+            retain);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -109,7 +107,7 @@ public static class Meshing {
         DisposalOps.Acquire(
             owned => IO.lift(() => Conversions.Rows(rhinoObject.GetMeshes(type)))
                 .Bind(cached => cached.TraverseM(mesh => Copies.Duplicate(mesh, owned)).As()),
-            (_, lease) => retain(lease));
+            retain);
 
     // --- [CUSTOM_MESHES]
     public static IO<RenderMeshes> RenderMeshes(RhinoObject rhinoObject, MeshRequest request, Seq<InstanceObject> ancestry, Action<IDisposable> retain) =>
@@ -119,7 +117,7 @@ public static class Meshing {
                 RenderMeshes? meshes = rhinoObject.RenderMeshes(request.Type, request.Viewport, [.. ancestry], ref flags, request.Requester.ValueUnsafe(), request.Display.ValueUnsafe());
                 return (Meshes: meshes, Flags: flags, Release: new Disposal<RenderMeshes?>(meshes, static held => held?.Dispose()));
             }), static read => IO.lift(read.Release.Dispose), read => owned(read.Release))
-             from meshes in IO.lift(() => Missing.Unless(read.Meshes, nameof(RhinoObject.RenderMeshes)))
+             from meshes in IO.lift(() => Refused.UnlessFound(read.Meshes, nameof(RhinoObject.RenderMeshes)))
              from canceled in when(read.Flags.HasFlag(RenderMeshProvider.Flags.Canceled), IO.fail<Unit>(Errors.Cancelled)).As()
              from completed in read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete)
                  ? IO.lift(read.Release.Dispose).Bind(static _ => IO.lift(static () => RhinoApp.Wait())).Map(_ => (Meshes: meshes, read.Flags))
@@ -127,13 +125,13 @@ public static class Meshing {
              select completed)
             .RepeatUntil(static read => !read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete))
             .Map(static read => read.Meshes),
-            (_, lease) => retain(lease));
+            retain);
 
     // --- [PROVIDER_PARAMETERS]
     public static IO<Option<T>> GetCustomRenderMeshParameter<T>(RhinoObject rhinoObject, Guid providerId, string parameterName) where T : notnull =>
         DisposalOps.Within(() => rhinoObject.GetCustomRenderMeshParameter(providerId, parameterName),
             static held => Optional(held).Traverse(static value => IO.lift(() => (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture))).As(),
-            static held => DisposalOps.Release(Optional(held as IDisposable).ToSeq()));
+            static held => DisposalOps.Release(held as IDisposable));
 
     // --- [BATCH]
     public static IO<MeshBatch> MeshObjects(Seq<RhinoObject> rhinoObjects, MeshingParameters parameters, MeshRun run, Action<IDisposable> retain) =>
@@ -147,7 +145,7 @@ public static class Meshing {
                     int style = styled.Interface.Key;
                     return (
                         Result: RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes),
-                        Meshes: meshes, Attributes: attributes, Interface: Conversions.Validated<MeshInterface, int, InvalidRhinoValue>(style));
+                        Meshes: meshes, Attributes: attributes, Interface: MeshInterface.Validated(style));
                 }),
             static made => from accepted in Conversions.FromResult(made.Result, nameof(RhinoObject.MeshObjects))
                            from closed in made.Interface

@@ -8,23 +8,24 @@ namespace Rasm.Imaging.Files;
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidFileValue>]
 public sealed partial class OutputPath {
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && Path.GetFileName(value).Length > 0 ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = Path.IsPathFullyQualified(value) && Path.GetFileName(value).Length > 0 ? null : new ValidationError($"output path '{value}' must be fully qualified and name a file");
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FilePublication {
+    public static Error Refusal(string path, Error error) => error switch {
+        ManyErrors many => Error.Many(many.Errors.Map(leaf => Refusal(path, leaf))),
+        _ => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? Error.New($"{path} refused access", error) : error,
+    };
+
     public static IO<Unit> Write(OutputPath path, bool overwrite, Func<FileStream, IO<Unit>> write) {
         const int FileExists = unchecked((int)0x80070050);
         const int AlreadyExists = unchecked((int)0x800700B7);
-        Error Refused(Error error) => error switch {
-            ManyErrors many => Error.Many(many.Errors.Map(Refused)),
-            _ => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? new WriteRefused(path, error) : error,
-        };
+        Error Refused(Error error) => Refusal(path, error);
         return
-            from environment in IO.lift(static environment => environment)
+            from environment in IO.env
             from written in (
                 from stream in IO.lift(() => {
                     string folder = Path.GetDirectoryName((string)path)!;

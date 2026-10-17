@@ -1,8 +1,9 @@
 using System.Globalization;
 using Eto.Forms;
+using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.UI.Inputs;
@@ -37,10 +38,9 @@ internal static partial class MenuPickMapper {
 
 public static class ChoiceRows {
     // --- [ITEMS]
-    public static Seq<ChoiceItem<TValue>> Items<TValue, TError>(Func<TValue, string> caption, Option<Func<TValue, (IGlyph Glyph, int Master)>> glyph, IPlugInSink plugIn)
-        where TValue : ISmartEnum<string, TValue, TError>
-        where TError : Error, IValidationError<TError> =>
-        toSeq(TValue.Items).Map(item => new ChoiceItem<TValue>(item, Wording.English.Shown(caption(item), plugIn), glyph.Map(read => read(item)))).Strict();
+    public static Seq<ChoiceItem<TValue>> Items<TValue>(Option<Func<TValue, (IGlyph Glyph, int Master)>> glyph, IPlugInSink plugIn)
+        where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+        toSeq(TValue.Items).Map(item => new ChoiceItem<TValue>(item, Wording.English.Shown(item.Caption, plugIn), glyph.Map(read => read(item)))).Strict();
 
     public static Seq<ChoiceItem<TEnum>> Members<TEnum>(Func<TEnum, string> caption, IPlugInSink plugIn) where TEnum : struct, Enum =>
         toSeq(Enum.GetValues<TEnum>()).Map(member => new ChoiceItem<TEnum>(member, Wording.English.Shown(caption(member), plugIn), None)).Strict();
@@ -80,7 +80,7 @@ public static class ChoiceRows {
         ControlRow.Of(source, members.Map(static member => member.Field), caption, help, RowShape.Inline, (scope, retain) =>
             from site in IO.pure(new CallbackSite(scope.Sink, typeof(SegmentedButton), nameof(SegmentedButton.SelectedItemsChanged)))
             from strip in Segmented(
-                toSeq(members.Map(member => new ChoiceItem<RowField<TRecord>>(member.Field, Wording.English.Shown(member.Field.Caption, scope.Sink), Some(member.Glyph)))),
+                toSeq(members.Map(member => new ChoiceItem<RowField<TRecord>>(member.Field, member.Field.Wording.Shown(member.Field.Caption, scope.Sink), Some(member.Glyph)))),
                 SegmentedSelectionMode.Multiple, site, retain)
             from edit in RowEdit.Bind(source, members.Map(static member => member.Field),
                 h => strip.Control.SelectedItemsChanged += h, h => strip.Control.SelectedItemsChanged -= h,
@@ -101,7 +101,7 @@ public static class ChoiceRows {
             from popup in Popped(items, site, keep)
             from show in Commits(h => popup.Control.SelectedValueChanged += h, h => popup.Control.SelectedValueChanged -= h,
                 popup.Picked, popup.Write, commit, site, keep)
-            select (popup.Control, show), (_, release) => retain(release));
+            select (popup.Control, show), retain);
 
     public static IO<(Control Control, Func<Option<TModel>, IO<Unit>> Show)> Strip<TModel>(
         Seq<ChoiceItem<TModel>> items, Func<TModel, IO<Unit>> commit, IPlugInSink sink, Action<IDisposable> retain) where TModel : notnull {
@@ -112,16 +112,16 @@ public static class ChoiceRows {
               from show in Commits(h => strip.Control.SelectedItemsChanged += h, h => strip.Control.SelectedItemsChanged -= h,
                   strip.Picked.Map(static picks => picks.Head), value => strip.Write(value.Map(static one => Seq(one))), commit, site, keep)
               select ((Control)strip.Control, show)
-            : Popup(items, commit, sink, keep).Map(static popup => ((Control)popup.Control, popup.Show)), (_, release) => retain(release));
+            : Popup(items, commit, sink, keep).Map(static popup => ((Control)popup.Control, popup.Show)), retain);
     }
 
     // --- [MENUS]
     public static IO<ContextMenu> Menu(
         Seq<Seq<MenuEntry>> groups, Seq<IO<Unit>> refreshes, Option<IO<Seq<MenuPick>>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
-            from menu in DisposalOps.Acquire(IO.lift(static () => new ContextMenu()), static held => IO.lift(held.Dispose), keep)
+            from menu in DisposalOps.Acquire(IO.lift(static () => new ContextMenu()), keep)
             from populated in Populate(menu, groups, refreshes, listing, sink, keep)
-            select menu, (_, release) => retain(release));
+            select menu, retain);
 
     public static IO<Unit> Populate(
         ContextMenu menu, Seq<Seq<MenuEntry>> groups, Seq<IO<Unit>> refreshes, Option<IO<Seq<MenuPick>>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
@@ -134,14 +134,14 @@ public static class ChoiceRows {
                 _ = entries.Iter(entry => menu.Items.Insert(menu.Items.Count, entry));
             }).Uninterruptible()
             from opened in Opened(menu.Items, h => menu.Opening += h, h => menu.Opening -= h, refreshes, listing, site, keep)
-            select unit, (_, release) => retain(release));
+            select unit, retain);
 
     public static Func<Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<ContextMenu>> Context(
         Control control, Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, IPlugInSink sink) =>
         (groups, refresh, retain) => DisposalOps.Acquire(keep =>
             from menu in Labelled(own, refreshes, sink)(groups, refresh, keep)
             from attached in DisposalOps.Change(() => control.ContextMenu, value => control.ContextMenu = value, menu, keep)
-            select menu, (_, release) => retain(release));
+            select menu, retain);
 
     public static Func<Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<ContextMenu>> Labelled(
         Seq<Seq<MenuEntry>> own, Seq<IO<Unit>> refreshes, IPlugInSink sink) =>
@@ -150,24 +150,23 @@ public static class ChoiceRows {
     // --- [SEARCH]
     public static IO<SearchBox> Search(string placeholder, Func<Func<string, bool>, IO<Unit>> filter, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
-            from field in DisposalOps.Acquire(IO.lift(static () => new SearchBox()), static held => IO.lift(held.Dispose), keep)
+            from field in DisposalOps.Acquire(IO.lift(static () => new SearchBox()), keep)
             from faced in IO.lift(() => field.PlaceholderText = placeholder)
             from attached in Subscriptions.Attach(h => field.TextChanged += h, h => field.TextChanged -= h,
                 Callbacks.Handler<EventArgs>(
                     _ => IO.lift(() => field.Text.Trim()).Bind(query => filter(text => RowText.Culture.CompareInfo.IndexOf(text, query, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0)),
                     new CallbackSite(sink, typeof(SearchBox), nameof(SearchBox.TextChanged))), keep)
-            select field, (_, release) => retain(release));
+            select field, retain);
 
     // --- [REALIZE]
     private static IO<(DropDown Control, Func<Option<TModel>, IO<Unit>> Write, IO<Option<TModel>> Picked, Func<Seq<ChoiceItem<TModel>>, IO<bool>> Relist)> Popped<TModel>(
         Seq<ChoiceItem<TModel>> items, CallbackSite site, Action<IDisposable> retain) where TModel : notnull =>
-        from popup in DisposalOps.Acquire(IO.lift(static () => new DropDown()), static held => IO.lift(held.Dispose), retain)
+        from popup in DisposalOps.Acquire(IO.lift(static () => new DropDown()), retain)
         from varies in IO.lift(static () => new ListItem { Text = RowEdit.Varies })
         from held in IO.lift(static () => Ref(Option<Listing<TModel>>.None))
         from owned in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Option<Listing<TModel>>>>(held, static cell =>
             atomicIO(() => { Option<Listing<TModel>> prior = cell.Value; cell.Value = None; return prior; })
-                .Bind(static prior => IO.lift(() => prior.Iter(static listing => listing.Themed.Dispose()))).Uninterruptible().Run())),
-            static owner => IO.lift(owner.Dispose), retain)
+                .Bind(static prior => IO.lift(() => prior.Iter(static listing => listing.Themed.Dispose()))).Uninterruptible().Run())), retain)
         let replace = (Func<Seq<ChoiceItem<TModel>>, IO<Unit>>)(roster => DisposalOps.Replace(
             keep => Listed(popup, roster, site, keep),
             (rows, release) => atomic(() => {
@@ -192,14 +191,13 @@ public static class ChoiceRows {
     private static IO<Seq<(ChoiceItem<TModel> Item, ImageListItem Entry)>> Listed<TModel>(
         Control control, Seq<ChoiceItem<TModel>> items, CallbackSite site, Action<IDisposable> retain) where TModel : notnull =>
         from rows in IO.lift(() => items.Map(static item => (Item: item, Entry: new ImageListItem { Text = item.Caption })).Strict())
-        from themed in DisposalOps.AcquireAll(
-            rows.Bind(row => row.Item.Glyph.Map(glyph => (Func<Action<IDisposable>, IO<Unit>>)(keep => Icons.Themed(site.Sink, glyph, IconSlot.DropDownItem, HostTheme.In(control), icon => row.Entry.Image = icon, keep))).ToSeq()),
-            DisposalOps.Release, (_, lease) => retain(lease))
+        from themed in DisposalOps.Acquire(keep => rows.TraverseM(row => row.Item.Glyph.Traverse(glyph =>
+            Icons.Themed(site.Sink, glyph, IconSlot.DropDownItem, HostTheme.In(control), icon => row.Entry.Image = icon, keep)).As()).As(), retain)
         select rows;
 
     private static IO<(SegmentedButton Control, Func<Option<Seq<TModel>>, IO<Unit>> Write, IO<Seq<TModel>> Picked)> Segmented<TModel>(
         Seq<ChoiceItem<TModel>> items, SegmentedSelectionMode mode, CallbackSite site, Action<IDisposable> retain) where TModel : notnull =>
-        from strip in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton()), static held => IO.lift(held.Dispose), retain)
+        from strip in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton()), retain)
         from selected in IO.lift(() => strip.SelectionMode = mode)
         from rows in items.TraverseM(item =>
             from segment in DisposalOps.Acquire(IO.lift(static () => new ButtonSegmentedItem()), ButtonRows.Released,
@@ -207,8 +205,8 @@ public static class ChoiceRows {
             from faced in IO.lift(() => { (segment.Text, segment.ToolTip) = (item.Glyph.Map(static _ => "").IfNone(item.Caption), item.Caption); })
             select (Item: item, Segment: segment)).As()
         from added in IO.lift(() => strip.Items.AddRange(rows.Map(static row => (SegmentedItem)row.Segment)))
-        from themed in DisposalOps.AcquireAll(
-            rows.Bind(row => row.Item.Glyph.Map(glyph => (Func<Action<IDisposable>, IO<Unit>>)(keep => Icons.Themed(site.Sink, glyph, IconSlot.PanelButton, HostTheme.In(strip), icon => row.Segment.Image = icon, keep))).ToSeq()), DisposalOps.Release, (_, lease) => retain(lease))
+        from themed in DisposalOps.Acquire(keep => rows.TraverseM(row => row.Item.Glyph.Traverse(glyph =>
+            Icons.Themed(site.Sink, glyph, IconSlot.PanelButton, HostTheme.In(strip), icon => row.Segment.Image = icon, keep)).As()).As(), retain)
         select (
             strip,
             (Func<Option<Seq<TModel>>, IO<Unit>>)(value => toHashSet(value.ToSeq().Flatten()) switch {
@@ -224,11 +222,13 @@ public static class ChoiceRows {
         select (Func<Option<TModel>, IO<Unit>>)(value => Subscriptions.Detached(add, remove, handler, write(value)));
 
     private static IO<Seq<MenuItem>> Entries(Seq<Seq<MenuEntry>> groups, CallbackSite site, Action<IDisposable> retain, bool preceding = false) =>
-        DisposalOps.AcquireAll(groups.Filter(static group => !group.IsEmpty).Map((group, index) =>
-            (preceding || index is not 0
-                ? Seq<Func<Action<IDisposable>, IO<MenuItem>>>(static keep => DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), static held => IO.lift(held.Dispose), keep).Map(static separator => (MenuItem)separator))
-                : Seq<Func<Action<IDisposable>, IO<MenuItem>>>())
-            .Concat(group.Map(entry => (Func<Action<IDisposable>, IO<MenuItem>>)(keep => Entry(entry, site, keep))))).Flatten(), DisposalOps.Release, (_, lease) => retain(lease));
+        DisposalOps.Acquire(keep => groups.Filter(static group => !group.IsEmpty).Map((group, index) =>
+                (preceding || index is not 0
+                    ? Seq(DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), keep).Map(static separator => (MenuItem)separator))
+                    : Seq<IO<MenuItem>>())
+                .Concat(group.Map(entry => Entry(entry, site, keep))))
+            .Flatten()
+            .TraverseM(static item => item).As(), retain);
 
     private static IO<MenuItem> Entry(MenuEntry entry, CallbackSite site, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep => entry.Switch((Site: site, Retain: keep),
@@ -239,60 +239,50 @@ public static class ChoiceRows {
                         Callbacks.Each(Seq(IO.lift(() => { held.Command = null; }), IO.lift(held.Unbind), IO.lift(held.Dispose))).Map(unit).Run()));
                 }), static held => IO.lift(held.Release.Dispose), held => at.Retain(held.Release)).Map(static held => held.Item),
             submenu: static (at, submenu) =>
-                from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), static held => IO.lift(held.Dispose), at.Retain)
+                from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), at.Retain)
                 from faced in IO.lift(() => sub.Text = submenu.Caption)
                 from children in Entries(submenu.Groups, at.Site, at.Retain)
                 from inserted in IO.lift(() => children.Iter(child => sub.Items.Insert(sub.Items.Count, child)))
                 select (MenuItem)sub,
             listed: static (at, listed) =>
-                from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), static held => IO.lift(held.Dispose), at.Retain)
+                from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), at.Retain)
                 from faced in IO.lift(() => sub.Text = listed.Caption)
                 from opened in Opened(sub.Items, h => sub.Opening += h, h => sub.Opening -= h, [], Some(listed.Read),
                     new CallbackSite(at.Site.Sink, typeof(SubMenuItem), nameof(SubMenuItem.Opening)), at.Retain)
-                select (MenuItem)sub), (_, release) => retain(release));
+                select (MenuItem)sub), retain);
 
     private static IO<MenuItem> Pick(MenuPick pick, CallbackSite site, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep => pick.Switch((Site: site, Retain: keep),
             item: static (at, item) =>
-                from check in DisposalOps.Acquire(IO.lift(static () => new CheckMenuItem()), static held => IO.lift(held.Dispose), at.Retain)
+                from check in DisposalOps.Acquire(IO.lift(static () => new CheckMenuItem()), at.Retain)
                 from faced in IO.lift(() => MenuPickMapper.Apply(item, check))
                 from clicked in Subscriptions.Attach(h => check.Click += h, h => check.Click -= h,
                     Callbacks.Handler<EventArgs>(_ => item.Run, new CallbackSite(at.Site.Sink, typeof(CheckMenuItem), nameof(CheckMenuItem.Click))), at.Retain)
                 select (MenuItem)check,
             group: static (at, nested) =>
-                from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), static held => IO.lift(held.Dispose), at.Retain)
+                from sub in DisposalOps.Acquire(IO.lift(static () => new SubMenuItem()), at.Retain)
                 from faced in IO.lift(() => sub.Text = nested.Caption)
-                from children in DisposalOps.AcquireAll(nested.Picks.Map(child => (Func<Action<IDisposable>, IO<MenuItem>>)(held => Pick(child, at.Site, held))),
-                    DisposalOps.Release, (_, lease) => at.Retain(lease))
+                from children in DisposalOps.Acquire(keep => nested.Picks.TraverseM(child => Pick(child, at.Site, keep)).As(), at.Retain)
                 from inserted in IO.lift(() => children.Iter(child => sub.Items.Insert(sub.Items.Count, child)))
-                select (MenuItem)sub), (_, release) => retain(release));
+                select (MenuItem)sub), retain);
 
     private static IO<Unit> Opened(
         MenuItemCollection items, Action<EventHandler<EventArgs>> add, Action<EventHandler<EventArgs>> remove,
         Seq<IO<Unit>> refreshes, Option<IO<Seq<MenuPick>>> listing, CallbackSite site, Action<IDisposable> retain) =>
-        from shown in IO.lift(static () => Ref(Seq<IDisposable>()))
-        let clear = atomicIO(() => {
-            Seq<IDisposable> taken = shown.Value;
-            shown.Value = [];
-            return taken;
-        }).Bind(DisposalOps.Release).Uninterruptible()
-        from owned in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Seq<IDisposable>>>(shown, _ => clear.Run())), static held => IO.lift(held.Dispose), retain)
+        from shown in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), retain)
         from attached in Subscriptions.Attach(add, remove, Callbacks.Handler<EventArgs>(_ => Callbacks.Each(refreshes + listing.Map(read =>
-            clear.Bind(_ => read).Bind(picks => DisposalOps.AcquireAll(
-                picks.Map(pick => (Func<Action<IDisposable>, IO<MenuItem>>)(keep => Pick(pick, site, keep)))
-                    .Concat(!picks.IsEmpty && items.Count is not 0
-                        ? Seq<Func<Action<IDisposable>, IO<MenuItem>>>(static keep =>
-                            DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), static held => IO.lift(held.Dispose), keep).Map(static separator => (MenuItem)separator))
-                        : Seq<Func<Action<IDisposable>, IO<MenuItem>>>())
-                    .Map((factory, index) => (Func<Action<IDisposable>, IO<Unit>>)(keep => Placed(items, factory, index, keep))),
-                DisposalOps.Release, (_, lease) => atomic(() =>
-                    owned.Held.ToFin(Errors.Cancelled).Map(_ => shown.Value = Seq(lease)).ThrowIfFail())))
+            shown.Drain.Bind(_ => read).Bind(picks => DisposalOps.Acquire(keep => picks.Map(pick => Pick(pick, site, keep))
+                .Concat(!picks.IsEmpty && items.Count is not 0
+                    ? Seq(DisposalOps.Acquire(IO.lift(static () => new SeparatorMenuItem()), keep).Map(static separator => (MenuItem)separator))
+                    : Seq<IO<MenuItem>>())
+                .Map((item, index) => Placed(items, item, index, keep))
+                .TraverseM(static placed => placed).As(), (_, lease) => shown.Retain(lease)))
                 .Map(unit)).ToSeq()).Map(static _ => unit), site), retain)
         select unit;
 
-    private static IO<Unit> Placed(MenuItemCollection items, Func<Action<IDisposable>, IO<MenuItem>> factory, int index, Action<IDisposable> keep) =>
-        from item in factory(keep)
-        from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<MenuItem>(item, held => items.Remove(held))), static held => IO.lift(held.Dispose), keep)
+    private static IO<Unit> Placed(MenuItemCollection items, IO<MenuItem> create, int index, Action<IDisposable> keep) =>
+        from item in create
+        from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<MenuItem>(item, held => items.Remove(held))), keep)
         from inserted in IO.lift(() => items.Insert(index, item))
         select unit;
 

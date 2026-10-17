@@ -15,25 +15,15 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using UUIDNext;
 using UnitsNet;
 
 namespace Rasm.Grasshopper.Parameters;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum Codes {
-    RefusedDataType = 1,
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record RefusedDataType(Type DataType, string Member) : Expected("{Member} refused the data type {DataType}", (int)Codes.RefusedDataType) {
-    public static Fin<Unit> Unless(bool accepted, Type dataType, string member) => accepted ? unit : new RefusedDataType(dataType, member);
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 internal class DataAssistant<T>(Guid parameterId, string name, DefinedGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe)
-    : TypeAssistant<T>(RowText.Localize(name, table: Some<object>(plugin)).Local), GrasshopperIO.ICustomIoId {
+    : TypeAssistant<T>(RowText.Localize(name, plugin).Local), GrasshopperIO.ICustomIoId {
     public Guid CustomIoId { get; } = parameterId;
 
     protected DefinedGrasshopperPlugin Plugin { get; } = plugin;
@@ -60,12 +50,12 @@ internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay te
     public void Draw(Context context, Font font, Color background, ValueDisplayFrame frame) =>
         Callbacks.Run(IO.lift(() => DataTypes.Encoding(image)).Bind(encoding => encoding.Match(
             Some: transfer =>
-                from tiles in IO.lift(() => PreviewTiles.Current.Of(site.Sink))
+                from tiles in PreviewTiles.Current.Of(site.Sink)
                 let size = image.Item.Size
                 let fit = MathF.Min(frame.Inner.Width / size.Width, frame.Inner.Height / size.Height)
                 let target = RectangleF.FromCenter(frame.Inner.Center, new SizeF(size.Width * fit, size.Height * fit))
                 let device = Size.Ceiling(target.Size * CanvasPainting.Scale(context))
-                from extent in IO.lift(() => PixelExtent.Validate(device.Width, device.Height, out PixelExtent extent) is { } error ? Fin.Fail<PixelExtent>(error) : Fin.Succ(extent))
+                from extent in IO.lift(() => PixelExtent.Validated(device.Width, device.Height))
                 from drawn in tiles.Paint(typeof(ImageValueDisplay), Optional(context.Control as Eto.Forms.Control), image.Item, extent, transfer,
                     bitmap => context.Graphics.DrawImage(bitmap, target))
                 from deferred in drawn.Match(Some: static _ => unitIO, None: () => IO.lift(context.Invalidate))
@@ -93,11 +83,11 @@ internal class StoredDataAssistant<T>(Guid parameterId, string name, DefinedGras
     private Result<T> Recall(string text) =>
         recall(text).Match(
             Succ: value => Result<T>.Succeed(value, text),
-            Fail: error => Result<T>.Fail(ErrorOps.Line(error), text));
+            Fail: error => Result<T>.Fail(error.Message, text));
 }
 
 internal sealed class NumericDataAssistant<TValue, TKey>(Guid parameterId, string name, DefinedGrasshopperPlugin plugin, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
-    : StoredDataAssistant<TValue>(parameterId, name, plugin, icon, identity, describe, value => StoredText.Capture(value, key), text => StoredText.Recall(text, create))
+    : StoredDataAssistant<TValue>(parameterId, name, plugin, icon, identity, describe, value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))
     where TValue : notnull
     where TKey : struct, System.Numerics.INumber<TKey> {
     public Func<TKey, Fin<TValue>> Create { get; } = create;
@@ -109,9 +99,10 @@ internal static class NumberConversions<TValue, TKey>
     where TValue : notnull
     where TKey : struct, System.Numerics.INumber<TKey> {
     [Merit(Merit.Direct)]
-    [Explanation("Reads a checked numeric key within the value's range.")]
+    [Explanation("Reads a checked numeric key within the value's range, rounding to the nearest integer, ties to even, for an integer key.")]
     public static void Inbound(double source, out TValue target) =>
-        target = ((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>()).Create(TKey.CreateChecked(source)).ThrowIfFail();
+        target = ((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>())
+            .Create(TKey.CreateChecked(TKey.CreateTruncating(0.5d) == TKey.Zero ? double.Round(source, MidpointRounding.ToEven) : source)).ThrowIfFail();
 
     [Merit(Merit.Direct)]
     [Explanation("Reads a checked integer key within the value's range.")]
@@ -129,22 +120,12 @@ internal static class NumberConversions<TValue, TKey>
     internal static double Number(TValue value) => double.CreateChecked(((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>()).Key(value));
 }
 
-internal static class IntegerValueConversions<TValue, TKey>
-    where TValue : notnull
-    where TKey : struct, System.Numerics.IBinaryInteger<TKey> {
-    [Merit(Merit.Direct)]
-    [Explanation("Rounds to the nearest integer, ties to even, within the value's range.")]
-    public static void Inbound(double source, out TValue target) =>
-        target = ((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>()).Create(TKey.CreateChecked(double.Round(source, MidpointRounding.ToEven))).ThrowIfFail();
-}
-
-internal static class KeyConversions<TValue, TRaw, TError>
-    where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-    where TRaw : notnull, ISpanParsable<TRaw>
-    where TError : Error, IValidationError<TError> {
+internal static class KeyConversions<TValue, TRaw>
+    where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+    where TRaw : notnull, ISpanParsable<TRaw> {
     [Merit(Merit.Direct)]
     [Explanation("Reads the value from its key.")]
-    public static void Inbound(TRaw source, out TValue target) => target = Conversions.Validated<TValue, TRaw, TError>(source).ThrowIfFail();
+    public static void Inbound(TRaw source, out TValue target) => target = Admission.Validated<TValue, TRaw>(source).ThrowIfFail();
 
     [Merit(Merit.Direct)]
     [Explanation("Writes the value's key.")]
@@ -206,7 +187,7 @@ public static class DataTypes {
 
     public static Fin<Option<Transfer>> Encoding(Pear<PixelFrame> pear) =>
         pear.Meta is { } meta && meta.Get(ImageEncoding, out string text)
-            ? Conversions.Validated<Transfer, string, InvalidColor>(text).Map(Some)
+            ? Transfer.Validated(text).Map(Some)
             : Fin.Succ(Option<Transfer>.None);
 
     // --- [ROWS]
@@ -230,38 +211,35 @@ public static class DataTypes {
     public static Func<DefinedGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
-        Numeric(parameterId, name, icon, value => StoredText.Capture(value, key), create, key,
-            NumberConversions<TValue, TKey>.Inbound, arithmetic: !typeof(IQuantity).IsAssignableFrom(typeof(TValue)));
+        Numeric(parameterId, name, icon, value => StoredText.Capture(value, key), create, key, arithmetic: !typeof(IQuantity).IsAssignableFrom(typeof(TValue)));
 
     internal static Func<DefinedGrasshopperPlugin, IO<Unit>> OptionalNumber<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
-        Schema(FieldTexts.Gate(FieldTexts.Leaf(value => StoredText.Capture(value, key), text => IO.lift(StoredText.Recall(text, create)))), parameterId, name, icon);
+        Schema(FieldTexts.Gate(FieldTexts.Leaf(value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))), parameterId, name, icon);
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Integer<TValue, TKey, TError>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
-        where TKey : struct, System.Numerics.IBinaryInteger<TKey>
-        where TError : Error, IValidationError<TError> =>
-        Numeric(parameterId, name, icon, describe, Conversions.Validated<TValue, TKey, TError>, static value => value.ToValue(), IntegerValueConversions<TValue, TKey>.Inbound);
+    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Integer<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
+        where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>
+        where TKey : struct, System.Numerics.IBinaryInteger<TKey> =>
+        Numeric(parameterId, name, icon, describe, Admission.Validated<TValue, TKey>, static value => value.ToValue());
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw, TError>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
+    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw> =>
         plugin => Registered(
-            new StoredDataAssistant<TValue>(parameterId, name, plugin, icon, static value => value, describe, StoredText.Capture<TValue, TRaw>, StoredText.Recall<TValue, TRaw, TError>),
+            new StoredDataAssistant<TValue>(parameterId, name, plugin, icon, static value => value, describe, StoredText.Capture<TValue, TRaw>, StoredText.Recall<TValue, TRaw>),
             Seq(
-                Converted<TRaw, TValue>(KeyConversions<TValue, TRaw, TError>.Inbound),
-                Converted<TValue, TRaw>(KeyConversions<TValue, TRaw, TError>.Outbound)));
+                Converted<TRaw, TValue>(KeyConversions<TValue, TRaw>.Inbound),
+                Converted<TValue, TRaw>(KeyConversions<TValue, TRaw>.Outbound)));
 
     // --- [REGISTRATION]
-    private static Func<DefinedGrasshopperPlugin, IO<Unit>> Numeric<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, ConversionDelegate<double, TValue> inbound, bool arithmetic = true)
+    private static Func<DefinedGrasshopperPlugin, IO<Unit>> Numeric<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, bool arithmetic = true)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
         plugin => Registered(
             new NumericDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, describe, create, key),
             Seq(
-                Converted(inbound),
+                Converted<double, TValue>(NumberConversions<TValue, TKey>.Inbound),
                 Converted<TValue, double>(NumberConversions<TValue, TKey>.Outbound),
                 Converted<int, TValue>(NumberConversions<TValue, TKey>.Inbound),
                 Converted<TValue, int>(NumberConversions<TValue, TKey>.Outbound))
@@ -294,12 +272,9 @@ public static class DataTypes {
     private static (string Member, Func<bool> Accepted) Converted<TSource, TTarget>(ConversionDelegate<TSource, TTarget> conversion) =>
         (nameof(ConversionServer.TryAddConversion), () => ConversionServer.TryAddConversion(conversion.Method));
 
-    private static IO<Unit> Registered<T>(TypeAssistant<T> assistant, Seq<(string Member, Func<bool> Accepted)> steps = default) =>
-        IO.lift(() => Callbacks.Each(
-            steps.Add((nameof(TypeAssistantServer.Register), () => TypeAssistantServer.Register(assistant))),
-            static (step, _) => RefusedDataType.Unless(step.Accepted(), typeof(T), step.Member)))
-            .Bind(static _ => Restorable<T>());
-
-    private static IO<Unit> Restorable<T>() =>
-        IO.lift(static () => RefusedDataType.Unless(GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>)), typeof(T), nameof(GrasshopperIO.IO.RegisterRestorableType)));
+    private static IO<Unit> Registered<T>(TypeAssistant<T> assistant, Seq<(string Member, Func<bool> Accepted)> steps = default) {
+        static Fin<Unit> Step((string Member, Func<bool> Accepted) step) => step.Accepted() ? unit : new Refused(step.Member, $"refused the data type {typeof(T)}");
+        return IO.lift(() => Callbacks.Each(steps.Add((nameof(TypeAssistantServer.Register), () => TypeAssistantServer.Register(assistant))), static (step, _) => Step(step)))
+            .Bind(static _ => IO.lift(static () => Step((nameof(GrasshopperIO.IO.RegisterRestorableType), static () => GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>))))));
+    }
 }

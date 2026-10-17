@@ -89,23 +89,13 @@ public static class Texts {
     // --- [CREATION]
     public static IO<AnnotationBase> Create(
         RhinoDoc doc, TextForm form, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Action<AnnotationBase, IDisposable> retain) =>
-        DisposalOps.Acquire(held =>
-        from parent in style.Match(
-            Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
-            None: () => IO.lift(() => doc.DimStyles.Current))
-        from annotation in Created(form, parent, held)
-        from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, annotation, edit)).As()
-        select annotation, retain);
-
-    private static IO<AnnotationBase> Created(TextForm form, DimensionStyle parent, Action<IDisposable> held) =>
-        form.Switch(
-            (Parent: parent, Retain: held),
-            note: static (state, note) => Copies.Acquire<AnnotationBase>(
-                () => TextEntity.CreateWithRichText(note.RichText, note.Plane, state.Parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
-                nameof(TextEntity.CreateWithRichText), state.Retain),
-            callout: static (state, callout) => Copies.Acquire<AnnotationBase>(
-                () => Leader.CreateWithRichText(callout.RichText, callout.Plane, state.Parent, [.. callout.Points]),
-                nameof(Leader.CreateWithRichText), state.Retain));
+        form.Switch(state: (doc, style, overrides, retain), note: static (state, note) => Dimensions.Create(
+                state.doc, state.style, state.overrides,
+                parent => TextEntity.CreateWithRichText(note.RichText, note.Plane, parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
+                nameof(TextEntity.CreateWithRichText), state.retain), callout: static (state, callout) => Dimensions.Create(
+                state.doc, state.style, state.overrides,
+                parent => Leader.CreateWithRichText(callout.RichText, callout.Plane, parent, [.. callout.Points]),
+                nameof(Leader.CreateWithRichText), state.retain));
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>
@@ -165,8 +155,7 @@ public static class Texts {
     // --- [FRAMES]
     public static IO<Transform> GetTextTransform(TextEntity text, DimensionStyle style, double scale, Option<RhinoViewport> viewport) =>
         viewport.Match(
-            Some: view => DisposalOps.Within(() => new ViewportInfo(view),
-                info => IO.lift(() => text.GetTextTransform(info, scale, style)), static info => IO.lift(info.Dispose)),
+            Some: view => DisposalOps.Within(() => new ViewportInfo(view), info => IO.lift(() => text.GetTextTransform(info, scale, style))),
             None: () => IO.lift(() => text.GetTextTransform(scale, style)));
 
     public static IO<Seq<Point3d>> GetTextCorners(TextObject text, RhinoViewport viewport) =>
@@ -180,7 +169,7 @@ public static class Texts {
         DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(() => leader.Explode(), nameof(Leader.Explode), held).Bind(body), DisposalOps.Release);
 
     public static IO<T> LeaderCurve<T>(Leader leader, Func<NurbsCurve, IO<T>> body) =>
-        from curve in IO.lift(() => Missing.Unless(leader.Curve, nameof(Leader.Curve)))
+        from curve in IO.lift(() => Refused.UnlessFound(leader.Curve, nameof(Leader.Curve)))
         from value in DisposalOps.Within((Action<IDisposable> held) => Copies.DuplicateShallow(curve, held).Bind(body), DisposalOps.Release)
         select value;
 }

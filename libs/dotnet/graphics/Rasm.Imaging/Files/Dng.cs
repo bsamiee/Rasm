@@ -1,3 +1,4 @@
+using System.Globalization;
 using BitMiracle.LibTiff.Classic;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
@@ -20,7 +21,7 @@ internal static class DngWriter {
     internal static Validation<Error, Unit> Bounded(PixelExtent size) =>
         size.Width is >= Narrowest and <= Widest && size.Height is >= Narrowest and <= Widest
             ? unit
-            : new DngExtentRefused(size);
+            : Error.New(string.Create(CultureInfo.InvariantCulture, $"frame {size} lies outside the [{Narrowest}, {Widest}] DNG extent LibRaw reads"));
 
     internal static IO<Unit> Write(StillFormat.Dng dng, FileMetadata metadata, FileStream stream) =>
         StillWriter.Scanlines(

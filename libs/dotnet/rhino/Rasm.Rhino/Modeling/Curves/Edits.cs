@@ -4,13 +4,11 @@ namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TrimLength : System.Numerics.IMinMaxValue<TrimLength> {
     public static TrimLength MinValue { get; } = new(double.BitIncrement(0d));
     public static TrimLength MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -40,28 +38,26 @@ public static class CurveEdits {
             () => (
                 Curve: Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line maximumSeparation, out double source, out double fit),
                 MaximumSeparation: maximumSeparation, Source: source, Fit: fit),
-            static answer => Missing.Unless(answer.Curve, nameof(Curve.CreateNurbsCurveFit))
-                .Bind(static fitted => Measurements.Valid(fitted, nameof(Curve.CreateNurbsCurveFit)))
+            static answer => Measurements.Valid(answer.Curve, nameof(Curve.CreateNurbsCurveFit))
                 .Map(fitted => new NurbsCurveFit(fitted, Conversions.Present(answer.MaximumSeparation),
                     from source in Conversions.Present(answer.Source)
                     from fit in Conversions.Present(answer.Fit)
                     select (Source: source, Fit: fit))),
-            static answer => DisposalOps.Release(Optional(answer.Curve).ToSeq()), retain);
+            static answer => DisposalOps.Release(answer.Curve), retain);
 
     public static IO<(NurbsCurve Curve, Option<Line> MaximumDeviation)> RebuildToMatchTemplateCurve(Curve source, Curve templateCurve, bool flipSourceDirection, bool preserveEndTangents, bool makeSubDFriendly, Action<IDisposable> retain) =>
         Copies.Owned(
             () => (
                 Curve: source.RebuildToMatchTemplateCurve(templateCurve, flipSourceDirection, preserveEndTangents, makeSubDFriendly, out Line maximumDeviation),
                 MaximumDeviation: maximumDeviation),
-            static answer => Missing.Unless(answer.Curve, nameof(Curve.RebuildToMatchTemplateCurve))
-                .Bind(static rebuilt => Measurements.Valid(rebuilt, nameof(Curve.RebuildToMatchTemplateCurve)))
+            static answer => Measurements.Valid(answer.Curve, nameof(Curve.RebuildToMatchTemplateCurve))
                 .Map(rebuilt => (Curve: rebuilt, MaximumDeviation: Conversions.Present(answer.MaximumDeviation))),
-            static answer => DisposalOps.Release(Optional(answer.Curve).ToSeq()), retain);
+            static answer => DisposalOps.Release(answer.Curve), retain);
 
     // --- [SPLIT]
     public static IO<Seq<Curve>> Split(Curve source, Seq<double> parameters, Action<IDisposable> retain) =>
         Copies.Acquire(
-            () => Callbacks.Each(parameters, (parameter, _) => OutOfDomain.Unless(source.Domain, parameter, nameof(Curve.Split)))
+            () => Callbacks.Each(parameters, (parameter, _) => Conversions.Within(source.Domain, parameter, nameof(Curve.Split)))
                 .Map(_ => source.Split(parameters)),
             nameof(Curve.Split), retain);
 
@@ -80,5 +76,5 @@ public static class CurveEdits {
             from met in IO.lift(() => Refused.Unless(Curve.MakeEndsMeet(copyA, adjustStartCurveA, copyB, adjustStartCurveB), nameof(Curve.MakeEndsMeet)))
             from valid in IO.lift(() => (Measurements.Valid(copyA, nameof(Curve.MakeEndsMeet)).ToValidation(), Measurements.Valid(copyB, nameof(Curve.MakeEndsMeet)).ToValidation())
                 .Apply(static (a, b) => (A: a, B: b)).As().ToFin())
-            select valid, (_, release) => retain(release));
+            select valid, retain);
 }

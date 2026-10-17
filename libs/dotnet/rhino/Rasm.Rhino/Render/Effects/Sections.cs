@@ -6,47 +6,78 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
+using UnitsNet;
+using UnitsNet.Units;
 using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.Render.Effects;
+
+// --- [MODELS] --------------------------------------------------------------------------
+public sealed record HistorySettingRows(PlugInSetting<int, int> Capacity, PlugInSetting<int, int> Window) {
+    public static HistorySettingRows Default { get; } = new(
+        Capacity: new(ValueKey.Numeric("HistorySteps", "Undo steps", "Edits each section keeps for undo, redo, and restore; zero disables history", HistoryLimits.Default.Capacity,
+            new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((1, 100)) })), SettingType.Integer),
+        Window: new(ValueKey.Numeric("HistoryMergeWindow", "Merge edits within", "Joins edits of one section made within this time of its last edit into one undo step",
+            (int)HistoryLimits.Default.Window.TotalSeconds,
+            new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((0, 600)), Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
+            SettingType.Integer));
+
+    public Seq<PlugInSetting> Rows => [Capacity, Window];
+
+    public Seq<Child> Children => [
+        new ControlRow.Group("Section history", RowRules.Always) { Wording = Wording.Library },
+        .. SectionRows.Setting(Capacity, RowRules.Always),
+        .. SectionRows.Setting(Window, RowRules.Always),
+    ];
+
+    public IO<HistoryLimits> Limits(ISettingReader reader) =>
+        (reader.Current(Capacity), reader.Current(Window))
+            .Apply(static (capacity, seconds) => new HistoryLimits(capacity, Duration.FromSeconds(seconds)))
+            .As();
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSection, ICollapsibleSection where TEffect : PostEffect {
     private static readonly Guid Effect = typeof(TEffect).GUID;
 
     private readonly PostEffectType stage;
-    private readonly IPlugInViews views;
     private readonly SectionLifetime lifetime;
-    private Option<SectionBody> body;
 
     public DefinedEffectSection(PostEffect effect, Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> row) {
-        views = IPlugInViews.Of(effect);
-        (stage, Caption) = (effect.PostEffectType, RowText.Localize(effect.LocalName, table: Some<object>(views)));
-        lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Hidden, retain => Realized(row, retain));
+        IPlugInViews views = IPlugInViews.Of(effect);
+        (stage, Caption) = (effect.PostEffectType, RowText.Localize(effect.LocalName, views));
+        lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true, retain =>
+            from section in row(this, retain)
+            from document in IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
+            from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
+            from held in ViewBody.Realize(views, section, scope, retain)
+            select held);
     }
 
     public override Guid PostEffectId => Effect;
     public override string SettingsTag => Effect.ToString("D", CultureInfo.InvariantCulture);
     Guid ICollapsibleSection.Id => Effect;
     public override LocalizeStringPair Caption { get; }
-    public override int SectionHeight => body.Match(Some: static held => held.Height, None: static () => 0);
+    public override int SectionHeight => lifetime.Height;
+    public override bool Hidden => Excluded || lifetime.Hidden;
 
-    public override bool Hidden =>
+    private bool Excluded =>
         !toSeq(GetPostEffects(stage)).Exists(listed => listed.Id == Effect && listed.IsSelected && (stage is PostEffectType.ToneMapping || listed.Shown));
 
     protected override void Dispose(bool disposing) {
@@ -57,70 +88,51 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
             base.Dispose(disposing);
         }
     }
-
-    private IO<Unit> Realized(Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> row, Action<IDisposable> retain) =>
-        from section in row(this, retain)
-        from document in IO.lift(static () => Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
-        from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
-        from held in SectionBody.Realize(views, section, scope, retain)
-        from placed in DisposalOps.Change(() => (body, Content), next => (body, Content) = next, (Some(held), held.Content), retain)
-        from shown in held.Shown(visible: true)
-        select unit;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SectionRows {
     // --- [EFFECTS]
     public static Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Stage<TState, TParameter>(
-        PostEffect effect, EffectState<TState> state, Seq<(TParameter Parameter, ParameterText Text)> texts, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
-        Atom<StageFrame> input)
+        PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<StageFrame> input)
         where TState : IPixelStage<TState>
         where TParameter : class, IStateParameter<TState> =>
-        (section, retain) => Row(effect, state, texts, looks, section, source =>
+        (section, retain) => Row(effect, state, looks, section, source =>
             Demanded(input, retain).Map(read => Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over the stage input", read,
-                [new HostEvent<Unit>(typeof(Atom<StageFrame>), nameof(input.Change), (deliver, site, retain) =>
-                    Subscriptions.Attach<AtomChangedEvent<StageFrame>>(handler => input.Change += handler, handler => input.Change -= handler,
-                        _ => Callbacks.Run(deliver(unit), site), retain))],
-                stage => Blocks(source, texts, stage), RowRules.Always)) + Amount(state, section)));
+                [Subscriptions.Host<AtomChangedEvent<StageFrame>, StageFrame>(typeof(Atom<StageFrame>), handler => input.Change += handler, handler => input.Change -= handler,
+                    static handler => frame => handler(sender: null, frame), nameof(input.Change)).Choose(static _ => Some(unit))],
+                stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section)));
 
     public static Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Job<TState, TParameter>(
-        PostEffect effect, EffectState<TState> state, Seq<(TParameter Parameter, ParameterText Text)> texts, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
-        Atom<WorkState> work)
+        PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<WorkState> work)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
-        (section, _) => Row(effect, state, texts, looks, section, source =>
-            IO.pure(Of(source, texts, None, static _ => RowRules.Always)
+        (section, _) => Row(effect, state, looks, section, source =>
+            IO.pure(Of(source, source.Fields, None, static _ => RowRules.Always)
                 .Add(TextRows.Progress("Progress", "Work the effect's last run reports", new ReadoutSource<WorkState>.Cell(work), RowRules.Always))));
 
-    public static RowSource<TState> Source<TState, TParameter>(
-        string owner, Seq<(TParameter Parameter, ParameterText Text)> texts, Func<RowScope, IO<Seq<ValueStore<TState>>>> stores, Option<TState> factory = default)
-        where TState : IStateRecord<TState>
-        where TParameter : class, IStateParameter<TState> =>
-        RowSource.Fields(owner, texts.Map<(IStateParameter<TState> Parameter, string Caption)>(static pair => (pair.Parameter, pair.Text.Caption)), stores, factory);
-
     private static IO<View.Section> Row<TState, TParameter>(
-        PostEffect effect, EffectState<TState> state, Seq<(TParameter Parameter, ParameterText Text)> texts, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
+        PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
         EtoPostEffectCollapsibleSection section, Func<RowSource<TState>, IO<Seq<ControlRow>>> rows)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
-        Source(state.Owner, texts, _ => IO.pure(Seq(Store(state, section))), Some(state.Default.Record)) switch {
+        RowSource.Fields(state.Owner, TState.Parameters, _ => IO.pure(Seq(Store(state, section))), Some(state.Default.Record)) switch {
             var source => rows(source).Map(children => new View.Section {
                 Identity = effect.GetType(),
                 Caption = effect.LocalName,
                 Store = Some<ViewStore>(new ViewStore.ApplicationStores()),
-                Children = Presets(source, looks, new DirectoryInfo(IPlugInViews.Of(effect).PlugIn.SettingsDirectory),
+                Children = [
+                    Presets(source, looks,
                         scope => new BindingGroup(Seq(source.Values(scope)) + state.Default.Amount.ToSeq().Map(factory =>
-                            ValueBinding.Key(state.Owner, EffectStates.AmountKey(factory), Mixed(state, section, factory)))))
-                    .Cons(children).Map(static row => (Child)row),
+                            ValueBinding.Key(state.Owner, EffectStates.AmountKey(factory), Mixed(state, section, factory))))),
+                    .. children,
+                ],
             }),
         };
 
     private static Seq<ControlRow> Amount<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section)
         where TState : IStateRecord<TState> =>
-        state.Default.Amount.ToSeq().Bind(factory => Amount(state.Owner, factory, _ => Mixed(state, section, factory)));
-
-    public static Seq<ControlRow> Amount(string owner, Mix factory, Func<RowScope, ValueStore<Mix>> store) =>
-        Accepted(RowSource.Keyed(owner, EffectStates.AmountKey(factory), store), RowRules.Always);
+        state.Default.Amount.ToSeq().Bind(factory => Accepted(Library(RowSource.Keyed(state.Owner, EffectStates.AmountKey(factory), _ => Mixed(state, section, factory))), RowRules.Always));
 
     private static IO<IO<Option<StageInput>>> Demanded(Atom<StageFrame> input, Action<IDisposable> retain) =>
         StageFrame.Watch(input, retain).Map(static read => read.Map(static pair => pair.Map(static held =>
@@ -128,39 +140,39 @@ public static class SectionRows {
 
     // --- [LOOKS]
     public static ControlRow.Readout Presets<TState, TParameter>(
-        RowSource<TState> source, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, DirectoryInfo settingsRoot, Func<RowScope, BindingGroup> bindings)
+        RowSource<TState> source, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Func<RowScope, BindingGroup> bindings)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
         new(RowShape.Inline, (scope, retain) =>
             from menu in ChoiceRows.Menu([], [], Some(new PresetBinding(
-                    scope, bindings(scope), new DirectoryInfo(Path.Combine(settingsRoot.FullName, "Presets", source.Owner)))
-                .Listing(looks.Map<(string Caption, ValueSet Values)>(look => (Wording.English.Shown(look.Name, scope.Sink), look.Look.Capture(source.Owner))))), scope.Sink, retain)
+                    scope, bindings(scope), source.Owner, looks.Map(look => new Preset(PresetName.Create(look.Name), look.Look.Capture(source.Owner))))
+                .Listing()), scope.Sink, retain)
             from button in ButtonRows.Menu(menu, (GlyphRole.Presets, IconSlot.PanelButton.Master), IconSlot.PanelButton, RowText.Localize("Presets").Local, scope.Sink, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
-            RowText.Localize("Presets").Local, RowText.Localize("Stock looks of the effect and the presets saved for it").Local, RowRules.Always) { Wording = Wording.Localized };
+            "Presets", "Stock looks of the effect and the presets saved for it", RowRules.Always) { Wording = Wording.Library };
 
     // --- [STORE]
     private static ValueStore<TState> Store<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section)
         where TState : IStateRecord<TState> =>
         new(
             IO.lift(() => Some(state.Current).Filter(held => !EqualityComparer<TState>.Default.Equals(held, state.Default.Record))),
-            next => state.Write(next.IfNone(state.Default.Record), entries =>
-                Callbacks.Each(entries, (entry, _) => Try.lift(() => section.SetParameter(entry.Key, entry.Text)).Run()
-                    .Bind(static accepted => Refused.Unless(accepted, nameof(EtoPostEffectCollapsibleSection.SetParameter)))).Map(static _ => unit)),
+            next => state.Write(next.IfNone(state.Default.Record), SetParameter(section)),
             EqualityComparer<TState>.Default.Equals,
             Applied.Live,
             Some(Changed(section)));
 
-    private static ValueStore<Mix> Mixed<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section, Mix factory)
+    private static ValueStore<AxisFraction> Mixed<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section, AxisFraction factory)
         where TState : IStateRecord<TState> =>
         new(
             IO.lift(() => state.Value.Amount.Filter(held => held != factory)),
-            next => state.Write(next.IfNone(factory), text =>
-                    Try.lift(() => section.SetParameter(EffectStates.Amount.Name, text)).Run()
-                        .Bind(static accepted => Refused.Unless(accepted, nameof(EtoPostEffectCollapsibleSection.SetParameter)))),
-            EqualityComparer<Mix>.Default.Equals,
+            next => state.Write(next.IfNone(factory), SetParameter(section)),
+            EqualityComparer<AxisFraction>.Default.Equals,
             Applied.Live,
             Some(Changed(section)));
+
+    private static Func<string, string, Fin<Unit>> SetParameter(EtoPostEffectCollapsibleSection section) =>
+        (key, text) => Try.lift(() => section.SetParameter(key, text)).Run()
+            .Bind(static accepted => Refused.Unless(accepted, nameof(EtoPostEffectCollapsibleSection.SetParameter)));
 
     private static HostEvent<Unit> Changed(EtoPostEffectCollapsibleSection section) =>
         ValueStore.Signal(
@@ -170,95 +182,88 @@ public static class SectionRows {
 
     // --- [ITEMS]
     public static Seq<ControlRow> Of<TState, TParameter>(
-        RowSource<TState> source, Seq<(TParameter Parameter, ParameterText Text)> texts, Option<StageInput> stage, Func<TParameter, RowRules> rules)
+        RowSource<TState> source, Seq<TParameter> parameters, Option<StageInput> stage, Func<TParameter, RowRules> rules)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
-        texts.Bind(pair => pair.Parameter.Kind.Accept(new ItemRow<TState>(source, new RowField<TState>(pair.Parameter, pair.Text.Caption, pair.Text.Help), pair.Text, stage, rules(pair.Parameter))));
-
-    public static Seq<ControlRow> Setting(PlugInSetting<bool, bool> row, RowRules rules) =>
-        Accepted(RowSource.Toggle(nameof(PlugInSettings), row.Value, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)), rules);
-
-    public static Seq<ControlRow> Setting<TValue, TKey, TError>(PlugInSetting<TValue, TKey> row, Presentation<TKey> presentation, RowRules rules)
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError> =>
-        Accepted(RowSource.Bounded(nameof(PlugInSettings), row.Value, presentation, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)), rules);
+        parameters.Bind(parameter => parameter.Kind.Accept(new ItemRow<TState>(source, new RowField<TState>(parameter), stage, rules(parameter))));
 
     public static Seq<ControlRow> Setting<TValue, TRaw>(PlugInSetting<TValue, TRaw> row, RowRules rules)
         where TValue : notnull
         where TRaw : notnull =>
-        Accepted(RowSource.Keyed(nameof(PlugInSettings), row.Value, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)), rules);
+        Accepted(Setting(row), rules);
+
+    public static (RowSource<TValue> Source, RowField<TValue> Field) Setting<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+        where TValue : notnull
+        where TRaw : notnull =>
+        Library(RowSource.Keyed(nameof(PlugInSettings), row.Value, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)));
+
+    private static (RowSource<T> Source, RowField<T> Field) Library<T>((RowSource<T> Source, RowField<T> Field) pair) where T : notnull =>
+        (pair.Source, pair.Field with { Wording = Wording.Library });
 
     private static Seq<ControlRow> Accepted<T>((RowSource<T> Source, RowField<T> Field) pair, RowRules rules) where T : notnull =>
-        pair.Field.Parameter.Kind.Accept(new ItemRow<T>(pair.Source, pair.Field, ParameterText.Of(pair.Field.Caption, pair.Field.Help), None, rules));
+        pair.Field.Parameter.Kind.Accept(new ItemRow<T>(pair.Source, pair.Field, None, rules));
 
     private static Seq<ControlRow> Nested<TState, TNested>(
-        RowSource<TState> source, Seq<string> path, Lens<TState, TNested> lens, HashMap<string, ParameterText> texts, Option<StageInput> stage, RowRules rules)
+        RowSource<TState> source, Seq<string> path, Lens<TState, TNested> lens, Option<StageInput> stage, RowRules rules)
         where TState : notnull
         where TNested : IStateRecord<TNested> =>
-        toSeq(TNested.Parameters).Map(parameter => (Parameter: parameter, Text: texts[parameter.Key])).Strict() switch {
-            var pairs => Of(source.Within(path, lens, pairs.Map(static pair => (pair.Parameter, pair.Text.Caption))), pairs, stage, _ => rules),
-        };
+        Of(source.Within(path, lens, TNested.Parameters), TNested.Parameters, stage, _ => rules);
 
     private static RowRules Showing<TState>(RowRules rules, RowSource<TState> source, IStateParameter<TState> parameter, Func<TState, bool> holds) where TState : notnull =>
         RowRule.When(source, holds, parameter) switch {
             var shown => rules with { Visible = Some(rules.Visible.Map(visible => visible & shown).IfNone(shown)) },
         };
 
-    private sealed class ItemRow<TState>(RowSource<TState> source, RowField<TState> field, ParameterText text, Option<StageInput> stage, RowRules rules)
+    private sealed class ItemRow<TState>(RowSource<TState> source, RowField<TState> field, Option<StageInput> stage, RowRules rules)
         : IStateParameterVisitor<TState, Seq<ControlRow>> where TState : notnull {
-        public Seq<ControlRow> Numeric<TValue, TKey>(Lens<TState, TValue> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+        public Seq<ControlRow> Numeric<TValue, TKey>(Lens<TState, TValue> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, INumber<TKey> =>
-            [NumericRows.Numeric(source, field, lens, create, key, bounds, presentation, rules)];
+            [NumericRows.Numeric(source, field, lens, domain, rules)];
 
-        public Seq<ControlRow> OptionalNumeric<TValue, TKey>(Lens<TState, Gated<TValue>> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+        public Seq<ControlRow> OptionalNumeric<TValue, TKey>(Lens<TState, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, INumber<TKey> =>
-            [NumericRows.OptionalNumeric(source, field, lens, create, key, bounds, presentation, rules)];
+            [NumericRows.OptionalNumeric(source, field, lens, domain, rules)];
 
-        public Seq<ControlRow> Choice<TValue, TError>(Lens<TState, TValue> lens)
-            where TValue : ISmartEnum<string, TValue, TError>
-            where TError : Error, IValidationError<TError> =>
-            [ChoiceRows.Choice(source, field, lens, scope => IO.pure(ChoiceRows.Items<TValue, TError>(item => text.Items[item.ToValue()].Caption, None, scope.Sink)), rules)];
+        public Seq<ControlRow> Choice<TValue>(Lens<TState, TValue> lens)
+            where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+            [ChoiceRows.Choice(source, field, lens, static scope => IO.pure(ChoiceRows.Items<TValue>(None, scope.Sink)), rules)];
 
-        public Seq<ControlRow> OptionalChoice<TValue, TError>(Lens<TState, Option<TValue>> lens)
-            where TValue : ISmartEnum<string, TValue, TError>
-            where TError : Error, IValidationError<TError> =>
-            [ChoiceRows.Choice(source, field, lens, scope => IO.pure(ChoiceRows.Optional(
-                text.Absent.IfNone(field.Caption), ChoiceRows.Items<TValue, TError>(item => text.Items[item.ToValue()].Caption, None, scope.Sink), scope.Sink)), rules)];
+        public Seq<ControlRow> OptionalChoice<TValue>(Lens<TState, Option<TValue>> lens, string absent)
+            where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+            [ChoiceRows.Choice(source, field, lens, scope => IO.pure(ChoiceRows.Optional(absent, ChoiceRows.Items<TValue>(None, scope.Sink), scope.Sink)), rules)];
 
         public Seq<ControlRow> Variant<TValue>(Lens<TState, TValue> lens) where TValue : class =>
-            StateCase<TValue>.Items.Map(item => (Item: item, Rows: item.Accept(new Cased<TState, TValue>(
-                source, field.Parameter, lens, item.Key, text.Items[item.Key].Parameters, stage, rules)))).Strict() switch {
-                    var cases => ChoiceRows.Choice(
-                            source, field,
-                            Lens<TState, StateCase<TValue>>.New(
-                                current => StateCase<TValue>.Items.First(item => item.Holds(lens.Get(current))),
-                                picked => current => picked.Holds(lens.Get(current)) ? current : lens.Set(picked.Default, current)),
-                            scope => IO.pure(cases.Map(each => new ChoiceItem<StateCase<TValue>>(
-                                each.Item, Wording.English.Shown(text.Items[each.Item.Key].Caption, scope.Sink), None))), rules)
-                        .Cons(cases.Bind(static each => each.Rows)),
-                };
+            StateCase<TValue>.Items.Map(item => (Item: item, Rows: item.Accept(new Cased<TState, TValue>(source, field.Parameter, lens, item.Key, stage, rules)))).Strict() switch {
+                var cases => ChoiceRows.Choice(
+                        source, field,
+                        Lens<TState, StateCase<TValue>>.New(
+                            current => StateCase<TValue>.Items.First(item => item.Holds(lens.Get(current))),
+                            picked => current => picked.Holds(lens.Get(current)) ? current : lens.Set(picked.Default, current)),
+                        scope => IO.pure(cases.Map(each => new ChoiceItem<StateCase<TValue>>(
+                            each.Item, Wording.English.Shown(each.Item.Caption, scope.Sink), None))), rules)
+                    .Cons(cases.Bind(static each => each.Rows)),
+            };
 
-        public Seq<ControlRow> Enumerated<TEnum>(Lens<TState, TEnum> lens) where TEnum : struct, Enum =>
-            [ChoiceRows.Choice(source, field, lens, scope => IO.pure(ChoiceRows.Members<TEnum>(member => text.Items[StoredText.Format(member)].Caption, scope.Sink)), rules)];
+        public Seq<ControlRow> Enumerated<TEnum>(Lens<TState, TEnum> lens, Func<TEnum, string> caption) where TEnum : struct, Enum =>
+            [ChoiceRows.Choice(source, field, lens, scope => IO.pure(ChoiceRows.Members(caption, scope.Sink)), rules)];
 
         public Seq<ControlRow> Record<TNested>(Lens<TState, TNested> lens) where TNested : IStateRecord<TNested> =>
-            new ControlRow.Group(field.Caption, rules).Cons(Nested(source, Seq(field.Parameter.Key), lens, text.Parameters, stage, rules));
+            new ControlRow.Group(field.Caption, rules) { Wording = field.Wording }.Cons(Nested(source, Seq(field.Parameter.Key), lens, stage, rules));
 
         public Seq<ControlRow> OptionalRecord<TNested>(Lens<TState, Gated<TNested>> lens) where TNested : IStateRecord<TNested> =>
             ToggleRows.Check(source, field, Prelude.lens(lens, Gated<TNested>.EnabledEntry.Lens), rules).Cons(Nested(
-                source, Seq(field.Parameter.Key, Gated<TNested>.ValueEntry.Key), Prelude.lens(lens, Gated<TNested>.ValueEntry.Lens), text.Parameters, stage,
+                source, Seq(field.Parameter.Key, Gated<TNested>.ValueEntry.Key), Prelude.lens(lens, Gated<TNested>.ValueEntry.Lens), stage,
                 Showing(rules, source, field.Parameter, current => lens.Get(current).Enabled)));
 
         public Seq<ControlRow> Toggle(Lens<TState, bool> lens) => [ToggleRows.Check(source, field, lens, rules)];
 
         public Seq<ControlRow> Raw<TRaw>(Lens<TState, TRaw> lens) where TRaw : notnull, ISpanParsable<TRaw> =>
-            [TextRows.Raw(source, field, lens, new EntryForm.SingleLine(), rules)];
+            [TextRows.Field(source, field, new EntryForm.SingleLine(), None, rules)];
 
         public Seq<ControlRow> OptionalRaw<TRaw>(Lens<TState, Option<TRaw>> lens) where TRaw : notnull, ISpanParsable<TRaw> =>
-            [TextRows.OptionalRaw(source, field, lens, new EntryForm.SingleLine(), rules)];
+            [TextRows.Field(source, field, new EntryForm.SingleLine(), None, rules)];
 
         public Seq<ControlRow> Color(Lens<TState, Swatch> lens) => [ColorRows.SwatchColor(source, field, lens, stage, rules)];
 
@@ -266,100 +271,81 @@ public static class SectionRows {
 
         public Seq<ControlRow> Gradient(Lens<TState, Ramp> lens) =>
             [stage.Match(
-                Some: input => ColorRows.Gradient(source, field, lens, interpolation => text.Items[(string)interpolation].Caption, input.Context.Working, rules),
-                None: () => TextRows.Keyed<TState, Ramp, string, InvalidPixelValue>(source, field, lens, new EntryForm.SingleLine(), rules))];
+                Some: input => ColorRows.Gradient(source, field, lens, input.Context.Working, rules),
+                None: () => TextRows.Field(source, field, new EntryForm.SingleLine(), None, rules))];
 
-        public Seq<ControlRow> Swatches<TValue, TError>(Lens<TState, TValue> lens)
-            where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, TError>, IConvertible<string>
-            where TError : Error, IValidationError<TError> =>
-            [ColorRows.Swatches<TState, TValue, TError>(source, field, lens, stage, rules)];
+        public Seq<ControlRow> Swatches<TValue>(Lens<TState, TValue> lens)
+            where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
+            [ColorRows.Swatches(source, field, lens, stage, rules)];
 
-        public Seq<ControlRow> Keyed<TValue, TRaw, TError>(Lens<TState, TValue> lens)
-            where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-            where TRaw : notnull, ISpanParsable<TRaw>
-            where TError : Error, IValidationError<TError> =>
-            [TextRows.Keyed<TState, TValue, TRaw, TError>(source, field, lens, new EntryForm.SingleLine(), rules)];
+        public Seq<ControlRow> Keyed<TValue, TRaw>(Lens<TState, TValue> lens)
+            where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+            where TRaw : notnull, ISpanParsable<TRaw> =>
+            [TextRows.Field(source, field, new EntryForm.SingleLine(), None, rules)];
 
-        public Seq<ControlRow> OptionalKeyed<TValue, TRaw, TError>(Lens<TState, Option<TValue>> lens)
-            where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-            where TRaw : notnull, ISpanParsable<TRaw>
-            where TError : Error, IValidationError<TError> =>
-            [TextRows.OptionalKeyed<TState, TValue, TRaw, TError>(source, field, lens, new EntryForm.SingleLine(), rules)];
+        public Seq<ControlRow> OptionalKeyed<TValue, TRaw>(Lens<TState, Option<TValue>> lens)
+            where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+            where TRaw : notnull, ISpanParsable<TRaw> =>
+            [TextRows.Field(source, field, new EntryForm.SingleLine(), None, rules)];
 
-        public Seq<ControlRow> Loaded<TValue, TKey, TRaw, TError>(Lens<TState, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key)
-            where TKey : IObjectFactory<TKey, TRaw, TError>, IConvertible<TRaw>
-            where TRaw : notnull, ISpanParsable<TRaw>
-            where TError : Error, IValidationError<TError> =>
-            [TextRows.Loaded<TState, TValue, TKey, TRaw, TError>(source, field, lens, load, key, Eto.FileAction.OpenFile, [], rules)];
+        public Seq<ControlRow> Loaded<TValue, TKey, TRaw>(Lens<TState, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key)
+            where TKey : IObjectFactory<TKey, TRaw, ValidationError>, IConvertible<TRaw>
+            where TRaw : notnull, ISpanParsable<TRaw> =>
+            [TextRows.Field(source, field, new EntryForm.SingleLine(), Some((Eto.FileAction.OpenFile, Seq<FileTypeRow>())), rules)];
 
         public Seq<ControlRow> Opaque<TValue>(Lens<TState, TValue> lens) where TValue : notnull => throw new UnreachableException();
     }
 
     private sealed class Cased<TState, TValue>(
-        RowSource<TState> source, IStateParameter<TState> parameter, Lens<TState, TValue> lens, string key, HashMap<string, ParameterText> texts, Option<StageInput> stage, RowRules rules)
+        RowSource<TState> source, IStateParameter<TState> parameter, Lens<TState, TValue> lens, string key, Option<StageInput> stage, RowRules rules)
         : IStateCaseVisitor<TValue, Seq<ControlRow>>
         where TState : notnull
         where TValue : class {
         public Seq<ControlRow> Case<TChild>() where TChild : class, TValue, IStateRecord<TChild> =>
-             Nested(
-                 source, Seq(parameter.Key, key),
-                 Lens<TState, TChild>.New(current => lens.Get(current) as TChild ?? TChild.Default, child => current => lens.Set(child, current)),
-                 texts, stage, Showing(rules, source, parameter, current => lens.Get(current) is TChild));
+            Nested(
+                source, Seq(parameter.Key, key),
+                Lens<TState, TChild>.New(current => lens.Get(current) as TChild ?? TChild.Default, child => current => lens.Set(child, current)),
+                stage, Showing(rules, source, parameter, current => lens.Get(current) is TChild));
     }
 
     // --- [BLOCKS]
-    public static Seq<ControlRow> Blocks<TState, TParameter>(RowSource<TState> source, Seq<(TParameter Parameter, ParameterText Text)> texts, Option<StageInput> stage)
-        where TState : IPixelStage<TState>
-        where TParameter : class, IStateParameter<TState> =>
-        (source, texts) switch {
-            (RowSource<ToneMapping> tone, Seq<(ToneMappingParameter Parameter, ParameterText Text)> pairs) =>
+    public static Seq<ControlRow> Blocks<TState>(RowSource<TState> source, Option<StageInput> stage) where TState : IPixelStage<TState> =>
+        source switch {
+            RowSource<ToneMapping> tone =>
                 stage.Map(input => CurveRows.Graph(tone, "Response", "Display code the stage answers over scene stops", input, RowRules.Always)).ToSeq()
-                    + Of(tone, pairs, stage, item => Formed(tone, item.Formations))
+                    + Of(tone, toSeq(ToneMappingParameter.Items), stage, item => Formed(tone, item.Formations))
                     .Add(ChartRows.RampKey(
                         "False color key", "Stops above middle grey each false color band marks", scope => scope.Read(tone).Map(static held => held.Look),
                         Formed(tone, [Formation.AgXFalseColor]))),
-            (RowSource<ExposureState> exposure, Seq<(ExposureParameter Parameter, ParameterText Text)> pairs) =>
-                Meter(exposure, stage).Cons(Of(exposure, pairs, stage, static _ => RowRules.Always)),
-            (RowSource<PointCurves> curves, Seq<(PointCurveParameter Parameter, ParameterText Text)> pairs) =>
-                Blocked(curves, pairs, stage, field => [CurveRows.Points(curves, field, "Curves", "Point curves over the stage input", stage, RowRules.Always)]),
-            (RowSource<HueCurves> hues, Seq<(HueCurveKind Parameter, ParameterText Text)> pairs) =>
-                Blocked(hues, pairs, stage, field => [CurveRows.Hues(hues, field, "Hue curves", "Hue curves over the stage input", stage, RowRules.Always)]),
-            (RowSource<WheelsState> wheels, Seq<(WheelsParameter Parameter, ParameterText Text)> pairs) =>
-                Blocked(wheels, pairs, stage, field => [ColorRows.Wheels(
-                    wheels, wheel => wheel.Parameters switch { var (hue, strength, luma) => (field(hue), field(strength), field(luma)) },
-                    "Color wheels", "Tints over the global, shadow, midtone, and highlight ranges",
-                    static wheel => wheel.Map(@global: "Global", shadows: "Shadows", midtones: "Midtones", highlights: "Highlights"), stage.Map(static input => input.Context.Working), RowRules.Always)]),
-            (RowSource<SelectiveColor> selective, Seq<(SelectiveColorParameter Parameter, ParameterText Text)> pairs) =>
-                Blocked(selective, pairs, stage, field => toSeq(RangeAxis.Items).Map(axis => SelectiveColorParameter.Band(axis) switch {
-                    var (center, width, softness) => ColorRows.Qualifier(
-                        selective, Qualified(axis), "Band of the stage input the grade acts on", axis, SelectiveColorParameter.Range, (field(center), field(width), field(softness)),
-                        Some<Func<SelectiveColor, Vector4, Vector4>>(static (graded, color) => graded.Graded()(color)), stage, RowRules.Always),
-                })),
-            (RowSource<HueIsolation> isolation, Seq<(HueIsolationParameter Parameter, ParameterText Text)> pairs) =>
-                Blocked(isolation, pairs, stage, field => toSeq(RangeAxis.Items).Map(axis => HueIsolationParameter.Band(axis) switch {
-                    var (center, width, softness) => ColorRows.Qualifier(
-                        isolation, Qualified(axis), "Band of the stage input kept in color", axis, HueIsolationParameter.Range, (field(center), field(width), field(softness)),
-                        stage.Map<Func<HueIsolation, Vector4, Vector4>>(static input => (kept, color) => kept.Graded(input.Context.Working.Luminance)(color)), stage, RowRules.Always),
-                })),
-            (RowSource<Levels> levels, Seq<(LevelsParameter Parameter, ParameterText Text)> pairs) =>
-                Blocked(levels, pairs, stage, field => [CurveRows.LevelPoints(levels, field, "Levels", "Black and white points over the stage histogram", stage, RowRules.Always)]),
-            (RowSource<CdlState> cdl, Seq<(CdlParameter Parameter, ParameterText Text)> pairs) =>
-                Seq(Opened(cdl), Saved(cdl)) + Of(cdl, pairs, stage, static _ => RowRules.Always),
-            _ => Of(source, texts, stage, static _ => RowRules.Always),
+            RowSource<ExposureState> exposure =>
+                Meter(exposure, stage).Cons(Of(exposure, exposure.Fields, stage, static _ => RowRules.Always)),
+            RowSource<PointCurves> curves =>
+                Blocked(curves, stage, [CurveRows.Points(curves, "Curves", "Point curves over the stage input", stage, RowRules.Always)]),
+            RowSource<HueCurves> hues =>
+                Blocked(hues, stage, [CurveRows.Hues(hues, "Hue curves", "Hue curves over the stage input", stage, RowRules.Always)]),
+            RowSource<WheelsState> wheels =>
+                Blocked(wheels, stage, [ColorRows.Wheels(
+                    wheels, "Color wheels", "Tints over the global, shadow, midtone, and highlight ranges", stage.Map(static input => input.Context.Working), RowRules.Always)]),
+            RowSource<SelectiveColor> selective =>
+                Blocked(selective, stage, toSeq(RangeAxis.Items).Map(axis => ColorRows.Qualifier(
+                    selective, Qualified(axis), "Band of the stage input the grade acts on", axis, SelectiveColor.RangeOf, new RowField<SelectiveColor>(SelectiveColorParameter.Range),
+                    Some<Func<SelectiveColor, Vector4, Vector4>>(static (graded, color) => graded.Graded()(color)), stage, RowRules.Always))),
+            RowSource<HueIsolation> isolation =>
+                Blocked(isolation, stage, toSeq(RangeAxis.Items).Map(axis => ColorRows.Qualifier(
+                    isolation, Qualified(axis), "Band of the stage input kept in color", axis, HueIsolation.RangeOf, new RowField<HueIsolation>(HueIsolationParameter.Range),
+                    stage.Map<Func<HueIsolation, Vector4, Vector4>>(static input => (kept, color) => kept.Graded(input.Context.Working.Luminance)(color)), stage, RowRules.Always))),
+            RowSource<Levels> levels =>
+                Blocked(levels, stage, [CurveRows.LevelPoints(levels, "Levels", "Black and white points over the stage histogram", stage, RowRules.Always)]),
+            RowSource<CdlState> cdl =>
+                Seq(Opened(cdl), Saved(cdl)) + Of(cdl, cdl.Fields, stage, static _ => RowRules.Always),
+            _ => Of(source, source.Fields, stage, static _ => RowRules.Always),
         };
 
     private static string Qualified(RangeAxis axis) => axis.Map(hue: "Hue range", saturation: "Saturation range", luma: "Luma range");
 
-    private static Seq<ControlRow> Blocked<TRecord, TParameter>(
-        RowSource<TRecord> source, Seq<(TParameter Parameter, ParameterText Text)> pairs, Option<StageInput> stage, Func<Func<TParameter, RowField<TRecord>>, Seq<ControlRow>> blocks)
-        where TRecord : IStateRecord<TRecord>
-        where TParameter : class, IStateParameter<TRecord> =>
-        toHashMap(pairs) switch {
-            var texts => blocks(parameter => new RowField<TRecord>(parameter, texts[parameter].Caption, texts[parameter].Help)) switch {
-                var built => toHashSet(built.Bind(static block => block.Keys)) switch {
-                    var covered => built + Of(source, pairs.Filter(pair => !source.Keys(pair.Parameter).Exists(covered.Contains)), stage, static _ => RowRules.Always),
-                },
-            },
+    private static Seq<ControlRow> Blocked<TRecord>(RowSource<TRecord> source, Option<StageInput> stage, Seq<ControlRow> built) where TRecord : IStateRecord<TRecord> =>
+        toHashSet(built.Bind(static block => block.Keys)) switch {
+            var covered => built + Of(source, source.Fields.Filter(parameter => !source.Keys(parameter).Exists(covered.Contains)), stage, static _ => RowRules.Always),
         };
 
     // --- [TONE_MAPPING]
@@ -367,7 +353,7 @@ public static class SectionRows {
         new(None, Some(RowRule.When(tone, held => formations.Exists(formation => formation == held.Selected), ToneMappingParameter.Formation)));
 
     private static ControlRow.Field Meter(RowSource<ExposureState> exposure, Option<StageInput> stage) =>
-        new(exposure, exposure.Fields.Bind(field => exposure.Keys(field.Parameter)), RowShape.Inline, (scope, retain) =>
+        new(exposure, exposure.Fields.Bind(exposure.Keys), RowShape.Inline, (scope, retain) =>
             from mailbox in Subscriptions.Idle<Unit, Fin<ExposureState>>(metered => metered.Find(unit).Match(
                     Some: answer => IO.lift(answer).Bind(exposed => Committed(scope, exposure, exposed, [ExposureParameter.Exposure])),
                     None: static () => IO.pure(unit)))(new CallbackSite(scope.Sink, typeof(ExposureState), nameof(ExposureState.Metered)), retain)
@@ -381,21 +367,14 @@ public static class SectionRows {
             from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ => Metered(scope, exposure, stage, mailbox, retain), site), retain)
             from button in ButtonRows.Push(command, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), show, None, None),
-            RowText.Localize("Exposure meter").Local, RowText.Localize("Meters the stage input once and writes its exposure").Local, RowRules.Always) { Wording = Wording.Localized };
+            "Exposure meter", "Meters the stage input once and writes its exposure", RowRules.Always) { Wording = Wording.Library };
 
     private static IO<Unit> Metered(
         RowScope scope, RowSource<ExposureState> exposure, Option<StageInput> stage, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
         from held in scope.Read(exposure)
-        from forked in stage.Match(
-            Some: input => input.Read.Bind(frame => frame.Match(
-                Some: read => Forked(held, read, input, mailbox, retain),
-                None: static () => IO.pure(unit))),
-            None: static () => IO.pure(unit))
-        select forked;
-
-    private static IO<Unit> Forked(
-        ExposureState held, PixelFrame read, StageInput input, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
-        DisposalOps.Fork(IO.lift<Fin<ExposureState>>(() => held.Metered(read, input.Context.Working)).Bind(answer => mailbox((unit, answer))), retain).Map(unit);
+        from forked in stage.Traverse(input => input.Read.Bind(frame => frame.Traverse(read =>
+            DisposalOps.Fork(IO.lift<Fin<ExposureState>>(() => held.Metered(read, input.Context.Working)).Bind(answer => mailbox((unit, answer))), retain)).As())).As()
+        select unit;
 
     private static IO<Unit> Committed<TRecord>(RowScope scope, RowSource<TRecord> source, TRecord value, Seq<IStateParameter<TRecord>> writes) where TRecord : IStateRecord<TRecord> =>
         scope.Commit(new BindingGroup(Seq(source.Values(scope))), ValueSet.Fields(source.Owner, value, writes)).Map(unit);
@@ -403,40 +382,33 @@ public static class SectionRows {
     // --- [CDL_FILES]
     private static ControlRow Opened(RowSource<CdlState> cdl) =>
         Pushed(new CommandRow.Run(
-            new CommandFace("cdl-open", RowText.Localize("Open CDL...").Local, RowText.Localize("Read a correction from an ASC .cc, .ccc, or .cdl file").Local, None, None) {
-                Wording = Wording.Localized,
-            },
+            new CommandFace("cdl-open", "Open CDL...", "Read a correction from an ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
             None,
             scope => (
                 from paths in HostDialogs.ShowOpenDialog(new OpenFileDialog { Title = RowText.Localize("Open CDL").Local, Filter = HostDialogs.Filter(Readable) })
                 from path in IO.lift(paths.Head.ToFin(Errors.Cancelled))
                 from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
                 from read in IO.lift(CdlState.Read(text))
-                from picked in read.Map(static (correction, index) => new Captioned<CdlState>(correction.State, correction.Id.Match(
-                        Some: static id => new LocalizeStringPair(id, id),
-                        None: () => RowText.Localize("Correction {0}", arguments: [index + 1]))))
-                    .AsIterableNE()
-                    .Match(
-                        Some: corrections => read.Tail.IsEmpty
-                            ? IO.pure(corrections.Head.Value)
-                            : HostDialogs.ShowListBox(RowText.Localize("Open CDL"), RowText.Localize("Correction to open"), corrections, None),
-                        None: static () => IO.fail<CdlState>(Errors.Cancelled))
-                from written in Committed(scope, cdl, picked, cdl.Fields.Map(static field => field.Parameter))
+                let corrections = read.Map(static (correction, index) => new Captioned<CdlState>(correction.State, correction.Id.Match(
+                    Some: static id => new LocalizeStringPair(id, id),
+                    None: () => RowText.Localize("Correction {0}", arguments: [index + 1]))))
+                from picked in read.Tail.Any()
+                    ? HostDialogs.ShowListBox(RowText.Localize("Open CDL"), RowText.Localize("Correction to open"), corrections, None)
+                    : IO.pure(corrections.Head.Value)
+                from written in Committed(scope, cdl, picked, cdl.Fields)
                 select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))));
 
     private static ControlRow Saved(RowSource<CdlState> cdl) =>
         Pushed(new CommandRow.Run(
-            new CommandFace("cdl-save", RowText.Localize("Save CDL...").Local, RowText.Localize("Write the correction as an ASC .cc, .ccc, or .cdl file").Local, None, None) {
-                Wording = Wording.Localized,
-            },
+            new CommandFace("cdl-save", "Save CDL...", "Write the correction as an ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
             None,
             scope => (
                 from held in scope.Read(cdl)
                 from chosen in HostDialogs.ShowSaveDialog(new SaveFileDialog {
                     Title = RowText.Localize("Save CDL").Local, Filter = HostDialogs.Filter(Corrections), DefaultExt = CdlFormat.Correction.Extension,
                 })
-                from target in IO.lift((Conversions.Validated<CdlFormat, string, InvalidGrade>(Path.GetExtension(chosen)).ToValidation(),
-                        Conversions.Validated<OutputPath, string, InvalidFileValue>(chosen).ToValidation())
+                from target in IO.lift((CdlFormat.Validated(Path.GetExtension(chosen)).ToValidation(),
+                        OutputPath.Validated(chosen).ToValidation())
                     .Apply(static (format, path) => (Format: format, Path: path)).As().ToFin())
                 from written in FilePublication.Write(target.Path, CdlState.Write(held, None, target.Format))
                 select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))));
@@ -450,8 +422,9 @@ public static class SectionRows {
         (Description: RowText.Localize("ASC color corrections").Local, Extensions: Corrections.Bind(static row => row.Extensions)).Cons(Corrections);
 
     public static ControlRow Pushed(CommandRow.Run run) =>
-        new ControlRow.Command(run, RowShape.Unlabeled, (scope, retain) =>
+        new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
             from realized in run.Realize(scope, retain)
             from button in ButtonRows.Push(realized.Commands, retain)
-            select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), realized.Refresh, None, None), None);
+            select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), realized.Refresh, None, None),
+            run.Face.Caption, run.Face.Help, new RowRules(run.Enabled, None)) { Wording = run.Face.Wording };
 }

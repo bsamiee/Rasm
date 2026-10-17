@@ -44,7 +44,6 @@ class GroupGain(msgspec.Struct, frozen=True, kw_only=True):
 class LightGroups(Case, frozen=True, kw_only=True, tag=2):
     """Light-group passes summed under independent gains and tints."""
 
-    title = "Light Groups"
     groups: Annotated[tuple[GroupGain, ...], msgspec.Meta(description="Gain and tint per light group")] = ()
 
 

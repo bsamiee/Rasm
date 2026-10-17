@@ -145,6 +145,10 @@ fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) 
 
 fn handed(error: &ParseIntError) -> io::Error { io::Error::other(error.to_string()) }
 
+async fn confirmed(prompt: String) -> bool { prompt.ends_with('?') }
+
+fn checked(prompt: String, fallback: bool) -> bool { prompt.ends_with('?') || fallback }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -172,4 +176,5 @@ fn main() {
     let texts = [closure(text).unwrap_or_default(), kind(&denied), attempt.label, messages.concat()];
     let boundaries = error.as_ref().map(rejected).is_some_and(|refused| refused.attempts > 0) && error.as_ref().map(handed).is_some();
     black_box((ports, checks, boundaries, texts, refused(String::new()).attempts, fast(Mode::Fast), Failure::new(" ").message));
+    black_box((futures::executor::block_on(confirmed(format!("Delete {text}?"))), checked(format!("Delete {text}?"), false)));
 }

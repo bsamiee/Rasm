@@ -1,8 +1,8 @@
 import { type LinkError, ranked } from '@rasm/mcp/extension';
 import { Array, Effect, flow, Option, Schema, Struct } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
-import type { RpcClient, RpcClientError } from 'effect/rpc';
-import { InDesignError, Inspect, type Panel, Queries } from './contract.ts';
+import type { Rpc, RpcClient, RpcClientError } from 'effect/rpc';
+import { type InDesignError, Inspect, missing, type Panel, Queries } from './contract.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -37,9 +37,7 @@ const grep = Effect.fn('grep')(function* (call: <A>(use: (client: RpcClient.From
             literal: ['\\1', '$&', 'braced and named group references', '\\E', '$$'],
         },
     };
-    const inspected = Effect.fnUntraced(function* (target: string) {
-        return yield* call((client) => client.Inspect({ target: Option.some(target), fields: Option.none() }));
-    });
+    const inspected = (target: string): Effect.Effect<Rpc.Success<typeof Inspect>, InDesignError | LinkError> => call((client) => client.Inspect({ target: Option.some(target), fields: Option.none() }));
     const reference = Effect.map(Effect.flatMap(inspected('SpecialCharacters'), flow(Schema.encodeUnknownEffect(Inspect.successSchema.cases.Enumeration), Effect.orDie)), ({ members }) => JSON.stringify({ ...dialect, specialCharacters: members }));
     const queries = call((client) => client.Queries());
     yield* McpServer.registerResource({ uri, name: 'InDesign GREP dialect', description: 'Constructs InDesign GREP supports, the forms it reads differently with their working equivalents, Change To grammar, and special-character names', mimeType: 'application/json', content: reference });
@@ -60,7 +58,7 @@ const grep = Effect.fn('grep')(function* (call: <A>(use: (client: RpcClient.From
                 Effect.flatMap(
                     Effect.fromOption(
                         Array.findFirst(rows, (row) => row.name === name),
-                        () => InDesignError.make({ reason: { _tag: 'Missing', subject: `saved query ${name}`, query: name, candidates: ranked(name, Array.map(rows, Struct.get('name'))), range: Option.none() } }),
+                        () => missing(`saved query ${name}`, name, ranked(name, Array.map(rows, Struct.get('name')))),
                     ),
                     flow(Schema.encodeEffect(Schema.fromJsonString(Queries.successSchema.value)), Effect.orDie),
                 ),

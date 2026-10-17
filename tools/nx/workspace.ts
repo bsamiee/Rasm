@@ -137,8 +137,10 @@ const _memo = Effect.fnUntraced(function* <A, E, R>(name: string, entries: Reado
     const path = yield* Path.Path;
     const file = path.join(workspaceDataDirectory, `workspace-${name}.hash`);
     const cache = yield* Effect.sync(() => new PluginCache<A>(file));
+    const keys = new Set(entries.map(([key]) => key));
+    const held = Object.keys(cache.toSerializable().entries);
     const values = yield* Effect.validate(entries, ([key, compute]) => Option.match(Option.fromNullishOr(cache.get(key)), { onNone: () => compute, onSome: Effect.succeed }), { concurrency: 'unbounded' });
-    yield* Effect.sync(() => new PluginCache(file, Object.fromEntries(Array.zipWith(entries, values, ([key], value) => [key, value] as const))).writeToDisk());
+    yield* held.length === keys.size && held.every((key) => keys.has(key)) ? Effect.void : Effect.sync(() => new PluginCache(file, Object.fromEntries(Array.zipWith(entries, values, ([key], value) => [key, value] as const))).writeToDisk());
     return values;
 });
 const _sources = Effect.fnUntraced(function* (workspace: string, root: ReturnType<typeof _root>) {
@@ -336,6 +338,7 @@ const _pythonVersions = Effect.fnUntraced(function* (workspace: string, mise: Re
             version.localeCompare(below, 'en', { numeric: true }) >= 0;
     const off = Array.getSomes(gated).filter(covered(tools.python));
     const groups = Object.entries(Array.groupBy(hosts, ({ version }) => version)).map(([version, members]) => ({ version, scoped: members.map(({ scope }) => `"${scope}"`).join(' ') }));
+    const excluded = hosts.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ');
     const scan = 'ast-grep scan --custom-languages allow';
     const tree = `${scan} --no-ignore hidden --globs '!pnpm-lock.yaml' --globs '!tools/*/examples/**' --error=no-suppress-all ${off.map(({ id }) => `--off=${id}`).join(' ')}`;
     const versioned = (whole: string, hosted: readonly string[]): TargetConfiguration => ({
@@ -360,8 +363,12 @@ const _pythonVersions = Effect.fnUntraced(function* (workspace: string, mise: Re
                         groups.map(({ version, scoped }) => `ty check --python-version ${version} ${scoped}`),
                     ),
                     'typecheck:mypy': versioned(
-                        `mypy ${hosts.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ')}`,
+                        `mypy ${excluded}`,
                         groups.map(({ version, scoped }) => `mypy --python-version ${version} ${scoped}`),
+                    ),
+                    'lint:refurb': versioned(
+                        `python -m tools.refurb --quiet -- ${excluded}`,
+                        groups.map(({ version, scoped }) => `python -m tools.refurb --quiet --python-version ${version} ${scoped}`),
                     ),
                 },
             },

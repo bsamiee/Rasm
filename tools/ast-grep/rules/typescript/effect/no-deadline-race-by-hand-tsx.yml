@@ -5,7 +5,7 @@ severity: error
 utils:
     sleep-call:
         kind: call_expression
-        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^sleep$'}}}}
     sleep-branch:
         any:
             - matches: sleep-call
@@ -17,7 +17,7 @@ rule:
     kind: call_expression
     pattern: $RACE
     all:
-        - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^race$'}}
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^race$'}}}}
         - has: {field: arguments, has: {matches: sleep-branch}}
 message: '`$RACE` composes a deadline fallback by hand'
 note: '`Effect.timeoutOrElse({ duration, orElse })` interrupts the source at its deadline and evaluates `orElse` lazily, and `Effect.timeoutOption` returns `Option.none()` in place of `TimeoutError`'

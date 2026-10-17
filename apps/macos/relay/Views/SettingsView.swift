@@ -214,7 +214,7 @@ private struct GeneralSettings: View {
                     "Open at login",
                     isOn: Binding(get: { store.loginItem.isEnabled }, set: store.setLoginItemEnabled),
                 )
-                if store.loginItem.requiresApproval {
+                if store.loginItem.status == .requiresApproval {
                     Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
                 }
             } footer: {

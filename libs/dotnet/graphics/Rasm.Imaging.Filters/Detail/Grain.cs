@@ -1,60 +1,40 @@
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
-using Emgu.CV.Util;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
-using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using TorchSharp;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Detail;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidDetail>]
-public readonly partial struct GrainSize : IMinMaxValue<GrainSize> {
-    public static GrainSize Standard { get; } = new(1f / ReferenceFrame.Height);
-    public static GrainSize MinValue { get; } = new(float.Epsilon);
-    public static GrainSize MaxValue { get; } = new(float.MaxValue);
+public readonly partial struct NoiseDeviation : IPresented<NoiseDeviation, float> {
+    public static NoiseDeviation Off { get; } = new(0f);
+    public static NoiseDeviation MinValue => Off;
+    public static NoiseDeviation MaxValue { get; } = new(MathF.Sqrt(2f * MathF.Log(float.MaxValue)));
+    public static Presentation<float> Presentation { get; } = new() { Soft = (0.001f, 1f), Scale = TrackScale.Log };
 
-    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
-
-    static partial void ValidateFactoryArguments(ref InvalidDetail? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidDetail();
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidDetail>]
-public readonly partial struct SceneLuminance : IMinMaxValue<SceneLuminance> {
-    public static SceneLuminance MinValue { get; } = new(0f);
-    public static SceneLuminance MaxValue { get; } = new(float.MaxValue);
-    public static SceneLuminance ShadowEdge { get; } = new(0.09f);
-    public static SceneLuminance MidtoneSpan { get; } = new(0.5f - ShadowEdge._value);
-    public static SceneLuminance HighlightSpan { get; } = new(1f - (ShadowEdge._value + MidtoneSpan._value));
-
-    static partial void ValidateFactoryArguments(ref InvalidDetail? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidDetail();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record FilmGrain(
-    AxisFraction Intensity, GrainSize Size, AxisFraction Chroma, Seed Seed, Timing Timing, Hold Hold,
-    Mix Shadows, Mix Midtones, Mix Highlights, SceneLuminance ShadowEdge, SceneLuminance MidtoneSpan, SceneLuminance HighlightSpan, Option<ImageFile> Scan, ShortSideExtent ScanSpan)
-    : IStateRecord<FilmGrain, FilmGrainParameter, InvalidDetail>, IPixelStage<FilmGrain> {
+    NoiseDeviation Intensity, ShortSideExtent Size, AxisFraction Chroma, Seed Seed, Timing Timing, Hold Hold,
+    AxisFraction Shadows, AxisFraction Midtones, AxisFraction Highlights, Magnitude ShadowEdge, Magnitude MidtoneSpan, Magnitude HighlightSpan, Option<ImageFile> Scan, ShortSideExtent ScanSpan)
+    : IStateRecord<FilmGrain, FilmGrainParameter>, IPixelStage<FilmGrain> {
     public static FilmGrain Default { get; } = new(
-        AxisFraction.MinValue, GrainSize.Standard, AxisFraction.MinValue, Seed.MinValue, Timing.Default, Hold.MinValue, Mix.Full, Mix.Full, Mix.Full, SceneLuminance.ShadowEdge, SceneLuminance.MidtoneSpan,
-        SceneLuminance.HighlightSpan, None, Valid.Value(ShortSideExtent.Validate(ReferenceFrame.GreaterSide, provider: null, out ShortSideExtent span), span));
+        NoiseDeviation.Off, ShortSideExtent.Create(1f / ReferenceFrame.Height), AxisFraction.MinValue, Seed.MinValue, Timing.Default, Hold.MinValue, AxisFraction.MaxValue, AxisFraction.MaxValue, AxisFraction.MaxValue, Magnitude.Create(0.09f), Magnitude.Create(0.5f - 0.09f),
+        Magnitude.Create(1f - 0.5f), None, ShortSideExtent.Create(ReferenceFrame.GreaterSide));
 
     public static Option<PixelPass> Pass(FilmGrain state, PassContext context) =>
-        state.Intensity == AxisFraction.MinValue || (state.Shadows == Mix.MinValue && state.Midtones == Mix.MinValue && state.Highlights == Mix.MinValue)
+        state.Intensity == NoiseDeviation.Off || (state.Shadows == AxisFraction.MinValue && state.Midtones == AxisFraction.MinValue && state.Highlights == AxisFraction.MinValue)
             ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)));
 
@@ -63,11 +43,11 @@ public sealed record FilmGrain(
         (double sigma, float bias, Vector4 mix) = (state.Size.Pixels(context.Extent), state.Intensity * state.Intensity / 2f, state.Intensity * Draws.Mix(state.Chroma));
         (double start, double span, double width) = (state.ShadowEdge, state.MidtoneSpan, state.HighlightSpan);
         double highlightScale = width > 0d ? width : double.Max(start, span);
-        (double X, double Y, double Z) = context.Working.Luminance;
+        (double X, double Y, double Z) luminance = context.Working.Luminance;
         return Try.lift(() => {
             Fin<(Action<Span<Vector4>, long, long> Draw, Func<Mat, Fin<Unit>> Shape)> draws = state.Scan.Match(
                 Some: scan => context.Derivations.Derived((scan, state.ScanSpan, context.Extent), Scores).Map(tile => (Tiled(tile, field), (Func<Mat, Fin<Unit>>)(static _ => unit))),
-                None: () => Kernels.GaussianKernel(sigma).Map(kernel => ((Action<Span<Vector4>, long, long>)((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }), (Func<Mat, Fin<Unit>>)(header => Normalized(header, kernel)))));
+                None: () => Fin.Succ(((Action<Span<Vector4>, long, long>)((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }), (Func<Mat, Fin<Unit>>)(header => Normalized(header, sigma)))));
             return from noise in draws
                    let plane = new PixelFrame(frame.Origin, frame.Size, frame.Extent, static _ => { })
                    from drawn in new PixelPass.Pointwise(noise.Draw).Run(plane, new Progress<int>())
@@ -75,7 +55,7 @@ public sealed record FilmGrain(
                    from applied in new PixelPass.Pointwise((row, _, line) => {
                        ReadOnlySpan<Vector4> draws = plane.Row(line);
                        for (int x = 0; x < row.Length; x++) {
-                           double luma = (X * row[x].X) + (Y * row[x].Y) + (Z * row[x].Z);
+                           double luma = LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance);
                            double logLuma = double.Log2(double.Max(luma, 0d)) + context.Exposure;
                            double dark = start is 0d ? luma > 0d ? 0d : 1d : 1d - RampInterpolation.Ease.Weight(double.Clamp(double.Exp2(logLuma - double.Log2(start)), 0d, 1d));
                            double distance = highlightScale is 0d ? luma : double.Exp2(logLuma - double.Log2(highlightScale)) - (start / highlightScale) - (span / highlightScale);
@@ -86,123 +66,121 @@ public sealed record FilmGrain(
                        }
                    }).Run(frame, progress)
                    select applied;
-        }).Run().MapFail(error => error.Exception.Match(
-            Some: cause => cause is OverflowException or OutOfMemoryException ? new GrainFrameRefused(frame.Size, cause) : error,
-            None: () => error));
+        }).Run();
 
-        static Fin<Unit> Normalized(Mat header, torch.Tensor kernel) {
+        static Fin<Unit> Normalized(Mat header, double sigma) => Kernels.GaussianKernel(sigma).Map(kernel => {
             const double unitVariance = 1d;
-            torch.Tensor squared = kernel.square();
-            using Mat filtered = new();
-            using Mat deviation = new(header.Rows, header.Cols, DepthType.Cv64F, header.NumberOfChannels);
-            deviation.SetTo(new MCvScalar(unitVariance, unitVariance, unitVariance, unitVariance));
-            return header.Separable(filtered, kernel, kernel, DepthType.Cv64F, PaddingModes.Constant)
-                .Bind(_ => deviation.Separable(deviation, squared, squared, DepthType.Cv64F, PaddingModes.Constant))
-                .Map(_ => {
-                    CvInvoke.Sqrt(deviation, deviation);
-                    CvInvoke.Divide(filtered, deviation, filtered);
-                    filtered.ConvertTo(header, DepthType.Cv32F);
-                    return unit;
-                });
-        }
+            using (kernel) {
+                using Mat squared = new();
+                using Mat filtered = new();
+                using Mat deviation = new(header.Rows, header.Cols, DepthType.Cv64F, header.NumberOfChannels);
+                CvInvoke.Multiply(kernel, kernel, squared);
+                deviation.SetTo(new MCvScalar(unitVariance, unitVariance, unitVariance, unitVariance));
+                CvInvoke.SepFilter2D(header, filtered, DepthType.Cv64F, kernel, kernel, new System.Drawing.Point(-1, -1), 0d, BorderType.Constant);
+                CvInvoke.SepFilter2D(deviation, deviation, DepthType.Cv64F, squared, squared, new System.Drawing.Point(-1, -1), 0d, BorderType.Constant);
+                CvInvoke.Sqrt(deviation, deviation);
+                CvInvoke.Divide(filtered, deviation, filtered);
+                filtered.ConvertTo(header, DepthType.Cv32F);
+                return unit;
+            }
+        });
 
         static Action<Span<Vector4>, long, long> Tiled(Memory2D<Vector4> tile, uint field) {
             Vector2 random = NoiseFunctions.White(Vector4.Zero, field).AsVector2();
-            (double X, double Y) shift = ((double)random.X * tile.Width, -(double)random.Y * tile.Height);
+            (double X, double Y) = ((double)random.X * tile.Width, -(double)random.Y * tile.Height);
             return (row, column, line) => {
                 ReadOnlySpan2D<Vector4> texels = tile.Span;
-                for (int x = 0; x < row.Length; x++) row[x] = texels.Sample((column + x + 0.5d + shift.X, -line - 0.5d + shift.Y), (WrapMode.Periodic, WrapMode.Periodic), Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight));
+                for (int x = 0; x < row.Length; x++) row[x] = texels.Sample((column + x + 0.5d + X, -line - 0.5d + Y), (WrapMode.Periodic, WrapMode.Periodic), Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight));
             };
         }
 
         static Fin<Memory2D<Vector4>> Scores((ImageFile Scan, ShortSideExtent Span, PixelExtent Extent) key) {
             double footprint = key.Span.Pixels(key.Extent);
-            (double Width, double Height) size = (double.Ceiling(footprint), double.Ceiling(key.Scan.Frame.Size.Height * footprint / key.Scan.Frame.Size.Width));
-            return Try.lift(() => {
-                System.Drawing.Size dimensions = new(int.CreateChecked(size.Width), int.CreateChecked(size.Height));
-                int pixels = int.CreateChecked((long)dimensions.Width * dimensions.Height);
-                Vector4[] scores = new Vector4[pixels];
-                using Mat header = key.Scan.Frame.Header();
-                using Mat source = new();
-                using Mat resized = new();
-                using Mat lanes = new();
-                using Mat mean = new(4, 4, DepthType.Cv64F, 1);
-                Inter interpolation = footprint < header.Cols ? Inter.Area : Inter.Linear;
-                header.ConvertTo(source, DepthType.Cv64F);
-                CvInvoke.Resize(source, resized, dimensions, 0d, 0d, interpolation);
-                const double third = 1d / 3d;
-                mean.SetTo([1d, 0d, 0d, 0d, 0d, 1d, 0d, 0d, 0d, 0d, 1d, 0d, third, third, third, 0d]);
-                CvInvoke.Transform(resized, lanes, mean);
-                ReadOnlySpan<Vector256<double>> texels = new(lanes.DataPointer.ToPointer(), pixels);
-                for (int lane = 0; lane < 4; lane++) {
-                    double[] values = new double[pixels];
-                    for (int texel = 0; texel < pixels; texel++) values[texel] = texels[texel][lane];
-                    double[] lower = values.Ranks(RankDefinition.Min);
-                    double[] upper = ArrayStatistics.RanksInplace(values, RankDefinition.Max);
-                    for (int texel = 0; texel < pixels; texel++) scores[texel][lane] = (float)Normal.InvCDF(0d, 1d, (lower[texel] + upper[texel] - 1d) / (2d * pixels));
-                }
-                return scores.AsMemory().AsMemory2D(dimensions.Height, dimensions.Width);
-            }).Run().MapFail(error => error.Exception.Match(
-                Some: cause => cause is CvException or OverflowException or OutOfMemoryException ? new GrainScanRefused(size, cause) : error,
-                None: () => error));
+            (double width, double height) = (double.Ceiling(footprint), double.Ceiling(key.Scan.Frame.Size.Height * footprint / key.Scan.Frame.Size.Width));
+            return width * height > System.Array.MaxLength
+                ? Error.New(string.Create(CultureInfo.InvariantCulture, $"film grain scan tile {width}x{height} exceeds {System.Array.MaxLength} texels"))
+                : Try.lift(() => {
+                    System.Drawing.Size dimensions = new((int)width, (int)height);
+                    int pixels = dimensions.Width * dimensions.Height;
+                    Vector4[] scores = new Vector4[pixels];
+                    using Mat header = key.Scan.Frame.Header();
+                    using Mat source = new();
+                    using Mat resized = new();
+                    using Mat lanes = new();
+                    using Mat mean = new(4, 4, DepthType.Cv64F, 1);
+                    Inter interpolation = footprint < header.Cols ? Inter.Area : Inter.Linear;
+                    header.ConvertTo(source, DepthType.Cv64F);
+                    CvInvoke.Resize(source, resized, dimensions, 0d, 0d, interpolation);
+                    const double third = 1d / 3d;
+                    mean.SetTo([1d, 0d, 0d, 0d, 0d, 1d, 0d, 0d, 0d, 0d, 1d, 0d, third, third, third, 0d]);
+                    CvInvoke.Transform(resized, lanes, mean);
+                    ReadOnlySpan<Vector256<double>> texels = new(lanes.DataPointer.ToPointer(), pixels);
+                    for (int lane = 0; lane < 4; lane++) {
+                        double[] values = new double[pixels];
+                        for (int texel = 0; texel < pixels; texel++) values[texel] = texels[texel][lane];
+                        double[] lower = values.Ranks(RankDefinition.Min);
+                        double[] upper = ArrayStatistics.RanksInplace(values, RankDefinition.Max);
+                        for (int texel = 0; texel < pixels; texel++) scores[texel][lane] = (float)Normal.InvCDF(0d, 1d, (lower[texel] + upper[texel] - 1d) / (2d * pixels));
+                    }
+                    return scores.AsMemory().AsMemory2D(dimensions.Height, dimensions.Width);
+                }).Run();
         }
     }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidDetail>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilmGrainParameter : IStateParameter<FilmGrain> {
-    public static readonly FilmGrainParameter Intensity = new("intensity", StateParameter.Bounded<FilmGrain, AxisFraction, float, InvalidGrade>(
-        Lens<FilmGrain, AxisFraction>.New(static grain => grain.Intensity, static intensity => grain => grain with { Intensity = intensity }), new()));
-    public static readonly FilmGrainParameter Size = new("size", StateParameter.Bounded<FilmGrain, GrainSize, float, InvalidDetail>(
-        Lens<FilmGrain, GrainSize>.New(static grain => grain.Size, static size => grain => grain with { Size = size }),
-        new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Scale = TrackScale.Log }));
-    public static readonly FilmGrainParameter Chroma = new("chroma", StateParameter.Bounded<FilmGrain, AxisFraction, float, InvalidGrade>(
-        Lens<FilmGrain, AxisFraction>.New(static grain => grain.Chroma, static chroma => grain => grain with { Chroma = chroma }), new()));
-    public static readonly FilmGrainParameter Seed = new("seed", StateParameter.Bounded<FilmGrain, Seed, int, InvalidGenerator>(
-        Lens<FilmGrain, Seed>.New(static grain => grain.Seed, static seed => grain => grain with { Seed = seed }), Generators.Seed.Presentation));
-    public static readonly FilmGrainParameter Timing = new("timing", new StateParameter<FilmGrain>.Record<Timing>(
-        Lens<FilmGrain, Timing>.New(static grain => grain.Timing, static timing => grain => grain with { Timing = timing })));
-    public static readonly FilmGrainParameter Hold = new("hold", StateParameter.Bounded<FilmGrain, Hold, float, InvalidGenerator>(
-        Lens<FilmGrain, Hold>.New(static grain => grain.Hold, static hold => grain => grain with { Hold = hold }), Generators.Hold.Presentation));
-    public static readonly FilmGrainParameter Shadows = new("shadows", StateParameter.Bounded<FilmGrain, Mix, float, InvalidGrade>(
-        Lens<FilmGrain, Mix>.New(static grain => grain.Shadows, static weight => grain => grain with { Shadows = weight }), new()));
-    public static readonly FilmGrainParameter Midtones = new("midtones", StateParameter.Bounded<FilmGrain, Mix, float, InvalidGrade>(
-        Lens<FilmGrain, Mix>.New(static grain => grain.Midtones, static weight => grain => grain with { Midtones = weight }), new()));
-    public static readonly FilmGrainParameter Highlights = new("highlights", StateParameter.Bounded<FilmGrain, Mix, float, InvalidGrade>(
-        Lens<FilmGrain, Mix>.New(static grain => grain.Highlights, static weight => grain => grain with { Highlights = weight }), new()));
-    public static readonly FilmGrainParameter ShadowEdge = new("shadow-edge", StateParameter.Bounded<FilmGrain, SceneLuminance, float, InvalidDetail>(
-        Lens<FilmGrain, SceneLuminance>.New(static grain => grain.ShadowEdge, static edge => grain => grain with { ShadowEdge = edge }), new()));
-    public static readonly FilmGrainParameter MidtoneSpan = new("midtone-span", StateParameter.Bounded<FilmGrain, SceneLuminance, float, InvalidDetail>(
-        Lens<FilmGrain, SceneLuminance>.New(static grain => grain.MidtoneSpan, static span => grain => grain with { MidtoneSpan = span }), new()));
-    public static readonly FilmGrainParameter HighlightSpan = new("highlight-span", StateParameter.Bounded<FilmGrain, SceneLuminance, float, InvalidDetail>(
-        Lens<FilmGrain, SceneLuminance>.New(static grain => grain.HighlightSpan, static span => grain => grain with { HighlightSpan = span }), new()));
-    public static readonly FilmGrainParameter Scan = new("scan", new StateParameter<FilmGrain>.Loaded<ImageFile, ImagePath, string, InvalidFileValue>(
-        Lens<FilmGrain, Option<ImageFile>>.New(static grain => grain.Scan, static scan => grain => grain with { Scan = scan }), ImageFile.Load, static scan => scan.Path));
-    public static readonly FilmGrainParameter ScanSpan = new("scan-span", StateParameter.Bounded<FilmGrain, ShortSideExtent, float, InvalidPixelValue>(
-        Lens<FilmGrain, ShortSideExtent>.New(static grain => grain.ScanSpan, static span => grain => grain with { ScanSpan = span }), ShortSideExtent.Presentation));
+    public static readonly FilmGrainParameter Intensity = new("intensity", StateParameter.Bounded(Lens<FilmGrain, NoiseDeviation>.New(static grain => grain.Intensity, static intensity => grain => grain with { Intensity = intensity })),
+        new("Intensity", "Spread of the grain factor multiplied into scene light, 0 adding no grain"));
+    public static readonly FilmGrainParameter Size = new("size", StateParameter.Bounded(Lens<FilmGrain, ShortSideExtent>.New(static grain => grain.Size, static size => grain => grain with { Size = size }), ShortSideExtent.Presentation with { Soft = (1e-4f, 0.0125f) }),
+        new("Size", "Grain size as a share of the frame's short side"));
+    public static readonly FilmGrainParameter Chroma = new("chroma", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Chroma, static chroma => grain => grain with { Chroma = chroma })),
+        new("Chroma", "Share of each channel's own grain against grain every channel shares"));
+    public static readonly FilmGrainParameter Seed = new("seed", StateParameter.Bounded(Lens<FilmGrain, Seed>.New(static grain => grain.Seed, static seed => grain => grain with { Seed = seed })),
+        new("Seed", "Number selecting the field's pattern"));
+    public static readonly FilmGrainParameter Timing = new("timing", new StateParameter<FilmGrain>.Record<Timing>(Lens<FilmGrain, Timing>.New(static grain => grain.Timing, static timing => grain => grain with { Timing = timing })),
+        new("Timing", "Stored time and rate of recorded frame time"));
+    public static readonly FilmGrainParameter Hold = new("hold", StateParameter.Bounded(Lens<FilmGrain, Hold>.New(static grain => grain.Hold, static hold => grain => grain with { Hold = hold })),
+        new("Hold", "Seconds each drawn pattern holds before the next"));
+    public static readonly FilmGrainParameter Shadows = new("shadows", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Shadows, static weight => grain => grain with { Shadows = weight })),
+        new("Shadows", "Grain weight below the shadow edge"));
+    public static readonly FilmGrainParameter Midtones = new("midtones", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Midtones, static weight => grain => grain with { Midtones = weight })),
+        new("Midtones", "Grain weight between the shadow edge and the highlight start"));
+    public static readonly FilmGrainParameter Highlights = new("highlights", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Highlights, static weight => grain => grain with { Highlights = weight })),
+        new("Highlights", "Grain weight from the highlight end up"));
+    public static readonly FilmGrainParameter ShadowEdge = new("shadow-edge", StateParameter.Bounded(Lens<FilmGrain, Magnitude>.New(static grain => grain.ShadowEdge, static edge => grain => grain with { ShadowEdge = edge }), new Presentation<float>()),
+        new("Shadow edge", "Exposed luminance where the shadow weight reaches 0"));
+    public static readonly FilmGrainParameter MidtoneSpan = new("midtone-span", StateParameter.Bounded(Lens<FilmGrain, Magnitude>.New(static grain => grain.MidtoneSpan, static span => grain => grain with { MidtoneSpan = span }), new Presentation<float>()),
+        new("Midtone span", "Luminance span from the shadow edge to the highlight band"));
+    public static readonly FilmGrainParameter HighlightSpan = new("highlight-span", StateParameter.Bounded(Lens<FilmGrain, Magnitude>.New(static grain => grain.HighlightSpan, static span => grain => grain with { HighlightSpan = span }), new Presentation<float>()),
+        new("Highlight span", "Luminance span over which the highlight weight reaches full"));
+    public static readonly FilmGrainParameter Scan = new("scan", new StateParameter<FilmGrain>.Loaded<ImageFile, ImagePath, string>(Lens<FilmGrain, Option<ImageFile>>.New(static grain => grain.Scan, static scan => grain => grain with { Scan = scan }), ImageFile.Load, static scan => scan.Path),
+        new("Scan", "Grain image scored by channel ranks"));
+    public static readonly FilmGrainParameter ScanSpan = new("scan-span", StateParameter.Bounded(Lens<FilmGrain, ShortSideExtent>.New(static grain => grain.ScanSpan, static span => grain => grain with { ScanSpan = span })),
+        new("Scan span", "Scan width as a share of the frame's short side"));
 
     public StateParameter<FilmGrain> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed record SensorNoise(AxisFraction Shot, AxisFraction Read, AxisFraction Chroma, Seed Seed, Timing Timing, Hold Hold)
-    : IStateRecord<SensorNoise, SensorNoiseParameter, InvalidDetail>, IPixelStage<SensorNoise> {
+public sealed record SensorNoise(NoiseDeviation Shot, NoiseDeviation Read, AxisFraction Chroma, Seed Seed, Timing Timing, Hold Hold)
+    : IStateRecord<SensorNoise, SensorNoiseParameter>, IPixelStage<SensorNoise> {
     public static SensorNoise Default { get; } = new(
-        Valid.Value(AxisFraction.Validate(0.1875f * 0.25f * MathF.Sqrt(Exposure.MiddleGrey), provider: null, out AxisFraction shot), shot),
-        AxisFraction.MinValue, AxisFraction.MinValue, Seed.MinValue, Timing.Default, Hold.MinValue);
+        NoiseDeviation.Create(0.1875f * 0.25f * MathF.Sqrt(Exposure.MiddleGrey)),
+        NoiseDeviation.Off, AxisFraction.MinValue, Seed.MinValue, Timing.Default, Hold.MinValue);
 
     public static Option<PixelPass> Pass(SensorNoise state, PassContext context) {
         uint field = CoordinateHash.Field(NoiseStream.SensorNoise, state.Seed, state.Hold.Period(state.Timing.At(context)));
         double shot = double.Log2(state.Shot) - (0.5d * (context.Exposure + double.Log2(Exposure.MiddleGrey)));
         double read = double.Log2(state.Read) - context.Exposure;
         Vector4 mix = Draws.Mix(state.Chroma);
-        (double X, double Y, double Z) = context.Working.Luminance;
+        (double X, double Y, double Z) luminance = context.Working.Luminance;
         int luminanceLane = Vector256<double>.Count - 1;
-        return state.Shot == AxisFraction.MinValue && state.Read == AxisFraction.MinValue ? None : Some<PixelPass>(new PixelPass.Pointwise((row, column, line) => {
+        return state.Shot == NoiseDeviation.Off && state.Read == NoiseDeviation.Off ? None : Some<PixelPass>(new PixelPass.Pointwise((row, column, line) => {
             for (int x = 0; x < row.Length; x++) {
-                double luma = (X * row[x].X) + (Y * row[x].Y) + (Z * row[x].Z);
+                double luma = LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance);
                 Vector4 draws = mix * CoordinateHash.Normals(column + x, line, field);
                 Vector256<double> deviations = Vector256<double>.Zero;
                 for (int lane = 0; lane < Vector256<double>.Count; lane++) {
@@ -217,24 +195,24 @@ public sealed record SensorNoise(AxisFraction Shot, AxisFraction Read, AxisFract
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidDetail>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SensorNoiseParameter : IStateParameter<SensorNoise> {
-    public static readonly SensorNoiseParameter Shot = new("shot", StateParameter.Bounded<SensorNoise, AxisFraction, float, InvalidGrade>(
-        Lens<SensorNoise, AxisFraction>.New(static noise => noise.Shot, static shot => noise => noise with { Shot = shot }), new()));
-    public static readonly SensorNoiseParameter Read = new("read", StateParameter.Bounded<SensorNoise, AxisFraction, float, InvalidGrade>(
-        Lens<SensorNoise, AxisFraction>.New(static noise => noise.Read, static read => noise => noise with { Read = read }), new()));
-    public static readonly SensorNoiseParameter Chroma = new("chroma", StateParameter.Bounded<SensorNoise, AxisFraction, float, InvalidGrade>(
-        Lens<SensorNoise, AxisFraction>.New(static noise => noise.Chroma, static chroma => noise => noise with { Chroma = chroma }), new()));
-    public static readonly SensorNoiseParameter Seed = new("seed", StateParameter.Bounded<SensorNoise, Seed, int, InvalidGenerator>(
-        Lens<SensorNoise, Seed>.New(static noise => noise.Seed, static seed => noise => noise with { Seed = seed }), Generators.Seed.Presentation));
-    public static readonly SensorNoiseParameter Timing = new("timing", new StateParameter<SensorNoise>.Record<Timing>(
-        Lens<SensorNoise, Timing>.New(static noise => noise.Timing, static timing => noise => noise with { Timing = timing })));
-    public static readonly SensorNoiseParameter Hold = new("hold", StateParameter.Bounded<SensorNoise, Hold, float, InvalidGenerator>(
-        Lens<SensorNoise, Hold>.New(static noise => noise.Hold, static hold => noise => noise with { Hold = hold }), Generators.Hold.Presentation));
+    public static readonly SensorNoiseParameter Shot = new("shot", StateParameter.Bounded(Lens<SensorNoise, NoiseDeviation>.New(static noise => noise.Shot, static shot => noise => noise with { Shot = shot })),
+        new("Shot", "Noise deviation at middle gray, rising with the square root of exposed light"));
+    public static readonly SensorNoiseParameter Read = new("read", StateParameter.Bounded(Lens<SensorNoise, NoiseDeviation>.New(static noise => noise.Read, static read => noise => noise with { Read = read })),
+        new("Read", "Noise deviation independent of the signal"));
+    public static readonly SensorNoiseParameter Chroma = new("chroma", StateParameter.Bounded(Lens<SensorNoise, AxisFraction>.New(static noise => noise.Chroma, static chroma => noise => noise with { Chroma = chroma })),
+        new("Chroma", "Share of each channel's own noise against noise every channel shares"));
+    public static readonly SensorNoiseParameter Seed = new("seed", StateParameter.Bounded(Lens<SensorNoise, Seed>.New(static noise => noise.Seed, static seed => noise => noise with { Seed = seed })),
+        new("Seed", "Number selecting the field's pattern"));
+    public static readonly SensorNoiseParameter Timing = new("timing", new StateParameter<SensorNoise>.Record<Timing>(Lens<SensorNoise, Timing>.New(static noise => noise.Timing, static timing => noise => noise with { Timing = timing })),
+        new("Timing", "Stored time and rate of recorded frame time"));
+    public static readonly SensorNoiseParameter Hold = new("hold", StateParameter.Bounded(Lens<SensorNoise, Hold>.New(static noise => noise.Hold, static hold => noise => noise with { Hold = hold })),
+        new("Hold", "Seconds each drawn pattern holds before the next"));
 
     public StateParameter<SensorNoise> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

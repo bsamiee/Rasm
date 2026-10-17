@@ -18,6 +18,12 @@ struct Pair {
     left: AtomicBool,
 }
 
+#[derive(Debug, Default)]
+struct Gate {
+    open: AtomicBool,
+    passes: u32,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl Worker {
@@ -54,6 +60,18 @@ fn released(pair: &Pair) {
 fn spun(pair: &Pair) {
     pair.left.store(true, Ordering::Release);
     while !pair.left.load(Ordering::Acquire) {
+        hint::spin_loop();
+    }
+}
+
+fn counted(gate: &Gate) -> u32 {
+    let Gate { open: _, passes } = gate;
+    *passes
+}
+
+fn gated(gate: &Gate) {
+    gate.open.store(true, Ordering::Release);
+    while !gate.open.load(Ordering::Acquire) {
         hint::spin_loop();
     }
 }
@@ -110,17 +128,35 @@ async fn polled() -> u32 {
     steps
 }
 
+async fn deferred() -> u32 {
+    let stop = AtomicBool::new(false);
+    stop.store(true, Ordering::Release);
+    let count = || {
+        let mut steps = 0_u32;
+        while !stop.load(Ordering::Acquire) && steps < 8 {
+            steps = steps.saturating_add(1);
+        }
+        steps
+    };
+    count()
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
-    let (worker, pair) = (Worker::default(), Pair::default());
+    let (worker, pair, gate) = (Worker::default(), Pair::default(), Gate::default());
     worker.halt();
     worker.pause(true);
     worker.arm();
     spun(&pair);
     released(&pair);
+    gated(&gate);
     scoped();
     handed();
     watched(&AtomicBool::new(true));
-    black_box(([worker.run(), worker.idle(), shared(), futures::executor::block_on(polled())], worker.armed(), pair.left.load(Ordering::Acquire)));
+    black_box((
+        [worker.run(), worker.idle(), shared(), counted(&gate), futures::executor::block_on(polled()), futures::executor::block_on(deferred())],
+        worker.armed(),
+        pair.left.load(Ordering::Acquire),
+    ));
 }

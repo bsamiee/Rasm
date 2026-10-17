@@ -21,16 +21,14 @@ public static class FalseColor {
         Vector4[] positions = [.. toSeq(Range(0, table.Length)).Map(i => new Vector4(new Vector3(i / (table.Length - 1f)), 1f))];
         Display.Rec1886.Encoding.Decode(colours);
         new LutTable.Antilog(LogSpace.AgXLog.Allocation).Apply(positions);
-        foreach (Action<Span<Vector4>> step in AgX.ToBandPosition(look, Gamut.EGamut))
+        foreach (Action<Span<Vector4>> step in AgX.ToBandPosition(look))
             step(positions);
         return (
                 Lut1D.From(table.Length, positions.SelectMany(static position => (float[])[position.X, position.Y, position.Z]).ToArray(), Vector3.Zero, Vector3.One)
                     .Bind(static response => new LutTable.Sequence([new LutTable.Log(LogSpace.AgXLog.Allocation), new LutTable.ChannelCurve(response)]).Inverse()),
-                0d.Cons(openings).Zip(toSeq(colours)).Traverse(static stop =>
-                        RampPosition.Validate(stop.First, provider: null, out RampPosition position) is { } error ? error
-                        : RampStop.Validate(position, stop.Second, out RampStop item) is { } invalid ? invalid
-                        : (Fin<RampStop>)item).As()
-                    .Bind(static stops => Ramp.Validate(stops, RampInterpolation.Constant, out Ramp? keyed) is { } refused ? refused : (Fin<Ramp>)keyed!))
+                0d.Cons(openings).Zip(toSeq(colours)).Traverse(static stop => RampPosition.Validated(stop.First).Bind(position =>
+                        Admission.Admitted(RampStop.Validate(position, stop.Second, out RampStop item), item))).As()
+                    .Bind(static stops => Admission.Admitted(Ramp.Validate(stops, RampInterpolation.Constant, out Ramp? keyed), keyed)))
             .Apply((scene, ramp) => (ramp, Labels(openings, scene)))
             .As();
 

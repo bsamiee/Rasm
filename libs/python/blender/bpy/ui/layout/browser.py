@@ -39,7 +39,7 @@ from blender.bpy.ui.screens.areas import AreaQuery, Located
 from blender.bpy.ui.screens.regions import RegionView
 from blender.imaging.color.processors import unassociated
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Choice, Gated
+from blender.imaging.parameters import Choice, Gated, Presentation
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -50,8 +50,8 @@ if TYPE_CHECKING:
 class BrowserMode(Choice):
     """Persistent thumbnail and compact row presentations."""
 
-    GRID = (0, "Grid")
-    LIST = (1, "List")
+    GRID = 0
+    LIST = 1
 
 
 class BrowserControl(Enum):
@@ -78,7 +78,7 @@ class BrowserLayout(msgspec.Struct, frozen=True, kw_only=True):
     """Screen's browser layout, with disabled size fitting the available browser width."""
 
     mode: BrowserMode = BrowserMode.GRID
-    size: Gated[Annotated[float, msgspec.Meta(ge=THUMBNAIL_SIDE[0], le=THUMBNAIL_SIDE[1])]] = Gated(enabled=False, value=128.0)
+    size: Annotated[Gated[Annotated[float, msgspec.Meta(ge=THUMBNAIL_SIDE[0], le=THUMBNAIL_SIDE[1])]], Presentation(decimals=Some(0))] = Gated(enabled=False, value=128.0)
 
 
 class Demand[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -368,13 +368,7 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
         def begin(context: bpy.types.Context, travel: Travel) -> BlenderResult[Session[T]]:
             origin = Option.of_optional(context.region)
-            located = Result[tuple[bpy.types.Window, bpy.types.Area], BlenderFaults].bind(
-                paired(
-                    Option.of_optional(context.window).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window"),)),
-                    Option.of_optional(context.area).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="area"),)),
-                ),
-                lambda pair: RegionView.of(Located(window=pair[0], area=pair[1])),
-            )
+            located = Located.current(context).bind(RegionView.of)
 
             def admitted(view: RegionView) -> BlenderResult[RegionView]:
                 area = view.located.area

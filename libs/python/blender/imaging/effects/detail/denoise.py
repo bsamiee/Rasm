@@ -1,6 +1,5 @@
 """Spatial and temporal removal of render noise from scene-linear light."""
 
-import sys
 from typing import Annotated
 
 from expression import Some
@@ -8,7 +7,7 @@ import msgspec
 
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.compositing.recombination import Terms
-from blender.imaging.parameters import Case, Choice, Gated, Presentation
+from blender.imaging.parameters import Case, Choice, Gated, NonNegative, Presentation
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -16,26 +15,26 @@ from blender.imaging.parameters import Case, Choice, Gated, Presentation
 class Guides(Choice):
     """Render passes guiding a spatial filter."""
 
-    NONE = 1, "None"
-    ALBEDO = 2, "Albedo"
+    NONE = 1
+    ALBEDO = 2
     ALBEDO_NORMAL = 3, "Albedo and Normal"
 
 
 class Prefilter(Choice):
     """Treatment of guides before filtering color."""
 
-    NONE = 1, "None"
-    FAST = 2, "Fast"
-    ACCURATE = 3, "Accurate"
+    NONE = 1
+    FAST = 2
+    ACCURATE = 3
 
 
 class Quality(Choice):
     """Spatial filter quality or scene-controlled quality."""
 
-    FOLLOW_SCENE = 1, "Follow Scene"
-    HIGH = 2, "High"
-    BALANCED = 3, "Balanced"
-    FAST = 4, "Fast"
+    FOLLOW_SCENE = 1
+    HIGH = 2
+    BALANCED = 3
+    FAST = 4
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -52,7 +51,6 @@ class Filter(msgspec.Struct, frozen=True, kw_only=True):
 class Frame(Case, frozen=True, kw_only=True, tag=1):
     """Incoming frame denoised as one image."""
 
-    title = "Frame"
     filter: Annotated[Filter, msgspec.Meta(description="Filter over the frame")] = Filter()
 
 
@@ -96,13 +94,12 @@ class TemporalDenoise(Effect, frozen=True, kw_only=True, tag=20):
     """Motion-warped neighboring frames blended by color similarity."""
 
     stage = Stage.DENOISE
-    title = "Temporal Denoise"
     pointwise = False
-    hue: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Hue Threshold", description="Circular hue distance at which a neighbor's weight reaches zero")] = 0.1
-    saturation: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Saturation Threshold", description="Chroma distance at which a neighbor's weight reaches zero")] = 0.05
-    value: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Value Threshold", description="Value distance at which a neighbor's weight reaches zero")] = 0.05
+    hue: Annotated[NonNegative, msgspec.Meta(title="Hue Threshold", description="Circular hue distance at which a neighbor's weight reaches zero")] = 0.1
+    saturation: Annotated[NonNegative, msgspec.Meta(title="Saturation Threshold", description="Chroma distance at which a neighbor's weight reaches zero")] = 0.05
+    value: Annotated[NonNegative, msgspec.Meta(title="Value Threshold", description="Value distance at which a neighbor's weight reaches zero")] = 0.05
     max_weight: Annotated[float, msgspec.Meta(ge=0.0, le=1 / 3, description="Largest share contributed by each neighboring frame")] = 0.3
-    tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Motion Tolerance", description="Allowed reverse-motion disagreement in pixels")] = 1.0
+    tolerance: Annotated[NonNegative, msgspec.Meta(title="Motion Tolerance", description="Allowed reverse-motion disagreement in pixels")] = 1.0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

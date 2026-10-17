@@ -11,14 +11,12 @@ namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct HatchScale : System.Numerics.IMinMaxValue<HatchScale> {
     public static HatchScale MinValue { get; } = new(double.BitIncrement(0.001));
     public static HatchScale MaxValue { get; } = new(double.MaxValue);
     public static HatchScale Unit { get; } = new(1.0);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record HatchFill(ComponentRef<HatchPattern> Pattern, double Rotation, HatchScale Scale);
@@ -89,7 +87,7 @@ public static class Hatches {
 
     // --- [READS]
     public static IO<HatchState> State(Hatch hatch) =>
-        from scale in IO.lift(() => Conversions.Validated<HatchScale, double, InvalidRhinoValue>(hatch.PatternScale))
+        from scale in IO.lift(() => HatchScale.Validated(hatch.PatternScale))
         select HatchMapper.ToState(hatch, scale);
 
     // --- [DISPLAY]
@@ -99,5 +97,5 @@ public static class Hatches {
             return (Bounds: bounds, Lines: lines, Solid: solid);
         },
             display => IO.lift(() => new HatchDisplay(Conversions.Rows(display.Bounds), Conversions.Rows(display.Lines), Optional(display.Solid))).Bind(body),
-            static display => DisposalOps.Release<GeometryBase>([.. Conversions.Rows(display.Bounds), .. Optional(display.Solid).ToSeq()]));
+            static display => DisposalOps.Release<GeometryBase?>([.. Conversions.Rows(display.Bounds), display.Solid]));
 }

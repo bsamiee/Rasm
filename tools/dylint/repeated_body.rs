@@ -10,10 +10,10 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass, declare_lint, declare_lint_pass};
-use rustc_middle::ty::{self, BottomUpFolder, Clause, FnSig, GenericArg, Interner as _, Ty, TyCtxt, TypeFoldable, Unnormalized, print::with_forced_trimmed_paths};
+use rustc_middle::ty::{self, Clause, FnSig, GenericArg, Interner as _, Ty, Unnormalized, print::with_forced_trimmed_paths};
 use rustc_span::kw;
 
-use crate::{constant, constructed, datum, delivered, equal_bodies, is_error, item_path, upcast};
+use crate::{any_expr, constant, constructed, datum, delivered, equal_bodies, impl_owner, is_error, item_path, replaced, upcast};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,6 +28,8 @@ declare_lint! {
     Warn,
     "functions repeating another's body with other values or one other type"
 }
+
+const REPEATS: &str = "repeats the body here";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -72,7 +74,7 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
                     format!("make one function generic over `S: {}` in place of `{root_path}` and {listed}", traits.iter().map(|&implemented| tcx.def_path_str(implemented)).join(" + ")),
             });
             span_lint_hir_and_then(cx, PARAMETERIZABLE_BODY, tcx.local_def_id_to_hir_id(root), tcx.def_span(root), message, |diag| {
-                diag.span_note(members.iter().map(|&member| tcx.def_span(member)).collect::<Vec<_>>(), "repeats the body here");
+                diag.span_note(members.iter().map(|&member| tcx.def_span(member)).collect::<Vec<_>>(), REPEATS);
                 diag.help(help);
             });
         }
@@ -89,7 +91,7 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
                     .iter()
                     .copied()
                     .filter(|held| !from_types.contains(held))
-                    .find(|&to| from.ty_adt_def() != to.ty_adt_def() && replaced(tcx, later_signature, to, from) == earlier_signature)
+                    .find(|&to| from.ty_adt_def() != to.ty_adt_def() && replaced(tcx, later_signature, |held| (held == to).then_some(from)) == earlier_signature)
                     .map(|to| (from, to))
             })?;
             let ctor_of = |held: Ty<'tcx>, adt: Ty<'tcx>| {
@@ -105,7 +107,7 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
                 let (left_ty, right_ty) = (tcx.erase_and_anonymize_regions(left_typeck.expr_ty(left_expr)), tcx.erase_and_anonymize_regions(right_typeck.expr_ty(right_expr)));
                 matches!((left_expr.kind, right_expr.kind), (ExprKind::Path(_), ExprKind::Path(_)))
                     && matches!((left_ty.kind(), right_ty.kind()), (ty::FnDef(..) | ty::Adt(..), ty::FnDef(..) | ty::Adt(..)))
-                    && (replaced(tcx, right_ty, to, from) == left_ty || ctor_of(left_ty, from) && ctor_of(right_ty, to))
+                    && (replaced(tcx, right_ty, |held| (held == to).then_some(from)) == left_ty || ctor_of(left_ty, from) && ctor_of(right_ty, to))
             })?;
             let generic_calls = |function: LocalDefId, held: Ty<'tcx>| {
                 let typeck = tcx.typeck(function);
@@ -117,22 +119,16 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
                     );
                     ControlFlow::Continue(())
                 });
-                (!called.iter().any(|&(_, item)| {
-                    tcx.inherent_impl_of_assoc(item).is_some_and(|implementation| tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def() == held.ty_adt_def())
-                }))
-                .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(_, item)| tcx.trait_of_assoc(item)).unique().collect::<Vec<_>>())
+                (!called.iter().any(|&(_, item)| impl_owner(tcx, item).is_some_and(|owner| owner.ty_adt_def() == held.ty_adt_def())))
+                    .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(_, item)| tcx.trait_of_assoc(item)).unique().collect::<Vec<_>>())
             };
             let traits = generic_calls(earlier, from)?;
             let body = peel_blocks(tcx.hir_body_owned_by(earlier).value);
             let typeck = tcx.typeck(earlier);
-            let direct = if let ExprKind::Call(callee, _) = body.kind
-                && let ExprKind::Path(qpath) = callee.kind
-            {
-                typeck.qpath_res(&qpath, callee.hir_id).opt_def_id()
-            } else if let ExprKind::MethodCall(..) = body.kind {
-                typeck.type_dependent_def_id(body.hir_id)
-            } else {
-                None
+            let direct = match body.kind {
+                ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, _) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
+                ExprKind::MethodCall(..) => typeck.type_dependent_def_id(body.hir_id),
+                _ => None,
             }
             .filter(|&called| tcx.trait_of_assoc(called).is_some_and(|implemented| traits.contains(&implemented)));
             (owner(cx, earlier) == owner(cx, later) && !traits.is_empty() && generic_calls(later, to).is_some()).then_some(Varied::Type { from, traits, direct })
@@ -144,17 +140,10 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
             let body = peel_blocks(tcx.hir_body_owned_by(earlier).value);
             let fieldless = |function: LocalDefId| owner(cx, function).filter(|held| held.ty_adt_def().is_some_and(|adt| adt.is_struct() && adt.all_fields().next().is_none()) && !is_error(cx, *held));
             let direct = |arguments: &[Expr<'_>]| differences.iter().all(|&(differing, _)| arguments.iter().any(|argument| argument.hir_id == differing));
-            let called = if let ExprKind::Call(callee, arguments) = body.kind
-                && let ExprKind::Path(qpath) = callee.kind
-                && direct(arguments)
-            {
-                typeck.qpath_res(&qpath, callee.hir_id).opt_def_id()
-            } else if let ExprKind::MethodCall(_, _, arguments, _) = body.kind
-                && direct(arguments)
-            {
-                typeck.type_dependent_def_id(body.hir_id)
-            } else {
-                None
+            let called = match body.kind {
+                ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, arguments) if direct(arguments) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
+                ExprKind::MethodCall(_, _, arguments, _) if direct(arguments) => typeck.type_dependent_def_id(body.hir_id),
+                _ => None,
             }
             .filter(|&callee| matches!(tcx.def_kind(callee), DefKind::Fn | DefKind::AssocFn));
             let compared = |differing: HirId| matches!(tcx.parent_hir_node(differing), Node::Expr(parent) if matches!(parent.kind, ExprKind::Binary(operator, ..) if operator.node.is_comparison()));
@@ -196,20 +185,43 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
                     },
                 );
             }
-            if let [first, _, ..] = group
-                && let Some(declaration) = tcx.trait_item_of(*first)
-                && let Some(local) = declaration.as_local()
-                && !tcx.defaultness(declaration).has_value()
-                && let implemented = tcx.parent(declaration)
-                && tcx.all_impls(implemented).count() == group.len()
-                && upcast(cx, local).is_none()
-                && group.iter().all(|&function| tcx.trait_item_of(function) == Some(declaration) && bound_to_trait(cx, function, implemented))
-            {
-                let (method, name) = (tcx.item_name(declaration), tcx.item_name(implemented));
-                span_lint_hir_and_then(cx, DUPLICATE_BODY, tcx.local_def_id_to_hir_id(local), tcx.def_span(declaration), format!("every `{name}` impl repeats one body for `{method}`"), |diag| {
-                    diag.span_note(group.iter().map(|&function| tcx.def_span(function)).collect::<Vec<_>>(), "each impl holds the same body");
-                    diag.help(format!("move `{method}` into a default method of `{name}` and remove it from each impl"));
-                });
+            let [first, rest @ ..] = group else { return };
+            let Some(declaration) = tcx.trait_item_of(*first).filter(|&declaration| group.iter().all(|&function| tcx.trait_item_of(function) == Some(declaration))) else { return };
+            let implemented = tcx.parent(declaration);
+            let (method, name) = (tcx.item_name(declaration), tcx.item_name(implemented));
+            let defaultable = declaration
+                .as_local()
+                .filter(|&local| !tcx.defaultness(declaration).has_value() && upcast(cx, local).is_none() && group.iter().all(|&function| bound_to_trait(cx, function, implemented)));
+            let every = defaultable.filter(|_| tcx.all_impls(implemented).count() == group.len());
+            let adt = |function: LocalDefId| owner(cx, function).and_then(Ty::ty_adt_def);
+            let generic = adt(*first).filter(|common| !common.is_fundamental() && rest.iter().all(|&function| adt(function) == Some(*common)));
+            let help = match (every, defaultable, implemented.is_local(), generic) {
+                (Some(_), ..) | (None, None, true, _) => None,
+                (None, Some(_), ..) => Some(format!("move `{method}` into a default method of `{name}` and remove it from the impls that repeat it")),
+                (None, None, false, Some(common)) => Some(format!("implement `{name}` once as a generic impl over `{}` in place of the impls that repeat `{method}`", tcx.def_path_str(common.did()))),
+                (None, None, false, None) => Some(format!("expand the `{name}` impls that repeat `{method}` from one local `macro_rules!` taking the implementing type")),
+            };
+            match (every, help) {
+                (Some(local), _) =>
+                    span_lint_hir_and_then(cx, DUPLICATE_BODY, tcx.local_def_id_to_hir_id(local), tcx.def_span(declaration), format!("every `{name}` impl repeats one body for `{method}`"), |diag| {
+                        diag.span_note(group.iter().map(|&function| tcx.def_span(function)).collect::<Vec<_>>(), "each impl holds the same body");
+                        diag.help(format!("move `{method}` into a default method of `{name}` and remove it from each impl"));
+                    }),
+                (None, Some(help)) => span_lint_hir_and_then(
+                    cx,
+                    DUPLICATE_BODY,
+                    tcx.local_def_id_to_hir_id(*first),
+                    tcx.def_span(*first),
+                    format!(
+                        "`{name}` impls for {} repeat one body for `{method}`",
+                        listify(&group.iter().filter_map(|&function| owner(cx, function)).collect::<Vec<_>>(), |held| with_forced_trimmed_paths!(format!("`{held}`"))).unwrap_or_default()
+                    ),
+                    |diag| {
+                        diag.span_note(rest.iter().map(|&function| tcx.def_span(function)).collect::<Vec<_>>(), REPEATS);
+                        diag.help(help);
+                    },
+                ),
+                (None, None) => {}
             }
         }
 
@@ -275,7 +287,7 @@ impl<'tcx> LateLintPass<'tcx> for RepeatedBody {
 
 fn owner<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId) -> Option<Ty<'tcx>> {
     let parent = cx.tcx.parent(function.to_def_id());
-    if matches!(cx.tcx.def_kind(parent), DefKind::Impl { of_trait: _ }) {
+    if matches!(cx.tcx.def_kind(parent), DefKind::Impl { .. }) {
         Some(cx.tcx.type_of(parent).instantiate_identity().skip_normalization())
     } else if cx.tcx.def_kind(parent) == DefKind::Trait {
         Some(cx.tcx.types.self_param)
@@ -284,25 +296,15 @@ fn owner<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId) -> Option<Ty<'tcx>>
     }
 }
 
-fn replaced<'tcx, T>(tcx: TyCtxt<'tcx>, value: T, from: Ty<'tcx>, to: Ty<'tcx>) -> T
-where T: TypeFoldable<TyCtxt<'tcx>> {
-    value.fold_with(&mut BottomUpFolder { tcx, ty_op: |ty| if ty == from { to } else { ty }, lt_op: |region| region, ct_op: |constant| constant })
-}
-
 fn signature<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId) -> (FnSig<'tcx>, Vec<Clause<'tcx>>) {
     let tcx = cx.tcx;
-    let mut canonical = BottomUpFolder {
-        tcx,
-        ty_op: |ty: Ty<'tcx>| if let ty::Param(param) = ty.kind() { Ty::new_param(tcx, param.index, kw::Underscore) } else { ty },
-        lt_op: |region| region,
-        ct_op: |constant| constant,
-    };
+    let canonical = |held: Ty<'tcx>| if let ty::Param(param) = held.kind() { Some(Ty::new_param(tcx, param.index, kw::Underscore)) } else { None };
     let declared = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(function).instantiate_identity().skip_normalization());
     let delivered = FnSig { inputs_and_output: tcx.mk_type_list_from_iter(declared.inputs().iter().copied().chain([delivered(tcx, function.to_def_id())])), ..declared };
     let clauses = tcx.clauses_of(function).instantiate_identity(tcx).clauses.into_iter().map(Unnormalized::skip_normalization).collect::<Vec<_>>();
-    let erased = tcx.erase_and_anonymize_regions((delivered, clauses)).fold_with(&mut canonical);
-    match owner(cx, function) {
-        Some(owner) => replaced(tcx, erased, owner.fold_with(&mut canonical), Ty::new_param(tcx, u32::MAX, kw::SelfUpper)),
+    let erased = replaced(tcx, tcx.erase_and_anonymize_regions((delivered, clauses)), canonical);
+    match owner(cx, function).map(|owner| replaced(tcx, owner, canonical)) {
+        Some(owner) => replaced(tcx, erased, |held| (held == owner).then(|| Ty::new_param(tcx, u32::MAX, kw::SelfUpper))),
         None => erased,
     }
 }
@@ -312,18 +314,12 @@ fn bound_to_trait(cx: &LateContext<'_>, function: LocalDefId, implemented: DefId
     let supertraits = cx.tcx.supertrait_def_ids(implemented).collect::<Vec<_>>();
     owner(cx, function).is_some_and(|owner| {
         let owned = |expr: &Expr<'_>| typeck.expr_ty_adjusted(expr).peel_refs() == owner;
-        for_each_expr(cx.tcx, cx.tcx.hir_body_owned_by(function).value, |expr| {
-            let escapes = matches!(expr.kind, ExprKind::Field(base, _) if owned(base))
+        !any_expr(cx.tcx, cx.tcx.hir_body_owned_by(function).value, |expr| {
+            matches!(expr.kind, ExprKind::Field(base, _) if owned(base))
                 || matches!(expr.kind, ExprKind::MethodCall(_, receiver, ..)
                     if owned(receiver) && !typeck.type_dependent_def_id(expr.hir_id).and_then(|method| cx.tcx.trait_of_assoc(method)).is_some_and(|declared| supertraits.contains(&declared)))
-                || expr
-                    .res(typeck)
-                    .opt_def_id()
-                    .and_then(|item| cx.tcx.inherent_impl_of_assoc(item))
-                    .is_some_and(|implementation| cx.tcx.type_of(implementation).instantiate_identity().skip_normalization() == owner)
-                || owned(expr) && constructed(typeck, expr).is_some();
-            if escapes { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
+                || expr.res(typeck).opt_def_id().and_then(|item| impl_owner(cx.tcx, item)).is_some_and(|implementor| implementor == owner)
+                || owned(expr) && constructed(typeck, expr).is_some()
         })
-        .is_none()
     })
 }

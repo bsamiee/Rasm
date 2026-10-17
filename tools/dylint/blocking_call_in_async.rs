@@ -1,19 +1,16 @@
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    fn_def_id_with_node_args, get_parent_expr,
+    fn_def_id_with_node_args,
     paths::{PathNS, find_crates},
     res::MaybeDef,
 };
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{
-    CoroutineDesugaring, CoroutineKind, Expr, ExprKind, Node,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::{Expr, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
-use rustc_middle::ty::{Binder, TyCtxt};
+use rustc_middle::ty::TyCtxt;
 use rustc_span::{Span, Symbol};
 
-use crate::{item_path, resolve};
+use crate::{Polling, item_path, resolve};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,7 +20,6 @@ enum Role {
     Owner,
     Stream,
     Handle,
-    Offload,
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -38,6 +34,7 @@ declare_lint! {
 
 pub(crate) struct BlockingCallInAsync {
     roles: FxHashMap<DefId, Role>,
+    polling: Polling,
     reported: FxHashSet<Span>,
 }
 
@@ -55,7 +52,6 @@ impl BlockingCallInAsync {
                 ("std::thread::scope", Role::Call),
                 ("std::thread::JoinHandle::join", Role::Call),
                 ("std::thread::ScopedJoinHandle::join", Role::Call),
-                ("std::thread::Scope::spawn", Role::Offload),
                 ("std::sync::Barrier::wait", Role::Call),
                 ("std::sync::Condvar::wait", Role::Call),
                 ("std::sync::Condvar::wait_while", Role::Call),
@@ -151,47 +147,19 @@ impl BlockingCallInAsync {
         ))
         .chain(find_crates(tcx, Symbol::intern("fs_err")).iter().map(|root| (*root, Role::Owner)))
         .collect();
-        Self { roles, reported: FxHashSet::default() }
+        Self { roles, polling: Polling::new(tcx), reported: FxHashSet::default() }
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for BlockingCallInAsync {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn polled(cx: &LateContext<'_>, roles: &FxHashMap<DefId, Role>, body: LocalDefId) -> bool {
-            let offloaded = |closure: &Expr<'_>| {
-                if let Some(call) = get_parent_expr(cx, closure)
-                    && let ExprKind::Call(_, arguments) | ExprKind::MethodCall(_, _, arguments, _) = call.kind
-                    && let Some(position) = arguments.iter().position(|argument| argument.hir_id == closure.hir_id)
-                    && let Some((callee, _)) = fn_def_id_with_node_args(cx, call)
-                {
-                    let inputs = cx.tcx.fn_sig(callee).instantiate_identity().skip_normalization().skip_binder().inputs();
-                    let input = inputs.len().checked_sub(arguments.len()).and_then(|receiver| inputs.get(receiver..)?.get(position));
-                    matches!(roles.get(&callee), Some(Role::Offload))
-                        || cx
-                            .tcx
-                            .clauses_of(callee)
-                            .clauses
-                            .iter()
-                            .filter_map(|(clause, _)| clause.as_type_outlives_clause())
-                            .map(Binder::skip_binder)
-                            .any(|outlives| Some(&outlives.0) == input && outlives.1.is_static())
-                } else {
-                    false
-                }
-            };
-            match cx.tcx.coroutine_kind(body) {
-                Some(CoroutineKind::Desugared(CoroutineDesugaring::Async | CoroutineDesugaring::AsyncGen, _)) => true,
-                Some(_) => false,
-                None => matches!(cx.tcx.hir_node_by_def_id(body), Node::Expr(closure) if !offloaded(closure) && polled(cx, roles, cx.tcx.hir_enclosing_body_owner(closure.hir_id))),
-            }
-        }
         let role = |item: DefId| self.roles.get(&item).copied();
         if let Some((callee, args)) = fn_def_id_with_node_args(cx, expr)
             && (matches!(role(callee), Some(Role::Call))
                 || matches!(role(cx.tcx.parent(callee)), Some(Role::Owner))
                 || cx.tcx.trait_of_assoc(callee).is_some_and(|stream| matches!(role(stream), Some(Role::Stream)))
                     && args.type_at(0).walk().any(|arg| arg.as_type().and_then(MaybeDef::opt_def_id).is_some_and(|handle| matches!(role(handle), Some(Role::Handle)))))
-            && polled(cx, &self.roles, cx.tcx.hir_enclosing_body_owner(expr.hir_id))
+            && self.polling.polled(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id))
             && let span = expr.span.source_callsite()
             && (!expr.span.from_expansion() || self.reported.insert(span))
         {

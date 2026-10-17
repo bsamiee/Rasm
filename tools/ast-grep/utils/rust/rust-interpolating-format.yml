@@ -4,7 +4,7 @@ language: rust
 rule:
     kind: macro_invocation
     all:
-        - has: {field: macro, regex: '^((::)?(std|alloc)::)?format$'}
+        - matches: {rust-std-macro: {name: {regex: '^format$'}}}
         - has:
             kind: token_tree
             any:

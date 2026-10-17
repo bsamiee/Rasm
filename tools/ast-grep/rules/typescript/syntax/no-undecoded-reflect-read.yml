@@ -10,7 +10,7 @@ utils:
                 - has: {field: property, regex: '^(decode(Unknown)?(Effect|Exit|Option|Promise|Result|Sync)|is|asserts)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Schema|SchemaParser)$'}}}}
             - kind: identifier
-              matches: {syntax-import-reference: {source: {regex: '^effect/(Schema|SchemaParser)$'}, exported: {regex: '^(decode(Unknown)?(Effect|Exit|Option|Promise|Result|Sync)|is|asserts)$'}}}
+              matches: {typescript-import-reference: {source: {regex: '^effect/(Schema|SchemaParser)$'}, exported: {regex: '^(decode(Unknown)?(Effect|Exit|Option|Promise|Result|Sync)|is|asserts)$'}}}
     decoder:
         any:
             - kind: call_expression
@@ -45,7 +45,7 @@ rule:
     kind: call_expression
     pattern: $READ
     all:
-        - has: {field: function, regex: '^((globalThis|window|self)\.)?Reflect\.get$', matches: syntax-global-reference}
+        - has: {field: function, regex: '^((globalThis|window|self)\.)?Reflect\.get$', matches: typescript-global-reference}
         - has:
             field: arguments
             has:

@@ -1,6 +1,6 @@
 use core::{iter, mem, slice};
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, in_automatically_derived, peel_blocks, sym};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks, sym};
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_errors::listify;
@@ -12,7 +12,7 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, AdtDef, Ty, TypeckResults};
 
-use crate::constant;
+use crate::{constant, generated};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -53,16 +53,12 @@ impl<'tcx> LateLintPass<'tcx> for SplitTable {
         }
 
         fn total_map<'tcx>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<DefId> {
-            let listed = if let ExprKind::Call(_, [listed]) = expr.kind {
-                Some(listed)
-            } else if let ExprKind::MethodCall(collected, receiver, [], _) = expr.kind
-                && collected.ident.name == sym::collect
-                && let ExprKind::MethodCall(iterated, listed, [], _) = receiver.kind
-                && iterated.ident.name == sym::into_iter
-            {
-                Some(listed)
-            } else {
-                None
+            let listed = match expr.kind {
+                ExprKind::Call(_, [listed]) => Some(listed),
+                ExprKind::MethodCall(collected, &Expr { kind: ExprKind::MethodCall(iterated, listed, [], _), .. }, [], _)
+                    if collected.ident.name == sym::collect && iterated.ident.name == sym::into_iter =>
+                    Some(listed),
+                _ => None,
             };
             if let Some(&ExprKind::Array(entries)) = listed.map(|listed| &listed.kind)
                 && !expr.span.from_expansion()
@@ -98,24 +94,18 @@ impl<'tcx> LateLintPass<'tcx> for SplitTable {
             let alternatives = if let PatKind::Or(alternatives) = pat.kind { alternatives } else { slice::from_ref(pat) };
             alternatives
                 .iter()
-                .map(
-                    |alternative| if let PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), hir_id, span: _ }) = alternative.kind { typeck.qpath_res(&qpath, hir_id).opt_def_id() } else { None },
-                )
+                .map(|alternative| if let PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), hir_id, .. }) = alternative.kind { typeck.qpath_res(&qpath, hir_id).opt_def_id() } else { None })
                 .try_collect()
         }
 
         let typeck = cx.typeck_results();
-        if in_automatically_derived(cx.tcx, expr.hir_id) {
+        if generated(cx, expr.hir_id) {
             return;
         }
-        let compared = if let ExprKind::Binary(operator, left, _) = expr.kind
-            && matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne)
-        {
-            keyed(typeck.expr_ty_adjusted(left))
-        } else if let ExprKind::Let(binding) = expr.kind {
-            keyed(typeck.expr_ty_adjusted(binding.init))
-        } else {
-            None
+        let compared = match expr.kind {
+            ExprKind::Binary(operator, left, _) if matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne) => keyed(typeck.expr_ty_adjusted(left)),
+            ExprKind::Let(binding) => keyed(typeck.expr_ty_adjusted(binding.init)),
+            _ => None,
         };
         if let ExprKind::Match(scrutinee, arms, _) = expr.kind
             && let Some(keyed) = keyed(typeck.expr_ty_adjusted(scrutinee))

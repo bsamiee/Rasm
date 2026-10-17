@@ -52,9 +52,7 @@ public static class BakeOps {
 
     private static IO<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes)> Prepared((BakeKey Key, GeometryPair Value) row, Func<ObjectAttributes> defaults, Action<ObjectAttributes> retain) =>
         from copied in IO.lift(row.Value.Geometry.EnsurePrivateCopy)
-        from attributes in DisposalOps.Acquire(
-            IO.lift(() => row.Value.Attributes.Match(Some: static attributes => attributes.Duplicate(), None: defaults)),
-            static attributes => IO.lift(attributes.Dispose), retain)
+        from attributes in DisposalOps.Acquire(IO.lift(() => row.Value.Attributes.Match(Some: static attributes => attributes.Duplicate(), None: defaults)), retain)
         select (row.Key, row.Value.Geometry, Attributes: attributes);
 
     // --- [DOCUMENT]
@@ -92,7 +90,7 @@ public static class BakeOps {
             from bakeables in Bakeables(sources)
             from baked in bakeables.TraverseM(pair =>
                 IO.lift(() => Conversions.Rows(pair.Bakeable.BakeShapes(new BakeContext(process, pair.Process, file, attributes, meta: meta), mode)))).As()
-            select baked.Flatten(), static attributes => IO.lift(attributes.Dispose));
+            select baked.Flatten());
 
     public static IO<Seq<Guid>> Reconcile(File3dm file, Func<BakeKey, bool> scope, Map<BakeKey, GeometryPair> desired) =>
         Reconcile(

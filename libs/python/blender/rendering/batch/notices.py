@@ -9,7 +9,7 @@ import msgspec
 
 from blender.imaging.parameters import Gated
 from blender.rendering.batch.estimate import Estimate
-from blender.rendering.batch.exchange import Endpoint, opened, requested, sent
+from blender.rendering.batch.exchange import Endpoint, opened, sent
 from blender.rendering.faults import RenderingResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -108,7 +108,7 @@ def published(listener: Listener, notice: Notice) -> RenderingResult[None]:
         case Exhausted(job=job, attempts=attempts):
             title, message, priority, tags = "Render Failed", f"{job} crashed {attempts} times", 5, ("x",)
     publication = Publication(topic=listener.topic.value, title=title, message=message, priority=priority, tags=tags)
-    return opened(listener.server, lambda client: sent(client, requested(client, HTTPMethod.POST, "/", Some(publication))).map(lambda _: None)) if listener.topic.enabled else Ok(None)
+    return opened(listener.server, lambda client: sent(client, HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)) if listener.topic.enabled else Ok(None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

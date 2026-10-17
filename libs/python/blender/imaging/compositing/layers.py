@@ -16,8 +16,6 @@ from blender.imaging.parameters import Case, Finite, Gated, Position, Presentati
 class Adjustment(Case, frozen=True, tag=1):
     """Composite beneath, processed by the layer's effects."""
 
-    title = "Adjustment"
-
 
 class Affine(msgspec.Struct, frozen=True, kw_only=True):
     """Scale, shear, and rotation about a pivot, followed by translation."""

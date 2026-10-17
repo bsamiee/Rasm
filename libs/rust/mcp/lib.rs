@@ -1,166 +1,179 @@
-#![feature(derive_from, error_reporter, iterator_try_collect, nonpoison_mutex, sync_nonpoison)]
+#![feature(associated_type_defaults, derive_from, error_reporter, impl_restriction, iterator_try_collect, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
 
-use core::{
-    borrow::Borrow,
-    error::Error,
-    fmt::{self, Debug, Display, Formatter},
-    from::From,
-    future::{Ready, ready},
-    iter, mem,
-    net::SocketAddr,
-    pin::pin,
-};
+use core::{error::Error, fmt::Display, from::From, future::ready, mem::discriminant, net::SocketAddr, pin::pin, str::Utf8Error, time::Duration};
 use std::{
     backtrace::Backtrace,
     borrow::Cow,
-    collections::{BTreeMap, btree_map::Entry},
+    collections::BTreeMap,
     error::Report,
-    io, panic,
-    process::ExitCode,
-    sync::{Arc, LazyLock, OnceLock, nonpoison::Mutex},
+    io, panic, process,
+    sync::{Arc, LazyLock, OnceLock, Weak, nonpoison::Mutex},
 };
 
-use axum::{
-    Router,
-    body::Body,
-    extract::Request,
-    http::{
-        HeaderValue, Method, Response, StatusCode,
-        header::{InvalidHeaderValue, WWW_AUTHENTICATE},
-        request::Parts,
-    },
-    middleware::{self, Next},
-    response::{IntoResponse as _, Json},
-    routing::get,
-};
-use bounded_integer::BoundedU32;
-use clap::{Args, FromArgMatches as _, Parser, error::ErrorKind};
-use futures::{
-    FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _,
-    future::{self, OptionFuture, join_all},
-    stream,
-};
-use jsonschema::{Validator, validator_for};
-use matchit::InsertError;
+use axum::http::{request::Parts, uri::Authority};
+use clap::{Args, FromArgMatches as _, Parser};
+use derive_where::derive_where;
+use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
+use jsonschema::{ValidationError, paths::Location, validator_for};
 use nonempty_collections::NEVec;
-use opentelemetry::{
-    KeyValue, global,
-    metrics::Histogram,
-    propagation::{Extractor, TextMapPropagator as _},
-    trace::TracerProvider as _,
-};
+use opentelemetry::{KeyValue, global, metrics::Histogram, propagation::Extractor, trace::TracerProvider as _};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, OTEL_EXPORTER_OTLP_ENDPOINT, SpanExporter, WithExportConfig as _};
-use opentelemetry_sdk::{Resource as Telemetry, error::OTelSdkError, logs::SdkLoggerProvider, metrics::SdkMeterProvider, propagation::TraceContextPropagator, trace::SdkTracerProvider};
+use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, SpanExporter};
+use opentelemetry_sdk::{error::OTelSdkError, logs::SdkLoggerProvider, metrics::SdkMeterProvider, propagation::TraceContextPropagator, trace::SdkTracerProvider};
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE, SERVICE_NAME, SERVICE_VERSION};
-use percent_encoding::percent_decode_str;
 use rmcp::{
-    ErrorData, Peer, RoleServer, ServerHandler,
+    ErrorData, Json, RoleServer, ServerHandler, ServiceError,
     handler::server::{
+        common::{AsRequestContext, FromContextPart},
         prompt::PromptContext,
-        router::{prompt::PromptRouter, tool::ToolRouter},
-        tool::{IntoCallToolResult, ToolCallContext},
+        router::prompt::PromptRouter,
+        tool::{IntoCallToolResult, ToolCallContext, ToolRoute, ToolRouter},
     },
     model::{
-        CallToolRequestParams, CallToolResponse, CallToolResult, ConstString as _, ContentBlock, ElicitRequest, ElicitRequestParams, ElicitResult, ElicitationAction, ElicitationSchema,
-        GetPromptRequestParams, GetPromptResponse, Implementation, InputRequest, InputRequiredResult, InputResponses, JsonObject, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult,
-        ListToolsResult, MetaObject, Notification, PaginatedRequestParams, ProgressNotificationParam, PromptListChangedNotification, ProtocolVersion, ReadResourceRequestParams, ReadResourceResponse,
-        ReadResourceResult, Resource, ResourceContents, ResourceListChangedNotification, ResourceTemplate, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities,
-        ServerConfig, ServerNotification, SubscribeRequestParams, SubscriptionFilter, SubscriptionsListenRequestMethod, Tool, ToolListChangedNotification, UnsubscribeRequestParams,
+        CallToolRequest, CallToolRequestParams, CallToolResponse, CallToolResult, CancelTaskParams, CancelTaskRequest, ClientRequest, CompleteRequest, CompleteRequestParams, CompleteResult,
+        ContentBlock, CustomRequest, CustomResult, ElicitRequest, ElicitRequestParams, ElicitResult, ElicitationAction, ElicitationSchema, ErrorCode, GetPromptRequest, GetPromptRequestParams,
+        GetPromptResponse, GetTaskParams, GetTaskRequest, GetTaskResult, Implementation, InputRequest, InputRequiredResult, InputResponses, JsonObject, ListPromptsRequest, ListPromptsResult,
+        ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest, ListToolsResult, MetaObject, PaginatedRequestParams,
+        ProgressNotificationParam, PromptListChangedNotification, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Request, Resource,
+        ResourceContents, ResourceListChangedNotification, ResourceTemplate, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ResourcesCapability, ServerCapabilities, ServerConfig,
+        ServerNotification, ServerResult, SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, ToolListChangedNotification, UnsubscribeRequestMethod, UnsubscribeRequestParams,
+        UpdateTaskParams, UpdateTaskRequest,
     },
-    service::{DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY, ElicitationError, ElicitationSafe, MaybeSendFuture, NotificationContext, RequestContext, SubscriptionContext, SubscriptionSendError},
-    transport::{
-        common::http_header::{HEADER_MCP_METHOD, HEADER_SESSION_ID},
-        streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager},
-    },
+    service::{DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY, NotificationContext, RequestContext, SubscriptionContext},
+    transport::{StreamableHttpServerConfig, StreamableHttpService, common::http_header::HEADER_SESSION_ID, streamable_http_server::session::local::LocalSessionManager},
 };
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Deserialize as _, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use serde_path_to_error::deserialize;
+use serde_urlencoded::{Deserializer, de};
+#[cfg(unix)]
+use tokio::signal::unix::{SignalKind, signal};
+#[cfg(windows)]
+use tokio::signal::windows;
 use tokio::{
-    net::TcpListener,
-    runtime::Runtime,
-    signal::unix::{SignalKind, signal},
-    sync::{
-        broadcast::{self, error::SendError},
-        watch,
-    },
+    net, runtime,
+    sync::{broadcast, mpsc, oneshot, watch},
     time::Instant,
 };
+#[cfg(windows)]
+use tokio_stream::wrappers::CtrlCStream;
+#[cfg(unix)]
+use tokio_stream::wrappers::SignalStream;
 use tokio_stream::wrappers::{BroadcastStream, WatchStream, errors::BroadcastStreamRecvError};
 use tokio_util::{
     sync::CancellationToken,
     task::{AbortOnDropHandle, TaskTracker},
 };
-use tower::{
-    ServiceExt as _,
-    util::{BoxCloneSyncService, service_fn},
-};
-use tower_oauth2_resource_server::{
-    claims::DefaultClaims,
-    error::{AuthError, StartupError},
-    error_handler::ErrorHandler,
-    server::OAuth2ResourceServer,
-    tenant::TenantConfiguration,
-};
 use tracing::{Instrument as _, field::Empty};
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
-use tracing_subscriber::{EnvFilter, filter::Directive, fmt::time::SystemTime, layer::SubscriberExt as _, util::SubscriberInitExt as _};
-use url::{Position, Url};
-use validated::Validated;
+use tracing_subscriber::{EnvFilter, Layer as _, fmt::time::SystemTime, layer::SubscriberExt as _, util::SubscriberInitExt as _};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub trait Endpoint: Send + Sync + Sized + 'static {
+pub trait App: Clone + Send + Sync + 'static {
+    type Error: Error + Send + Sync + 'static + From<Invalid> = Invalid;
+
+    fn serve(self, _: Changes<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
+}
+
+pub trait Endpoint: Send + Sync + 'static {
     type Error: Error + Send + Sync + 'static;
 
-    fn session(self: Arc<Self>, stopping: &CancellationToken, requests: &TaskTracker) -> impl ServerHandler + use<Self>;
+    fn info(&self) -> &ServerConfig;
 
-    fn serve(self: Arc<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send {
-        async move {
-            stopping.cancelled().await;
-            Ok(())
-        }
+    fn handle(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> impl Future<Output = Result<ServerResult, ErrorData>> + Send;
+
+    fn subscribe(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, Unserved>;
+
+    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
+    fn listed(&self) -> SubscriptionFilter { SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(&self.info().capabilities) }
+}
+
+pub trait IntoResourceContents {
+    fn into_resource_contents(self, uri: String, mime: Option<String>) -> Result<Vec<ResourceContents>, ErrorData>;
+}
+
+impl IntoResourceContents for Vec<ResourceContents> {
+    fn into_resource_contents(self, _: String, _: Option<String>) -> Result<Vec<ResourceContents>, ErrorData> { Ok(self) }
+}
+
+impl IntoResourceContents for String {
+    fn into_resource_contents(self, uri: String, mime: Option<String>) -> Result<Vec<ResourceContents>, ErrorData> {
+        Ok(vec![mime.into_iter().fold(ResourceContents::text(self, uri), ResourceContents::with_mime_type)])
     }
 }
 
+impl<T> IntoResourceContents for Json<T>
+where T: Serialize
+{
+    fn into_resource_contents(self, uri: String, mime: Option<String>) -> Result<Vec<ResourceContents>, ErrorData> {
+        serde_json::to_string(&self.0).map_err(internal)?.into_resource_contents(uri, mime.or_else(|| Some(JSON.to_owned())))
+    }
+}
+
+impl<T, E> IntoResourceContents for Result<T, E>
+where
+    T: IntoResourceContents,
+    ErrorData: From<E>,
+{
+    fn into_resource_contents(self, uri: String, mime: Option<String>) -> Result<Vec<ResourceContents>, ErrorData> { self?.into_resource_contents(uri, mime) }
+}
+
+pub impl(crate) trait Host {
+    fn entry(self) -> (&'static str, Value);
+}
+
+trait Routed<A, T> = Fn(A, String, String) -> Result<T, Unserved> + Send + Sync;
+
+trait List<A> = Fn(A) -> future::BoxFuture<'static, Result<Vec<Resource>, ErrorData>> + Send + Sync;
+
+#[derive(Debug, derive_more::Display)]
+enum Stage {
+    #[display("cannot start the async runtime")]
+    Runtime,
+    #[display("cannot bind {_0}")]
+    Bind(SocketAddr),
+    #[display("cannot listen for shutdown signals")]
+    Signal,
+    #[display("HTTP server failed")]
+    Serve,
+}
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
+
+const JSON: &str = "application/json";
 
 pub const PROTOCOL_VERSIONS: &[ProtocolVersion] = &[ProtocolVersion::V_2025_06_18, ProtocolVersion::V_2025_11_25, ProtocolVersion::V_2026_07_28];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Args, Clone, Debug)]
+#[derive(Args)]
 struct Options {
     #[arg(long, env = "MCP_LISTEN", help = "Socket address the Streamable HTTP endpoint binds")]
     listen: SocketAddr,
-    #[command(flatten)]
-    authorization: Option<Authorization>,
-    #[arg(
-        long = "log",
-        env = EnvFilter::DEFAULT_ENV,
-        value_delimiter = ',',
-        default_values = ["info", "rmcp=warn", "rmcp::service=error", "opentelemetry=warn"],
-        help = "Tracing filter directives"
-    )]
-    filter: Vec<Directive>,
-    #[arg(long = "otlp-endpoint", env = OTEL_EXPORTER_OTLP_ENDPOINT, help = "OTLP/HTTP base endpoint receiving traces, metrics, and logs, absent for no export")]
-    export: Option<Url>,
+    #[arg(long = "allowed-host", env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host authority the endpoint answers beside loopback names and the bound address")]
+    hosts: Vec<Authority>,
+    #[arg(long, env = EnvFilter::DEFAULT_ENV, value_parser = str::parse::<EnvFilter>, default_value = "info,rmcp=warn,rmcp::service=error,opentelemetry=warn", help = "Tracing filter directives")]
+    log: EnvFilter,
+    #[arg(long, env = "MCP_OTLP", help = "Export traces, metrics, and logs over OTLP/HTTP to the endpoints the OTEL_EXPORTER_OTLP_* variables name")]
+    otlp: bool,
 }
 
-#[derive(Args, Clone, Debug)]
-struct Authorization {
-    #[arg(long, env = "MCP_RESOURCE", required = false, requires = "servers", help = "Public URL of the MCP endpoint that access tokens name as their audience")]
-    resource: Url,
-    #[arg(
-        long = "authorization-server",
-        env = "MCP_AUTHORIZATION_SERVERS",
-        value_name = "ISSUER",
-        value_delimiter = ',',
-        requires = "resource",
-        help = "Issuer identifier of an authorization server, spelled as its metadata states it"
-    )]
-    servers: Vec<String>,
+#[derive(Clone, Copy, Debug)]
+pub enum Claude {
+    AlwaysLoad(bool),
+    MaxResultSizeChars(bounded_integer::BoundedU32<1, 500_000>),
+    RequiresUserInteraction,
+}
+
+impl Host for Claude {
+    fn entry(self) -> (&'static str, Value) {
+        match self {
+            Self::AlwaysLoad(load) => ("anthropic/alwaysLoad", Value::Bool(load)),
+            Self::MaxResultSizeChars(chars) => ("anthropic/maxResultSizeChars", chars.get().into()),
+            Self::RequiresUserInteraction => ("anthropic/requiresUserInteraction", Value::Bool(true)),
+        }
+    }
 }
 
 #[derive(Debug, From)]
@@ -176,760 +189,800 @@ where E: Serialize + Display
             error: &'error E,
             message: String,
         }
-        serde_json::to_string(&Rendered { error: &self.0, message: self.0.to_string() })
-            .map(|text| CallToolResult::error(vec![ContentBlock::text(text)]).into())
-            .map_err(|error| ErrorData::internal_error(Report::new(error).to_string(), None))
+        ContentBlock::json(Rendered { error: &self.0, message: self.0.to_string() }).map(|block| CallToolResult::error(vec![block]).into())
     }
 }
 
-#[derive(Debug)]
-pub enum Elicited<R> {
-    Complete(R),
-    InputRequired(InputRequiredResult),
-}
-
-impl<R> IntoCallToolResult for Elicited<R>
-where R: IntoCallToolResult
+impl<E> From<Failure<E>> for ErrorData
+where E: Serialize + Display
 {
-    fn into_call_tool_result(self) -> Result<CallToolResponse, ErrorData> {
-        match self {
-            Self::Complete(result) => result.into_call_tool_result(),
-            Self::InputRequired(required) => Ok(required.into()),
-        }
-    }
+    fn from(value: Failure<E>) -> Self { serde_json::to_value(&value.0).map_or_else(internal, |data| Self::internal_error(value.0.to_string(), Some(data))) }
 }
 
-#[derive(Debug, Serialize, thiserror::Error)]
-#[serde(tag = "_tag")]
-#[error("arguments break the tool's input schema at {}, correct each listed path, then call again", paths.join(", "))]
-struct InvalidArguments {
-    paths: Vec<String>,
-    errors: Vec<String>,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Anthropic {
-    MaxResultSizeChars(BoundedU32<1, 500_000>),
-    AlwaysLoad,
-    RequiresUserInteraction,
-}
-
-impl FromIterator<Anthropic> for MetaObject {
-    fn from_iter<I>(iter: I) -> Self
-    where I: IntoIterator<Item = Anthropic> {
-        Self(
-            iter.into_iter()
-                .map(|entry| match entry {
-                    Anthropic::MaxResultSizeChars(chars) => ("anthropic/maxResultSizeChars".to_owned(), Value::from(chars.get())),
-                    Anthropic::AlwaysLoad => ("anthropic/alwaysLoad".to_owned(), Value::Bool(true)),
-                    Anthropic::RequiresUserInteraction => ("anthropic/requiresUserInteraction".to_owned(), Value::Bool(true)),
-                })
-                .collect(),
-        )
-    }
-}
-
+#[derive_where(Debug, Default)]
 pub struct ResourceRouter<A> {
-    routes: matchit::Router<BoxCloneSyncService<(A, String, JsonObject), ReadResourceResult, ErrorData>>,
-    resources: Vec<Resource>,
+    #[derive_where(skip(Debug))]
+    routes: matchit::Router<Route<A>>,
+    #[derive_where(skip(Debug))]
+    lists: Vec<Box<dyn List<A>>>,
     templates: Vec<ResourceTemplate>,
 }
 
-impl<A> Clone for ResourceRouter<A> {
-    fn clone(&self) -> Self { Self { routes: self.routes.clone(), resources: self.resources.clone(), templates: self.templates.clone() } }
-}
-
-impl<A> Debug for ResourceRouter<A> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result { f.debug_struct("ResourceRouter").field("resources", &self.resources).field("templates", &self.templates).finish_non_exhaustive() }
-}
-
-impl<A> Default for ResourceRouter<A> {
-    fn default() -> Self { Self { routes: matchit::Router::new(), resources: Vec::new(), templates: Vec::new() } }
-}
-
 impl<A> ResourceRouter<A>
-where A: Clone + Send + Sync + 'static
+where A: 'static
 {
-    pub fn resource<F, R>(mut self, resource: Resource, read: F) -> Result<Self, Unroutable>
+    #[must_use]
+    pub fn listed<L, Q, E>(mut self, list: L) -> Self
     where
-        F: Fn(A, String) -> R + Clone + Send + Sync + 'static,
-        R: Future<Output = Result<Vec<ResourceContents>, ErrorData>> + Send + 'static,
+        L: Fn(A) -> Q + Send + Sync + 'static,
+        Q: Future<Output = Result<Vec<Resource>, E>> + Send + 'static,
+        E: 'static,
+        ErrorData: From<E>,
     {
-        self.routes
-            .insert(resource.uri.clone(), BoxCloneSyncService::new(service_fn(move |(app, uri, _): (A, String, JsonObject)| read(app, uri).map_ok(ReadResourceResult::new))))
-            .map_err(|source| Unroutable { uri: resource.uri.clone(), source })?;
-        self.resources.push(resource);
+        self.lists.push(Box::new(move |app| list(app).map_err(ErrorData::from).boxed()));
+        self
+    }
+
+    pub fn resource<F, R, W, S>(self, resource: Resource, read: F, watch: W) -> Result<Self, Invalid>
+    where
+        F: Fn(A) -> R + Send + Sync + 'static,
+        R: Future<Output: IntoResourceContents> + Send + 'static,
+        W: Fn(A, ()) -> S + Send + Sync + 'static,
+        S: Stream<Item = ()> + Send + 'static,
+    {
+        let (uri, mime) = (resource.uri.clone(), resource.mime_type.clone());
+        self.route(uri, mime, move |app, ()| read(app), watch).map(|router| router.listed(move |_| ready(Ok::<_, ErrorData>(vec![resource.clone()]))))
+    }
+
+    pub fn template<P, F, R, W, S>(mut self, template: ResourceTemplate, read: F, watch: W) -> Result<Self, Invalid>
+    where
+        P: DeserializeOwned + 'static,
+        F: Fn(A, P) -> R + Send + Sync + 'static,
+        R: Future<Output: IntoResourceContents> + Send + 'static,
+        W: Fn(A, P) -> S + Send + Sync + 'static,
+        S: Stream<Item = ()> + Send + 'static,
+    {
+        let (pattern, mime) = (template.uri_template.clone(), template.mime_type.clone());
+        self.templates.push(template);
+        self.route(pattern, mime, read, watch)
+    }
+
+    pub fn executions(self, resource: Resource, changes: &Changes<A>) -> Result<Self, Invalid> {
+        let (rows, executed) = (Arc::clone(&changes.executions), changes.executed.clone());
+        let read = move |_| ready(serde_json::to_string(&rows.lock().values().collect::<Vec<_>>()).map_err(internal));
+        self.resource(resource.with_mime_type(JSON), read, move |_, ()| WatchStream::from_changes(executed.subscribe()))
+    }
+
+    fn route<P, F, R, W, S>(mut self, pattern: String, mime: Option<String>, read: F, watch: W) -> Result<Self, Invalid>
+    where
+        P: DeserializeOwned + 'static,
+        F: Fn(A, P) -> R + Send + Sync + 'static,
+        R: Future<Output: IntoResourceContents> + Send + 'static,
+        W: Fn(A, P) -> S + Send + Sync + 'static,
+        S: Stream<Item = ()> + Send + 'static,
+    {
+        let decoded = |uri: &str, variables: &str| {
+            serde_path_to_error::deserialize(Deserializer::new(form_urlencoded::parse(variables.as_bytes()))).map_err(|source| Unserved::Malformed { uri: uri.to_owned(), source })
+        };
+        let read = Box::new(move |app, uri: String, variables: String| {
+            let mime = mime.clone();
+            decoded(&uri, &variables).map(|variables| read(app, variables).map(move |contents| contents.into_resource_contents(uri, mime)).boxed())
+        });
+        let watch = Box::new(move |app, uri: String, variables: String| decoded(&uri, &variables).map(|variables| watch(app, variables).boxed()));
+        self.routes.insert(&pattern, Route { read, watch }).map_err(|source| Invalid::Route { pattern, source })?;
         Ok(self)
     }
 
-    pub fn template<P, F, R>(mut self, template: ResourceTemplate, read: F) -> Result<Self, Unroutable>
-    where
-        P: DeserializeOwned + Send + 'static,
-        F: Fn(A, String, P) -> R + Clone + Send + Sync + 'static,
-        R: Future<Output = Result<Vec<ResourceContents>, ErrorData>> + Send + 'static,
-    {
-        self.routes
-            .insert(
-                template.uri_template.clone(),
-                BoxCloneSyncService::new(service_fn(move |(app, uri, variables): (A, String, JsonObject)| {
-                    let read = read.clone();
-                    ready(
-                        deserialize::<_, P>(Value::Object(variables)).map_err(|error| {
-                            ErrorData::invalid_params(format!("{uri} matches the template but not its variables: {error}, read resources/templates/list for the variable forms"), None)
-                        }),
-                    )
-                    .and_then(move |variables| read(app, uri, variables))
-                    .map_ok(ReadResourceResult::new)
-                })),
-            )
-            .map_err(|source| Unroutable { uri: template.uri_template.clone(), source })?;
-        self.templates.push(template);
-        Ok(self)
+    fn routed(&self, uri: &str) -> Result<(&Route<A>, String), Unserved> {
+        let matchit::Match { value, params } = self.routes.at(uri).map_err(|matchit::MatchError::NotFound| Unserved::Unrouted { uri: uri.to_owned() })?;
+        params
+            .iter()
+            .map(|(name, variable)| percent_encoding::percent_decode_str(variable).decode_utf8().map(|decoded| (name, decoded)))
+            .try_collect::<Vec<_>>()
+            .map(|variables| (value, form_urlencoded::Serializer::new(String::new()).extend_pairs(variables).finish()))
+            .map_err(|source| Unserved::Unencoded { uri: uri.to_owned(), source })
     }
 }
 
-struct Compiled {
-    schema: Arc<JsonObject>,
-    validator: Validator,
+struct Route<A> {
+    read: Box<dyn Routed<A, future::BoxFuture<'static, Result<Vec<ResourceContents>, ErrorData>>>>,
+    watch: Box<dyn Routed<A, stream::BoxStream<'static, ()>>>,
+}
+
+struct Running {
+    call: future::BoxFuture<'static, Result<CallToolResponse, ErrorData>>,
+    questions: mpsc::UnboundedReceiver<(InputRequiredResult, oneshot::Sender<InputResponses>)>,
+    progress: watch::Receiver<(f64, Option<f64>, Option<String>)>,
+    execution: Execution,
+    destructive: bool,
 }
 
 #[derive(Debug, Serialize)]
 struct Execution {
     tool: Cow<'static, str>,
     arguments: Option<JsonObject>,
-    result: Option<CallToolResult>,
-}
-
-#[derive(Clone, Debug)]
-pub enum Target {
-    Tool(Cow<'static, str>),
-    Prompt(String),
-    Resource(String),
+    outcome: Option<Result<ServerResult, ErrorData>>,
+    #[serde(skip)]
+    since: Instant,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error)]
-#[error("{uri} cannot join the resource router")]
-pub struct Unroutable {
-    pub uri: String,
-    pub source: InsertError,
+pub enum Invalid {
+    #[error("resource route {pattern} cannot be served")]
+    Route { pattern: String, source: matchit::InsertError },
+    #[error("tool {tool} input schema does not compile")]
+    Schema { tool: Cow<'static, str>, source: ValidationError<'static> },
 }
 
 #[derive(Debug, thiserror::Error)]
+pub enum Unserved {
+    #[error("{uri} names no resource, list resources and resource templates for the served uris")]
+    Unrouted { uri: String },
+    #[error("{uri} holds a variable that is not percent-encoded UTF-8, encode each variable as UTF-8")]
+    Unencoded { uri: String, source: Utf8Error },
+    #[error("{uri} matches the template but not its variables, read resources/templates/list for the variable forms")]
+    Malformed { uri: String, source: serde_path_to_error::Error<de::Error> },
+    #[error("{name} names no tool, list tools for the served names")]
+    Unlisted { name: Cow<'static, str> },
+    #[error("requestState names no paused call of this tool with these arguments, call again without it")]
+    Unparked,
+    #[error("the server is shutting down, call again once it restarts")]
+    Stopping,
+}
+
+impl From<Unserved> for ErrorData {
+    fn from(value: Unserved) -> Self {
+        let code = match &value {
+            Unserved::Unrouted { uri: _ } => ErrorCode::RESOURCE_NOT_FOUND,
+            Unserved::Unencoded { uri: _, source: _ } | Unserved::Malformed { uri: _, source: _ } | Unserved::Unlisted { name: _ } | Unserved::Unparked => ErrorCode::INVALID_PARAMS,
+            Unserved::Stopping => ErrorCode::INTERNAL_ERROR,
+        };
+        Self::new(code, Report::new(value).to_string(), None)
+    }
+}
+
+#[derive(Debug, Serialize, thiserror::Error)]
+#[serde(tag = "_tag")]
 pub enum Unanswered {
-    #[error("cannot elicit the answer")]
-    Elicitation(#[from] ElicitationError),
-    #[error("cannot derive the requested schema")]
-    Schema(#[source] serde_json::Error),
+    #[error("the user declined to answer, continue without the answer")]
+    Declined,
+    #[error("the user dismissed the question, call again to ask again")]
+    Dismissed,
+    #[error("the user answered without content, call again to ask again")]
+    Empty,
+    #[error("the client cannot ask the user, ask in the conversation and pass the answer as arguments")]
+    Unsupported,
+    #[error("the answer breaks the requested form, call again to ask again")]
+    Malformed {
+        data: Value,
+        #[serde(skip)]
+        source: serde_json::Error,
+    },
+    #[error("the requested form has no object schema, the tool cannot ask this question")]
+    Unaskable {
+        #[serde(skip)]
+        source: serde_json::Error,
+    },
+    #[error("the call ended before the user answered, call again")]
+    Abandoned,
+    #[error("the question did not reach the user, call again")]
+    Unreached {
+        #[serde(skip)]
+        source: ServiceError,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
-enum Failed<S, X> {
+enum Failed<X> {
     #[error("cannot build the OTLP exporters")]
     Export(#[source] ExporterBuildError),
     #[error("cannot flush telemetry")]
     Flush(#[source] OTelSdkError),
-    #[error("cannot start the async runtime")]
-    Runtime(#[source] io::Error),
-    #[error("cannot listen for shutdown signals")]
-    Signal(#[source] io::Error),
-    #[error("cannot bind {0}")]
-    Bind(SocketAddr, #[source] io::Error),
-    #[error("cannot start the endpoint")]
-    Start(#[source] S),
-    #[error("endpoint ended")]
-    Ended(#[source] X),
-    #[error("HTTP server failed")]
-    Serve(#[source] io::Error),
-    #[error("cannot load the authorization servers")]
-    Authorization(#[source] StartupError),
-    #[error("cannot state the resource metadata URL in a WWW-Authenticate challenge")]
-    Challenge(#[source] InvalidHeaderValue),
+    #[error("{stage}")]
+    Io { stage: Stage, source: io::Error },
+    #[error("endpoint failed")]
+    Endpoint(#[source] X),
+    #[error("a second shutdown signal exited before the endpoint finished")]
+    Abandoned,
 }
 
-impl<S, X> From<Failed<S, X>> for NEVec<Failed<S, X>> {
-    fn from(value: Failed<S, X>) -> Self { Self::new(value) }
+impl<X> From<Failed<X>> for NEVec<Failed<X>> {
+    fn from(value: Failed<X>) -> Self { Self::new(value) }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-#[derive(Debug)]
-pub struct Subscriber<H> {
-    stopping: CancellationToken,
-    subscribed: watch::Sender<BTreeMap<String, H>>,
-    relay: OnceLock<AbortOnDropHandle<()>>,
+#[derive(Clone, Debug)]
+pub struct Notifier<N = ServerNotification>(broadcast::Sender<N>);
+
+impl<N> Default for Notifier<N> {
+    fn default() -> Self { Self(broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY)) }
 }
 
-impl<H> Subscriber<H> {
-    #[must_use]
-    pub fn new(stopping: CancellationToken) -> Self { Self { stopping, subscribed: watch::Sender::default(), relay: OnceLock::new() } }
-
-    pub fn subscribe<F>(&self, uri: String, hold: F) -> Ready<Result<(), ErrorData>>
-    where F: FnOnce(&String) -> H {
-        self.subscribed.send_modify(|uris| {
-            uris.entry(uri).or_insert_with_key(hold);
-        });
-        ready(Ok(()))
+impl<N> Notifier<N>
+where N: Clone + Send + 'static
+{
+    pub fn notify<M>(&self, notification: M)
+    where M: Into<N> {
+        let (Ok(_) | Err(broadcast::error::SendError(_))) = self.0.send(notification.into());
     }
 
-    pub fn unsubscribe(&self, uri: &str) -> Ready<Result<(), ErrorData>> {
-        self.subscribed.send_modify(|uris| {
-            uris.remove(uri);
-        });
-        ready(Ok(()))
+    #[must_use]
+    pub fn subscribe(&self) -> BroadcastStream<N> { BroadcastStream::new(self.0.subscribe()) }
+}
+
+impl Notifier {
+    pub fn resync(&self, filter: &SubscriptionFilter) { resynced(filter, filter.resource_subscriptions.iter().flatten().cloned()).for_each(|notification| self.notify(notification)); }
+}
+
+#[derive_where(Clone, Debug)]
+pub struct Changes<A> {
+    notifier: Notifier,
+    executions: Arc<Mutex<BTreeMap<usize, Execution>>>,
+    executed: watch::Sender<()>,
+    #[derive_where(skip(Debug))]
+    tools: Arc<arc_swap::ArcSwap<ToolRouter<A>>>,
+    #[derive_where(skip(Debug))]
+    prompts: Arc<arc_swap::ArcSwap<PromptRouter<A>>>,
+    #[derive_where(skip(Debug))]
+    resources: Arc<arc_swap::ArcSwap<ResourceRouter<A>>>,
+}
+
+impl<A> Changes<A>
+where A: App
+{
+    pub fn tools(&self, router: ToolRouter<A>) -> Result<(), A::Error> {
+        #[derive(Debug, Serialize, thiserror::Error)]
+        #[serde(tag = "_tag")]
+        #[error("arguments break the tool's input schema, correct each listed violation at its path, then call again")]
+        struct InvalidArguments {
+            violations: NEVec<(Location, String)>,
+        }
+        let validated = router
+            .into_iter()
+            .map(|ToolRoute { call, attr, .. }| {
+                validator_for(&Value::Object(JsonObject::clone(&attr.input_schema))).map_err(|source| Invalid::Schema { tool: attr.name.clone(), source }).map(|validator| {
+                    ToolRoute::new_dyn(attr, move |context: ToolCallContext<'_, A>| {
+                        let violations =
+                            validator.iter_errors(&Value::Object(context.arguments.clone().unwrap_or_default())).map(|violation| (violation.instance_path().clone(), violation.to_string())).collect();
+                        NEVec::try_from_vec(violations).map_or_else(|| call(context), |violations| ready(Failure(InvalidArguments { violations }).into_call_tool_result()).boxed())
+                    })
+                })
+            })
+            .try_fold(ToolRouter::new(), |router, route| route.map(|route| router.with_route(route)))?;
+        self.tools.store(Arc::new(validated));
+        self.notifier.notify(ToolListChangedNotification::default());
+        Ok(())
+    }
+
+    pub fn prompts(&self, router: PromptRouter<A>) {
+        self.prompts.store(Arc::new(router));
+        self.notifier.notify(PromptListChangedNotification::default());
+    }
+
+    pub fn resources(&self, router: ResourceRouter<A>) {
+        self.resources.store(Arc::new(router));
+        self.listed();
+    }
+
+    pub fn listed(&self) { self.notifier.notify(ResourceListChangedNotification::default()); }
+
+    pub fn updated<U>(&self, uri: U)
+    where U: Into<String> {
+        self.notifier.notify(ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri.into())));
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Progress(watch::Sender<(f64, Option<f64>, Option<String>)>);
+
+impl Progress {
+    pub fn relay(&self, context: &RequestContext<RoleServer>) -> impl Future<Output = ()> + Send + 'static { relayed(self.0.subscribe(), context) }
+
+    pub fn stage<M>(&self, message: M)
+    where M: Into<String> {
+        self.0.send_modify(|(progress, _, last)| (*progress, *last) = (*progress + 1.0_f64, Some(message.into())));
+    }
+
+    pub fn report(&self, progress: f64, total: Option<f64>, message: Option<String>) { self.0.send_if_modified(|last| (progress > last.0).then(|| *last = (progress, total, message)).is_some()); }
+}
+
+impl<C> FromContextPart<C> for Progress
+where C: AsRequestContext
+{
+    fn from_context_part(context: &mut C) -> Result<Self, ErrorData> {
+        context.as_request_context().extensions.get::<Self>().cloned().ok_or_else(|| ErrorData::internal_error("progress reaches a tool of a rasm_mcp::Server alone", None))
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Changes<T, P, R> {
-    pub tools: watch::Sender<Arc<T>>,
-    pub prompts: watch::Sender<Arc<P>>,
-    pub resources: watch::Sender<Arc<R>>,
-    pub updated: broadcast::Sender<String>,
+pub struct Elicitation {
+    context: RequestContext<RoleServer>,
+    asked: mpsc::UnboundedSender<(InputRequiredResult, oneshot::Sender<InputResponses>)>,
 }
 
-impl<T, P, R> Changes<T, P, R>
-where
-    T: Send + Sync + 'static,
-    P: Send + Sync + 'static,
-    R: Send + Sync + 'static,
+impl Elicitation {
+    pub async fn elicit<T>(&self, message: String) -> Result<T, Unanswered>
+    where T: schemars::JsonSchema + DeserializeOwned {
+        if !self.context.client_capabilities().and_then(|capabilities| capabilities.elicitation).is_some_and(|modes| modes.form.is_some() || modes.url.is_none()) {
+            return Err(Unanswered::Unsupported);
+        }
+        let requested_schema = ElicitationSchema::from_type::<T>().map_err(|source| Unanswered::Unaskable { source })?;
+        let params = ElicitRequestParams::FormElicitationParams { meta: None, message, requested_schema };
+        let result = if self.context.protocol_version().is_none_or(|version| version.has_initialize()) {
+            self.context.peer.create_elicitation(params).await.map_err(|source| Unanswered::Unreached { source })?
+        } else {
+            let key = uuid::Uuid::new_v4().to_string();
+            let required = InputRequiredResult::from_input_requests(BTreeMap::from([(key.clone(), InputRequest::Elicitation(ElicitRequest::new(params)))]));
+            let answer = loop {
+                let (responder, answered) = oneshot::channel();
+                self.asked.send((required.clone(), responder)).map_err(|mpsc::error::SendError(_)| Unanswered::Abandoned)?;
+                let Some(answer) = answered.await.map_err(|oneshot::error::RecvError { .. }| Unanswered::Abandoned)?.remove(&key) else { continue };
+                break answer;
+            };
+            ElicitResult::deserialize(&answer).map_err(|source| Unanswered::Malformed { data: answer, source })?
+        };
+        match (result.action, result.content) {
+            (ElicitationAction::Accept, Some(content)) => T::deserialize(&content).map_err(|source| Unanswered::Malformed { data: content, source }),
+            (ElicitationAction::Accept, None) => Err(Unanswered::Empty),
+            (ElicitationAction::Decline, _) => Err(Unanswered::Declined),
+            (_, _) => Err(Unanswered::Dismissed),
+        }
+    }
+}
+
+impl<C> FromContextPart<C> for Elicitation
+where C: AsRequestContext
 {
-    pub fn new(tools: T, prompts: P, resources: R) -> Self {
-        Self {
-            tools: watch::Sender::new(Arc::new(tools)),
-            prompts: watch::Sender::new(Arc::new(prompts)),
-            resources: watch::Sender::new(Arc::new(resources)),
-            updated: broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY),
-        }
-    }
-
-    pub fn update(&self, uri: String) {
-        match self.updated.send(uri) {
-            Ok(_) | Err(SendError(_)) => {}
-        }
-    }
-
-    fn notifications<H>(&self, subscribed: watch::Receiver<BTreeMap<String, H>>) -> impl Stream<Item = ServerNotification> + Send + 'static
-    where H: Send + Sync + 'static {
-        let updates = BroadcastStream::new(self.updated.subscribe())
-            .flat_map(move |received| {
-                stream::iter(match received {
-                    Ok(uri) => subscribed.borrow().contains_key(&uri).then_some(uri).into_iter().collect::<Vec<_>>(),
-                    Err(BroadcastStreamRecvError::Lagged(_)) => subscribed.borrow().keys().cloned().collect(),
-                })
-            })
-            .map(|uri| ServerNotification::ResourceUpdatedNotification(ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri))));
-        stream::select(
-            stream::select(
-                WatchStream::from_changes(self.tools.subscribe()).map(|_| ServerNotification::ToolListChangedNotification(ToolListChangedNotification::default())),
-                WatchStream::from_changes(self.prompts.subscribe()).map(|_| ServerNotification::PromptListChangedNotification(PromptListChangedNotification::default())),
-            ),
-            stream::select(WatchStream::from_changes(self.resources.subscribe()).map(|_| ServerNotification::ResourceListChangedNotification(ResourceListChangedNotification::default())), updates),
-        )
-    }
-
-    pub fn initialized<H>(&self, subscriber: &Subscriber<H>, peer: Peer<RoleServer>)
-    where H: Send + Sync + 'static {
-        subscriber.relay.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(relay(peer, self.notifications(subscriber.subscribed.subscribe())))));
-    }
-
-    pub async fn listen<H>(&self, subscriber: &Subscriber<H>, context: SubscriptionContext)
-    where H: Send + Sync + 'static {
-        let (_, accepted) = watch::channel(context.accepted().resource_subscriptions.iter().flatten().map(|uri| (uri.clone(), ())).collect());
-        let (stopped, closed) = (pin!(subscriber.stopping.cancelled()), pin!(context.cancelled()));
-        let sent = self
-            .notifications(accepted)
-            .take_until(future::select(stopped, closed))
-            .map(Ok)
-            .try_for_each(async |notification| match context.sink().send(notification).await {
-                Err(SubscriptionSendError::NotificationNotAccepted(_)) => Ok(()),
-                sent => sent,
-            })
-            .await;
-        match sent {
-            Ok(()) | Err(SubscriptionSendError::SubscriptionClosed) => {}
-            Err(error) => tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription closed"),
-        }
+    fn from_context_part(context: &mut C) -> Result<Self, ErrorData> {
+        context.as_request_context().extensions.get::<Self>().cloned().ok_or_else(|| ErrorData::internal_error("elicitation reaches a tool of a rasm_mcp::Server alone", None))
     }
 }
 
-struct Inner<A> {
+#[derive_where(Debug)]
+pub struct Server<A> {
+    #[derive_where(skip)]
     app: A,
     info: ServerConfig,
-    changes: Changes<ToolRouter<A>, PromptRouter<A>, ResourceRouter<A>>,
-    executions: Mutex<BTreeMap<usize, Execution>>,
-    validators: Mutex<BTreeMap<Cow<'static, str>, Compiled>>,
-}
-
-pub struct Server<A>(Arc<Inner<A>>);
-
-impl<A> Clone for Server<A> {
-    fn clone(&self) -> Self { Self(Arc::clone(&self.0)) }
-}
-
-impl<A> Debug for Server<A> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result { f.debug_struct("Server").field("info", &self.0.info).finish_non_exhaustive() }
+    changes: Changes<A>,
+    #[derive_where(skip)]
+    parked: Mutex<BTreeMap<String, (Running, oneshot::Sender<InputResponses>)>>,
 }
 
 impl<A> Server<A>
-where A: Clone + Send + Sync + 'static
+where A: App
 {
-    pub fn new(identity: Implementation, instructions: &'static str, app: A, tools: ToolRouter<A>, prompts: PromptRouter<A>, resources: ResourceRouter<A>) -> Self {
-        let capabilities = ServerCapabilities::builder()
-            .enable_prompts()
-            .enable_prompts_list_changed()
-            .enable_resources()
-            .enable_resources_list_changed()
-            .enable_resources_subscribe()
-            .enable_tools()
-            .enable_tool_list_changed()
-            .build();
-        Self(Arc::new(Inner {
-            app,
-            info: ServerConfig::new(capabilities).with_server_info(identity).with_instructions(instructions),
-            changes: Changes::new(tools, prompts, resources),
-            executions: Mutex::default(),
-            validators: Mutex::default(),
-        }))
+    pub fn new<P, F>(instructions: &str, build: F) -> impl AsyncFnOnce(P, Implementation, Notifier) -> Result<Self, A::Error>
+    where F: AsyncFnOnce(P, Changes<A>) -> Result<A, A::Error> {
+        async move |args: P, identity: Implementation, notifier| {
+            let changes = Changes { notifier, executions: Arc::default(), executed: watch::Sender::default(), tools: Arc::default(), prompts: Arc::default(), resources: Arc::default() };
+            let app = build(args, changes.clone()).await?;
+            let capabilities = ServerCapabilities::builder()
+                .enable_prompts()
+                .enable_prompts_list_changed()
+                .enable_resources()
+                .enable_resources_list_changed()
+                .enable_resources_subscribe()
+                .enable_tools()
+                .enable_tool_list_changed()
+                .build();
+            Ok(Self { app, info: ServerConfig::new(capabilities).with_server_info(identity).with_instructions(instructions), changes, parked: Mutex::default() })
+        }
     }
-
-    #[must_use]
-    pub fn changes(&self) -> &Changes<ToolRouter<A>, PromptRouter<A>, ResourceRouter<A>> { &self.0.changes }
-
-    fn executions(&self) -> String { format!("mcp://{}/executions", self.0.info.server_info.name) }
 }
 
 impl<A> Endpoint for Server<A>
-where A: Clone + Send + Sync + 'static
+where A: App
 {
-    type Error = !;
+    type Error = A::Error;
 
-    fn session(self: Arc<Self>, stopping: &CancellationToken, requests: &TaskTracker) -> impl ServerHandler + use<A> {
-        Session { server: Self::clone(&self), requests: requests.clone(), subscriber: Subscriber::new(stopping.clone()) }
-    }
-}
+    fn info(&self) -> &ServerConfig { &self.info }
 
-struct Session<A> {
-    server: Server<A>,
-    requests: TaskTracker,
-    subscriber: Subscriber<()>,
-}
-
-macro_rules! observed {
-    ($($method:ident(&$this:ident, $request:tt: $params:ty) -> $response:ty = $name:literal, $target:expr, $body:block)*) => {$(
-        async fn $method(&$this, $request: $params, context: RequestContext<RoleServer>) -> Result<$response, ErrorData> {
-            observe($name, $target, &context, |_| false, async $body).await
+    async fn handle(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
+        const ABANDONED: Duration = Duration::from_hours(1);
+        macro_rules! paged {
+            ($listed:ident, $rows:expr, $params:expr, $key:ident) => {{
+                const PAGE: usize = 1024;
+                let mut rows: Vec<_> = $rows;
+                rows.sort_by(|left, right| left.$key.cmp(&right.$key));
+                rows.drain(..$params.and_then(|params| params.cursor).map_or(0, |cursor| rows.partition_point(|row| AsRef::<str>::as_ref(&row.$key) <= cursor.as_str())));
+                let next_cursor = rows.get(PAGE - 1..=PAGE).and_then(<[_]>::first).map(|row| AsRef::<str>::as_ref(&row.$key).to_owned());
+                rows.truncate(PAGE);
+                Ok($listed { next_cursor, ..$listed::with_all_items(rows) }.into())
+            }};
         }
-    )*};
+        match request {
+            ClientRequest::CallToolRequest(call) => {
+                let parked = self.parked.with_mut(|waiting| {
+                    waiting.retain(|_, (held, _)| held.execution.since.elapsed() < ABANDONED);
+                    let retried = |_: &String, (held, _): &mut (Running, _)| (&held.execution.tool, &held.execution.arguments) == (&call.params.name, &call.params.arguments);
+                    call.params.request_state.as_ref().map(|state| waiting.extract_if(state..=state, retried).next().ok_or(Unserved::Unparked)).transpose()
+                })?;
+                let mut running = if let Some((_, (running, answer))) = parked {
+                    let (Ok(()) | Err(_)) = answer.send(call.params.input_responses.unwrap_or_default());
+                    running
+                } else {
+                    let tools = self.changes.tools.load_full();
+                    let tool = tools.get(&call.params.name).ok_or_else(|| Unserved::Unlisted { name: call.params.name.clone() })?;
+                    let destructive = tool.annotations.as_ref().is_none_or(|hints| hints.read_only_hint != Some(true) && hints.is_destructive());
+                    let execution = Execution { tool: call.params.name.clone(), arguments: call.params.arguments.clone(), outcome: None, since: Instant::now() };
+                    let (progress, (asked, questions), mut called) = (Progress::default(), mpsc::unbounded_channel(), context.clone());
+                    called.extensions.insert(progress.clone());
+                    called.ct = CancellationToken::new();
+                    called.extensions.insert(Elicitation { context: called.clone(), asked });
+                    let (app, released) = (self.app.clone(), called.ct.clone().drop_guard());
+                    let call = async move { tools.call(ToolCallContext::new(&app, call.params, called)).await };
+                    Running { call: call.inspect(move |_| drop(released)).boxed(), questions, progress: progress.0.subscribe(), execution, destructive }
+                };
+                tokio::select! {
+                    biased;
+                    Some((mut required, answer)) = running.questions.recv() => {
+                        running.execution.since = Instant::now();
+                        self.parked.lock().insert(required.request_state.insert(uuid::Uuid::new_v4().to_string()).clone(), (running, answer));
+                        Ok(CallToolResponse::from(required).into())
+                    }
+                    (completed, ()) = future::join(&mut running.call, relayed(running.progress.clone(), &context)) => completed.map(ServerResult::from),
+                    () = context.ct.cancelled() => {
+                        if running.destructive {
+                            drop(running.questions);
+                            let row = self.changes.executions.with_mut(|rows| {
+                                rows.retain(|_, row| row.outcome.is_none() || row.since.elapsed() < ABANDONED);
+                                *rows.entry(rows.last_key_value().map_or(0, |(row, _)| row.saturating_add(1))).insert_entry(running.execution).key()
+                            });
+                            let outcome = running.call.await.map(ServerResult::from);
+                            self.changes.executions.lock().entry(row).and_modify(|recorded| (recorded.outcome, recorded.since) = (Some(outcome), Instant::now()));
+                            self.changes.executed.send_replace(());
+                        }
+                        Err(internal(ServiceError::Cancelled { reason: None }))
+                    }
+                }
+            }
+            ClientRequest::ListToolsRequest(list) => paged!(ListToolsResult, self.changes.tools.load().list_all(), list.params, name),
+            ClientRequest::GetPromptRequest(get) =>
+                self.changes.prompts.load_full().get_prompt(PromptContext::new(&self.app, get.params.name, get.params.arguments, context)).await.map(ServerResult::from),
+            ClientRequest::ListPromptsRequest(list) => paged!(ListPromptsResult, self.changes.prompts.load().list_all(), list.params, name),
+            ClientRequest::ListResourcesRequest(list) => {
+                let rows = future::join_all(self.changes.resources.load_full().lists.iter().map(|lister| lister(self.app.clone()))).await.into_iter().try_collect::<Vec<_>>()?.concat();
+                paged!(ListResourcesResult, rows, list.params, uri)
+            }
+            ClientRequest::ListResourceTemplatesRequest(list) => paged!(ListResourceTemplatesResult, self.changes.resources.load().templates.clone(), list.params, uri_template),
+            ClientRequest::ReadResourceRequest(read) => {
+                let reading = self.changes.resources.load().routed(&read.params.uri).and_then(|(route, variables)| (route.read)(self.app.clone(), read.params.uri, variables))?;
+                reading.await.map(|contents| ReadResourceResult::new(contents).into())
+            }
+            other => Err(ErrorData::new(ErrorCode::METHOD_NOT_FOUND, other.method().to_owned(), None)),
+        }
+    }
+
+    fn subscribe(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, Unserved> {
+        let watching = self.changes.resources.load().routed(uri).and_then(|(route, variables)| (route.watch)(self.app.clone(), uri.to_owned(), variables))?;
+        let (changes, uri) = (self.changes.clone(), uri.to_owned());
+        Ok(watching.map(move |()| changes.updated(uri.clone())).collect())
+    }
+
+    fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), A::Error>> + Send { self.app.clone().serve(self.changes.clone(), stopping) }
 }
 
-impl<A> ServerHandler for Session<A>
-where A: Clone + Send + Sync + 'static
+struct Hosting<E> {
+    endpoint: E,
+    notifier: Notifier,
+    stopping: CancellationToken,
+    requests: TaskTracker,
+    watches: TaskTracker,
+    leases: Mutex<BTreeMap<String, Weak<AbortOnDropHandle<()>>>>,
+}
+
+struct Session<E> {
+    host: Arc<Hosting<E>>,
+    subscribed: watch::Sender<BTreeMap<String, Arc<AbortOnDropHandle<()>>>>,
+    relay: OnceLock<AbortOnDropHandle<()>>,
+}
+
+impl<E> Session<E>
+where E: Endpoint
 {
-    fn get_info(&self) -> ServerConfig {
-        let changes = &self.server.0.changes;
-        let mut info = self.server.0.info.clone();
-        info.capabilities.prompts.take_if(|_| changes.prompts.borrow().map.is_empty());
-        info.capabilities.resources.take_if(|_| {
-            let resources = changes.resources.borrow();
-            resources.resources.is_empty() && resources.templates.is_empty() && !changes.tools.borrow().list_all().iter().any(destructive)
-        });
-        info
+    fn hold(&self, uri: String) -> Result<(), Unserved> {
+        let mut leases = self.host.leases.lock();
+        leases.retain(|_, held| held.strong_count() > 0);
+        let held = if let Some(held) = leases.get(&uri).and_then(Weak::upgrade) {
+            held
+        } else {
+            let watched = self.host.stopping.clone().run_until_cancelled_owned(self.host.endpoint.subscribe(&uri)?).map(drop).instrument(tracing::info_span!("watch", mcp.resource.uri = uri));
+            let held = Arc::new(AbortOnDropHandle::new(self.host.watches.spawn(watched)));
+            leases.insert(uri.clone(), Arc::downgrade(&held));
+            held
+        };
+        self.subscribed.send_modify(|uris| drop(uris.insert(uri, held)));
+        Ok(())
     }
+
+    async fn dispatch(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
+        struct Carrier<'meta>(&'meta JsonObject);
+        impl Extractor for Carrier<'_> {
+            fn get(&self, key: &str) -> Option<&str> { self.0.get(key).and_then(Value::as_str) }
+
+            fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
+        }
+        static DURATION: LazyLock<Histogram<f64>> = LazyLock::new(|| {
+            const BOUNDARIES: [f64; 14] = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0];
+            global::meter(env!("CARGO_PKG_NAME")).f64_histogram("mcp.server.operation.duration").with_unit("s").with_boundaries(BOUNDARIES.to_vec()).build()
+        });
+        let _held = self.host.requests.token();
+        let (method, version) = (request.method().to_owned(), context.protocol_version());
+        let target = match &request {
+            ClientRequest::CallToolRequest(call) => Some(("gen_ai.tool.name", call.params.name.to_string(), true)),
+            ClientRequest::GetPromptRequest(get) => Some(("gen_ai.prompt.name", get.params.name.clone(), true)),
+            ClientRequest::ReadResourceRequest(read) => Some(("mcp.resource.uri", read.params.uri.clone(), false)),
+            _ => None,
+        };
+        let span = tracing::info_span!(
+            "request",
+            otel.name = target.as_ref().map_or_else(|| method.clone(), |(_, name, _)| format!("{method} {name}")),
+            otel.kind = "server",
+            mcp.method.name = method,
+            gen_ai.tool.name = Empty,
+            gen_ai.prompt.name = Empty,
+            mcp.resource.uri = Empty,
+            mcp.protocol.version = version.as_ref().map(ProtocolVersion::as_str),
+            mcp.session.id = context.extensions.get::<Parts>().and_then(|parts| parts.headers.get(HEADER_SESSION_ID)).and_then(|value| value.to_str().ok()),
+            { JSONRPC_REQUEST_ID } = %context.id,
+            { ERROR_TYPE } = Empty,
+            { RPC_RESPONSE_STATUS_CODE } = Empty,
+        );
+        if let Some((key, name, _)) = &target {
+            span.record(*key, name.as_str());
+        }
+        let (Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted)) =
+            span.set_parent(global::get_text_map_propagator(|propagator| propagator.extract(&Carrier(&context.meta))));
+        let (started, cancelled) = (Instant::now(), context.ct.clone());
+        let result = match request {
+            _ if self.host.requests.is_closed() => Err(Unserved::Stopping.into()),
+            ClientRequest::SubscribeRequest(subscribe) if matches!(self.host.endpoint.info().capabilities.resources, Some(ResourcesCapability { subscribe: Some(true), .. })) =>
+                self.hold(subscribe.params.uri).map(ServerResult::empty).map_err(ErrorData::from),
+            ClientRequest::SubscribeRequest(_) => Err(ErrorData::method_not_found::<SubscribeRequestMethod>()),
+            ClientRequest::UnsubscribeRequest(unsubscribe) => {
+                self.subscribed.send_if_modified(|uris| uris.remove(&unsubscribe.params.uri).is_some());
+                Ok(ServerResult::empty(()))
+            }
+            other => self.host.endpoint.handle(other, context).instrument(span.clone()).await,
+        }
+        .map_err(|error| match error.code {
+            ErrorCode::RESOURCE_NOT_FOUND if version.is_some_and(|version| !version.has_initialize()) => ErrorData { code: ErrorCode::INVALID_PARAMS, ..error },
+            _ => error,
+        });
+        let elapsed = started.elapsed().as_secs_f64();
+        let (error_type, failure) = match (&result, cancelled.is_cancelled()) {
+            (Ok(_) | Err(_), true) => (Some(Cow::Borrowed("cancelled")), None),
+            (Ok(ServerResult::CallToolResult(CallToolResult { is_error: Some(true), .. })), false) => (Some(Cow::Borrowed("tool_error")), None),
+            (Ok(_), false) => (None, None),
+            (Err(error), false) => (Some(Cow::Owned(error.code.0.to_string())), Some(error)),
+        };
+        span.record(ERROR_TYPE, error_type.as_deref());
+        if let Some(error) = failure {
+            tracing::warn!(parent: span.record(RPC_RESPONSE_STATUS_CODE, error_type.as_deref()), elapsed, { EXCEPTION_MESSAGE } = %error.message, "request failed");
+        } else {
+            tracing::info!(parent: &span, elapsed, "request completed");
+        }
+        let attributes = [
+            Some(KeyValue::new("mcp.method.name", method)),
+            target.filter(|&(_, _, metered)| metered).map(|(key, name, _)| KeyValue::new(key, name)),
+            error_type.map(|kind| KeyValue::new(ERROR_TYPE, kind)),
+        ];
+        DURATION.record(elapsed, &attributes.into_iter().flatten().collect::<Vec<_>>());
+        result
+    }
+
+    fn notifications(&self, filter: SubscriptionFilter) -> impl Stream<Item = ServerNotification> + Send + 'static {
+        let (admitted, held, missed) = (resynced(&filter, []).map(|notification| discriminant(&notification)).collect::<Vec<_>>(), self.subscribed.subscribe(), self.subscribed.subscribe());
+        self.host
+            .notifier
+            .subscribe()
+            .flat_map(move |received| match received {
+                Ok(notification) => future::Either::Left(stream::once(ready(notification))),
+                Err(BroadcastStreamRecvError::Lagged(_)) => future::Either::Right(stream::iter(resynced(&filter, Vec::from_iter(missed.borrow().keys().cloned())))),
+            })
+            .filter(move |notification| {
+                ready(match notification {
+                    ServerNotification::ResourceUpdatedNotification(updated) => held.borrow().contains_key(&updated.params.uri),
+                    other => admitted.contains(&discriminant(other)),
+                })
+            })
+    }
+}
+
+macro_rules! dispatched {
+    ($method:ident($request:ident: $params:ty) = $sent:expr) => {
+        async fn $method(&self, $request: $params, context: RequestContext<RoleServer>) -> Result<(), ErrorData> { self.dispatch(ClientRequest::from($sent), context).await.map(drop) }
+    };
+    ($method:ident($request:ident: $params:ty) -> $response:ty = $sent:expr => $($variant:ident)|+) => {
+        async fn $method(&self, $request: $params, context: RequestContext<RoleServer>) -> Result<$response, ErrorData> {
+            match self.dispatch(ClientRequest::from($sent), context).await? {
+                $(ServerResult::$variant(result) => Ok(result.into()),)+
+                _ => Err(internal(ServiceError::UnexpectedResponse)),
+            }
+        }
+    };
+}
+
+impl<E> ServerHandler for Session<E>
+where E: Endpoint
+{
+    dispatched!(complete(request: CompleteRequestParams) -> CompleteResult = CompleteRequest::new(request) => CompleteResult);
+    dispatched!(get_prompt(request: GetPromptRequestParams) -> GetPromptResponse = GetPromptRequest::new(request) => GetPromptResult | InputRequiredResult);
+    dispatched!(list_prompts(request: Option<PaginatedRequestParams>) -> ListPromptsResult = ListPromptsRequest { params: request, ..Default::default() } => ListPromptsResult);
+    dispatched!(list_resources(request: Option<PaginatedRequestParams>) -> ListResourcesResult = ListResourcesRequest { params: request, ..Default::default() } => ListResourcesResult);
+    dispatched!(list_resource_templates(request: Option<PaginatedRequestParams>) -> ListResourceTemplatesResult =
+        ListResourceTemplatesRequest { params: request, ..Default::default() } => ListResourceTemplatesResult);
+    dispatched!(read_resource(request: ReadResourceRequestParams) -> ReadResourceResponse = ReadResourceRequest::new(request) => ReadResourceResult | InputRequiredResult);
+    dispatched!(subscribe(request: SubscribeRequestParams) = Request::<SubscribeRequestMethod, _>::new(request));
+    dispatched!(unsubscribe(request: UnsubscribeRequestParams) = Request::<UnsubscribeRequestMethod, _>::new(request));
+    dispatched!(call_tool(request: CallToolRequestParams) -> CallToolResponse = CallToolRequest::new(request) => CallToolResult | InputRequiredResult | CreateTaskResult);
+    dispatched!(list_tools(request: Option<PaginatedRequestParams>) -> ListToolsResult = ListToolsRequest { params: request, ..Default::default() } => ListToolsResult);
+    dispatched!(get_task(request: GetTaskParams) -> GetTaskResult = GetTaskRequest::new(request) => GetTaskResult);
+    dispatched!(update_task(request: UpdateTaskParams) = UpdateTaskRequest::new(request));
+    dispatched!(cancel_task(request: CancelTaskParams) = CancelTaskRequest::new(request));
+    dispatched!(on_custom_request(request: CustomRequest) -> CustomResult = request => CustomResult);
+
+    fn get_info(&self) -> ServerConfig { self.host.endpoint.info().clone() }
 
     fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> { Cow::Borrowed(PROTOCOL_VERSIONS) }
 
-    async fn call_tool(&self, request: CallToolRequestParams, mut context: RequestContext<RoleServer>) -> Result<CallToolResponse, ErrorData> {
-        let observed = context.clone();
-        let failed = |response: &CallToolResponse| matches!(response, CallToolResponse::Complete(result) if result.is_error == Some(true));
-        observe("tools/call", Some(Target::Tool(request.name.clone())), &observed, failed, async move {
-            let tools = Arc::clone(&self.server.0.changes.tools.borrow());
-            let tool = tools.get(&request.name).ok_or_else(|| ErrorData::invalid_params("tool not found", None))?;
-            let arguments = Value::Object(request.arguments.clone().unwrap_or_default());
-            let (paths, errors): (Vec<_>, Vec<_>) = {
-                let mut validators = self.server.0.validators.lock();
-                let compiled = || validator_for(&Value::Object(JsonObject::clone(&tool.input_schema))).map_err(|error| ErrorData::internal_error(Report::new(error).to_string(), None));
-                let cached = match validators.entry(tool.name.clone()) {
-                    Entry::Occupied(slot) if Arc::ptr_eq(&slot.get().schema, &tool.input_schema) => slot.into_mut(),
-                    entry @ (Entry::Occupied(_) | Entry::Vacant(_)) => entry.insert_entry(Compiled { schema: Arc::clone(&tool.input_schema), validator: compiled()? }).into_mut(),
-                };
-                cached.validator.iter_errors(&arguments).map(|error| (error.instance_path().to_string(), error.to_string())).unzip()
-            };
-            if !paths.is_empty() {
-                return Failure(InvalidArguments { paths, errors }).into_call_tool_result();
-            }
-            let stage = watch::Sender::new(request.name.clone());
-            let _progress = context.meta.get_progress_token().map(|token| {
-                let stages = WatchStream::new(stage.subscribe()).zip(stream::iter(0_u32..));
-                let progress = stages
-                    .map(move |(message, step)| ServerNotification::ProgressNotification(Notification::new(ProgressNotificationParam::new(token.clone(), f64::from(step)).with_message(message))));
-                AbortOnDropHandle::new(tokio::spawn(relay(context.peer.clone(), progress)))
-            });
-            context.extensions.insert(stage);
-            let execution = destructive(tool).then(|| Execution { tool: request.name.clone(), arguments: request.arguments.clone(), result: None });
-            let cancelled = if execution.is_some() { mem::replace(&mut context.ct, CancellationToken::new()) } else { context.ct.clone() };
-            let mut call = pin!(tools.call(ToolCallContext::new(&self.server.0.app, request, context)));
-            tokio::select! {
-                biased;
-                response = &mut call => response,
-                () = cancelled.cancelled(), if execution.is_some() => {
-                    let row = {
-                        let mut rows = self.server.0.executions.lock();
-                        let row = rows.last_key_value().map_or(0, |(row, _)| row.saturating_add(1));
-                        rows.extend(execution.map(|pending| (row, pending)));
-                        row
-                    };
-                    let (_held, response) = (self.requests.token(), call.await);
-                    if let (Ok(CallToolResponse::Complete(result)), Some(recorded)) = (&response, self.server.0.executions.lock().get_mut(&row)) {
-                        recorded.result = Some(result.clone());
-                    }
-                    self.server.0.changes.update(self.server.executions());
-                    response
-                }
-            }
-        })
-        .await
+    fn accepted_subscription_filter(&self, requested: &SubscriptionFilter) -> Option<SubscriptionFilter> {
+        let mut accepted = requested.supported_by(&self.host.endpoint.info().capabilities);
+        accepted
+            .resource_subscriptions
+            .iter_mut()
+            .for_each(|uris| uris.retain(|uri| self.hold(uri.clone()).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription refused")).is_ok()));
+        Some(accepted)
     }
 
-    async fn get_prompt(&self, request: GetPromptRequestParams, context: RequestContext<RoleServer>) -> Result<GetPromptResponse, ErrorData> {
-        let observed = context.clone();
-        observe("prompts/get", Some(Target::Prompt(request.name.clone())), &observed, |_| false, async move {
-            let prompts = Arc::clone(&self.server.0.changes.prompts.borrow());
-            prompts.get_prompt(PromptContext::new(&self.server.0.app, request.name, request.arguments, context)).await
-        })
-        .await
+    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
+        let notifications = self.notifications(self.host.endpoint.listed());
+        let relayed = async move { notifications.map(Ok).try_for_each(|notification| context.peer.send_notification(notification)).await };
+        self.relay.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(relayed.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "session closed")))));
     }
 
-    observed! {
-        list_tools(&self, _: Option<PaginatedRequestParams>) -> ListToolsResult = "tools/list", None, {
-            Ok(ListToolsResult::with_all_items(self.server.0.changes.tools.borrow().list_all()))
-        }
-        list_prompts(&self, _: Option<PaginatedRequestParams>) -> ListPromptsResult = "prompts/list", None, {
-            Ok(ListPromptsResult::with_all_items(self.server.0.changes.prompts.borrow().list_all()))
-        }
-        list_resources(&self, request: Option<PaginatedRequestParams>) -> ListResourcesResult = "resources/list", None, {
-            let changes = &self.server.0.changes;
-            let executions = changes.tools.borrow().list_all().iter().any(destructive).then(|| Resource::new(self.server.executions(), "executions").with_mime_type("application/json"));
-            let rows = changes.resources.borrow().resources.iter().cloned().chain(executions).collect();
-            page(rows, request).map(|(rows, next_cursor)| ListResourcesResult { next_cursor, ..ListResourcesResult::with_all_items(rows) })
-        }
-        list_resource_templates(&self, request: Option<PaginatedRequestParams>) -> ListResourceTemplatesResult = "resources/templates/list", None, {
-            page(self.server.0.changes.resources.borrow().templates.clone(), request)
-                .map(|(rows, next_cursor)| ListResourceTemplatesResult { next_cursor, ..ListResourceTemplatesResult::with_all_items(rows) })
-        }
-        read_resource(&self, request: ReadResourceRequestParams) -> ReadResourceResponse = "resources/read", Some(Target::Resource(request.uri.clone())), {
-            if request.uri == self.server.executions() {
-                let mut rows = self.server.0.executions.lock();
-                let listed = serde_json::to_string(&rows.values().collect::<Vec<_>>()).map_err(|error| ErrorData::internal_error(Report::new(error).to_string(), None))?;
-                rows.retain(|_, row| row.result.is_none());
-                return Ok(ReadResourceResult::new(vec![ResourceContents::text(listed, request.uri).with_mime_type("application/json")]).into());
-            }
-            let resources = Arc::clone(&self.server.0.changes.resources.borrow());
-            let matched = resources
-                .routes
-                .at(&request.uri)
-                .map_err(|_unmatched| ErrorData::resource_not_found(format!("{} names no resource, list resources and resource templates for the served uris", request.uri), None))?;
-            let variables = matched
-                .params
-                .iter()
-                .map(|(name, value)| percent_decode_str(value).decode_utf8().map(|value| (name.to_owned(), Value::String(value.into_owned()))))
-                .try_collect::<JsonObject>()
-                .map_err(|error| ErrorData::invalid_params(format!("{} holds a variable that is not percent-encoded UTF-8: {error}, encode each variable as UTF-8", request.uri), None))?;
-            matched.value.clone().oneshot((self.server.0.app.clone(), request.uri.clone(), variables)).await.map(ReadResourceResponse::from)
-        }
+    async fn listen(&self, context: SubscriptionContext) -> Result<(), ErrorData> {
+        let notifications = self.notifications(context.accepted().clone()).take_until(self.host.stopping.cancelled()).take_until(context.cancelled());
+        let sent = notifications.map(Ok).try_for_each(|notification| context.sink().send(notification));
+        sent.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription closed")).await;
+        Ok(())
     }
-
-    fn subscribe(&self, request: SubscribeRequestParams, _: RequestContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + MaybeSendFuture + '_ {
-        self.subscriber.subscribe(request.uri, |_| ())
-    }
-
-    fn unsubscribe(&self, request: UnsubscribeRequestParams, _: RequestContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + MaybeSendFuture + '_ {
-        self.subscriber.unsubscribe(&request.uri)
-    }
-
-    async fn on_initialized(&self, context: NotificationContext<RoleServer>) { self.server.0.changes.initialized(&self.subscriber, context.peer); }
-
-    fn accepted_subscription_filter(&self, requested: &SubscriptionFilter) -> Option<SubscriptionFilter> { Some(requested.clone()) }
-
-    fn listen(&self, context: SubscriptionContext) -> impl Future<Output = Result<(), ErrorData>> + MaybeSendFuture + '_ { self.server.0.changes.listen(&self.subscriber, context).map(Ok) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub async fn observe<T, E, F, C>(method: &str, target: Option<Target>, context: &RequestContext<RoleServer>, failed: C, call: F) -> Result<T, E>
-where
-    E: Borrow<ErrorData>,
-    F: Future<Output = Result<T, E>>,
-    C: FnOnce(&T) -> bool,
-{
-    struct Carrier<'meta>(&'meta JsonObject);
-    impl Extractor for Carrier<'_> {
-        fn get(&self, key: &str) -> Option<&str> { self.0.get(key).and_then(|value| deserialize::<_, &str>(value).ok()) }
-
-        fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
-    }
-    static DURATION: LazyLock<Histogram<f64>> = LazyLock::new(|| global::meter(env!("CARGO_PKG_NAME")).f64_histogram("mcp.server.operation.duration").with_unit("s").build());
-    let (tool, prompt, resource) = match &target {
-        Some(Target::Tool(name)) => (Some(name.as_ref()), None, None),
-        Some(Target::Prompt(name)) => (None, Some(name.as_str()), None),
-        Some(Target::Resource(uri)) => (None, None, Some(uri.as_str())),
-        None => (None, None, None),
-    };
-    let span = tracing::info_span!(
-        "request",
-        otel.name = tool.or(prompt).or(resource).map_or_else(|| method.to_owned(), |name| format!("{method} {name}")),
-        otel.kind = "server",
-        mcp.method.name = method,
-        gen_ai.tool.name = tool,
-        gen_ai.prompt.name = prompt,
-        mcp.resource.uri = resource,
-        mcp.protocol.version = context.protocol_version().as_ref().map(ProtocolVersion::as_str),
-        mcp.session.id = context.extensions.get::<Parts>().and_then(|parts| parts.headers.get(HEADER_SESSION_ID)).and_then(|value| value.to_str().ok()),
-        { JSONRPC_REQUEST_ID } = %context.id,
-        { ERROR_TYPE } = Empty,
-        { RPC_RESPONSE_STATUS_CODE } = Empty,
-    );
-    match span.set_parent(TraceContextPropagator::new().extract(&Carrier(&context.meta))) {
-        Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted) => {}
-    }
-    let started = Instant::now();
-    let result = call.instrument(span.clone()).await;
-    let elapsed = started.elapsed().as_secs_f64();
-    let error_type = match &result {
-        Ok(value) => failed(value).then_some(Cow::Borrowed("tool_error")),
-        Err(error) => Some(Cow::Owned(error.borrow().code.0.to_string())),
-    };
-    span.in_scope(|| {
-        span.record(ERROR_TYPE, error_type.as_deref());
-        match &result {
-            Ok(_) => tracing::info!(elapsed, "request completed"),
-            Err(error) => {
-                span.record(RPC_RESPONSE_STATUS_CODE, error_type.as_deref());
-                tracing::warn!(elapsed, { EXCEPTION_MESSAGE } = %error.borrow().message, "request failed");
-            }
-        }
-    });
-    DURATION.record(elapsed, &iter::once(KeyValue::new("mcp.method.name", method.to_owned())).chain(error_type.map(|kind| KeyValue::new(ERROR_TYPE, kind))).collect::<Vec<_>>());
-    result
+fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
+where U: IntoIterator<Item = String> {
+    [
+        (filter.tools_list_changed, ToolListChangedNotification::default().into()),
+        (filter.prompts_list_changed, PromptListChangedNotification::default().into()),
+        (filter.resources_list_changed, ResourceListChangedNotification::default().into()),
+    ]
+    .into_iter()
+    .filter_map(|(listed, notification)| (listed == Some(true)).then_some(notification))
+    .chain(uris.into_iter().map(|uri| ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri)).into()))
 }
 
-pub async fn elicit<T>(context: &RequestContext<RoleServer>, responses: Option<&InputResponses>, key: &str, message: &str) -> Result<Elicited<T>, Unanswered>
-where T: ElicitationSafe + DeserializeOwned {
-    match (context.protocol_version().is_some_and(|version| !version.has_initialize()), responses.and_then(|answers| answers.get(key))) {
-        (false, _) => Ok(context.peer.elicit::<T>(message).await?.map(Elicited::Complete).ok_or(ElicitationError::NoContent)?),
-        (true, Some(answer)) => {
-            let result = deserialize::<_, ElicitResult>(answer).map_err(|error| ElicitationError::ParseError { error: error.into_inner(), data: answer.clone() })?;
-            if result.action == ElicitationAction::Accept {
-                let accepted = result.content.ok_or(ElicitationError::NoContent)?;
-                Ok(deserialize::<_, T>(&accepted).map(Elicited::Complete).map_err(|error| ElicitationError::ParseError { error: error.into_inner(), data: accepted.clone() })?)
-            } else if result.action == ElicitationAction::Decline {
-                Err(ElicitationError::UserDeclined.into())
-            } else {
-                Err(ElicitationError::UserCancelled.into())
-            }
-        }
-        (true, None) if context.client_capabilities().and_then(|capabilities| capabilities.elicitation).is_none() => Err(ElicitationError::CapabilityNotSupported.into()),
-        (true, None) => ElicitationSchema::from_type::<T>()
-            .map(|requested_schema| {
-                let request = ElicitRequest::new(ElicitRequestParams::FormElicitationParams { meta: None, message: message.to_owned(), requested_schema });
-                Elicited::InputRequired(InputRequiredResult::from_input_requests(BTreeMap::from([(key.to_owned(), InputRequest::Elicitation(request))])))
-            })
-            .map_err(Unanswered::Schema),
-    }
+fn relayed(updates: watch::Receiver<(f64, Option<f64>, Option<String>)>, context: &RequestContext<RoleServer>) -> impl Future<Output = ()> + Send + 'static {
+    let (peer, cancelled) = (context.peer.clone(), context.ct.clone());
+    let updates = stream::iter(context.meta.get_progress_token().map(|token| {
+        WatchStream::from_changes(updates).map(move |(progress, total, message)| {
+            let mut update = ProgressNotificationParam::new(token.clone(), progress);
+            (update.total, update.message) = (total, message);
+            Ok(update)
+        })
+    }))
+    .flatten();
+    async move { updates.take_until(cancelled.cancelled()).try_for_each(|update| peer.notify_progress(update)).await }
+        .unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"))
 }
 
-async fn relay<S>(peer: Peer<RoleServer>, notifications: S)
-where S: Stream<Item = ServerNotification> + Send {
-    if let Err(error) = notifications.map(Ok).try_for_each(|notification| peer.send_notification(notification)).await {
-        tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "session closed");
-    }
+fn internal<E>(error: E) -> ErrorData
+where E: Error {
+    ErrorData::internal_error(Report::new(error).to_string(), None)
 }
 
-fn destructive(tool: &Tool) -> bool { tool.annotations.as_ref().is_none_or(|hints| hints.read_only_hint != Some(true) && hints.is_destructive()) }
+#[must_use]
+pub fn fault(error: ServiceError) -> ErrorData { if let ServiceError::McpError(data) = error { data } else { internal(error) } }
 
-fn page<T>(rows: Vec<T>, request: Option<PaginatedRequestParams>) -> Result<(Vec<T>, Option<String>), ErrorData> {
-    const PAGE: usize = 1024;
-    let start = request
-        .and_then(|params| params.cursor)
-        .map(|cursor| cursor.parse::<usize>())
-        .transpose()
-        .map_err(|error| ErrorData::invalid_params(format!("cursor is no page offset: {error}, pass the nextCursor a list returned"), None))?
-        .unwrap_or_default();
-    let end = start.saturating_add(PAGE);
-    let next = (end < rows.len()).then(|| end.to_string());
-    Ok((rows.into_iter().skip(start).take(PAGE).collect(), next))
+pub fn unwatched<A, P>(_: A, _: P) -> stream::Empty<()> { stream::empty() }
+
+#[must_use]
+pub fn meta<R>(rows: R) -> MetaObject
+where R: IntoIterator<Item: Host> {
+    MetaObject(rows.into_iter().map(Host::entry).map(|(key, value)| (key.to_owned(), value)).collect())
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, F, E, B>(build: F) -> ExitCode
+pub fn run<P, F, E>(version: &'static str, build: F) -> process::ExitCode
 where
-    A: Parser,
-    F: AsyncFnOnce(A, Implementation) -> Result<E, B>,
+    P: Parser,
+    F: AsyncFnOnce(P, Implementation, Notifier) -> Result<E, E::Error>,
     E: Endpoint,
-    B: Error + Send + Sync + 'static,
 {
-    struct Exporters {
-        traces: SdkTracerProvider,
-        logs: SdkLoggerProvider,
-        metrics: SdkMeterProvider,
-    }
-    #[derive(Clone, Serialize)]
-    struct Metadata {
-        resource: String,
-        authorization_servers: Vec<String>,
-    }
-    struct Challenge {
-        missing: HeaderValue,
-        invalid: HeaderValue,
-    }
-    impl ErrorHandler<Body> for Challenge {
-        fn map_error(&self, error: AuthError) -> Response<Body> {
-            let challenge = if error == AuthError::MissingAuthorizationHeader { &self.missing } else { &self.invalid };
-            (StatusCode::UNAUTHORIZED, [(WWW_AUTHENTICATE, challenge.clone())]).into_response()
-        }
-    }
-    fn install<S, X>(options: &Options, identity: &Implementation) -> Result<Option<Exporters>, Failed<S, X>> {
-        let mut json = json_subscriber::JsonLayer::stderr();
-        json.with_timer("timestamp", SystemTime).with_level("level").with_target("target").with_top_level_flattened_span_list().with_flattened_event();
-        json.add_static_field(SERVICE_NAME, identity.name.clone().into());
-        json.add_static_field(SERVICE_VERSION, identity.version.clone().into());
-        let exporters = options
-            .export
-            .as_ref()
-            .map(|endpoint| {
-                let signal = |kind: &str| format!("{}/v1/{kind}", endpoint.as_str().trim_end_matches('/'));
-                let resource = Telemetry::builder().with_service_name(identity.name.clone()).with_attribute(KeyValue::new(SERVICE_VERSION, identity.version.clone())).build();
-                Ok::<_, ExporterBuildError>(Exporters {
-                    traces: SdkTracerProvider::builder().with_resource(resource.clone()).with_batch_exporter(SpanExporter::builder().with_http().with_endpoint(signal("traces")).build()?).build(),
-                    logs: SdkLoggerProvider::builder().with_resource(resource.clone()).with_batch_exporter(LogExporter::builder().with_http().with_endpoint(signal("logs")).build()?).build(),
-                    metrics: SdkMeterProvider::builder().with_resource(resource).with_periodic_exporter(MetricExporter::builder().with_http().with_endpoint(signal("metrics")).build()?).build(),
-                })
-            })
-            .transpose();
-        let installed = match &exporters {
-            Ok(Some(installed)) => Some(installed),
-            Ok(None) | Err(_) => None,
-        };
-        if let Some(exported) = installed {
-            global::set_meter_provider(exported.metrics.clone());
-        }
-        tracing_subscriber::registry()
-            .with(options.filter.iter().cloned().fold(EnvFilter::default(), EnvFilter::add_directive))
-            .with(json)
-            .with(installed.map(|exported| tracing_opentelemetry::layer().with_tracer(exported.traces.tracer(identity.name.clone()))))
-            .with(installed.map(|exported| OpenTelemetryTracingBridge::new(&exported.logs)))
-            .init();
-        panic::set_hook(Box::new(|info| tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked")));
-        exporters.map_err(Failed::Export)
-    }
-    async fn host<E, B, G>(options: Options, build: G) -> Result<Validated<(), Failed<B, E::Error>>, NEVec<Failed<B, E::Error>>>
-    where
-        E: Endpoint,
-        G: Future<Output = Result<E, B>>,
-    {
-        let socket = TcpListener::bind(options.listen).await.map_err(|error| Failed::Bind(options.listen, error))?;
-        tracing::info!(listen = %options.listen, "listening");
-        let endpoint = Arc::new(build.await.map_err(Failed::Start)?);
-        let authorized = OptionFuture::from(options.authorization.map(async |authorization| {
-            let resource = match (authorization.resource.path(), authorization.resource.query()) {
-                ("/", None) => &authorization.resource[..Position::AfterPort],
-                (_, _) => authorization.resource.as_str(),
-            };
-            let mut metadata = authorization.resource.clone();
-            metadata.set_path(&format!("/.well-known/oauth-protected-resource{}", Some(authorization.resource.path()).filter(|path| *path != "/").unwrap_or_default()));
-            let challenge = |error: &str| HeaderValue::try_from(format!("Bearer resource_metadata=\"{metadata}\"{error}")).map_err(|error| NEVec::new(Failed::Challenge(error)));
-            let challenge = Challenge { missing: challenge("")?, invalid: challenge(", error=\"invalid_token\"")? };
-            let tenants = join_all(authorization.servers.iter().map(|issuer| TenantConfiguration::builder(issuer).audiences(&[resource]).build())).await;
-            let tenants = match tenants.into_iter().map(|tenant| tenant.map_err(Failed::Authorization)).collect::<Validated<Vec<_>, _>>() {
-                Validated::Good(tenants) => tenants,
-                Validated::Fail(errors) => return Err(errors),
-            };
-            let guard = OAuth2ResourceServer::<DefaultClaims>::builder().add_tenants(tenants).build().await.map_err(|error| NEVec::new(Failed::Authorization(error)))?;
-            let document = Metadata { resource: resource.to_owned(), authorization_servers: authorization.servers };
-            Ok((authorization.resource.clone(), metadata.path().to_owned(), document, guard.into_layer_with_error_handler(Arc::new(challenge))))
+    let mut command = Options::augment_args(P::command().version(version));
+    let matches = command.get_matches_mut();
+    let (options, args) = Options::from_arg_matches(&matches).and_then(|options| P::from_arg_matches(&matches).map(|args| (options, args))).unwrap_or_else(|error| error.exit());
+    let identity = command.get_about().into_iter().fold(Implementation::new(command.get_name(), version), |identity, about| identity.with_description(about.to_string()));
+    let mut json = json_subscriber::JsonLayer::stderr();
+    json.with_timer("timestamp", SystemTime).with_level("level").with_target("target").with_top_level_flattened_span_list().with_flattened_event().with_opentelemetry_ids(true);
+    json.add_static_field(SERVICE_NAME, identity.name.clone().into());
+    json.add_static_field(SERVICE_VERSION, identity.version.clone().into());
+    let exporters = options
+        .otlp
+        .then(|| {
+            let resource = opentelemetry_sdk::Resource::builder().with_service_name(identity.name.clone()).with_attribute(KeyValue::new(SERVICE_VERSION, identity.version.clone())).build();
+            Ok::<_, ExporterBuildError>((
+                SdkTracerProvider::builder().with_resource(resource.clone()).with_batch_exporter(SpanExporter::builder().with_http().build()?).build(),
+                SdkLoggerProvider::builder().with_resource(resource.clone()).with_batch_exporter(LogExporter::builder().with_http().build()?).build(),
+                SdkMeterProvider::builder().with_resource(resource).with_periodic_exporter(MetricExporter::builder().with_http().build()?).build(),
+            ))
+        })
+        .transpose();
+    tracing_subscriber::registry()
+        .with(options.log.clone())
+        .with(json)
+        .with(exporters.as_ref().ok().and_then(Option::as_ref).map(|(traces, logs, metrics)| {
+            global::set_meter_provider(metrics.clone());
+            global::set_text_map_propagator(TraceContextPropagator::new());
+            tracing_opentelemetry::layer().with_tracer(traces.tracer(identity.name.clone())).and_then(OpenTelemetryTracingBridge::new(logs))
         }))
-        .await
-        .transpose()?;
-        let (draining, stopping, sessions) = (CancellationToken::new(), CancellationToken::new(), CancellationToken::new());
-        let (requests, streams) = (TaskTracker::new(), TaskTracker::new());
-        let config = StreamableHttpServerConfig::default().with_json_response(true).with_cancellation_token(sessions.clone()).enforce_origin_validation();
-        let config = match &authorized {
-            Some((resource, ..)) => config.with_allowed_hosts([resource.authority()]),
-            None => config,
+        .init();
+    panic::set_hook(Box::new(|info| tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked")));
+    let reported = |errors: &NEVec<Failed<E::Error>>| errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "server failed"));
+    let Some(exporters) = exporters.map_err(|error| Failed::Export(error).into()).inspect_err(reported).ok() else { return process::ExitCode::FAILURE };
+    let listening = async move {
+        let signals = cfg_select! {
+            unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)),
+            windows => [windows::ctrl_c().map(CtrlCStream::new)],
         };
-        let (factory, scope, calls) = (Arc::clone(&endpoint), stopping.clone(), requests.clone());
-        let service = StreamableHttpService::new(move || Ok(Arc::clone(&factory).session(&scope, &calls)), Arc::new(LocalSessionManager::default()), config);
-        let (tracked, listened) = (requests.clone(), streams.clone());
-        let router = match authorized {
-            Some((resource, metadata, document, guard)) => Router::new().route_service(resource.path(), service).route_layer(guard).route(&metadata, get(Json(document))),
-            None => Router::new().route_service("/", service),
-        };
-        let router = router.layer(middleware::from_fn(move |request: Request, next: Next| {
-            let held = (request.method() == Method::POST)
-                .then(|| if request.headers().get(HEADER_MCP_METHOD).is_some_and(|method| method == SubscriptionsListenRequestMethod::VALUE) { listened.token() } else { tracked.token() });
-            next.run(request).map(|response| {
-                response.map(|body| match held {
-                    Some(token) => Body::from_stream(stream::unfold((body.into_data_stream(), token), async move |(mut data, guard)| data.next().await.map(|chunk| (chunk, (data, guard))))),
-                    None => body,
-                })
-            })
-        }));
-        let mut http = pin!(axum::serve(socket, router).with_graceful_shutdown(draining.clone().cancelled_owned()).into_future());
-        let mut lifetime = pin!(Arc::clone(&endpoint).serve(stopping.clone()));
-        let (mut interrupt, mut terminate, mut hangup) =
-            (signal(SignalKind::interrupt()).map_err(Failed::Signal)?, signal(SignalKind::terminate()).map_err(Failed::Signal)?, signal(SignalKind::hangup()).map_err(Failed::Signal)?);
-        let ended = tokio::select! {
-            biased;
-            _ = interrupt.recv() => None,
-            _ = terminate.recv() => None,
-            _ = hangup.recv() => None,
-            ended = &mut lifetime => Some(ended),
-            served = &mut http => return Ok(served.map_err(Failed::Serve).into()),
-        };
+        let mut signals = signals.into_iter().try_collect::<stream::SelectAll<_>>().map_err(|source| Failed::Io { stage: Stage::Signal, source })?;
+        let socket = net::TcpListener::bind(options.listen).await.map_err(|source| Failed::Io { stage: Stage::Bind(options.listen), source })?;
+        tracing::info!(listen = %options.listen, "listening");
+        let notifier = Notifier::default();
+        let future::Either::Left((started, _)) = future::select(pin!(build(args, identity, notifier.clone())), signals.next()).await else { return Ok(()) };
+        let endpoint = started.map_err(Failed::Endpoint)?;
+        let host = Arc::new(Hosting { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
+        let manager = Arc::new(LocalSessionManager::default());
+        let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
+        config.allowed_hosts.extend(options.hosts.iter().map(Authority::to_string).chain((!options.listen.ip().is_unspecified()).then(|| options.listen.ip().to_string())));
+        let factory = Arc::clone(&host);
+        let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
+        let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));
+        let mut lifetime = pin!(future::maybe_done(host.endpoint.serve(host.stopping.clone())));
+        future::select(signals.next(), future::select(lifetime.as_mut(), http.as_mut())).await;
         tracing::info!("shutting down");
-        draining.cancel();
-        requests.close();
-        requests.wait().await;
-        stopping.cancel();
-        let ended = match ended {
-            Some(ended) => ended,
-            None => lifetime.await,
+        let drained = async {
+            host.requests.close();
+            host.requests.wait().await;
+            host.stopping.cancel();
+            host.watches.close();
+            future::join_all(manager.sessions.read().await.values().map(|session| session.close_standalone_sse_stream(None))).await;
+            future::join(lifetime.as_mut(), host.watches.wait()).await;
         };
-        streams.close();
-        streams.wait().await;
-        sessions.cancel();
-        let served = http.await;
-        Ok(Validated::from(ended.map_err(Failed::Ended)).map2(served.map_err(Failed::Serve).into(), |(), ()| ()))
-    }
-    let command = Options::augment_args(A::command());
-    let matches = command.clone().get_matches();
-    let (options, app, identity) = match (Options::from_arg_matches(&matches), A::from_arg_matches(&matches), command.get_version()) {
-        (Ok(options), Ok(_), Some(_)) if !options.listen.ip().is_loopback() && options.authorization.is_none() =>
-            command.clone().error(ErrorKind::MissingRequiredArgument, "a non-loopback --listen address takes --resource and --authorization-server").exit(),
-        (Ok(options), Ok(app), Some(version)) => {
-            let mut identity = Implementation::new(command.get_name(), version);
-            identity.description = command.get_about().map(ToString::to_string);
-            (options, app, identity)
-        }
-        (Err(error), _, _) | (_, Err(error), _) => error.exit(),
-        (Ok(_), Ok(_), None) => command.clone().error(ErrorKind::MissingRequiredArgument, "binary states no version, derive its Parser with #[command(version)]").exit(),
+        future::select(pin!(future::join(drained, http.as_mut())), signals.next()).await;
+        let ended = lifetime.as_mut().take_output().map_or(Err(Failed::Abandoned), |ended| ended.map_err(Failed::Endpoint));
+        let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { stage: Stage::Serve, source });
+        validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
     };
-    let outcome = install::<B, E::Error>(&options, &identity).map_or_else(Validated::fail, |exporters| {
-        let hosted = Runtime::new().map_err(|error| NEVec::new(Failed::Runtime(error))).and_then(|runtime| runtime.block_on(host(options, build(app, identity)))).unwrap_or_else(Validated::Fail);
-        let flushed = exporters
-            .into_iter()
-            .flat_map(|exported| [exported.traces.shutdown(), exported.logs.shutdown(), exported.metrics.shutdown()])
-            .map(|flush| flush.map_err(Failed::Flush))
-            .collect::<Validated<(), _>>();
-        hosted.map2(flushed, |(), ()| ())
-    });
-    match outcome.ok() {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(errors) => {
-            errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "server failed"));
-            ExitCode::FAILURE
-        }
-    }
+    let hosted = runtime::Runtime::new()
+        .map_err(|source| Failed::Io { stage: Stage::Runtime, source }.into())
+        .and_then(|runtime| {
+            let hosted = runtime.block_on(listening);
+            runtime.shutdown_background();
+            hosted
+        })
+        .inspect_err(reported);
+    let flushed = exporters
+        .into_iter()
+        .flat_map(|(traces, logs, metrics)| [traces.shutdown(), logs.shutdown(), metrics.shutdown()])
+        .map(|flush| flush.map_err(Failed::Flush))
+        .collect::<validated::Validated<(), _>>()
+        .ok()
+        .inspect_err(reported);
+    hosted.and(flushed).map_or(process::ExitCode::FAILURE, |()| process::ExitCode::SUCCESS)
 }

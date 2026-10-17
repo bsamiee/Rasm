@@ -13,7 +13,8 @@ utils:
 rule:
     kind: macro_invocation
     all:
-        - has: {field: macro, regex: '^((std|core)::)?write(ln)?$', pattern: $MACRO}
+        - matches: {rust-std-macro: {name: {regex: '^write(ln)?$'}}}
+        - has: {field: macro, pattern: $MACRO}
         - has:
             kind: token_tree
             all:
@@ -24,9 +25,9 @@ rule:
                     - regex: '^\(\s*[A-Za-z_]\w*\s*,?\s*\)$'
                       inside: {kind: macro_invocation, has: {field: macro, regex: 'writeln$'}}
         - matches: formatter-parameter
-        - not: {matches: rust-domain-span}
+        - not: {inside: {stopBy: end, any: [{matches: rust-field-display}, {matches: rust-variant-name-match}]}}
 transform:
-    LINE: {replace: {source: $MACRO, replace: '^((std|core)::)?write(ln)?$', by: '$3'}}
+    LINE: {replace: {source: $MACRO, replace: '^(?:(?:::)?(?:std|core|alloc)::)?write(ln)?$', by: '$1'}}
     NEWLINE: {replace: {source: $LINE, replace: '^ln$', by: '\n'}}
     BODY: {replace: {source: $TEXT, replace: '^"([\s\S]*)"$', by: '$1'}}
 fix: '$F.write_str("$BODY$NEWLINE")'

@@ -30,11 +30,10 @@ utils:
                     - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^lines$'}}, {has: {field: value, matches: stdin-value}}]}}
     prompt-write:
         any:
-            - kind: macro_invocation
-              has: {field: macro, regex: '^((::)?std::)?e?print$'}
+            - matches: {rust-std-macro: {name: {regex: '^e?print$'}}}
             - kind: macro_invocation
               all:
-                - has: {field: macro, regex: '^((::)?(std|core)::)?write$'}
+                - matches: {rust-std-macro: {name: {regex: '^write$'}}}
                 - has: {kind: token_tree, has: {kind: identifier, regex: '^std(out|err)$'}}
             - kind: call_expression
               has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^write_all$'}}, {has: {field: value, has: {stopBy: end, kind: identifier, regex: '^std(out|err)$'}}}]}

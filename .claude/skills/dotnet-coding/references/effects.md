@@ -28,23 +28,23 @@ internal static class Totals {
     public static (decimal Total, Seq<Line> LinesToRemove) Compute(Order order) =>
         (
             order.Lines.Fold(0m, static (total, line) => total + (line.Item.Price * line.Quantity)),
-            order.Lines.Filter(static line => line.Quantity == 0)
+            order.Lines.Filter(static line => line.Quantity is 0)
         );
 }
 ```
 
-Concurrency does not guarantee evaluation order, shared mutable state turns a read-modify-write into a race: `++` is not atomic, a formatter that numbers items through an instance counter loses increments under parallel `Map`. Locks or atomic operations protect the counter, and a design without shared state removes the race by generating the indices as values and combining the independent sequences:
+Concurrency does not guarantee evaluation order, shared mutable state turns a read-modify-write into a race: `++` is not atomic, a formatter that numbers items through an instance counter loses increments under parallel `Map`. Locks or atomic operations protect the counter, and a design without shared state removes the race by deriving each index from the item's position:
 
 ```csharp
 internal static class Formatting {
     public static Seq<string> Numbered(Seq<string> items) =>
         items
             .Map(static item => char.ToUpperInvariant(item[0]) + string.Concat(item[1..].Select(char.ToLowerInvariant)))
-            .Zip(toSeq(Range(1, items.Count)), static (item, index) => string.Create(CultureInfo.InvariantCulture, $"{index}. {item}"));
+            .Map(static (item, index) => string.Create(CultureInfo.InvariantCulture, $"{index + 1}. {item}"));
 }
 ```
 
-`Range(1, items.Count)` generates the indices, `Zip` pairs each item with one, state is input data, and parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, its function stays pure. The compiler cannot infer purity, parallel execution is requested explicitly, and its overhead is justified only by sufficient work and input size.
+Indexed `Map` passes each item's position, state is input data, and parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, its function stays pure. The compiler cannot infer purity, parallel execution is requested explicitly, and its overhead is justified only by sufficient work and input size.
 
 Impure functions have hidden inputs (the current time, database contents, the environment), hidden outputs (emails sent, files written, fields changed), or both, and behave like a larger pure transformation:
 
@@ -55,13 +55,13 @@ Impure functions have hidden inputs (the current time, database contents, the en
 
 ## [02]-[INJECTION]
 
-Reading `TimeProvider.System.GetCurrentInstant()` inside a validator makes the result depend on the system clock, the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the object must not outlive the validity of the captured snapshot:
+Reading `TimeProvider.System.GetCurrentInstant()` inside a validator makes the result depend on the system clock, the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the validator must not outlive the validity of the captured snapshot:
 
 ```csharp
 internal sealed record Command(LocalDate Date, string Code);
 
-internal sealed class DateValidator(LocalDate today) {
-    public bool IsValid(Command command) => today <= command.Date;
+internal static class Dates {
+    public static Func<Command, bool> NotPast(LocalDate today) => command => today <= command.Date;
 }
 ```
 
@@ -76,21 +76,18 @@ internal sealed record AppRuntime(Clock Clock, ConsoleIO Console) : Has<Eff<AppR
 
 internal static class Capabilities {
     public static Eff<RT, bool> DateNotPast<RT>(Command command) where RT : Has<Eff<RT>, Clock> =>
-        RT.Ask.Map(clock => new DateValidator(clock.Today).IsValid(command)).As();
+        RT.Ask.Map(clock => Dates.NotPast(clock.Today)(command)).As();
 }
 ```
 
 Validators that need a list of valid codes receive the codes as a `Seq<string>` that the caller loads as an effect, production composition supplies the `IO<Seq<string>>` that queries them, a test supplies `IO.pure`, and the `IO` defers the query until the bind, it runs only when the check runs:
 
 ```csharp
-internal sealed class CodeValidator(Seq<string> validCodes) {
-    public bool IsValid(Command command) =>
-        validCodes.Exists(code => string.Equals(code, command.Code, StringComparison.Ordinal));
-}
-
 internal static class Checks {
+    public static bool KnownCode(Seq<string> validCodes, Command command) =>
+        validCodes.Exists(code => string.Equals(code, command.Code, StringComparison.Ordinal));
     public static IO<bool> CodeExists(IO<Seq<string>> loadCodes, Command command) =>
-        loadCodes.Map(codes => new CodeValidator(codes).IsValid(command));
+        loadCodes.Map(codes => KnownCode(codes, command));
 }
 ```
 
@@ -156,7 +153,7 @@ internal static partial class Environments {
         from settings in Reader.ask<Settings>()
         from target in Target
         select string.Create(CultureInfo.InvariantCulture, $"{target} within {settings.Timeout}s");
-    public static Reader<Settings, string> Patient => Reader.local(static (Settings settings) => settings with { Timeout = settings.Timeout * 2 }, Described);
+    public static Reader<Settings, string> Patient => Reader.local(static settings => settings with { Timeout = settings.Timeout * 2 }, Described);
     public static Reader<AppSettings, string> FromApp => Described.With(static (AppSettings app) => app.Database);
 }
 ```
@@ -259,12 +256,10 @@ internal static class Layers {
 Each `Bind` understands only its outer effect, nested effects do not compose directly. A lookup that can return no value answers `IO<Option<A>>`, its consumer matches the inner `Option` once and binds the next `IO<A>` on the same channel, an operation that returns a non-generic `Task` adapts through an `async` lambda that returns `unit`, and an `Eff<RT, A>` exits asynchronously through `RunAsync(rt)`, which returns `Task<Fin<A>>`:
 
 ```csharp
-internal sealed record StateMissing() : Expected("no state has this id", (int)Codes.StateMissing);
-
 internal static class Stacks {
     public static IO<decimal> Converted(Func<Guid, IO<Option<State>>> lookup, Guid id, IO<decimal> rate) =>
         from found in lookup(id)
-        from state in IO.lift(found.ToFin(new StateMissing()))
+        from state in IO.lift(found.ToFin(Error.New($"no state has id {id}")))
         from factor in rate
         select state.Balance * factor;
     public static IO<Unit> Publish(Func<Task> publish) =>
@@ -276,4 +271,4 @@ internal static class Stacks {
 }
 ```
 
-Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `IO<Option<A>>` read meets its one match through `ToFin` with a typed `Expected` under `IO.lift`.
+Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `IO<Option<A>>` read meets its one match through `ToFin` with an `Error` under `IO.lift`.

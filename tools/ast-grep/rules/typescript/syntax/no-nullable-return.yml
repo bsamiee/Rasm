@@ -20,7 +20,7 @@ utils:
                             field: type_arguments
                             has: {matches: no-value-type}
     value-function:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         has: {field: return_type, matches: value-annotation}
         not:
             kind: generator_function, generator_function_declaration, method_definition
@@ -64,34 +64,34 @@ utils:
             - kind: binary_expression
               all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-result}}]
     component:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         any:
             - has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}
             - has: {field: return_type, has: {stopBy: end, kind: 'type_identifier, nested_type_identifier', regex: '^(React\.)?(JSX\.Element|ReactNode|ReactElement)$'}}
     replacer:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         nthChild: 2
         inside:
             kind: arguments
-            inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: syntax-global-reference}}
+            inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: typescript-global-reference}}
     host-contract:
         any: [{matches: component}, {matches: replacer}]
 rule:
     any:
         - kind: return_statement
           has: {matches: null-or-nan-result, pattern: $VALUE}
-          not: {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}
+          not: {inside: {matches: host-contract, stopBy: {matches: typescript-function-boundary}}}
         - kind: arrow_function
           has: {field: body, matches: null-or-nan-result, pattern: $VALUE}
           not: {matches: host-contract}
         - kind: return_statement
           has: {matches: undefined-result, pattern: $VALUE}
-          inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
-          not: {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}
+          inside: {matches: value-function, stopBy: {matches: typescript-function-boundary}}
+          not: {inside: {matches: host-contract, stopBy: {matches: typescript-function-boundary}}}
         - kind: return_statement
           pattern: $VALUE
-          inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
-          not: {any: [{has: {pattern: $_}}, {inside: {matches: host-contract, stopBy: {matches: syntax-function-boundary}}}]}
+          inside: {matches: value-function, stopBy: {matches: typescript-function-boundary}}
+          not: {any: [{has: {pattern: $_}}, {inside: {matches: host-contract, stopBy: {matches: typescript-function-boundary}}}]}
         - kind: arrow_function
           all:
             - has: {field: body, matches: undefined-result, pattern: $VALUE}

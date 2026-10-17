@@ -6,12 +6,12 @@ using Rhino;
 using Rhino.Geometry.Intersect;
 using Rhino.UI;
 using UnitsNet;
+using UnitSystem = Rhino.UnitSystem;
 
 namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class Tolerances {
     // --- [VALUES]
     public double Absolute { get; }
@@ -21,34 +21,30 @@ public sealed partial class Tolerances {
     public double MeshIntersection => Absolute * MeshCoefficient;
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double absolute, ref double relative, ref double angle, ref double meshCoefficient) =>
-        validationError = absolute > 0 && relative is > 0 and < 1 && angle is > 0 and <= double.Pi ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double absolute, ref double relative, ref double angle, ref double meshCoefficient) =>
+        validationError = absolute > 0 && relative is > 0 and < 1 && angle is > 0 and <= double.Pi
+            ? null
+            : new ValidationError("tolerances need a positive absolute, a relative inside (0, 1), and an angle inside (0, pi]");
 
     // --- [DOCUMENT]
     public static IO<Tolerances> Read(RhinoDoc doc, bool modelUnits) =>
-        IO.lift(Fin<Tolerances> () => (modelUnits
-            ? (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians)
-            : (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians)) switch {
-                var (absolute, relative, angle) => Validate(absolute, relative, angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value) is { } error ? error : value!,
-            });
+        IO.lift(() => {
+            (double absolute, double relative, double angle) = modelUnits
+                ? (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians)
+                : (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians);
+            return Admission.Admitted(Validate(absolute, relative, angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value);
+        });
 
-    public IO<Unit> Write(RhinoDoc doc, bool modelUnits, CallbackSite site) {
-        IO<Unit> Assign(Tolerances value) => IO.lift(() => {
+    public IO<Unit> Write(RhinoDoc doc, bool modelUnits, CallbackSite site) =>
+        TableOps.Undoable(doc, nameof(Tolerances), Read(doc, modelUnits), value => IO.lift(() => {
             if (modelUnits)
                 (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians) = (value.Absolute, value.Relative, value.Angle);
             else
                 (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians) = (value.Absolute, value.Relative, value.Angle);
-        });
-        return
-            from prior in Read(doc, modelUnits)
-            from registered in TableOps.Register(doc, new CustomUndo(nameof(Tolerances), Assign(prior), Assign(this), site))
-            from written in Assign(this)
-            select written;
-    }
+        }), this, site);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class DistanceDisplay {
     // --- [VALUES]
     public bool ModelUnits { get; }
@@ -56,30 +52,27 @@ public sealed partial class DistanceDisplay {
     public int Precision { get; }
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref bool modelUnits, ref DistanceDisplayMode mode, ref int precision) =>
-        validationError = Enum.IsDefined(mode) && precision >= 0 && precision <= (modelUnits ? 8 : 20) ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref bool modelUnits, ref DistanceDisplayMode mode, ref int precision) =>
+        validationError = Enum.IsDefined(mode) && precision >= 0 && precision <= (modelUnits ? 8 : 20)
+            ? null
+            : new ValidationError("distance display needs a defined mode and a precision inside [0, 8] for model units or [0, 20] for page units");
 
     // --- [DOCUMENT]
     public static IO<DistanceDisplay> Read(RhinoDoc doc, bool modelUnits) =>
-        IO.lift(Fin<DistanceDisplay> () => (modelUnits
-            ? (doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision)
-            : (doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision)) switch {
-                var (mode, precision) => Validate(modelUnits, mode, precision, out DistanceDisplay? value) is { } error ? error : value!,
-            });
+        IO.lift(() => {
+            (DistanceDisplayMode mode, int precision) = modelUnits
+                ? (doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision)
+                : (doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision);
+            return Admission.Admitted(Validate(modelUnits, mode, precision, out DistanceDisplay? value), value);
+        });
 
-    public IO<Unit> Write(RhinoDoc doc, CallbackSite site) {
-        IO<Unit> Assign(DistanceDisplay value) => IO.lift(() => {
+    public IO<Unit> Write(RhinoDoc doc, CallbackSite site) =>
+        TableOps.Undoable(doc, nameof(DistanceDisplay), Read(doc, ModelUnits), value => IO.lift(() => {
             if (value.ModelUnits)
                 (doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision) = (value.Mode, value.Precision);
             else
                 (doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision) = (value.Mode, value.Precision);
-        });
-        return
-            from prior in Read(doc, ModelUnits)
-            from registered in TableOps.Register(doc, new CustomUndo(nameof(DistanceDisplay), Assign(prior), Assign(this), site))
-            from written in Assign(this)
-            select written;
-    }
+        }), this, site);
 
     // --- [NOTATION]
     public Length Resolution(LengthUnit spaceUnit) =>
@@ -103,20 +96,27 @@ public static class Quantities {
     public static double As(Length length, LengthUnit spaceUnit) =>
         (length.Meters * LengthUnit.Scale(LengthUnit.Meters, spaceUnit)).ToDouble();
 
+    public static Option<UnitSystem> System(UnitsNet.Units.LengthUnit lengthUnit) =>
+        toSeq(Enum.GetValues<UnitSystem>()).Filter(static system => system is not (UnitSystem.None or UnitSystem.CustomUnits or UnitSystem.Unset))
+            .Find(system => RhinoMath.UnitScale(system, UnitSystem.Meters) == Length.From(1, lengthUnit).Meters.ToDouble());
+
     // --- [SCALARS]
     public static ScalarDisplay Scalar<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
         where TKey : struct, INumber<TKey> {
-        Option<(UnitInfo From, UnitInfo To)> units = presentation.Unit.Map(keyUnit => (keyUnit, presentation.DisplayUnit.IfNone(() => Quantity.GetUnitInfo(keyUnit.Value switch {
+        Option<(UnitInfo From, UnitInfo To)> units = presentation.Unit.Map(static keyUnit => (keyUnit, Quantity.GetUnitInfo(keyUnit.Value switch {
             UnitsNet.Units.AngleUnit => UnitsNet.Units.AngleUnit.Degree,
             UnitsNet.Units.RatioUnit.DecimalFraction => UnitsNet.Units.RatioUnit.Percent,
             var held => held,
-        }))));
+        })));
         Func<double, double> shown = Across(units);
         Func<double, double> key = Across(units.Map(static pair => (pair.To, pair.From)));
+        (TKey Low, TKey High) soft = presentation.Soft.IfNone(bounds);
+        bool integral = TKey.IsInteger(TKey.CreateSaturating(0.5));
         double increment = presentation.Step.Map(static declared => double.CreateChecked(declared))
-            .IfNone(() => double.Max(double.Epsilon, key(double.Exp10(double.Truncate(Span(presentation.Soft.IfNone(bounds)).Log10(EContext.Binary64.WithUnlimitedExponents()).ToDouble()) - 2))));
-        double step = TKey.IsInteger(TKey.CreateSaturating(0.5)) ? double.Max(1, increment) : increment;
-        int decimals = presentation.Decimals.IfNone(() => int.Max(0, (int)double.Ceiling(-double.Log10(shown(step)))));
+            .IfNone(() => double.Max(double.Epsilon, key(double.Exp10(double.Floor(Span(soft).Log10(EContext.Binary64.WithUnlimitedExponents()).ToDouble()) - 2))));
+        double step = integral ? double.Max(1, increment) : increment;
+        int decimals = presentation.Decimals.IfNone(() => int.Max(0, (int)double.Ceiling(-double.Log10(
+            presentation.Scale != TrackScale.Linear && !integral && shown(double.CreateChecked(soft.Low)) is > 0d and var bottom ? bottom / 10d : shown(step)))));
         return new(
             units.Map(static pair => UnitAbbreviationsCache.Default.GetDefaultAbbreviation(pair.To, RowText.Culture)),
             step,

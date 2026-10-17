@@ -6,4 +6,8 @@ rule:
     all:
         - has: {field: function, kind: field_expression, has: {field: field, regex: '^ok$'}}
         - has: {field: arguments, not: {has: {pattern: $_}}}
-        - not: {has: {field: function, kind: field_expression, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^inspect_err$'}}}}}
+        - not: {has: {field: function, kind: field_expression, has: {field: value, matches: rust-inspected-error}}}
+        - not:
+            all:
+                - has: {field: function, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_(ref|mut|deref|deref_mut)$'}}, {has: {field: value, kind: identifier, pattern: $RESULT}}]}}}
+                - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, kind: identifier, pattern: $RESULT, not: {matches: rust-result-view}}}

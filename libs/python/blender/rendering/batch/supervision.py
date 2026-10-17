@@ -19,12 +19,12 @@ from expression.extra.result import catch
 import msgspec
 from tenacity import retry, retry_if_result, stop_after_attempt
 
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import accumulated, scoped
 from blender.imaging.parameters import Case, Presentation
-from blender.rendering.batch.processes import ran
+from blender.rendering.batch.processes import ran, refused, spawned
 from blender.rendering.batch.progress import Ending, Heartbeat, observed, Progress
-from blender.rendering.batch.queue import load, RenderQueue, store
-from blender.rendering.faults import Call, RenderingFaults, RenderingResult, RenderingRunFault, RenderingSystemFault, RenderingWaitFault, RenderingWriteFault
+from blender.rendering.batch.queue import RenderQueue, revised, store
+from blender.rendering.faults import Call, RenderingFaults, RenderingResult, RenderingSystemFault, RenderingWaitFault, RenderingWriteFault
 
 if sys.platform == "win32":
     import _winapi
@@ -111,25 +111,6 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
     records = host.path(queue, RunFile.PROGRESS)
     run = base64.b64encode(msgspec.json.encode(Run(queue=str(host.path(queue, RunFile.QUEUE)), target=target))).decode("ascii")
 
-    def waited(child: subprocess.Popen[bytes], argv: tuple[str, ...]) -> RenderingResult[int]:
-        def finished() -> RenderingResult[int]:
-            while True:
-                try:
-                    return Ok(child.wait(timeout=heartbeat.interval))
-                except subprocess.TimeoutExpired:
-                    try:
-                        records.touch()
-                    except OSError as error:
-                        return Error((RenderingWriteFault(request=records, error=error),))
-                except OSError as error:
-                    return Error((RenderingRunFault(request=argv, error=error),))
-
-        try:
-            answer = finished()
-        finally:
-            reaped: RenderingResult[int] = catch(child.wait, exception=OSError)().map_error(lambda error: (RenderingRunFault(request=argv, error=error),))
-        return paired(answer, reaped).bind(lambda _: answer)
-
     def crashed(answer: RenderingResult[int]) -> bool:
         return answer.map(lambda code: code not in {0, 1}).default_value(False)
 
@@ -142,40 +123,37 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
             argv = host.binary, "--background", queue.jobs[pending[0][0]].file, "--command", host.render_command, run
             admitted = msgspec.structs.replace(progress, pending=pending)
 
+            def waited(child: subprocess.Popen[bytes]) -> RenderingResult[int]:
+                while True:
+                    try:
+                        return Ok(child.wait(timeout=heartbeat.interval))
+                    except subprocess.TimeoutExpired:
+                        try:
+                            records.touch()
+                        except OSError as error:
+                            return Error((RenderingWriteFault(request=records, error=error),))
+                    except OSError as error:
+                        return Error(refused(argv)(error))
+
             @retry(stop=stop_after_attempt(target.retries + 1), retry=retry_if_result(crashed), retry_error_callback=lambda state: state.outcome.result())  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             def launched(_: Path) -> RenderingResult[int]:
-                try:
-                    child: subprocess.Popen[bytes] = subprocess.Popen(argv)
-                except OSError as error:
-                    return Error((RenderingRunFault(request=argv, error=error),))
-                return waited(child, argv)
+                return scoped(spawned(argv), waited, lambda child: catch(child.wait, exception=OSError)().map_error(refused(argv)))
 
-            def confirmed(code: int) -> RenderingResult[tuple[int, Progress]]:
-                return (
-                    load(records, Progress)
-                    .map(lambda held: msgspec.structs.replace(held, pending=()) if code == 0 else held)
-                    .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")).map(lambda _: (code, held)) if code == 0 else Ok((code, held)))
-                )
+            def confirmed(code: int) -> RenderingResult[Progress]:
+                return revised(records, Progress, lambda held: msgspec.structs.replace(held, pending=())) if code == 0 else Error(refused(argv)(code))
 
-            match store(records, msgspec.json.encode(admitted, order="deterministic")).bind(launched).bind(confirmed):
-                case Result(tag="ok", ok=(0, progress)):
+            match store(records, admitted).bind(launched).bind(confirmed):
+                case Result(tag="ok", ok=progress):
                     continue
-                case Result(tag="ok", ok=(code, _)):
-                    return Error((RenderingRunFault(request=argv, error=code),))
                 case Result(error=faults):
                     return Error(faults)
 
     def ended(ending: Ending) -> RenderingResult[Progress]:
-        return (
-            load(records, Progress)
-            .map(lambda held: msgspec.structs.replace(held, ending=ending))
-            .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")).map(lambda _: held))
-        )
+        return revised(records, Progress, lambda held: msgspec.structs.replace(held, ending=ending))
 
     def completed(progress: Progress) -> RenderingResult[Progress]:
         def failed(faults: RenderingFaults) -> RenderingResult[Progress]:
-            answer = Result[Progress, RenderingFaults](error=faults)
-            return paired(answer, ended(Ending.FAILED)).bind(lambda _: answer)
+            return Error((faults[0], *faults[1:], *ended(Ending.FAILED).swap().default_value(())))
 
         return rendered(progress).bind(lambda _: ended(Ending.SUCCEEDED)).or_else_with(failed)
 
@@ -186,7 +164,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
             case None:
                 held = Nothing
         progress = Progress.begun(held, queue, os.getpid())
-        return store(records, msgspec.json.encode(progress, order="deterministic")).bind(lambda _: completed(progress))
+        return store(records, progress).bind(lambda _: completed(progress))
 
     return observed(records).bind(resumed)
 
@@ -194,12 +172,8 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
 def stop(progress: Progress) -> RenderingResult[None]:
     """Ends a run's supervisor and its renders."""
     if sys.platform == "win32":
-        stopped = ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
-    else:
-        stopped = catch(lambda: killpg(progress.process, signal.SIGTERM), exception=OSError)().map_error(
-            lambda error: (RenderingSystemFault(request=(Call.KILL_GROUP, progress.process), error=error),)
-        )
-    return stopped
+        return ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
+    return catch(lambda: killpg(progress.process, signal.SIGTERM), exception=OSError)().map_error(lambda error: (RenderingSystemFault(request=(Call.KILL_GROUP, progress.process), error=error),))
 
 
 def cleared(queue: RenderQueue, host: Host) -> RenderingResult[None]:

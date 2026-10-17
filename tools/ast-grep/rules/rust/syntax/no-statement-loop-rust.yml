@@ -20,6 +20,22 @@ utils:
     valued-break:
         kind: break_expression
         has: {pattern: $STATE, not: {kind: label}}
+    replaced-loop:
+        any:
+            - matches: rust-binary-header-read
+            - matches: rust-byte-hash-constant
+            - matches: rust-constant-time-compare
+            - matches: rust-entity-escape
+            - matches: rust-hex-by-byte
+            - matches: rust-hex-pair-parse
+            - matches: rust-html-tag-scan
+            - matches: rust-json-pointer-escape
+            - matches: rust-markdown-fence-scan
+            - matches: rust-obj-face
+            - matches: rust-simpson-weight
+            - matches: rust-squared-deviation-sum
+            - matches: rust-stl-text
+            - matches: rust-template-replace
 rule:
     matches: rust-statement-loop
     has:
@@ -30,6 +46,6 @@ rule:
                 - matches: state-write
                 - matches: valued-return
                 - matches: valued-break
-    not: {matches: rust-owned-span}
+    not: {has: {stopBy: end, matches: replaced-loop}}
 message: 'Loop iterates by statement to produce `$STATE`'
 note: 'Bind the result to one adapter chain, `.map(<f>).collect()` builds a collection, `.filter(<test>)` keeps elements, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.max()`, `.min()`, or `.reduce(<f>)` selects an extreme with `None` for no items, `.any(<test>)`, `.all(<test>)`, `.find(<test>)`, `.position(<test>)`, or `.find_map(<f>)` stops at the first match, and a fallible traversal over independent elements collects into `validated::Validated` to keep every error'

@@ -5,7 +5,7 @@ severity: error
 utils:
     sole-value:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     conversion:
         kind: function_item
         all:
@@ -20,10 +20,10 @@ rule:
         - has: {field: body, all: [{has: {matches: conversion}}, {not: {has: {kind: function_item, nthChild: {position: 2, ofRule: {kind: function_item}}}}}]}
         - any:
             - all:
-                - has: {field: body, has: {matches: conversion, has: {field: body, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $P.0}}}}
+                - has: {field: body, has: {matches: conversion, has: {field: body, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, pattern: $P.0}}}}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: struct_item, has: {field: name, pattern: $A}}}
             - all:
-                - has: {field: body, has: {matches: conversion, has: {field: body, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{pattern: 'Self::$V($P)'}, {pattern: '$B::$V($P)'}]}}}}
+                - has: {field: body, has: {matches: conversion, has: {field: body, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{pattern: 'Self::$V($P)'}, {pattern: '$B::$V($P)'}]}}}}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $B}}}
         - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $B}}}}}}
 message: '`From<$A>` for `$B` wraps its argument in a variant or unwraps a newtype field by hand'

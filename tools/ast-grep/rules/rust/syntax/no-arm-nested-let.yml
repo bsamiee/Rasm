@@ -13,7 +13,7 @@ utils:
                 field: consequence
                 kind: block
                 any:
-                    - all: [{has: {nthChild: 1, not: {matches: statement}, pattern: $A}}, {not: {has: {nthChild: 2}}}]
+                    - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, not: {matches: statement}, pattern: $A}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]
                     - pattern: $AB
             - has:
                 field: alternative
@@ -21,7 +21,7 @@ utils:
                 has:
                     kind: block
                     any:
-                        - all: [{has: {nthChild: 1, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: 2}}}]
+                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]
                         - pattern: $X
     fallback:
         kind: match_arm
@@ -42,15 +42,15 @@ rule:
     kind: match_arm
     all:
         - has: {field: pattern, kind: match_pattern, pattern: $P, not: {has: {field: condition, pattern: $_}}}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - has:
             field: value
             any:
                 - matches: let-else-branch
                 - kind: block
                   all:
-                    - has: {nthChild: 1, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
-                    - not: {has: {nthChild: 2}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
         - precedes: {matches: fallback}
         - not: {has: {field: value, any: [{matches: binding-test}, {has: {stopBy: end, matches: binding-test}}]}}
         - not:

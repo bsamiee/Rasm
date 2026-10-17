@@ -1,8 +1,8 @@
+using LanguageExt.ClassInstances;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
 
 namespace Rasm.Rhino.Persistence;
 
@@ -25,9 +25,7 @@ public static class UserTexts {
                 var text => target.Case is ViewportTarget writeTarget
                     ? DisposalOps.Within<IDisposable, Unit>(retain =>
                         from row in Viewports.ResolveViewport(doc, writeTarget, retain)
-                        from written in IO.lift(() => Refused.Unless(
-                            row.Viewport.SetUserStrings([KeyValuePair.Create(address.Text, Conversions.Unset(text))], replace: false),
-                            nameof(RhinoViewport.SetUserStrings)))
+                        from written in UserStrings.Write(row.Viewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((address.Text, text))))
                         from committed in IO.lift(row.CommitViewportChanges)
                         from marked in IO.lift(() => { doc.Modified = true; })
                         select marked, DisposalOps.Release)

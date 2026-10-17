@@ -12,8 +12,9 @@ import PyOpenColorIO
 from scipy.special import exprel
 
 from blender.imaging.color.luts import Lattice, Logarithmic
-from blender.imaging.faults import ImagingContrastFault, ImagingMatrixFault, ImagingResult
-from blender.imaging.parameters import Gated, Positive, Presentation, Quantity, Rgb, Stops, Unit
+from blender.imaging.color.processors import REC709_SCENE
+from blender.imaging.faults import ImagingContrastFault, ImagingNumericFault, ImagingResult
+from blender.imaging.parameters import AtLeastOne, Gated, NonNegative, Positive, Presentation, Quantity, Rgb, Stops, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -25,7 +26,7 @@ type Share = Annotated[float, msgspec.Meta(gt=0.0, lt=1.0)]
 class Sensitivity(msgspec.Struct, frozen=True, kw_only=True):
     """Primary's hue, reciprocal saturation, and photographic gain."""
 
-    scale: Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max, description="Reciprocal HSV saturation"), Presentation(soft=Some((1.0, 2.0)))] = 1.0
+    scale: Annotated[AtLeastOne, msgspec.Meta(description="Reciprocal HSV saturation"), Presentation(soft=Some((1.0, 2.0)))] = 1.0
     rotation: Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0, description="Hue rotation about the primary"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
     gain: Annotated[Positive, msgspec.Meta(description="Sensitivity of the photographic layer"), Presentation(soft=Some((0.1, 2.0)))] = 1.0
 
@@ -51,7 +52,7 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
 class Film(msgspec.Struct, frozen=True, kw_only=True):
     """Editable negative and print stocks sampled into an OCIO formation."""
 
-    space: ClassVar[str] = "lin_rec709_scene"
+    space: ClassVar[str] = REC709_SCENE
     pre_exposure: Annotated[Stops, msgspec.Meta(description="Exposure ahead of photographic development")] = 4.3
     pre_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission ahead of the negative")] = Rgb(red=1.0, green=1.0, blue=1.0)
     red: Sensitivity = Sensitivity(scale=1.05, rotation=math.radians(0.5))
@@ -65,7 +66,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         enabled=False, value=0.0
     )
     post_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission after photographic development")] = Rgb(red=1.0, green=1.0, blue=1.0)
-    saturation: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, description="HSV saturation multiplier in the midtones"), Presentation(soft=Some((0.0, 2.0)))] = 1.02
+    saturation: Annotated[NonNegative, msgspec.Meta(description="HSV saturation multiplier in the midtones"), Presentation(soft=Some((0.0, 2.0)))] = 1.02
     weights: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Relative channel weights for photographic brightness")] = (0.3, 0.5, 0.2)
     lattice: Lattice = Lattice(size=80, spacing=Logarithmic(low=-10.0, span=20.0))
 
@@ -74,18 +75,22 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     def developed(self, values: npt.NDArray[np.float32]) -> ImagingResult[npt.NDArray[np.float32]]:
         """Develops scene-linear Rec.709 RGB into display-linear Rec.709 RGB."""
         curve = self.characteristic
+
+        def logged(value: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+            return np.log2(value, out=np.full_like(value, -np.inf), where=value > 0.0)
+
         scales, rotations, gains = np.array([(value.scale, value.rotation, value.gain) for value in (self.red, self.green, self.blue)]).T
         sectors = (np.array([5.0, 3.0, 1.0]) + 6.0 * (np.arange(3)[:, None] / 3.0 + rotations[:, None] / math.tau)) % 6.0
         primaries = 1.0 - np.clip(np.minimum(sectors, 4.0 - sectors), 0.0, 1.0) / scales[:, None]
         matrix = primaries / primaries.sum(axis=1, keepdims=True)
-        log_matrix = np.log2(matrix, out=np.full_like(matrix, -np.inf), where=matrix > 0.0)
+        log_matrix = logged(matrix)
         log_weights = np.log2(self.weights)
         log_weights -= np.logaddexp2.reduce(log_weights)
         weights = np.exp2(log_weights)
         log_gains = np.log2(gains)
-        pre = np.array((self.pre_filter.red, self.pre_filter.green, self.pre_filter.blue))
-        post = np.array((self.post_filter.red, self.post_filter.green, self.post_filter.blue))
-        backlight = np.array((self.backlight.red, self.backlight.green, self.backlight.blue))
+        pre = np.array(self.pre_filter)
+        post = np.array(self.post_filter)
+        backlight = np.array(self.backlight)
         log_backlight = np.logaddexp2.reduce(log_matrix + np.log2(backlight), axis=-1) + log_gains
         log_toe = math.log(curve.up) - math.log(curve.across) + math.log(curve.toe_x) - math.log(curve.toe_y) + math.log1p(-curve.toe_y) - math.log1p(-curve.toe_x)
         log_shoulder = math.log(curve.up) - math.log(curve.across) + math.log1p(-curve.across) - math.log1p(-curve.up)
@@ -116,8 +121,8 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         if not self.black_point.enabled and not np.any(interval):
             return Error((ImagingContrastFault(request=self, black=black, white=white),))
         light = np.maximum(values.astype(np.float64), 0.0)
-        log_light = np.log2(light, out=np.full_like(light, -np.inf), where=light > 0.0)
-        log_pre = np.log2(pre, out=np.full_like(pre, -np.inf), where=pre > 0.0)
+        log_light = logged(light)
+        log_pre = logged(pre)
         filtered = np.add(log_light, log_pre, out=np.full_like(light, -np.inf), where=pre > 0.0) + self.pre_exposure
         extended = np.logaddexp2.reduce(np.add(filtered[..., None, :], log_matrix, out=np.full((*light.shape[:-1], 3, 3), -np.inf), where=matrix > 0.0), axis=-1) + log_gains
         printed = density(log_backlight - self.negative.density * density(extended, self.negative), self.positive)
@@ -125,12 +130,12 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         log_mono = np.logaddexp2.reduce(log_printed + log_weights, axis=-1, keepdims=True)
         if self.black_point.enabled:
             luminance = np.clip((np.exp2(log_mono) - self.black_point.value) / (1.0 - self.black_point.value), 0.0, 1.0)
-            log_luminance = np.log2(luminance, out=np.full_like(luminance, -np.inf), where=luminance > 0.0)
+            log_luminance = logged(luminance)
         else:
             scale = -math.log(2.0) * self.positive.density
             rise = black - printed
-            log_interval = np.log2(interval, out=np.full_like(interval, -np.inf), where=interval > 0.0)
-            log_rise = np.log2(rise, out=np.full_like(rise, -np.inf), where=rise > 0.0)
+            log_interval = logged(interval)
+            log_rise = logged(rise)
             denominator = np.logaddexp2.reduce(log_interval + np.log2(exprel(scale * interval)) + log_weights)
             numerator = np.logaddexp2.reduce(log_printed + log_rise + np.log2(exprel(scale * rise)) + log_weights, axis=-1, keepdims=True)
             log_luminance = np.minimum(numerator - denominator, 0.0)
@@ -140,10 +145,10 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         try:
             solved = np.linalg.solve(matrix, right.reshape(-1, 3).T).T.reshape(light.shape)
         except np.linalg.LinAlgError as error:
-            return Error((ImagingMatrixFault(request=matrix, error=error),))
+            return Error((ImagingNumericFault(request=matrix, error=error),))
         positive = np.maximum(solved, 0.0)
-        log_post = np.log2(post, out=np.full_like(post, -np.inf), where=post > 0.0)
-        log_formed = np.log2(positive, out=np.full_like(positive, -np.inf), where=positive > 0.0) + log_post - log_scale
+        log_post = logged(post)
+        log_formed = logged(positive) + log_post - log_scale
         formed = np.exp2(np.minimum(log_formed, 0.0))
         peak = formed.max(axis=-1, keepdims=True)
         chroma = peak - formed

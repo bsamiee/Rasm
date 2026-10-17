@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-built-text
+language: tsx
+rule:
+    any:
+        - kind: template_string
+          all:
+            - has: {kind: template_substitution}
+            - has: {kind: 'string_fragment, escape_sequence, template_substitution', nthChild: 2}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {any: [{kind: 'string, template_string'}, {matches: typescript-built-text}]}
+        - kind: call_expression
+          has:
+            field: function
+            kind: member_expression
+            any:
+                - all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, kind: array}}]
+                - all: [{has: {field: property, regex: '^concat$'}}, {has: {field: object, kind: 'string, template_string'}}]
+        - kind: parenthesized_expression
+          has: {matches: typescript-built-text}

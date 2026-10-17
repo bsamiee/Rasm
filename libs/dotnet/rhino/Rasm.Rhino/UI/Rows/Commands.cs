@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.Input;
 using Eto.Forms;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Rhino.UI.Rows;
 
@@ -23,33 +23,30 @@ public abstract partial record CommandRow {
     // --- [DECLARE]
     public static Run Macro(CommandFace face, string script, Option<RowRule> enabled) =>
         new(face, enabled, scope =>
-            from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
+            from document in scope.DocumentIO
             from ran in Documents.RunScript(document, script, echo: false, display: Some(face.Wording.Shown(face.Caption, scope.Sink)))
             select ran);
 
-    public static Radio Choices<TValue, TError>(
+    public static Radio Choices<TValue>(
         CommandFace face, Option<RowRule> enabled, Func<RowScope, IO<TValue>> read, Func<RowScope, TValue, IO<Unit>> write, Func<TValue, CommandFace> member)
-        where TValue : class, ISmartEnum<string, TValue, TError>
-        where TError : Error, IValidationError<TError> =>
+        where TValue : class, ISmartEnum<string, TValue, ValidationError> =>
         new(face, enabled, toSeq(TValue.Items).Map(item =>
             new Check(member(item), None, scope => read(scope).Map(item.Equals), (scope, on) => when(on, write(scope, item)).As())));
 
     // --- [REALIZE]
-    public IO<Realized<Seq<Command>>> Commands(RowScope scope, Action<IDisposable> retain) =>
+    public IO<Realized<Seq<(Command Command, CommandFace Face)>>> Commands(RowScope scope, Action<IDisposable> retain) =>
         Switch(
             (Scope: scope, Retain: retain),
-            run: static (held, run) => run.Realize(held.Scope, held.Retain).Map(static done => new Realized<Seq<Command>>(Seq(done.Commands), done.Refresh)),
-            check: static (held, check) => check.Realize(held.Scope, held.Retain).Map(static done => new Realized<Seq<Command>>(Seq<Command>(done.Commands), done.Refresh)),
+            run: static (held, run) => run.Realize(held.Scope, held.Retain).Map(done =>
+                new Realized<Seq<(Command Command, CommandFace Face)>>(Seq<(Command Command, CommandFace Face)>((done.Commands, run.Face)), done.Refresh)),
+            check: static (held, check) => check.Realize(held.Scope, held.Retain).Map(done =>
+                new Realized<Seq<(Command Command, CommandFace Face)>>(Seq<(Command Command, CommandFace Face)>((done.Commands, check.Face)), done.Refresh)),
             radio: static (held, radio) => radio.Realize(held.Scope, held.Retain).Map(static done =>
-                new Realized<Seq<Command>>(done.Commands.Map(static member => (Command)member.Command), done.Refresh)));
+                new Realized<Seq<(Command Command, CommandFace Face)>>(done.Commands.Map<(Command Command, CommandFace Face)>(static member => (member.Command, member.Face)), done.Refresh)));
 
-    public static (Seq<Seq<Command>> Groups, Realized<Seq<Command>> Joined) Menu(Seq<Seq<Realized<Seq<Command>>>> groups) =>
-        groups.Bind(static @group => @group) switch {
-            var realized => (groups.Map(static @group => @group.Bind(static held => held.Commands)),
-                             new Realized<Seq<Command>>(
-                                 realized.Bind(static held => held.Commands),
-                                 Callbacks.Each(realized.Map(static held => held.Refresh)).Map(unit))),
-        };
+    public static (Seq<Seq<Command>> Groups, IO<Unit> Refresh) Menu(Seq<Seq<Realized<Seq<(Command Command, CommandFace Face)>>>> groups) =>
+        (groups.Map(static @group => @group.Bind(static held => held.Commands).Map(static member => member.Command)),
+         Callbacks.Each(groups.Bind(static @group => @group).Map(static held => held.Refresh)).Map(unit));
 
     private protected IO<Realized<TCommand>> Commanded<TCommand>(RowScope scope, TCommand command, Func<IO<Unit>> deliver, IO<Unit> refresh, Action<IDisposable> retain)
         where TCommand : Command =>
@@ -64,18 +61,16 @@ public abstract partial record CommandRow {
             return (source.Token, Release: new Disposal<CancellationTokenSource>(source, static held =>
                 Callbacks.Each(Seq(IO.lift(held.Cancel), IO.lift(held.Dispose))).Run()));
         }), static held => IO.lift(held.Release.Dispose), held => retain(held.Release))
-        from attached in DisposalOps.Acquire(
-            IO.lift(() => new Disposal<TCommand>(command, static held => held.DelegatedCommand = null)),
-            static lease => IO.lift(lease.Dispose), lease => {
-                command.DelegatedCommand = new AsyncRelayCommand(async () => Callbacks.Run(
-                    await DisposalOps.Within(
-                        () => EnvIO.New(token: lifetime.Token),
-                        environment => IO.liftVAsync(() => IO.lift(deliver).Bind(static effect => effect).RunAsync(environment)),
-                        static environment => Callbacks.Each(Seq(IO.lift(environment.DisposeResources), IO.lift(environment.DisposeNonResources)))
-                            .Map(unit)).RunSafeAsync().ConfigureAwait(continueOnCapturedContext: true),
-                    new(scope.Sink, typeof(Command), Face.Name)), AsyncRelayCommandOptions.AllowConcurrentExecutions);
-                retain(lease);
-            })
+        from attached in DisposalOps.Acquire(IO.lift(() => new Disposal<TCommand>(command, static held => held.DelegatedCommand = null)), lease => {
+            command.DelegatedCommand = new AsyncRelayCommand(async () => Callbacks.Run(
+                await DisposalOps.Within(
+                    () => EnvIO.New(token: lifetime.Token),
+                    environment => IO.liftVAsync(() => IO.lift(deliver).Bind(static effect => effect).RunAsync(environment)),
+                    static environment => Callbacks.Each(Seq(IO.lift(environment.DisposeResources), IO.lift(environment.DisposeNonResources)))
+                        .Map(unit)).RunSafeAsync().ConfigureAwait(continueOnCapturedContext: true),
+                new(scope.Sink, typeof(Command), Face.Name)), AsyncRelayCommandOptions.AllowConcurrentExecutions);
+            retain(lease);
+        })
         select new Realized<TCommand>(
             command,
             Callbacks.Each(Seq(RowRules.Holds(Enabled, scope).Bind(enabled => IO.lift(() => { command.Enabled = enabled; })), refresh)).Map(unit));

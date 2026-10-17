@@ -8,10 +8,10 @@ from itertools import chain, starmap
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 from expression.collections import Block
-from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
+from blender.bpy.data.ids.ownership import committed, kept, released
 from blender.bpy.data.ids.store import Handle, named, resolved
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Snapshot
@@ -116,7 +116,7 @@ def applied(collection: bpy.types.Collection, change: MembershipChange) -> Blend
 
     match change:
         case Joined(member=member) | Parted(member=member):
-            return catch(lambda: linked(member, change), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(collection), error=error),))
+            return BlenderEditFault.attempted(repr(collection), lambda: linked(member, change))
         case Sorted(member=member, index=index):
             return entry(collection, member).bind(lambda held: written(held, "sort_index", index)).map(lambda _: None)
 
@@ -193,15 +193,12 @@ def moved(item: bpy.types.Object, target: bpy.types.Collection, scene: bpy.types
 
 def instanced(collection: bpy.types.Collection, target: bpy.types.Collection, name: str) -> BlenderResult[bpy.types.Object]:
     """Creates and links a named empty instance, removing it on naming, write, or link refusal."""
-    with ExitStack() as rollback:
-        item = bpy.data.objects.new(name, None)
-        rollback.callback(bpy.data.batch_remove, ids=(item,))
-        result = named(item, name).bind(
+    return kept(
+        BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(name, None)),
+        lambda item: named(item, name).bind(
             lambda made: accumulated((written(made, "instance_type", "COLLECTION"), written(made, "instance_collection", collection))).bind(lambda _: joined(target, (made,))).map(lambda _: made)
-        )
-        if result.is_ok():
-            rollback.pop_all()
-        return result
+        ),
+    )
 
 
 def _editable(collection: bpy.types.Collection) -> bool:
@@ -213,26 +210,12 @@ def _editable(collection: bpy.types.Collection) -> bool:
 
 def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bpy.types.Collection]:
     """Creates a named collection, removing it on a name collision or refused parent link."""
-    with ExitStack() as rollback:
-        made = bpy.data.collections.new(name)
-        rollback.callback(bpy.data.batch_remove, ids=(made,))
-        if (result := (named(made, name).bind(lambda block: parent.map(lambda held: joined(held, (block,)).map(lambda _: block)).default_value(Ok(block))))).is_ok():
-            rollback.pop_all()
-        return result
+    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.collections.new(name)), lambda made: named(made, name).bind(lambda block: _parented(block, parent)))
 
 
 def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> BlenderResult[bpy.types.Collection]:
     """Returns a shallow native copy, or copy absence or a parent-link refusal."""
-    with ExitStack() as rollback:
-        copied = Option.of_optional(collection.copy())
-        for made in copied.to_list():
-            rollback.callback(bpy.data.batch_remove, ids=(made,))
-        result = copied.map(lambda made: parent.map(lambda held: joined(held, (made,)).map(lambda _: made)).default_value(Ok(made))).default_with(
-            lambda: Error((BlenderAbsentFault(owner=repr(collection), key="copy"),))
-        )
-        if result.is_ok():
-            rollback.pop_all()
-        return result
+    return kept(_copied(collection), lambda made: _parented(made, parent))
 
 
 def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, copies: frozenset[type[bpy.types.ID]]) -> BlenderResult[bpy.types.Collection]:
@@ -250,13 +233,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
     with ExitStack() as rollback:
 
         def copied[T: bpy.types.ID](blocks: Iterable[T]) -> BlenderResult[dict[T, T]]:
-            def made(block: T) -> BlenderResult[tuple[T, T]]:
-                copy = Option.of_optional(block.copy())
-                for held in copy.to_list():
-                    rollback.callback(bpy.data.batch_remove, ids=(held,))
-                return copy.to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="copy"),)).map(lambda held: (block, held))
-
-            return accumulated(map(made, blocks)).map(dict)
+            return accumulated(kept(_copied(block), Ok, Some(rollback)).map(lambda held: (block, held)) for block in blocks).map(dict)
 
         def finished(
             collections: dict[bpy.types.Collection, bpy.types.Collection], objects: dict[bpy.types.Object, bpy.types.Object], data: dict[bpy.types.ID, bpy.types.ID]
@@ -356,27 +333,22 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                 .bind(placed)
             )
 
-        result = copied(tree).bind(
-            lambda collections: copied(dict.fromkeys(item for held in tree for item in held.objects)).bind(
-                lambda objects: copied(dict.fromkeys(block for item in objects for block in Option.of_optional(item.data).to_list() if type(block) in copies)).bind(
-                    lambda data: finished(collections, objects, data)
+        return committed(
+            copied(tree).bind(
+                lambda collections: copied(dict.fromkeys(item for held in tree for item in held.objects)).bind(
+                    lambda objects: copied(dict.fromkeys(block for item in objects for block in Option.of_optional(item.data).to_list() if type(block) in copies)).bind(
+                        lambda data: finished(collections, objects, data)
+                    )
                 )
-            )
+            ),
+            rollback,
         )
-        if result.is_ok():
-            rollback.pop_all()
-        return result
 
 
 def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> BlenderResult[bpy.types.Collection]:
     """Creates a group beside an object's scene memberships, rolling it back on refusal."""
     holders = tuple(held for held in (scene.collection, *scene.collection.children_recursive) if item in held.objects.values() and _editable(held)) or (scene.collection,)
-    with ExitStack() as rollback:
-        made = bpy.data.collections.new(name)
-        rollback.callback(bpy.data.batch_remove, ids=(made,))
-        if (result := (named(made, name).bind(lambda block: joined(block, (item,))).bind(lambda _: accumulated(joined(held, (made,)) for held in holders)).map(lambda _: made))).is_ok():
-            rollback.pop_all()
-        return result
+    return kept(founded(Nothing, name), lambda made: joined(made, (item,)).bind(lambda _: accumulated(joined(held, (made,)) for held in holders)).map(lambda _: made))
 
 
 def ungrouped(collection: bpy.types.Collection) -> BlenderResult[int]:
@@ -385,33 +357,21 @@ def ungrouped(collection: bpy.types.Collection) -> BlenderResult[int]:
 
     return accumulated(
         joined(parent, tuple(member for member in members if not (isinstance(member, bpy.types.Collection) and parent in {member, *member.children_recursive}))) for parent in parents(collection)
-    ).bind(
-        lambda _: (
-            catch(lambda: bpy.data.collections.remove(collection, do_unlink=True), exception=RuntimeError)()
-            .map_error(lambda error: (BlenderEditFault(request=repr(collection), error=error),))
-            .map(lambda _: 1)
-        )
-    )
+    ).bind(lambda _: released((collection,)))
 
 
 def deleted(collection: bpy.types.Collection) -> BlenderResult[int]:
     """Removes a hierarchy and newly orphaned objects, returning the count or native refusal."""
     tree, items = tuple(dict.fromkeys((collection, *collection.children_recursive))), tuple(collection.all_objects)
+    return released(tree).bind(lambda count: released(tuple(item for item in items if item.users == 0)).map(lambda orphans: count + orphans))
 
-    def removed(held: bpy.types.Collection) -> BlenderResult[None]:
-        return catch(lambda: bpy.data.collections.remove(held, do_unlink=True), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(held), error=error),))
 
-    return (
-        removed(collection)
-        .bind(lambda _: accumulated(removed(held) for held in tree[1:]))
-        .bind(
-            lambda _: accumulated(
-                catch(lambda: bpy.data.objects.remove(item, do_unlink=True), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(item), error=error),))
-                for item in items
-                if item.users == 0
-            ).map(lambda removed: len(tree) + len(removed))
-        )
-    )
+def _parented(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> BlenderResult[bpy.types.Collection]:
+    return parent.map(lambda held: joined(held, (collection,)).map(lambda _: collection)).default_value(Ok(collection))
+
+
+def _copied[T: bpy.types.ID](block: T) -> BlenderResult[T]:
+    return Option.of_optional(block.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="copy"),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

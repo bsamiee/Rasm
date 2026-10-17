@@ -1,15 +1,11 @@
-use core::ops::ControlFlow;
-
 use clippy_utils::{
     desugar_await,
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_enclosing_block, get_parent_expr, get_parent_expr_for_hir, in_automatically_derived, is_lint_allowed,
+    fn_def_id, get_enclosing_block, get_parent_expr, get_parent_expr_for_hir, is_lint_allowed,
     paths::PathNS,
     res::{MaybeDef as _, MaybeResPath as _, MaybeTypeckRes as _},
-    visitors::for_each_expr,
 };
-use rustc_attr_ir::lang_items::LangItem;
-use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::{
     CoroutineKind, Expr, ExprKind, HirId, Node, Pat, PatKind,
     def_id::{DefId, LocalDefId},
@@ -18,7 +14,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{Ty, TyCtxt};
 use rustc_span::{Span, sym};
 
-use crate::{Access, Place, access, field_at, pattern_fields, place, pointee, resolve};
+use crate::{Access, Ledger, Place, access, any_expr, cloned, field_at, generated, impl_owner, pattern_fields, place, pointee, receiving_call, resolve};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -46,9 +42,9 @@ struct Site {
     body: LocalDefId,
 }
 
-enum Usage {
-    Locked { lock: DefId, sites: Vec<Site> },
-    Escaped,
+struct Locked {
+    lock: DefId,
+    sites: Vec<Site>,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -56,7 +52,7 @@ enum Usage {
 pub(crate) struct AsyncMutexWithoutAwait {
     methods: FxHashMap<DefId, Release>,
     locks: FxHashSet<DefId>,
-    owners: FxIndexMap<Place, Usage>,
+    owners: Ledger<Locked>,
     bindings: FxHashMap<HirId, LocalDefId>,
 }
 
@@ -80,16 +76,16 @@ impl AsyncMutexWithoutAwait {
                 ("tokio::sync::RwLock::into_inner", Release::Exclusive),
             ],
         );
-        let locks = methods.keys().filter_map(|method| tcx.type_of(tcx.parent(*method)).instantiate_identity().skip_normalization().opt_def_id()).collect();
-        Self { methods, locks, owners: FxIndexMap::default(), bindings: FxHashMap::default() }
+        let locks = methods.keys().filter_map(|&method| impl_owner(tcx, method)?.opt_def_id()).collect();
+        Self { methods, locks, owners: Ledger::default(), bindings: FxHashMap::default() }
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for AsyncMutexWithoutAwait {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn recloned(cx: &LateContext<'_>, call: &Expr<'_>, owner: Place) -> bool {
+        fn recloned<'tcx>(cx: &LateContext<'tcx>, call: &'tcx Expr<'tcx>, owner: Place) -> bool {
             let typeck = cx.typeck_results();
-            fn_def_id(cx, call).is_some_and(|clone| clone.is_lang_item(cx, LangItem::CloneFn))
+            cloned(cx, call).is_some()
                 && matches!(cx.tcx.parent_hir_node(call.hir_id), Node::ExprField(field)
                     if get_parent_expr_for_hir(cx, field.hir_id)
                         .and_then(|literal| field_at(typeck, typeck.expr_ty(literal), field.hir_id)?.as_local())
@@ -109,15 +105,8 @@ impl<'tcx> LateLintPass<'tcx> for AsyncMutexWithoutAwait {
                 None
             };
             match bound {
-                Some((local, binding, block, body)) => for_each_expr(cx.tcx, block, |used: &'tcx Expr<'tcx>| {
-                    if used.res_local_id() == Some(binding) && (cx.tcx.hir_enclosing_body_owner(used.hir_id) != body || !borrowed(cx, used)) {
-                        ControlFlow::Break(())
-                    } else {
-                        ControlFlow::Continue(())
-                    }
-                })
-                .is_none()
-                .then_some(local.span),
+                Some((local, binding, block, body)) =>
+                    (!any_expr(cx.tcx, block, |used| used.res_local_id() == Some(binding) && (cx.tcx.hir_enclosing_body_owner(used.hir_id) != body || !borrowed(cx, used)))).then_some(local.span),
                 None => borrowed(cx, guard).then(|| {
                     cx.tcx
                         .hir_parent_iter(guard.hir_id)
@@ -147,13 +136,11 @@ impl<'tcx> LateLintPass<'tcx> for AsyncMutexWithoutAwait {
         }
         if matches!(expr.kind, ExprKind::Field(..) | ExprKind::Path(_))
             && let Some((owner, _)) = owner(expr)
-            && !get_parent_expr(cx, expr).is_some_and(|parent| {
-                matches!(parent.kind, ExprKind::MethodCall(_, receiver, ..) if receiver.hir_id == expr.hir_id)
-                    || matches!(parent.kind, ExprKind::AddrOf(..)) && get_parent_expr(cx, parent).is_some_and(|call| recloned(cx, call, owner))
-            })
-            && !in_automatically_derived(cx.tcx, expr.hir_id)
+            && receiving_call(cx, expr).is_none()
+            && !get_parent_expr(cx, expr).is_some_and(|parent| matches!(parent.kind, ExprKind::AddrOf(..)) && get_parent_expr(cx, parent).is_some_and(|call| recloned(cx, call, owner)))
+            && !generated(cx, expr.hir_id)
         {
-            self.owners.insert(owner, Usage::Escaped);
+            self.owners.escape(owner);
         }
         if let ExprKind::MethodCall(_, receiver, ..) = expr.kind
             && let Some((owner, lock)) = owner(receiver)
@@ -169,10 +156,12 @@ impl<'tcx> LateLintPass<'tcx> for AsyncMutexWithoutAwait {
             let site = guard.and_then(|guard| {
                 Some(Site { call: expr.span, scope: guard_scope(cx, guard)?, guard: cx.typeck_results().expr_ty(guard).opt_def_id()?, body: cx.tcx.hir_enclosing_body_owner(expr.hir_id) })
             });
-            match (site, self.owners.entry(owner).or_insert_with(|| Usage::Locked { lock, sites: Vec::new() })) {
-                (Some(site), Usage::Locked { lock: _, sites }) => sites.push(site),
-                (Some(_), Usage::Escaped) => {}
-                (None, usage) => *usage = Usage::Escaped,
+            match site {
+                Some(site) =>
+                    if let Some(locked) = self.owners.record(owner, || Locked { lock, sites: Vec::new() }) {
+                        locked.sites.push(site);
+                    },
+                None => self.owners.escape(owner),
             }
         }
     }
@@ -194,11 +183,9 @@ impl<'tcx> LateLintPass<'tcx> for AsyncMutexWithoutAwait {
     }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        for (owner, usage) in &self.owners {
+        for (owner, Locked { lock, sites }) in self.owners.held(cx) {
             let node = owner.hir_id(cx);
-            if let Usage::Locked { lock, sites } = usage
-                && !owner.exported(cx)
-                && !is_lint_allowed(cx, ASYNC_MUTEX_WITHOUT_AWAIT, node)
+            if !is_lint_allowed(cx, ASYNC_MUTEX_WITHOUT_AWAIT, node)
                 && !sites.iter().any(|site| {
                     matches!(cx.tcx.coroutine_kind(site.body), Some(CoroutineKind::Desugared(..)))
                         && cx

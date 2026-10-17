@@ -85,25 +85,21 @@ public static class Documents {
         DisposalOps.Within<RhinoDoc, T>(retain => source.Switch(
             retain,
             live: static (_, live) => IO.pure(live.Doc),
-            active: static (_, _) => IO.lift(static () => Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc))),
+            active: static (_, _) => IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc))),
             keyed: static (_, keyed) =>
-                IO.lift(() => Missing.Unless(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial), nameof(RhinoDoc.FromRuntimeSerialNumber))),
+                IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial), nameof(RhinoDoc.FromRuntimeSerialNumber))),
             opened: static (_, opened) =>
-                IO.lift(() => Exchange.QualifiedPath(opened.Path).Bind(static path => Missing.Unless(RhinoDoc.Open(path, out bool _), nameof(RhinoDoc.Open)))),
+                IO.lift(() => Exchange.QualifiedPath(opened.Path).Bind(static path => Refused.UnlessFound(RhinoDoc.Open(path, out bool _), nameof(RhinoDoc.Open)))),
             worksessionFile: static (_, file) =>
-                IO.lift(() => Exchange.QualifiedPath(file.Path).Bind(static path => Missing.Unless(Worksession.Open(path), nameof(Worksession.Open)))),
+                IO.lift(() => Exchange.QualifiedPath(file.Path).Bind(static path => Refused.UnlessFound(Worksession.Open(path), nameof(Worksession.Open)))),
             headless: static (own, headless) =>
                 IO.lift(() => headless.Template.Traverse(Exchange.ExistingPath).As()).Bind(template =>
-                    DisposalOps.Acquire(
-                        IO.lift(() => Try.lift(() => Missing.Unless(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless)))
-                            .Run()
-                            .MapFail(error => error.HasException<ArgumentException>() ? new NotModelFile(Conversions.Unset(template)) : error)),
-                        static created => IO.lift(created.Dispose), own)),
+                    DisposalOps.Acquire(IO.lift(() => Try.lift(() => Refused.UnlessFound(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless)))
+                        .Run()
+                        .MapFail(error => error.HasException<ArgumentException>() ? new FileRefused(Conversions.Unset(template), "is no .3dm template", error) : error)), own)),
             archive: static (own, archive) =>
                 IO.lift(() => Exchange.QualifiedPath(archive.Path)).Bind(path =>
-                    DisposalOps.Acquire(
-                        IO.lift(() => Missing.Unless(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))),
-                        static opened => IO.lift(opened.Dispose), own))).OnUiThread().Uninterruptible().Bind(body),
+                    DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))), own))).OnUiThread().Uninterruptible().Bind(body),
             static held => DisposalOps.Release(held).OnUiThread());
 
     // --- [WORKSESSION]
@@ -125,7 +121,7 @@ public static class Documents {
             update: static (target, update) =>
                 IO.lift(() => Refused.Unless(target.Worksession.Update(Conversions.Unset(update.Model)), target, nameof(Worksession.Update))),
             setActiveModel: static (target, active) =>
-                IO.lift(() => Missing.Unless(target.Worksession.SetActiveModel(active.Model), nameof(Worksession.SetActiveModel))),
+                IO.lift(() => Refused.UnlessFound(target.Worksession.SetActiveModel(active.Model), nameof(Worksession.SetActiveModel))),
             save: static (target, save) =>
                 IO.lift(() => save.Path.Match(
                     Some: path => Exchange.QualifiedPath(path).Bind(qualified => Refused.Unless(target.Worksession.SaveAs(qualified), target, nameof(Worksession.SaveAs))),
@@ -133,10 +129,10 @@ public static class Documents {
 
     // --- [SCRIPTS]
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
-        Missing.Unless(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber), nameof(RhinoDoc.FromRuntimeSerialNumber))
+        Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber), nameof(RhinoDoc.FromRuntimeSerialNumber))
             .Bind(static open => (
-                    (Command.InCommand() && !Command.InScriptRunnerCommand() ? new OutsideScriptRunner() : Fin.Succ(unit)).ToValidation(),
-                    (open.IsHeadless ? new HeadlessScript(open.RuntimeSerialNumber) : Fin.Succ(unit)).ToValidation())
+                    (Command.InCommand() && !Command.InScriptRunnerCommand() ? Error.New("a script runs to completion inside a script runner command alone") : Fin.Succ(unit)).ToValidation(),
+                    (open.IsHeadless ? Error.New($"document {open.RuntimeSerialNumber} is headless and feeds a script no input") : Fin.Succ(unit)).ToValidation())
                 .Apply((_, _) => open)
                 .As()
                 .ToFin());

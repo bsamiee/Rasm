@@ -4,7 +4,6 @@ from collections.abc import Callable
 import math
 from typing import Literal, Self
 
-from expression import Error, Ok, Option
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -19,10 +18,10 @@ from blender.imaging.parameters import Choice, Positive
 class Extension(Choice):
     """Sampling rule past a source edge."""
 
-    CLIP = 1, "Clip"
-    EXTEND = 2, "Extend"
-    REPEAT = 3, "Repeat"
-    MIRROR = 4, "Mirror"
+    CLIP = 1
+    EXTEND = 2
+    REPEAT = 3
+    MIRROR = 4
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -79,9 +78,6 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 case Extension.MIRROR:
                     return "symmetric"
 
-        def lifted(request: OpenImageIO.ImageBuf, answer: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
-            return Error((ImagingBufferFault(request=request, error=answer.geterror()),)) if answer.has_error else Ok(answer)
-
         height, width, channels = plane.shape
         x, y = self.extension
         border = math.ceil(filterwidth / 2.0)
@@ -91,15 +87,15 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         st = OpenImageIO.ImageBuf(np.ascontiguousarray((self.plane[..., :3] * size + margin) / (size + 2.0 * margin), dtype=np.float32))
         roi = OpenImageIO.ROI(0, self.plane.shape[1], 0, self.plane.shape[0], 0, 1, 0, channels)
         return (
-            paired(lifted(source, source), lifted(st, st))
+            paired(ImagingBufferFault.checked(source), ImagingBufferFault.checked(st))
             .bind(
                 lambda buffers: paired(
-                    lifted(buffers[0], OpenImageIO.ImageBufAlgo.st_warp(buffers[0], buffers[1], filtername, filterwidth, flip_t=True, roi=roi)),
-                    lifted(buffers[1], OpenImageIO.ImageBufAlgo.channels(buffers[1], (2,) * channels)),
+                    ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.st_warp(buffers[0], buffers[1], filtername, filterwidth, flip_t=True, roi=roi)),
+                    ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.channels(buffers[1], (2,) * channels)),
                 )
             )
-            .bind(lambda buffers: lifted(buffers[0], OpenImageIO.ImageBufAlgo.mul(*buffers)))
-            .bind(lambda product: Option.of_optional(product.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=product, error=product.geterror()),)))
+            .bind(lambda buffers: ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.mul(*buffers)))
+            .bind(ImagingBufferFault.pixels)
         )
 
 

@@ -40,7 +40,6 @@ public static class Widgets {
         (from registered in IO.lift(() => document.Match(
                 Some: target => Refused.Unless(target.ViewUserInterface.Add(widget), widget, nameof(ViewUserInterfaceTable.Add)),
                 None: () => Refused.Unless(widget.RegisterForAllDocuments(), widget, nameof(UserInterfaceObjectBase.RegisterForAllDocuments))))
-         from held in DisposalOps.Acquire(IO.lift(() => new Disposal<UserInterfaceObjectBase>(registered, static target => target.Unregister())),
-             static lease => IO.lift(lease.Dispose), retain)
+         from held in DisposalOps.Acquire(IO.lift(() => new Disposal<UserInterfaceObjectBase>(registered, static target => target.Unregister())), retain)
          select unit).Uninterruptible();
 }

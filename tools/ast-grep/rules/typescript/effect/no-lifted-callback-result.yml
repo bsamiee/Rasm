@@ -107,7 +107,7 @@ rule:
                           inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^andThen$'}}}}
             - not:
                 all:
-                    - has: {field: function, all: [{has: {field: property, regex: '^flatMap$'}}, {has: {field: object, matches: effect-effect-module}}]}
+                    - has: {field: function, all: [{has: {field: property, regex: '^flatMap$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}]}
                     - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: lifting-callback, not: {matches: void-callback}}}
         - all:
             - has:

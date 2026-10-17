@@ -223,9 +223,7 @@ class Execution:
             )().map_error(lambda error: (BlenderEditFault(request=key, error=error),))
             return Result[bpy.types.Image, BlenderFaults].bind(created, populated)
 
-        pixels: BlenderResult[npt.NDArray[np.float32]] = Option.of_optional(buffer.get_pixels(OpenImageIO.FLOAT)).to_result_with(
-            lambda: (BlenderImagingFault(faults=(ImagingBufferFault(request=buffer, error=buffer.geterror()),)),)
-        )
+        pixels: BlenderResult[npt.NDArray[np.float32]] = ImagingBufferFault.pixels(buffer).map_error(BlenderImagingFault.lifted)
         return Result[npt.NDArray[np.float32], BlenderFaults].bind(pixels, imaged)
 
     def stage(

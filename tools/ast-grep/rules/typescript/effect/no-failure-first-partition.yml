@@ -10,7 +10,7 @@ utils:
                 - has: {field: property, regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Effect|Option|Record|Stream)$'}}}}
             - kind: identifier
-              matches: {syntax-import-reference: {source: {regex: '^effect/(Array|Chunk|Effect|Option|Record|Stream)$'}, exported: {regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}}}
+              matches: {typescript-import-reference: {source: {regex: '^effect/(Array|Chunk|Effect|Option|Record|Stream)$'}, exported: {regex: '^(partition|partitionEffect|partitionMap|partitionQueue|separate)$'}}}
     partition-step:
         any:
             - matches: partition-member
@@ -18,7 +18,7 @@ utils:
               has: {field: function, matches: partition-member}
             - kind: call_expression
               all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(map|andThen)$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(map|andThen)$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, matches: partition-step}}
     pipe-call:
         kind: call_expression
@@ -33,7 +33,7 @@ utils:
               has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, matches: partition-step}}
             - kind: call_expression
               all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(succeed|sync)$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(succeed|sync)$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, any: [{matches: partition-tuple}, {kind: arrow_function, has: {field: body, matches: partition-tuple}}]}}
     tuple-consumer:
         any:
@@ -69,7 +69,7 @@ rule:
                                 inside:
                                     kind: call_expression
                                     matches: tuple-consumer
-                                    has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(map|flatMap|andThen|tap)$'}}
+                                    has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(map|flatMap|andThen|tap)$'}}}}
 constraints:
     FIRST: {kind: identifier, regex: '^(fail|error|err|reject|invalid|problem|defect|missing|unreadable|conflict|exclu|refus)|[a-z0-9](Fail|Error|Err|Reject|Invalid|Problem|Defect|Missing|Unreadable|Conflict|Exclu|Refus)'}
     SECOND: {kind: identifier, not: {regex: '^(fail|error|err|reject|invalid|problem|defect|missing|unreadable|conflict|exclu|refus)|[a-z0-9](Fail|Error|Err|Reject|Invalid|Problem|Defect|Missing|Unreadable|Conflict|Exclu|Refus)'}}

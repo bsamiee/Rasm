@@ -11,7 +11,7 @@ utils:
     field-write:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((std|core)::)?write$'}
+            - matches: {rust-std-macro: {name: {regex: '^write$'}}}
             - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*&?\s*self\.\w+)*\s*,?\s*\)$'}
     field-forward:
         kind: call_expression
@@ -24,7 +24,7 @@ utils:
     binding-write:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((std|core)::)?write$'}
+            - matches: {rust-std-macro: {name: {regex: '^write$'}}}
             - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*[a-z_]\w*)*\s*,?\s*\)$'}
     variant-arm:
         kind: match_arm
@@ -40,16 +40,10 @@ utils:
     display-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}, {kind: expression_statement, has: {nthChild: 1, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}]}}]}
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}, {kind: expression_statement, has: {nthChild: 1, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}]}}]}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     error-type:
-        any:
-            - kind: impl_item
-              all: [{has: {field: trait, regex: '(^|::)Error$'}}, {has: {field: type, pattern: $T}}]
-            - kind: 'struct_item, enum_item'
-              all:
-                - has: {field: name, pattern: $T}
-                - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*derive\s*\([^)]*\bError\b'}
+        matches: {rust-error-type: {name: {pattern: $T}}}
 rule:
     kind: impl_item
     all:

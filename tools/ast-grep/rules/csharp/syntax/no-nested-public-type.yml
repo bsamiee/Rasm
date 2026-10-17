@@ -35,10 +35,21 @@ rule:
                 not: {any: [{matches: {csharp-file-union: {name: {pattern: $_}}}}, {matches: member-union}]}
         - not:
             all:
-                - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
                 - inside:
                     kind: declaration_list
                     stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
                     inside: {matches: closed}
+                - any:
+                    - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
+                    - all:
+                        - has: {kind: base_list, has: {stopBy: end, kind: identifier, pattern: $BASE}}
+                        - inside:
+                            kind: declaration_list
+                            stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                            has:
+                                matches: closed
+                                all:
+                                    - has: {field: name, pattern: $BASE}
+                                    - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
 message: Public type `$NAME` nests inside `$OWNER`, neither a `[Union]` case, a `[Union<...>]` member, nor an abstract owner with private constructors
 note: Use a file-level declaration under the section of its kind

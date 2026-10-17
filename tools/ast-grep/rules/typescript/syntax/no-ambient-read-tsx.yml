@@ -10,7 +10,7 @@ utils:
                 - has: {field: property, regex: '^(Clock|Random)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Clock|Random)$'}}}}
             - kind: identifier
-              matches: {syntax-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^(Clock|Random)$'}}}
+              matches: {typescript-import-reference: {source: {regex: '^effect/(Clock|Random)$'}, exported: {regex: '^(Clock|Random)$'}}}
     service-implementation:
         pattern: $_
         any:
@@ -25,18 +25,18 @@ utils:
                 has: {field: type, has: {stopBy: end, kind: nested_type_identifier, regex: '^(Clock\.Clock|Random\.Random)$'}}
     ambient-function:
         any:
-            - matches: syntax-global-reference
+            - matches: typescript-global-reference
               regex: '^((globalThis|window|self)\.)?(Date\.now|Temporal\.Now\.\w+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.(now|timeOrigin)|process\.hrtime(\.bigint)?|process\.uptime)$'
             - matches:
-                syntax-import-reference:
+                typescript-import-reference:
                     source: {regex: '^(node:)?crypto$'}
                     exported: {regex: '^(randomUUID|randomUUIDv7|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync)$'}
             - matches:
-                syntax-import-reference:
+                typescript-import-reference:
                     source: {regex: '^(node:)?(os|process)$'}
                     exported: {regex: '^uptime$'}
             - matches:
-                syntax-import-reference:
+                typescript-import-reference:
                     source: {regex: '^(node:)?process$'}
                     exported: {regex: '^hrtime$'}
             - kind: member_expression
@@ -45,7 +45,7 @@ utils:
                 - has:
                     field: object
                     matches:
-                        syntax-import-reference:
+                        typescript-import-reference:
                             source: {regex: '^(node:)?process$'}
                             exported: {regex: '^hrtime$'}
             - kind: member_expression
@@ -54,7 +54,7 @@ utils:
                 - has:
                     field: object
                     matches:
-                        syntax-import-reference:
+                        typescript-import-reference:
                             source: {regex: '^(node:)?perf_hooks$'}
                             exported: {regex: '^performance$'}
 rule:
@@ -66,7 +66,7 @@ rule:
             not: {regex: '^((globalThis|window|self)\.)?(Date\.now|Math\.random|crypto\.randomUUID)$'}
             any:
                 - matches: ambient-function
-                - matches: syntax-global-reference
+                - matches: typescript-global-reference
                   regex: '^((globalThis|window|self)\.)?Date$'
         - matches: ambient-function
           not: {any: [{inside: {kind: call_expression, field: function}}, {inside: {kind: member_expression, field: object}}, {inside: {kind: import_specifier}}]}

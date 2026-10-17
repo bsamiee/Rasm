@@ -14,10 +14,6 @@ public sealed partial class CustomObject;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CustomObjects {
-    // --- [REGISTRATION]
-    public static IO<Unit> Register(Func<CustomObject> create) =>
-        DisposalOps.Within(create, static custom => IO.lift(() => MissingGuid.Unless(custom.Value.GetType())), static custom => IO.lift(custom.Value.Dispose));
-
     // --- [DOCUMENT]
     public static IO<Guid> Add(RhinoDoc doc, Func<CustomObject> create, Option<HistoryRecord> history) =>
         DisposalOps.Within(create,
@@ -33,11 +29,9 @@ public static class CustomObjects {
             static custom => IO.lift(custom.Value.Dispose));
 
     public static IO<Unit> Replace(RhinoDoc doc, Guid id, Func<CustomObject> create) =>
-        DisposalOps.Within(() => new ObjRef(doc, id),
-            reference => DisposalOps.Within(create,
-                custom => IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, custom.Value), nameof(ObjectTable.Replace))),
-                static custom => IO.lift(custom.Value.Dispose)),
-            static reference => IO.lift(reference.Dispose));
+        DisposalOps.Within(() => new ObjRef(doc, id), reference => DisposalOps.Within(create,
+            custom => IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, custom.Value), nameof(ObjectTable.Replace))),
+            static custom => IO.lift(custom.Value.Dispose)));
 
     // --- [CALLBACKS]
     public static IEnumerable<ObjRef> Pick(Func<IEnumerable<ObjRef>?> candidates, Func<ObjRef, bool> keep, CallbackSite site) {
@@ -46,7 +40,7 @@ public static class CustomObjects {
         foreach (ObjRef reference in Callbacks.Answer(
             DisposalOps.Within(candidates,
                 source => IO.lift(() => { offered.AddRange(source ?? []); return toSeq(offered).Filter(keep).Strict(); }),
-                static source => DisposalOps.Release(Optional(source as IDisposable).ToSeq())),
+                static source => DisposalOps.Release(source as IDisposable)),
             static () => Seq<ObjRef>(), site))
             yield return reference;
     }

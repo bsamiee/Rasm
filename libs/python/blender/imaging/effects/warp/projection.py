@@ -2,7 +2,6 @@
 
 from collections.abc import Callable
 import math
-import sys
 from typing import Annotated
 
 from expression import Some
@@ -12,9 +11,9 @@ import numpy.typing as npt
 
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.geometry.cameras import Camera
-from blender.imaging.geometry.panoramas import CentralCylindrical, Equirectangular, FisheyeEquidistant, FisheyeEquisolid, MirrorBall, Panini, PanoramaView, Stereographic, Turn
+from blender.imaging.geometry.panoramas import CentralCylindrical, Equirectangular, FisheyeEquidistant, FisheyeEquisolid, MirrorBall, Panini, PanoramaView, Stereographic
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Case, Choice, Position, Presentation
+from blender.imaging.parameters import AtLeastOne, Case, Choice, Position, Presentation, Turn
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,7 +45,6 @@ class Fold(Sampling, frozen=True, kw_only=True):
 class Kaleidoscope(Fold, frozen=True, kw_only=True, tag=9):
     """Mirror lines meeting at a center with a zoom about that center."""
 
-    title = "Kaleidoscope"
     mirrors: Annotated[int, msgspec.Meta(ge=1, description="Mirror lines through the center"), Presentation(soft=Some((1.0, 16.0)))] = 3
     angle: Annotated[Turn, msgspec.Meta(description="Turn of the first mirror line from the horizontal")] = math.pi / 2.0
     zoom: Annotated[float, msgspec.Meta(ge=2.0**-15, le=2.0**15, description="Magnification about the fold center"), Presentation(soft=Some((1.0 / 16.0, 16.0)))] = 1.0
@@ -62,8 +60,7 @@ class Kaleidoscope(Fold, frozen=True, kw_only=True, tag=9):
 class Tiling(Fold, frozen=True, kw_only=True, tag=10):
     """Frame copies scaled about a center."""
 
-    title = "Tiling"
-    count: Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max, description="Frame copies across each side"), Presentation(soft=Some((1.0, 8.0)))] = 3.0
+    count: Annotated[AtLeastOne, msgspec.Meta(description="Frame copies across each side"), Presentation(soft=Some((1.0, 8.0)))] = 3.0
 
 
 class Polar(Sampling, frozen=True, kw_only=True, tag=11):
@@ -108,7 +105,6 @@ class Projection(Effect, frozen=True, kw_only=True, tag=39):
     """Mirror folds, polar conversions, or a rendered frame placed into a panorama."""
 
     stage = Stage.WARP
-    title = "Projection"
     pointwise = False
     mode: Annotated[Modes, msgspec.Meta(description="Fold about a center or panorama receiving the frame")] = Kaleidoscope()
 

@@ -59,7 +59,7 @@ internal static class Medians {
     public static Option<decimal> Median(Seq<int> values) {
         Seq<int> sorted = toSeq(values.Order());
         int middle = sorted.Count / 2;
-        return sorted.Count % 2 == 1
+        return sorted.Count % 2 is 1
             ? sorted.At(middle).Map(static value => (decimal)value)
             : sorted.At(middle).Bind(right =>
                 sorted.At(middle - 1).Map(left => (left + right) / 2m));
@@ -139,7 +139,7 @@ internal static class Summary {
                 total => (total.Count + record.Count, total.Missing + record.Missing),
                 (record.Count, record.Missing)));
     public static decimal MissingShare(int missing, int count) =>
-        count == 0 ? 0m : (decimal)missing / count * 100m;
+        count is 0 ? 0m : (decimal)missing / count * 100m;
     public static Seq<string> Lines(Map<int, (int Count, int Missing)> totals) =>
         totals.ToSeq().Map(static total => string.Create(
             CultureInfo.InvariantCulture,

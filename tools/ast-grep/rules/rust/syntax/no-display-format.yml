@@ -6,8 +6,8 @@ utils:
     display-format:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((std|alloc)::)?format$'}
-            - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
+            - not: {matches: rust-commented}
             - has:
                 kind: token_tree
                 any:

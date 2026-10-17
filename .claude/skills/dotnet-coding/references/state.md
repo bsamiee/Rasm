@@ -77,7 +77,7 @@ internal static class Generator {
         int result = mixed & 0x7fffffff;
         return (result, result);
     });
-    public static State<int, bool> NextBool => NextInt.Map(static i => (i % 2) == 0);
+    public static State<int, bool> NextBool => NextInt.Map(static i => i % 2 is 0);
     public static State<int, (int First, int Second)> Pair =>
         from first in NextInt
         from second in NextInt
@@ -153,7 +153,7 @@ internal static class Trampolined {
             ? Trampoline.Pure(state)
             : Trampoline.More(() => RunUntil(next(state), stop, next));
     public static Trampoline<Option<int>> FirstZero(Seq<int> deltas, int current, int nextIndex) =>
-        current == 0
+        current is 0
             ? Trampoline.Pure(Some(nextIndex - 1))
             : deltas.At(nextIndex).Match(
                 Some: delta => Trampoline.More(() => FirstZero(deltas, current + delta, nextIndex + 1)),

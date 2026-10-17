@@ -15,12 +15,11 @@ use rustc_hir::{
 };
 use rustc_lint::{LateContext, LateLintPass, Level, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{
-    self, AdtDef, AssocKind, BottomUpFolder, EarlyBinder, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, VariantDef,
-    VariantDiscr,
+    self, AdtDef, AssocKind, EarlyBinder, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, VariantDef, VariantDiscr,
 };
 use rustc_span::{ExpnKind, MacroKind, Span, Symbol};
 
-use crate::{accessed_field, constructed, equal_bodies};
+use crate::{accessed_field, constructed, equal_bodies, replaced, signature};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -99,7 +98,7 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
         fn mirrored<'tcx>(cx: &LateContext<'tcx>, arm: &'tcx Arm<'tcx>, source: AdtDef<'tcx>) -> Option<Mirrored<'tcx>> {
             let typeck = cx.typeck_results();
             let pattern = peel_hir_pat_refs(arm.pat).0;
-            let (PatKind::TupleStruct(qpath, ..) | PatKind::Struct(qpath, ..) | PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), hir_id: _, span: _ })) = pattern.kind else { return None };
+            let (PatKind::TupleStruct(qpath, ..) | PatKind::Struct(qpath, ..) | PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), .. })) = pattern.kind else { return None };
             let variant = source.variants().iter().find(|variant| variant.name == last_path_segment(&qpath).ident.name)?;
             let mut bound = FxHashSet::default();
             pattern.each_binding(|_, binding, _, _| {
@@ -175,19 +174,14 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
             T: TypeFoldable<TyCtxt<'tcx>>,
             W: Fn(GenericArgsRef<'tcx>) -> Ty<'tcx>,
         {
-            value.fold_with(&mut BottomUpFolder {
-                tcx,
-                ty_op: |ty: Ty<'tcx>| {
-                    if let ty::Adt(adt, args) = ty.kind()
-                        && adt.did() == item
-                    {
-                        with(args)
-                    } else {
-                        ty
-                    }
-                },
-                lt_op: |region| region,
-                ct_op: |constant| constant,
+            replaced(tcx, value, |held| {
+                if let ty::Adt(adt, args) = held.kind()
+                    && adt.did() == item
+                {
+                    Some(with(args))
+                } else {
+                    None
+                }
             })
         }
 
@@ -195,21 +189,17 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
 
         fn shape(tcx: TyCtxt<'_>, item: DefId) -> Option<Shape<'_>> {
             fn count<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, open: &[DefId]) -> Option<u128> {
-                if ty.is_bool() {
-                    Some(2)
-                } else if let ty::Tuple(items) = ty.kind() {
-                    items.iter().try_fold(1_u128, |product, item| product.checked_mul(count(tcx, item, open)?))
-                } else if let ty::Adt(adt, args) = ty.kind()
-                    && !adt.is_union()
-                    && !open.contains(&adt.did())
-                {
-                    let nested = [open, &[adt.did()]].concat();
-                    adt.variants()
-                        .iter()
-                        .map(|variant| variant.fields.iter().try_fold(1_u128, |product, field| product.checked_mul(count(tcx, field.ty(tcx, args).skip_normalization(), &nested)?)))
-                        .try_fold(0_u128, |sum, product| sum.checked_add(product?))
-                } else {
-                    None
+                match ty.kind() {
+                    ty::Bool => Some(2),
+                    ty::Tuple(items) => items.iter().try_fold(1_u128, |product, item| product.checked_mul(count(tcx, item, open)?)),
+                    ty::Adt(adt, args) if !adt.is_union() && !open.contains(&adt.did()) => {
+                        let nested = [open, &[adt.did()]].concat();
+                        adt.variants()
+                            .iter()
+                            .map(|variant| variant.fields.iter().try_fold(1_u128, |product, field| product.checked_mul(count(tcx, field.ty(tcx, args).skip_normalization(), &nested)?)))
+                            .try_fold(0_u128, |sum, product| sum.checked_add(product?))
+                    }
+                    _ => None,
                 }
             }
 
@@ -335,11 +325,14 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
                     diag.help(format!("hold `{record_name}` in `{variant_name}` in place of its fields"));
                 });
             }
-            if let [first, rest @ ..] = &shape.cases
-                && !rest.is_empty()
-                && (first.ctor != Some(CtorKind::Fn) && !first.fields.is_empty() || first.fields.len() > 1)
-                && rest.iter().all(|case| case.ctor == first.ctor && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &case.fields, &first.fields))
-            {
+            let alike = |left: &Case<'tcx>, right: &Case<'tcx>| {
+                left.ctor == right.ctor
+                    && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &left.fields, &right.fields)
+                    && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &right.fields, &left.fields)
+            };
+            let every = matches!(shape.cases.as_slice(), [first, rest @ ..]
+                if !rest.is_empty() && (first.ctor != Some(CtorKind::Fn) && !first.fields.is_empty() || first.fields.len() > 1) && rest.iter().all(|case| alike(case, first)));
+            if every {
                 span_lint_hir_and_then(
                     cx,
                     RESTATED_TYPE,
@@ -348,6 +341,34 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
                     format!("every variant of `{}` restates the same fields", tcx.item_name(item)),
                     |diag| {
                         diag.help("hold the shared fields once beside a fieldless kind enum");
+                    },
+                );
+            }
+            if !every
+                && tcx.get_diagnostic_item(sym::Error).is_some_and(|error| tcx.non_blanket_impls_for_ty(error, tcx.type_of(item).instantiate_identity().skip_normalization()).next().is_some())
+                && let Some(group) = shape
+                    .cases
+                    .iter()
+                    .filter(|case| !case.fields.is_empty())
+                    .map(|case| {
+                        shape
+                            .cases
+                            .iter()
+                            .filter(|other| !other.fields.is_empty() && alike(other, case))
+                            .filter_map(|other| adt.variants().iter().find(|variant| Some(variant.name) == other.name))
+                            .collect::<Vec<_>>()
+                    })
+                    .find(|group| group.len() > 1)
+            {
+                span_lint_hir_and_then(
+                    cx,
+                    RESTATED_TYPE,
+                    tcx.local_def_id_to_hir_id(item),
+                    tcx.def_span(item),
+                    format!("error variants {} of `{}` restate the same fields", group.iter().map(|variant| format!("`{}`", variant.name)).join(", "), tcx.item_name(item)),
+                    |diag| {
+                        diag.span_note(group.iter().map(|variant| tcx.def_span(variant.def_id)).collect::<Vec<_>>(), "each variant holds the same fields");
+                        diag.help("declare one variant holding the shared fields and a fieldless kind whose message `derive_more::Display` derives");
                     },
                 );
             }
@@ -361,7 +382,7 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
                 Restated::Generalized(other) => format!("`{name}` restates `{}` with other field types", tcx.item_name(*other)),
                 Restated::Subset(_, other, _) => format!("`{name}` restates a subset of the fields of `{other}`"),
                 Restated::Kind(_, other, _) => format!("`{name}` restates the variants of `{other}` without their fields"),
-                Restated::Parallel(other, ..) => format!("`{name}` restates `{}` member by member", tcx.item_name(*other)),
+                Restated::Parallel(other, _, _) => format!("`{name}` restates `{}` member by member", tcx.item_name(*other)),
             };
             span_lint_hir_and_then(cx, RESTATED_TYPE, tcx.local_def_id_to_hir_id(item), tcx.def_span(item), message, |diag| match restated {
                 Restated::Same(other, text) => {
@@ -404,9 +425,9 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
             let items = tcx.hir_crate_items(());
             let declared = items.definitions().flat_map(|item| {
                 let kind = tcx.def_kind(item);
-                let signature = kind.is_fn_like().then(|| tcx.fn_sig(item).instantiate_identity().skip_normalization().skip_binder().inputs_and_output);
+                let signed = kind.is_fn_like().then(|| signature(tcx, item.to_def_id()).inputs_and_output);
                 let fields = kind.is_adt().then(|| tcx.adt_def(item).all_fields().map(|field| tcx.type_of(field.did).instantiate_identity().skip_normalization()));
-                signature.into_iter().flatten().chain(fields.into_iter().flatten())
+                signed.into_iter().flatten().chain(fields.into_iter().flatten())
             });
             let bodies =
                 tcx.hir_body_owners().filter(|&owner| !tcx.is_typeck_child(owner.to_def_id())).flat_map(|owner| tcx.typeck(owner).node_types().items_in_stable_order().into_iter().map(|(_, &ty)| ty));
@@ -487,8 +508,8 @@ impl<'tcx> LateLintPass<'tcx> for RestatedType {
                                 left_args.delim == right_args.delim
                                     && left_args.tokens.len() == right_args.tokens.len()
                                     && iter::zip(left_args.tokens.iter(), right_args.tokens.iter()).all(|(left_token, right_token)| left_token.eq_unspanned(right_token)),
-                            (AttrArgs::Eq { eq_span: _, expr: left_value }, AttrArgs::Eq { eq_span: _, expr: right_value }) => left_value.kind == right_value.kind,
-                            (AttrArgs::Empty | AttrArgs::Delimited(_) | AttrArgs::Eq { eq_span: _, expr: _ }, _) => false,
+                            (AttrArgs::Eq { expr: left_value, .. }, AttrArgs::Eq { expr: right_value, .. }) => left_value.kind == right_value.kind,
+                            (AttrArgs::Empty | AttrArgs::Delimited(_) | AttrArgs::Eq { .. }, _) => false,
                         }
                 });
             let differ = |left_typeck: &TypeckResults<'tcx>, left_expr: &Expr<'_>, right_typeck: &TypeckResults<'tcx>, right_expr: &Expr<'_>| {
@@ -619,18 +640,10 @@ fn converted<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> &'tcx Exp
     let conversion = |item: Option<DefId>| {
         item.and_then(|item| cx.tcx.trait_of_assoc(item)).and_then(|declared| cx.tcx.get_diagnostic_name(declared)).is_some_and(|name| [sym::Clone, sym::From, sym::Into, sym::ToOwned].contains(&name))
     };
-    peel_hir_expr_while(value, |inner| {
-        if let ExprKind::MethodCall(_, receiver, [], _) = inner.kind
-            && conversion(cx.typeck_results().type_dependent_def_id(inner.hir_id))
-        {
-            Some(receiver)
-        } else if let ExprKind::Call(_, [argument]) = inner.kind
-            && conversion(fn_def_id(cx, inner))
-        {
-            Some(argument)
-        } else {
-            None
-        }
+    peel_hir_expr_while(value, |inner| match inner.kind {
+        ExprKind::MethodCall(_, receiver, [], _) if conversion(cx.typeck_results().type_dependent_def_id(inner.hir_id)) => Some(receiver),
+        ExprKind::Call(_, [argument]) if conversion(fn_def_id(cx, inner)) => Some(argument),
+        _ => None,
     })
 }
 

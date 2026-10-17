@@ -14,170 +14,124 @@ namespace Rasm.Imaging.Tone;
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct FilmSpan : IMinMaxValue<FilmSpan> {
     public static FilmSpan MinValue { get; } = new(float.BitIncrement(0f));
     public static FilmSpan MaxValue { get; } = new(64f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct CurveFraction : IMinMaxValue<CurveFraction> {
     public static CurveFraction MinValue { get; } = new(float.BitIncrement(0f));
     public static CurveFraction MaxValue { get; } = new(float.BitDecrement(1f));
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct Density : IMinMaxValue<Density> {
     public static Density MinValue { get; } = new(float.BitIncrement(0f));
     public static Density MaxValue { get; } = new(149f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct PrimaryScale : IMinMaxValue<PrimaryScale> {
-    public static PrimaryScale MinValue { get; } = new(1f);
-    public static PrimaryScale MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct HueRotation : IMinMaxValue<HueRotation> {
     public static HueRotation MinValue { get; } = new(float.BitIncrement(-float.Pi / 6f));
     public static HueRotation MaxValue { get; } = new(float.BitDecrement(float.Pi / 6f));
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct FilmGain : IMinMaxValue<FilmGain> {
-    public static FilmGain MinValue { get; } = new(float.BitIncrement(0f));
-    public static FilmGain MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct MidtoneSaturation : IMinMaxValue<MidtoneSaturation> {
-    public static MidtoneSaturation MinValue { get; } = new(0f);
-    public static MidtoneSaturation MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct BlackOffset : IMinMaxValue<BlackOffset> {
     public static BlackOffset MinValue { get; } = new(-float.MaxValue);
     public static BlackOffset MaxValue { get; } = new(999f);
 
     public double Fraction => _value / 1000d;
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record FilmState(
-    Exposure PreExposure, Factor PreFilterRed, Factor PreFilterGreen, Factor PreFilterBlue,
+    Exposure PreExposure, AxisFraction PreFilterRed, AxisFraction PreFilterGreen, AxisFraction PreFilterBlue,
     PrimaryScale RedScale, PrimaryScale GreenScale, PrimaryScale BlueScale,
     HueRotation RedRotation, HueRotation GreenRotation, HueRotation BlueRotation,
-    FilmGain RedMultiplier, FilmGain GreenMultiplier, FilmGain BlueMultiplier,
+    PositiveMagnitude RedMultiplier, PositiveMagnitude GreenMultiplier, PositiveMagnitude BlueMultiplier,
     Exposure SigmoidMinimum, FilmSpan SigmoidSpan, CurveFraction ToeX, CurveFraction ToeY, CurveFraction ShoulderReachX, CurveFraction ShoulderReachY,
-    Exposure NegativeExposure, Density NegativeDensity, FilmGain BacklightRed, FilmGain BacklightGreen, FilmGain BacklightBlue,
+    Exposure NegativeExposure, Density NegativeDensity, PositiveMagnitude BacklightRed, PositiveMagnitude BacklightGreen, PositiveMagnitude BacklightBlue,
     Exposure PrintExposure, Density PrintDensity, Gated<BlackOffset> BlackPoint,
-    Factor PostFilterRed, Factor PostFilterGreen, Factor PostFilterBlue, MidtoneSaturation MidtoneSaturation);
+    AxisFraction PostFilterRed, AxisFraction PostFilterGreen, AxisFraction PostFilterBlue, Magnitude MidtoneSaturation);
 
 [SmartEnum]
 public sealed partial class FilmPreset {
     public static readonly FilmPreset Default = new(new FilmState(
-        new Exposure(4.3f), Factor.MaxValue, Factor.MaxValue, Factor.MaxValue,
-        new PrimaryScale(1.05f), new PrimaryScale(1.12f), new PrimaryScale(1.045f),
+        new Exposure(4.3f), AxisFraction.MaxValue, AxisFraction.MaxValue, AxisFraction.MaxValue,
+        PrimaryScale.Create(1.05f), PrimaryScale.Create(1.12f), PrimaryScale.Create(1.045f),
         new HueRotation(float.DegreesToRadians(0.5f)), new HueRotation(float.DegreesToRadians(2f)), new HueRotation(float.DegreesToRadians(0.1f)),
-        new FilmGain(1f), new FilmGain(1f), new FilmGain(1f),
+        PositiveMagnitude.Unit, PositiveMagnitude.Unit, PositiveMagnitude.Unit,
         new Exposure(-10f), new FilmSpan(22f - -10f), new CurveFraction(0.44f), new CurveFraction(0.28f),
         new CurveFraction((0.591f - 0.44f) / (1f - 0.44f)), new CurveFraction((0.779f - 0.28f) / (1f - 0.28f)),
-        new Exposure(6f), new Density(5f), new FilmGain(1f), new FilmGain(1f), new FilmGain(1f),
+        new Exposure(6f), new Density(5f), PositiveMagnitude.Unit, PositiveMagnitude.Unit, PositiveMagnitude.Unit,
         new Exposure(6f), new Density(27.5f), new(Enabled: false, new BlackOffset(0.483f)),
-        Factor.MaxValue, Factor.MaxValue, Factor.MaxValue, new MidtoneSaturation(1.02f)));
+        AxisFraction.MaxValue, AxisFraction.MaxValue, AxisFraction.MaxValue, Magnitude.Create(1.02f)));
     public static readonly FilmPreset Nostalgia = new(Default.State with {
         PreExposure = new Exposure(5.563035f),
-        RedMultiplier = new FilmGain(1.1f),
-        BlueMultiplier = new FilmGain(1.2f),
+        RedMultiplier = PositiveMagnitude.Create(1.1f),
+        BlueMultiplier = PositiveMagnitude.Create(1.2f),
         SigmoidSpan = new FilmSpan(23f - -10f),
         NegativeExposure = new Exposure(5.8f),
-        BacklightRed = new FilmGain(0.99f),
-        BacklightGreen = new FilmGain(1.1f),
-        BacklightBlue = new FilmGain(1.035989f),
+        BacklightRed = PositiveMagnitude.Create(0.99f),
+        BacklightGreen = PositiveMagnitude.Create(1.1f),
+        BacklightBlue = PositiveMagnitude.Create(1.035989f),
         PrintDensity = new Density(40f),
         BlackPoint = new(Enabled: true, new BlackOffset(-5f)),
-        MidtoneSaturation = new MidtoneSaturation(1.1f),
+        MidtoneSaturation = Magnitude.Create(1.1f),
     });
     public static readonly FilmPreset Silver = new(Default.State with {
         PreExposure = new Exposure(3.9f),
-        PreFilterRed = new Factor(0.95f),
-        PreFilterGreen = new Factor(0.975f),
-        BlueMultiplier = new FilmGain(1.06f),
+        PreFilterRed = AxisFraction.Create(0.95f),
+        PreFilterGreen = AxisFraction.Create(0.975f),
+        BlueMultiplier = PositiveMagnitude.Create(1.06f),
         NegativeExposure = new Exposure(4.7f),
         NegativeDensity = new Density(7f),
-        BacklightRed = new FilmGain(0.9992f),
-        BacklightGreen = new FilmGain(0.99f),
+        BacklightRed = PositiveMagnitude.Create(0.9992f),
+        BacklightGreen = PositiveMagnitude.Create(0.99f),
         PrintExposure = new Exposure(4.7f),
         PrintDensity = new Density(30f),
         BlackPoint = new(Enabled: true, new BlackOffset(0.5f)),
-        PostFilterBlue = new Factor(0.96f),
-        MidtoneSaturation = new MidtoneSaturation(1f),
+        PostFilterBlue = AxisFraction.Create(0.96f),
+        MidtoneSaturation = Magnitude.Unit,
     });
 
     public FilmState State { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidToneValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class FilmicView {
-    public static readonly FilmicView VeryHighContrast = new("very-high-contrast", Some("filmic_to_1.20_1-00.spi1d"));
-    public static readonly FilmicView HighContrast = new("high-contrast", Some("filmic_to_0.99_1-0075.spi1d"));
-    public static readonly FilmicView MediumHighContrast = new("medium-high-contrast", Some("filmic_to_0-85_1-011.spi1d"));
-    public static readonly FilmicView MediumContrast = new("medium-contrast", Some("filmic_to_0-70_1-03.spi1d"));
-    public static readonly FilmicView MediumLowContrast = new("medium-low-contrast", Some("filmic_to_0-60_1-04.spi1d"));
-    public static readonly FilmicView LowContrast = new("low-contrast", Some("filmic_to_0-48_1-09.spi1d"));
-    public static readonly FilmicView VeryLowContrast = new("very-low-contrast", Some("filmic_to_0-35_1-30.spi1d"));
-    public static readonly FilmicView Log = new("log", None);
+public sealed partial class FilmicView : ICaptioned {
+    public static readonly FilmicView VeryHighContrast = new("very-high-contrast", Some("filmic_to_1.20_1-00.spi1d"), "Very high contrast");
+    public static readonly FilmicView HighContrast = new("high-contrast", Some("filmic_to_0.99_1-0075.spi1d"), "High contrast");
+    public static readonly FilmicView MediumHighContrast = new("medium-high-contrast", Some("filmic_to_0-85_1-011.spi1d"), "Medium high contrast");
+    public static readonly FilmicView MediumContrast = new("medium-contrast", Some("filmic_to_0-70_1-03.spi1d"), "Medium contrast");
+    public static readonly FilmicView MediumLowContrast = new("medium-low-contrast", Some("filmic_to_0-60_1-04.spi1d"), "Medium low contrast");
+    public static readonly FilmicView LowContrast = new("low-contrast", Some("filmic_to_0-48_1-09.spi1d"), "Low contrast");
+    public static readonly FilmicView VeryLowContrast = new("very-low-contrast", Some("filmic_to_0-35_1-30.spi1d"), "Very low contrast");
+    public static readonly FilmicView Log = new("log", None, "Log");
 
     public Option<string> Curve { get; }
+    public string Caption { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -187,10 +141,9 @@ internal static class FilmTransform {
 
     internal static PixelPass Formed(ToneMapping state, PassContext context) =>
         Formation.Formed(
-            [.. LutTables.Between(context.Working, Gamut.StandardRgb).Map<Action<Span<Vector4>>>(static step => step.Apply),
-             new LutTable.Log(Window).Apply,
-             new LutTable.Cube(context.Derivations.Derived(state.Film, Developed), LutInterpolation.Tetrahedral).Apply],
-            new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite), context.Display);
+            context, Gamut.StandardRgb,
+            [new LutTable.Log(Window).Apply, new LutTable.Cube(context.Derivations.Derived(state.Film, Developed), LutInterpolation.Tetrahedral).Apply],
+            new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite));
 
     private static Lut3D Developed(FilmState state) {
         Matrix<double> extension = Matrix<double>.Build.DiagonalOfDiagonalArray([state.RedMultiplier, state.GreenMultiplier, state.BlueMultiplier])
@@ -212,7 +165,7 @@ internal static class FilmTransform {
         double black = state.BlackPoint.Active.Match(
             Some: static offset => offset.Fraction,
             None: () => double.Min(Vector256.Dot(Transmitted(backlight, state.PrintDensity) / cap, Weights), BlackOffset.MaxValue.Fraction));
-        return Bakes.Lattice(Valid.Value(LatticeSize.Validate(80, provider: null, out LatticeSize edge), edge), [row => {
+        return Bakes.Lattice(LatticeSize.Create(80), [row => {
             foreach (ref Vector4 node in row)
                 node = new Vector4(Displayed(Window.Inverse(node.AsVector3())), node.W);
         }]).ThrowIfFail();
@@ -252,19 +205,19 @@ internal static class FilmicTransform {
             Some: static file => (Graded: Seq(new LutTable.ChannelCurve(EmbeddedTables.Curve(file)).Apply), Signal: Display.Srgb.Encoding),
             None: () => (Graded: Seq<Action<Span<Vector4>>>(), Signal: context.Display.Encoding)) switch {
                 var (graded, signal) => Formation.Formed(
-                    [.. LutTables.Between(context.Working, LogSpace.FilmicLog.Gamut).Map<Action<Span<Vector4>>>(static step => step.Apply),
-                     .. LogSpace.FilmicLog.Into.Map<Action<Span<Vector4>>>(static step => step.Apply),
+                    context, LogSpace.FilmicLog.Gamut,
+                    [.. LogSpace.FilmicLog.Into.Map<Action<Span<Vector4>>>(static step => step.Apply),
                      new LutTable.Cube(EmbeddedTables.Lattice("filmic_desat_33.cube"), LutInterpolation.Tetrahedral).Apply,
                      new LutTable.Remap(new RemapBounds.Between(new RemapBound(0f, 0f), new RemapBound(0.66f, 1f), Clamps: false)).Apply,
                      .. graded],
-                    signal, context.Display),
+                    signal),
             };
 }
 
 internal static class TonyTransform {
     private static readonly Memo<Lut3D> Table = memo(static () => {
         const uint Mantissa = 0x1FF;
-        LatticeSize edge = Valid.Value(LatticeSize.Validate(48, provider: null, out LatticeSize size), size);
+        LatticeSize edge = LatticeSize.Create(48);
         using Stream stream = EmbeddedTables.Open("tony_mc_mapface.dds");
         byte[] texels = GC.AllocateUninitializedArray<byte>(4 * edge * edge * edge);
         stream.Position = 148;
@@ -287,6 +240,6 @@ internal static class TonyTransform {
 
     internal static PixelPass Formed(ToneMapping _, PassContext context) =>
         Formation.Formed(
-            [.. LutTables.Between(context.Working, Gamut.StandardRgb).Map<Action<Span<Vector4>>>(static step => step.Apply), Shaped, new LutTable.Cube(Table.Value, LutInterpolation.Tetrahedral).Apply],
-            new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite), context.Display);
+            context, Gamut.StandardRgb, [Shaped, new LutTable.Cube(Table.Value, LutInterpolation.Tetrahedral).Apply],
+            new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite));
 }

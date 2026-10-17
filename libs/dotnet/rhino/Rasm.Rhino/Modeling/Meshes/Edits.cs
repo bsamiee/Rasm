@@ -41,14 +41,14 @@ public static class MeshEdits {
         Copies.Edit(source, copy =>
             from token in cancelToken
             from applied in edits.TraverseM(edit => Applied(copy, edit, tolerances, token)).As()
-            select unit, nameof(Edit), retain);
+            select unit, nameof(Edit), retain).Map(static edited => edited.Copy);
 
     private static IO<Unit> Applied(Mesh copy, MeshEdit edit, Tolerances tolerances, CancellationToken token) =>
         edit.Switch(
             (Copy: copy, Tolerances: tolerances, Token: token),
             reduce: static (state, of) => IO.lift(Fin<Unit> () => state.Copy.Reduce(MeshMapper.Reduction((of.Parameters, state.Token)), of.Threaded)
                 ? unit
-                : state.Token.IsCancellationRequested ? Errors.Cancelled : new Refused(nameof(Mesh.Reduce))),
+                : state.Token.IsCancellationRequested ? Errors.Cancelled : new Refused(nameof(Mesh.Reduce), Refused.Declined)),
             weld: static (state, of) => IO.lift(() => state.Copy.Weld(of.AngleToleranceRadians, of.PreserveSurfaceParameters)),
             unweld: static (state, of) => IO.lift(() => state.Copy.Unweld(of.AngleToleranceRadians, of.ModifyNormals)),
             unweldEdge: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.UnweldEdge(of.EdgeIndices, of.ModifyNormals), nameof(Mesh.UnweldEdge))),
@@ -57,13 +57,11 @@ public static class MeshEdits {
             fillHole: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.FillHole(of.TopologyEdgeIndex), nameof(Mesh.FillHole))),
             matchEdges: static (state, of) => IO.lift(() => ignore(state.Copy.MatchEdges(of.Distance, of.Rachet))),
             mergeAllCoplanarFaces: static (state, _) => IO.lift(() => ignore(state.Copy.MergeAllCoplanarFaces(state.Tolerances.Absolute, state.Tolerances.Angle))),
-            smooth: static (state, of) => of.Options.Coordinates switch {
-                var (system, plane) => IO.lift(() => Refused.Unless(
-                    of.VertexIndices.IsSome
-                        ? state.Copy.Smooth(of.VertexIndices.ValueUnsafe(), of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, system, plane)
-                        : state.Copy.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, system, plane),
-                    nameof(Mesh.Smooth))),
-            },
+            smooth: static (state, of) => IO.lift(() => Refused.Unless(
+                of.VertexIndices.Match(
+                    Some: vertices => state.Copy.Smooth(vertices, of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane),
+                    None: () => state.Copy.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane)),
+                nameof(Mesh.Smooth))),
             collapseFacesByEdgeLength: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.CollapseFacesByEdgeLength(of.GreaterThan, of.EdgeLength) != -1, nameof(Mesh.CollapseFacesByEdgeLength))),
             collapseFacesByArea: static (state, of) => IO.lift(() => ignore(state.Copy.CollapseFacesByArea(of.LessThanArea, of.GreaterThanArea))),
             collapseFacesByByAspectRatio: static (state, of) => IO.lift(() => ignore(state.Copy.CollapseFacesByByAspectRatio(of.AspectRatio))),
@@ -71,31 +69,23 @@ public static class MeshEdits {
             unifyNormals: static (state, _) => IO.lift(() => ignore(state.Copy.UnifyNormals(countOnly: false))),
             flip: static (state, of) => IO.lift(() => state.Copy.Flip(of.VertexNormals, of.FaceNormals, of.FaceOrientation, of.NgonsBoundaryDirection)),
             compact: static (state, _) => IO.lift(() => Refused.Unless(state.Copy.Compact(), nameof(Mesh.Compact))),
-            subdivide: static (state, of) => of.FaceIndices.IsSome
-                ? of.FaceIndices.ValueUnsafe() switch {
-                    var faces => IO.lift(() => Copies.InRange(faces, state.Copy.Faces.Count, nameof(Mesh.Subdivide)))
-                        >> IO.lift(() => Refused.Unless(state.Copy.Subdivide(faces), nameof(Mesh.Subdivide))),
-                }
-                : IO.lift(() => Refused.Unless(state.Copy.Subdivide(), nameof(Mesh.Subdivide))));
+            subdivide: static (state, of) => of.FaceIndices.Match(
+                Some: faces => IO.lift(() => Copies.InRange(faces, state.Copy.Faces.Count, nameof(Mesh.Subdivide)))
+                    >> IO.lift(() => Refused.Unless(state.Copy.Subdivide(faces), nameof(Mesh.Subdivide))),
+                None: () => IO.lift(() => Refused.Unless(state.Copy.Subdivide(), nameof(Mesh.Subdivide)))));
 
     // --- [DERIVATIONS]
     public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction, Action<IDisposable> retain) =>
         Copies.Owned(
             () => (Mesh: source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls), Walls: walls),
-            static made => Missing.Unless(made.Mesh, nameof(Mesh.Offset))
-                .Bind(static mesh => Measurements.Valid(mesh, nameof(Mesh.Offset)))
+            static made => Measurements.Valid(made.Mesh, nameof(Mesh.Offset))
                 .Map(mesh => (Mesh: mesh, WallFaces: toSeq(made.Walls))),
-            static made => DisposalOps.Release(Conversions.Rows([made.Mesh])), retain);
+            static made => DisposalOps.Release(made.Mesh), retain);
 
     public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => DisposalOps.Within(
-                () => new MeshExtruder(source, components),
-                extruder => Extruded(extruder, configure, output),
-                static extruder => IO.lift(extruder.Dispose)),
-            (_, release) => retain(release));
+        DisposalOps.Within(() => new MeshExtruder(source, components), extruder => Extruded(extruder, configure, retain));
 
-    private static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extruded(MeshExtruder extruder, Action<MeshExtruder> configure, Action<IDisposable> output) =>
+    private static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extruded(MeshExtruder extruder, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
         IO.lift(() => configure(extruder)).Bind(_ => Copies.Owned(
             () => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Components: map),
             made =>
@@ -103,5 +93,5 @@ public static class MeshEdits {
                 from mesh in IO.lift(() => Measurements.Valid(accepted, nameof(MeshExtruder.ExtrudedMesh)))
                 from walls in IO.lift(() => toSeq(extruder.GetWallFaces()))
                 select (Mesh: mesh, Components: toSeq(made.Components), WallFaces: walls),
-            static made => IO.lift(made.Mesh.Dispose), output));
+            static made => DisposalOps.Release(made.Mesh), retain));
 }

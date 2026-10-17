@@ -4,7 +4,7 @@ language: rust
 severity: error
 utils:
     cfg-attribute:
-        follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\b'}
+        matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}
 rule:
     kind: function_item
     all:

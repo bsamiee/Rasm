@@ -8,33 +8,27 @@ namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<Duration>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct MotionSpan : System.Numerics.IMinMaxValue<MotionSpan> {
     public static MotionSpan MinValue { get; } = new(Duration.Epsilon);
     public static MotionSpan MaxValue { get; } = new(Duration.FromMilliseconds(int.MaxValue));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Duration value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Duration value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct DampingRatio : System.Numerics.IMinMaxValue<DampingRatio> {
     public static DampingRatio MinValue { get; } = new(1d);
     public static DampingRatio MaxValue { get; } = new(double.Sqrt(double.MaxValue));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct VisibleChange : System.Numerics.IMinMaxValue<VisibleChange> {
     public static VisibleChange MinValue { get; } = new(double.BitIncrement(0d));
     public static VisibleChange MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum]
@@ -171,11 +165,11 @@ public sealed class MotionHandle {
                     _ = state.Course.Swap(course => course.Resumed(paused, elapsed, source));
                     return IO.pure(unit);
                 }).Map(unit),
-            stopped: static (_, _) => IO.fail<Unit>(new MotionEnded())));
+            stopped: static (_, _) => IO.fail<Unit>(Error.New("motion has ended"))));
 
     public IO<Unit> Retarget(CameraPose goal) =>
         from held in pacing.Course.ValueIO
-        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(new MotionEnded()))
+        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(Error.New("motion has ended")))
         from elapsed in pacing.Elapsed
         from moved in pacing.Course.SwapIO(course => course.Retargeted(goal, elapsed))
         select unit;
@@ -224,14 +218,14 @@ public static class Motions {
                 Goal: to,
                 Progress: progress),
             parallel: static (state, goal) => state.Held.Match(
-                Left: held => Conversions.Validated<ParallelExtent, double, InvalidRhinoValue>(double.Lerp(held, goal.Extent, state.Progress)).Map<CameraLens>(static extent => extent),
+                Left: held => ParallelExtent.Validated(double.Lerp(held, goal.Extent, state.Progress)).Map<CameraLens>(static extent => extent),
                 Right: _ => Fin.Succ(state.Goal)),
             perspective: static (state, goal) => state.Held.Match(
                 Left: _ => Fin.Succ(state.Goal),
-                Right: held => Conversions.Validated<CameraAngle, double, InvalidRhinoValue>(double.Lerp(held, goal.Angle, state.Progress)).Map<CameraLens>(static angle => angle)),
+                Right: held => CameraAngle.Validated(double.Lerp(held, goal.Angle, state.Progress)).Map<CameraLens>(static angle => angle)),
             twoPoint: static (state, goal) => state.Held.Match(
                 Left: _ => Fin.Succ(state.Goal),
-                Right: held => Conversions.Validated<CameraAngle, double, InvalidRhinoValue>(double.Lerp(held, goal.Angle, state.Progress))
+                Right: held => CameraAngle.Validated(double.Lerp(held, goal.Angle, state.Progress))
                     .Map<CameraLens>(angle => new CameraLens.TwoPoint(angle, goal.Up))));
 
     // --- [DRIVE]

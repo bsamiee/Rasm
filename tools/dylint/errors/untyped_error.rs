@@ -1,34 +1,48 @@
+use core::{mem, ops::ControlFlow};
+
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_parent_expr, is_lint_allowed,
+    expr_or_init, fn_def_id, get_parent_expr, is_lint_allowed,
+    macros::root_macro_call_first_node,
     res::{MaybeDef as _, MaybeResPath as _},
-    ty::{same_type_modulo_regions, ty_from_hir_ty},
+    sym,
+    ty::{implements_trait, same_type_modulo_regions, ty_from_hir_ty},
+    visitors::for_each_expr,
 };
 use rustc_attr_ir::lang_items::LangItem;
+use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{
-    AmbigArg, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, TraitItem, TyKind,
+    AmbigArg, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, TraitItem, TyKind,
     def::{DefKind, Res},
     def_id::{DefId, LocalDefId},
     intravisit::{self, Visitor},
 };
-use rustc_lint::{LateContext, LateLintPass, declare_lint, declare_lint_pass};
-use rustc_middle::ty::{self, GenericArg, Ty, print::with_forced_trimmed_paths};
-use rustc_span::Span;
+use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
+use rustc_middle::ty::{self, GenericArg, Ty, TypeVisitableExt as _, layout::LayoutOf as _, print::with_forced_trimmed_paths};
+use rustc_span::{Span, Symbol};
 
 use super::{Untyped, classify, output};
-use crate::{delivered, is_error, is_text, result_parts};
+use crate::{constructed, datum, delivered, is_error, is_text, result_parts};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
+
+const HELP: &str = "give the variant typed fields and the wrapped error's own type as its `#[source]`";
+const WRITTEN: &str = "this construction writes the text";
 
 declare_lint! {
     UNTYPED_ERROR,
     Warn,
-    "`Result` errors and error variants holding text, unit, an erased error, a possibly empty error list, a local `Display` type lacking `Error`, or a report erasing first-party errors"
+    "text, unit, non-`Error`, or report `Result` errors, variants holding an erased error, possibly empty list, one-value source, or written text, and dependency errors built from text"
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-declare_lint_pass!(#[derive(Default)] UntypedError => [UNTYPED_ERROR]);
+#[derive(Default)]
+pub(crate) struct UntypedError {
+    written: FxIndexMap<LocalDefId, Span>,
+}
+
+impl_lint_pass!(UntypedError => [UNTYPED_ERROR]);
 
 struct Signature<'pass, 'tcx> {
     cx: &'pass LateContext<'tcx>,
@@ -83,26 +97,33 @@ impl<'tcx> Visitor<'tcx> for Signature<'_, 'tcx> {
 
 impl<'tcx> LateLintPass<'tcx> for UntypedError {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
+        fn singular<'tcx>(cx: &LateContext<'tcx>, held: Ty<'tcx>) -> bool {
+            !held.has_param()
+                && is_error(cx, held)
+                && held.ty_adt_def().is_some_and(|adt| !adt.is_variant_list_non_exhaustive() && adt.variants().iter().all(|variant| !variant.is_field_list_non_exhaustive()))
+                && cx.layout_of(held).is_ok_and(|layout| layout.is_zst() && !layout.is_uninhabited())
+        }
+
         let owner = item.owner_id.def_id;
         let checked = matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::Struct | DefKind::Enum | DefKind::Union | DefKind::TyAlias) && !skipped(cx, item.span, item.hir_id());
         if checked && matches!(item.kind, ItemKind::Struct(..) | ItemKind::Enum(..)) && is_error(cx, cx.tcx.type_of(owner).instantiate_identity().skip_normalization()) {
             let variants = cx.tcx.adt_def(owner).variants().iter().filter_map(|variant| {
-                let mut fields = variant.fields.iter().map(|field| cx.tcx.type_of(field.did).instantiate_identity().skip_normalization());
-                fields
-                    .clone()
-                    .filter_map(|field| classify(cx, field))
-                    .find(|untyped| matches!(untyped, Untyped::Erased | Untyped::Many))
-                    .or_else(|| (!variant.fields.is_empty() && fields.all(|field| is_text(cx, field))).then_some(Untyped::Text))
-                    .zip(variant.def_id.as_local())
-                    .map(|(untyped, local)| (variant, local, untyped))
+                let (reason, help) = variant.fields.iter().find_map(|field| {
+                    let held = cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
+                    match classify(cx, held) {
+                        Some(untyped @ Untyped::Erased) => Some((untyped.reason(), HELP)),
+                        Some(untyped @ Untyped::Many) => Some((untyped.reason(), "hold the errors in a `nonempty_collections::NEVec`")),
+                        _ if singular(cx, held) => Some((
+                            "a source error with one value, which states nothing the variant lacks",
+                            "drop the field, state the source's cause in the variant's message, and convert through `map_err` with the source's one value as its pattern",
+                        )),
+                        _ => None,
+                    }
+                })?;
+                Some((variant, variant.def_id.as_local()?, reason, help))
             });
-            for (variant, local, untyped) in variants {
-                let help = if matches!(untyped, Untyped::Many) {
-                    "hold the errors in a `nonempty_collections::NEVec`"
-                } else {
-                    "give the variant typed fields and the wrapped error's own type as its `#[source]`"
-                };
-                span_lint_hir_and_then(cx, UNTYPED_ERROR, cx.tcx.local_def_id_to_hir_id(local), cx.tcx.def_span(local), format!("error `{}` holds {}", variant.name, untyped.reason()), |diag| {
+            for (variant, local, reason, help) in variants {
+                span_lint_hir_and_then(cx, UNTYPED_ERROR, cx.tcx.local_def_id_to_hir_id(local), cx.tcx.def_span(local), format!("error `{}` holds {reason}", variant.name), |diag| {
                     diag.help(help);
                 });
             }
@@ -156,37 +177,101 @@ impl<'tcx> LateLintPass<'tcx> for UntypedError {
                 .filter(|error| same_type_modulo_regions(*error, returned) && !result_parts(cx, typeck.expr_ty(receiver).peel_refs()).is_some_and(|(_, held)| same_type_modulo_regions(held, *error)))
         }
 
+        fn written(cx: &LateContext<'_>, value: &Expr<'_>) -> Option<Span> {
+            let typeck = cx.typeck_results();
+            let value = expr_or_init(cx, value);
+            let text = |part: &Expr<'_>| is_text(cx, typeck.expr_ty(part));
+            match value.kind {
+                _ if let Some(call) = root_macro_call_first_node(cx, value).filter(|call| cx.tcx.is_diagnostic_item(sym::format_macro, call.def_id)) => Some(call.span),
+                _ if datum(typeck, value) => Some(value.span),
+                ExprKind::AddrOf(_, _, referent) => written(cx, referent),
+                ExprKind::MethodCall(_, source, [], _) | ExprKind::Call(_, [source]) if text(value) && text(source) => written(cx, source),
+                ExprKind::MethodCall(_, _, [], _) | ExprKind::Call(_, [_]) if text(value) => fn_def_id(cx, value).is_diag_item(cx, sym::to_string_method).then_some(value.span),
+                _ => None,
+            }
+        }
+
+        fn converted<'tcx>(cx: &LateContext<'tcx>, node: HirId, target: Ty<'tcx>) -> Option<Ty<'tcx>> {
+            let tcx = cx.tcx;
+            let root = tcx.typeck_root_def_id(tcx.hir_enclosing_body_owner(node).to_def_id()).as_local()?;
+            let (typeck, from) = (tcx.typeck(root), tcx.get_diagnostic_item(sym::From)?);
+            let declared = |method: Option<DefId>, owner: Symbol| method.and_then(|method| tcx.trait_of_assoc(method)).is_some_and(|declared| tcx.is_diagnostic_item(owner, declared));
+            for_each_expr(tcx, tcx.hir_body_owned_by(root).value, |part| {
+                let source = match part.kind {
+                    ExprKind::Match(&Expr { kind: ExprKind::Call(_, [tried]), .. }, _, MatchSource::TryDesugar(_)) => result_parts(cx, typeck.expr_ty(tried)).map(|(_, error)| error),
+                    ExprKind::MethodCall(_, operand, [], _) if declared(typeck.type_dependent_def_id(part.hir_id), sym::Into) && typeck.expr_ty(part) == target => Some(typeck.expr_ty(operand)),
+                    ExprKind::Path(qpath) if declared(typeck.qpath_res(&qpath, part.hir_id).opt_def_id(), sym::From) =>
+                        Some(typeck.node_args(part.hir_id)).filter(|args| args.type_at(0) == target).map(|args| args.type_at(1)),
+                    _ => None,
+                };
+                source
+                    .filter(|&source| source.ty_adt_def().is_some_and(|adt| adt.did().is_local()) && is_error(cx, source) && implements_trait(cx, target, from, &[source.into()]))
+                    .map_or(ControlFlow::Continue(()), ControlFlow::Break)
+            })
+        }
+
         let typeck = cx.typeck_results();
-        let raised = if expr.span.from_expansion() {
-            None
-        } else if let ExprKind::Closure(closure) = expr.kind
-            && !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn)))
+        if let Some((variant, fields)) = constructed(typeck, expr)
+            && let Some(local) = variant.def_id.as_local()
+            && !cx.tcx.def_span(local).from_expansion()
+            && !variant.fields.is_empty()
+            && variant.fields.iter().all(|field| is_text(cx, cx.tcx.type_of(field.did).instantiate_identity().skip_normalization()))
+            && is_error(cx, typeck.expr_ty(expr))
+            && let Some(site) = fields.iter().find_map(|&(_, value)| written(cx, value))
         {
-            output(cx, closure.def_id).and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned))).map(|error| (closure.fn_decl_span, error))
-        } else if let ExprKind::Path(_) = expr.kind
-            && typeck.expr_ty(expr).is_fn()
-        {
-            mapped(cx, expr, typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().output()).map(|error| (expr.span, error))
-        } else if let ExprKind::Call(_, [_]) = expr.kind
-            && fn_def_id(cx, expr).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr)
-        {
-            result_parts(cx, typeck.expr_ty(expr)).map(|(_, error)| (expr.span, error))
-        } else if let ExprKind::Call(..) | ExprKind::MethodCall(..) = expr.kind
-            && let Some(callee) = fn_def_id(cx, expr)
+            self.written.entry(local).or_insert(site);
+        }
+        if let ExprKind::Call(_, arguments) | ExprKind::MethodCall(_, _, arguments, _) = expr.kind
+            && !expr.span.from_expansion()
             && let produced = typeck.expr_ty(expr)
-            && let error = result_parts(cx, produced).map_or(produced, |(_, error)| error)
-            && error.ty_adt_def().is_some_and(|report| report.did().krate == callee.krate)
-            && matches!(classify(cx, error), Some(Untyped::Report))
+            && let Some(foreign) = produced.ty_adt_def().filter(|adt| !adt.did().is_local())
+            && fn_def_id(cx, expr).is_some_and(|callee| callee.krate == foreign.did().krate)
+            && is_error(cx, produced)
+            && let Some(site) = arguments.iter().filter(|argument| is_text(cx, typeck.expr_ty(argument))).find_map(|argument| written(cx, argument))
+            && let Some(converted) = converted(cx, expr.hir_id, produced)
         {
-            Some((expr.span, error))
-        } else {
-            None
+            let (produced, converted) = with_forced_trimmed_paths!((produced.to_string(), converted.to_string()));
+            span_lint_hir_and_then(cx, UNTYPED_ERROR, expr.hir_id, expr.span, format!("`{produced}` is built from written text beside `{converted}`, which converts into it"), |diag| {
+                diag.span_note(site, WRITTEN);
+                diag.help(format!("add a `{converted}` variant holding the subject and raise it through the conversion"));
+            });
+        }
+        let raised = match expr.kind {
+            _ if expr.span.from_expansion() => None,
+            ExprKind::Closure(closure) if !matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) =>
+                output(cx, closure.def_id).and_then(|returned| result_parts(cx, returned).map(|(_, error)| error).or_else(|| mapped(cx, expr, returned))).map(|error| (closure.fn_decl_span, error)),
+            ExprKind::Path(_) if typeck.expr_ty(expr).is_fn() => mapped(cx, expr, typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().output()).map(|error| (expr.span, error)),
+            ExprKind::Call(_, [_]) if fn_def_id(cx, expr).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr) => result_parts(cx, typeck.expr_ty(expr)).map(|(_, error)| (expr.span, error)),
+            ExprKind::Call(..) | ExprKind::MethodCall(..)
+                if let Some(callee) = fn_def_id(cx, expr)
+                    && let produced = typeck.expr_ty(expr)
+                    && let error = result_parts(cx, produced).map_or(produced, |(_, error)| error)
+                    && error.ty_adt_def().is_some_and(|report| report.did().krate == callee.krate)
+                    && matches!(classify(cx, error), Some(Untyped::Report)) =>
+                Some((expr.span, error)),
+            _ => None,
         };
         if let Some((span, error)) = raised
             && let Some(untyped) = classify(cx, error)
             && !output(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)).and_then(|enclosing| result_parts(cx, enclosing)).is_some_and(|(_, enclosing)| same_type_modulo_regions(enclosing, error))
         {
             report(cx, expr.hir_id, span, error, untyped);
+        }
+    }
+
+    fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
+        for (variant, site) in mem::take(&mut self.written) {
+            span_lint_hir_and_then(
+                cx,
+                UNTYPED_ERROR,
+                cx.tcx.local_def_id_to_hir_id(variant),
+                cx.tcx.def_span(variant),
+                format!("error `{}` holds {}", cx.tcx.item_name(variant), Untyped::Text.reason()),
+                |diag| {
+                    diag.span_note(site, WRITTEN);
+                    diag.help(HELP);
+                },
+            );
         }
     }
 }

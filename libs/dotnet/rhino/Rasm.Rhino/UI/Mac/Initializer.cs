@@ -9,12 +9,11 @@ using Eto.Mac.Forms;
 using Eto.Mac.Forms.Controls;
 using Foundation;
 using ObjCRuntime;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rasm.Rhino.Viewport;
 
 [assembly: ExportInitializer(typeof(Rasm.Rhino.UI.Mac.AppKitInitializer), PlatformID = "macOS")]
@@ -24,23 +23,25 @@ namespace Rasm.Rhino.UI.Mac;
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class WorkspaceTheme : IThemeHandler {
     // --- [ACCESSIBILITY]
-    public DisplayOptions Accessibility =>
-        NSWorkspace.SharedWorkspace switch {
-            var workspace => new(
+    public DisplayOptions Accessibility {
+        get {
+            NSWorkspace workspace = NSWorkspace.SharedWorkspace;
+            return new(
                 ReduceMotion: workspace.AccessibilityDisplayShouldReduceMotion,
                 IncreaseContrast: workspace.AccessibilityDisplayShouldIncreaseContrast,
                 DifferentiateWithoutColor: workspace.AccessibilityDisplayShouldDifferentiateWithoutColor,
                 ReduceTransparency: workspace.AccessibilityDisplayShouldReduceTransparency,
-                InvertColors: workspace.AccessibilityDisplayShouldInvertColors),
-        };
+                InvertColors: workspace.AccessibilityDisplayShouldInvertColors);
+        }
+    }
 
     public HostEvent<EventArgs> Changed { get; } =
         new(typeof(NSWorkspace), nameof(NSWorkspace.DisplayOptionsDidChangeNotification), static (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
                 from callback in IO.pure(Callbacks.Handler<NSNotificationEventArgs>(_ => deliver(EventArgs.Empty), site))
-                from accessibility in DisposalOps.Acquire(IO.lift(() => NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(callback)), static token => IO.lift(token.Dispose), owned)
-                from displays in DisposalOps.Acquire(IO.lift(() => NSApplication.Notifications.ObserveDidChangeScreenParameters(callback)), static token => IO.lift(token.Dispose), owned)
-                select unit, (_, lease) => retain(lease)));
+                from accessibility in DisposalOps.Acquire(IO.lift(() => NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(callback)), owned)
+                from displays in DisposalOps.Acquire(IO.lift(() => NSApplication.Notifications.ObserveDidChangeScreenParameters(callback)), owned)
+                select unit, retain));
 
     // --- [FONTS]
     private readonly AtomHashMap<(float Size, bool Bold), Font> faces = AtomHashMap<(float Size, bool Bold), Font>();
@@ -64,10 +65,10 @@ internal static class DisplayLinks {
     // --- [SOURCES]
     internal static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Of(Control view, IPlugInSink sink) =>
         (ticks, retain) => {
-            Action<CADisplayLink> release = static held => DisposalOps.Release(Seq<IDisposable>(held,
+            Action<CADisplayLink> release = static held => DisposalOps.Release<IDisposable>(held,
                 new Disposal<CADisplayLink>(held, static link => _ = Links.Remove(link.Handle)),
-                new Disposal<CADisplayLink>(held, static link => link.Invalidate()))).Run();
-            return from host in IO.lift(() => Missing.Unless(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
+                new Disposal<CADisplayLink>(held, static link => link.Invalidate())).Run();
+            return from host in IO.lift(() => Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
                    from added in IO.lift(() => {
                        nint target = Class.GetHandle(host.GetType());
                        return Targets.FindOrAdd(target, () => Refused.Unless(Eto.Mac.ObjCExtensions.AddMethod(target, Tick.Handle, Deliver, "v@:@"), nameof(Eto.Mac.ObjCExtensions.AddMethod)));
@@ -86,11 +87,9 @@ internal static class DisplayLinks {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class AppKitInitializer : IPlatformInitializer {
     public void Initialize(Platform platform) {
-        platform.Add<Func<Control, IPlugInSink, Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>>>>(static () => DisplayLinks.Of);
+        platform.Add<FrameLink>(static () => DisplayLinks.Of);
         platform.Add<IThemeHandler>(static () => new WorkspaceTheme());
-        platform.Add<Func<IPlugInSink, Control, PixelFrame, Imaging.Color.Transfer, Action<Bitmap>, IO<Bitmap>>>(static () => static (_, view, frame, encoding, retain) => DrawnViews.Raster(view, frame, encoding, retain));
-        platform.Add<Func<IPlugInSink, Control, IO<float>>>(static () => static (_, view) => DrawnViews.Headroom(view));
-        platform.Add<Func<IPlugInSink, MouseEventArgs, PointF, float>>(static () => static (_, _, _) => Optional(NSApplication.SharedApplication.CurrentEvent).Map(static current => (float)current.DeltaX).IfNone(0f));
+        platform.Add<PointerTravel>(static () => static () => Optional(NSApplication.SharedApplication.CurrentEvent).Map(static current => (float)current.DeltaX).IfNone(0f));
         Style.Add<DrawableHandler>(ComponentControl.HandlerStyle, DrawnViews.Attach);
         Style.Add<TextBoxHandler>(NumberField.HandlerStyle, NativeControls.Field);
         Style.Add<RowGrid>(RowGrid.HandlerStyle, NativeControls.Rows);

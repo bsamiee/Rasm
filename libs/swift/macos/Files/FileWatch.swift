@@ -1,4 +1,3 @@
-import CoreServices
 public import CryptoKit
 import Dispatch
 public import Foundation
@@ -7,7 +6,6 @@ import System
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public enum FileWatchFailure: Error {
-    case creation
     case registration
 }
 
@@ -32,25 +30,6 @@ public enum FileWatch {
         }
     }
 
-    private final class EventHandler: Sendable {
-        let receive: @Sendable ([FilePath]) -> Void
-
-        init(receive: @escaping @Sendable ([FilePath]) -> Void) {
-            self.receive = receive
-        }
-
-        static let callback: FSEventStreamCallback = { _, context, count, paths, _, _ in
-            _ = unsafe context.map { context in
-                let handler: EventHandler = unsafe Unmanaged<EventHandler>.fromOpaque(context).takeUnretainedValue()
-                let paths: [FilePath] = unsafe UnsafeBufferPointer(
-                    start: paths.assumingMemoryBound(to: UnsafePointer<CChar>.self),
-                    count: count,
-                ).map(unsafe FilePath.init(platformString:))
-                handler.receive(paths)
-            }
-        }
-    }
-
     private actor Watcher<Value: Equatable & Sendable> {
         // --- [STATE]
         private let file: URL
@@ -58,10 +37,9 @@ public enum FileWatch {
         private let debounce: Duration?
         private let continuation: AsyncThrowingStream<Value, any Error>.Continuation
         private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "\(Bundle.identity).filewatch")
-        private var stopStream: (() -> Void)?
+        private var sources: [any DispatchSourceFileSystemObject] = []
         private var pending: Task<Void, Never>?
         private var value: Value?
-        private var resolved: FilePath
 
         init(
             file: URL,
@@ -70,7 +48,6 @@ public enum FileWatch {
             continuation: AsyncThrowingStream<Value, any Error>.Continuation,
         ) {
             self.file = file
-            resolved = FilePath(file.resolvingSymlinksInPath().path(percentEncoded: false))
             self.read = read
             self.debounce = debounce
             self.continuation = continuation
@@ -84,54 +61,10 @@ public enum FileWatch {
         }
 
         func start() {
-            let handler: EventHandler = EventHandler { [weak self] paths in
-                self?.assumeIsolated { watcher in
-                    let file: FilePath = FilePath(watcher.file.path(percentEncoded: false))
-                    if paths.contains(where: { file.starts(with: $0) || watcher.resolved.starts(with: $0) }) {
-                        watcher.resolved = FilePath(watcher.file.resolvingSymlinksInPath().path(percentEncoded: false))
-                        watcher.scheduleEmit()
-                    }
-                }
-            }
-            var context: FSEventStreamContext = unsafe FSEventStreamContext(
-                version: 0,
-                info: Unmanaged.passUnretained(handler).toOpaque(),
-                retain: { context in
-                    unsafe context.map { context in
-                        unsafe UnsafeRawPointer(Unmanaged<EventHandler>.fromOpaque(context).retain().toOpaque())
-                    }
-                },
-                release: { context in
-                    _ = unsafe context.map { context in unsafe Unmanaged<EventHandler>.fromOpaque(context).release() }
-                },
-                copyDescription: nil,
-            )
-            let created: FSEventStreamRef? = unsafe withExtendedLifetime(handler) {
-                unsafe FSEventStreamCreate(
-                    nil,
-                    EventHandler.callback,
-                    &context,
-                    [NSOpenStepRootDirectory()] as CFArray,
-                    FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-                    0,
-                    FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents),
-                )
-            }
-            guard let stream: FSEventStreamRef = unsafe created else {
-                continuation.finish(throwing: FileWatchFailure.creation)
-                return
-            }
-            unsafe FSEventStreamSetDispatchQueue(stream, queue)
-            guard unsafe FSEventStreamStart(stream) else {
-                unsafe FSEventStreamInvalidate(stream)
-                unsafe FSEventStreamRelease(stream)
+            arm()
+            guard !sources.isEmpty else {
                 continuation.finish(throwing: FileWatchFailure.registration)
                 return
-            }
-            stopStream = {
-                unsafe FSEventStreamStop(stream)
-                unsafe FSEventStreamInvalidate(stream)
-                unsafe FSEventStreamRelease(stream)
             }
             let current: Value = read(file)
             value = .some(current)
@@ -140,8 +73,41 @@ public enum FileWatch {
 
         func stop() {
             pending?.cancel()
-            stopStream?()
-            stopStream = nil
+            for source: any DispatchSourceFileSystemObject in sources { source.cancel() }
+            sources = []
+        }
+
+        // --- [SOURCES]
+        private func arm() {
+            for source: any DispatchSourceFileSystemObject in sources { source.cancel() }
+            let paths: Set<FilePath> = [
+                FilePath(file.path(percentEncoded: false)), FilePath(file.resolvingSymlinksInPath().path(percentEncoded: false)),
+            ]
+            sources = paths.flatMap { path in
+                let ancestors: UnfoldFirstSequence<FilePath> = sequence(first: path.removingLastComponent()) { directory in
+                    directory.components.isEmpty ? nil : directory.removingLastComponent()
+                }
+                return [source(path), ancestors.lazy.compactMap(source).first { _ in true }].compactMap(\.self)
+            }
+        }
+
+        private func source(_ path: FilePath) -> any DispatchSourceFileSystemObject? {
+            (try? FileDescriptor.open(path, .readOnly, options: [.eventOnly, .closeOnExec])).map { descriptor in
+                let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(
+                    fileDescriptor: descriptor.rawValue,
+                    eventMask: .all,
+                    queue: queue,
+                )
+                source.setEventHandler { [weak self] in
+                    self?.assumeIsolated { watcher in
+                        watcher.arm()
+                        watcher.scheduleEmit()
+                    }
+                }
+                source.setCancelHandler { _ = try? descriptor.close() }
+                source.activate()
+                return source
+            }
         }
 
         // --- [EVENTS]

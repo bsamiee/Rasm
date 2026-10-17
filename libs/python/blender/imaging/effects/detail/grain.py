@@ -2,8 +2,7 @@
 
 import functools
 import math
-import sys
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Final
 
 from expression import Some
 import msgspec
@@ -17,13 +16,19 @@ from blender.imaging.chain import Effect, GREY, Stage
 from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import read_file
 from blender.imaging.hashing import content_hash, ContentHash, rng
-from blender.imaging.parameters import Case, GraphForm, Motion, Presentation, Quantity, Seed
+from blender.imaging.parameters import Case, FrameExtent, GraphForm, Motion, NonNegative, Presentation, Seed, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 type Source = Procedural | Scan
 type Medium = Film | Sensor
+type Deviation = Annotated[float, msgspec.Meta(ge=0.0, le=float(np.sqrt(np.finfo(np.float32).max)))]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+SHOT_OVERFLOW: Final = math.sqrt(float(np.finfo(np.float32).max) * GREY)
+SHOT_LIMIT: Final = float(np.float32(SHOT_OVERFLOW) if float(np.float32(SHOT_OVERFLOW)) <= SHOT_OVERFLOW else np.nextafter(np.float32(SHOT_OVERFLOW), np.float32(0)))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,40 +36,42 @@ type Medium = Film | Sensor
 class Procedural(Case, frozen=True, kw_only=True, tag=1):
     """Gaussian grain drawn from a seeded stream and filtered to its diameter."""
 
-    title = "Procedural"
     diameters: ClassVar[int] = 512
-    size: Annotated[
-        float,
-        msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Size", description="Grain diameter as a share of the frame's greater side"),
-        Presentation(soft=Some((0.0002, 0.005)), decimals=Some(5), quantity=Some(Quantity.FRAME_GREATER)),
-    ] = 2.0 / 1920.0
+    side: ClassVar[int] = 2 * diameters
+    size: Annotated[FrameExtent, msgspec.Meta(description="Grain diameter as a share of the frame's greater side"), Presentation(soft=Some((0.0002, 0.005)), decimals=Some(5))] = 2.0 / 1920.0
 
     @staticmethod
     def key() -> ContentHash:
-        """Returns the content key seeding the draw and naming the packed tile."""
+        """Returns the content key seeding the draw."""
         return content_hash(Procedural, providers=(np,))
 
     @staticmethod
     @functools.cache
+    def packed() -> ContentHash:
+        """Returns the baked tile's content key naming its packed image."""
+        return content_hash(Procedural, arrays=(Procedural.tile(),))
+
+    @staticmethod
+    @functools.cache
     def tile() -> npt.NDArray[np.float32]:
-        """Bakes four normal channels on a seamless tile at one texel deviation."""
-        side = 2 * Procedural.diameters
-        frequency = np.fft.fftfreq(side)
+        """Bakes four standardized channels of filtered normal draws on a seamless tile."""
+        frequency = np.fft.fftfreq(Procedural.side)
         response = np.exp(-2.0 * np.pi**2 * (frequency[:, None] ** 2 + frequency**2))
-        draw = rng(Procedural.key()).standard_normal((4, side, side), dtype=np.float32)
-        return np.ascontiguousarray(np.moveaxis(np.fft.irfft2(np.fft.rfft2(draw) * response[:, : side // 2 + 1]) / np.sqrt(np.mean(response**2)), 0, -1), dtype=np.float32)
+        draw = rng(Procedural.key()).standard_normal((4, Procedural.side, Procedural.side), dtype=np.float32)
+        return standardized(np.moveaxis(np.fft.irfft2(np.fft.rfft2(draw) * response[:, : Procedural.side // 2 + 1]), 0, -1))
+
+    @staticmethod
+    @functools.cache
+    def correlation() -> npt.NDArray[np.float64]:
+        """Returns the baked tile's neighbour correlations."""
+        return correlated(Procedural.tile())
 
 
 class Scan(Case, frozen=True, kw_only=True, tag=2):
     """Scanned grain image tiled over the frame."""
 
-    title = "Scan"
     path: Annotated[str, msgspec.Meta(title="File", description="Grain image in a format OpenImageIO reads"), GraphForm.IMAGE]
-    span: Annotated[
-        float,
-        msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Span", description="Tile width as a share of the frame's greater side"),
-        Presentation(soft=Some((0.05, 1.0)), quantity=Some(Quantity.FRAME_GREATER)),
-    ] = 1.0
+    span: Annotated[FrameExtent, msgspec.Meta(description="Tile width as a share of the frame's greater side"), Presentation(soft=Some((0.05, 1.0)))] = 1.0
 
     def tile(self, config: PyOpenColorIO.Config) -> ImagingResult[npt.NDArray[np.float32]]:
         """Reads data samples into four normal-score channels, retaining imaging faults."""
@@ -76,60 +83,66 @@ class Scan(Case, frozen=True, kw_only=True, tag=2):
 class Film(Case, frozen=True, kw_only=True, tag=1):
     """Grain multiplying light by a lognormal factor, weighted by tone."""
 
-    title = "Film"
-    field: Annotated[Source, msgspec.Meta(title="Field", description="Procedural grain or a scanned image")] = Procedural()
-    granularity: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Granularity", description="Deviation of the log grain factor")] = 0.0
-    shadows: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Shadows", description="Grain weight below the shadow edge")] = 1.0
-    midtones: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Midtones", description="Grain weight between the shadow and highlight bands")] = 1.0
-    highlights: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Highlights", description="Grain weight above the highlight band")] = 1.0
-    shadow_edge: Annotated[
-        float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Shadow Edge", description="Luminance where the shadow weight reaches zero"), Presentation(soft=Some((0.0, 0.5)), decimals=Some(3))
-    ] = 0.09
-    midtone_span: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Midtone Span", description="Luminance from the shadow edge to the highlight band"),
-        Presentation(soft=Some((0.0, 2.0)), decimals=Some(3)),
-    ] = 0.5 - 0.09
-    highlight_span: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Highlight Span", description="Luminance from the highlight band's start to its full weight"),
-        Presentation(soft=Some((0.0, 4.0)), decimals=Some(3)),
-    ] = 1.0 - 0.5
+    field: Annotated[Source, msgspec.Meta(description="Procedural grain or a scanned image")] = Procedural()
+    granularity: Annotated[Deviation, msgspec.Meta(description="Deviation of the log grain factor"), Presentation(soft=Some((0.0, 0.5)))] = 0.0
+    shadows: Annotated[Unit, msgspec.Meta(description="Grain weight below the shadow edge")] = 1.0
+    midtones: Annotated[Unit, msgspec.Meta(description="Grain weight between the shadow and highlight bands")] = 1.0
+    highlights: Annotated[Unit, msgspec.Meta(description="Grain weight above the highlight band")] = 1.0
+    shadow_edge: Annotated[NonNegative, msgspec.Meta(description="Luminance where the shadow weight reaches zero"), Presentation(soft=Some((0.0, 0.5)), decimals=Some(3))] = 0.09
+    midtone_span: Annotated[NonNegative, msgspec.Meta(description="Luminance from the shadow edge to the highlight band"), Presentation(soft=Some((0.0, 2.0)), decimals=Some(3))] = 0.5 - 0.09
+    highlight_span: Annotated[NonNegative, msgspec.Meta(description="Luminance from the highlight band's start to its full weight"), Presentation(soft=Some((0.0, 4.0)), decimals=Some(3))] = 1.0 - 0.5
 
 
 class Sensor(Case, frozen=True, kw_only=True, tag=2):
     """Shot and read noise added at the deviation each signal sets."""
 
-    title = "Sensor"
-    shot: Annotated[
-        float, msgspec.Meta(ge=0.0, le=1.0, title="Shot", description="Noise deviation at scene-linear grey from the photon count"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))
-    ] = 0.1875 * 0.25 * math.sqrt(GREY)
-    read: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Read", description="Noise deviation independent of the signal"), Presentation(soft=Some((0.0, 0.05)), decimals=Some(4))] = 0.0
+    shot: Annotated[float, msgspec.Meta(ge=0.0, le=SHOT_LIMIT, description="Noise deviation at scene-linear grey from the photon count"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))] = (
+        0.1875 * 0.25 * math.sqrt(GREY)
+    )
+    read: Annotated[Deviation, msgspec.Meta(description="Noise deviation independent of the signal"), Presentation(soft=Some((0.0, 0.05)), decimals=Some(4))] = 0.0
 
 
 class Grain(Effect, frozen=True, kw_only=True, tag=22):
     """Film grain multiplying light, or sensor noise at the signal's deviation."""
 
     stage = Stage.GRAIN
-    title = "Grain"
     pointwise = False
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
-    medium: Annotated[Medium, msgspec.Meta(title="Medium", description="Film grain or sensor noise")] = Film()
-    chroma: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Chroma", description="Share of each channel's own noise against noise every channel shares")] = 0.0
-    motion: Annotated[Motion, msgspec.Meta(title="Motion", description="Rate the grain or noise changes over time")] = Motion()
-    seed: Annotated[Seed, msgspec.Meta(title="Seed", description="Grain or noise of equal statistics the entry draws")] = 0
+    medium: Annotated[Medium, msgspec.Meta(description="Film grain or sensor noise")] = Film()
+    chroma: Annotated[Unit, msgspec.Meta(description="Share of each channel's own noise against noise every channel shares")] = 0.0
+    motion: Annotated[Motion, msgspec.Meta(description="Rate the grain or noise changes over time")] = Motion()
+    seed: Annotated[Seed, msgspec.Meta(description="Grain or noise of equal statistics the entry draws")] = 0
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def standardized(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32]:
+    """Shifts and scales each channel to zero mean and unit second moment over the plane."""
+    centered = np.asarray(plane, dtype=np.float64) - np.mean(plane, axis=(0, 1), dtype=np.float64)
+    return np.ascontiguousarray(centered / np.sqrt(np.mean(centered**2, axis=(0, 1))), dtype=np.float32)
+
+
 def ranked(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32]:
-    """Maps each channel to normal scores with average ranks for tied values."""
+    """Maps each channel to standardized normal scores with average ranks for tied values."""
     values = np.asarray(plane.reshape(-1, plane.shape[-1]), dtype=np.float64)
-    return np.ascontiguousarray(ndtri((rankdata(values, axis=0) - 0.5) / values.shape[0]).reshape(plane.shape), dtype=np.float32)
+    return standardized(ndtri((rankdata(values, axis=0) - 0.5) / values.shape[0]).reshape(plane.shape))
+
+
+def correlated(plane: npt.NDArray[np.float32]) -> npt.NDArray[np.float64]:
+    """Returns each channel's mean product between the texels one bilinear sample blends, wrapping as the repeated tile does.
+
+    Args:
+        plane: Tile rows by columns by channels.
+
+    Returns:
+        Rows of the correlation across the width, across the height, along the diagonal, and along the antidiagonal, one column per channel of a standardized plane.
+    """
+    values = np.asarray(plane, dtype=np.float64)
+    right, down = np.roll(values, -1, axis=1), np.roll(values, -1, axis=0)
+    return np.stack([np.mean(pair, axis=(0, 1)) for pair in (values * right, values * down, values * np.roll(right, -1, axis=0), right * down)])
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Film", "Grain", "Medium", "Procedural", "Scan", "Sensor", "Source", "ranked"]
+__all__ = ["Deviation", "Film", "Grain", "Medium", "Procedural", "Scan", "Sensor", "Source", "correlated", "ranked", "standardized"]

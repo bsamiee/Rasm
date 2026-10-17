@@ -6,7 +6,7 @@ rule:
     kind: macro_invocation
     pattern: $REDRAW
     all:
-        - has: {field: macro, regex: '^((::)?(std|core)::)?(e?print(ln)?|write(ln)?)$'}
+        - matches: {rust-std-macro: {name: {regex: '^(e?print(ln)?|write(ln)?)$'}}}
         - any:
             - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\\r([^\\"]|\\[^n])'}}
             - all:

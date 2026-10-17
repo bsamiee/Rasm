@@ -10,7 +10,7 @@ utils:
                 inside:
                     field: return_type
                     any:
-                        - matches: syntax-function-boundary
+                        - matches: typescript-function-boundary
                         - kind: method_signature, function_signature, abstract_method_signature, call_signature
             - inside: {kind: function_type, field: return_type}
             - inside: {kind: type_alias_declaration, field: value}

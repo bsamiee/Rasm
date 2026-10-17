@@ -30,9 +30,9 @@ public sealed record GroundPlaneState(
 
     public static IO<GroundPlaneState> Write(RenderSettingsScope scope, GroundPlaneState state) =>
         from values in IO.lift((
-            state.Altitude.Traverse(height => Model(height, scope.Units, double.MinValue)).As(),
-            Model(state.TextureOffsetX, scope.Units, double.MinValue), Model(state.TextureOffsetY, scope.Units, double.MinValue),
-            Model(state.TextureSizeX, scope.Units, 0d), Model(state.TextureSizeY, scope.Units, 0d))
+            state.Altitude.Traverse(height => Model(height, scope.Units, GroundPlaneParameter.Height)).As(),
+            Model(state.TextureOffsetX, scope.Units, GroundPlaneParameter.Offset), Model(state.TextureOffsetY, scope.Units, GroundPlaneParameter.Offset),
+            Model(state.TextureSizeX, scope.Units, GroundPlaneParameter.Size), Model(state.TextureSizeY, scope.Units, GroundPlaneParameter.Size))
             .Apply(static (altitude, x, y, width, height) => (Altitude: altitude, Offset: new Vector2d(x, y), Size: new Vector2d(width, height))).As().ToFin())
         let accepted = state with { MaterialInstanceId = Material(Conversions.Unset(state.MaterialInstanceId)) }
         from written in RenderSettingsSources.SubOwner(scope, static settings => settings.GroundPlane, plane => IO.lift(() => {
@@ -45,10 +45,10 @@ public sealed record GroundPlaneState(
     private static Fin<GroundPlaneState> Capture(GroundPlane plane, LengthUnit units) =>
         (plane.TextureOffset, plane.TextureSize) switch {
             var (offset, size) =>
-                (Callbacks.Found(!plane.AutoAltitude, plane.Altitude).Traverse(height => Measured(height, units, double.MinValue)).As(),
-                 Measured(offset.X, units, double.MinValue), Measured(offset.Y, units, double.MinValue),
-                 Measured(size.X, units, 0d), Measured(size.Y, units, 0d),
-                 Conversions.Validated<NorthAngle, double, InvalidRhinoValue>(plane.TextureRotation).ToValidation())
+                (Callbacks.Found(!plane.AutoAltitude, plane.Altitude).Traverse(height => Measured(height, units, GroundPlaneParameter.Height)).As(),
+                 Measured(offset.X, units, GroundPlaneParameter.Offset), Measured(offset.Y, units, GroundPlaneParameter.Offset),
+                 Measured(size.X, units, GroundPlaneParameter.Size), Measured(size.Y, units, GroundPlaneParameter.Size),
+                 NorthAngle.Validated(plane.TextureRotation).ToValidation())
                     .Apply((altitude, offsetX, offsetY, sizeX, sizeY, rotation) => new GroundPlaneState(
                         plane.Enabled, plane.ShowUnderside, altitude, plane.ShadowOnly, plane.TextureOffsetLocked, offsetX, offsetY,
                         plane.TextureSizeLocked, sizeX, sizeY, rotation, Material(plane.MaterialInstanceId)))
@@ -65,74 +65,61 @@ public sealed record GroundPlaneState(
             },
         };
 
-    private static Validation<Error, Length> Measured(double value, LengthUnit units, double minimum) =>
-        value >= minimum && value <= double.MaxValue
-            ? Success<Error, Length>(Quantities.From(value, units))
-            : Fail<Error, Length>(new InvalidRhinoValue());
+    private static Validation<Error, Length> Measured(double value, LengthUnit units, NumericDomain<Length, double> domain) =>
+        domain.Admit(Quantities.From(value, units)).ToValidation();
 
     private static Option<Guid> Material(Guid id) => Conversions.Present(id).Filter(static held => held != ContentUuids.DefaultMaterialInstance);
 
-    private static Validation<Error, double> Model(Length length, LengthUnit units, double minimum) =>
-        Quantities.As(length, units) switch {
-            var model when model >= minimum && model <= double.MaxValue => Success<Error, double>(model),
-            _ => Fail<Error, double>(new InvalidRhinoValue()),
-        };
+    private static Validation<Error, double> Model(Length length, LengthUnit units, NumericDomain<Length, double> domain) =>
+        domain.Admit(length).Map(held => Quantities.As(held, units)).ToValidation();
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class GroundPlaneParameter : IRowParameter<GroundPlaneState> {
-    private static readonly (double Low, double High) SignedBounds = (double.MinValue, double.MaxValue);
-    private static readonly (double Low, double High) SizeBounds = (0d, double.MaxValue);
-    private static readonly Func<Length, double> MetresKey = static length => length.Meters.ToDouble();
-    private static readonly Presentation<double> Size =
-        new() { Unit = Quantity.GetUnitInfo(UnitsNet.Units.LengthUnit.Meter), Soft = (0.01d, 10d), Step = 0.01d, Decimals = 2 };
-    private static readonly Presentation<double> Offset =
-        new() { Unit = Quantity.GetUnitInfo(UnitsNet.Units.LengthUnit.Meter), Soft = (-1d, 1d), Step = 0.01d, Decimals = 2 };
+public sealed partial class GroundPlaneParameter : IStateParameter<GroundPlaneState> {
+    internal static readonly NumericDomain<Length, double> Height = NumericDomain.Metres((double.MinValue, double.MaxValue), new() { Form = NumberForm.Field, Origin = 0d });
+    internal static readonly NumericDomain<Length, double> Offset = NumericDomain.Metres((double.MinValue, double.MaxValue), new() { Soft = (-1d, 1d), Step = 0.01d, Decimals = 2 });
+    internal static readonly NumericDomain<Length, double> Size = NumericDomain.Metres((0d, double.MaxValue), new() { Soft = (0.01d, 10d), Step = 0.01d, Decimals = 2 });
 
     public static readonly GroundPlaneParameter Enabled = new("enabled", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
-        ParameterText.Of("Show Ground Plane", "Renders the ground plane"));
+        new("Show ground plane", "Renders the ground plane"));
     public static readonly GroundPlaneParameter ShowUnderside = new("show-underside", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.ShowUnderside, static on => state => state with { ShowUnderside = on })),
-        ParameterText.Of("Show underside", "Renders the plane's underside, off renders it single-sided"));
+        new("Show underside", "Renders the plane's underside, off renders it single-sided"));
     public static readonly GroundPlaneParameter Altitude = new("altitude", new StateParameter<GroundPlaneState>.OptionalNumeric<Length, double>(Lens<GroundPlaneState, Gated<Length>>.New(
         static state => state.Altitude.Match(Some: static height => new Gated<Length>(Enabled: true, height), None: static () => new Gated<Length>(Enabled: false, Length.Zero)),
         static gate => state => state with { Altitude = gate.Active }),
-        Metres(SignedBounds.Low), MetresKey, SignedBounds, new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(UnitsNet.Units.LengthUnit.Meter), Origin = 0d }),
-        ParameterText.Of("Height above world XY", "Fixed height of the plane, off places it at the automatic height below the lowest object"));
+        Height),
+        new("Height above world XY", "Fixed height of the plane, off places it at the automatic height below the lowest object"));
     public static readonly GroundPlaneParameter ShadowOnly = new("shadow-only", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.ShadowOnly, static on => state => state with { ShadowOnly = on })),
-        ParameterText.Of("Show shadows only", "Catches shadows alone, off renders the plane's material"));
+        new("Show shadows only", "Catches shadows alone, off renders the plane's material"));
     public static readonly GroundPlaneParameter TextureOffsetLocked = new("texture-offset-locked", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.TextureOffsetLocked, static locked => state => state with { TextureOffsetLocked = locked })),
-        ParameterText.Of("Lock offset", "Moves both offset axes together"));
-    public static readonly GroundPlaneParameter TextureOffsetX = new("texture-offset-x", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureOffsetX, static offset => state => state with { TextureOffsetX = offset }), Metres(SignedBounds.Low), MetresKey, SignedBounds, Offset),
-        ParameterText.Of("Offset X", "Texture offset along world X"));
-    public static readonly GroundPlaneParameter TextureOffsetY = new("texture-offset-y", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureOffsetY, static offset => state => state with { TextureOffsetY = offset }), Metres(SignedBounds.Low), MetresKey, SignedBounds, Offset),
-        ParameterText.Of("Offset Y", "Texture offset along world Y"));
+        new("Lock offset", "Moves both offset axes together"));
+    public static readonly GroundPlaneParameter TextureOffsetX = new("texture-offset-x", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureOffsetX, static offset => state => state with { TextureOffsetX = offset }), Offset),
+        new("Offset X", "Texture offset along world X"));
+    public static readonly GroundPlaneParameter TextureOffsetY = new("texture-offset-y", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureOffsetY, static offset => state => state with { TextureOffsetY = offset }), Offset),
+        new("Offset Y", "Texture offset along world Y"));
     public static readonly GroundPlaneParameter TextureSizeLocked = new("texture-size-locked", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.TextureSizeLocked, static locked => state => state with { TextureSizeLocked = locked })),
-        ParameterText.Of("Lock size", "Scales both size axes together"));
-    public static readonly GroundPlaneParameter TextureSizeX = new("texture-size-x", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureSizeX, static size => state => state with { TextureSizeX = size }), Metres(SizeBounds.Low), MetresKey, SizeBounds, Size),
-        ParameterText.Of("Size X", "Texture repeat size along world X"));
-    public static readonly GroundPlaneParameter TextureSizeY = new("texture-size-y", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureSizeY, static size => state => state with { TextureSizeY = size }), Metres(SizeBounds.Low), MetresKey, SizeBounds, Size),
-        ParameterText.Of("Size Y", "Texture repeat size along world Y"));
-    public static readonly GroundPlaneParameter TextureRotation = new("texture-rotation", StateParameter.Bounded<GroundPlaneState, NorthAngle, double, InvalidRhinoValue>(Lens<GroundPlaneState, NorthAngle>.New(static state => state.TextureRotation, static rotation => state => state with { TextureRotation = rotation }),
-        new() { Unit = Quantity.GetUnitInfo(UnitsNet.Units.AngleUnit.Degree), Step = 1d, Decimals = 0 }),
-        ParameterText.Of("Rotation", "Texture rotation about the world origin plus the offset"));
+        new("Lock size", "Scales both size axes together"));
+    public static readonly GroundPlaneParameter TextureSizeX = new("texture-size-x", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureSizeX, static size => state => state with { TextureSizeX = size }), Size),
+        new("Size X", "Texture repeat size along world X"));
+    public static readonly GroundPlaneParameter TextureSizeY = new("texture-size-y", new StateParameter<GroundPlaneState>.Numeric<Length, double>(Lens<GroundPlaneState, Length>.New(static state => state.TextureSizeY, static size => state => state with { TextureSizeY = size }), Size),
+        new("Size Y", "Texture repeat size along world Y"));
+    public static readonly GroundPlaneParameter TextureRotation = new("texture-rotation", StateParameter.Bounded(Lens<GroundPlaneState, NorthAngle>.New(static state => state.TextureRotation, static rotation => state => state with { TextureRotation = rotation }),
+        new Presentation<double> { Unit = Quantity.GetUnitInfo(UnitsNet.Units.AngleUnit.Degree), Step = 1d, Decimals = 0 }),
+        new("Rotation", "Texture rotation about the world origin plus the offset"));
     public static readonly GroundPlaneParameter MaterialInstanceId = new("material-instance-id", new StateParameter<GroundPlaneState>.OptionalRaw<Guid>(
         Lens<GroundPlaneState, Option<Guid>>.New(static state => state.MaterialInstanceId, static material => state => state with { MaterialInstanceId = material })),
-        ParameterText.Of("Material", "The render material instance assigned to the ground plane"));
+        new("Material", "The render material instance assigned to the ground plane"));
 
     public StateParameter<GroundPlaneState> Kind { get; }
 
     public ParameterText Text { get; }
-
-    private static Func<double, Fin<Length>> Metres(double minimum) =>
-        value => value >= minimum && value <= double.MaxValue ? Fin.Succ(Length.FromMeters(value)) : new InvalidRhinoValue();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

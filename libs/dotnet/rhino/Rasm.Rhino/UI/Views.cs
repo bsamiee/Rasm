@@ -3,9 +3,9 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
@@ -34,16 +34,15 @@ public interface IPlugInViews : IPlugInSink {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class HelpTopic {
     public IO<Unit> Show => IO.lift(() => Refused.Unless(RhinoHelp.Show(_value), nameof(RhinoHelp.Show)));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed
-            ? (trimmed, default(InvalidRhinoValue))
-            : (value, new InvalidRhinoValue());
+            ? (trimmed, default(ValidationError))
+            : (value, new ValidationError("help topic is blank"));
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -154,7 +153,7 @@ public abstract partial record View {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ViewStore {
     public Option<Func<RhinoDoc, Guid, ValueStore<LanguageExt.HashSet<EntryKey>>>> Locks { get; init; }
-    public Option<Func<IPlugInViews, RhinoDoc, Fin<BindingGroup>>> Bindings { get; init; }
+    public Option<Func<IPlugInViews, RhinoDoc, IO<BindingGroup>>> Bindings { get; init; }
 
     public sealed record ApplicationStores : ViewStore;
 
@@ -219,10 +218,10 @@ public sealed class ShownSubscription(Func<Action<IDisposable>, IO<Unit>> listen
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewOps {
     // --- [STORES]
-    public static Fin<BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
+    public static IO<BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
         view.Store.Bind(static store => store.Bindings).Match(
-            Some: stored => scope.Document.ToFin(new UnsupportedView(view.Identity, None)).Bind(doc => stored(owner, doc)),
-            None: () => Fin.Succ(new BindingGroup(Sources(view).Map(source => source.Values(scope)))));
+            Some: stored => IO.lift(scope.Document.ToFin(Error.New($"{view.Identity.Name} is a view its host cannot hold"))).Bind(doc => stored(owner, doc)),
+            None: () => IO.pure(new BindingGroup(Sources(view).Map(source => source.Values(scope)))));
 
     public static Option<ValueStore<LanguageExt.HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
         from doc in document
@@ -237,8 +236,8 @@ public static class ViewOps {
                 applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Owner.Histories),
                 documentStores: static (state, held) => state.Document
                     .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, new CallbackSite(state.Owner, state.View.Identity, nameof(History))))
-                    .ToFin(new UnsupportedView(state.View.Identity, None)))
-            .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, table: Some<object>(owner)).Local, bound, scope, owner.Limits, owner.Clock));
+                    .ToFin(Error.New($"{state.View.Identity.Name} is a view its host cannot hold")))
+            .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, owner.Limits, owner.Clock));
 
     private static Seq<RowSource> Sources(View view) =>
         view.Children.Bind(static child => child.Controls).Choose(static row => row.Bound).Distinct();
@@ -246,15 +245,13 @@ public static class ViewOps {
     // --- [REALIZATION]
     public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from stack in DisposalOps.Acquire(
-                IO.lift(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel)),
-                static stack => IO.lift(stack.Dispose), owned)
+            from stack in DisposalOps.Acquire(IO.lift(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel)), owned)
             from parts in Runs(children).TraverseM(run => Part(owner, children, run, scope, owned)).As()
             from configured in IO.lift(() => {
                 stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                 _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
             })
-            select (Control)stack, (_, release) => retain(release));
+            select (Control)stack, retain);
 
     private static Seq<(Child Lead, Seq<Child> Run)> Runs(Seq<Child> children) =>
         children.FoldBack(Seq<(Child Lead, Seq<Child> Run)>(), static (runs, child) =>
@@ -276,11 +273,12 @@ public static class ViewOps {
     // --- [LISTENERS]
     public static IO<Unit> WhileLoaded(Control control, Func<Action<IDisposable>, IO<Unit>> listen, CallbackSite site, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from subscription in DisposalOps.Acquire(IO.lift(() => new ShownSubscription(listen)), static held => IO.lift(held.Dispose), owned)
+            from subscription in DisposalOps.Acquire(IO.lift(() => new ShownSubscription(listen)), owned)
             from loaded in Subscriptions.Attach(
-                handler => control.Load += handler, handler => control.Load -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: true), site), owned)
+                handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: true), site), owned)
             from unloaded in Subscriptions.Attach(
                 handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: false), site), owned)
             from current in subscription.Shown(control.Loaded)
-            select unit, (_, release) => retain(release));
+            select unit, retain);
+
 }

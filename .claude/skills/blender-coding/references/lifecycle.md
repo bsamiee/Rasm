@@ -45,7 +45,7 @@ def acquisitions(identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
 
         def touched(_: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> BlenderResult[None]:
             for update in updates:
-                deferred(Handle.of(update.id))
+                deferred(Update.of(update).handle)
             return Ok(None)
 
         yield Ok((UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Image,), body=touched),))

@@ -100,11 +100,34 @@ NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"",
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7406/"
 tool_timeout_sec            = 600
+disabled_tools              = [
+    "run_python",
+    "g1_apply_graph",
+    "g1_clear_canvas",
+    "g1_connect",
+    "g1_connect_many",
+    "g1_delete_component",
+    "g1_describe_component",
+    "g1_get_canvas_graph",
+    "g1_place_component",
+    "g1_place_slider",
+    "g1_search_components",
+    "g1_solve_graph",
+    "g1_start",
+]
 
 [mcp_servers.blender]
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7407/"
 tool_timeout_sec            = 600
+disabled_tools              = [
+    "execute_blender_code_for_cli",
+    "get_blendfile_summary_datablocks_for_cli",
+    "get_blendfile_summary_missing_files_for_cli",
+    "get_blendfile_summary_of_linked_libraries_for_cli",
+    "get_blendfile_summary_path_info_for_cli",
+    "get_blendfile_summary_usage_guess_for_cli",
+]
 
 [mcp_servers.mcp-for-blender]
 default_tools_approval_mode = "approve"
@@ -144,4 +167,4 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type    = "command"
-command = 'node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts"'
+command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts"'

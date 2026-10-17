@@ -15,28 +15,24 @@ public static class UnitText {
         Parsed(text, settings, LengthUnit.None);
 
     private static IO<double> Parsed(string text, StringParserSettings settings, LengthUnit spaceUnit) =>
-        (from parsed in use(() => (Value: LengthValue.Create(text, settings, out bool whole), Whole: whole), static parsed => parsed.Value.Dispose())
-         let refused = new UnparsedText(typeof(LengthValue), nameof(LengthValue.Create), text)
-         from value in IO.lift(() => parsed.Whole && !parsed.Value.IsUnset() ? Read(parsed.Value, spaceUnit, refused) : refused)
-         select value)
-            .Bracket();
+        DisposalOps.Within(() => (Value: LengthValue.Create(text, settings, out bool whole), Whole: whole),
+            parsed => IO.pure(Errors.ParseError($"{nameof(LengthValue)}.{nameof(LengthValue.Create)} parsed no whole value from {text}"))
+                .Bind(refused => IO.lift(() => parsed.Whole && !parsed.Value.IsUnset() ? Read(parsed.Value, spaceUnit, refused) : refused)),
+            static parsed => IO.lift(parsed.Value.Dispose));
 
-    private static Fin<double> Read(LengthValue parsed, LengthUnit spaceUnit, UnparsedText refused) =>
+    private static Fin<double> Read(LengthValue parsed, LengthUnit spaceUnit, Error refused) =>
         LengthUnit.IsNone(parsed.Units) || !LengthUnit.IsNone(spaceUnit) ? parsed.Length(spaceUnit) : refused;
 
     // --- [SCALES]
     public static IO<DrawingScale> ParseScale(string text, StringParserSettings settings, LengthUnit spaceUnit) =>
-        (from scale in use(() => ScaleValue.Create(text, settings))
-         from paper in use(scale.LeftLengthValue)
-         from model in use(scale.RightLengthValue)
-         from drawing in IO.lift(() => scale.IsUnset()
-             ? new UnparsedText(typeof(ScaleValue), nameof(ScaleValue.Create), text)
-             : (Read(paper, spaceUnit, new UnparsedText(typeof(ScaleValue), nameof(ScaleValue.LeftLengthValue), text)),
-                Read(model, spaceUnit, new UnparsedText(typeof(ScaleValue), nameof(ScaleValue.RightLengthValue), text)))
-                 .Apply((paperLength, modelLength) => Quantities.From(paperLength, spaceUnit) / Quantities.From(modelLength, spaceUnit)).As()
-                 .Bind(Conversions.Validated<DrawingScale, QuantityValue, InvalidDrafting>))
-         select drawing)
-            .Bracket();
+        DisposalOps.Within(() => ScaleValue.Create(text, settings), scale =>
+            DisposalOps.Within(scale.LeftLengthValue, paper =>
+                DisposalOps.Within(scale.RightLengthValue, model => IO.lift(() => scale.IsUnset()
+                    ? Errors.ParseError($"{nameof(ScaleValue)}.{nameof(ScaleValue.Create)} parsed no whole value from {text}")
+                    : (Read(paper, spaceUnit, Errors.ParseError($"{nameof(ScaleValue)}.{nameof(ScaleValue.LeftLengthValue)} parsed no whole value from {text}")),
+                       Read(model, spaceUnit, Errors.ParseError($"{nameof(ScaleValue)}.{nameof(ScaleValue.RightLengthValue)} parsed no whole value from {text}")))
+                        .Apply((paperLength, modelLength) => Quantities.From(paperLength, spaceUnit) / Quantities.From(modelLength, spaceUnit)).As()
+                        .Bind(static ratio => DrawingScale.Validated(ratio))))));
 
     // --- [ANGLES]
     public static IO<double> ParseAngle(string text, StringParserSettings settings) =>
@@ -44,6 +40,6 @@ public static class UnitText {
             StringParserSettings? results = null;
             AngleUnitSystem parsed = AngleUnitSystem.None;
             int count = StringParser.ParseAngleExpession(text, 0, -1, settings, AngleUnitSystem.Radians, out double radians, ref results, ref parsed);
-            return count is not 0 && count == text.Length ? radians : new UnparsedText(typeof(StringParser), nameof(StringParser.ParseAngleExpession), text);
+            return count is not 0 && count == text.Length ? radians : Errors.ParseError($"{nameof(StringParser)}.{nameof(StringParser.ParseAngleExpession)} parsed no whole value from {text}");
         });
 }

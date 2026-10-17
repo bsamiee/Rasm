@@ -5,16 +5,15 @@ from enum import auto, Enum, IntEnum
 from typing import ClassVar, Final
 
 from expression import Nothing, Ok, Option
-import msgspec
 import PyOpenColorIO
 
 from blender.imaging.faults import ImagingResult
-from blender.imaging.parameters import Case
+from blender.imaging.parameters import Case, CaseMeta
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class EffectMeta(msgspec.StructMeta, ABCMeta):
+class EffectMeta(CaseMeta, ABCMeta):
     """Native frozen records with abstract formulation requirements."""
 
 

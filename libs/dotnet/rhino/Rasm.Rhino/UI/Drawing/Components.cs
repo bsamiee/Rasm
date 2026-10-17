@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.UI.Drawing;
@@ -28,6 +28,12 @@ public readonly record struct Interaction<TPart>(Option<TPart> Hovered, Option<T
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Edit<TValue> where TValue : notnull {
+    public Option<TValue> Carried =>
+        Switch(preview: static held => Some(held.Value), step: static held => Some(held.Value), commit: static held => Some(held.Value), cancel: static _ => Option<TValue>.None);
+
+    public Option<TValue> Settled =>
+        Switch(preview: static _ => Option<TValue>.None, step: static held => Some(held.Value), commit: static held => Some(held.Value), cancel: static _ => Option<TValue>.None);
+
     public sealed record Preview(TValue Value) : Edit<TValue>;
 
     public sealed record Step(TValue Value) : Edit<TValue>;
@@ -66,7 +72,7 @@ public abstract class ComponentControl : Drawable {
     public virtual IO<Unit> Hosted(Control host, Func<(SizeF Size, float Scale)> surface, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => new Disposal<Func<(SizeF Size, float Scale)>>(surface, held => {
             if (hosted.Exists(read => ReferenceEquals(read, held))) hosted = None;
-        })), static lease => IO.lift(lease.Dispose), lease => { retain(lease); hosted = Some(surface); }).Map(unit);
+        })), lease => { retain(lease); hosted = Some(surface); }).Map(unit);
 
     public abstract Seq<Part> Parts { get; }
     public abstract bool Adjust(PointF at, int steps);
@@ -126,7 +132,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
             from theme in HostTheme.In(host).Inline(_ => IO.lift(() => RedrawRegion(new RectangleF(surface().Size))), Sink, owned)
             from clock in sampled.Traverse(read => FrameClocks.Sample(host,
                 read(this).Bind(fold => Advance(held => new(fold(held), None))), Site(nameof(FrameClocks.Sample)), owned)).As()
-            select unit, (_, lease) => retain(lease));
+            select unit, retain);
 
     private sealed record Grip(PointF Origin, PointF Last, Option<TPart> Part, bool Dragging, Option<TValue> Open);
 
@@ -346,12 +352,12 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     // --- [GESTURES]
     private IO<Unit> Gestured<TGesture>(Func<TGesture, float, Option<Transition<TState, TValue>>> transition, Action<IDisposable> retain) where TGesture : Gesture, new() =>
         DisposalOps.Acquire(owned =>
-            from gesture in DisposalOps.Acquire(IO.lift(static () => new TGesture()), static gesture => IO.lift(gesture.Dispose), owned)
-            from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<Gesture>(gesture, held => Gestures.Remove(held))), static lease => IO.lift(lease.Dispose), owned)
+            from gesture in DisposalOps.Acquire(IO.lift(static () => new TGesture()), owned)
+            from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<Gesture>(gesture, held => Gestures.Remove(held))), owned)
             from added in IO.lift(() => Gestures.Add(gesture))
             from activated in Subscriptions.Host<EventArgs>(typeof(TGesture), handler => gesture.Activated += handler, handler => gesture.Activated -= handler, nameof(Gesture.Activated))
                 .Inline(_ => IO.lift(() => Apply(Size, ParentWindow.LogicalPixelSize, transition(gesture, ParentWindow.LogicalPixelSize))), Sink, owned)
-            select activated, (_, lease) => retain(lease));
+            select activated, retain);
 
     // --- [ACCESSIBILITY]
     public override Seq<Part> Parts =>
@@ -411,11 +417,10 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     }
 
     private IO<Unit> Held =>
-        DisposalOps.AcquireAll(
-            Seq<Func<Action<IDisposable>, IO<Unit>>>(
-                retain => HostTheme.In(this).Inline(_ => IO.lift(Invalidate), Sink, retain),
-                retain => Gestured<MagnificationGesture>((gesture, scale) => Magnified(State, Size, scale, hovered, Pointer, gesture.Magnification), retain),
-                retain => Gestured<RotationGesture>((gesture, scale) => Rotated(State, Size, scale, hovered, Pointer, float.DegreesToRadians(-gesture.Rotation)), retain))
-                .Concat(sampled.Map(read => fun((Action<IDisposable> retain) => FrameClocks.Sample(this, read(this).Bind(fold => Advance(held => new(fold(held), None))), Site(nameof(FrameClocks.Sample)), retain))).ToSeq()),
-            DisposalOps.Release, (_, lease) => lifetime = Some(lease)).Map(static _ => unit);
+        DisposalOps.Acquire(keep => Seq(
+                HostTheme.In(this).Inline(_ => IO.lift(Invalidate), Sink, keep),
+                Gestured<MagnificationGesture>((gesture, scale) => Magnified(State, Size, scale, hovered, Pointer, gesture.Magnification), keep),
+                Gestured<RotationGesture>((gesture, scale) => Rotated(State, Size, scale, hovered, Pointer, float.DegreesToRadians(-gesture.Rotation)), keep))
+            .Concat(sampled.Map(read => FrameClocks.Sample(this, read(this).Bind(fold => Advance(held => new(fold(held), None))), Site(nameof(FrameClocks.Sample)), keep)).ToSeq())
+            .TraverseM(static attach => attach).As(), (_, lease) => lifetime = Some(lease)).Map(static _ => unit);
 }

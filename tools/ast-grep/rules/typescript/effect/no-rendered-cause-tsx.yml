@@ -65,11 +65,11 @@ utils:
                 - has:
                     field: function
                     any:
-                        - {kind: identifier, regex: '^String$', matches: syntax-global-reference}
+                        - {kind: identifier, regex: '^String$', matches: typescript-global-reference}
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^stringify$'}
-                            - has: {field: object, regex: '^JSON$', matches: syntax-global-reference}
+                            - has: {field: object, regex: '^JSON$', matches: typescript-global-reference}
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^toStringUnknown$'}
@@ -100,9 +100,9 @@ utils:
             kind: arguments
             inside:
                 any:
-                    - {kind: new_expression, has: {field: 'constructor', matches: syntax-package-reference}}
+                    - {kind: new_expression, has: {field: 'constructor', matches: typescript-package-reference}}
                     - kind: call_expression
-                      has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: syntax-package-reference}}]}
+                      has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: typescript-package-reference}}]}
     text-content-fields:
         kind: object
         inside:
@@ -121,7 +121,7 @@ utils:
                                   all:
                                     - has: {field: property, regex: '^TextContent$'}
                                     - has: {field: object, matches: {effect-module: {name: {regex: '\bMcpSchema$'}}}}
-                                - matches: {syntax-import-reference: {source: {regex: '^effect/ai/McpSchema$'}, exported: {regex: '^TextContent$'}}}
+                                - matches: {typescript-import-reference: {source: {regex: '^effect/ai/McpSchema$'}, exported: {regex: '^TextContent$'}}}
     protocol-field:
         any:
             - inside: {kind: pair, field: value, has: {field: key, regex: '^message$'}, inside: {matches: protocol-error-fields}}

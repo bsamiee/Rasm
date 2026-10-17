@@ -11,7 +11,7 @@ utils:
             - {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, matches: binding-target}}
     stable-target:
         any:
-            - matches: syntax-module-constant
+            - matches: typescript-module-constant
               has: {kind: variable_declarator, has: {field: name, matches: binding-target}}
             - {kind: 'function_declaration, class_declaration', has: {field: name, pattern: $TARGET}}
     aliased-import:
@@ -34,7 +34,7 @@ rule:
             - has: {field: name, kind: identifier, pattern: $ALIAS}
             - has: {field: value, kind: identifier, pattern: $TARGET}
             - not: {has: {field: type, kind: type_annotation}}
-            - inside: {matches: syntax-module-constant}
+            - inside: {matches: typescript-module-constant}
             - inside:
                 kind: program
                 stopBy: end

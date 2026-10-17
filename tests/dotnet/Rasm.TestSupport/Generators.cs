@@ -1,15 +1,5 @@
 namespace Rasm.TestSupport;
 
-// --- [ERRORS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record GeneratedError : Expected {
-    private GeneratedError(string detail, int code) : base(detail, code, None) { }
-    public sealed record Missing : GeneratedError { public Missing() : base("resource missing", 1) { } }
-    public sealed record Rejected : GeneratedError { public Rejected() : base("request rejected", 2) { } }
-    public sealed record Canceled : GeneratedError { public Canceled() : base("operation canceled", 3) { } }
-    public sealed record Conflict : GeneratedError { public Conflict() : base("state conflict", 4) { } }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Generators {
     // --- [SCALARS]
@@ -126,7 +116,7 @@ public static class Generators {
 
     // --- [RESULT]
     private const int Weights = 100;
-    public static readonly Gen<Error> Errors = Gen.OneOf<Error>(new GeneratedError.Missing(), new GeneratedError.Rejected(), new GeneratedError.Canceled(), new GeneratedError.Conflict());
+    public static readonly Gen<Error> Errors = Gen.OneOf(Error.New("resource missing"), Error.New("request rejected"), Error.New("operation canceled"), Error.New("state conflict"));
     public static readonly Gen<Error> ErrorsFromExceptions = Gen.OneOf<Exception>(
             new InvalidOperationException("generated invalid operation"),
             new ArithmeticException("generated arithmetic failure"),

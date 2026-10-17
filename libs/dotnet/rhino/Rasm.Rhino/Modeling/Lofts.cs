@@ -5,23 +5,19 @@ namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct RebuildCount : System.Numerics.IMinMaxValue<RebuildCount> {
     public static RebuildCount MinValue { get; } = new(2);
     public static RebuildCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct DevelopableDensity : System.Numerics.IMinMaxValue<DevelopableDensity> {
     public static DevelopableDensity MinValue { get; } = new(2);
     public static DevelopableDensity MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -150,7 +146,9 @@ public static class Lofts {
         bool multiThreading, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         from boundary in DisposalOps.Within((Action<IDisposable> owned) =>
             from loops in Copies.Acquire(() => Curve.JoinCurves(edges.Map(static edge => edge.Curve), settings.Tolerance), nameof(Curve.JoinCurves), owned)
-            from closed in IO.lift(() => OpenBoundary.Unless(loops.IsEmpty == edges.IsEmpty && loops.ForAll(static loop => loop.IsClosed), nameof(Brep.CreateVariationalPatch)))
+            from closed in IO.lift(Fin<Unit> () => loops.IsEmpty == edges.IsEmpty && loops.ForAll(static loop => loop.IsClosed)
+                ? unit
+                : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep.CreateVariationalPatch)} requires edges that join into closed loops"))
             select closed, DisposalOps.Release)
         from token in cancelToken
         from solved in Copies.Owned(
@@ -159,11 +157,11 @@ public static class Lofts {
                 Results: results, Cancelled: token.IsCancellationRequested),
             static made => Optional(made.Patch)
                 .ToFin(Conversions.Present(made.Results.Error).Match(
-                    Some: static reason => new VariationalPatchFailed(reason),
-                    None: () => made.Cancelled ? Errors.Cancelled : new Missing(nameof(Brep.CreateVariationalPatch))))
+                    Some: static reason => new Refused(nameof(Brep.CreateVariationalPatch), $"failed: {reason}"),
+                    None: () => made.Cancelled ? Errors.Cancelled : new Refused(nameof(Brep.CreateVariationalPatch), Refused.Absent)))
                 .Bind(static patch => Measurements.Valid(patch, nameof(Brep.CreateVariationalPatch)))
                 .Map(patch => (Patch: patch, Report: new PatchReport(
                     Conversions.Present(made.Results.Warning), Optional(made.Results.G0Int), Optional(made.Results.G0), Optional(made.Results.G1), Optional(made.Results.G2)))),
-            static made => DisposalOps.Release(Optional(made.Patch).ToSeq()), retain)
+            static made => DisposalOps.Release(made.Patch), retain)
         select solved;
 }

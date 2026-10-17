@@ -3,8 +3,6 @@ id: no-source-in-error-message
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     attribute-run:
         kind: 'attribute_item, line_comment, block_comment'
     source-attribute:
@@ -99,7 +97,7 @@ utils:
                 - has: {kind: attribute, has: {matches: message-arguments, has: {kind: string_literal, regex: '(^|[^{])\{reason(:[^{}]*)?\}'}}}
     transparent-ready:
         matches: owner
-        not: {has: {stopBy: end, matches: comment}}
+        not: {matches: rust-commented}
         any:
             - has:
                 field: body

@@ -17,7 +17,7 @@ public static class Modals {
         select answer.Value;
 
     public static IO<T> Get<TGetter, T>(Func<TGetter> create, Func<TGetter, (Result Result, T Value)> get, string member) where TGetter : IDisposable =>
-        DisposalOps.Within(create, getter => Ask(IO.lift(() => get(getter)), member), static getter => IO.lift(getter.Dispose));
+        DisposalOps.Within(create, getter => Ask(IO.lift(() => get(getter)), member));
 
     // --- [VIEWS]
     public static IO<ViewportTarget> GetView(string prompt) =>
@@ -38,7 +38,7 @@ public static class Modals {
         select (answer.Client, target);
 
     private static Fin<ViewportTarget> Target(RhinoView? view, string member) =>
-        Missing.Unless(view, member).Map(static found => (ViewportTarget)new ViewportTarget.Id(found.ActiveViewportID));
+        Refused.UnlessFound(view, member).Map(static found => (ViewportTarget)new ViewportTarget.Id(found.ActiveViewportID));
 
     // --- [VALUES]
     public static IO<string> GetFileName(RunMode runMode, GetFileNameMode mode, string defaultName, string title, Option<RhinoGet.BitmapFileTypes> fileTypes, Option<object> parent = default) =>

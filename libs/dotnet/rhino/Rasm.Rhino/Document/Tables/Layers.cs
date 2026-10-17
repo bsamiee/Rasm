@@ -1,12 +1,10 @@
 using System.Drawing;
+using System.Globalization;
 using QuikGraph;
-using QuikGraph.Algorithms.Search;
 using Rasm.Drafting;
 using Rhino;
-using Rhino.ApplicationSettings;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Rhino.FileIO;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
@@ -35,7 +33,7 @@ public sealed record LayerPath(Seq<string> Ancestors, string Leaf) {
     private static Fin<LayerPath> Crossed(Seq<string> parts) =>
         Callbacks.Each(parts, static (name, segment) => ModelComponent.IsValidComponentName(name)
             ? Fin.Succ(name)
-            : new InvalidLayerSegment(segment, new InvalidRhinoValue())).Map(static names => new LayerPath(names.Init, names[^1]));
+            : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"layer name {name} at position {segment} is no valid component name"))).Map(static names => new LayerPath(names.Init, names[^1]));
 }
 
 [Union]
@@ -70,32 +68,15 @@ public sealed record LayerTree(HashMap<Guid, LayerNode> Nodes, Seq<Guid> Order, 
 
     public Option<Guid> Parent(Guid layer) => Nodes.Find(layer).Bind(static node => node.Parent);
 
-    public HashMap<Guid, Option<int>> Depths => Lineages.Map(static lineage => lineage.Map(static ids => ids.Count - 1));
+    public HashMap<Guid, int> Depths => Lineages.Map(static lineage => lineage.Count - 1);
 
     public HashMap<Guid, Option<LayerPath>> Paths => Lineages.Map(lineage =>
-        from ids in lineage
-        from names in ids.FoldM(Seq<string>(), (names, id) => Nodes[id].Name.Map(names.Add)).As()
-        select new LayerPath(names.Init, names[^1]));
+        lineage.FoldM(Seq<string>(), (names, id) => Nodes.Find(id).Bind(static node => node.Name).Map(names.Add)).As()
+            .Map(static names => new LayerPath(names.Init, names[^1])));
 
-    public Seq<Guid> Ancestors(Guid layer) {
-        List<Guid> ancestors = [];
-        BreadthFirstSearchAlgorithm<Guid, SReversedEdge<Guid, SEquatableEdge<Guid>>> search = new(new ReversedBidirectionalGraph<Guid, SEquatableEdge<Guid>>(Graph));
-        search.DiscoverVertex += ancestors.Add;
-        search.Compute(layer);
-        return toSeq(ancestors);
-    }
+    public Seq<Guid> Ancestors(Guid layer) => layer.Cons(Parent(layer).ToSeq().Bind(Ancestors));
 
-    private HashMap<Guid, Option<Seq<Guid>>> Lineages {
-        get {
-            HashMap<Guid, Option<Seq<Guid>>> lineages = Nodes.Map(static _ => Option<Seq<Guid>>.None);
-            BreadthFirstSearchAlgorithm<Guid, SEquatableEdge<Guid>> search = new(Graph);
-            search.DiscoverVertex += id => lineages = lineages.Add(id, Parent(id).Match(
-                Some: parent => lineages[parent].Map(lineage => lineage.Add(id)),
-                None: () => Some(Seq(id))));
-            _ = Roots.Iter(search.Compute);
-            return lineages;
-        }
-    }
+    private HashMap<Guid, Seq<Guid>> Lineages => Nodes.Map((id, _) => Ancestors(id).Rev());
 }
 
 public sealed record LayerEdit(string Member, RestoreLayerProperties Restores, Option<Guid> Viewport, Func<LayerNode, bool> Holds, Func<RhinoDoc, Layer, IO<Unit>> Write);
@@ -150,7 +131,7 @@ internal static partial class LayerMapper {
 
     private static bool PersistentLocking(Layer layer) => layer.GetPersistentLocking();
 
-    private static bool HasCustomSectionStyle(Layer layer) => Optional(layer.GetCustomSectionStyle()).Do(static copy => copy.Dispose()).IsSome;
+    private static bool HasCustomSectionStyle(Layer layer) => DisposalOps.Present(layer.GetCustomSectionStyle());
 }
 
 public static class LayerProperties {
@@ -271,11 +252,8 @@ public static class Layers {
         address.Switch(
             doc,
             row: static (document, row) => TableOps.Find(document.Layers, row.Address, includeDeleted: false),
-            path: static (document, path) => IO.lift(() => {
-                Option<Layer> Find(string name, Guid parent) => Optional(document.Layers.FindNameHash(new NameHash(name, parent, ModelComponentType.Layer)));
-                return path.Value.Ancestors.FoldM(Guid.Empty, (parent, name) => Find(name, parent).Map(static layer => layer.Id)).As()
-                    .Bind(parent => Find(path.Value.Leaf, parent)).ToFin(new MissingLayerPath(path.Value.Text));
-            }),
+            path: static (document, path) => IO.lift(() =>
+                Optional(document.Layers.FindIndex(document.Layers.FindByFullPath(path.Value.Text, RhinoMath.UnsetIntIndex))).ToFin(new NotFound("layer path", path.Value.Text))),
             current: static (document, _) => IO.lift(() => document.Layers.CurrentLayer));
 
     // --- [READS]
@@ -311,11 +289,12 @@ public static class Layers {
                         _ = create.Id.Iter(value => staged.Id = value);
                     })
                     from written in Written(document, staged, LayerProperties.Name.Set(create.Name).Cons(create.Edits))
-                    from added in IO.lift(() => Conversions.Present(TableKinds.Layers.Add(document, staged)).ToFin(new Taken(nameof(LayerTable.Add), create.Name)))
-                    select unit,
-                    static staged => IO.lift(staged.Dispose)),
+                    from added in IO.lift(() => Conversions.Present(TableKinds.Layers.Add(document, staged)).ToFin(Error.New($"{nameof(LayerTable.Add)} already holds {create.Name}")))
+                    select unit),
             addPath: static (document, add) =>
-                add.Path.Segments.FoldM(Guid.Empty, (parent, name) => Ensured(document, add, parent, name)).As().Map(unit),
+                IO.lift(() => Refused.Unless(
+                    add.Color.Match(Some: color => document.Layers.AddPath(add.Path.Text, color), None: () => document.Layers.AddPath(add.Path.Text)) >= 0,
+                    nameof(LayerTable.AddPath))),
             modify: static (document, modify) =>
                 from row in Resolve(document, modify.Target)
                 from landed in Landed(document, row, staged => Written(document, staged, modify.Edits))
@@ -328,14 +307,18 @@ public static class Layers {
             assignMaterial: static (document, assign) =>
                 from row in Resolve(document, assign.Target)
                 from owned in IO.lift(() => assign.Material.Traverse(material =>
-                    ForeignContent.Unless(Conversions.Serial(material.DocumentOwner) == Some(document.RuntimeSerialNumber), material)).As())
+                    Conversions.Serial(material.DocumentOwner) == Some(document.RuntimeSerialNumber)
+                        ? Fin.Succ(material)
+                        : Error.New(ErrorCodes.ValidationFailed, $"render content {material.Id} belongs to another document")).As())
                 from assigned in IO.lift(() => { row.RenderMaterial = owned.ValueUnsafe(); })
                 select assigned,
             merge: static (document, merge) =>
                 from source in Resolve(document, merge.Source)
                 from target in Resolve(document, merge.Target)
                 from tree in Read(document, Seq<Guid>())
-                from acyclic in IO.lift(() => LayerCycle.Unless(!tree.Ancestors(target.Id).Exists(id => id == source.Id), source.Id, target.Id))
+                from acyclic in IO.lift(() => tree.Ancestors(target.Id).Exists(id => id == source.Id)
+                    ? Error.New(ErrorCodes.ValidationFailed, $"layer {target.Id} is layer {source.Id} or sits inside it")
+                    : Fin.Succ(unit))
                 from moved in TableOps.Apply(document, new TableOp.ModifyAttributes(
                     new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = source.Index })),
                     attributes => IO.lift(() => { attributes.LayerIndex = target.Index; }),
@@ -367,33 +350,14 @@ public static class Layers {
                 Called(Resolve(document, undo.Target), row => document.Layers.UndoModify(row.Index, Conversions.Unset(undo.Serial)), nameof(LayerTable.UndoModify)),
             selectInPanel: static (document, panel) =>
                 from rows in panel.Targets.TraverseM(address => Resolve(document, address)).As()
-                from shown in IO.lift(() => Missing.Unless(document.Layers.Select(rows.Map(static row => row.Index), panel.Deselect), nameof(LayerTable.Select)))
+                from shown in IO.lift(() => Refused.UnlessFound(document.Layers.Select(rows.Map(static row => row.Index), panel.Deselect), nameof(LayerTable.Select)))
                 select shown);
-
-    private static IO<Guid> Ensured(RhinoDoc document, LayerOp.AddPath add, Guid parent, string name) =>
-        IO.lift(() => Optional(document.Layers.FindNameHash(new NameHash(name, parent, ModelComponentType.Layer)))).Bind(found => found.Match(
-            Some: static row => IO.pure(row.Id),
-            None: () => Created(document, add, parent, name)));
-
-    private static IO<Guid> Created(RhinoDoc document, LayerOp.AddPath add, Guid parent, string name) =>
-        DisposalOps.Within(Layer.GetDefaultLayerProperties, staged =>
-            from id in IO.lift(Guid.NewGuid)
-            from named in TableOps.Named(staged, Some(name))
-            from settings in IO.lift(() => {
-                staged.ParentLayerId = parent;
-                staged.Id = id;
-                staged.Color = add.Color.IfNone(static () => AppearanceSettings.DefaultLayerColor);
-            })
-            from added in IO.lift(() => Conversions.Required(document.Layers.Add(staged), nameof(LayerTable.Add)))
-            select id,
-            static staged => IO.lift(staged.Dispose));
 
     private static IO<Unit> Landed(RhinoDoc doc, Layer live, Func<Layer, IO<Unit>> stage) =>
         DisposalOps.Within(() => TableKinds.Layers.Copy(live), staged =>
          from staging in stage(staged)
          from landed in IO.lift(() => Refused.Unless(TableKinds.Layers.Modify(doc, staged, live.Index), nameof(LayerTable.Modify)))
-         select landed,
-         static staged => IO.lift(staged.Dispose));
+         select landed);
 
     private static IO<Unit> Written(RhinoDoc doc, Layer staged, Seq<LayerEdit> edits) =>
         edits.TraverseM(edit => edit.Write(doc, staged)).As().Map(unit);

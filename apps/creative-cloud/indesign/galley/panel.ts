@@ -2,7 +2,7 @@ import '@rasm/uxp/runtime';
 import { served } from '@rasm/indesign/panel';
 import type { Link } from '@rasm/mcp/bridge';
 import { HostClock } from '@rasm/uxp/runtime';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,10 +15,6 @@ const STYLE = [
     '@media (prefers-color-scheme: light), (prefers-color-scheme: lightest) { body { color: rgb(50 50 50); } }',
 ].join('\n');
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Origin = Schema.TemplateLiteral(['ws://localhost:', Schema.Int]);
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const [status, activity] = [document.createElement('p'), document.createElement('p')];
@@ -29,18 +25,16 @@ const show = (element: HTMLElement, state: string, text: string): Effect.Effect<
     });
 document.head.append(Object.assign(document.createElement('style'), { textContent: STYLE }));
 document.body.append(status, activity);
-Effect.gen(function* () {
-    const origin = yield* Schema.decodeUnknownEffect(Origin)(import.meta.env.ATELIER);
-    const sentence = { linked: 'Linked to Atelier', closed: 'Atelier closed, redialing', unreachable: `No Atelier at ${origin}, redialing` } as const satisfies Record<Link, string>;
-    return yield* Layer.launch(
-        served(origin, {
-            link: (link) => Effect.all([show(status, link, sentence[link]), show(activity, link, '')], { discard: true }),
-            working: (description, work) =>
-                Effect.acquireUseRelease(
-                    show(activity, 'running', description),
-                    () => work,
-                    () => show(activity, 'done', description),
-                ),
-        }),
-    );
-}).pipe(Effect.provide(HostClock), Effect.runFork);
+const origin: string = import.meta.env.ATELIER;
+const sentence = { linked: 'Linked to Atelier', closed: 'Atelier closed, redialing', unreachable: `No Atelier at ${origin}, redialing` } as const satisfies Record<Link, string>;
+Layer.launch(
+    served(origin, {
+        link: (link) => Effect.all([show(status, link, sentence[link]), show(activity, link, '')], { discard: true }),
+        working: (description, work) =>
+            Effect.acquireUseRelease(
+                show(activity, 'running', description),
+                () => work,
+                () => show(activity, 'done', description),
+            ),
+    }),
+).pipe(Effect.provide(HostClock), Effect.runFork);

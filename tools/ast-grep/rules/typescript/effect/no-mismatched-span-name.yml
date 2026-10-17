@@ -11,7 +11,7 @@ rule:
             kind: arguments
             inside:
                 kind: call_expression
-                has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^fn$'}}
+                has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fn$'}}}}
                 inside:
                     kind: call_expression
                     field: function

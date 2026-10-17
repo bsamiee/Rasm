@@ -10,14 +10,12 @@ namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct BoundaryWidthScale : System.Numerics.IMinMaxValue<BoundaryWidthScale> {
     public static BoundaryWidthScale MinValue { get; } = new(double.BitIncrement(0.0));
     public static BoundaryWidthScale MaxValue { get; } = new(double.MaxValue);
     public static BoundaryWidthScale Unit { get; } = new(1.0);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -40,7 +38,7 @@ public abstract partial record BoundaryLinetype {
             embedded: embedded => DisposalOps.Within(static () => new Linetype(), native =>
                                    from written in Linetypes.Written(native, embedded.Definition)
                                    from copied in IO.lift(() => staged.SetBoundaryLinetype(native))
-                                   select RhinoMath.UnsetIntIndex, static native => IO.lift(native.Dispose)));
+                                   select RhinoMath.UnsetIntIndex));
 }
 
 public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintColor, BoundaryWidthScale WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
@@ -85,21 +83,21 @@ public static class SectionStyles {
             ? DisposalOps.Within(style.GetBoundaryLinetype,
                 static held => from definition in Optional(held).Traverse(Linetypes.Definition).As()
                                select (Definition: definition, HasShapes: Optional(held).Exists(static linetype => linetype.HasShapes)),
-                static held => DisposalOps.Release(Optional(held).ToSeq()))
+                static held => DisposalOps.Release(held))
             : IO.pure((Definition: Option<LinetypeDefinition>.None, HasShapes: false))
         let requested = Conversions.Present(style.HatchIndex)
         from pattern in IO.lift(patterns.Traverse(rows => requested.Traverse(index =>
-            rows.At(index).ToFin(new InvalidAnswer(nameof(SectionStyle.ReadFromFile)))).As()).As())
+            rows.At(index).ToFin(new Refused(nameof(SectionStyle.ReadFromFile), Refused.Invalid))).As()).As())
         let address = pattern.Match(
             Some: static held => held.Map<ComponentRef<HatchPattern>>(static row => row.Name),
             None: () => requested.Map<ComponentRef<HatchPattern>>(static index => index))
         let linetype = embedded.Definition.Map<BoundaryLinetype>(static definition => new BoundaryLinetype.Embedded(definition))
             || (visible && patterns.IsNone ? LinetypeRef.FromHost(style.BoundaryLinetypeIndex).Map<BoundaryLinetype>(static reference => new BoundaryLinetype.Table(reference)) : None)
         let boundary = visible
-            ? Conversions.Validated<BoundaryWidthScale, double, InvalidRhinoValue>(style.BoundaryWidthScale).Map(width => Some(new SectionBoundary(
+            ? BoundaryWidthScale.Validated(style.BoundaryWidthScale).Map(width => Some(new SectionBoundary(
                 Conversions.Present(style.BoundaryColor), Conversions.Present(style.BoundaryPrintColor), width, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype)))
             : Fin.Succ(Option<SectionBoundary>.None)
-        let hatch = address.Traverse(reference => Conversions.Validated<HatchScale, double, InvalidRhinoValue>(style.HatchScale).Map(scale => new SectionHatch(
+        let hatch = address.Traverse(reference => HatchScale.Validated(style.HatchScale).Map(scale => new SectionHatch(
             reference, scale, style.HatchRotationRadians, Conversions.Present(style.HatchPatternColor), Conversions.Present(style.HatchPatternPrintColor), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)))).As()
         from definition in IO.lift((boundary.ToValidation(), hatch.ToValidation()).Apply((edge, hatched) => new SectionStyleDefinition(
             style.SectionFillRule,

@@ -27,7 +27,6 @@ public sealed record TableKind<T>(
     Func<RhinoDoc, string> FreeName) where T : ModelComponent, new();
 
 [SmartEnum<ModelComponentType>(SkipIComparable = true)]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class PurgeKind {
     public static readonly PurgeKind Linetypes = new(ModelComponentType.LinePattern, static doc => doc.Linetypes.PurgeUnused());
 
@@ -126,12 +125,12 @@ public abstract partial record VisibilityState {
     public Fin<Unit> Apply(ObjectTable table, RhinoObject target, bool ignoreLayerMode, int index) =>
         Switch(
             (Table: table, Target: target, IgnoreLayerMode: ignoreLayerMode, Index: index),
-            hidden: static (state, hidden) => RefusedElement.Unless(
+            hidden: static (state, hidden) => Refused.Unless(
                 hidden.Group.Match(Some: group => state.Table.Hide(state.Target, state.IgnoreLayerMode, group), None: () => state.Table.Hide(state.Target, state.IgnoreLayerMode)),
                 nameof(ObjectTable.Hide), state.Index),
-            shown: static (state, _) => RefusedElement.Unless(state.Table.Show(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Show), state.Index),
-            locked: static (state, _) => RefusedElement.Unless(state.Table.Lock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Lock), state.Index),
-            unlocked: static (state, _) => RefusedElement.Unless(state.Table.Unlock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Unlock), state.Index));
+            shown: static (state, _) => Refused.Unless(state.Table.Show(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Show), state.Index),
+            locked: static (state, _) => Refused.Unless(state.Table.Lock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Lock), state.Index),
+            unlocked: static (state, _) => Refused.Unless(state.Table.Unlock(state.Target, state.IgnoreLayerMode), nameof(ObjectTable.Unlock), state.Index));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -144,9 +143,9 @@ public abstract partial record TransformMode {
         Switch(
             (Table: table, Target: target, Xform: xform, Index: index),
             move: static (state, move) => Conversions.Present(state.Table.Transform(state.Target, state.Xform, move.DeleteOriginal))
-                .ToFin(new RefusedElement(nameof(ObjectTable.Transform), state.Index)),
+                .ToFin(new Refused(nameof(ObjectTable.Transform), Refused.Declined, state.Index)),
             history: static (state, _) => Conversions.Present(state.Table.TransformWithHistory(state.Target, state.Xform))
-                .ToFin(new RefusedElement(nameof(ObjectTable.TransformWithHistory), state.Index)));
+                .ToFin(new Refused(nameof(ObjectTable.TransformWithHistory), Refused.Declined, state.Index)));
 }
 
 public sealed record GeometryPair(GeometryBase Geometry, Option<ObjectAttributes> Attributes);
@@ -257,8 +256,8 @@ public static class TableOps {
                 byName: static (rows, byName) =>
                     ModelComponent.ModelComponentTypeRequiresUniqueName(rows.ComponentType) && !ModelComponent.ModelComponentTypeIncludesParent(rows.ComponentType)
                         ? Fin.Succ(Optional(rows.Document.Manifest.FindName<T>(byName.Name, Guid.Empty)))
-                        : new NonUniqueName(rows.ComponentType))
-            .Bind(found => found.Filter(row => includeDeleted || !row.IsDeleted).ToFin(new MissingComponent<T>(address))));
+                        : Error.New($"{rows.ComponentType} names do not identify one row"))
+            .Bind(found => found.Filter(row => includeDeleted || !row.IsDeleted).ToFin(new NotFound($"{table.ComponentType}", $"{address}"))));
 
     public static IO<int> Index<T>(RhinoDocCommonTable<T> table, Option<ComponentRef<T>> address) where T : ModelComponent =>
         address.Traverse(row => Find(table, row, includeDeleted: false)).As().Map(static found => Conversions.Unset(found.Map(static row => row.Index)));
@@ -267,7 +266,7 @@ public static class TableOps {
         EqualityComparer<string>.Create(static (left, right) => NameKey<T>(left) == NameKey<T>(right), static name => NameKey<T>(name).GetHashCode());
 
     public static IO<Unit> Named<T>(T staged, Option<string> name) where T : ModelComponent =>
-        IO.lift(() => Callbacks.Thrown<InvalidOperationException, Unit>(() => name.Iter(value => staged.Name = value), nameof(ModelComponent.Name)));
+        IO.lift(() => name.Iter(value => staged.Name = value));
 
     private static NameHash NameKey<T>(string? name) where T : ModelComponent => new(name, Guid.Empty, ManifestTable.GetModelComponentTypeFromGenericType<T>());
 
@@ -279,12 +278,11 @@ public static class TableOps {
         DisposalOps.Within(static () => new T(), staged =>
             from edited in edit(staged)
             from index in IO.lift(() => Conversions.Required(kind.Add(doc, staged), nameof(TableKind<>.Add)))
-            select index,
-            static staged => IO.lift(staged.Dispose));
+            select index);
 
     public static IO<Unit> ModifyRow<T>(RhinoDoc doc, TableKind<T> kind, ComponentRef<T> address, Func<T, IO<Unit>> edit) where T : ModelComponent, new() =>
         from live in Find(kind.Table(doc), address, includeDeleted: false)
-        from modified in DisposalOps.Within(() => kind.Copy(live), staged => edit(staged).Bind(_ => Modified(doc, kind, staged, live.Index)), static staged => IO.lift(staged.Dispose))
+        from modified in DisposalOps.Within(() => kind.Copy(live), staged => edit(staged).Bind(_ => Modified(doc, kind, staged, live.Index)))
         select modified;
 
     public static Validation<Error, TablePlan<T, TSpec>> Plan<T, TSpec>(Seq<T> rows, TableSpec<TSpec> spec) where T : ModelComponent =>
@@ -305,8 +303,7 @@ public static class TableOps {
                      from written in write(staged, upsert.Spec)
                      from same in unchanged(row, staged)
                      from modified in unless(same && string.Equals(row.Name, upsert.Name, StringComparison.Ordinal), Modified(doc, kind, staged, row.Index)).As()
-                     select (upsert.Name, row.Index),
-                     static staged => IO.lift(staged.Dispose)),
+                     select (upsert.Name, row.Index)),
                 None: () => AddRow(doc, kind, staged => Named(staged, Some(upsert.Name)).Bind(_ => write(staged, upsert.Spec))).Map(index => (upsert.Name, index))))
             .As();
 
@@ -315,7 +312,7 @@ public static class TableOps {
 
     // --- [ATTRIBUTES]
     public static IO<T> WithAttributes<T>(Func<ObjectAttributes> defaults, Option<ObjectAttributes> attributes, Func<ObjectAttributes, IO<T>> body) =>
-        attributes.Match(Some: body, None: () => DisposalOps.Within(defaults, body, static owned => IO.lift(owned.Dispose)));
+        attributes.Match(Some: body, None: () => DisposalOps.Within(defaults, body));
 
     public static IO<T> WithAttributes<T>(Func<ObjectAttributes> defaults, Seq<GeometryPair> members, Func<Seq<GeometryBase>, Seq<ObjectAttributes>, IO<T>> body) =>
         members.FoldBack(
@@ -334,9 +331,8 @@ public static class TableOps {
             modifyAttributes: static (document, modify) => Each(document, modify.Target, (found, id, index) =>
                 DisposalOps.Within(() => found.Attributes.Duplicate(), copy =>
                  from edited in modify.Edit(copy)
-                 from landed in IO.lift(() => RefusedElement.Unless(document.Objects.ModifyAttributes(found, copy, modify.Quiet), id, nameof(ObjectTable.ModifyAttributes), index))
-                 select landed,
-                 static copy => IO.lift(copy.Dispose))),
+                 from landed in IO.lift(() => Refused.Unless(document.Objects.ModifyAttributes(found, copy, modify.Quiet), id, nameof(ObjectTable.ModifyAttributes), index))
+                 select landed)),
             state: static (document, state) => Each(document, state.Target, (found, id, index) => IO.lift(() => state.Next.Apply(document.Objects, found, state.IgnoreLayerMode, index).Map(_ => id))),
             undelete: static (document, undelete) => Each(document, undelete.Target, document.Objects.Undelete, nameof(ObjectTable.Undelete)),
             pointCloud: static (document, cloud) => WithAttributes(document.CreateDefaultAttributes, cloud.Attributes, attributes => IO.lift(() => Conversions.Required(
@@ -351,11 +347,10 @@ public static class TableOps {
             IO.lift(() => Conversions.Required(doc.Objects.Add(row.Geometry, attributes, history.ValueUnsafe(), reference), nameof(ObjectTable.Add))));
 
     public static IO<Seq<Guid>> Place(RhinoDoc doc, Func<Action<IDisposable>, IO<Seq<(GeometryPair Row, Option<HistoryRecord> History)>>> created, bool reference) =>
-        envIO.Bind(environment =>
-            DisposalOps.Within((Action<IDisposable> retain) =>
-                from products in IO.liftVAsync(() => created(retain).RunAsync(environment))
-                from ids in Apply(doc, new TableOp.Add(products, reference))
-                select ids, DisposalOps.Release).Uninterruptible());
+        DisposalOps.Within((Action<IDisposable> retain) =>
+            from products in created(retain)
+            from ids in Apply(doc, new TableOp.Add(products, reference)).Uninterruptible()
+            select ids, DisposalOps.Release);
 
     public static IO<Committed<Seq<Guid>>> Recorded(RhinoDoc doc, string name, RedrawPolicy redraw, Seq<CustomUndo> custom, Seq<TableOp> steps) =>
         Commits.Commit(doc, name, redraw,
@@ -368,11 +363,17 @@ public static class TableOps {
             doc.AddCustomUndoEvent(undo.Description, Callbacks.Handler<CustomUndoEventArgs>(args => undo.Undo.Bind(_ => Register(args.Document, undo with { Undo = undo.Redo, Redo = undo.Undo })), undo.Site)),
             nameof(RhinoDoc.AddCustomUndoEvent)));
 
+    public static IO<Unit> Undoable<T>(RhinoDoc doc, string name, IO<T> prior, Func<T, IO<Unit>> assign, T next, CallbackSite site) =>
+        from held in prior
+        from registered in Register(doc, new CustomUndo(name, assign(held), assign(next), site))
+        from written in assign(next)
+        select written;
+
     private static IO<Seq<Guid>> Each(RhinoDoc doc, ObjectTarget target, Func<RhinoObject, Guid, int, IO<Guid>> element) =>
         target.Objects(doc).Bind(objects => Callbacks.Each(objects.Map((found, index) => element(found, found.Id, index)).Strict()));
 
     private static IO<Seq<Guid>> Each(RhinoDoc doc, ObjectTarget target, Func<RhinoObject, bool> call, string member) =>
-        Each(doc, target, (found, id, index) => IO.lift(() => RefusedElement.Unless(call(found), id, member, index)));
+        Each(doc, target, (found, id, index) => IO.lift(() => Refused.Unless(call(found), id, member, index)));
 
     // --- [IMMEDIATE]
     public static IO<int> Immediate(RhinoDoc doc, RedrawPolicy redraw, ImmediateOp op) =>
@@ -392,7 +393,7 @@ public static class TableOps {
 
     // --- [UNDO]
     public static IO<Unit> Undo(RhinoDoc doc, RedrawPolicy redraw, UndoOp op) =>
-        from closed in IO.lift(() => UndoRecordOpen.Unless(Conversions.Present(doc.CurrentUndoRecordSerialNumber)))
+        from closed in IO.lift(() => Conversions.Present(doc.CurrentUndoRecordSerialNumber).Case is uint serial ? Error.New($"undo record {serial} is open") : Fin.Succ(unit))
         from stepped in Commits.WithinRedraw(doc, redraw, op.Switch(
             doc,
             undo: static (document, _) => Commits.Step(document, document.Undo, nameof(RhinoDoc.Undo)),

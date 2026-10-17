@@ -32,7 +32,7 @@ public abstract class RowEdit {
         where THandler : Delegate =>
         from signals in source.Signals(scope)
         from state in IO.lift(static () => Ref(Option<OpenEdit<TRecord>>.None))
-        from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), static timer => IO.lift(timer.Dispose), retain)
+        from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), retain)
         let edit = new RowEdit<TRecord>(source, fields, scope, state, timer, made => handler(made) switch {
             var attached => (keep => Subscriptions.Attach(add, remove, attached, keep), value => Subscriptions.Detached(add, remove, attached, show(value))),
         }, (opened, keep) => Subscriptions.Attach(
@@ -43,7 +43,7 @@ public abstract class RowEdit {
             h => timer.Elapsed += h, h => timer.Elapsed -= h,
             Callbacks.Handler<EventArgs>(_ => edit.Elapsed, site), retain)
         from heard in Callbacks.Each(signals.Map(signal => signal.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => edit.Heard), site.Sink, retain)))
-        from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<RowEdit<TRecord>>(edit, static closed => closed.Released.Run())), static lease => IO.lift(lease.Dispose), retain)
+        from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<RowEdit<TRecord>>(edit, static closed => Callbacks.Settled(closed.Released, CancellationToken.None).ThrowIfFail())), retain)
         select edit;
 }
 
@@ -156,14 +156,11 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         select open;
 
     private IO<Seq<TRecord>> Close(Func<OpenEdit<TRecord>, IO<Seq<TRecord>>> closing) =>
-        envIO.Bind(environment =>
-            state.ValueIO.Bind(held => held.Match(
-                Some: open => Closed(open, closing, environment),
-                None: static () => IO.pure(Seq<TRecord>()))).Uninterruptible());
+        state.ValueIO.Bind(held => held.Match(
+            Some: open => DisposalOps.Transacted(IO.lift(timer.Stop), _ => closing(open), static _ => unitIO, (_, written) => Closed.Map(_ => written)),
+            None: static () => IO.pure(Seq<TRecord>())));
 
-    private IO<Seq<TRecord>> Closed(OpenEdit<TRecord> open, Func<OpenEdit<TRecord>, IO<Seq<TRecord>>> closing, EnvIO environment) =>
-        from stopped in IO.lift(timer.Stop)
-        from written in IO.liftVAsync(() => closing(open).RunAsync(environment))
+    private IO<Unit> Closed =>
         from closed in atomicIO(() => state.Value = None)
         from lease in atomicIO(() => {
             Option<IDisposable> held = pacing.Value;
@@ -171,7 +168,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
             return held;
         })
         from released in IO.lift(() => lease.Iter(static held => held.Dispose()))
-        select written;
+        select released;
 
     private IO<Seq<TRecord>> Committed(TRecord value, OpenEdit<TRecord> open) =>
         from applied in scope.Within(ValueStore.Commit(open.Targets.Map(target => Edit(target.Store, value)), open.Owed))
@@ -194,17 +191,18 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         Callbacks.Each(open.Targets.Map(target => Edit(target.Store, open.Latest))).Map(unit);
 
     private IO<(TRecord Value, Option<IO<Unit>> Owed)> Edit(ValueStore<TRecord> store, TRecord value) =>
-        envIO.Bind(environment =>
-            (from accepted in IO.liftVAsync(() => store.Read.Bind(held => Taken(value, held.IfNone(source.Default)) switch {
-                var written => store.Apply(Some(written).Filter(record => !store.Same(record, source.Default)))
-                    .Map(applied => (Applied: applied, Value: (applied.Value.HasChanged ? applied.Value.ToOption() : held).IfNone(source.Default))),
-            }).RunAsync(environment))
-             let diff = ValueDiff.Of(accepted.Applied.Value, source.Default, source.Capture)
-             from accumulated in atomicIO(() => state.Value = state.Value.Map(open => open with {
-                 Diff = open.Diff.Map(earlier => earlier.Then(diff)),
-                 Owed = open.Owed | accepted.Applied.Owed,
-             }))
-             select (accepted.Value, accepted.Applied.Owed)).Uninterruptible());
+        DisposalOps.Transacted(
+            unitIO,
+            _ => from held in store.Read
+                 from applied in store.Apply(Some(Taken(value, held.IfNone(source.Default))).Filter(record => !store.Same(record, source.Default)))
+                 select (Applied: applied, Value: (applied.Value.HasChanged ? applied.Value.ToOption() : held).IfNone(source.Default)),
+            static _ => unitIO,
+            (_, accepted) => IO.pure(ValueDiff.Of(accepted.Applied.Value, source.Default, source.Capture))
+                .Bind(diff => atomicIO(() => state.Value = state.Value.Map(open => open with {
+                    Diff = open.Diff.Map(earlier => earlier.Then(diff)),
+                    Owed = open.Owed | accepted.Applied.Owed,
+                })))
+                .Map(_ => (accepted.Value, accepted.Applied.Owed)));
 
-    private TRecord Taken(TRecord from, TRecord into) => fields.Fold(into, (held, field) => field.Taken(from, held));
+    private TRecord Taken(TRecord from, TRecord into) => fields.Fold(into, (held, field) => field.Parameter.Kind.Taken(from, held));
 }

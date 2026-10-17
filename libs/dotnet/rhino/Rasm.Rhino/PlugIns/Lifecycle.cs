@@ -44,7 +44,7 @@ public sealed class PlugInSession(IO<Unit> flush) {
 
     private sealed record Held(Func<(Error Error, Type Owner, string Member), IO<Unit>> Post, Seq<IDisposable> Releases, HashMap<object, object> Slots);
 
-    public static Fin<PlugInSession> Of(IPlugInSink sink) => sink is IPlugInLifetime lifetime ? lifetime.Session : new NotHeld(typeof(PlugInSession));
+    public static Fin<PlugInSession> Of(IPlugInSink sink) => sink is IPlugInLifetime lifetime ? lifetime.Session : new NotFound("held service", nameof(PlugInSession));
 
     private Fin<Unit> Changed(Func<Held, Held> change) => atomic(() => state.Swap(held => held.Map(change))).ToFin(Errors.Cancelled).Map(static _ => unit);
 
@@ -90,7 +90,8 @@ public sealed class PlugInSession(IO<Unit> flush) {
 public sealed class PlugInSlot<T> where T : notnull {
     public IO<Unit> Publish(IPlugInSink owner, T value) => IO.lift(() => PlugInSession.Of(owner)).Bind(session => session.Publish(this, value));
 
-    public Fin<T> Of(IPlugInSink owner) => PlugInSession.Of(owner).Bind(session => session.Find(this).Map(static value => (T)value).ToFin(new NotHeld(typeof(T))));
+    public IO<T> Of(IPlugInSink owner) =>
+        IO.lift(() => PlugInSession.Of(owner).Bind(session => session.Find(this).Map(static value => (T)value).ToFin(Error.New($"plug-in session holds no {typeof(T).Name}"))));
 }
 
 internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
@@ -136,6 +137,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
+            DocumentArchive.Rewrites,
             .. definition.Acquisitions,
             (_, _) => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
         ])
@@ -146,7 +148,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         Callbacks.Run(
             Callbacks.Each(definition.Commands.Map(row =>
                 from command in IO.lift(() => row(site.Sink))
-                from registered in IO.lift(() => CommandRefused.Unless(register(command), command))
+                from registered in IO.lift(() => register(command) ? Fin.Succ(unit) : new Refused(nameof(register), $"refused {command.EnglishName} {command.Id}"))
                 from chrome in Optional(command as HostCommand).TraverseM(Toolbars.RegisterCommand).As()
                 select unit)),
             site);

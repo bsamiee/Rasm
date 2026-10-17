@@ -23,6 +23,7 @@ interface Observed {
 
 const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<pgid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\?|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
 const XCODEBUILD_PATH = /(?:^|\s)-derivedDataPath\s+(?<path>\S+)/gu;
+const VERSION_PREFIX = /^v/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,7 +33,7 @@ const Launched = Schema.Struct({ WorkingDirectory: Schema.OptionFromOptionalKey(
 const Plist = Schema.TemplateLiteralParser(['dev.mise.', Schema.String, '.plist']);
 const Derived = Schema.Struct({ WorkspacePath: Schema.String });
 const Plugins = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.String, version: Schema.String })));
-const Provider = Schema.fromJsonString(Schema.Struct({ pulumi: Schema.Struct({ resource: Schema.Literal(true), name: Schema.String }) }));
+const Provider = Schema.fromJsonString(Schema.Struct({ version: Schema.String, pulumi: Schema.Struct({ resource: Schema.Literal(true), name: Schema.String, version: Schema.OptionFromOptionalKey(Schema.String) }) }));
 const Metadata = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })) }));
 const Product = Schema.TemplateLiteralParser([Schema.String, ' v', Schema.String, ' (', Schema.String, '):']);
 const Listed = Schema.Struct({ pid: Schema.FiniteFromString, ppid: Schema.FiniteFromString, pgid: Schema.FiniteFromString, uid: Schema.FiniteFromString, state: Schema.String, terminal: Schema.OptionFromUndefinedOr(Schema.String), started: Schema.String, command: Schema.String });
@@ -135,7 +136,7 @@ const ancestors = (processes: HashMap.HashMap<number, Process>, pid: number): nu
             (running) => [running.pid, running.ppid],
         ),
     );
-const stale = (sep: string, { processes, jobs, descendants }: Observed, worktrees: readonly string[], local: readonly string[], toolchains: readonly string[], self: Process): Process[] => {
+const stale = (sep: string, { processes, jobs, descendants }: Observed, worktrees: readonly string[], local: readonly string[], toolchains: readonly string[], engines: readonly string[], self: Process): Process[] => {
     const running = [...HashMap.values(processes)];
     const kept = new Set([...ancestors(processes, self.pid), ...[...HashMap.keys(jobs)].flatMap((pid) => [pid, ...descendants(pid).map(Struct.get('pid'))]), ...running.filter((candidate) => Option.isSome(candidate.terminal)).flatMap((candidate) => ancestors(processes, candidate.pid))]);
     const owned = ({ files }: Process): boolean =>
@@ -158,7 +159,7 @@ const stale = (sep: string, { processes, jobs, descendants }: Observed, worktree
         ([pid]) => pid,
     );
     return running
-        .filter((root) => root.ppid === 1 && !(root.pgid === root.pid && owned(root)))
+        .filter((root) => root.ppid === 1 && !(root.pgid === root.pid && owned(root) && !Option.exists(root.files, (handles) => handles.some(({ descriptor, path }) => descriptor === 'txt' && under(sep, path, engines)))))
         .flatMap((root) => {
             const subtree = [root, ...descendants(root.pid)];
             const members = new Set(subtree.map(Struct.get('pid')));
@@ -183,9 +184,9 @@ const held = ({ processes }: Observed, inside: (file: string) => boolean, dirnam
     );
 
 // --- [RECOVERY]
-const terminate = Effect.fn('terminate')(function* (sep: string, state: Observed, worktrees: readonly string[], local: readonly string[], toolchains: readonly string[], self: Process) {
+const terminate = Effect.fn('terminate')(function* (sep: string, state: Observed, worktrees: readonly string[], local: readonly string[], toolchains: readonly string[], engines: readonly string[], self: Process) {
     yield* Effect.forEach(zombies(state.processes), Console.log, { discard: true });
-    const targets = stale(sep, state, worktrees, local, toolchains, self);
+    const targets = stale(sep, state, worktrees, local, toolchains, engines, self);
     yield* Effect.forEach(targets, (target) => Console.log(`terminate ${target.pid} ${target.command}`), { discard: true });
     yield* accumulate(targets, (target) => send(target.pid, 'SIGTERM'));
     const pids = targets.map(Struct.get('pid'));
@@ -210,11 +211,10 @@ const terminate = Effect.fn('terminate')(function* (sep: string, state: Observed
 const plan = Effect.fn('plan')(function* (root: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const program = path.join(root, 'infra', 'cli.ts');
-    const [graph, { customLanguages }, pulumi, plugins, providers] = yield* Effect.all(
+    const [graph, { customLanguages }, plugins, providers] = yield* Effect.all(
         [
             Effect.try({ try: readCachedProjectGraph, catch: (cause) => CleanupError.make({ reason: { _tag: 'Ungraphed', cause } }) }),
             read(path.join(root, 'sgconfig.yml'), parseYaml).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Grammars))),
-            Config.String('PULUMI_HOME'),
             execute('pulumi', ['plugin', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Plugins))),
             read(program, (text) =>
                 parseSource(Lang.TypeScript, text)
@@ -230,7 +230,7 @@ const plan = Effect.fn('plan')(function* (root: string) {
                             fs.readFileString(manifest),
                             flow(
                                 Schema.decodeUnknownOption(Provider),
-                                Option.map(({ pulumi: { name } }) => name),
+                                Option.map(({ version, pulumi: { name, version: pinned } }) => `${name}-v${Option.getOrElse(pinned, () => version).replace(VERSION_PREFIX, '')}`),
                             ),
                         ),
                     ),
@@ -251,7 +251,7 @@ const plan = Effect.fn('plan')(function* (root: string) {
                     .flatMap((text) => [...text.matchAll(XCODEBUILD_PATH)].flatMap((match) => Array.fromNullishOr(match.groups?.path)))
                     .map((entry) => path.resolve(root, cwd ?? '.', entry.replace('$NX_WORKSPACE_ROOT', root))),
             ),
-        providers: plugins.filter(({ name }) => providers.includes(name)).map(({ kind, name, version }) => path.join(pulumi, 'plugins', `${kind}-${name}-v${version}`)),
+        unused: plugins.filter(({ name, version }) => !providers.includes(`${name}-v${version}`)),
         outputs: nodes.flatMap((node) =>
             Object.entries(node.data.targets ?? {}).flatMap(([target, definition]) =>
                 definition.outputs === undefined
@@ -292,7 +292,8 @@ const discard = Effect.fn('discard')(function* (targets: readonly string[]) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
-    const [fs, path, home, ghidra] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Config.String('GHIDRA_PROJECT_DIR')]);
+    const [fs, path, home, ghidra, pulumi] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Config.String('GHIDRA_PROJECT_DIR'), Config.String('PULUMI_HOME')]);
+    const engines = path.join(pulumi, 'plugins');
     const root = path.resolve(workspaceRoot);
     const residues = ['.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
     const workspaceKey = 16;
@@ -364,9 +365,10 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     yield* accumulate(orphaned, (agent) => execute('mise', ['bootstrap', 'services', 'remove', agent, '--yes'], shown));
     const observed = yield* snapshot(darwin);
     const owner = yield* Effect.fromOption(HashMap.get(observed.processes, self));
-    const state = yield* terminate(path.sep, observed, worktrees, Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), [...installed, ...developer, ...rustup.map(Struct.get('path'))], owner);
+    const state = yield* terminate(path.sep, observed, worktrees, Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), [...installed, ...developer, ...rustup.map(Struct.get('path'))], [engines], owner);
     const removal = Effect.gen(function* () {
         const planned = yield* Fiber.join(planning);
+        yield* accumulate(planned.unused, ({ kind, name, version }) => execute('pulumi', ['plugin', 'rm', kind, name, version, '--yes'], shown));
         const toolchains = rustup.map(Struct.get('name'));
         const strays = yield* Effect.all(
             [
@@ -392,7 +394,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
             ],
             { concurrency: 'unbounded' },
         ).pipe(Effect.map((found) => found.flat().map(Struct.get('path'))));
-        const retained = Array.dedupe([...loaded.flatMap(Struct.get('logs')), ...planned.grammars, cacheDir, ...planned.derived, ...planned.providers, ...worktrees.map((worktree) => path.join(sessions, createHash('sha1').update(worktree).digest('hex').slice(0, workspaceKey)))]);
+        const retained = Array.dedupe([...loaded.flatMap(Struct.get('logs')), ...planned.grammars, cacheDir, ...planned.derived, engines, ...worktrees.map((worktree) => path.join(sessions, createHash('sha1').update(worktree).digest('hex').slice(0, workspaceKey)))]);
         const listed = Array.dedupe([...residues.map((entry) => path.join(root, entry)), ghidra, sessions, ...planned.outputs, ...planned.cloudflare, ...strays]);
         const candidates = listed.filter((candidate) => !(under(path.sep, candidate, retained) || listed.some((other) => other !== candidate && under(path.sep, candidate, [other]))));
         const [kept, targeted] = [new Set(retained), new Set(candidates)];

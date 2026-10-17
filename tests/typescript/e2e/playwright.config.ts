@@ -10,9 +10,9 @@ export default defineConfig({
     outputDir: '../../../.artifacts/playwright-test/e2e',
     use: { baseURL: _PORTFOLIO, trace: 'retain-on-failure', timezoneId: 'UTC', reducedMotion: 'reduce' },
     webServer: {
-        command: 'vite',
-        cwd: '../../../apps/web/portfolio',
+        command: 'nx run architectural-portfolio:serve',
         url: _PORTFOLIO,
+        reuseExistingServer: true,
         gracefulShutdown: { signal: 'SIGTERM', timeout: 0 },
     },
 });

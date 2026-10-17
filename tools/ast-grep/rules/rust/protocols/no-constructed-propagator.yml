@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-constructed-propagator
+language: rust
+severity: error
+utils:
+    constructed:
+        kind: call_expression
+        has: {field: function, kind: scoped_identifier, regex: '(^|::)\w*Propagator::(new|default)$'}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(inject|inject_context|extract|extract_with_context|fields)$'}}
+        - has:
+            field: function
+            has:
+                field: value
+                pattern: $PROPAGATOR
+                any:
+                    - matches: constructed
+                    - kind: identifier
+                      inside:
+                        kind: function_item
+                        stopBy: end
+                        has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $PROPAGATOR}}, {has: {field: value, matches: constructed}}]}
+        - not: {matches: rust-test-scope}
+message: '`$PROPAGATOR` is a propagator built where a context is injected or extracted'
+note: 'Install the propagator once with `opentelemetry::global::set_text_map_propagator(<propagator>)` where the providers are set and read it through `global::get_text_map_propagator(|propagator| ..)`, the process configuration names the propagation format once. Tests building a propagator to check it stay'

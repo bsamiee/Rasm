@@ -4,13 +4,13 @@ from collections.abc import Callable, Mapping
 import itertools
 from typing import Self
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.imaging.faults import accumulated, ImagingReadFault, ImagingResult, paired
+from blender.imaging.faults import accumulated, ImagingReadFault, ImagingResult
 from blender.imaging.files.images import Compressions, Deflate, emitted, opened, Storage, Subimage
 from blender.imaging.parameters import Choice
 
@@ -20,15 +20,15 @@ from blender.imaging.parameters import Choice
 class Role(Choice):
     """What a pass holds, deciding its stored type."""
 
-    COLOR = 1, "Color"
-    DATA = 2, "Data"
+    COLOR = 1
+    DATA = 2
 
 
 class Layout(Choice):
     """How a file holds its passes."""
 
     PARTS = 1, "Multipart"
-    INTERLEAVED = 2, "Interleaved"
+    INTERLEAVED = 2
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -105,17 +105,20 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def indexed(image: OpenImageIO.ImageInput) -> ImagingResult[Self]:
-            try:
-                specs = ((index, image.spec()) for index in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
-                parts = tuple(
-                    Part(index=index, width=spec.width, height=spec.height, channels=spec.channelnames, header={held.name: held.value for held in spec.extra_attribs if isinstance(held.value, str)})
-                    for index, spec in specs
+            specs = ((index, image.spec()) for index in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
+            return Ok(
+                cls(
+                    path=path,
+                    parts=tuple(
+                        Part(
+                            index=index, width=spec.width, height=spec.height, channels=spec.channelnames, header={held.name: held.value for held in spec.extra_attribs if isinstance(held.value, str)}
+                        )
+                        for index, spec in specs
+                    ),
                 )
-            finally:
-                closed = Ok(None) if image.close() else Error((ImagingReadFault(request=path, error=image.geterror()),))
-            return closed.map(lambda _: cls(path=path, parts=parts))
+            )
 
-        return opened(path).bind(indexed)
+        return opened(path, indexed)
 
     def plane(self, layer: Layer, channels: tuple[Channel, ...]) -> ImagingResult[npt.NDArray[np.float32]]:
         """Reads channels of one layer as a float32 plane in the order given.
@@ -130,18 +133,14 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         first, last = min(channel.index for channel in channels), max(channel.index for channel in channels) + 1
 
         def pixels(image: OpenImageIO.ImageInput) -> ImagingResult[npt.NDArray[np.float32]]:
-            try:
-                read = (
-                    Option
-                    .of_optional(image.read_image(layer.part, 0, first, last, OpenImageIO.FLOAT))
-                    .map(lambda span: np.ascontiguousarray(span[..., [channel.index - first for channel in channels]]))
-                    .to_result_with(lambda: (ImagingReadFault(request=self.path, error=image.geterror()),))
-                )
-            finally:
-                closed = Ok(None) if image.close() else Error((ImagingReadFault(request=self.path, error=image.geterror()),))
-            return paired(read, closed).map(lambda pair: pair[0])
+            return (
+                Option
+                .of_optional(image.read_image(layer.part, 0, first, last, OpenImageIO.FLOAT))
+                .map(lambda span: np.ascontiguousarray(span[..., [channel.index - first for channel in channels]]))
+                .to_result_with(lambda: (ImagingReadFault(request=self.path, error=image.geterror()),))
+            )
 
-        return opened(self.path).bind(pixels)
+        return opened(self.path, pixels)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -201,20 +200,16 @@ def rewritten(path: str, display: Option[Window], channels: Callable[[tuple[str,
     """
 
     def parts(image: OpenImageIO.ImageInput) -> ImagingResult[Option[tuple[Subimage[np.float32], ...]]]:
-        try:
-            specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
-            renamed = tuple(channels(spec.channelnames) for spec in specs)
-            read = (
-                Ok(Nothing)
-                if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed, strict=True))
-                else accumulated(
-                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
-                    for index, spec in enumerate(specs)
-                ).map(lambda arrays: Some(tuple(itertools.starmap(subimage, zip(specs, renamed, arrays, strict=True)))))
-            )
-        finally:
-            closed = Ok(None) if image.close() else Error((ImagingReadFault(request=path, error=image.geterror()),))
-        return paired(read, closed).map(lambda pair: pair[0])
+        specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
+        renamed = tuple(channels(spec.channelnames) for spec in specs)
+        return (
+            Ok(Nothing)
+            if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed, strict=True))
+            else accumulated(
+                Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
+                for index, spec in enumerate(specs)
+            ).map(lambda arrays: Some(tuple(itertools.starmap(subimage, zip(specs, renamed, arrays, strict=True)))))
+        )
 
     def subimage(spec: OpenImageIO.ImageSpec, names: tuple[str, ...], array: npt.NDArray[np.float32]) -> Subimage[np.float32]:
         for window in display.to_list():
@@ -222,7 +217,7 @@ def rewritten(path: str, display: Option[Window], channels: Callable[[tuple[str,
         spec.channelnames = names
         return Subimage(spec=spec, attributes=compression.filter(lambda _: not spec.get_string_attribute("compression")).map(lambda held: held.attributes).default_value(()), pixels=lambda: Ok(array))
 
-    return opened(path).bind(parts).bind(lambda read: read.map(lambda parts: emitted(path, lambda _: parts)).default_value(Ok(path)))
+    return opened(path, parts).bind(lambda read: read.map(lambda parts: emitted(path, lambda _: parts)).default_value(Ok(path)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

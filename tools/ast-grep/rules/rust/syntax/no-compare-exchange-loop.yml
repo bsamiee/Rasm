@@ -22,8 +22,8 @@ utils:
     reload-block:
         kind: block
         all:
-            - has: {nthChild: 1, kind: expression_statement, has: {matches: reload}}
-            - not: {has: {nthChild: 2}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, kind: expression_statement, has: {matches: reload}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     retry:
         kind: match_arm
         all:
@@ -56,8 +56,8 @@ rule:
             field: body
             kind: block
             all:
-                - has: {nthChild: 1, any: [{matches: retry-match}, {kind: expression_statement, has: {nthChild: 1, matches: retry-match}}]}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: retry-match}, {kind: expression_statement, has: {nthChild: 1, matches: retry-match}}]}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
         - kind: while_expression
           all:
             - has: {field: condition, kind: let_condition, all: [{has: {field: value, matches: exchange}}, {has: {field: pattern, matches: failure}}]}

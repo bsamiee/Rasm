@@ -6,8 +6,7 @@ utils:
         kind: 'string_literal, raw_string_literal'
         regex: '(^[rbc]*#*"|[\s"''=:(,]|file://)(~/|(/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
     embedding-macro:
-        kind: macro_invocation
-        has: {field: macro, regex: '^((::)?(std|core)::)?(include_str|include_bytes|include)$'}
+        matches: {rust-std-macro: {name: {regex: '^(include_str|include_bytes|include)$'}}}
     home-layout-segment:
         kind: 'string_literal, raw_string_literal'
         any:
@@ -25,7 +24,7 @@ rule:
           matches: machine-text
         - kind: macro_invocation
           all:
-            - has: {field: macro, regex: '^((::)?(std|core)::)?(env|option_env)$'}
+            - matches: {rust-std-macro: {name: {regex: '^(env|option_env)$'}}}
             - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(CARGO_MANIFEST_DIR|CARGO_MANIFEST_PATH|CARGO_TARGET_TMPDIR|CARGO_WORKSPACE_DIR|CARGO_HOME|RUSTUP_HOME|OUT_DIR|HOME|USERPROFILE|USER|USERNAME|LOGNAME|PWD|HOSTNAME|TMPDIR)"$'}}
             - not: {inside: {stopBy: end, matches: embedding-macro}}
         - kind: call_expression

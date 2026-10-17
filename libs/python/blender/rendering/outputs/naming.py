@@ -22,32 +22,37 @@ type Width = Annotated[int, msgspec.Meta(ge=1, le=9)]
 class Word(Choice):
     """Text field of an output name."""
 
-    PROJECT = 1, "Project"
-    SHOT = 2, "Shot"
-    SCENE = 3, "Scene"
+    PROJECT = 1
+    SHOT = 2
+    SCENE = 3
     LAYER = 4, "View Layer"
-    CAMERA = 5, "Camera"
-    PASS = 6, "Pass"
-    OUTPUT = 7, "Output"
-    FILE = 8, "File"
-    DATE = 9, "Date"
+    CAMERA = 5
+    PASS = 6
+    OUTPUT = 7
+    FILE = 8
+    DATE = 9
 
 
 class Count(Choice):
     """Number field of an output name."""
 
-    VERSION = 1, "Version"
-    FRAME = 2, "Frame"
-    ORDER = 3, "Order"
+    VERSION = 1
+    FRAME = 2
+    ORDER = 3
 
 
 class Output(Choice):
     """Output class with its own file format."""
 
-    BEAUTY = 1, "Beauty"
-    DATA = 2, "Data"
-    MATTE = 3, "Matte"
-    PREVIEW = 4, "Preview"
+    BEAUTY = 1
+    DATA = 2
+    MATTE = 3
+    PREVIEW = 4
+
+    @property
+    def token(self) -> str:
+        """Text an output field holds for this class, the one its pattern accepts."""
+        return self.name.lower()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -61,7 +66,6 @@ _RESERVED = r'\x00-\x1f"*:<>?|'
 class Text(Case, frozen=True, kw_only=True, tag=1):
     """Literal text."""
 
-    title = "Text"
     text: str
 
 
@@ -102,10 +106,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             Text(text=found["text"]) if found["text"] else Slot(key=Word[found["word"].upper()]) if found["word"] else Number(key=Count[found["count"].upper()], width=int(found["width"]))
             for found in re.finditer(rf"\{{(?:(?P<word>{'|'.join(words)})|(?P<count>{'|'.join(counts)}):(?P<width>{digits}))\}}|(?P<text>[^{{}}]+)", template)
         )
-        pinned: dict[Count, int] = {}
-        for part in parts:
-            if isinstance(part, Number):
-                pinned.setdefault(part.key, part.width)
+        pinned = {part.key: part.width for part in reversed(parts) if isinstance(part, Number)}
         field = rf"\{{(?:{'|'.join((*words, *(f'{key.name.lower()}:{width}' for key, width in pinned.items())))})\}}"
         grammar = re.compile(rf"(?![\s\S]*\x00)[^{{}}]*(?:{field}(?:[^{{}}]*(?:[^\w{{}}]|_)[^{{}}]*{field})*[^{{}}]*)?")
         return Ok(cls(parts=parts)) if grammar.fullmatch(template) else Error((RenderingNameFault(request=template, error=grammar),))
@@ -122,7 +123,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         def pattern(part: Field) -> re.Pattern[str]:
             match part:
                 case Slot(key=Word.OUTPUT):
-                    return re.compile("|".join(member.name.lower() for member in Output))
+                    return re.compile("|".join(member.token for member in Output))
                 case Slot(key=Word.DATE):
                     return re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
                 case Slot():
@@ -153,10 +154,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         """Reads a relative extensionless name, requiring repeated fields to agree."""
         patterns = self.patterns()
         names = {part: f"{type(part).__name__}_{part.key.name}" for part in patterns}
-        first: dict[Field, int] = {}
-        for index, part in enumerate(self.parts):
-            if not isinstance(part, Text):
-                first.setdefault(part, index)
+        first = {part: index for index, part in reversed(tuple(enumerate(self.parts))) if not isinstance(part, Text)}
         grammar = re.compile(
             "".join(
                 re.escape(part.text) if isinstance(part, Text) else f"(?P<{names[part]}>{patterns[part].pattern})" if first[part] == index else f"(?P={names[part]})"

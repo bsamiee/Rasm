@@ -7,11 +7,11 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Display;
 using Rhino.UI;
 using Rhino.UI.Controls;
@@ -65,17 +65,16 @@ public static class ColorRows {
         ControlRow.Of(source, field, RowShape.Inline,
             (scope, retain) => Swatched(source, field, Prelude.lens(lens, Gated<Swatch>.ValueEntry.Lens), Some(Prelude.lens(lens, Gated<Swatch>.EnabledEntry.Lens)), stage, scope, retain), rules);
 
-    public static ControlRow Swatches<TRecord, TValue, TError>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, Option<StageInput> stage, RowRules rules)
+    public static ControlRow Swatches<TRecord, TValue>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, Option<StageInput> stage, RowRules rules)
         where TRecord : notnull
-        where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>
-        where TError : Error, IValidationError<TError> =>
-        ControlRow.Of(source, field, RowShape.Block, (scope, retain) => Stripped<TRecord, TValue, TError>(source, field, lens, stage, scope, retain), rules);
+        where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>> =>
+        ControlRow.Of(source, field, RowShape.Block, (scope, retain) => Stripped(source, field, lens, stage, scope, retain), rules);
 
     private static IO<RowCells> Swatched<TRecord>(
         RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Swatch> swatch, Option<Lens<TRecord, bool>> gate, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
         from well in Welled(new SwatchEncoding.DisplayReferred(), new Size(-1, SwatchSide), IO.pure(unit), scope.Sink, retain)
-        from box in gate.Traverse(_ => DisposalOps.Acquire(IO.lift(static () => new CheckBox()), static value => IO.lift(value.Dispose), retain)).As()
+        from box in gate.Traverse(_ => DisposalOps.Acquire(IO.lift(static () => new CheckBox()), retain)).As()
         let gated = from member in gate from shown in box select (Lens: member, Box: shown)
         let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(SwatchColor))
         let write = Written(swatch)
@@ -117,10 +116,9 @@ public static class ColorRows {
         where TRecord : notnull =>
         PreviewRows.Pick(stage, PickCaption, mean => edit.Take(new Edit<Vector4>.Commit(mean), write).Map(unit), scope, retain);
 
-    private static IO<RowCells> Stripped<TRecord, TValue, TError>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
+    private static IO<RowCells> Stripped<TRecord, TValue>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull
-        where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>
-        where TError : Error, IValidationError<TError> =>
+        where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>> =>
         from add in IO.lift(static () => new Command())
         from remove in IO.lift(static () => new Command())
         from named in IO.lift(() => {
@@ -130,23 +128,21 @@ public static class ColorRows {
         })
         from pair in ButtonRows.AddRemove(add, remove, retain)
         from state in atomIO(new StripState<TRecord>(None, None, 0))
-        from wells in IO.lift(static () => Ref((Wells: Seq<Well>(), Releases: Seq<IDisposable>())))
-        from panel in DisposalOps.Acquire(IO.lift(() => new Panel { Tag = wells }), value =>
+        from wells in IO.lift(static () => Ref(Seq<Well>()))
+        from owned in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
+        from panel in DisposalOps.Acquire(IO.lift(() => new Panel { Tag = owned }), value =>
             IO.lift(() => { value.Content = null; value.Dispose(); })
-                .Bind(_ => atomicIO(() => {
-                    Seq<IDisposable> prior = wells.Value.Releases;
-                    wells.Value = ([], []);
-                    return prior;
-                })).Bind(DisposalOps.Release), retain)
+                .Bind(_ => atomicIO(() => wells.Value = []))
+                .Bind(_ => owned.Close), retain)
         from body in DisposalOps.Acquire(IO.lift(() => new StackLayout(
                 new StackLayoutItem(pair, HorizontalAlignment.Left), new StackLayoutItem(panel)) {
             Orientation = Orientation.Vertical,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-        }), static value => IO.lift(value.Dispose), retain)
+        }), retain)
         let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(Swatches))
         let made = fun((RowEdit<TRecord> edit) => new Strip<TRecord>(
-            panel, add, remove, state, wells,
-            record => lens.Get(record).ToValue(), (record, change) => Revised<TRecord, TValue, TError>(lens, record, change), edit, scope, site))
+            panel, add, remove, state, wells, owned,
+            record => lens.Get(record).ToValue(), (record, change) => Revised(lens, record, change), edit, scope, site))
         from bound in RowEdit.Bind(source, IterableNE.create(field), h => add.Executed += h, h => add.Executed -= h,
                 edit => Callbacks.Handler<EventArgs>(_ => Added(made(edit)), site), value => state.SwapIO(held => held with { Shown = value }).Map(unit), scope, site, retain)
         let strip = made(bound)
@@ -159,11 +155,10 @@ public static class ColorRows {
             bound.Shown.Bind(_ => Laid(strip)), Some<RowEdit>(bound),
             Some(ChoiceRows.Context(panel, [], [], scope.Sink)));
 
-    private static Fin<TRecord> Revised<TRecord, TValue, TError>(Lens<TRecord, TValue> lens, TRecord record, Func<Seq<Swatch>, Seq<Swatch>> change)
+    private static Fin<TRecord> Revised<TRecord, TValue>(Lens<TRecord, TValue> lens, TRecord record, Func<Seq<Swatch>, Seq<Swatch>> change)
         where TRecord : notnull
-        where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>
-        where TError : Error, IValidationError<TError> =>
-        Conversions.Validated<TValue, Seq<Swatch>, TError>(change(lens.Get(record).ToValue())).Map(next => lens.Set(next, record));
+        where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>> =>
+        Admission.Validated<TValue, Seq<Swatch>>(change(lens.Get(record).ToValue())).Map(next => lens.Set(next, record));
 
     private static IO<Unit> Added<TRecord>(Strip<TRecord> strip) where TRecord : notnull =>
         from held in strip.State.ValueIO
@@ -204,26 +199,18 @@ public static class ColorRows {
         from columns in IO.lift(() => int.Max(strip.Panel.Width / SwatchSide, 1))
         from held in strip.State.ValueIO
         from made in DisposalOps.Replace(keep => Built(strip, held, columns, keep),
-            (value, lease) => {
-                Control? priorContent = strip.Panel.Content;
-                (Seq<Well> Wells, Seq<IDisposable> Releases) prior = strip.Wells.Value;
-                strip.Wells.Value = (prior.Wells, prior.Releases.Add(lease));
-                return DisposalOps.OnFailure(
-                    IO.lift(() => strip.Panel.Content = value.Layout).Map(unit),
-                    IO.lift(() => strip.Panel.Content = priorContent)
-                        .Bind(_ => IO.lift(() => strip.Wells.Value = prior))
-                        .Bind(_ => DisposalOps.Release(Seq(lease))))
-                    .Bind(_ => IO.lift(() => strip.Wells.Value = (value.Wells, Seq(lease))))
-                    .Bind(_ => strip.State.SwapIO(current => current with { Columns = columns }))
-                    .Bind(_ => DisposalOps.Release(prior.Releases));
-            })
+            (value, lease) =>
+                from published in DisposalOps.Published(strip.Owned, (Control?)value.Layout, lease, () => strip.Panel.Content, content => strip.Panel.Content = content)
+                from shown in atomicIO(() => strip.Wells.Value = value.Wells)
+                from laid in strip.State.SwapIO(current => current with { Columns = columns })
+                select unit)
         from framed in Framed(strip, held)
         select unit).As();
 
     private static IO<(Seq<Well> Wells, StackLayout Layout)> Built<TRecord>(Strip<TRecord> strip, StripState<TRecord> held, int columns, Action<IDisposable> keep) where TRecord : notnull =>
         from wells in Entries(strip, held).Map((entry, index) => Placed(strip, entry, index, keep)).TraverseM(static make => make).As()
-        from lines in toSeq(wells.Chunk(columns)).TraverseM(line => DisposalOps.Acquire(IO.lift(() => new StackLayout([.. toSeq(line).Map(static well => new StackLayoutItem(well.Button))]) { Orientation = Orientation.Horizontal }), static value => IO.lift(value.Dispose), keep)).As()
-        from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. lines.Map(static line => new StackLayoutItem(line, HorizontalAlignment.Left))]) { Orientation = Orientation.Vertical }), static value => IO.lift(value.Dispose), keep)
+        from lines in toSeq(wells.Chunk(columns)).TraverseM(line => DisposalOps.Acquire(IO.lift(() => new StackLayout([.. toSeq(line).Map(static well => new StackLayoutItem(well.Button))]) { Orientation = Orientation.Horizontal }), keep)).As()
+        from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. lines.Map(static line => new StackLayoutItem(line, HorizontalAlignment.Left))]) { Orientation = Orientation.Vertical }), keep)
         select (Wells: wells, Layout: layout);
 
     private static IO<Unit> Framed<TRecord>(Strip<TRecord> strip, StripState<TRecord> held) where TRecord : notnull =>
@@ -233,7 +220,7 @@ public static class ColorRows {
             strip.Add.Enabled = count > 0;
             strip.Remove.Enabled = held.Selected.Exists(at => at < count);
         })
-        from painted in wells.Wells.Zip(Entries(strip, held))
+        from painted in wells.Zip(Entries(strip, held))
             .Map((pair, index) => Restyled(pair.First, pair.Second.Map(static swatch => swatch.Display), Frame(held.Selected, index)))
             .TraverseM(static paint => paint)
             .As()
@@ -276,7 +263,7 @@ public static class ColorRows {
 
     private static IO<Unit> Dialog<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site) where TRecord : notnull =>
         (from touched in well.Touched
-         from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
+         from document in scope.DocumentIO
          from look in well.Look.ValueIO
          from opened in edit.Opened
          from taken in DisposalOps.OnFailure(
@@ -334,7 +321,7 @@ public static class ColorRows {
 
     private sealed record Strip<TRecord>(
         Panel Panel, Command Add, Command Remove, Atom<StripState<TRecord>> State,
-        Ref<(Seq<Well> Wells, Seq<IDisposable> Releases)> Wells,
+        Ref<Seq<Well>> Wells, Retained<IDisposable> Owned,
         Func<TRecord, Seq<Swatch>> Listed, Func<TRecord, Func<Seq<Swatch>, Seq<Swatch>>, Fin<TRecord>> Revise, RowEdit<TRecord> Edit, RowScope Scope, CallbackSite Site)
         where TRecord : notnull;
 
@@ -355,7 +342,7 @@ public static class ColorRows {
         Lens<TRecord, (DisplayAndPrintColorSourceMode Source, System.Drawing.Color Color)> print,
         LanguageExt.HashSet<DisplayAndPrintColorSourceMode> offered, Option<Func<TRecord, IO<(System.Drawing.Color Display, System.Drawing.Color Print)>>> resolved, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
-        from picker in DisposalOps.Acquire(IO.lift(static () => new DisplayAndPrintColorPicker()), static value => IO.lift(value.Dispose), retain)
+        from picker in DisposalOps.Acquire(IO.lift(static () => new DisplayAndPrintColorPicker()), retain)
         from configured in IO.lift(() => {
             picker.PickerMode = DisplayAndPrintColorPickerMode.Dual;
             picker.ShowByLayer = offered.Contains(DisplayAndPrintColorSourceMode.ByLayer);
@@ -413,36 +400,34 @@ public static class ColorRows {
         left.Source == right.Source && Conversions.Same(left.Color, right.Color);
 
     // --- [WHEELS]
-    public static ControlRow Wheels(
-        RowSource<WheelsState> source, Func<ToneWheel, (RowField<WheelsState> Hue, RowField<WheelsState> Strength, RowField<WheelsState> Luma)> fields,
-        string caption, string help, Func<ToneWheel, string> range, Option<Gamut> working, RowRules rules) =>
-        IterableNE.create(ToneWheel.Items[0], ToneWheel.Items.Skip(1)).Bind(wheel => fields(wheel) switch { var (hue, strength, luma) => IterableNE.create(hue, strength, luma) }) switch {
-            var members => ControlRow.Of(source, members, caption, help, RowShape.Block, (scope, retain) => Wheeled(source, members, fields, range, working, scope, retain), rules),
+    public static ControlRow Wheels(RowSource<WheelsState> source, string caption, string help, Option<Gamut> working, RowRules rules) =>
+        IterableNE.create(ToneWheel.Items[0], ToneWheel.Items.Skip(1)).Map(static wheel => new RowField<WheelsState>(wheel.Parameter)) switch {
+            var members => ControlRow.Of(source, members, caption, help, RowShape.Block, (scope, retain) => Wheeled(source, members, working, scope, retain), rules),
         };
 
     private static IO<RowCells> Wheeled(
-        RowSource<WheelsState> source, IterableNE<RowField<WheelsState>> members,
-        Func<ToneWheel, (RowField<WheelsState> Hue, RowField<WheelsState> Strength, RowField<WheelsState> Luma)> fields, Func<ToneWheel, string> range, Option<Gamut> working, RowScope scope, Action<IDisposable> retain) =>
+        RowSource<WheelsState> source, IterableNE<RowField<WheelsState>> members, Option<Gamut> working, RowScope scope, Action<IDisposable> retain) =>
         from record in scope.Read(source)
         from shown in atomIO(Opening(record))
-        let texts = (Hue: NumberText.Scalar(WheelsParameter.Hue, ((float)WheelHue.MinValue, (float)WheelHue.MaxValue), RowEdit.Varies), Strength: NumberText.Scalar(WheelsParameter.Strength, ((float)WheelStrength.MinValue, (float)WheelStrength.MaxValue), RowEdit.Varies))
-        let faced = fun((ToneWheel wheel) => new ShownWheel(Wording.English.Shown(range(wheel), scope.Sink), texts.Hue, texts.Strength))
+        let texts = (Hue: NumberText.Scalar(NumericDomain.Bounded<WheelHue, float>(WheelHue.Presentation), RowEdit.Varies), Strength: NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(AxisFraction.Presentation), RowEdit.Varies))
+        let faced = fun((ToneWheel wheel) => new ShownWheel(Wording.English.Shown(wheel.Parameter.Text.Caption, scope.Sink), texts.Hue, texts.Strength))
         let current = fun(() => shown.Value)
-        from wheel in DisposalOps.Acquire(IO.lift(() => new GradingWheel(scope.Sink, faced(current()))), static value => IO.lift(value.Dispose), retain)
+        from wheel in DisposalOps.Acquire(IO.lift(() => new GradingWheel(scope.Sink, faced(current()))), retain)
         let site = new CallbackSite(scope.Sink, typeof(GradingWheel), nameof(GradingWheel.Edited))
         from bound in RowEdit.Bind(source, members, h => wheel.Edited += h, h => wheel.Edited -= h,
             edit => Callbacks.Handler<EditEventArgs<WheelOffset>>(args => edit.Take(args.Edit, (offset, held) => Fin.Succ(current().Lens.Set(offset, held))).Map(unit), site),
             value => IO.lift(current).Bind(chosen => wheel.Receive(value.Map(chosen.Lens.Get))), scope, site, retain)
-        from hue in NumericRows.Line<WheelsState, WheelHue, float, InvalidGrade>(source, fields(current()).Hue, Followed(current, static tone => tone.Hue), WheelsParameter.Hue, bound, None, scope.Sink, retain)
-        from strength in
-            NumericRows.Line<WheelsState, WheelStrength, float, InvalidGrade>(
-                source, fields(current()).Strength, Followed(current, static tone => tone.Strength), WheelsParameter.Strength, bound, None, scope.Sink, retain)
-        from luma in NumericRows.Line<WheelsState, WheelLuma, float, InvalidGrade>(source, fields(current()).Luma, Followed(current, static tone => tone.Luma), WheelsParameter.Luma, bound, None, scope.Sink, retain)
+        from hue in NumericRows.Line(
+            source, WheelOffsetParameter.Hue.Text.Caption, Followed(current, static tone => tone.Hue), WheelHue.Presentation, bound, None, scope.Sink, retain)
+        from strength in NumericRows.Line(
+            source, WheelOffsetParameter.Strength.Text.Caption, Followed(current, static tone => tone.Strength), AxisFraction.Presentation, bound, None, scope.Sink, retain)
+        from luma in NumericRows.Line(
+            source, WheelOffsetParameter.Luma.Text.Caption, Followed(current, static tone => tone.Luma), WheelLuma.Presentation, bound, None, scope.Sink, retain)
         from lanes in working.ToSeq().Bind(gamut => toSeq(TraceChannel.Items).Choose(channel => channel.Lane.Map(lane => Laned(channel, lane, WheelOffset.LaneBounds(gamut), current, bound, gamut, scope.Sink, retain))))
             .TraverseM(static make => make).As()
         let lines = Lines(bound, scope.Read(source), Seq(hue.Show, strength.Show, luma.Show) + lanes.Map(static lane => lane.Show))
         from popup in ChoiceRows.Popup(
-                toSeq(ToneWheel.Items).Map(item => new ChoiceItem<ToneWheel>(item, Wording.English.Shown(range(item), scope.Sink), None)),
+                toSeq(ToneWheel.Items).Map(item => new ChoiceItem<ToneWheel>(item, Wording.English.Shown(item.Parameter.Text.Caption, scope.Sink), None)),
                 picked => Switched(shown, wheel, faced(picked), picked).Bind(_ => lines), scope.Sink, retain)
         select new RowCells(
             popup.Control, None, None, None, [],
@@ -454,21 +439,21 @@ public static class ColorRows {
         writeIO(shown, picked).Bind(_ => wheel.Show(faced));
 
     private static ToneWheel Opening(WheelsState record) =>
-        toSeq(ToneWheel.Items).Find(wheel => wheel.Lens.Get(record) != WheelOffset.Neutral).IfNone(ToneWheel.Global);
+        toSeq(ToneWheel.Items).Find(wheel => wheel.Lens.Get(record) != WheelOffset.Default).IfNone(ToneWheel.Global);
 
     private static Lens<WheelsState, T> Followed<T>(Func<ToneWheel> current, Func<ToneWheel, Lens<WheelsState, T>> member) =>
         Lens<WheelsState, T>.New(held => member(current()).Get(held), value => held => member(current()).Set(value, held));
 
     private static IO<(RowLine Line, Func<Option<WheelsState>, IO<Unit>> Show)> Laned(
         TraceChannel channel, Lens<Vector3, float> lane, (Vector3 Low, Vector3 High) bounds, Func<ToneWheel> current, RowEdit<WheelsState> edit, Gamut working, IPlugInSink sink, Action<IDisposable> retain) {
-        (float Low, float High) limits = ((float)MixerWeight.MinValue, (float)MixerWeight.MaxValue);
-        NumberText<float> text = NumberText.Scalar(new Presentation<float> { Soft = (lane.Get(bounds.Low), lane.Get(bounds.High)) }, limits, RowEdit.Varies);
-        return from field in DisposalOps.Acquire(IO.lift(() => new NumberField<MixerWeight, float>(text, Conversions.Validated<MixerWeight, float, InvalidGrade>, static value => value, limits, sink)), static value => IO.lift(value.Dispose), retain)
+        NumericDomain<SignedMagnitude, float> domain = NumericDomain.Bounded<SignedMagnitude, float>(new() { Soft = (lane.Get(bounds.Low), lane.Get(bounds.High)) });
+        NumberText<float> text = NumberText.Scalar(domain, RowEdit.Varies);
+        return from field in DisposalOps.Acquire(IO.lift(() => new NumberField<SignedMagnitude, float>(text, domain.Create, domain.Key, domain.Bounds, sink)), retain)
                from edited in Subscriptions.Attach(h => field.Edited += h, h => field.Edited -= h,
-                   Callbacks.Handler<EditEventArgs<MixerWeight>>(args => edit.Take(args.Edit, (value, held) => Crossed(current(), lane, working, value, held)).Map(unit), new CallbackSite(sink, typeof(ColorRows), nameof(Wheels))), retain)
+                   Callbacks.Handler<EditEventArgs<SignedMagnitude>>(args => edit.Take(args.Edit, (value, held) => Crossed(current(), lane, working, value, held)).Map(unit), new CallbackSite(sink, typeof(ColorRows), nameof(Wheels))), retain)
                select (
                    new RowLine(Some(channel.Map(luma: "Luma", red: "Red", green: "Green", blue: "Blue")), field, None,
-                       Some(new FieldFit(field, text.TextWidth(field.Font) + (2f * NumericRows.FieldInset)))),
+                       Some(field.Fit)),
                    (Func<Option<WheelsState>, IO<Unit>>)(value => IO.lift(current).Bind(wheel => field.Receive(Lane(wheel, lane, working, value)))));
     }
 
@@ -477,9 +462,9 @@ public static class ColorRows {
             var offset => WheelOffset.FromMultiplier(lane.Set(value, offset.Multiplier(working)), working, offset.Hue).Map(next => wheel.Lens.Set(next, held)),
         };
 
-    private static Option<MixerWeight> Lane(ToneWheel wheel, Lens<Vector3, float> lane, Gamut working, Option<WheelsState> value) =>
+    private static Option<SignedMagnitude> Lane(ToneWheel wheel, Lens<Vector3, float> lane, Gamut working, Option<WheelsState> value) =>
         from record in value
-        from weight in Conversions.Validated<MixerWeight, float, InvalidGrade>(lane.Get(wheel.Lens.Get(record).Multiplier(working))).ToOption()
+        from weight in SignedMagnitude.Validated(lane.Get(wheel.Lens.Get(record).Multiplier(working))).ToOption()
         select weight;
 
     private static IO<Unit> Lines<TRecord>(RowEdit<TRecord> edit, IO<TRecord> read, Seq<Func<Option<TRecord>, IO<Unit>>> shows) where TRecord : notnull =>
@@ -490,9 +475,9 @@ public static class ColorRows {
         select unit).As();
 
     // --- [GRADIENTS]
-    public static ControlRow Gradient<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Ramp> lens, Func<RampInterpolation, string> caption, Gamut working, RowRules rules)
+    public static ControlRow Gradient<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Ramp> lens, Gamut working, RowRules rules)
         where TRecord : notnull =>
-        ControlRow.Of(source, field, RowShape.Block, (scope, retain) => Ramped(source, field, lens, caption, working, scope, retain), rules);
+        ControlRow.Of(source, field, RowShape.Block, (scope, retain) => Ramped(source, field, lens, working, scope, retain), rules);
 
     public static Fin<Ramp> RampOf(ColorGradient gradient) {
         Seq<ColorStop> stops = toSeq(gradient.GetColorStops());
@@ -500,12 +485,12 @@ public static class ColorRows {
         TransferCurve.Srgb.Decode(light, Nits.ReferenceWhite);
         return stops.Zip(toSeq(light))
             .Traverse(static pair => (
-                from position in Conversions.Validated<RampPosition, double, InvalidPixelValue>(pair.First.Position)
-                from stop in RampStop.Validate(position, pair.Second, out RampStop item) is { } error ? error : (Fin<RampStop>)item
+                from position in RampPosition.Validated(pair.First.Position)
+                from stop in Admission.Admitted(RampStop.Validate(position, pair.Second, out RampStop item), item)
                 select stop).ToValidation())
             .As()
             .ToFin()
-            .Bind(static held => Ramp.Validate(held, RampInterpolation.Linear, out Ramp? ramp) is { } error ? error : (Fin<Ramp>)ramp!);
+            .Bind(static held => Admission.Admitted(Ramp.Validate(held, RampInterpolation.Linear, out Ramp? ramp), ramp));
     }
 
     public static ColorGradient GradientOf(ColorGradient held, Ramp ramp) {
@@ -517,21 +502,21 @@ public static class ColorRows {
         return written;
     }
 
-    private static IO<RowCells> Ramped<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Ramp> lens, Func<RampInterpolation, string> caption, Gamut working, RowScope scope, Action<IDisposable> retain)
+    private static IO<RowCells> Ramped<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Ramp> lens, Gamut working, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull {
-        (double Low, double High) limits = ((double)RampPosition.MinValue, (double)RampPosition.MaxValue);
-        NumberText<double> text = NumberText.Scalar(new Presentation<double>(), limits, RowEdit.Varies);
-        return from bar in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(field.Caption, scope.Sink), new GradientRampState.Editor(working, text, None, None, None))), static value => IO.lift(value.Dispose), retain)
+        NumericDomain<RampPosition, double> domain = NumericDomain.Bounded<RampPosition, double>(new());
+        NumberText<double> text = NumberText.Scalar(domain, RowEdit.Varies);
+        return from bar in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(field.Caption, scope.Sink), new GradientRampState.Editor(working, text, None, None, None))), retain)
                from stop in atomIO((Ramp: Option<Ramp>.None, Selected: Option<int>.None))
                let site = new CallbackSite(scope.Sink, typeof(GradientRamp), nameof(GradientRamp.Edited))
                from bound in RowEdit.Bind(source, IterableNE.create(field), h => bar.Edited += h, h => bar.Edited -= h,
                    edit => Callbacks.Handler<EditEventArgs<Ramp>>(args => Dragged(edit, stop, lens, args.Edit), site), value => bar.Receive(value.Map(lens.Get)), scope, site, retain)
                from popup in ChoiceRows.Popup(
-                       ChoiceRows.Items<RampInterpolation, InvalidPixelValue>(caption, None, scope.Sink),
+                       ChoiceRows.Items<RampInterpolation>(None, scope.Sink),
                        picked => bound.Take(new Edit<RampInterpolation>.Commit(picked), (interpolation, held) => Interpolated(lens, interpolation, held)).Map(unit), scope.Sink, retain)
                from well in Welled(new SwatchEncoding.SceneLinear(working), new Size(-1, SwatchSide), IO.pure(unit), scope.Sink, retain)
-               from position in DisposalOps.Acquire(IO.lift(() => new NumberField<RampPosition, double>(text, Conversions.Validated<RampPosition, double, InvalidPixelValue>, static value => value, limits, scope.Sink)), static value => IO.lift(value.Dispose), retain)
-               from line in DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(new TableCell(well.Button, scaleWidth: true), new TableCell(position)))), static value => IO.lift(value.Dispose), retain)
+               from position in DisposalOps.Acquire(IO.lift(() => new NumberField<RampPosition, double>(text, domain.Create, domain.Key, domain.Bounds, scope.Sink)), retain)
+               from line in DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(new TableCell(well.Button, scaleWidth: true), new TableCell(position)))), retain)
                from spaced in IO.lift(() => { line.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table); })
                let stopped = Stopped(stop.ValueIO, well, position)
                from session in Session(well, bound, (color, record) => Recolored(lens, stop.Value.Selected, color, record), scope, site, retain)
@@ -541,30 +526,27 @@ public static class ColorRows {
                    Callbacks.Handler<EditEventArgs<RampPosition>>(args => Positioned(bound, stop, bar, lens, args.Edit), site with { Member = nameof(NumberField<,>.Edited) }), retain)
                select new RowCells(
                    popup.Control, None, None, None, [],
-                   Seq(new RowLine(Some(""), bar, None, None), new RowLine(Some("Stop"), line, None, Some(new FieldFit(position, text.TextWidth(position.Font) + (2f * NumericRows.FieldInset))))),
+                   Seq(new RowLine(Some(""), bar, None, None), new RowLine(Some("Stop"), line, None, Some(position.Fit))),
                    new RowHelp(None, None), Restopped(bound, scope.Read(source), lens, popup.Show, stop, stopped), Some<RowEdit>(bound),
                    Some(ChoiceRows.Context(bar, [], [], scope.Sink))) { Plot = Some<ComponentControl>(bar) };
     }
 
     private static IO<Unit> Dragged<TRecord>(RowEdit<TRecord> edit, Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, Lens<TRecord, Ramp> lens, Edit<Ramp> change)
         where TRecord : notnull =>
-        stop.SwapIO(held => held with { Ramp = Carried(change) | held.Ramp }).Bind(_ => edit.Take(change, (ramp, record) => Fin.Succ(lens.Set(ramp, record)))).Map(unit);
+        stop.SwapIO(held => held with { Ramp = change.Carried | held.Ramp }).Bind(_ => edit.Take(change, (ramp, record) => Fin.Succ(lens.Set(ramp, record)))).Map(unit);
 
     private static IO<Unit> Chosen(Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, Option<int> at) =>
         stop.SwapIO(held => held with { Selected = at }).Map(unit);
 
-    private static Option<Ramp> Carried(Edit<Ramp> change) =>
-        change.Switch<Option<Ramp>>(preview: static held => held.Value, step: static held => held.Value, commit: static held => held.Value, cancel: static _ => None);
-
     private static Fin<TRecord> Interpolated<TRecord>(Lens<TRecord, Ramp> lens, RampInterpolation interpolation, TRecord record) where TRecord : notnull =>
-        Ramp.Validate(lens.Get(record).Stops, interpolation, out Ramp? ramp) is { } error ? error : (Fin<TRecord>)lens.Set(ramp!, record);
+        Admission.Admitted(Ramp.Validate(lens.Get(record).Stops, interpolation, out Ramp? ramp), ramp).Map(held => lens.Set(held, record));
 
     private static Fin<TRecord> Recolored<TRecord>(Lens<TRecord, Ramp> lens, Option<int> selected, Vector4 color, TRecord record) where TRecord : notnull =>
-        from at in selected.ToFin(new Missing(nameof(GradientRamp.Selected)))
+        from at in selected.ToFin(new Refused(nameof(GradientRamp.Selected), Refused.Absent))
         let ramp = lens.Get(record)
-        from current in ramp.Stops.At(at).ToFin(new IndexOutOfRange(nameof(Ramp.Stops), at, ramp.Stops.Count))
-        from item in RampStop.Validate(current.Position, color, out RampStop next) is { } refused ? refused : (Fin<RampStop>)next
-        from written in Ramp.Validate(ramp.Stops.Map((kept, index) => index == at ? item : kept), ramp.Interpolation, out Ramp? replaced) is { } error ? error : (Fin<Ramp>)replaced!
+        from current in Conversions.Within(at, ramp.Stops.Count, nameof(Ramp.Stops)).Map(_ => ramp.Stops[at])
+        from item in Admission.Admitted(RampStop.Validate(current.Position, color, out RampStop next), next)
+        from written in Admission.Admitted(Ramp.Validate(ramp.Stops.Map((kept, index) => index == at ? item : kept), ramp.Interpolation, out Ramp? replaced), replaced)
         select lens.Set(written, record);
 
     private static IO<Unit> Stopped(IO<(Option<Ramp> Ramp, Option<int> Selected)> stop, Well well, NumberField<RampPosition, double> position) =>
@@ -592,40 +574,37 @@ public static class ColorRows {
     private static IO<Unit> Positioned<TRecord>(
         RowEdit<TRecord> edit, Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, GradientRamp bar, Lens<TRecord, Ramp> lens, Edit<RampPosition> change) where TRecord : notnull =>
         from state in stop.ValueIO
-        from taken in edit.Take(change, (value, record) => state.Selected.ToFin(new Missing(nameof(GradientRamp.Selected))).Map(at => lens.Set(lens.Get(record).Moved(at, value).Ramp, record)))
-        from reselected in (from value in StepOrCommit(change) from ramp in state.Ramp from at in state.Selected select ramp.Moved(at, value)).Traverse(moved => Reselected(stop, bar, moved)).As()
+        from taken in edit.Take(change, (value, record) => state.Selected.ToFin(new Refused(nameof(GradientRamp.Selected), Refused.Absent)).Map(at => lens.Set(lens.Get(record).Moved(at, value).Ramp, record)))
+        from reselected in (from value in change.Settled from ramp in state.Ramp from at in state.Selected select ramp.Moved(at, value)).Traverse(moved => Reselected(stop, bar, moved)).As()
         select unit;
-
-    private static Option<RampPosition> StepOrCommit(Edit<RampPosition> change) =>
-        change.Switch<Option<RampPosition>>(preview: static _ => None, step: static held => held.Value, commit: static held => held.Value, cancel: static _ => None);
 
     private static IO<Unit> Reselected(Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, GradientRamp bar, (Ramp Ramp, int Index) moved) =>
         stop.SwapIO(held => held with { Ramp = Some(moved.Ramp) }).Bind(_ => bar.Select(Some(moved.Index)));
 
     // --- [QUALIFIERS]
     public static ControlRow Qualifier<TRecord>(
-        RowSource<TRecord> source, string caption, string help, RangeAxis axis, Lens<TRecord, HueRange> range,
-        (RowField<TRecord> Center, RowField<TRecord> Width, RowField<TRecord> Softness) band,
+        RowSource<TRecord> source, string caption, string help, RangeAxis axis, Lens<TRecord, HueRange> range, RowField<TRecord> field,
         Option<Func<TRecord, Vector4, Vector4>> grade, Option<StageInput> stage, RowRules rules) where TRecord : notnull =>
-        IterableNE.create(band.Center, band.Width, band.Softness) switch {
-            var members => ControlRow.Of(source, members, caption, help, RowShape.Block, (scope, retain) => Qualified(source, members, caption, axis, range, band, grade, stage, scope, retain), rules),
-        };
+        ControlRow.Of(source, IterableNE.create(field), caption, help, RowShape.Block, (scope, retain) =>
+            Qualified(source, IterableNE.create(field), caption, axis, range, HueRangeParameter.Band(axis) switch {
+                var (center, width, softness) => (center.Text.Caption, width.Text.Caption, softness.Text.Caption),
+            }, grade, stage, scope, retain), rules);
 
     private static IO<RowCells> Qualified<TRecord>(
         RowSource<TRecord> source, IterableNE<RowField<TRecord>> members, string caption, RangeAxis axis, Lens<TRecord, HueRange> range,
-        (RowField<TRecord> Center, RowField<TRecord> Width, RowField<TRecord> Softness) band, Option<Func<TRecord, Vector4, Vector4>> grade, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
+        (string Center, string Width, string Softness) band, Option<Func<TRecord, Vector4, Vector4>> grade, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
-        from text in IO.pure(NumberText.Scalar(axis.Presentation, ((float)AxisFraction.MinValue, (float)AxisFraction.MaxValue), RowEdit.Varies))
-        from bar in DisposalOps.Acquire(IO.lift(() => new HueRangeBar(scope.Sink, axis, Wording.English.Shown(caption, scope.Sink), new BandTexts(text, text, text))), static value => IO.lift(value.Dispose), retain)
+        from text in IO.pure(NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(axis.Presentation), RowEdit.Varies))
+        from bar in DisposalOps.Acquire(IO.lift(() => new HueRangeBar(scope.Sink, axis, Wording.English.Shown(caption, scope.Sink), new BandTexts(text, text, text))), retain)
         let site = new CallbackSite(scope.Sink, typeof(HueRangeBar), nameof(HueRangeBar.Edited))
         let lenses = axis.Members(range)
         from bound in RowEdit.Bind(source, members, h => bar.Edited += h, h => bar.Edited -= h,
             edit => Callbacks.Handler<EditEventArgs<HueRange>>(args => edit.Take(args.Edit, (value, held) => Fin.Succ(range.Set(value, held))).Map(unit), site),
             value => Banded(bar, range, grade, value), scope, site, retain)
         from pick in stage.Traverse(input => Pick(input, bound, (color, held) => Centered(axis, lenses.Center, color, held), scope, retain)).As()
-        from center in NumericRows.Line<TRecord, AxisFraction, float, InvalidGrade>(source, band.Center, lenses.Center, axis.Presentation, bound, pick.Map(static button => (Control)button), scope.Sink, retain)
-        from width in NumericRows.Line<TRecord, AxisFraction, float, InvalidGrade>(source, band.Width, lenses.Width, axis.Presentation, bound, None, scope.Sink, retain)
-        from softness in NumericRows.Line<TRecord, AxisFraction, float, InvalidGrade>(source, band.Softness, lenses.Softness, axis.Presentation, bound, None, scope.Sink, retain)
+        from center in NumericRows.Line(source, band.Center, lenses.Center, axis.Presentation, bound, pick.Map(static button => (Control)button), scope.Sink, retain)
+        from width in NumericRows.Line(source, band.Width, lenses.Width, axis.Presentation, bound, None, scope.Sink, retain)
+        from softness in NumericRows.Line(source, band.Softness, lenses.Softness, axis.Presentation, bound, None, scope.Sink, retain)
         select new RowCells(
             bar, None, None, None, [], Seq(center.Line, width.Line, softness.Line), new RowHelp(None, None),
             Lines(bound, scope.Read(source), Seq(center.Show, width.Show, softness.Show)), Some<RowEdit>(bound),
@@ -638,5 +617,5 @@ public static class ColorRows {
         (shown, color) => grade(range.Set(shown, record), color);
 
     private static Fin<TRecord> Centered<TRecord>(RangeAxis axis, Lens<TRecord, AxisFraction> center, Vector4 color, TRecord record) where TRecord : notnull =>
-        Conversions.Validated<AxisFraction, float, InvalidGrade>(axis.Coordinate(Hsy.From(color))).Map(value => center.Set(value, record));
+        AxisFraction.Validated(axis.Coordinate(Hsy.From(color))).Map(value => center.Set(value, record));
 }

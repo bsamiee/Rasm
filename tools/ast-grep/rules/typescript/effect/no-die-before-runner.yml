@@ -5,38 +5,35 @@ severity: error
 utils:
     die-handler:
         any:
-            - matches: effect-effect-member
-              has: {field: property, regex: '^die$'}
+            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^die$'}}}
             - kind: arrow_function
               all:
                 - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $E}}}
                 - has: {field: body, pattern: $_.die($E)}
     die-step:
         any:
-            - matches: effect-effect-member
-              has: {field: property, regex: '^orDie$'}
+            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^orDie$'}}}
             - kind: call_expression
               all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^catch$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^catch$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: die-handler}}, {not: {has: {nthChild: 2}}}]}
     die-call:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^orDie$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^orDie$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $PROGRAM}}, {not: {has: {nthChild: 2}}}]}
             - all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^catch$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^catch$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $PROGRAM}}, {has: {nthChild: 2, matches: die-handler}}, {not: {has: {nthChild: 3}}}]}
     context-step:
         kind: call_expression
-        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(provide|provideService|provideServiceEffect|provideContext)$'}}
+        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(provide|provideService|provideServiceEffect|provideContext)$'}}}}
     runner-step:
         any:
-            - matches: effect-effect-member
-              has: {field: property, regex: '^(runPromise|runSync)$'}
+            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(runPromise|runSync)$'}}}
             - kind: call_expression
-              has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(runPromiseWith|runSyncWith)$'}}
+              has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(runPromiseWith|runSyncWith)$'}}}}
 rule:
     pattern: $DIE
     any:

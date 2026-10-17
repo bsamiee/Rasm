@@ -1,94 +1,33 @@
-using System.Runtime.InteropServices;
-using Rasm.Rhino.Document.Tables;
+using System.Globalization;
 using Rhino.Commands;
-using Rhino.DocObjects;
 
 namespace Rasm.Rhino;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum Codes {
-    Refused = 1,
-    RefusedElement = 2,
-    Missing = 3,
-    InvalidAnswer = 4,
-    CountMismatch = 5,
-    IndexOutOfRange = 6,
-    WrongType = 7,
-    Duplicate = 8,
-    Taken = 9,
-    MissingGuid = 10,
-    Ended = 11,
-    InvalidRhinoValue = 12,
-    UnrepresentableSpan = 13,
-    MissingComponent = 14,
-    NonUniqueName = 15,
-    UnparsedText = 16,
-    TypeMismatch = 17,
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record Refused(string Member) : Expected("{Member} refused the call", (int)Codes.Refused) {
-    public static Fin<Unit> Unless(bool accepted, string member) => accepted ? unit : new Refused(member);
+public sealed record Refused(string Member, string Reason) : Expected($"{Member} {Reason}", 0) {
+    public const string Declined = "refused the call";
+    public const string Absent = "answered nothing";
+    public const string Invalid = "answered a value outside its contract";
 
-    public static Fin<T> Unless<T>(bool accepted, T value, string member) => accepted ? value : new Refused(member);
+    public Refused(string member, string reason, int index) : this(member, string.Create(CultureInfo.InvariantCulture, $"{reason} at index {index}")) { }
+
+    public static Fin<Unit> Unless(bool accepted, string member) => accepted ? unit : new Refused(member, Declined);
+
+    public static Fin<T> Unless<T>(bool accepted, T value, string member) => accepted ? value : new Refused(member, Declined);
+
+    public static Fin<Unit> Unless(bool accepted, string member, int index) => accepted ? unit : new Refused(member, Declined, index);
+
+    public static Fin<T> Unless<T>(bool accepted, T value, string member, int index) => accepted ? value : new Refused(member, Declined, index);
+
+    public static Fin<Unit> UnlessFound(bool found, string member) => found ? unit : new Refused(member, Absent);
+
+    public static Fin<T> UnlessFound<T>(T? value, string member) where T : class => value is { } found ? found : new Refused(member, Absent);
+
+    public static Fin<T> UnlessValid<T>(bool valid, T value, string member) => valid ? value : new Refused(member, Invalid);
 }
 
-public sealed record RefusedElement(string Member, int Index) : Expected("{Member} refused the element at index {Index}", (int)Codes.RefusedElement) {
-    public static Fin<Unit> Unless(bool accepted, string member, int index) => accepted ? unit : new RefusedElement(member, index);
+public sealed record Ended(string Member, Result Result) : Expected($"{Member} ended with {Result}", 0);
 
-    public static Fin<T> Unless<T>(bool accepted, T value, string member, int index) => accepted ? value : new RefusedElement(member, index);
-}
+public sealed record NotFound(string Kind, string Key) : Expected($"no {Kind} matches {Key}", 0);
 
-public sealed record Missing(string Member) : Expected("{Member} answered nothing", (int)Codes.Missing) {
-    public static Fin<Unit> Unless(bool found, string member) => found ? unit : new Missing(member);
-
-    public static Fin<T> Unless<T>(bool found, T value, string member) => found ? value : new Missing(member);
-
-    public static Fin<T> Unless<T>(T? value, string member) where T : class => value is { } found ? found : new Missing(member);
-}
-
-public sealed record InvalidAnswer(string Member) : Expected("{Member} answered a value outside its contract", (int)Codes.InvalidAnswer) {
-    public static Fin<T> Unless<T>(bool valid, T value, string member) => valid ? value : new InvalidAnswer(member);
-}
-
-public sealed record CountMismatch(string Member, int Required, int ItemCount) : Expected("{Member} requires {Required} items and received {ItemCount}", (int)Codes.CountMismatch) {
-    public static Fin<Unit> Unless(int required, int itemCount, string member) => required == itemCount ? unit : new CountMismatch(member, required, itemCount);
-}
-
-public sealed record IndexOutOfRange(string Member, int Index, int ItemCount) : Expected("{Member} index {Index} is outside {ItemCount} items", (int)Codes.IndexOutOfRange) {
-    public static Fin<Unit> Unless(int index, int itemCount, string member) => index >= 0 && index < itemCount ? unit : new IndexOutOfRange(member, index, itemCount);
-}
-
-public sealed record WrongType(Type Required, Type Actual) : Expected("{Actual} is given where {Required} is required", (int)Codes.WrongType) {
-    public static Fin<T> Unless<T>(object value) => value is T typed ? typed : new WrongType(typeof(T), value.GetType());
-}
-
-public sealed record Duplicate<TKey>(string Member, TKey Key, int ItemCount) : Expected("{Member} received {Key} {ItemCount} times", (int)Codes.Duplicate);
-
-public sealed record Taken(string Member, string Key) : Expected("{Member} already holds {Key}", (int)Codes.Taken) {
-    public static Fin<Unit> Unless(bool free, string member, string key) => free ? unit : new Taken(member, key);
-}
-
-public sealed record MissingGuid(Type Subject) : Expected("{Subject} requires a Guid attribute", (int)Codes.MissingGuid) {
-    public static Fin<Unit> Unless(Type subject) => Attribute.IsDefined(subject, typeof(GuidAttribute), inherit: false) ? unit : new MissingGuid(subject);
-}
-
-public sealed record Ended(string Member, Result Result) : Expected("{Member} ended with {Result}", (int)Codes.Ended);
-
-public sealed record InvalidRhinoValue() : Expected("value out of range", (int)Codes.InvalidRhinoValue), IValidationError<InvalidRhinoValue> {
-    public static InvalidRhinoValue Create(string message) => new();
-}
-
-public sealed record UnrepresentableSpan(Duration Span, Duration Unit) : Expected("{Span} is no whole count of {Unit}", (int)Codes.UnrepresentableSpan);
-
-public sealed record MissingComponent<T>(ComponentRef<T> Address) : Expected("No {Type} matches {Address}", (int)Codes.MissingComponent) {
-    public string Type => typeof(T).Name;
-}
-
-public sealed record NonUniqueName(ModelComponentType Type) : Expected("{Type} names do not identify one row", (int)Codes.NonUniqueName);
-
-public sealed record UnparsedText(Type Owner, string Member, string Text) : Expected("{Owner}.{Member} parsed no whole value from {Text}", (int)Codes.UnparsedText);
-
-public sealed record TypeMismatch(string Key, Type Stored, Type Requested) : Expected("Key {Key} holds a {Stored} where a {Requested} is read", (int)Codes.TypeMismatch) {
-    public static Fin<T> Unless<T>(object value, string key) where T : notnull => value is T typed ? typed : new TypeMismatch(key, value.GetType(), typeof(T));
-}
+public sealed record FileRefused(string Path, string Reason, Option<Error> Cause = default) : Expected($"{Path} {Reason}", 0, Cause);

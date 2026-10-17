@@ -18,7 +18,7 @@ import OpenImageIO
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import answered, Call, Confirm, Done, Empty, Operator, Outcome, Properties
 from blender.bpy.data.ids.images import Bounded, loaded, ResultRead, Tag
-from blender.bpy.data.rna.descriptors import root_in
+from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity
@@ -384,8 +384,7 @@ def recorded(identity: Identity, settings: Callable[[Identity], BlenderResult[Re
 
     return (
         paired(
-            root_in(bpy.types.WindowManager, bpy.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="window_manager"),)),
-            paired(Snapshot.capture(scene), paired(paired(composite(Path(path)), held(identity)), paired(settings(identity), browsing.bound(identity)))),
+            rooted(bpy.types.WindowManager, bpy.context), paired(Snapshot.capture(scene), paired(paired(composite(Path(path)), held(identity)), paired(settings(identity), browsing.bound(identity))))
         )
         .bind(lambda values: stored(values[0], values[1][0], *values[1][1][0], *values[1][1][1]))
         .map(lambda _: Nothing)
@@ -394,12 +393,7 @@ def recorded(identity: Identity, settings: Callable[[Identity], BlenderResult[Re
 
 def chosen(identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[History[str], Entry[str]]]:
     """Answers the history and the entry the browser shows, `absent` where the history holds no shown entry."""
-    return paired(
-        paired(browsing.bound(identity), root_in(bpy.types.WindowManager, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),))).bind(
-            lambda pair: pair[0].read(pair[1])
-        ),
-        held(identity),
-    ).bind(
+    return paired(paired(browsing.bound(identity), rooted(bpy.types.WindowManager, context)).bind(lambda pair: pair[0].read(pair[1])), held(identity)).bind(
         lambda pair: (
             Block
             .of_seq(pair[1].entries)
@@ -437,11 +431,7 @@ def difference(identity: Identity) -> BlenderResult[Option[tuple[Tint, ...]]]:
     return (
         browsing
         .bound(identity)
-        .bind(
-            lambda attached: Result[bpy.types.WindowManager, BlenderFaults].bind(
-                root_in(bpy.types.WindowManager, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),)), attached.read
-            )
-        )
+        .bind(lambda attached: rooted(bpy.types.WindowManager, context).bind(attached.read))
         .bind(lambda browsed: compared(identity, context).map(lambda comparison: Some((Tint(plane=comparison.perceptual[..., 0], color=ink),))) if browsed.difference else Ok(Nothing))
     )
 

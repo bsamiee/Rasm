@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using MathNet.Numerics.Distributions;
@@ -88,7 +89,6 @@ public sealed record ReferenceScene {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidToneValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ReferenceFamily {
@@ -100,7 +100,6 @@ public sealed partial class ReferenceFamily {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidToneValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ReferencePreset {
@@ -217,7 +216,6 @@ public sealed partial class ReferencePreset {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidToneValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ReferenceDistribution {
@@ -277,7 +275,7 @@ public static class Lighting {
         PixelFrame analysis = frame.Downscaled(PixelExtent.Analysis);
         (int width, int height) = (analysis.Size.Width, analysis.Size.Height);
         (double X, double Y, double Z) luminance = gamut.Luminance;
-        double Luma(Vector3 color) => double.Max(LuminanceSamples.Luminance(color, luminance), LuminanceSamples.Floor);
+        double Luma(double red, double green, double blue) => double.Max(LuminanceSamples.Luminance(red, green, blue, luminance), LuminanceSamples.Floor);
         (int Left, int Top, int Right, int Bottom) Inset(double fraction) =>
             ((int)double.Floor(width * fraction), (int)double.Floor(height * fraction)) switch {
                 var (x, y) => (x, y, width - x, height - y),
@@ -290,8 +288,8 @@ public static class Lighting {
         (long Left, long Top, long Right, long Bottom) window = (
             (long)analysis.Origin.X + subject.Left, (long)analysis.Origin.Y + subject.Top,
             (long)analysis.Origin.X + subject.Right, (long)analysis.Origin.Y + subject.Bottom);
-        return paletteSize <= 0 ? new InvalidToneValue()
-            : from all in LuminanceSamples.Sorted(analysis, analysis.Window, Luma,
+        return paletteSize <= 0 ? Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"palette size {paletteSize} must be positive"))
+            : from all in LuminanceSamples.Sorted(analysis, analysis.Window, rgb => Luma(rgb.X, rgb.Y, rgb.Z),
                 (key, pixel) => (Key: key, Index: ((int)(pixel.Y - analysis.Origin.Y) * width) + (int)(pixel.X - analysis.Origin.X)))
               let samples = all.Where(sample => Inside(sample.Index, subject)).ToArray()
               from stops in Metering.Default.Metered([.. samples.Select(static sample => (sample.Key, Weight: 1f))], window)
@@ -310,7 +308,7 @@ public static class Lighting {
                 };
             Vector3 Rgb((double R, double G, double B) color) => new((float)color.R, (float)color.G, (float)color.B);
             IEnumerable<(double Key, int Index)> Band(float low, float high) =>
-                new ArraySegment<(double Key, int Index)>(samples)[LuminanceSamples.Slice(samples.Length, Percentile.Create(low), Percentile.Create(high))];
+                new ArraySegment<(double Key, int Index)>(samples)[LuminanceSamples.Slice(samples.Length, AxisFraction.Create(low), AxisFraction.Create(high))];
             Vector2 Center(IEnumerable<(double Key, int Index)> band) =>
                 band.Aggregate((X: 0d, Y: 0d, Count: 0), (sum, sample) => Point(sample.Index) switch {
                     var point => (sum.X + point.X, sum.Y + point.Y, sum.Count + 1),
@@ -318,7 +316,7 @@ public static class Lighting {
                     var (x, y, count) => new((float)(x / count), (float)(y / count)),
                 };
             LuminanceSamples ranks = new([.. samples.Select(static sample => sample.Key)]);
-            double At(float rank) => ranks.At(Percentile.Create(rank));
+            double At(float rank) => ranks.At(AxisFraction.Create(rank));
             float Asymmetry(Func<Vector2, float> axis) =>
                 samples.GroupBy(sample => float.Sign(axis(Point(sample.Index))))
                     .ToDictionary(static half => half.Key, static half => half.Average(static sample => sample.Key)) switch {
@@ -384,7 +382,7 @@ public static class Lighting {
                 Vector3 color = Rgb(centers[group.Key]);
                 Vector2 point = Center(group.Select(index => samples[index]));
                 PaletteEntry entry = new(color, new(FrameAxis.Create((point.X + 1f) / 2f), FrameAxis.Create((1f - point.Y) / 2f)), (float)group.Count() / samples.Length);
-                double level = Luma(color);
+                double level = Luma(color.X, color.Y, color.Z);
                 Unicolour perceptual = new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X / level, color.Y / level, color.Z / level).ConvertToConfiguration(Configuration.Default);
                 Option<(double Distance, int Index)> nearest = palette.Select((kept, index) => (Distance: perceptual.Difference(kept.Color, DeltaE.Ok), Index: index)).AsIterableNE().Map(static distances => Enumerable.Min(distances));
                 if (nearest.Case is ValueTuple<double, int> { Item1: < 0.08, Item2: var index })
@@ -398,13 +396,10 @@ public static class Lighting {
             double hardnessScale = steepest + (At(0.9f) - At(0.1f));
             return new LightingReading(
                 gamut, Rgb(key), Rgb(fill), Rgb(Mean(Band(0f, 0.15f).Select(static sample => sample.Index))),
-                (float)(double.Log2(Level(key)) - double.Log2(Level(fill))), range, stops, overall,
+                (float)(double.Log2(Luma(key.R, key.G, key.B)) - double.Log2(Luma(fill.R, fill.G, fill.B))), range, stops, overall,
                 direction, hardnessScale > 0d ? (float)(steepest / hardnessScale) : 0f,
                 asymmetry.Length() * float.Min(1f, range / float.Log2(6f)), backlit,
                 Adaptation.Correlate(gamut, Rgb(key)).ToOption(), toSeq(palette.Select(static kept => kept.Entry)));
-
-            double Level((double R, double G, double B) color) =>
-                double.Max((luminance.X * color.R) + (luminance.Y * color.G) + (luminance.Z * color.B), LuminanceSamples.Floor);
         }
     }
 

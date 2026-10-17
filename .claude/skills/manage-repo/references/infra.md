@@ -9,9 +9,8 @@ Pulumi's Automation API runs the typed program in process, GitHub Actions runs w
 - Stack operations stream stdout through `onOutput`, stderr through `onError`, and stop on `signal`
 - `Pulumi.yaml` under `workDir` freezes `projectName` and `main` when `projectSettings` is absent
 - `PULUMI_HOME/workspaces` holds one file per `workDir` path
-- Programs run `up` and `refresh` alone
+- Programs run `up` to apply rows and `refresh` to read live state into the stack, no other operation
 - `import: <id>` in resource options adopts an existing resource for one run, `protect: true` refuses deletion
-- Use `secrets` for a token or variable a program or workflow reads
 
 ## [02]-[WORKFLOWS]
 

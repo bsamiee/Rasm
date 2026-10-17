@@ -18,10 +18,8 @@ public struct LoginItem {
         }
     }
 
-    public var requiresApproval: Bool { status == .requiresApproval }
-
     public var issue: String? {
-        failure?.localizedDescription ?? (requiresApproval ? "Approval pending in Login Items" : nil)
+        failure?.localizedDescription ?? (status == .requiresApproval ? "Approval pending in Login Items" : nil)
     }
 
     public static func setEnabled(_ enabled: Bool) async -> Self {

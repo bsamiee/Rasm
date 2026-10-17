@@ -3,14 +3,13 @@ using System.Text;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
-using Rhino.Render.Fields;
 
 namespace Rasm.Rhino.Render.Content;
 
@@ -42,9 +41,9 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
     protected abstract Material Simulation(TState state);
 
     // --- [IDENTITY]
-    public sealed override string TypeName => RowText.Localize(Caption, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string TypeName => RowText.Localize(Caption, IPlugInSink.Of(this)).Local;
 
-    public sealed override string TypeDescription => RowText.Localize(Help, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string TypeDescription => RowText.Localize(Help, IPlugInSink.Of(this)).Local;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
         bitmap = Glyph switch {
@@ -57,8 +56,7 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
     public sealed override void SimulateMaterial(ref Material simulation, RenderTexture.TextureGeneration tg) {
         Material target = simulation;
         if (!Callbacks.Succeeded(
-                ContentRecords.Read<TState>(this).Bind(state => DisposalOps.Within(() => Simulation(state),
-                    built => IO.lift(() => target.CopyFrom(built)), static built => IO.lift(built.Dispose))),
+                ContentRecords.Read<TState>(this).Bind(state => DisposalOps.Within(() => Simulation(state), built => IO.lift(() => target.CopyFrom(built)))),
                 CallbackSite.Of(this)))
             base.SimulateMaterial(ref simulation, tg);
     }
@@ -85,9 +83,9 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
     protected abstract Color4f Sample(TState state, Point3d uvw, Vector3d duvwdx, Vector3d duvwdy);
 
     // --- [IDENTITY]
-    public sealed override string TypeName => RowText.Localize(Caption, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string TypeName => RowText.Localize(Caption, IPlugInSink.Of(this)).Local;
 
-    public sealed override string TypeDescription => RowText.Localize(Help, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string TypeDescription => RowText.Localize(Help, IPlugInSink.Of(this)).Local;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
         bitmap = Glyph switch {
@@ -131,9 +129,9 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
     protected abstract IO<Unit> Simulation(TState state, SimulatedEnvironment simulation, bool isForDataOnly);
 
     // --- [IDENTITY]
-    public sealed override string TypeName => RowText.Localize(Caption, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string TypeName => RowText.Localize(Caption, IPlugInSink.Of(this)).Local;
 
-    public sealed override string TypeDescription => RowText.Localize(Help, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string TypeDescription => RowText.Localize(Help, IPlugInSink.Of(this)).Local;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
         bitmap = Glyph switch {
@@ -163,7 +161,7 @@ public static class ContentRecords {
 
     // --- [READS]
     public static IO<TState> Read<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        FieldTexts.Recalled(EntryKey.TypeOwner(content.TypeId), toSeq(TState.Parameters), path => Stored(content, EntryKey.Name(path)), TState.Default);
+        FieldTexts.Recalled(EntryKey.TypeOwner(content.TypeId), TState.Parameters, path => Stored(content, EntryKey.Name(path)), TState.Default);
 
     public static IO<uint> Hash<TState>(RenderContent content, Seq<string> excluded, uint seed) where TState : IStateRecord<TState> =>
         Callbacks.Each(FieldTexts.Items<TState>()
@@ -178,7 +176,7 @@ public static class ContentRecords {
             .Map(static paths => paths.Somes());
 
     private static IO<Option<string>> Stored(RenderContent content, string name) =>
-        ContentFields.Read(content.Fields, name, field => TypeMismatch.Unless<string>(field.ValueAsObject(), name))
+        ContentFields.Read(content.Fields, name, field => Conversions.Typed<string>(field.ValueAsObject(), name))
             .Map(static held => held.Bind(Conversions.Present));
 
     // --- [WRITES]
@@ -194,19 +192,13 @@ public static class ContentRecords {
 
     private static IO<Unit> Written(RenderContent content, string name, string text) =>
         Stored(content, name).Bind(held => when(held != Conversions.Present(text),
-            IO.lift(() => Callbacks.Thrown<InvalidOperationException, Unit>(fun(() => content.Fields.Set(name, text)), nameof(FieldDictionary.Set)))).As());
+            IO.lift(fun(() => content.Fields.Set(name, text)))).As());
 
     // --- [ROWS]
-    public static Seq<ControlRow> Rows<TContent, TState, TParameter, TError>(Func<TParameter, ParameterText> text)
+    public static Seq<ControlRow> Rows<TContent, TState>()
         where TContent : RenderContent
-        where TState : IStateRecord<TState, TParameter, TError>
-        where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
-        where TError : Error, IValidationError<TError> =>
-        ParameterText.Join<TState, TParameter, TError>(text) switch {
-            var texts => SectionRows.Of(
-                SectionRows.Source(EntryKey.TypeOwner(typeof(TContent).GUID), texts, static scope => scope.Contents(Store<TState>)),
-                texts,
-                None,
-                static _ => RowRules.Always),
+        where TState : IStateRecord<TState> =>
+        RowSource.Fields(EntryKey.TypeOwner(typeof(TContent).GUID), TState.Parameters, static scope => scope.Contents(Store<TState>)) switch {
+            var source => SectionRows.Of(source, source.Fields, None, static _ => RowRules.Always),
         };
 }

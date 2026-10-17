@@ -5,17 +5,15 @@ namespace Rasm.Imaging.Filters.Warp;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidWarp>]
 public readonly partial struct MirrorCount : IMinMaxValue<MirrorCount> {
     public static MirrorCount MinValue { get; } = new(1);
     public static MirrorCount MaxValue { get; } = new(32);
 
-    static partial void ValidateFactoryArguments(ref InvalidWarp? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidWarp();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record Kaleidoscope(MirrorCount Mirrors, SignedAngle Rotation, FramePosition Center, TransformScale Zoom, Sampling Sampling, WrapMode Wrap)
-    : IStateRecord<Kaleidoscope, KaleidoscopeParameter, InvalidWarp>, IPixelStage<Kaleidoscope> {
+    : IStateRecord<Kaleidoscope, KaleidoscopeParameter>, IPixelStage<Kaleidoscope> {
     public static Kaleidoscope Default { get; } = new(MirrorCount.Create(3), SignedAngle.Up, FramePosition.Center, TransformScale.Identity, Sampling.Linear, WrapMode.Mirror);
 
     public static Option<PixelPass> Pass(Kaleidoscope state, PassContext context) =>
@@ -31,25 +29,22 @@ public sealed record Kaleidoscope(MirrorCount Mirrors, SignedAngle Rotation, Fra
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidWarp>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class KaleidoscopeParameter : IStateParameter<Kaleidoscope> {
-    private static readonly (StateParameter<Kaleidoscope> X, StateParameter<Kaleidoscope> Y) Centered =
-        FramePosition.Kinds(Lens<Kaleidoscope, FramePosition>.New(static state => state.Center, static center => state => state with { Center = center }));
-
-    public static readonly KaleidoscopeParameter Mirrors = new("mirrors", StateParameter.Bounded<Kaleidoscope, MirrorCount, int, InvalidWarp>(
-        Lens<Kaleidoscope, MirrorCount>.New(static state => state.Mirrors, static mirrors => state => state with { Mirrors = mirrors }), new() { Soft = (1, 16) }));
-    public static readonly KaleidoscopeParameter Rotation = new("rotation", StateParameter.Bounded<Kaleidoscope, SignedAngle, float, InvalidPixelValue>(
-        Lens<Kaleidoscope, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation }), SignedAngle.Presentation));
-    public static readonly KaleidoscopeParameter CenterX = new("center-x", Centered.X);
-    public static readonly KaleidoscopeParameter CenterY = new("center-y", Centered.Y);
-    public static readonly KaleidoscopeParameter Zoom = new("zoom", StateParameter.Bounded<Kaleidoscope, TransformScale, float, InvalidWarp>(
-        Lens<Kaleidoscope, TransformScale>.New(static state => state.Zoom, static zoom => state => state with { Zoom = zoom }), TransformScale.Presentation));
-    public static readonly KaleidoscopeParameter Sampling = new("sampling", new StateParameter<Kaleidoscope>.Choice<Sampling, InvalidWarp>(
-        Lens<Kaleidoscope, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })));
-    public static readonly KaleidoscopeParameter Wrap = new("wrap", new StateParameter<Kaleidoscope>.Choice<WrapMode, InvalidPixelValue>(
-        Lens<Kaleidoscope, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })));
+    public static readonly KaleidoscopeParameter Mirrors = new("mirrors", StateParameter.Bounded(Lens<Kaleidoscope, MirrorCount>.New(static state => state.Mirrors, static mirrors => state => state with { Mirrors = mirrors }), new Presentation<int> { Soft = (1, 16) }),
+        new("Mirrors", "Mirror lines through the center, drawing twice as many wedges"));
+    public static readonly KaleidoscopeParameter Rotation = new("rotation", StateParameter.Bounded(Lens<Kaleidoscope, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation })),
+        new("Angle", "Turn of the first mirror line, counterclockwise"));
+    public static readonly KaleidoscopeParameter Center = new("center", new StateParameter<Kaleidoscope>.Record<FramePosition>(Lens<Kaleidoscope, FramePosition>.New(static state => state.Center, static center => state => state with { Center = center })),
+        new("Center", "Point the warp centers on"));
+    public static readonly KaleidoscopeParameter Zoom = new("zoom", StateParameter.Bounded(Lens<Kaleidoscope, TransformScale>.New(static state => state.Zoom, static zoom => state => state with { Zoom = zoom })),
+        new("Zoom", "Magnification of the wedges' source about the center"));
+    public static readonly KaleidoscopeParameter Sampling = new("sampling", new StateParameter<Kaleidoscope>.Choice<Sampling>(Lens<Kaleidoscope, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
+        new("Interpolation", "Filter reading the source between its pixels"));
+    public static readonly KaleidoscopeParameter Wrap = new("wrap", new StateParameter<Kaleidoscope>.Choice<WrapMode>(Lens<Kaleidoscope, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
+        new("Extension", "Source read past the frame's edge"));
 
     public StateParameter<Kaleidoscope> Kind { get; }
+    public ParameterText Text { get; }
 }

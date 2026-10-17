@@ -3,9 +3,10 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Imaging.Pixels;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.Render.UI;
@@ -96,7 +97,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
     : ComponentControl<HueRangeBarState, RangeHandle, HueRange>(sink, new HueRangeBarState(None, None, None), None) {
     // --- [METRICS]
     private readonly float ramp = EtoFonts.SmallFont.LineHeight;
-    private readonly Axis along = axis.Input.Axis.Periodic ? new Axis.Periodic(AxisRange.Of(axis.Input.Axis)) : new Axis.Linear(AxisRange.Of(axis.Input.Axis));
+    private readonly Axis along = ImagePlots.Placed(axis.Input.Axis);
 
     // --- [SHOW]
     public IO<Unit> Graded(Option<Func<HueRange, Vector4, Vector4>> grade) => Advance(state => new(state with { Grade = grade }, None));
@@ -121,7 +122,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
 
     // --- [SAMPLING]
     private Vector4 Input(Hsy reference, float value) =>
-        axis.Map(hue: true, saturation: false, luma: false) ? Plots.HueRamp(value) : axis.Replaced(reference, along.Unit(value)).ToRgb(1f);
+        axis.Map(hue: true, saturation: false, luma: false) ? ImagePlots.HueRamp(value) : axis.Replaced(reference, along.Unit(value)).ToRgb(1f);
 
     private static Hsy Reference(HueRange range) =>
         toSeq(RangeAxis.Items).Fold(new Hsy(0f, 0f, 0f), (hsy, item) => item.Replaced(hsy, item.Band.Get(range).Center));
@@ -152,7 +153,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
     protected override Option<Transition<HueRangeBarState, HueRange>> DoubleClicked(HueRangeBarState state, SizeF size, float scale, Option<RangeHandle> part, MouseEventArgs e) =>
         from range in state.Range
         from _ in part
-        let next = axis.Band.Set(axis.Band.Get(HueRange.All), range)
+        let next = axis.Band.Set(axis.Band.Get(HueRange.Default), range)
         select new Transition<HueRangeBarState, HueRange>(state with { Range = next, Grip = None }, new Edit<HueRange>.Commit(next));
 
     protected override Option<Transition<HueRangeBarState, HueRange>> KeyPressed(HueRangeBarState state, SizeF size, float scale, Option<RangeHandle> part, KeyEventArgs e) =>
@@ -177,9 +178,9 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
     private Transition<HueRangeBarState, HueRange> Moved(HueRangeBarState state, HueRange range, RangeHandle handle, RangeBand start, float key, Func<HueRange, Edit<HueRange>> edit) =>
         (handle.Placed(start, key) switch {
             var (center, width, softness) => (
-                Conversions.Validated<AxisFraction, float, InvalidGrade>(along.Unit(along.Value(center))),
-                Conversions.Validated<AxisFraction, float, InvalidGrade>(width),
-                Conversions.Validated<AxisFraction, float, InvalidGrade>(softness)),
+                AxisFraction.Validated(along.Unit(along.Value(center))),
+                AxisFraction.Validated(width),
+                AxisFraction.Validated(softness)),
         }).Apply((c, w, s) => axis.Band.Set(new RangeBand(c, w, s), range)).As().Match(
             Succ: next => new Transition<HueRangeBarState, HueRange>(state with { Range = next }, edit(next)),
             Fail: _ => new Transition<HueRangeBarState, HueRange>(state, None));
@@ -191,7 +192,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
 
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, HueRangeBarState state, Seq<PlotMark<RangeHandle>> marks, Interaction<RangeHandle> interaction) =>
-        Reference(state.Range.IfNone(HueRange.All)) switch {
+        Reference(state.Range.IfNone(HueRange.Default)) switch {
             var reference =>
                 from input in Plots.Strip(canvas, Lane(new RectangleF(0f, Plots.Inset, bounds.Width, ramp)), value => Shown(Input(reference, value)))
                 from parts in Plots.Paint(canvas, marks.Map(mark => Cued(mark, canvas.Focused, interaction)))

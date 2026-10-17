@@ -11,8 +11,8 @@ import msgspec
 
 from blender.bpy.commands.operators import answered, Call, Empty, Operator, Outcome
 from blender.bpy.data.rna.conditions import AllOf, Count, Setting
-from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.data.rna.descriptors import Descriptor, rooted
+from blender.bpy.data.rna.snapshots import Persisted, Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions
@@ -35,13 +35,13 @@ class Growing(msgspec.Struct, frozen=True, kw_only=True, tag=1):
     """Original framing and native preimage published before overscan writes."""
 
     base: Framing
-    before: Tree[tuple[tuple[object, str], object]]
+    before: Persisted
 
 
 class Grown(Growing, frozen=True, kw_only=True, tag=2):
     """Original framing and genuine native endpoints of completed overscan writes."""
 
-    after: Tree[tuple[tuple[object, str], object]]
+    after: Persisted
 
 
 class Oversize(msgspec.Struct, frozen=True, kw_only=True):
@@ -127,7 +127,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 owners = (scene.render, *(camera for camera, _ in cameras))
 
-                def changed(before: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
+                def changed(before: Persisted) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
                     outcomes = (settings(bigger, scene.render.ppm_base).apply(scene.render), *(snapshot.apply(camera) for camera, snapshot in cameras))
                     final = tuple(Snapshot.capture(owner, native=True) for owner in owners)
                     trees = tuple(tree for answer in final for tree in answer.to_option().to_list())
@@ -329,18 +329,11 @@ safe_broadcast = Operator(key="safe_broadcast", title="Broadcast Safe Areas", de
 safe_presets = Preset(key="safe_areas", form=Snapshot)
 safe_listing = Listing(
     preset=safe_presets,
-    current=lambda context: Result[bpy.types.Scene, BlenderFaults].bind(
-        Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: Snapshot.capture(scene.safe_areas)
-    ),
+    current=lambda context: rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.safe_areas)),
     matches=lambda context, values: (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: Snapshot.capture(scene.safe_areas))
-        .map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
+        rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.safe_areas)).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
     ),
-    applied=lambda context, value: Result[bpy.types.Scene, BlenderFaults].bind(
-        Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
-        lambda scene: answered(value.apply(scene.safe_areas), "Safe areas already hold this preset"),
-    ),
+    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.safe_areas), "Safe areas already hold this preset")),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

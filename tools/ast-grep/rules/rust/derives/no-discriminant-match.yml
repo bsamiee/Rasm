@@ -11,8 +11,8 @@ utils:
                 - has: {field: arguments, all: [{has: {nthChild: 1, kind: scoped_identifier, has: {field: path, any: [{regex: '^Self$'}, {pattern: $T}]}}}, {not: {has: {nthChild: 2}}}]}
             - kind: block
               all:
-                - has: {nthChild: 1, matches: variant-value}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: variant-value}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     literal-arm:
         kind: match_arm
         all:

@@ -1,25 +1,16 @@
 use core::mem;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    get_parent_expr, is_in_test,
-    paths::{PathNS, lookup_path_str},
-    res::MaybeDef as _,
-    source::snippet,
-    sym,
-    ty::InteriorMut,
-};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, is_in_test, paths::PathNS, res::MaybeDef as _, source::snippet, sym, ty::InteriorMut};
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
 use rustc_hir::{
     Expr, ExprKind, Item, ItemKind,
-    def::{DefKind, Res},
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass, LintContext as _, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, Ty, TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::{Ident, Span};
 
-use crate::{Place, place, resolve};
+use crate::{Place, fn_value, generated, path, place, receiving_call, resolve};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,7 +44,7 @@ impl<'tcx> InteriorMutableStatic<'tcx> {
     pub(crate) fn new(tcx: TyCtxt<'tcx>) -> Self {
         Self {
             cells: resolve(tcx, PathNS::Type, &[("std::sync::LazyLock", Cell::Lazy), ("std::sync::OnceLock", Cell::Once)]),
-            initialize: lookup_path_str(tcx, PathNS::Value, "std::sync::OnceLock::get_or_init").into_iter().next(),
+            initialize: path(tcx, PathNS::Value, "std::sync::OnceLock::get_or_init"),
             interior: InteriorMut::new(tcx, &[]),
             statics: FxIndexMap::default(),
             uses: FxHashMap::default(),
@@ -65,6 +56,7 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutableStatic<'tcx> {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         if let ItemKind::Static(_, ident, ..) | ItemKind::Const(ident, ..) = item.kind
             && !ident.span.in_external_macro(cx.sess().source_map())
+            && !generated(cx, item.hir_id())
             && let declared = cx.tcx.type_of(item.owner_id).instantiate_identity().skip_normalization()
             && let Some(held) = match (item.kind, declared.kind()) {
                 (ItemKind::Static(..), ty::Adt(lazy, args)) if self.cells.get(&lazy.did()) == Some(&Cell::Lazy) => Some(args.type_at(0)),
@@ -81,21 +73,10 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutableStatic<'tcx> {
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let Some(Place::Static(item)) = place(cx, expr) {
-            let initialized = get_parent_expr(cx, expr)
-                .filter(|call| cx.typeck_results().type_dependent_def_id(call.hir_id).is_some_and(|method| Some(method) == self.initialize))
-                .and_then(|call| {
-                    if let ExprKind::MethodCall(_, receiver, [initializer], _) = call.kind
-                        && receiver.hir_id == expr.hir_id
-                    {
-                        Some(initializer)
-                    } else {
-                        None
-                    }
-                })
-                .filter(|initializer| {
-                    matches!(initializer.kind, ExprKind::Closure(closure) if cx.tcx.closure_captures(closure.def_id).is_empty())
-                        || matches!(&initializer.kind, ExprKind::Path(path) if matches!(cx.qpath_res(path, initializer.hir_id), Res::Def(DefKind::Fn | DefKind::AssocFn, _)))
-                })
+            let initialized = receiving_call(cx, expr)
+                .filter(|&(_, method)| Some(method) == self.initialize)
+                .and_then(|(call, _)| if let ExprKind::MethodCall(_, _, [initializer], _) = call.kind { Some(initializer) } else { None })
+                .filter(|initializer| matches!(initializer.kind, ExprKind::Closure(closure) if cx.tcx.closure_captures(closure.def_id).is_empty()) || fn_value(cx, initializer).is_some())
                 .map(|initializer| initializer.span);
             self.uses.entry(item).or_default().push(initialized);
         }

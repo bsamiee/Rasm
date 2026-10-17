@@ -34,6 +34,10 @@ utils:
         regex: '^='
         inside: {kind: field_declaration_list}
         follows: {kind: field_declaration}
+    type-default:
+        kind: ERROR
+        has: {kind: trait_bounds}
+        inside: {kind: type_item, inside: {kind: declaration_list, inside: {kind: trait_item}}}
     baseless-update:
         kind: ERROR
         regex: '^\.\.$'
@@ -46,6 +50,10 @@ utils:
             - kind: ERROR
               regex: '^\(\s*\.\.\s*\)$'
               inside: {kind: where_predicate}
+    impl-restriction:
+        kind: ERROR
+        regex: '^(pub(\s*\([^)]*\))?\s+)?impl\s*\(\s*(crate|self|super|in\s+[\w:]+)\s*\)(\s+(unsafe|auto))*$'
+        precedes: {kind: trait_item}
     recovery-anchor:
         any:
             - matches: try-type
@@ -68,9 +76,11 @@ utils:
             - matches: recovery-anchor
             - matches: recovery-tail
             - matches: field-default
+            - matches: type-default
             - matches: baseless-update
             - matches: return-notation
             - inside: {stopBy: end, matches: return-notation}
+            - matches: impl-restriction
 rule:
     any:
         - kind: ERROR
@@ -81,4 +91,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Call a macro named after a primitive type by its path (`snapbox::str![..]`). Unreported tree-sitter-rust grammar gaps are `safe` items and foreign types of an `extern` block (`pub safe fn sqrt(x: f64) -> f64;`, `pub type Node;`), `~` and lone `$` tokens in a macro token tree, a `where` clause on a unit struct (`struct Marker where T: Send;`), the unit type bounded in a `where` clause (`(): Bound<T>`), the empty content of a raw string (`r""`), and the nightly forms `try bikeshed <type> { .. }` and `trait <name> = <bounds>;` with the recovery spread over the rest of their statement, a field default value (`retries: u8 = 3`), a struct literal closing on `..` with no base, and return-type notation (`Store<get(..): Send>`, `where S::get(..): Send`)
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Call a macro named after a primitive type by its path (`snapbox::str![..]`). Unreported tree-sitter-rust grammar gaps are `safe` items and foreign types of an `extern` block (`pub safe fn sqrt(x: f64) -> f64;`, `pub type Node;`), `~` and lone `$` tokens in a macro token tree, a `where` clause on a unit struct (`struct Marker where T: Send;`), the unit type bounded in a `where` clause (`(): Bound<T>`), the empty content of a raw string (`r""`), and the nightly forms `try bikeshed <type> { .. }` and `trait <name> = <bounds>;` with the recovery spread over the rest of their statement, a field default value (`retries: u8 = 3`), a bounded associated type default (`type Error: Bound = !;`), a struct literal closing on `..` with no base, return-type notation (`Store<get(..): Send>`, `where S::get(..): Send`), and an `impl` restriction on a trait (`pub impl(crate) trait Host`)

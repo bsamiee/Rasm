@@ -12,9 +12,10 @@ import mathutils
 import msgspec
 
 from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.ui.layout.rows import located, Member, ResolvedMember
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.bpy.ui.resources.theme import color, State, widget
@@ -311,7 +312,7 @@ class Linked(Gizmos, frozen=True, kw_only=True):
     @contextmanager
     def linked(self, identity: Identity) -> Generator[BlenderResult[None]]:
         """Ensures the named group and releases it after successful native entry."""
-        acquired = paired(self.named(identity), Option.of_optional(bpy.context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))).bind(
+        acquired = paired(self.named(identity), rooted(bpy.types.WindowManager, bpy.context)).bind(
             lambda held: (
                 catch(lambda: held[1].gizmo_group_type_ensure(held[0]), exception=RuntimeError)().map(lambda _: held).map_error(lambda error: (BlenderEditFault(request=held[0], error=error),))
             )

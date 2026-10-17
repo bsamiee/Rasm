@@ -5,8 +5,9 @@ severity: error
 rule:
     kind: macro_invocation
     all:
-        - has: {field: macro, regex: '^((::)?(std|core)::)?(debug_)?assert$', pattern: $MACRO}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - matches: {rust-std-macro: {name: {regex: '^(debug_)?assert$'}}}
+        - has: {field: macro, pattern: $MACRO}
+        - not: {matches: rust-commented}
         - not: {matches: rust-const-context}
         - any:
             - all:
@@ -22,7 +23,7 @@ rule:
                     - pattern: $MACRO!($$$NONE.is_none())
                     - pattern: $MACRO!($$$NONE.is_none(), $$$MESSAGE)
 transform:
-    TARGET: {replace: {source: $MACRO, replace: '^(?:(?:::)?(?:std|core)::)?(debug_)?assert$', by: 'core::${1}assert_matches'}}
+    TARGET: {replace: {source: $MACRO, replace: '^(?:(?:::)?(?:std|core|alloc)::)?(debug_)?assert$', by: 'core::${1}assert_matches'}}
     SHAPE_LINE: {replace: {source: $$$SHAPE, replace: '\s*\n\s*', by: ' '}}
     SOME_SHAPE: {replace: {source: $$$SOME, replace: '^([\s\S]+)$', by: '${1}, Some(_)'}}
     NONE_SHAPE: {replace: {source: $$$NONE, replace: '^([\s\S]+)$', by: '${1}, None'}}

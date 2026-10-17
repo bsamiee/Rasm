@@ -25,9 +25,7 @@ public static class Selections {
     public static IO<T> Frustum<T>(RhinoDoc doc, PickRequest request, Func<PickContext, IO<T>> body) =>
         DisposalOps.Within<IDisposable, T>(retain =>
          from row in Viewports.ResolveViewport(doc, request.Viewport, retain)
-         from picked in (from context in use(static () => new PickContext())
-                         from answer in Activated(row, Picked(row, request, context, body))
-                         select answer).Bracket()
+         from picked in DisposalOps.Within(static () => new PickContext(), context => Activated(row, Picked(row, request, context, body)))
          select picked, DisposalOps.Release);
 
     private static IO<T> Picked<T>(ViewportRef row, PickRequest request, PickContext context, Func<PickContext, IO<T>> body) =>
@@ -45,9 +43,9 @@ public static class Selections {
 
     private static IO<T> Activated<T>(ViewportRef row, IO<T> body) =>
         row.View is RhinoPageView page
-            ? (from prior in IO.lift(() => Conversions.Present(page.ActiveDetailId))
-               from activated in Active(page, row.Detail.Map(static detail => detail.Id))
-               select prior).Bracket(Use: _ => body, Fin: prior => Active(page, prior))
+            ? DisposalOps.Within(() => Conversions.Present(page.ActiveDetailId),
+                _ => Active(page, row.Detail.Map(static detail => detail.Id)).Bind(_ => body),
+                prior => Active(page, prior))
             : body;
 
     private static IO<Unit> Active(RhinoPageView page, Option<Guid> detail) =>
@@ -57,8 +55,7 @@ public static class Selections {
 
     // --- [PICKS]
     public static IO<Seq<PickCapture>> Pick(RhinoDoc doc, PickRequest request, Option<SelectionOptions> selection = default) =>
-        Frustum(doc, request, context => IO.lift(() => toSeq(doc.Objects.PickObjects(context)))
-            .Bracket(Use: references => Capture(references, selection), Fin: DisposalOps.Release));
+        Frustum(doc, request, context => DisposalOps.Within(() => toSeq(doc.Objects.PickObjects(context)), references => Capture(references, selection), DisposalOps.Release));
 
     private static IO<Seq<PickCapture>> Capture(Seq<ObjRef> references, Option<SelectionOptions> selection) =>
         from selected in selection.TraverseM(options => IO.lift(() => Callbacks.Each(references, Selected(options)))).As()
@@ -67,9 +64,9 @@ public static class Selections {
 
     private static Func<ObjRef, int, Fin<Unit>> Selected(SelectionOptions options) =>
         (reference, index) => Conversions.Present(reference.GeometryComponentIndex).Match(
-            Some: component => RefusedElement.Unless(
+            Some: component => Refused.Unless(
                 reference.Object().SelectSubObject(component, select: true, options.SyncHighlight, options.Persistent) is not 0, nameof(RhinoObject.SelectSubObject), index),
-            None: () => RefusedElement.Unless(
+            None: () => Refused.Unless(
                 reference.Object().Select(on: true, options.SyncHighlight, options.Persistent, options.IgnoreGrips, options.IgnoreLayerLocks, options.IgnoreLayerVisibility) is not 0,
                 nameof(RhinoObject.Select), index));
 }

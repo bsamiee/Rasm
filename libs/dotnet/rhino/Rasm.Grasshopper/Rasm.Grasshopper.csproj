@@ -28,4 +28,8 @@
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
+
+    <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../Admission.cs" />
+    </ItemGroup>
 </Project>

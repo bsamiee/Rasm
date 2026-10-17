@@ -32,13 +32,19 @@ itertools      = { workspace = true }
 [dev-dependencies]
 anyhow              = { workspace = true }
 cargo_metadata      = { workspace = true }
+clap                = { workspace = true }
+derive_more         = { workspace = true }
 fs-err              = { workspace = true }
 futures             = { workspace = true }
 insta               = { workspace = true }
+opentelemetry-otlp  = { workspace = true }
+rasm-mcp            = { workspace = true }
+rmcp                = { workspace = true }
 serde               = { workspace = true }
 serde_json          = { workspace = true }
 serde_path_to_error = { workspace = true }
 thiserror           = { workspace = true }
 tokio               = { workspace = true }
+tokio-stream        = { workspace = true }
 tokio-util          = { workspace = true }
 tracing             = { workspace = true }

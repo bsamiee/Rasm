@@ -17,41 +17,28 @@ using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum Codes {
-    InvalidGrasshopperValue = 1,
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Default", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrasshopperValue>]
 public readonly partial struct CanvasLength : System.Numerics.IMinMaxValue<CanvasLength> {
     public static CanvasLength MinValue { get; } = new(0f);
     public static CanvasLength MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidGrasshopperValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrasshopperValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidGrasshopperValue>]
 public readonly partial struct Extent {
     public CanvasLength Minimum { get; }
     public CanvasLength Ideal { get; }
     public CanvasLength Maximum { get; }
 
-    static partial void ValidateFactoryArguments(ref InvalidGrasshopperValue? validationError, ref CanvasLength minimum, ref CanvasLength ideal, ref CanvasLength maximum) =>
-        validationError = minimum <= ideal && ideal <= maximum ? null : new InvalidGrasshopperValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CanvasLength minimum, ref CanvasLength ideal, ref CanvasLength maximum) =>
+        validationError = minimum <= ideal && ideal <= maximum ? null : new ValidationError("extent needs minimum, ideal, and maximum in ascending order");
 }
 
 public readonly record struct Distribution(Orientation Axis, Seq<Guid> Objects);
 
 public sealed record Arrangement(LanguageExt.HashSet<Guid> Objects, SnappingSettings Settings, Seq<Distribution> Distributions, Option<RectangleF> Frame);
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record InvalidGrasshopperValue() : Expected("value out of range", (int)Codes.InvalidGrasshopperValue), IValidationError<InvalidGrasshopperValue> {
-    public static InvalidGrasshopperValue Create(string message) => new();
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record SnapSession(SnappingConstraints Constraints, RectangleF Start, Option<IDocumentObject> Primary) {

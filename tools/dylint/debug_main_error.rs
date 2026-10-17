@@ -3,7 +3,7 @@ use rustc_hir::FnRetTy;
 use rustc_lint::{LateContext, LateLintPass, declare_lint, declare_lint_pass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;
 
-use crate::{is_error, result_parts};
+use crate::{derives, is_error, result_parts, signature};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,10 +23,9 @@ impl<'tcx> LateLintPass<'tcx> for DebugMainError {
             && let Some(main) = entry.as_local()
             && let Some(declaration) = cx.tcx.hir_node_by_def_id(main).fn_decl()
             && let FnRetTy::Return(output) = declaration.output
-            && let Some((_, error)) = result_parts(cx, cx.tcx.fn_sig(entry).instantiate_identity().skip_normalization().skip_binder().output())
+            && let Some((_, error)) = result_parts(cx, signature(cx.tcx, entry).output())
             && is_error(cx, error)
-            && let Some(debug) = cx.tcx.get_diagnostic_item(sym::Debug)
-            && cx.tcx.non_blanket_impls_for_ty(debug, error).any(|implementation| cx.tcx.is_automatically_derived(implementation))
+            && derives(cx, error, sym::Debug)
         {
             span_lint_hir_and_then(
                 cx,

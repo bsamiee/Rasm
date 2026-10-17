@@ -4,8 +4,8 @@ import type { Rpc } from 'effect/rpc';
 import MagicString from 'magic-string';
 import regjsparser, { type AstNode, type CharacterClassBody, type UnicodePropertyEscape, type Value } from 'regjsparser';
 import aliases from 'unicode-property-value-aliases';
-import { Find, Queries } from './contract.ts';
-import { active, Callable, type Checks, missing, prepared, read, resolve, type Untranslatable, unwired } from './dom.ts';
+import { Find, missing, Queries } from './contract.ts';
+import { active, addable, type Checks, prepared, read, resolve, type Untranslatable } from './dom.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,6 +22,10 @@ const PREFIXED = /^Is/u;
 const DIGITS = /^\d+$/u;
 const TOKEN = /\\Q[\s\S]*?(?:\\E|$)|\\(?<escape>[\s\S])|\[\^?\]?(?:\\[\s\S]|\[[:=.][\s\S]*?[:=.]\]|[^\]\\])*\]|\(\?\([^)]*\)|\(\?P<(?<python>\w+)>|\(\?P=(?<back>\w+)\)|\(\?(?<recursion>R|[+-]?\d+|&\w+)\)|\(\?<(?<named>[A-Za-z_]\w*)>|(?<plain>\((?![?*]))|(?<trailing>\\$)/gu;
 const CHANGE = /\\(?<back>[1-9])|(?<whole>\$&)|\$\{(?<braced>\w+)\}|\$<(?<angled>\w+)>|(?<dollar>\$\$)|\\u(?:(?<hex>[\dA-Fa-f]{4})|\{(?<point>[\dA-Fa-f]+)\})|(?<many>\$\d{2,})|\\E(?<rest>[\s\S]*)|\\[\s\S]/gu;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Found = Schema.StructWithRest(Schema.Struct(Struct.Record(['matches', 'changes'], Schema.Array(Schema.Record(Schema.String, Schema.Unknown)))), [Schema.Record(Schema.String, Schema.Unknown)]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -303,8 +307,8 @@ const find = Effect.fnUntraced(function* ({ mode, find: sought, action, options,
         edits,
         grep(
             Option.flatMap(
-                Array.findFirst(found.rows, ([, field]) => field === 'findWhat'),
-                ([, , , value]) => Option.liftPredicate(value, Predicate.isString),
+                Array.findFirst(found.rows, ({ field }) => field === 'findWhat'),
+                ({ value }) => Option.liftPredicate(value, Predicate.isString),
             ),
         ),
     );
@@ -312,28 +316,37 @@ const find = Effect.fnUntraced(function* ({ mode, find: sought, action, options,
         Option.map(styled, ({ paragraphStyle, characterStyle }) =>
             Effect.map(
                 Effect.filterOrFail(
-                    Effect.map(resolve(paragraphStyle), (owners) => Array.filter(Array.ensure(owners), ({ nestedGrepStyles }) => Schema.is(Schema.Struct({ add: Callable }))(nestedGrepStyles))),
+                    Effect.map(resolve(paragraphStyle), (owners) => Array.filter(Array.ensure(owners), ({ nestedGrepStyles }) => addable(nestedGrepStyles))),
                     Array.isReadonlyArrayNonEmpty,
                     () => missing(`nestedGrepStyles of ${paragraphStyle}`, 'nestedGrepStyles', []),
                 ),
-                (owners) => [paragraphStyle, characterStyle, Array.map(owners, (each) => each.toSpecifier())],
+                (owners) => ({ paragraph: paragraphStyle, character: characterStyle, owners: Array.map(owners, (each) => each.toSpecifier()) }),
             ),
         ),
     );
-    const Found = Schema.Tuple([Schema.Unknown, Schema.Unknown, Schema.Int, Schema.Int, Schema.Array(Schema.Tuple([Schema.Unknown, Schema.Unknown, Schema.Unknown, Schema.NullOr(Schema.String), Schema.Unknown])), Schema.Array(Schema.Tuple([Schema.Unknown, Schema.Unknown, Schema.Unknown]))]);
     return {
         program: 'Find' as const,
-        args: [names, search, methods, Array.map(targets, (each) => each.toSpecifier()), Option.getOrNull(query), [found.rows, changed.rows, chosen.rows], Option.exists(action, ({ _tag }) => _tag === 'Change'), Option.getOrNull(style), Option.getOrNull(save), Option.getOrNull(limit), reach],
+        args: {
+            names,
+            search,
+            methods,
+            targets: Array.map(targets, (each) => each.toSpecifier()),
+            query: Option.getOrNull(query),
+            rows: [found.rows, changed.rows, chosen.rows],
+            changing: Option.exists(action, ({ _tag }) => _tag === 'Change'),
+            style: Option.getOrNull(style),
+            save: Option.getOrNull(save),
+            limit: Option.getOrNull(limit),
+            reach,
+        },
         refusals: [...found.refusals, ...chosen.refusals, ...changed.refusals],
         notes: [...found.notes, ...chosen.notes, ...changed.notes],
         settle: (result: unknown) =>
-            Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Found)(result)), ([searched, replaced, matched, changes, rows, paragraphs]) =>
+            Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Found)(result)), ({ matches, changes, ...kept }) =>
                 read(Find.successSchema.mapFields(Struct.omit(['preview', 'corrections'])), () => ({
-                    find: unwired(searched),
-                    change: replaced === null ? undefined : unwired(replaced),
-                    count: { matches: matched, changes },
-                    matches: Array.map(rows, ([hit, contents, context, page, paragraphStyle]) => ({ specifier: hit, text: Option.getOrUndefined(rendered(contents)), context: Option.getOrUndefined(rendered(context)), page: page ?? undefined, paragraphStyle: paragraphStyle ?? undefined })),
-                    changes: Array.map(paragraphs, ([paragraph, before, after]) => ({ specifier: paragraph, before: Option.getOrUndefined(rendered(before)), after: Option.getOrUndefined(rendered(after)) })),
+                    ...kept,
+                    matches: Array.map(matches, ({ text, context, ...match }) => ({ ...match, text: Option.getOrUndefined(rendered(text)), context: Option.getOrUndefined(rendered(context)) })),
+                    changes: Array.map(changes, ({ before, after, ...change }) => ({ ...change, before: Option.getOrUndefined(rendered(before)), after: Option.getOrUndefined(rendered(after)) })),
                 })),
             ),
     };
@@ -367,18 +380,10 @@ const queries = Effect.fnUntraced(function* () {
     );
     return {
         program: 'Queries' as const,
-        args: [
-            Array.map(picked, ({ name, mode }) => {
-                const { names, search } = roles(mode);
-                return [...names, search, name];
-            }),
-        ],
+        args: { queries: Array.map(picked, (row) => ({ ...row, ...Struct.pick(roles(row.mode), ['names', 'search']) })) },
         refusals: [],
         notes: [],
-        settle: (result: unknown) =>
-            Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Array(Schema.Tuple([Schema.Unknown, Schema.Unknown, Schema.Unknown])))(result)), (loaded) =>
-                read(Queries.successSchema, () => Array.zipWith(picked, loaded, (row, [sought, replaced, chosen]) => ({ ...row, find: unwired(sought), change: unwired(replaced), options: unwired(chosen) }))),
-            ),
+        settle: (result: unknown) => read(Queries.successSchema, () => result),
     };
 });
 

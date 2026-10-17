@@ -8,7 +8,7 @@ import psdtags
 
 from blender.imaging.chain import Effect
 from blender.imaging.compositing.masks import Mask
-from blender.imaging.parameters import Choice, Presentation
+from blender.imaging.parameters import Choice, Presentation, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -18,25 +18,25 @@ _E_co = TypeVar("_E_co", bound=Effect, covariant=True)
 class BlendMode(Choice):
     """Blender blend formulas with Photoshop-compatible names."""
 
-    NORMAL = 1, "Normal"
-    DARKEN = 2, "Darken"
-    MULTIPLY = 3, "Multiply"
-    COLOR_BURN = 4, "Color Burn"
-    LIGHTEN = 5, "Lighten"
-    SCREEN = 6, "Screen"
-    COLOR_DODGE = 7, "Color Dodge"
+    NORMAL = 1
+    DARKEN = 2
+    MULTIPLY = 3
+    COLOR_BURN = 4
+    LIGHTEN = 5
+    SCREEN = 6
+    COLOR_DODGE = 7
     LINEAR_DODGE = 8, "Add"
-    OVERLAY = 9, "Overlay"
-    SOFT_LIGHT = 10, "Soft Light"
-    LINEAR_LIGHT = 11, "Linear Light"
-    DIFFERENCE = 12, "Difference"
-    EXCLUSION = 13, "Exclusion"
-    SUBTRACT = 14, "Subtract"
-    DIVIDE = 15, "Divide"
-    HUE = 16, "Hue"
-    SATURATION = 17, "Saturation"
-    COLOR = 18, "Color"
-    VALUE = 19, "Value"
+    OVERLAY = 9
+    SOFT_LIGHT = 10
+    LINEAR_LIGHT = 11
+    DIFFERENCE = 12
+    EXCLUSION = 13
+    SUBTRACT = 14
+    DIVIDE = 15
+    HUE = 16
+    SATURATION = 17
+    COLOR = 18
+    VALUE = 19
 
     @property
     def photoshop(self) -> psdtags.PsdBlendMode:
@@ -51,7 +51,7 @@ class Blend(msgspec.Struct, frozen=True, kw_only=True):
     """Mode, opacity, and masks weighing a result over its associated base."""
 
     mode: Annotated[BlendMode, msgspec.Meta(title="Blend", description="Formula joining the result with its base")] = BlendMode.NORMAL
-    opacity: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Share of the result mixed over its base"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
+    opacity: Annotated[Unit, msgspec.Meta(description="Share of the result mixed over its base"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
     masks: Annotated[tuple[Mask, ...], msgspec.Meta(description="Keys limiting where the result mixes back")] = ()
 
 

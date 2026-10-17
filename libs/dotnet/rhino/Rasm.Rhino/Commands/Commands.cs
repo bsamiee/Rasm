@@ -42,7 +42,7 @@ public static class CommandRegistry {
         IO.lift(() => Refused.Unless(RegisterCommand(plugIn, command), command, nameof(RegisterCommand)));
 
     public static IO<Seq<Command>> GetCommands(Guid plugInId) =>
-        IO.lift(() => Missing.Unless(PlugIn.Find(plugInId), nameof(PlugIn.Find)).Map(static plugIn => toSeq(plugIn.GetCommands())));
+        IO.lift(() => Refused.UnlessFound(PlugIn.Find(plugInId), nameof(PlugIn.Find)).Map(static plugIn => toSeq(plugIn.GetCommands())));
 
     [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern bool RegisterCommand(PlugIn plugIn, Command command);

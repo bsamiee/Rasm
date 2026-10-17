@@ -51,7 +51,7 @@ public static class SubDs {
             from cache in IO.lift(() => subd.UpdateSurfaceMeshCache(lazyUpdate: true))
             from replaced in IO.lift(() => Refused.Unless(doc.Objects.Replace(reference, subd), nameof(ObjectTable.Replace)))
             select (tags, cache),
-            DisposalOps.Release), static reference => IO.lift(reference.Dispose));
+            DisposalOps.Release));
 
     private static IO<(Seq<(SubDEdit Edit, EditResult<uint> Result, uint UpdatedTags)> Edits, uint UpdatedCache)> Edited(SubD subd, Seq<SubDEdit> edits, Tolerances tolerances) =>
         from results in edits.TraverseM(edit => Applied(subd, edit, tolerances)).As()
@@ -71,16 +71,12 @@ public static class SubDs {
             packFaces: static (state, _) => IO.lift(() => EditResult<uint>.CreateCount(state.Subd.PackFaces())),
             flip: static (state, _) => IO.lift(() => Refused.Unless(state.Subd.Flip(), EditResult<uint>.CreateCompleted(), nameof(SubD.Flip))),
             setVertexTags: static (state, of) => IO.lift(() => state.Subd.Vertices.SetVertexTags(of.VertexIndices, of.Tag))
-                .Map(EditResult<uint>.CreateCompleted())
-                .MapFail(static error => error.HasException<ArgumentOutOfRangeException>() ? new Refused(nameof(SubDVertexList.SetVertexTags)) : error),
+                .Map(EditResult<uint>.CreateCompleted()),
             setEdgeTags: static (state, of) => IO.lift(() => state.Subd.Edges.SetEdgeTags(of.EdgeIndices, of.Tag))
-                .Map(EditResult<uint>.CreateCompleted())
-                .MapFail(static error => error.HasException<ArgumentOutOfRangeException>() ? new Refused(nameof(SubDEdgeList.SetEdgeTags)) : error),
+                .Map(EditResult<uint>.CreateCompleted()),
             setEdgeSharpness: static (state, of) => IO.lift(() => Callbacks.Each(
-                    of.Edges, (row, index) => Optional(state.Subd.Edges.Find(row.Edge)).ToFin(new RefusedElement(nameof(SubDEdgeList.Find), index))))
-                .BiMap(
-                    edges => EditResult<uint>.CreateCount(state.Subd.SetEdgeSharpness(edges, of.Edges.Map(static row => row.Sharpness), of.PreserveSymmetry)),
-                    static error => error.HasException<ArgumentException>() ? new Refused(nameof(SubD.SetEdgeSharpness)) : error),
+                    of.Edges, (row, index) => Optional(state.Subd.Edges.Find(row.Edge)).ToFin(new Refused(nameof(SubDEdgeList.Find), Refused.Declined, index))))
+                .Map(edges => EditResult<uint>.CreateCount(state.Subd.SetEdgeSharpness(edges, of.Edges.Map(static row => row.Sharpness), of.PreserveSymmetry))),
             clearEdgeSharpness: static (state, _) => IO.lift(() => EditResult<uint>.CreateCount(state.Subd.ClearEdgeSharpness())),
             transformComponents: static (state, of) => IO.lift(() => EditResult<uint>.CreateCount(state.Subd.TransformComponents(of.Components, of.Xform, of.ComponentLocation))),
             deleteComponents: static (state, of) => IO.lift(() => Refused.Unless(state.Subd.DeleteComponents(of.ComponentIndices, of.MarkDeletedFaceEdges), EditResult<uint>.CreateCompleted(), nameof(SubD.DeleteComponents))),

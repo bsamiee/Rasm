@@ -16,7 +16,7 @@ utils:
                 field: argument
                 kind: call_expression
                 pattern: $MAP.has($KEY)
-                has: {field: function, has: {field: object, matches: {syntax-collection-receiver: {collection: {regex: '^(Map|WeakMap)$'}}}}}
+                has: {field: function, has: {field: object, matches: {typescript-collection-receiver: {collection: {regex: '^(Map|WeakMap)$'}}}}}
 rule:
     kind: if_statement
     all:

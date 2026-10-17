@@ -2,7 +2,7 @@
 
 import base64
 from collections.abc import Callable, Generator, Iterable, Mapping
-from contextlib import closing, contextmanager, ExitStack
+from contextlib import contextmanager, ExitStack
 import datetime
 from enum import StrEnum
 from fractions import Fraction
@@ -23,13 +23,12 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
-import OpenImageIO
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Acquired, Call, Done, Empty, Operator, Properties
 from blender.bpy.data.ids.store import resolved
 from blender.bpy.data.rna.conditions import AllOf, check, Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, struct_at
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, struct_at
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -69,7 +68,7 @@ from blender.rendering.batch.notices import Cancelled, Completed, Estimated, Exh
 from blender.rendering.batch.power import cancelled, PowerHold, shut
 from blender.rendering.batch.processes import detached
 from blender.rendering.batch.progress import Ending, Heartbeat, Liveness, observed, Progress, StageMark
-from blender.rendering.batch.queue import Bound, Fixed, Frames, Job, load, Marker, RenderFrames, RenderQueue, store
+from blender.rendering.batch.queue import Bound, Fixed, Frames, Job, load, Marker, RenderFrames, RenderQueue, revised, store
 from blender.rendering.batch.supervision import cleared, Host, LocalMachine, Run, RunFile, stop, supervise
 from blender.rendering.batch.targets import send, Target
 from blender.rendering.faults import RenderingFaults, RenderingReadFault, RenderingResult, RenderingRunFault
@@ -230,22 +229,17 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 case Reach.SCENE:
                     return Ok((JobScope(scene=scene.name, camera=bound(scene)),))
                 case Reach.LAYER:
-                    return (
-                        Option
-                        .of_optional(context.view_layer)
-                        .map(lambda layer: (JobScope(scene=scene.name, layer=layer.name, camera=bound(scene)),))
-                        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),))
-                    )
+                    return rooted(bpy.types.ViewLayer, context).map(lambda layer: (JobScope(scene=scene.name, layer=layer.name, camera=bound(scene)),))
                 case Reach.CAMERAS:
                     return Ok(tuple(JobScope(scene=scene.name, camera=Fixed(camera=camera.name)) for camera in context.selected_objects if camera.type == "CAMERA"))
 
         def denoised(scope: JobScope) -> BlenderResult[tuple[JobScope, ...]]:
             return self.denoise.read(bpy.data.scenes[scope.scene]).map(lambda held: (scope, *((msgspec.structs.replace(scope, temporal=held.temporal.value),) if held.temporal.enabled else ())))
 
-        scene: BlenderResult[bpy.types.Scene] = Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
+        scene = rooted(bpy.types.Scene, context)
         return (
-            Result[bpy.types.Scene, BlenderFaults]
-            .bind(scene, reached)
+            scene
+            .bind(reached)
             .bind(lambda scopes: accumulated(map(denoised, scopes)))
             .map(lambda groups: tuple(chain.from_iterable(groups)))
             .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error((BlenderAbsentFault(owner=repr(context), key=dispatch.reach.name),)))
@@ -286,14 +280,14 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
             return (
                 accumulated(self.pathed.took(scene, day) for scene in scenes)
-                .bind(lambda _: store(path, msgspec.json.encode(plan, order="deterministic")).map_error(BlenderRenderingFault.lifted))
+                .bind(lambda _: store(path, plan).map_error(BlenderRenderingFault.lifted))
                 .bind(lambda _: self.queued.write(manager, Queued(plan=str(path))))
                 .bind(lambda _: saved(Path(bpy.data.filepath), SaveMode.ACTIVE))
                 .bind(lambda source: identity.name(Name.CLI, QueueRun.prepare).bind(lambda command: started(source, command)))
                 .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, logged at {log}"),), skipped=paused(manager).swap().to_option()))
             )
 
-        manager: BlenderResult[bpy.types.WindowManager] = Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),))
+        manager = rooted(bpy.types.WindowManager, context)
         return (
             paired(paired(self.planned(context, call.record, moment), self.settings(identity)), manager)
             .bind(lambda parts: gated(*parts[0]).map(lambda _: (*parts[0], parts[1])))
@@ -320,7 +314,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                                 self.identity.reports.logger.info(issued)
                             case Result(error=refused):
                                 self.identity.reports.hold(BlenderRenderingFault.lifted(refused))
-                    return store(PlanFile.SENT.beside(path), msgspec.json.encode(record, order="deterministic")).map_error(BlenderRenderingFault.lifted).map(lambda _: record)
+                    return store(PlanFile.SENT.beside(path), record).map_error(BlenderRenderingFault.lifted).map(lambda _: record)
 
         loaded: BlenderResult[Plan] = load(path, Plan).map_error(BlenderRenderingFault.lifted)
         return (
@@ -468,12 +462,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def appended(mark: StageMark) -> BlenderResult[StageMark]:
-                persisted: BlenderResult[Progress] = (
-                    load(records, Progress)
-                    .map(lambda held: msgspec.structs.replace(held, marks=(*held.marks, mark)))
-                    .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")).map(lambda _: held))
-                    .map_error(BlenderRenderingFault.lifted)
-                )
+                persisted: BlenderResult[Progress] = revised(records, Progress, lambda held: msgspec.structs.replace(held, marks=(*held.marks, mark))).map_error(BlenderRenderingFault.lifted)
                 return Result[Progress, BlenderFaults].bind(persisted, lambda held: finished(held, mark))
 
             def runs(progress: Progress) -> BlenderResult[tuple[StageMark, ...]]:
@@ -518,11 +507,9 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        manager: BlenderResult[bpy.types.WindowManager] = Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),))
-        return (
-            Result[bpy.types.WindowManager, BlenderFaults]
-            .bind(manager, self.queued.read)
-            .bind(lambda queued: Option.of_optional(queued.plan).map(lambda plan: read(Path(plan)).map(Some).map_error(BlenderRenderingFault.lifted)).default_value(Ok(Nothing)))
+        manager = rooted(bpy.types.WindowManager, context)
+        return manager.bind(self.queued.read).bind(
+            lambda queued: Option.of_optional(queued.plan).map(lambda plan: read(Path(plan)).map(Some).map_error(BlenderRenderingFault.lifted)).default_value(Ok(Nothing))
         )
 
     def kept(self) -> BlenderResult[tuple[RenderQueue, LocalMachine, Progress, datetime.datetime]]:
@@ -613,12 +600,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
             records = self.host.path(queue, RunFile.PROGRESS)
 
             def ended(_: None) -> BlenderResult[Done]:
-                persisted = (
-                    load(records, Progress)
-                    .map(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
-                    .bind(lambda held: store(records, msgspec.json.encode(held, order="deterministic")))
-                    .map_error(BlenderRenderingFault.lifted)
-                )
+                persisted = revised(records, Progress, lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED)).map_error(BlenderRenderingFault.lifted)
                 return paired(persisted, posted(queueing.listener, Cancelled(frames=len(progress.marks)))).map(lambda _: Done(notes=(("INFO", f"Stopped {queue.stem}"),)))
 
             stopped: BlenderResult[None] = stop(progress).map_error(BlenderRenderingFault.lifted)
@@ -738,12 +720,10 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 return called(bpy.ops.wm.path_open, {"filepath": str(log)}).map(lambda _: Done())
 
-            manager: BlenderResult[bpy.types.WindowManager] = Option.of_optional(call.context.window_manager).to_result_with(
-                lambda: (BlenderAbsentFault(owner=repr(call.context), key="window_manager"),)
-            )
+            manager = rooted(bpy.types.WindowManager, call.context)
             return (
-                Result[bpy.types.WindowManager, BlenderFaults]
-                .bind(manager, dispatcher.queued.read)
+                manager
+                .bind(dispatcher.queued.read)
                 .bind(lambda queued: Option.of_optional(queued.plan).to_result_with(lambda: (BlenderAbsentFault(owner=QueueRun.record.key, key="plan"),)))
                 .bind(lambda plan: opened_log(Path(plan)))
             )
@@ -1057,12 +1037,7 @@ def posted(listener: Listener, notice: Notice) -> BlenderResult[None]:
 
 def peaked(path: Path) -> BlenderResult[Option[int]]:
     """Reads the native EXR memory stamp and closes the image input."""
-
-    def read(image: OpenImageIO.ImageInput) -> Option[int]:
-        with closing(image) as held:
-            return Option.of_optional(held.spec().getattribute("Memory")).map(lambda text: int(text.removesuffix("M")) * 2**20)
-
-    return opened(str(path)).map_error(BlenderImagingFault.lifted).map(read)
+    return opened(str(path), lambda image: Ok(Option.of_optional(image.spec().getattribute("Memory")).map(lambda text: int(text.removesuffix("M")) * 2**20))).map_error(BlenderImagingFault.lifted)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

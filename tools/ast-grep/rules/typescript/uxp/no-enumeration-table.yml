@@ -18,7 +18,7 @@ utils:
             - has: {nthChild: 2, matches: member}
             - not: {has: {nthChild: 3}}
     host-member:
-        has: {field: object, matches: uxp-enumeration-reference}
+        has: {field: object, matches: indesign-enumeration-reference}
 rule:
     pattern: $TABLE
     any:

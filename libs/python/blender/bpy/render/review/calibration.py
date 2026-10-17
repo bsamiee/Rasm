@@ -21,7 +21,7 @@ from blender.bpy.data.ids.images import generated, read, saved, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, root_in, written
+from blender.bpy.data.rna.descriptors import Descriptor, root_in, rooted, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderUnmetFault
@@ -209,10 +209,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
             def drawn(form: Callable[[npt.NDArray[np.float32]], BlenderResult[npt.NDArray[np.float32]]], corners: npt.NDArray[np.float32]) -> BlenderResult[Drawn]:
                 return Result[tuple[Rgb[float], ...], BlenderFaults].bind(
                     references,
-                    lambda values: paired(
-                        form(np.array([msgspec.structs.astuple(row) for row in record.sampled.default_value(values)], dtype=np.float32)),
-                        form(np.array([msgspec.structs.astuple(row) for row in values], dtype=np.float32)),
-                    ).map(
+                    lambda values: paired(form(np.array(record.sampled.default_value(values), dtype=np.float32)), form(np.array(values, dtype=np.float32))).map(
                         lambda pair: Drawn(
                             fills=batch_for_shader(
                                 fills,
@@ -799,10 +796,7 @@ def charted(context: bpy.types.Context, identity: Identity, chart: Attached[Char
 def aspect(context: bpy.types.Context, image: bpy.types.Image) -> BlenderResult[float]:
     """Answers the frame's width over height, the render's for the Render Result."""
     return (
-        root_in(bpy.types.Scene, context)
-        .map(lambda scene: scene.render)
-        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
-        .map(lambda render: render.resolution_x * render.pixel_aspect_x / (render.resolution_y * render.pixel_aspect_y))
+        rooted(bpy.types.Scene, context).map(lambda scene: scene.render).map(lambda render: render.resolution_x * render.pixel_aspect_x / (render.resolution_y * render.pixel_aspect_y))
         if image.type == "RENDER_RESULT"
         else Ok(image.size[0] / image.size[1])  # type: ignore[index]
     )
@@ -830,10 +824,7 @@ def planed(context: bpy.types.Context, image: bpy.types.Image, config: PyOpenCol
     match image.type:
         case "RENDER_RESULT":
             return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], BlenderFaults].bind(
-                paired(
-                    root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
-                    root_in(bpy.types.ViewLayer, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),)),
-                ),
+                paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)),
                 lambda pair: saved(pair[0]).bind(lambda path: plane(path, ("", f"{pair[1].name}.Combined"), ("R", "G", "B", "A"))),
             )
         case _:

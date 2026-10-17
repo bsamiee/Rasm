@@ -13,7 +13,7 @@ import numpy.typing as npt
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.effects.optics.defocus import Aperture
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Choice, Finite, GraphForm, Positive, Presentation, Quantity, Rgb
+from blender.imaging.parameters import Choice, Finite, FrameLength, GraphForm, NonNegative, Positive, Presentation, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -21,8 +21,8 @@ from blender.imaging.parameters import Choice, Finite, GraphForm, Positive, Pres
 class Direction(Choice):
     """Whether a map distorts a rectilinear image or undistorts a lens image."""
 
-    DISTORT = 1, "Distort"
-    UNDISTORT = 2, "Undistort"
+    DISTORT = 1
+    UNDISTORT = 2
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -107,13 +107,9 @@ class Aberration(Effect, frozen=True, kw_only=True, tag=26):
     title = "Chromatic Aberration"
     pointwise = False
     defocus: ClassVar[Rgb] = Rgb(red=0.5, green=0.0, blue=1.0)
-    dispersion: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, description="Spread of image height from red to blue"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
+    dispersion: Annotated[NonNegative, msgspec.Meta(description="Spread of image height from red to blue"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
     samples: Annotated[int, msgspec.Meta(ge=2, description="Wavelengths integrated from red to blue"), GraphForm.SETTING] = 8
-    axial: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, description="Blue defocus radius, red at half of it and green in focus"),
-        Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_GREATER)),
-    ] = 0.0
+    axial: Annotated[FrameLength, msgspec.Meta(description="Blue defocus radius, red at half of it and green in focus"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
     iris: Annotated[Aperture, msgspec.Meta(description="Iris outline of the red and blue defocus")] = Aperture()
     extension: Annotated[Extension, msgspec.Meta(description="Sampling past the frame edge on both axes")] = Extension.EXTEND
 
@@ -124,7 +120,7 @@ class Aberration(Effect, frozen=True, kw_only=True, tag=26):
         across = 2.0 * waves - 1.0
         weights = np.stack((np.maximum(-across, 0.0), 1.0 - np.abs(across), np.maximum(across, 0.0)), axis=-1)
         weights /= weights.sum(axis=0)
-        return tuple((float(-0.25 * position), Rgb(red=float(weight[0]), green=float(weight[1]), blue=float(weight[2]))) for position, weight in zip(across, weights))
+        return tuple(zip((-0.25 * across).tolist(), msgspec.convert(weights.tolist(), tuple[Rgb, ...]), strict=True))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

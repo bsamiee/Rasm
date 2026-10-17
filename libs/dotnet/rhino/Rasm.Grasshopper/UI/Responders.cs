@@ -16,7 +16,6 @@ namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<InvalidGrasshopperValue>]
 public readonly partial struct FrameLimits {
     public SizeF Minimum { get; }
     public SizeF Maximum { get; }
@@ -29,10 +28,10 @@ public readonly partial struct FrameLimits {
         Bottom = minimum.Height == maximum.Height ? 0 : edges.Bottom,
     };
 
-    static partial void ValidateFactoryArguments(ref InvalidGrasshopperValue? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
-        validationError = 0f <= minimum.Width && minimum.Width <= maximum.Width && float.IsFinite(maximum.Width)
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
+        (validationError, edges) = (0f <= minimum.Width && minimum.Width <= maximum.Width && float.IsFinite(maximum.Width)
             && 0f <= minimum.Height && minimum.Height <= maximum.Height && float.IsFinite(maximum.Height)
-            ? null : new InvalidGrasshopperValue();
+            ? null : new ValidationError("resize limits need finite non-negative minimums no larger than their maximums"), ResizeBands(minimum, maximum, edges));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -64,38 +63,29 @@ public sealed class FrameResponder : Responses, IResponsive {
 
     // --- [RESPONSES]
     public override Response MouseDown(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseDown(e)).Bind(reply => reply is Response.Ignored
-            ? e.Buttons is MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored)
-            : IO.pure(reply)));
+        Answered(() => base.MouseDown(e), e.Buttons is MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored));
 
     public override Response MouseDoubleClick(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseDoubleClick(e)).Bind(reply => reply is Response.Ignored
-            ? e.Buttons is MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored)
-            : IO.pure(reply)));
+        Answered(() => base.MouseDoubleClick(e), e.Buttons is MouseButtons.Primary ? Began(e.ContentLocation) : IO.pure(Response.Ignored));
 
     public override Response MouseDrag(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseDrag(e)).Bind(reply => reply is Response.Ignored
-            ? During(current => current.Step(e.ContentLocation).Bind(Shown).Map(Response.Handled))
-            : IO.pure(reply)));
+        Answered(() => base.MouseDrag(e), During(current => current.Step(e.ContentLocation).Bind(Shown).Map(Response.Handled)));
 
     public override Response MouseUp(ResponseMouseArgs e) =>
-        Answered(IO.lift(() => base.MouseUp(e)).Bind(reply => reply is Response.Ignored
-            ? e.Buttons is MouseButtons.Primary ? Finished : During(static _ => IO.pure(Response.Handled))
-            : IO.pure(reply)));
+        Answered(() => base.MouseUp(e), e.Buttons is MouseButtons.Primary ? Finished : During(static _ => IO.pure(Response.Handled)));
 
     public override Response KeyDown(KeyEventArgs e) =>
-        Answered(IO.lift(() => base.KeyDown(e)).Bind(reply => reply is Response.Ignored ? During(current => (e.Key, e.Modifiers) switch {
+        Answered(() => base.KeyDown(e), During(current => (e.Key, e.Modifiers) switch {
             (Keys.Escape, _) => Cancelled.Map(Response.Release),
             (Keys.S, Keys.None) => IO.lift(static () => { Settings.CanvasSnapToObjects.Value = !Settings.CanvasSnapToObjects.Value; })
                 .Bind(_ => current.Cleared).Map(Response.Handled),
             _ => IO.pure(Response.Handled),
-        }) : IO.pure(reply)));
+        }));
 
     public override void MouseOver(ResponseMouseArgs e) =>
         Callbacks.Run(Callbacks.Each(Seq(
             IO.lift(() => {
-                control.Cursor = Optional(new ResizingFrame(RegionBoundary, limits.Minimum, limits.Maximum)
-                .CursorAt(e.ContentLocation, FrameLimits.ResizeBands(limits.Minimum, limits.Maximum, limits.Edges))).IfNone(Cursors.Default);
+                control.Cursor = Optional(new ResizingFrame(RegionBoundary, limits.Minimum, limits.Maximum).CursorAt(e.ContentLocation, limits.Edges)).IfNone(Cursors.Default);
             }),
             IO.lift(() => base.MouseOver(e)))).Map(unit), Site());
 
@@ -103,8 +93,8 @@ public sealed class FrameResponder : Responses, IResponsive {
         Callbacks.Run(Callbacks.Each(Seq(
             IO.lift(() => { control.Cursor = Cursors.Default; }), IO.lift(base.MouseLeave))).Map(unit), Site());
 
-    private Response Answered(IO<Response> effect, [CallerMemberName] string member = "") =>
-        Callbacks.Answer(DisposalOps.OnFailure(effect, Cancelled), static () => Response.Release, Site(member));
+    private Response Answered(Func<Response> host, IO<Response> own, [CallerMemberName] string member = "") =>
+        Callbacks.Answer(DisposalOps.OnFailure(IO.lift(host).Bind(reply => reply is Response.Ignored ? own : IO.pure(reply)), Cancelled), static () => Response.Release, Site(member));
 
     private CallbackSite Site([CallerMemberName] string member = "") => new(sink, typeof(FrameResponder), member);
 
@@ -119,7 +109,7 @@ public sealed class FrameResponder : Responses, IResponsive {
          let start = RegionBoundary
          from frame in IO.lift(() => new ResizingFrame(
              start, limits.Minimum, limits.Maximum, snapped.Map(static canvas => SnappingConstraints.CreateFromDocument(canvas.Document)).ValueUnsafe(), SnappingSettings.Current))
-         from sizing in IO.lift(() => frame.Begin(point, FrameLimits.ResizeBands(limits.Minimum, limits.Maximum, limits.Edges)))
+         from sizing in IO.lift(() => frame.Begin(point, limits.Edges))
          from next in sizing
              ? IO.pure(new Track(frame.Original, location => IO.lift(() => frame.Continue(location)).Map(_ => frame.Resized),
                  snapped.Match(Some: SnapSession.End, None: static () => unitIO)))
@@ -153,12 +143,13 @@ public sealed class FrameResponder : Responses, IResponsive {
             None: static () => IO.pure(unit))).Uninterruptible();
 
     private IO<Response> Finished =>
-        IO.lift(static environment => environment).Bind(environment =>
-            Taken.Bind(held => held.Match(
-                Some: current => DisposalOps.OnFailure(
-                    current.Cleared.Bind(_ => IO.liftVAsync(() => IO.pure(RegionBoundary).Bind(placed).RunAsync(environment))).Map(Response.Release),
-                    Shown(current.Origin)),
-                None: static () => IO.pure(Response.Ignored))).Uninterruptible());
+        DisposalOps.Transacted(
+            Taken,
+            held => held.Match(
+                Some: current => current.Cleared.Bind(_ => IO.lift(() => RegionBoundary)).Bind(placed).Map(Response.Release),
+                None: static () => IO.pure(Response.Ignored)),
+            held => held.Match(Some: current => Shown(current.Origin), None: static () => unitIO),
+            static (_, response) => IO.pure(response));
 
     private sealed record Track(RectangleF Origin, Func<PointF, IO<RectangleF>> Step, IO<Unit> Cleared);
 }
@@ -170,9 +161,9 @@ public static class Responders {
         DisposalOps.Acquire(keep =>
             from menus in IO.lift(static () => Ref(Some(HashMap<ContextMenu, IDisposable>())))
             from live in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Option<HashMap<ContextMenu, IDisposable>>>>(menus, static held =>
-                atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible().Run())), static held => IO.lift(held.Dispose), keep)
+                atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible().Run())), keep)
             from attached in GrasshopperEvents.PopulateContextMenu(control).Inline(args => Populated(args, groups, scope, menus), scope.Sink, keep)
-            select unit, (_, release) => retain(release));
+            select unit, retain);
 
     private static Seq<IDisposable> Taken(Ref<Option<HashMap<ContextMenu, IDisposable>>> held) {
         Option<HashMap<ContextMenu, IDisposable>> taken = held.Value;
@@ -193,7 +184,7 @@ public static class Responders {
             from realized in groups.TraverseM(@group => @group.TraverseM(command => command.Commands(scope, keep)).As()).As()
             let menu = CommandRow.Menu(realized)
             from filled in ChoiceRows.Populate(host,
-                menu.Groups.Map(static @group => @group.Map<MenuEntry>(static command => new MenuEntry.Item(command))), Seq(menu.Joined.Refresh), None, scope.Sink, keep)
+                menu.Groups.Map(static @group => @group.Map<MenuEntry>(static command => new MenuEntry.Item(command))), Seq(menu.Refresh), None, scope.Sink, keep)
             from closed in Subscriptions.Attach(
                 handler => host.Closed += handler, handler => host.Closed -= handler,
                 Callbacks.Handler<EventArgs>(_ => atomicIO(() => {
@@ -233,7 +224,7 @@ public static class Responders {
             }
             select (Document: document, Offset: direction * step))
         from moved in move.Traverse(held => CanvasLayout.Nudged(held.Document, held.Offset,
-            new VerbNoun(RowText.Localize("Nudge", table: Some<object>(sink)), RowText.Localize("Selection", table: Some<object>(sink))))).As()
+            new VerbNoun(RowText.Localize("Nudge", sink), RowText.Localize("Selection", sink)))).As()
         from shown in when(moved.Exists(static any => any), IO.lift(() => {
             args.Handled = true;
             canvas.Invalidate();

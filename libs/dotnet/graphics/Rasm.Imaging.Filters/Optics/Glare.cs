@@ -9,99 +9,74 @@ using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using MathNet.Numerics;
+using MathNet.Numerics.Statistics;
 using PeterO.Numbers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using TorchSharp;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Optics;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
 public readonly partial struct HighlightThreshold : IMinMaxValue<HighlightThreshold> {
     public static HighlightThreshold MinValue { get; } = new(0f);
     public static HighlightThreshold MaxValue { get; } = new(HistogramAxis.LowerBound(HistogramAxis.Bins - 1));
     public static HighlightThreshold White { get; } = new(1f);
     public static HighlightThreshold OneStopOver { get; } = new(2f);
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
 public readonly partial struct GhostIterations : IMinMaxValue<GhostIterations> {
     public static GhostIterations MinValue { get; } = new(2);
     public static GhostIterations MaxValue { get; } = new(5);
     public static GhostIterations Three { get; } = new(3);
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
 public readonly partial struct DirtGain : IMinMaxValue<DirtGain> {
     public static DirtGain MinValue { get; } = new(0f);
     public static DirtGain MaxValue { get; } = new(5f);
     public static DirtGain Unity { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
 public readonly partial struct DirtCoverage : IMinMaxValue<DirtCoverage> {
     public static DirtCoverage MinValue { get; } = new(0.01f);
     public static DirtCoverage MaxValue { get; } = new(1f);
     public static DirtCoverage Fifth { get; } = new(0.2f);
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
 public readonly partial struct ApertureBlades : IMinMaxValue<ApertureBlades> {
     public static ApertureBlades MinValue { get; } = new(3);
     public static ApertureBlades MaxValue { get; } = new(24);
     public static ApertureBlades Six { get; } = new(6);
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
 public readonly partial struct AnamorphicSqueeze : IMinMaxValue<AnamorphicSqueeze> {
     public static AnamorphicSqueeze MinValue => Spherical;
     public static AnamorphicSqueeze MaxValue { get; } = new(2f);
     public static AnamorphicSqueeze Spherical { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
-public readonly partial struct ColorFringe : IMinMaxValue<ColorFringe> {
-    public static ColorFringe MinValue { get; } = new(-1f);
-    public static ColorFringe MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
-}
-
-public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFraction Roundness, AxisFraction Obstruction, AnamorphicSqueeze Squeeze, ColorFringe Fringe) {
-    public static Iris Hexagon { get; } =
-        new(ApertureBlades.Six, SignedAngle.Create(float.DegreesToRadians(60f)), AxisFraction.MinValue, AxisFraction.MinValue, AnamorphicSqueeze.Spherical, ColorFringe.Neutral);
+public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFraction Roundness, AxisFraction Obstruction, AnamorphicSqueeze Squeeze) : IStateRecord<Iris, IrisParameter> {
+    public static Iris Default { get; } = new(ApertureBlades.Six, SignedAngle.Create(float.DegreesToRadians(60f)), AxisFraction.MinValue, AxisFraction.MinValue, AnamorphicSqueeze.Spherical);
 
     public float Circumradius =>
         double.Asin(Roundness * double.Sin(double.Pi / Blades)) switch {
@@ -157,8 +132,8 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
         };
     }
 
-    public Vector256<double> Weights(double reach, double edge, double radius, double ramp) {
-        Vector256<double> r = Radii(radius);
+    public Vector256<double> Weights(double reach, double edge, double radius, double ramp, SignedFraction fringe) {
+        Vector256<double> r = Radii(radius, fringe);
         Vector256<double> distance = Vector256.Create(reach);
         Vector256<double> one = Vector256.Create(1d);
         Vector256<double> obstruction = Vector256.Create((double)Obstruction) * r;
@@ -171,8 +146,8 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
         return Vector256.Create(w[0], w[1], w[2], (w[0] + w[1] + w[2]) / 3d);
     }
 
-    public Vector256<double> Integral(double radius, double ramp) {
-        Vector256<double> r = Radii(radius);
+    public Vector256<double> Integral(double radius, double ramp, SignedFraction fringe) {
+        Vector256<double> r = Radii(radius, fringe);
         double[] areas = [.. Enumerable.Range(0, 3).Select(component => r[component] is 0d || Obstruction == AxisFraction.MaxValue ? 0d
             : Blades / (double)Squeeze * Integrate.GaussKronrod(angle => {
                 double boundary = r[component] * Boundary(angle);
@@ -188,22 +163,32 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
         return Vector256.Create(areas[0], areas[1], areas[2], (areas[0] + areas[1] + areas[2]) / 3d);
     }
 
-    private Vector256<double> Radii(double radius) =>
-        Vector256.Create(radius * (1d - double.Max(Fringe, 0d)), radius * (1d - (double.Abs(Fringe) / 2d)), radius * (1d + double.Min(Fringe, 0d)), 0d);
-
-    internal static (StateParameter<TRecord> Blades, StateParameter<TRecord> Rotation, StateParameter<TRecord> Roundness, StateParameter<TRecord> Obstruction, StateParameter<TRecord> Squeeze)
-        Kinds<TRecord>(Lens<TRecord, Iris> iris) =>
-        (StateParameter.Bounded<TRecord, ApertureBlades, int, InvalidOptics>(lens(iris, Lens<Iris, ApertureBlades>.New(static i => i.Blades, static blades => i => i with { Blades = blades })), new()),
-         StateParameter.Bounded<TRecord, SignedAngle, float, InvalidPixelValue>(lens(iris, Lens<Iris, SignedAngle>.New(static i => i.Rotation, static rotation => i => i with { Rotation = rotation })), SignedAngle.Presentation),
-         StateParameter.Bounded<TRecord, AxisFraction, float, InvalidGrade>(lens(iris, Lens<Iris, AxisFraction>.New(static i => i.Roundness, static roundness => i => i with { Roundness = roundness })), new()),
-         StateParameter.Bounded<TRecord, AxisFraction, float, InvalidGrade>(lens(iris, Lens<Iris, AxisFraction>.New(static i => i.Obstruction, static obstruction => i => i with { Obstruction = obstruction })), new()),
-         StateParameter.Bounded<TRecord, AnamorphicSqueeze, float, InvalidOptics>(lens(iris, Lens<Iris, AnamorphicSqueeze>.New(static i => i.Squeeze, static squeeze => i => i with { Squeeze = squeeze })), new()));
-
-    internal static StateParameter<TRecord> FringeKind<TRecord>(Lens<TRecord, Iris> iris) =>
-        StateParameter.Bounded<TRecord, ColorFringe, float, InvalidOptics>(lens(iris, Lens<Iris, ColorFringe>.New(static i => i.Fringe, static fringe => i => i with { Fringe = fringe })), new() { Origin = (float)ColorFringe.Neutral });
+    private static Vector256<double> Radii(double radius, SignedFraction fringe) =>
+        Vector256.Create(radius * (1d - double.Max(fringe, 0d)), radius * (1d - (double.Abs(fringe) / 2d)), radius * (1d + double.Min(fringe, 0d)), 0d);
 }
 
-public sealed record HighlightKey(HighlightThreshold Threshold, AxisFraction Softness) {
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class IrisParameter : IStateParameter<Iris> {
+    public static readonly IrisParameter Blades = new("blades", StateParameter.Bounded(Lens<Iris, ApertureBlades>.New(static iris => iris.Blades, static blades => iris => iris with { Blades = blades }), new Presentation<int>()),
+        new("Flaps", "Aperture blades shaping each out-of-focus disc and diffraction spike"));
+    public static readonly IrisParameter Rotation = new("rotation", StateParameter.Bounded(Lens<Iris, SignedAngle>.New(static iris => iris.Rotation, static rotation => iris => iris with { Rotation = rotation })),
+        new("Angle", "Turn of the aperture blades, counterclockwise"));
+    public static readonly IrisParameter Roundness = new("roundness", StateParameter.Bounded(Lens<Iris, AxisFraction>.New(static iris => iris.Roundness, static roundness => iris => iris with { Roundness = roundness })),
+        new("Roundness", "Blade curvature from straight edges at 0% to a circle at 100%"));
+    public static readonly IrisParameter Obstruction = new("obstruction", StateParameter.Bounded(Lens<Iris, AxisFraction>.New(static iris => iris.Obstruction, static obstruction => iris => iris with { Obstruction = obstruction })),
+        new("Catadioptric size", "Central obstruction of a mirror lens, a ring in place of a disc"));
+    public static readonly IrisParameter Squeeze = new("squeeze", StateParameter.Bounded(Lens<Iris, AnamorphicSqueeze>.New(static iris => iris.Squeeze, static squeeze => iris => iris with { Squeeze = squeeze }), new Presentation<float>()),
+        new("Anamorphic", "Horizontal squeeze of the aperture, 2 for a 2x anamorphic lens"));
+
+    public StateParameter<Iris> Kind { get; }
+    public ParameterText Text { get; }
+}
+
+public sealed record HighlightKey(HighlightThreshold Threshold, AxisFraction Softness) : IStateRecord<HighlightKey, HighlightKeyParameter> {
+    public static HighlightKey Default { get; } = new(HighlightThreshold.White, AxisFraction.Create(0.1f));
+
     public Vector4 Extract(Vector4 color) {
         Vector3 light = color.AsVector3() * color.W;
         float v = float.Max(light.X, float.Max(light.Y, light.Z));
@@ -211,13 +196,22 @@ public sealed record HighlightKey(HighlightThreshold Threshold, AxisFraction Sof
         float h = float.Max(k - float.Abs(v - Threshold), 0f);
         return v > 0f ? new Vector4(light * ((float.Max(v, Threshold) - Threshold + (k > 0f ? h * h / (4f * k) : 0f)) / v), 0f) : Vector4.Zero;
     }
-
-    internal static (StateParameter<TRecord> Threshold, StateParameter<TRecord> Softness) Kinds<TRecord>(Lens<TRecord, HighlightKey> key) =>
-        (StateParameter.Bounded<TRecord, HighlightThreshold, float, InvalidOptics>(lens(key, Lens<HighlightKey, HighlightThreshold>.New(static k => k.Threshold, static threshold => k => k with { Threshold = threshold })), new()),
-         StateParameter.Bounded<TRecord, AxisFraction, float, InvalidGrade>(lens(key, Lens<HighlightKey, AxisFraction>.New(static k => k.Softness, static softness => k => k with { Softness = softness })), new()));
 }
 
-public sealed unsafe record DirtSpecks(DirtCoverage Coverage, ShortSideExtent Scale, Seed Seed) : IStateRecord<DirtSpecks, DirtSpecksParameter, InvalidOptics> {
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class HighlightKeyParameter : IStateParameter<HighlightKey> {
+    public static readonly HighlightKeyParameter Threshold = new("threshold", StateParameter.Bounded(Lens<HighlightKey, HighlightThreshold>.New(static key => key.Threshold, static threshold => key => key with { Threshold = threshold }), new Presentation<float>()),
+        new("Threshold", "Scene-linear value above which highlights feed the effect"));
+    public static readonly HighlightKeyParameter Softness = new("softness", StateParameter.Bounded(Lens<HighlightKey, AxisFraction>.New(static key => key.Softness, static softness => key => key with { Softness = softness })),
+        new("Smoothness", "Knee width below the threshold"));
+
+    public StateParameter<HighlightKey> Kind { get; }
+    public ParameterText Text { get; }
+}
+
+public sealed unsafe record DirtSpecks(DirtCoverage Coverage, ShortSideExtent Scale, Seed Seed) : IStateRecord<DirtSpecks, DirtSpecksParameter> {
     public static DirtSpecks Default { get; } = new(DirtCoverage.Fifth, ShortSideExtent.Create(0.05f * ReferenceFrame.GreaterSide), Seed.MinValue);
 
     internal static PixelFrame Field((DirtSpecks Specks, PixelExtent Extent) key) {
@@ -240,11 +234,7 @@ public sealed unsafe record DirtSpecks(DirtCoverage Coverage, ShortSideExtent Sc
         CvInvoke.Dft(draw, spectrum, DxtType.ComplexOutput, 0);
         CvInvoke.Multiply(spectrum, pink, spectrum);
         CvInvoke.Dft(spectrum, draw, DxtType.Inverse | DxtType.RealOutput | DxtType.Scale, 0);
-        double[] sorted = cells.ToArray();
-        sorted.AsSpan().Sort();
-        double rank = (1d - key.Specks.Coverage) * (sorted.Length - 1);
-        (int lower, int upper) = ((int)rank, (int)double.Ceiling(rank));
-        double floor = double.Lerp(sorted[lower], sorted[upper], rank - lower);
+        double floor = ArrayStatistics.QuantileCustomInplace(cells.ToArray(), 1d - key.Specks.Coverage, QuantileDefinition.R7);
         draw.ConvertTo(draw, DepthType.Cv64F, 1d, -floor);
         _ = CvInvoke.Threshold(draw, draw, 0d, 0d, ThresholdType.ToZero);
         CvInvoke.Normalize(draw, draw, 0d, 1d, NormType.MinMax);
@@ -258,51 +248,51 @@ public sealed unsafe record DirtSpecks(DirtCoverage Coverage, ShortSideExtent Sc
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DirtSpecksParameter : IStateParameter<DirtSpecks> {
-    public static readonly DirtSpecksParameter Coverage = new("coverage", StateParameter.Bounded<DirtSpecks, DirtCoverage, float, InvalidOptics>(
-        Lens<DirtSpecks, DirtCoverage>.New(static specks => specks.Coverage, static coverage => specks => specks with { Coverage = coverage }), new()));
-    public static readonly DirtSpecksParameter Scale = new("scale", StateParameter.Bounded<DirtSpecks, ShortSideExtent, float, InvalidPixelValue>(
+    public static readonly DirtSpecksParameter Coverage = new("coverage", StateParameter.Bounded(Lens<DirtSpecks, DirtCoverage>.New(static specks => specks.Coverage, static coverage => specks => specks with { Coverage = coverage }), new Presentation<float>()),
+        new("Coverage", "Share of the lens covered by dirt"));
+    public static readonly DirtSpecksParameter Scale = new("scale", StateParameter.Bounded(
         Lens<DirtSpecks, ShortSideExtent>.New(static specks => specks.Scale, static scale => specks => specks with { Scale = scale }),
-        new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.001f * ReferenceFrame.GreaterSide, 0.5f * ReferenceFrame.GreaterSide) }));
-    public static readonly DirtSpecksParameter Seed = new("seed", StateParameter.Bounded<DirtSpecks, Seed, int, InvalidGenerator>(
-        Lens<DirtSpecks, Seed>.New(static specks => specks.Seed, static seed => specks => specks with { Seed = seed }), Generators.Seed.Presentation));
+        ShortSideExtent.Presentation with { Soft = (0.001f * ReferenceFrame.GreaterSide, 0.5f * ReferenceFrame.GreaterSide), Scale = TrackScale.Linear }),
+        new("Scale", "Size of the dirt features as a share of the frame's short side"));
+    public static readonly DirtSpecksParameter Seed = new("seed", StateParameter.Bounded(Lens<DirtSpecks, Seed>.New(static specks => specks.Seed, static seed => specks => specks with { Seed = seed })),
+        new("Seed", "Number selecting the dirt field"));
 
     public StateParameter<DirtSpecks> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed unsafe record Bloom(AxisFraction Size, Mix Strength, Option<ImageFile> Dirt, Gated<DirtSpecks> Specks, DirtGain DirtGain) : IStateRecord<Bloom, BloomParameter, InvalidOptics>, IPixelStage<Bloom> {
-    public static Bloom Default { get; } = new(AxisFraction.Half, Mix.Create(0.7f * float.Pow(0.15f, 1.5f)), None, new(Enabled: false, DirtSpecks.Default), DirtGain.Unity);
+public sealed unsafe record Bloom(AxisFraction Size, AxisFraction Strength, Option<ImageFile> Dirt, Gated<DirtSpecks> Specks, DirtGain DirtGain) : IStateRecord<Bloom, BloomParameter>, IPixelStage<Bloom> {
+    public static Bloom Default { get; } = new(AxisFraction.Half, AxisFraction.Create(0.7f * float.Pow(0.15f, 1.5f)), None, new(Enabled: false, DirtSpecks.Default), DirtGain.Unity);
 
     public static Option<PixelPass> Pass(Bloom state, PassContext context) =>
-        state.Strength == Mix.MinValue ? None : Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(Planes.Light, light => {
+        state.Strength == AxisFraction.MinValue ? None : Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(Planes.Light, light => {
             using Mat tent = new(1, 3, DepthType.Cv32F, 1);
             tent.SetTo([0.25f, 0.5f, 0.25f]);
             int chain = (int)float.Log2(float.Max(1f, frame.Size.ShortSide * state.Size));
-            return Chained(light, chain - 1, static tap => 1d / (1d + double.Max(0d, double.Max(tap.X, double.Max(tap.Y, tap.Z)))), tent).Map(_ => {
-                _ = (state.Specks.Active.Map(specks => context.Derivations.Derived((specks, context.Extent), DirtSpecks.Field)) | state.Dirt.Map(static file => file.Frame)).Iter(dirt => {
-                    using Mat lens = dirt.Header();
-                    double cover = double.Max((double)frame.Extent.Width / lens.Cols, (double)frame.Extent.Height / lens.Rows);
-                    using Mat fitted = new();
-                    CvInvoke.Resize(lens, fitted, default, cover, cover, cover < 1d ? Inter.Area : Inter.Linear);
-                    ReadOnlySpan2D<Vector4> soil = new((void*)fitted.DataPointer, fitted.Rows, fitted.Cols, 0);
-                    Span<Vector4> cells = new((void*)light.DataPointer, frame.Block.Length / 4);
-                    for (int i = 0; i < cells.Length; i++) {
-                        (int y, int x) = int.DivRem(i, light.Cols);
-                        cells[i] *= Vector4.One + (state.DirtGain * soil.Sample(
-                            (((fitted.Cols - (double)frame.Extent.Width) / 2d) + frame.Origin.X + x + 0.5d, ((fitted.Rows - (double)frame.Extent.Height) / 2d) + frame.Origin.Y + y + 0.5d),
-                            (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + ((float)weight * pixel)));
-                    }
-                });
-                return unit;
+            Chained(light, chain - 1, static tap => 1d / (1d + double.Max(0d, double.Max(tap.X, double.Max(tap.Y, tap.Z)))), tent);
+            _ = (state.Specks.Active.Map(specks => context.Derivations.Derived((specks, context.Extent), DirtSpecks.Field)) | state.Dirt.Map(static file => file.Frame)).Iter(dirt => {
+                using Mat lens = dirt.Header();
+                double cover = double.Max((double)frame.Extent.Width / lens.Cols, (double)frame.Extent.Height / lens.Rows);
+                using Mat fitted = new();
+                CvInvoke.Resize(lens, fitted, default, cover, cover, cover < 1d ? Inter.Area : Inter.Linear);
+                ReadOnlySpan2D<Vector4> soil = new((void*)fitted.DataPointer, fitted.Rows, fitted.Cols, 0);
+                Span<Vector4> cells = new((void*)light.DataPointer, frame.Block.Length / 4);
+                for (int i = 0; i < cells.Length; i++) {
+                    (int y, int x) = int.DivRem(i, light.Cols);
+                    cells[i] *= Vector4.One + (state.DirtGain * soil.Sample(
+                        (((fitted.Cols - (double)frame.Extent.Width) / 2d) + frame.Origin.X + x + 0.5d, ((fitted.Rows - (double)frame.Extent.Height) / 2d) + frame.Origin.Y + y + 0.5d),
+                        (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + ((float)weight * pixel)));
+                }
             });
+            return unit;
         }, BlendingMode.Mix, state.Strength, progress)));
 
-    private static Fin<Unit> Chained(Mat level, int halvings, Func<Vector4, double> weight, Mat tent) {
+    private static void Chained(Mat level, int halvings, Func<Vector4, double> weight, Mat tent) {
         if (halvings <= 0)
-            return unit;
+            return;
         using Mat next = new(level.Rows / 2, level.Cols / 2, DepthType.Cv32F, 4);
         using Mat up = new();
         ReadOnlySpan2D<Vector4> taps = new((void*)level.DataPointer, level.Rows, level.Cols, 0);
@@ -314,13 +304,10 @@ public sealed unsafe record Bloom(AxisFraction Size, Mix Strength, Option<ImageF
                 + Group(taps, u - 1d, v + 1d, weight) + Group(taps, u + 1d, v + 1d, weight)));
             cells[n] = Vector256.Narrow(sum, Vector256<double>.Zero).GetLower().AsVector4();
         }
-        return Chained(next, halvings - 1, static _ => 1d, tent).Bind(_ => {
-            CvInvoke.Resize(next, up, level.Size, 0d, 0d, Inter.Linear);
-            return up.Separable(up, tent, tent, DepthType.Cv32F, PaddingModes.Replicate).Map(_ => {
-                CvInvoke.AddWeighted(level, 1d / (halvings + 1), up, (double)halvings / (halvings + 1), 0d, level);
-                return unit;
-            });
-        });
+        Chained(next, halvings - 1, static _ => 1d, tent);
+        CvInvoke.Resize(next, up, level.Size, 0d, 0d, Inter.Linear);
+        CvInvoke.SepFilter2D(up, up, DepthType.Cv32F, tent, tent, new Point(-1, -1), 0d, BorderType.Replicate);
+        CvInvoke.AddWeighted(level, 1d / (halvings + 1), up, (double)halvings / (halvings + 1), 0d, level);
     }
 
     private static Vector256<double> Group(ReadOnlySpan2D<Vector4> taps, double x, double y, Func<Vector4, double> weight) {
@@ -336,25 +323,25 @@ public sealed unsafe record Bloom(AxisFraction Size, Mix Strength, Option<ImageF
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BloomParameter : IStateParameter<Bloom> {
-    public static readonly BloomParameter Size = new("size", StateParameter.Bounded<Bloom, AxisFraction, float, InvalidGrade>(
-        Lens<Bloom, AxisFraction>.New(static bloom => bloom.Size, static size => bloom => bloom with { Size = size }), new()));
-    public static readonly BloomParameter Strength = new("strength", StateParameter.Bounded<Bloom, Mix, float, InvalidGrade>(
-        Lens<Bloom, Mix>.New(static bloom => bloom.Strength, static strength => bloom => bloom with { Strength = strength }), new()));
-    public static readonly BloomParameter Dirt = new("dirt", new StateParameter<Bloom>.Loaded<ImageFile, ImagePath, string, InvalidFileValue>(
-        Lens<Bloom, Option<ImageFile>>.New(static bloom => bloom.Dirt, static dirt => bloom => bloom with { Dirt = dirt }), ImageFile.Load, static file => file.Path));
-    public static readonly BloomParameter Specks = new("specks", new StateParameter<Bloom>.OptionalRecord<DirtSpecks>(
-        Lens<Bloom, Gated<DirtSpecks>>.New(static bloom => bloom.Specks, static specks => bloom => bloom with { Specks = specks })));
-    public static readonly BloomParameter DirtGain = new("dirt-gain", StateParameter.Bounded<Bloom, DirtGain, float, InvalidOptics>(
-        Lens<Bloom, DirtGain>.New(static bloom => bloom.DirtGain, static gain => bloom => bloom with { DirtGain = gain }), new() { Soft = (Optics.DirtGain.MinValue, Optics.DirtGain.Unity) }));
+    public static readonly BloomParameter Size = new("size", StateParameter.Bounded(Lens<Bloom, AxisFraction>.New(static bloom => bloom.Size, static size => bloom => bloom with { Size = size })),
+        new("Size", "Reach of the spread across the frame"));
+    public static readonly BloomParameter Strength = new("strength", StateParameter.Bounded(Lens<Bloom, AxisFraction>.New(static bloom => bloom.Strength, static strength => bloom => bloom with { Strength = strength })),
+        new("Strength", "Share of the light the lens scatters, total light kept"));
+    public static readonly BloomParameter Dirt = new("dirt", new StateParameter<Bloom>.Loaded<ImageFile, ImagePath, string>(Lens<Bloom, Option<ImageFile>>.New(static bloom => bloom.Dirt, static dirt => bloom => bloom with { Dirt = dirt }), ImageFile.Load, static file => file.Path),
+        new("Lens dirt", "Scene-linear image of dust and smudges the scattered light shows"));
+    public static readonly BloomParameter Specks = new("specks", new StateParameter<Bloom>.OptionalRecord<DirtSpecks>(Lens<Bloom, Gated<DirtSpecks>>.New(static bloom => bloom.Specks, static specks => bloom => bloom with { Specks = specks })),
+        new("Specks", "Procedural lens dirt in place of the dirt image"));
+    public static readonly BloomParameter DirtGain = new("dirt-gain", StateParameter.Bounded(Lens<Bloom, DirtGain>.New(static bloom => bloom.DirtGain, static gain => bloom => bloom with { DirtGain = gain }), new Presentation<float> { Soft = (Optics.DirtGain.MinValue, Optics.DirtGain.Unity) }),
+        new("Dirt intensity", "Gain of the dirt over the scattered light"));
 
     public StateParameter<Bloom> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed unsafe record VeilingGlare(AxisFraction Size) : IStateRecord<VeilingGlare, VeilingGlareParameter, InvalidOptics>, IPixelStage<VeilingGlare> {
+public sealed unsafe record VeilingGlare(AxisFraction Size) : IStateRecord<VeilingGlare, VeilingGlareParameter>, IPixelStage<VeilingGlare> {
     public static VeilingGlare Default { get; } = new(AxisFraction.Half);
 
     public static Option<PixelPass> Pass(VeilingGlare state, PassContext context) =>
@@ -376,18 +363,18 @@ public sealed unsafe record VeilingGlare(AxisFraction Size) : IStateRecord<Veili
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VeilingGlareParameter : IStateParameter<VeilingGlare> {
-    public static readonly VeilingGlareParameter Size = new("size", StateParameter.Bounded<VeilingGlare, AxisFraction, float, InvalidGrade>(
-        Lens<VeilingGlare, AxisFraction>.New(static glare => glare.Size, static size => glare => glare with { Size = size }), new()));
+    public static readonly VeilingGlareParameter Size = new("size", StateParameter.Bounded(Lens<VeilingGlare, AxisFraction>.New(static glare => glare.Size, static size => glare => glare with { Size = size })),
+        new("Size", "Field of view the glare kernel spans, narrower at higher values"));
 
     public StateParameter<VeilingGlare> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStateRecord<StarGlare, StarGlareParameter, InvalidOptics>, IPixelStage<StarGlare> {
-    public static StarGlare Default { get; } = new(Iris.Hexagon, ShortSideLength.Create(2f / ReferenceFrame.Height));
+public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStateRecord<StarGlare, StarGlareParameter>, IPixelStage<StarGlare> {
+    public static StarGlare Default { get; } = new(Iris.Default, ShortSideLength.Create(2f / ReferenceFrame.Height));
 
     public static Option<PixelPass> Pass(StarGlare state, PassContext context) =>
         state.Radius == ShortSideLength.Neutral || state.Iris.Obstruction == AxisFraction.MaxValue ? None
@@ -400,7 +387,7 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
         const decimal airy = 1.22m;
         Arr<(float Wavelength, Vector3 Matching)> rows = StandardObserver.Matching(key.Working);
         Vector3 total = rows.Fold(Vector3.Zero, static (sum, row) => sum + row.Matching);
-        Iris pupil = key.State.Iris with { Fringe = ColorFringe.Neutral };
+        Iris pupil = key.State.Iris;
         int grid = 2 * CvInvoke.GetOptimalDFTSize(int.Max(key.Extent.Width, key.Extent.Height));
         (int middle, double half) = (grid / 2, grid / (2d * pupil.Circumradius));
         Size size = new((2 * key.Size.Width) - 1, (2 * key.Size.Height) - 1);
@@ -456,31 +443,25 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StarGlareParameter : IStateParameter<StarGlare> {
-    private static readonly (StateParameter<StarGlare> Blades, StateParameter<StarGlare> Rotation, StateParameter<StarGlare> Roundness, StateParameter<StarGlare> Obstruction, StateParameter<StarGlare> Squeeze)
-        Outline = Iris.Kinds(Lens<StarGlare, Iris>.New(static glare => glare.Iris, static iris => glare => glare with { Iris = iris }));
-
-    public static readonly StarGlareParameter Blades = new("blades", Outline.Blades);
-    public static readonly StarGlareParameter Rotation = new("rotation", Outline.Rotation);
-    public static readonly StarGlareParameter Roundness = new("roundness", Outline.Roundness);
-    public static readonly StarGlareParameter Obstruction = new("obstruction", Outline.Obstruction);
-    public static readonly StarGlareParameter Squeeze = new("squeeze", Outline.Squeeze);
-    public static readonly StarGlareParameter AiryRadius = new("airy-radius", StateParameter.Bounded<StarGlare, ShortSideLength, float, InvalidPixelValue>(
-        Lens<StarGlare, ShortSideLength>.New(static glare => glare.Radius, static radius => glare => glare with { Radius = radius }), ShortSideLength.Presentation with { Soft = (1.25f / ReferenceFrame.Height, 64f / ReferenceFrame.Height) }));
+    public static readonly StarGlareParameter Iris = new("iris", new StateParameter<StarGlare>.Record<Iris>(Lens<StarGlare, Iris>.New(static glare => glare.Iris, static iris => glare => glare with { Iris = iris })),
+        new("Aperture", "Outline of the lens opening each out-of-focus disc and diffraction spike takes"));
+    public static readonly StarGlareParameter AiryRadius = new("airy-radius", StateParameter.Bounded(Lens<StarGlare, ShortSideLength>.New(static glare => glare.Radius, static radius => glare => glare with { Radius = radius }), ShortSideLength.Presentation with { Soft = (1.25f / ReferenceFrame.Height, 64f / ReferenceFrame.Height) }),
+        new("Core", "Radius of the first dark ring around a point light, as a share of the frame's short side"));
 
     public StateParameter<StarGlare> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed unsafe record Ghosts(HighlightKey Key, GhostIterations Iterations, Mix Modulation) : IStateRecord<Ghosts, GhostsParameter, InvalidOptics>, IPixelStage<Ghosts> {
+public sealed unsafe record Ghosts(HighlightKey Highlight, GhostIterations Iterations, AxisFraction Modulation) : IStateRecord<Ghosts, GhostsParameter>, IPixelStage<Ghosts> {
     private static readonly Arr<Vector3> Modulated = [Vector3.Zero, new(0f, 1f, 1f), new(1f, 1f, 0f), new(1f, 0f, 1f)];
 
-    public static Ghosts Default { get; } = new(new HighlightKey(HighlightThreshold.White, AxisFraction.Create(0.1f)), GhostIterations.Three, Mix.Create(0.25f));
+    public static Ghosts Default { get; } = new(HighlightKey.Default, GhostIterations.Three, AxisFraction.Create(0.25f));
 
     public static Option<PixelPass> Pass(Ghosts state, PassContext context) =>
-        Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(state.Key.Extract, key => {
+        Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(state.Highlight.Extract, key => {
             float radius = 16f / ReferenceFrame.Height * frame.Extent.ShortSide;
             using Mat big = new();
             using Mat input = Mat.Zeros(key.Rows, key.Cols, DepthType.Cv32F, 4);
@@ -516,61 +497,56 @@ public sealed unsafe record Ghosts(HighlightKey Key, GhostIterations Iterations,
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GhostsParameter : IStateParameter<Ghosts> {
-    private static readonly (StateParameter<Ghosts> Threshold, StateParameter<Ghosts> Softness) Highlight =
-        HighlightKey.Kinds(Lens<Ghosts, HighlightKey>.New(static ghosts => ghosts.Key, static key => ghosts => ghosts with { Key = key }));
-
-    public static readonly GhostsParameter Threshold = new("threshold", Highlight.Threshold);
-    public static readonly GhostsParameter Softness = new("softness", Highlight.Softness);
-    public static readonly GhostsParameter Iterations = new("iterations", StateParameter.Bounded<Ghosts, GhostIterations, int, InvalidOptics>(
-        Lens<Ghosts, GhostIterations>.New(static ghosts => ghosts.Iterations, static iterations => ghosts => ghosts with { Iterations = iterations }), new()));
-    public static readonly GhostsParameter ColorModulation = new("color-modulation", StateParameter.Bounded<Ghosts, Mix, float, InvalidGrade>(
-        Lens<Ghosts, Mix>.New(static ghosts => ghosts.Modulation, static modulation => ghosts => ghosts with { Modulation = modulation }), new()));
+    public static readonly GhostsParameter Highlight = new("highlight", new StateParameter<Ghosts>.Record<HighlightKey>(Lens<Ghosts, HighlightKey>.New(static ghosts => ghosts.Highlight, static highlight => ghosts => ghosts with { Highlight = highlight })),
+        new("Highlights", "Highlights the lens reflects"));
+    public static readonly GhostsParameter Iterations = new("iterations", StateParameter.Bounded(Lens<Ghosts, GhostIterations>.New(static ghosts => ghosts.Iterations, static iterations => ghosts => ghosts with { Iterations = iterations }), new Presentation<int>()),
+        new("Iterations", "Reflection passes, each adding four ghosts"));
+    public static readonly GhostsParameter ColorModulation = new("color-modulation", StateParameter.Bounded(Lens<Ghosts, AxisFraction>.New(static ghosts => ghosts.Modulation, static modulation => ghosts => ghosts with { Modulation = modulation })),
+        new("Color modulation", "Color shift between successive ghosts"));
 
     public StateParameter<Ghosts> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed record Halation(HighlightKey Key, ShortSideLength Radius, Swatch Color) : IStateRecord<Halation, HalationParameter, InvalidOptics>, IPixelStage<Halation> {
+public sealed record Halation(HighlightKey Highlight, ShortSideLength Radius, Swatch Color) : IStateRecord<Halation, HalationParameter>, IPixelStage<Halation> {
     public static Halation Default { get; } = new(new HighlightKey(HighlightThreshold.OneStopOver, AxisFraction.MaxValue), ShortSideLength.Create(64f * 0.2f / ReferenceFrame.Height), Swatch.Create(0xFF5900));
 
     public static Option<PixelPass> Pass(Halation state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => new Vector4(state.Color.SceneLight(context.Working), 0f) switch {
-            var color => frame.Spread(pixel => state.Key.Extract(pixel) * color, key => key.Blur(key, state.Radius.Pixels(frame.Extent)), BlendingMode.Add, 1f, progress),
+            var color => frame.Spread(pixel => state.Highlight.Extract(pixel) * color, key => key.Blur(key, state.Radius.Pixels(frame.Extent)), BlendingMode.Add, 1f, progress),
         }));
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HalationParameter : IStateParameter<Halation> {
-    private static readonly (StateParameter<Halation> Threshold, StateParameter<Halation> Softness) Highlight =
-        HighlightKey.Kinds(Lens<Halation, HighlightKey>.New(static halation => halation.Key, static key => halation => halation with { Key = key }));
-
-    public static readonly HalationParameter Threshold = new("threshold", Highlight.Threshold);
-    public static readonly HalationParameter Softness = new("softness", Highlight.Softness);
-    public static readonly HalationParameter Radius = new("radius", StateParameter.Bounded<Halation, ShortSideLength, float, InvalidPixelValue>(
-        Lens<Halation, ShortSideLength>.New(static halation => halation.Radius, static radius => halation => halation with { Radius = radius }), ShortSideLength.Presentation with { Soft = (ShortSideLength.MinValue, 64f / ReferenceFrame.Height) }));
-    public static readonly HalationParameter Color = new("color", new StateParameter<Halation>.Color(
-        Lens<Halation, Swatch>.New(static halation => halation.Color, static color => halation => halation with { Color = color })));
+    public static readonly HalationParameter Highlight = new("highlight", new StateParameter<Halation>.Record<HighlightKey>(Lens<Halation, HighlightKey>.New(static halation => halation.Highlight, static highlight => halation => halation with { Highlight = highlight })),
+        new("Highlights", "Highlights that re-expose the film"));
+    public static readonly HalationParameter Radius = new("radius", StateParameter.Bounded(Lens<Halation, ShortSideLength>.New(static halation => halation.Radius, static radius => halation => halation with { Radius = radius }), ShortSideLength.Presentation with { Soft = (ShortSideLength.MinValue, 64f / ReferenceFrame.Height) }),
+        new("Radius", "Halo radius as a share of the frame's short side"));
+    public static readonly HalationParameter Color = new("color", new StateParameter<Halation>.Color(Lens<Halation, Swatch>.New(static halation => halation.Color, static color => halation => halation with { Color = color })),
+        new("Color", "Scene-linear color weighting the halo"));
 
     public StateParameter<Halation> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class PointSpread(Arr<int> planes) : VectorOfMat(planes.Fold(0, int.Max) + 1) {
-    public Fin<Unit> Convolve(Mat light) => toSeq(Range(0, planes.Count)).Traverse(component => {
-        using Mat lane = new();
-        using Mat kernel = this[planes[component]];
-        CvInvoke.ExtractChannel(light, lane, component);
-        return lane.Correlate(lane, kernel, DepthType.Cv32F, PaddingModes.Constant).Map(_ => {
+    public Fin<Unit> Convolve(Mat light) {
+        for (int component = 0; component < planes.Count; component++) {
+            using Mat lane = new();
+            using Mat kernel = this[planes[component]];
+            CvInvoke.ExtractChannel(light, lane, component);
+            CvInvoke.Filter2D(lane, lane, kernel, new Point(-1, -1), 0d, BorderType.Constant);
             CvInvoke.InsertChannel(lane, light, component);
-            return unit;
-        });
-    }).As().Map(static _ => unit);
+        }
+        return unit;
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -578,11 +554,6 @@ file static unsafe class Planes {
     private static readonly Progress<int> Unreported = new();
 
     public static Vector4 Light(Vector4 pixel) => new(pixel.AsVector3() * pixel.W, 0f);
-
-    extension(Mat plane) {
-        public Fin<Unit> Blur(Mat target, double radius) => PixelSampling.KernelTaps<long>(radius).Bind(taps =>
-            plane.Gaussian(target, (taps, taps), radius / 3d, radius / 3d, PaddingModes.Replicate));
-    }
 
     extension(PixelFrame frame) {
         public Fin<Unit> Spread(Func<Vector4, Vector4> fill, Func<Mat, Fin<Unit>> spread, BlendingMode mode, float weight, IProgress<int> progress) => Try.lift(() => {

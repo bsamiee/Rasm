@@ -49,7 +49,6 @@ internal enum Status { Requested = 0, Active = 1, Frozen = 2 }
 internal sealed record Snapshot(Status Status, string Code, decimal Balance, decimal Limit) {
     public Snapshot Credit(decimal amount) => this with { Balance = Balance + amount };
     public Snapshot Debit(decimal amount) => this with { Balance = Balance - amount };
-    public Snapshot WithStatus(Status status) => this with { Status = status };
 }
 ```
 
@@ -66,7 +65,7 @@ internal static partial class Entry {
             created: static (s, _) => s,
             credited: static (s, e) => s.Credit(e.Amount),
             debited: static (s, e) => s.Debit(e.Amount),
-            frozen: static (s, _) => s.WithStatus(Status.Frozen));
+            frozen: static (s, _) => s with { Status = Status.Frozen });
 }
 ```
 
@@ -96,21 +95,17 @@ command -> validate -> derive event -> persist and publish
 events  -> fold, map, filter -> projection or view model -> query response
 ```
 
-Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. General validation and state-dependent validation are dependent computations that bind, each rejection is a sealed `Expected` record, the transition returns the event beside the derived snapshot, and the first `guard` calls `ToFin` to establish the query's result type:
+Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. General validation and state-dependent validation are dependent computations that bind, each rejection is an `Error` raised at its `guard`, the transition returns the event beside the derived snapshot, and the first `guard` calls `ToFin` to establish the query's result type:
 
 ```csharp
 internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
     public Event ToEvent() => new Event.Debited(EntryId, Amount, Target);
 }
-internal sealed record NotActive() : Expected("entry is not active", (int)Codes.NotActive);
-internal sealed record InsufficientBalance() : Expected("insufficient balance", (int)Codes.InsufficientBalance);
-internal sealed record NotFound() : Expected("entry not found", (int)Codes.NotFound);
-internal sealed record InvalidAmount() : Expected("amount is not positive", (int)Codes.InvalidAmount);
 
 internal static partial class Entry {
     public static Fin<(Event Event, Snapshot Snapshot)> Debit(Snapshot snapshot, Debit command) =>
-        from _ in guard<Error>(snapshot.Status == Status.Active, new NotActive()).ToFin()
-        from __ in guard<Error>(snapshot.Balance - command.Amount >= snapshot.Limit, new InsufficientBalance())
+        from _ in guard(snapshot.Status is Status.Active, Error.New("entry is not active")).ToFin()
+        from __ in guard(snapshot.Balance - command.Amount >= snapshot.Limit, Error.New("balance falls below the limit"))
         let evt = command.ToEvent()
         select (Event: evt, Snapshot: Apply(snapshot, evt));
 }
@@ -121,9 +116,9 @@ Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, an
 ```csharp
 internal static class Commands {
     public static IO<(Event Event, Snapshot Snapshot)> Handle(Func<Guid, IO<Seq<Event>>> load, Func<Event, IO<Unit>> save, Debit command) =>
-        from _ in guard<Error>(command.Amount > 0m, new InvalidAmount())
+        from _ in guard(command.Amount > 0m, Error.New("amount is not positive"))
         from history in load(command.EntryId)
-        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(new NotFound()))
+        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(Error.New($"no entry has id {command.EntryId}")))
         from result in IO.lift(Entry.Debit(snapshot, command))
         from __ in save(result.Event)
         select result;

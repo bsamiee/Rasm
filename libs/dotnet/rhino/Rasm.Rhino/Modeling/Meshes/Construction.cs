@@ -5,53 +5,47 @@ namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct PlaneFaceCount : System.Numerics.IMinMaxValue<PlaneFaceCount> {
     public static PlaneFaceCount MinValue { get; } = new(1);
     public static PlaneFaceCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SphereFaceCount : System.Numerics.IMinMaxValue<SphereFaceCount> {
     public static SphereFaceCount MinValue { get; } = new(2);
     public static SphereFaceCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct MeshRadius : System.Numerics.IMinMaxValue<MeshRadius> {
     public static MeshRadius MinValue { get; } = new(double.BitIncrement(0d));
     public static MeshRadius MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct IsosurfaceResolution : System.Numerics.IMinMaxValue<IsosurfaceResolution> {
     public static IsosurfaceResolution MinValue { get; } = new(1);
     public static IsosurfaceResolution MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct RefinementLevel : System.Numerics.IMinMaxValue<RefinementLevel> {
     public static RefinementLevel MinValue { get; } = new(0);
     public static RefinementLevel MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
 }
 
 [Union<Brep, FaceSelection>(T2Name = "Mesh", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -80,31 +74,22 @@ public abstract partial record PatchBoundary {
 public static class MeshConstruction {
     // --- [GENERATED]
     public static IO<Mesh> QuadRemesh(QuadSource source, QuadRemeshParameters parameters, Seq<Curve> guides, Option<IProgress<int>> progress, Action<IDisposable> retain) =>
-        from token in cancelToken
-        from mesh in source.Switch(
-            (Parameters: parameters, Guides: guides, Progress: progress.ValueUnsafe(), Token: token, Retain: retain),
+        source.Switch(
+            (Parameters: parameters, Guides: guides, Progress: progress.ValueUnsafe(), Retain: retain),
             brep: static (state, brep) => Copies.Acquire(
-                () => Optional(Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, state.Token))
-                    .ToFin(state.Token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.QuadRemeshBrep))),
-                nameof(Mesh.QuadRemeshBrep), state.Retain),
+                token => Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, token), nameof(Mesh.QuadRemeshBrep), state.Retain),
             mesh: static (state, of) => Copies.Acquire(
-                () => Optional(of.Mesh.QuadRemesh(of.FaceBlocks, state.Parameters, state.Guides, state.Progress, state.Token))
-                    .ToFin(state.Token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.QuadRemesh))),
-                nameof(Mesh.QuadRemesh), state.Retain))
-        select mesh;
+                token => of.Mesh.QuadRemesh(of.FaceBlocks, state.Parameters, state.Guides, state.Progress, token), nameof(Mesh.QuadRemesh), state.Retain));
 
     public static IO<Mesh> ShrinkWrap(ShrinkWrapSource source, ShrinkWrapParameters parameters, Action<IDisposable> retain) =>
-        from token in cancelToken
-        from mesh in Copies.Acquire(
-            () => Optional(source.Switch(
-                    (Parameters: parameters, Token: token),
-                    meshes: static (state, meshes) => Mesh.ShrinkWrap(meshes, state.Parameters, state.Token),
-                    cloud: static (state, cloud) => Mesh.ShrinkWrap(cloud, state.Parameters, state.Token),
-                    meshable: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
-                    mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token)))
-                .ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(Mesh.ShrinkWrap))),
-            nameof(Mesh.ShrinkWrap), retain)
-        select mesh;
+        Copies.Acquire(
+            token => source.Switch(
+                (Parameters: parameters, Token: token),
+                meshes: static (state, meshes) => Mesh.ShrinkWrap(meshes, state.Parameters, state.Token),
+                cloud: static (state, cloud) => Mesh.ShrinkWrap(cloud, state.Parameters, state.Token),
+                meshable: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
+                mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token)),
+            nameof(Mesh.ShrinkWrap), retain);
 
     public static IO<(Mesh Mesh, Seq<Seq<int>> Facets)> CreateHull(HullSource source, Action<IDisposable> retain) =>
         Copies.Owned(
@@ -112,9 +97,9 @@ public static class MeshConstruction {
                 convex: static of => (Mesh.CreateConvexHull3D(of.Points, out int[][] facets, of.Tolerances.Absolute, of.Tolerances.Angle), facets, nameof(Mesh.CreateConvexHull3D)),
                 points: static points => (Mesh.CreateQuickHull3D(points, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D)),
                 cloud: static cloud => (Mesh.CreateQuickHull3D(cloud, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D))),
-            static answer => Missing.Unless(answer.Mesh, answer.Member).Bind(mesh => Measurements.Valid(mesh, answer.Member))
+            static answer => Measurements.Valid(answer.Mesh, answer.Member)
                 .Map(mesh => (mesh, Conversions.Rows(answer.Facets).Map(static facet => toSeq(facet)).Strict())),
-            static answer => DisposalOps.Release(Conversions.Rows([answer.Mesh])),
+            static answer => DisposalOps.Release(answer.Mesh),
             retain);
 
     public static IO<Mesh> CreatePatch(PatchBoundary boundary, Seq<Curve> innerBoundaries, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints, Tolerances tolerances, Action<IDisposable> retain) =>
@@ -123,9 +108,7 @@ public static class MeshConstruction {
             outline: static of => (Boundary: Some(of.Boundary), Surface: of.Pullback, Trimback: false, Divisions: 0),
             perimeter: static of => (Boundary: Option<Polyline>.None, Surface: Some(of.Surface), of.Trimback, of.Divisions))
         from mesh in Copies.Acquire(
-            () => Callbacks.Thrown<ArgumentException, Mesh>(
-                () => Mesh.CreatePatch(patch.Boundary.ValueUnsafe(), tolerances.Angle, patch.Surface.ValueUnsafe(), innerBoundaries, innerBothSides, innerPoints, patch.Trimback, patch.Divisions),
-                nameof(Mesh.CreatePatch)),
+            () => Mesh.CreatePatch(patch.Boundary.ValueUnsafe(), tolerances.Angle, patch.Surface.ValueUnsafe(), innerBoundaries, innerBothSides, innerPoints, patch.Trimback, patch.Divisions),
             nameof(Mesh.CreatePatch), retain)
         select mesh;
 
@@ -145,13 +128,11 @@ public static class MeshConstruction {
         select filtered;
 
     public static IO<Mesh> Refine(Mesh mesh, Option<LoopFormula> loop, RefinementLevel level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
-        from token in cancelToken
-        let settings = new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }
-        from refined in Copies.Owned(
-            () => loop.Match(
-                Some: formula => (Mesh: Mesh.CreateRefinedLoopMesh(mesh, formula, settings), Member: nameof(Mesh.CreateRefinedLoopMesh)),
-                None: () => (Mesh: Mesh.CreateRefinedCatmullClarkMesh(mesh, settings), Member: nameof(Mesh.CreateRefinedCatmullClarkMesh))),
-            static answer => Measurements.Valid(answer.Mesh, answer.Member),
-            static answer => IO.lift(answer.Mesh.Dispose), retain)
-        select refined;
+        loop.Match(
+            Some: formula => Copies.Acquire(
+                token => Mesh.CreateRefinedLoopMesh(mesh, formula, new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }),
+                nameof(Mesh.CreateRefinedLoopMesh), retain),
+            None: () => Copies.Acquire(
+                token => Mesh.CreateRefinedCatmullClarkMesh(mesh, new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }),
+                nameof(Mesh.CreateRefinedCatmullClarkMesh), retain));
 }

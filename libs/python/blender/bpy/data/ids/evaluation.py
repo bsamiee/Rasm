@@ -6,7 +6,6 @@ from typing import Self
 
 import bpy
 from expression import Nothing, Option, Result, Some
-from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
 
@@ -108,7 +107,7 @@ class Hit(msgspec.Struct, frozen=True, kw_only=True):
 def evaluated(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Depsgraph]:
     """Returns the updated layer graph, an edit fault when evaluation is already running, or the layer's absent graph."""
     return Result[None, BlenderFaults].bind(
-        catch(view_layer.update, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(view_layer), error=error),)),
+        BlenderEditFault.attempted(repr(view_layer), view_layer.update),
         lambda _: Option.of_optional(view_layer.depsgraph).to_result_with(lambda: (BlenderAbsentFault(owner=repr(view_layer), key="depsgraph"),)),
     )
 
@@ -119,11 +118,8 @@ def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve
     copy = source.evaluated_get(depsgraph)
     with ExitStack() as lifetime:
         lifetime.callback(copy.to_mesh_clear)
-        yield Result[bpy.types.Mesh | None, BlenderFaults].bind(
-            catch(lambda: copy.to_mesh(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph), exception=RuntimeError)().map_error(
-                lambda error: (BlenderEditFault(request=repr(source), error=error),)
-            ),
-            lambda mesh: Option.of_optional(mesh).to_result_with(lambda: (BlenderAbsentFault(owner=repr(source), key="to_mesh"),)),
+        yield BlenderEditFault.attempted(repr(source), lambda: copy.to_mesh(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph)).bind(
+            lambda mesh: Option.of_optional(mesh).to_result_with(lambda: (BlenderAbsentFault(owner=repr(source), key="to_mesh"),))
         )
 
 
@@ -140,7 +136,7 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, query: Query) 
         found, location, normal, face = answer
         return Some(Hit(location=location, normal=normal, face=face)) if found else Nothing  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
-    return catch(answered, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(source), error=error),))
+    return BlenderEditFault.attempted(repr(source), answered)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -2,7 +2,6 @@
 
 import itertools
 import math
-import sys
 from typing import Annotated
 
 from expression import Some
@@ -13,7 +12,7 @@ import numpy.typing as npt
 from scipy.integrate import quad_vec
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.parameters import Case, Position, Positive, Presentation, Quantity
+from blender.imaging.parameters import Case, FrameExtent, FrameLength, Position, Positive, Presentation, Quantity, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -23,8 +22,8 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
 
     blades: Annotated[int, msgspec.Meta(ge=3, le=24, description="Iris blades outlining the bokeh")] = 5
     rotation: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Clockwise turn of a blade vertex from vertical"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    roundness: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Blade curvature, 1 drawing a circular iris")] = 1.0
-    obstruction: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Catadioptric", description="Central mirror as a fraction of the iris outline")] = 0.0
+    roundness: Annotated[Unit, msgspec.Meta(description="Blade curvature, 1 drawing a circular iris")] = 1.0
+    obstruction: Annotated[Unit, msgspec.Meta(title="Catadioptric", description="Central mirror as a fraction of the iris outline")] = 0.0
 
     def radial(self, angles: npt.NDArray[np.float64], scale: float = 1.0) -> npt.NDArray[np.float64]:
         """Returns the positive native iris boundary root at each polar angle."""
@@ -150,9 +149,7 @@ class DepthOfField(Case, frozen=True, kw_only=True, tag=1):
     """Circle of confusion from a camera's thin lens and depth pass."""
 
     title = "Depth of Field"
-    f_stop: Annotated[
-        float, msgspec.Meta(gt=0.0, le=sys.float_info.max, title="F-Stop", description="Focal length over aperture diameter"), Presentation(soft=Some((0.1, 128.0)), decimals=Some(1))
-    ] = 2.8
+    f_stop: Annotated[Positive, msgspec.Meta(title="F-Stop", description="Focal length over aperture diameter"), Presentation(soft=Some((0.1, 128.0)), decimals=Some(1))] = 2.8
 
 
 class FieldCurvature(Case, frozen=True, kw_only=True, tag=2):
@@ -162,7 +159,7 @@ class FieldCurvature(Case, frozen=True, kw_only=True, tag=2):
     center: Annotated[Position, msgspec.Meta(description="Center of the sharp ellipse")] = (0.5, 0.5)
     angle: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Turn of the ellipse from horizontal"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
     size: Annotated[tuple[Positive, Positive], msgspec.Meta(description="Positive ellipse half extents along its rotated axes"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (0.4, 0.4)
-    feather: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, description="Outward distance where defocus reaches full size"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.2
+    feather: Annotated[FrameExtent, msgspec.Meta(description="Outward distance where defocus reaches full size")] = 0.2
 
 
 class TiltShift(Case, frozen=True, kw_only=True, tag=3):
@@ -171,23 +168,18 @@ class TiltShift(Case, frozen=True, kw_only=True, tag=3):
     title = "Tilt-Shift"
     center: Annotated[Position, msgspec.Meta(description="Point the sharp band passes through")] = (0.5, 0.5)
     angle: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Turn of the sharp band from horizontal"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    width: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, description="Width of the sharp band"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.16875
-    feather: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, description="Outward distance where defocus reaches full size"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (
-        0.140625
-    )
+    width: Annotated[FrameLength, msgspec.Meta(description="Width of the sharp band")] = 0.16875
+    feather: Annotated[FrameExtent, msgspec.Meta(description="Outward distance where defocus reaches full size")] = 0.140625
 
 
 class Defocus(Effect, frozen=True, kw_only=True, tag=24):
     """Variable-radius lens blur over the shared iris."""
 
     stage = Stage.DEFOCUS
-    title = "Defocus"
     pointwise = False
     focus: Annotated[DepthOfField | FieldCurvature | TiltShift, msgspec.Meta(description="Depth, sharp ellipse, or tilted band sizing the bokeh")] = DepthOfField()
     aperture: Annotated[Aperture, msgspec.Meta(description="Iris outline of the bokeh")] = Aperture()
-    radius: Annotated[
-        float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Max Blur", description="Largest bokeh radius"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_GREATER))
-    ] = 0.02
+    radius: Annotated[FrameLength, msgspec.Meta(title="Max Blur", description="Largest bokeh radius"), Presentation(soft=Some((0.0, 0.05)))] = 0.02
     fringe: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Bokeh rim color shift, toward blue above 0")] = 0.0
 
 

@@ -6,7 +6,7 @@ files: ['plugins/function-hooks/**']
 utils:
     constructor:
         kind: identifier
-        matches: {syntax-import-reference: {source: {regex: 'composition\.ts$'}, exported: {regex: '^(fromUndefined|some|none)$'}}}
+        matches: {typescript-import-reference: {source: {regex: 'composition\.ts$'}, exported: {regex: '^(fromUndefined|some|none)$'}}}
     constructed:
         any:
             - kind: call_expression
@@ -21,18 +21,18 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^then$'}}
-                - has: {field: arguments, has: {matches: syntax-function-boundary}}
-                - not: {has: {field: arguments, has: {matches: syntax-function-boundary, not: {matches: returning-constructed}}}}
+                - has: {field: arguments, has: {matches: typescript-function-boundary}}
+                - not: {has: {field: arguments, has: {matches: typescript-function-boundary, not: {matches: returning-constructed}}}}
     returning-constructed:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         any:
             - has: {field: body, matches: constructed}
             - has:
                 field: body
                 kind: statement_block
                 all:
-                    - has: {stopBy: {matches: syntax-function-boundary}, kind: return_statement}
-                    - not: {has: {stopBy: {matches: syntax-function-boundary}, kind: return_statement, not: {has: {matches: constructed}}}}
+                    - has: {stopBy: {matches: typescript-function-boundary}, kind: return_statement}
+                    - not: {has: {stopBy: {matches: typescript-function-boundary}, kind: return_statement, not: {has: {matches: constructed}}}}
     tested:
         kind: binary_expression
         any:

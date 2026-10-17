@@ -102,6 +102,8 @@ interface Status {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const requestTimeout = 60_000;
+const exclusionLimit = 8;
+const globSyntax = /[*?[\]{}()!@+|,\\]/gu;
 const changeTypes = { create: FileChangeType.Created, update: FileChangeType.Changed, delete: FileChangeType.Deleted } as const;
 const watchKinds = { [FileChangeType.Created]: WatchKind.Create, [FileChangeType.Changed]: WatchKind.Change, [FileChangeType.Deleted]: WatchKind.Delete } as const;
 
@@ -309,9 +311,6 @@ const start = Effect.fn('start')(function* (config: typeof LanguageServer.Type, 
                 previous === undefined ? connection.sendNotification(DidOpenTextDocumentNotification.type, { textDocument: Struct.omit(document, ['synced']) }) : connection.sendNotification(DidChangeTextDocumentNotification.type, { textDocument: { uri, version: document.version }, contentChanges: [{ text }] }),
             );
         }
-        yield* Effect.forEach(registered(yield* SubscriptionRef.get(status), DidSaveTextDocumentNotification.method).slice(0, 1), ({ registerOptions: { includeText } }) =>
-            send(() => connection.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri }, ...(includeText === true ? { text } : {}) })),
-        );
         return document;
     }, Effect.uninterruptible);
     const pull = (document: Opened, identifier: string | undefined): Effect.Effect<Option.Option<readonly Finding[]>, RequestFailed> => {
@@ -357,6 +356,9 @@ const start = Effect.fn('start')(function* (config: typeof LanguageServer.Type, 
             Effect.mapError((cause) => RequestFailed.make({ cause })),
         ),
         diagnose: Effect.fn('diagnose')(function* (document: Opened) {
+            yield* Effect.forEach(registered(yield* SubscriptionRef.get(status), DidSaveTextDocumentNotification.method).slice(0, 1), ({ registerOptions: { includeText } }) =>
+                send(() => connection.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri: document.uri }, ...(includeText === true ? { text: document.text } : {}) })),
+            );
             const current = Array.dedupe(yield* collect(document, 0));
             const referenced = current.flatMap(({ relatedInformation }) => relatedInformation.filter(({ location: { uri } }) => uri === document.uri).map(({ location: { range }, message }) => ({ range, message })));
             return current
@@ -440,7 +442,16 @@ const initialize = Effect.fn('initialize')(function* () {
             Match.when(Predicate.isObjectKeyword, Record.map(substitute)),
             Match.orElse(() => value),
         );
-    const ignore = ignored.flat().map((path) => resolve(root, path));
+    const entries = Array.dedupeWith(
+        ignored.flat().map((path) => ({ path: relative(root, resolve(root, path)), directory: path.endsWith('/') || isAbsolute(path) })),
+        (left, right) => left.path === right.path,
+    );
+    const outermost = entries.filter(({ path }) => !entries.some((other) => other.directory && path.startsWith(`${other.path}/`)));
+    const [excluded, filtered] = Array.splitAt(
+        Array.sortWith(outermost, ({ directory, path }) => [directory ? 0 : 1, path.split('/').length] as const, Order.Tuple([Order.Number, Order.Number])),
+        exclusionLimit,
+    );
+    const ignore = [...excluded.map(({ path }) => resolve(root, path)), ...filtered.map(({ path }) => `${path.replaceAll(globSyntax, '\\$&')}{,/**}`)];
     const snapshot = resolve(root, '.cache', plugin.name, 'watcher.snapshot');
     const scanned = { ignore: [...ignore, snapshot], backend: 'brute-force' as const };
     const record = fs.makeDirectory(dirname(snapshot), { recursive: true }).pipe(

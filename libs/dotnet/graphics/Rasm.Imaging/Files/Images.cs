@@ -13,12 +13,12 @@ namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<InvalidFileValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ImagePath {
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && ImageFile.Reads.ContainsKey(Path.GetExtension(value)) ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = Path.IsPathFullyQualified(value) && ImageFile.Reads.ContainsKey(Path.GetExtension(value)) ? null
+            : new ValidationError($"image path '{value}' must be fully qualified with one of {string.Join(", ", ImageFile.Reads.Keys)}");
 }
 
 public sealed record ImageFile {
@@ -45,7 +45,7 @@ public sealed record ImageFile {
          from frame in (
                  from image in use(IO.liftAsync(env => PngDecoder.Instance.DecodeAsync<RgbaVector>(
                      Decoding(cicp.Match(Some: static _ => ColorProfileHandling.Preserve, None: static () => ColorProfileHandling.Convert)), stream, env.Token)))
-                 from size in IO.lift(PixelExtent.Validate(image.Width, image.Height, out PixelExtent extent) is { } error ? Fin.Fail<PixelExtent>(error) : extent)
+                 from size in IO.lift(PixelExtent.Validated(image.Width, image.Height))
                  select new PixelFrame(Point.Empty, size, size, block => {
                      image.CopyPixelDataTo(MemoryMarshal.Cast<float, RgbaVector>(block.AsSpan()));
                      encoding.Decode(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()));
@@ -56,7 +56,7 @@ public sealed record ImageFile {
             .Catch(
                 static error => error.HasException<SixLabors.ImageSharp.ImageFormatException>() || error.HasException<InvalidIccProfileException>()
                     || error.HasException<NotSupportedException>() || error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
-                static error => IO.fail<PixelFrame>(new PngRefused(error)));
+                error => IO.fail<PixelFrame>(Error.New($"PNG decoder refused {file.FullName}", error)));
 
     private static Fin<ColorEncoding> Encoding(Option<CicpProfile> cicp) =>
         cicp.Match(
@@ -65,7 +65,7 @@ public sealed record ImageFile {
                     .Apply(static (gamut, row) => new ColorEncoding(gamut, row.Transfer, row.White))
                     .As()
                     .Filter(_ => chunk.MatrixCoefficients is CicpMatrixCoefficients.Identity && chunk.FullRange)
-                    .ToFin(new CicpUnsupported(chunk.ColorPrimaries, chunk.TransferCharacteristics, chunk.MatrixCoefficients, chunk.FullRange)),
+                    .ToFin(Error.New($"PNG cICP {chunk.ColorPrimaries}/{chunk.TransferCharacteristics}/{chunk.MatrixCoefficients} full range {chunk.FullRange} names no held gamut and transfer")),
             None: static () => new ColorEncoding(Gamut.StandardRgb, TransferCurve.Srgb, Nits.ReferenceWhite));
 
     private static DecoderOptions Decoding(ColorProfileHandling handling) =>

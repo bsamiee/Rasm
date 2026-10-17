@@ -11,9 +11,9 @@ rule:
                 - has: {field: macro, regex: '^(serde_json::)?json$'}
                 - has: {kind: token_tree, has: {stopBy: end, kind: token_tree, regex: '^\{', has: {kind: string_literal, precedes: {regex: '^:$'}}}}
             - all:
-                - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+                - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
                 - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', regex: '\{\{\s*(\\"[^"\\]+\\"|"[^"]+")\s*:'}}
         - not: {matches: rust-test-scope}
-        - not: {matches: rust-owned-span}
+        - not: {has: {stopBy: end, matches: rust-geojson-text}}
 message: '`$DOCUMENT` builds a document as untyped text or an untyped value keyed by string'
 note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, write it through `serde_json::to_value` or `serde_json::to_string`, and derive its schema with `schemars::schema_for!` in place of hand-written schema JSON'

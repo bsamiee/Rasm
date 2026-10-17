@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rhino;
@@ -8,10 +9,9 @@ namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct FrameCount {
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value > 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = value > 0 ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame count {value} is not positive"));
 }
 
 [SmartEnum]
@@ -60,8 +60,8 @@ public sealed record AnimationOutput {
 
     internal static Fin<AnimationOutput> From(string folder, string extension, string name) =>
         (Exchange.QualifiedPath(folder).ToValidation(),
-         Conversions.Validated<FileExtension, string, InvalidRhinoValue>($"{FileExtension.Mark}{extension}").ToValidation(),
-         Conversions.Validated<NamePart, string, InvalidRhinoValue>(name).ToValidation())
+         FileExtension.Validated($"{FileExtension.Mark}{extension}").ToValidation(),
+         NamePart.Validated(name).ToValidation())
             .Apply(static (qualified, dotted, part) => new AnimationOutput(qualified, dotted, part))
             .As()
             .ToFin();
@@ -75,20 +75,20 @@ public sealed record AnimationSettings(AnimationProperties.CaptureTypes CaptureT
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 public static partial class Animations {
     public static IO<Option<AnimationSettings>> Read(RhinoDoc doc) =>
-        use(() => doc.AnimationProperties).Bind(static copy => IO.lift(() => Callbacks.Found(copy.CaptureType is not AnimationProperties.CaptureTypes.None, copy).Traverse(Settings).As())).Bracket();
+        DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() => Callbacks.Found(copy.CaptureType is not AnimationProperties.CaptureTypes.None, copy).Traverse(Settings).As()));
 
     public static IO<Committed<Unit>> Write(RhinoDoc doc, string name, AnimationSequence sequence) =>
-        Commits.Commit(doc, name, new RedrawPolicy.Silent(), use(() => doc.AnimationProperties).Bind(copy => IO.lift(() => {
+        Commits.Commit(doc, name, new RedrawPolicy.Silent(), DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
             Update(sequence, copy);
             Update(sequence.Kind, copy);
             _ = sequence.DisplayMode.IfSome(id => copy.DisplayMode = id);
             _ = sequence.Output.IfSome(output => Update(output, copy));
             _ = sequence.Quality.IfSome(quality => Update(quality, copy));
             doc.AnimationProperties = copy;
-        })).Bracket());
+        })));
 
     private static Fin<AnimationSettings> Settings(AnimationProperties copy) =>
-        (Conversions.Validated<FrameCount, int, InvalidRhinoValue>(copy.FrameCount).ToValidation(),
+        (FrameCount.Validated(copy.FrameCount).ToValidation(),
          Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As().ToValidation())
             .Apply((frames, output) => ToSettings(copy, frames, output))
             .As()

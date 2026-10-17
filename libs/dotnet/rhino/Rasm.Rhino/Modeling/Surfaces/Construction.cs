@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Modeling.Surfaces;
@@ -6,6 +7,8 @@ namespace Rasm.Rhino.Modeling.Surfaces;
 public enum SurfaceDirection { U = 0, V = 1 }
 
 public enum NetworkContinuity { Loose = 0, Position = 1, Tangency = 2, Curvature = 3 }
+
+public enum NetworkFailure { None = 0, Sorting = 1, Initialization = 2, Build = 3, Validity = 4 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NetworkCurves(Seq<Curve> Curves, NetworkContinuity Start, NetworkContinuity End);
@@ -21,7 +24,6 @@ public abstract partial record NetworkMethod {
 public sealed partial class RevolveProfile;
 
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class PointGrid {
     public Seq<Point3d> Points { get; }
 
@@ -29,8 +31,10 @@ public sealed partial class PointGrid {
 
     public int VCount => Points.Count / UCount;
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Seq<Point3d> points, ref int uCount) =>
-        validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Point3d> points, ref int uCount) =>
+        validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0
+            ? null
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{points.Count} points form no grid of at least two rows of {uCount} at least two wide"));
 }
 
 [Union<Cone, Cylinder, Sphere, Torus>(SkipEqualityComparison = true, SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -53,9 +57,9 @@ public static class SurfaceConstruction {
                         network.Tolerances.Absolute, network.Interior, network.Tolerances.Angle, out int error),
                     Error: error)),
             static Fin<NurbsSurface> (answer) => answer.Error is 0
-                ? Missing.Unless(answer.Surface, nameof(NurbsSurface.CreateNetworkSurface)).Bind(static surface => Measurements.Valid(surface, nameof(NurbsSurface.CreateNetworkSurface)))
-                : new NetworkSurfaceFailed((NetworkFailure)answer.Error),
-            static answer => DisposalOps.Release(Conversions.Rows([answer.Surface])), retain);
+                ? Measurements.Valid(answer.Surface, nameof(NurbsSurface.CreateNetworkSurface))
+                : new Refused(nameof(NurbsSurface.CreateNetworkSurface), $"failed at {(NetworkFailure)answer.Error}"),
+            static answer => DisposalOps.Release(answer.Surface), retain);
 
     public static IO<RevSurface> Revolved(RevolveProfile profile, Line axis, Option<(double StartRadians, double EndRadians)> angles, Action<IDisposable> retain) =>
         Copies.Acquire(
@@ -107,7 +111,7 @@ public static class SurfaceConstruction {
             static pair => Refused.Unless(pair.Accepted, pair, nameof(NurbsSurface.MakeCompatible)).Bind(static answer =>
                 (Measurements.Valid(answer.A, nameof(NurbsSurface.MakeCompatible)).ToValidation(), Measurements.Valid(answer.B, nameof(NurbsSurface.MakeCompatible)).ToValidation())
                     .Apply(static (first, second) => (A: first, B: second)).As().ToFin()),
-            static pair => DisposalOps.Release(Conversions.Rows([pair.A, pair.B])), retain);
+            static pair => DisposalOps.Release(pair.A, pair.B), retain);
 
     // --- [EDITS]
     public static IO<Surface> VariableOffset(

@@ -46,7 +46,7 @@ public static class NamedViews {
         Find(doc, name).Bind(index => IO.lift(() => Refused.Unless(doc.NamedViews.Delete(index), nameof(NamedViewTable.Delete))));
 
     private static IO<int> Find(RhinoDoc doc, string name) =>
-        IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(new Missing(nameof(NamedViewTable.FindByName))));
+        IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(new Refused(nameof(NamedViewTable.FindByName), Refused.Absent)));
 
     // --- [RESTORE]
     public static IO<Seq<bool>> Restore(RhinoDoc doc, ViewportSet viewports, string name, RestorePacing pacing, RedrawPolicy redraw) =>
@@ -76,9 +76,7 @@ public static class NamedViews {
 
     // --- [STORED]
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
-        Find(doc, name).Bind(index => DisposalOps.Within(() => doc.NamedViews[index],
-            view => IO.lift(() => Missing.Unless(view, nameof(NamedViewTable))).Bind(read),
-            static view => DisposalOps.Release(Conversions.Rows([view]))));
+        Find(doc, name).Bind(index => DisposalOps.Found(() => doc.NamedViews[index], nameof(NamedViewTable), read));
 
     public static IO<int> Update(RhinoDoc doc, string name, Func<ViewInfo, IO<Unit>> edit) =>
         Read(doc, name, view => edit(view).Bind(_ => IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add)))));

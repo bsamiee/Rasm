@@ -22,61 +22,40 @@ public static class AccountOps {
     // --- [ACCOUNT]
     public static IO<Option<T>> LoggedInUser<T>(Func<string, Image, T> read) =>
         IO.lift(static () => Conversions.Present(RhinoApp.LoggedInUserName))
-            .Bind(name => name.TraverseM(present => use(static () => RhinoApp.LoggedInUserAvatar).Map(avatar => read(present, avatar)).Bracket()).As());
+            .Bind(name => name.TraverseM(present => DisposalOps.Within(static () => RhinoApp.LoggedInUserAvatar, avatar => IO.pure(read(present, avatar)))).As());
 
     // --- [TOKENS]
     public static IO<Option<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)>> TryGetAuthTokens(AccountClient client) =>
-        Protected(
-            key => Optional(RhinoAccountsManager.TryGetAuthTokens(client.ClientId, key)).Map(static pair => pair.ToValueTuple()),
-            nameof(RhinoAccountsManager.TryGetAuthTokens));
+        Protected(key => Optional(RhinoAccountsManager.TryGetAuthTokens(client.ClientId, key)).Map(static pair => pair.ToValueTuple()));
 
     public static IO<Option<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)>> TryGetAuthTokens(AccountClient client, Seq<string> scope) =>
-        Protected(
-            key => Optional(RhinoAccountsManager.TryGetAuthTokens(client.ClientId, scope, key)).Map(static pair => pair.ToValueTuple()),
-            nameof(RhinoAccountsManager.TryGetAuthTokens));
+        Protected(key => Optional(RhinoAccountsManager.TryGetAuthTokens(client.ClientId, scope, key)).Map(static pair => pair.ToValueTuple()));
 
     public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> GetAuthTokens(AccountClient client) =>
-        Protected(
-                (key, token) => RhinoAccountsManager.GetAuthTokensAsync(client.ClientId, client.ClientSecret, key, token),
-                nameof(RhinoAccountsManager.GetAuthTokensAsync))
+        Protected((key, token) => RhinoAccountsManager.GetAuthTokensAsync(client.ClientId, client.ClientSecret, key, token))
             .Map(static pair => pair.ToValueTuple());
 
     public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> GetAuthTokens(
         AccountClient client, Seq<string> scope, Option<string> prompt, Option<Duration> maxAge, bool showUI, Option<IProgress<RhinoAccoountsProgressInfo>> progress) =>
         IO.lift(maxAge.Traverse(static age => Conversions.Whole(age, Duration.FromSeconds(1))).As())
-            .Bind(seconds => Protected(
-                (key, token) => RhinoAccountsManager.GetAuthTokensAsync(
-                    client.ClientId, client.ClientSecret, scope, prompt.ValueUnsafe(), seconds.ToNullable(), showUI, progress.ValueUnsafe(), key, token),
-                nameof(RhinoAccountsManager.GetAuthTokensAsync)))
+            .Bind(seconds => Protected((key, token) => RhinoAccountsManager.GetAuthTokensAsync(
+                    client.ClientId, client.ClientSecret, scope, prompt.ValueUnsafe(), seconds.ToNullable(), showUI, progress.ValueUnsafe(), key, token)))
             .Map(static pair => pair.ToValueTuple());
 
     public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> UpdateOpenIDConnectToken((IOpenIDConnectToken OpenId, IOAuth2Token OAuth) tokens) =>
-        Protected(
-                (key, token) => RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(tokens.OpenId, tokens.OAuth, key, token),
-                nameof(RhinoAccountsManager.UpdateOpenIDConnectTokenAsync))
+        Protected((key, token) => RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(tokens.OpenId, tokens.OAuth, key, token))
             .Map(openId => tokens with { OpenId = openId });
 
     public static IO<Unit> RevokeAuthToken(IOAuth2Token oauth) =>
-        Protected(
-            (key, token) => RhinoAccountsManager.RevokeAuthTokenAsync(oauth, key, token).ToUnit(),
-            nameof(RhinoAccountsManager.RevokeAuthTokenAsync));
+        Protected((key, token) => RhinoAccountsManager.RevokeAuthTokenAsync(oauth, key, token).ToUnit());
 
-    private static IO<T> Protected<T>(Func<SecretKey, T> call, string member) =>
-        Callbacks.Captured<SecretKey, T>(RhinoAccountsManager.ExecuteProtectedCode, key => IO.lift(() => call(key)), nameof(RhinoAccountsManager.ExecuteProtectedCode))
-            .MapFail(error => Classified(error, member));
+    private static IO<T> Protected<T>(Func<SecretKey, T> call) =>
+        Callbacks.Captured<SecretKey, T>(RhinoAccountsManager.ExecuteProtectedCode, key => IO.lift(() => call(key)), nameof(RhinoAccountsManager.ExecuteProtectedCode));
 
-    private static IO<T> Protected<T>(Func<SecretKey, CancellationToken, Task<T>> call, string member) =>
-        cancelToken
-            .Bind(token => Callbacks.Captured<T>(
-                answer => IO.liftAsync(() => RhinoAccountsManager.ExecuteProtectedCodeAsync(async key => answer(await call(key, token).ConfigureAwait(false))).ToUnit()),
-                nameof(RhinoAccountsManager.ExecuteProtectedCodeAsync)))
-            .MapFail(error => Classified(error, member));
-
-    private static Error Classified(Error error, string member) =>
-        error.HasException<RhinoAccountsOperationInProgressException>() ? new AccountsBusy(member, error)
-        : error.HasException<RhinoAccountsServerNotReachableException>() ? new AccountsUnreachable(member, error)
-        : error.HasException<RhinoAccountsException>() || error.HasException<InvalidOperationException>() ? new AccountsFailed(member, error)
-        : error;
+    private static IO<T> Protected<T>(Func<SecretKey, CancellationToken, Task<T>> call) =>
+        cancelToken.Bind(token => Callbacks.Captured<T>(
+            answer => IO.liftAsync(() => RhinoAccountsManager.ExecuteProtectedCodeAsync(async key => answer(await call(key, token).ConfigureAwait(false))).ToUnit()),
+            nameof(RhinoAccountsManager.ExecuteProtectedCodeAsync)));
 
     // --- [ENTITLEMENT]
     public static IO<Entitlement> CheckEntitlement() =>

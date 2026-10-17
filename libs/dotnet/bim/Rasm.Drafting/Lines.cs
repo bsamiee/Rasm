@@ -2,7 +2,6 @@ namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<decimal>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidDrafting>]
 public sealed partial class LineWidth {
     public static readonly LineWidth Width013 = new(0.13m);
     public static readonly LineWidth Width018 = new(0.18m);
@@ -28,7 +27,6 @@ public sealed partial class LineWeight {
 }
 
 [SmartEnum<decimal>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidDrafting>]
 public sealed partial class LineGroup {
     public static readonly LineGroup Group025 = new(LineWidth.Width025.Key);
     public static readonly LineGroup Group035 = new(LineWidth.Width035.Key);

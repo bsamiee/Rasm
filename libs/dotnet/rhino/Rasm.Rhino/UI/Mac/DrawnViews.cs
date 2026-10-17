@@ -1,18 +1,13 @@
-using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
 using Eto.Drawing;
 using Eto.Forms;
-using Eto.Mac.Drawing;
 using Eto.Mac.Forms;
 using Eto.Mac.Forms.Controls;
 using Foundation;
 using ObjCRuntime;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Drawing;
 
@@ -29,11 +24,11 @@ public static class DrawnViews {
         Seq((Selector.GetHandle("hitTest:"), (Delegate)PassThrough))));
 
     public static IO<Unit> Layers(Control control, CALayer layer, IPlugInSink sink, Action<IDisposable> retain) {
-        Action<NSView> release = static held => DisposalOps.Release(Seq<IDisposable>(held,
+        Action<NSView> release = static held => DisposalOps.Release<IDisposable>(held,
             new Disposal<NSView>(held, static view => view.Layer = null),
-            new Disposal<NSView>(held, static view => view.RemoveFromSuperview()))).Run();
+            new Disposal<NSView>(held, static view => view.RemoveFromSuperview())).Run();
         return NativeControls.Lifetime(control, owned =>
-            from parent in IO.lift(() => Missing.Unless(control.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
+            from parent in IO.lift(() => Refused.UnlessFound(control.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
             from nativeClass in IO.lift(static () => HostClass.Value)
             let site = new CallbackSite(sink, typeof(DrawnViews), nameof(Layers))
             from view in DisposalOps.Acquire(IO.lift(() => new NSView(parent.Bounds)), held => IO.lift(() => release(held)), held => {
@@ -46,11 +41,9 @@ public static class DrawnViews {
             })
             from fitted in Fit(parent, view, layer)
             from bounds in DisposalOps.Acquire(IO.lift(() => NSView.Notifications.ObserveBoundsChanged(parent,
-                (_, _) => Callbacks.Run(Fit(parent, view, layer), site))), static token => IO.lift(token.Dispose), owned)
-            from backing in DisposalOps.Acquire(IO.lift(() => NSWindow.Notifications.ObserveDidChangeBackingProperties((_, args) => {
-                if (Equals(args.Notification.Object, view.Window))
-                    Callbacks.Run(Fit(parent, view, layer), site);
-            })), static token => IO.lift(token.Dispose), owned)
+                Callbacks.Handler<NSNotificationEventArgs>(_ => Fit(parent, view, layer), site))), owned)
+            from backing in DisposalOps.Acquire(IO.lift(() => NSWindow.Notifications.ObserveDidChangeBackingProperties(
+                Callbacks.Handler<NSNotificationEventArgs>(args => when(Equals(args.Notification.Object, view.Window), Fit(parent, view, layer)).As(), site))), owned)
             let update = Callbacks.Handler<EventArgs>(_ => Fit(parent, view, layer), site)
             from size in Subscriptions.Attach(
                 handler => control.SizeChanged += handler, handler => control.SizeChanged -= handler, update, owned)
@@ -84,7 +77,7 @@ public static class DrawnViews {
         Callbacks.Run(
             from layer in IO.lift(() => {
                 view.WantsLayer = true;
-                return Missing.Unless(view.Layer, nameof(NSView.Layer));
+                return Refused.UnlessFound(view.Layer, nameof(NSView.Layer));
             })
             from attached in IO.lift(() => {
                 layer.ContentsFormat = CAContentsFormat.Rgba16Float;
@@ -145,61 +138,4 @@ public static class DrawnViews {
         })
         from posted in unless(before == facet.Value, IO.lift(() => NSAccessibility.PostNotification(shown.Element, NSView.ValueChangedNotification))).As()
         select unit;
-
-    // --- [RASTERS]
-    internal static IO<Bitmap> Raster(Control view, PixelFrame frame, Transfer encoding, Action<Bitmap> retain) =>
-        from host in IO.lift(() => Missing.Unless(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
-        from layer in IO.lift(() => Missing.Unless(host.Layer, nameof(NSView.Layer)))
-        let samples = Samples(frame, encoding)
-        from bitmap in Drawn(samples.Frame, samples.Space, layer, retain)
-        select bitmap;
-
-    private static (PixelFrame Frame, NSString Space) Samples(PixelFrame frame, Transfer encoding) =>
-        encoding.Switch(
-                standard: static transfer => transfer.Curve.Map<Option<NSString>>(
-                    linear: CGColorSpaceNames.ExtendedLinearSrgb,
-                    srgb: CGColorSpaceNames.ExtendedSrgb,
-                    pq: None,
-                    hlg: None,
-                    acesCct: None,
-                    acesCc: None),
-                gamma: static _ => None,
-                camera: static _ => None)
-            .Match(
-                Some: space => (frame, space),
-                None: () => (encoding.Light(frame), CGColorSpaceNames.ExtendedLinearSrgb));
-
-    private static IO<Bitmap> Drawn(PixelFrame frame, NSString name, CALayer layer, Action<Bitmap> retain) =>
-        DisposalOps.Acquire(owned =>
-            DisposalOps.Within<IDisposable, Bitmap>(temporary =>
-                from space in DisposalOps.Acquire(IO.lift(() => Missing.Unless(CGColorSpace.CreateWithName(name), nameof(CGColorSpace.CreateWithName))), static held => IO.lift(held.Dispose), temporary)
-                from provider in DisposalOps.Acquire(IO.lift(() => new CGDataProvider(frame.Address, frame.Block.Length * sizeof(float), _ => GC.KeepAlive(frame))), static held => IO.lift(held.Dispose), temporary)
-                let pixel = Unsafe.SizeOf<Vector4>()
-                from image in DisposalOps.Acquire(IO.lift(() => new CGImage(
-                    frame.Size.Width, frame.Size.Height, sizeof(float) * 8, pixel * 8, frame.Size.Width * pixel, space,
-                    CGBitmapFlags.Last | CGBitmapFlags.FloatComponents | CGBitmapFlags.ByteOrder32Little,
-                    provider, decode: null, shouldInterpolate: true, CGColorRenderingIntent.Default)), static held => IO.lift(held.Dispose), temporary)
-                from enabled in IO.lift(() => {
-                    if (OperatingSystem.IsMacOSVersionAtLeast(26)) {
-                        layer.ContentsHeadroom = image.CalculatedContentHeadroom;
-                        layer.PreferredDynamicRange = CADynamicRange.High;
-                    } else
-                        layer.WantsExtendedDynamicRangeContent = true;
-                })
-                from drawing in DisposalOps.Acquire(IO.lift(() => {
-                    NSImage native = new(image, new CGSize(frame.Size.Width, frame.Size.Height));
-                    return (Image: native, Ownership: new Disposal<NSImage>(native, static held => held.Dispose()));
-                }), static held => IO.lift(held.Ownership.Dispose), held => temporary(held.Ownership))
-                from bitmap in DisposalOps.Acquire(IO.lift(() => new Bitmap(new BitmapHandler(drawing.Image))), static held => IO.lift(held.Dispose), held => {
-                    drawing.Ownership.Relinquish();
-                    owned(held);
-                })
-                select bitmap, DisposalOps.Release), (bitmap, _) => retain(bitmap));
-
-    internal static IO<float> Headroom(Control view) =>
-        IO.lift(() =>
-            from host in Missing.Unless(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView))
-            from window in Missing.Unless(host.Window, nameof(NSView.Window))
-            from screen in Missing.Unless(window.Screen, nameof(NSWindow.Screen))
-            select (float)screen.MaximumExtendedDynamicRangeColorComponentValue);
 }

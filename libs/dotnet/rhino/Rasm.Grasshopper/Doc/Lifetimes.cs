@@ -1,3 +1,4 @@
+using System.Security;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Canvas;
 using Rasm.Rhino;
@@ -13,9 +14,10 @@ public static class Lifetimes {
             if (io.Open(path, blockingList, found => receive(found)))
                 receive(io.Document);
         }))
-        .Bind(static document => IO.lift(() => document.ToFin(new Refused(nameof(DocumentIO.Open)))))
-        .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new DocumentNotFound(path, error)))
-        .Catch(static error => error.HasException<InvalidDataException>(), error => IO.fail<Document>(new DocumentDamaged(path, error)));
+        .Bind(static document => IO.lift(() => document.ToFin(new Refused(nameof(DocumentIO.Open), Refused.Declined))))
+        .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new FileRefused(path, "was not found", error)))
+        .Catch(static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>(), error => IO.fail<Document>(new FileRefused(path, "cannot be read", error)))
+        .Catch(static error => error.HasException<InvalidDataException>(), error => IO.fail<Document>(new FileRefused(path, "is damaged and cannot be read", error)));
 
     public static IO<Document> Open(DocumentBag bag, string path) =>
         from roots in IO.lift(() => toSeq(bag.All.Select(static stack => stack.Root)))
@@ -25,9 +27,11 @@ public static class Lifetimes {
 
     public static IO<Document> Recover(string path) =>
         from document in Load(Path.ChangeExtension(path, DocumentIO.G2AutoSaveExtension), Seq<Document>(), trackFiles: false, resolvePlugins: true)
-        from _ in IO.lift(() => { document.File.Path = path; })
-        from __ in IO.lift(() => { document.File.FileOverwriteWarning = null; })
-        from ___ in IO.lift(document.Modify)
+        from restored in IO.lift(() => {
+            document.File.Path = path;
+            document.File.FileOverwriteWarning = null;
+            document.Modify();
+        })
         select document;
 
     public static IO<Unit> Save(Document document, string path, FileContents contents, bool trackFiles) =>
@@ -44,8 +48,7 @@ public static class Lifetimes {
         select bytes;
 
     public static IO<Document> Read(byte[] bytes) =>
-        from reader in IO.lift(() => Missing.Unless(GrasshopperIO.IO.ReadNodeFromByteArray(bytes, pathHint: null), nameof(GrasshopperIO.IO.ReadNodeFromByteArray)))
-        select new Document(reader);
+        IO.lift(() => new Document(GrasshopperIO.IO.ReadNodeFromByteArray(bytes, pathHint: null)));
 
     // --- [RELEASE]
     public static void Close(Document document) {

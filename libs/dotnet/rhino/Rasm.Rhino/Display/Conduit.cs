@@ -28,7 +28,6 @@ public abstract partial record ConduitChannel {
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class ConduitFilter {
     // --- [VALUES]
     public static ConduitFilter Unfiltered { get; } = new(Option<bool>.None, Seq<Guid>(), ObjectType.AnyObject, ActiveSpace.None);
@@ -42,8 +41,8 @@ public sealed partial class ConduitFilter {
     public ActiveSpace SpaceFilter { get; }
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
-        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
+        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new ValidationError($"space filter {spaceFilter} is no model, page, or open space");
 }
 
 [Union]
@@ -141,7 +140,7 @@ public static class Conduits {
             state: own, everywhere: static (_, _) => IO.pure(Seq<ViewportRef>()), bound: static (state, bound) => toSeq(bound.Sets).TraverseM(set => Viewports.ResolveViewports(bound.Document, set, state)).As().Map(static held => held.Flatten()))
         from conduits in toSeq(definition.Channels).TraverseM(channel => Enabled(channel, definition.Filter, definition.Binding, rows, sink, own)).As()
         select unit,
-        (_, release) => retain(release));
+        retain);
 
     private static IO<DisplayConduit> Enabled(ConduitChannel channel, ConduitFilter filter, ConduitBinding binding, Seq<ViewportRef> rows, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => channel.Switch<IPlugInSink, DisplayConduit>(

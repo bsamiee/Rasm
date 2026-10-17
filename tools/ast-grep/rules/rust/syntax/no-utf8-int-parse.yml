@@ -12,7 +12,7 @@ rule:
     kind: call_expression
     all:
         - matches: rust-utf8-int-parse
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - pattern: $TEXT.parse::<$T>()
         - has: {field: function, has: {field: function, has: {field: value, has: {stopBy: end, matches: decode}}}}
 message: '`$B` decodes as UTF-8 text only to parse a `$T`'

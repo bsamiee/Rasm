@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from functools import reduce
-from typing import Annotated, override, Protocol, runtime_checkable, Self
+from typing import Annotated, Final, override, Protocol, runtime_checkable, Self
 
 from expression import Error, identity, Nothing, Ok, Option, Some
 from expression.collections import Block
@@ -14,7 +14,7 @@ from scipy.linalg import block_diag
 
 from blender.imaging.chain import Effect, GREY, Stage
 from blender.imaging.color.observer import coordinates
-from blender.imaging.faults import accumulated, ImagingBaseFault, ImagingLutFault, ImagingMatrixFault, ImagingProcessorFault, ImagingResult, ImagingSpectralFault, paired
+from blender.imaging.faults import accumulated, colored, ImagingBaseFault, ImagingNumericFault, ImagingResult, ImagingSpectralFault, paired
 from blender.imaging.parameters import Gated, GraphForm, Stops
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -36,6 +36,10 @@ class Spaced(Protocol):
         ...
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+REC709_SCENE: Final = "lin_rec709_scene"
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -43,7 +47,6 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
     """Formation of scene-linear colors through a look and a display view."""
 
     stage = Stage.FORMATION
-    title = "Display View"
     pointwise = True
     display: Annotated[str, msgspec.Meta(min_length=1, description="Display device the frame is formed for"), GraphForm.SETTING]
     view: Annotated[str, msgspec.Meta(min_length=1, description="View transform forming scene-linear colors for the display"), GraphForm.SETTING]
@@ -76,7 +79,7 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
                 )
                 .map(
                     lambda request: paired(
-                        _lifted(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()),
+                        colored(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()),
                         processor(config, PyOpenColorIO.DisplayViewTransform(src=PyOpenColorIO.ROLE_SCENE_LINEAR, display=display, view=name)),
                     ).map(lambda built: Some((candidate, built[1])) if all(isinstance(op, PyOpenColorIO.MatrixTransform) for op in built[0]) else Nothing)
                 )
@@ -190,24 +193,14 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 # --- [BUILDS]
 
 
-def _lifted[T](request: PyOpenColorIO.Transform, build: Callable[[], T]) -> ImagingResult[T]:
-    """Maps the two unrelated OCIO build exceptions to their typed imaging faults."""
-    try:
-        return Ok(build())
-    except PyOpenColorIO.ExceptionMissingFile as error:
-        return Error((ImagingLutFault(request=request, error=error),))
-    except PyOpenColorIO.Exception as error:
-        return Error((ImagingProcessorFault(request=request, error=error),))
-
-
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> ImagingResult[PyOpenColorIO.Processor]:
-    """Returns a configured processor, or a typed LUT or processor refusal."""
-    return _lifted(transform, lambda: config.getProcessor(transform))
+    """Returns a configured processor, or the color provider refusal."""
+    return colored(transform, lambda: config.getProcessor(transform))
 
 
 def joined(source: PyOpenColorIO.Config, source_space: str, config: PyOpenColorIO.Config, space: str) -> ImagingResult[PyOpenColorIO.Processor]:
     """Returns a conversion between configs through native interchange roles, or typed build faults."""
-    return _lifted(PyOpenColorIO.ColorSpaceTransform(src=source_space, dst=space), lambda: PyOpenColorIO.Config.GetProcessorFromConfigs(source, source_space, config, space))
+    return colored(PyOpenColorIO.ColorSpaceTransform(src=source_space, dst=space), lambda: PyOpenColorIO.Config.GetProcessorFromConfigs(source, source_space, config, space))
 
 
 # --- [APPLICATION]
@@ -258,7 +251,7 @@ def basis(config: PyOpenColorIO.Config, space: str) -> ImagingResult[npt.NDArray
             return Error(unsupported)
         return Ok(affine[:3, :3]) if np.isfinite(affine[:3]).all() and (affine[:3, 3:] == 0.0).all() else Error(unsupported)
 
-    return _lifted(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(admitted)
+    return colored(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(admitted)
 
 
 def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
@@ -268,7 +261,7 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
         try:
             weights = np.linalg.solve(values, tristimulus.T).T
         except np.linalg.LinAlgError as error:
-            return Error((ImagingMatrixFault(request=values, error=error),))
+            return Error((ImagingNumericFault(request=values, error=error),))
         unsupported = (ImagingSpectralFault(space=space, values=weights),)
         try:
             with np.errstate(over="raise", invalid="raise", divide="raise"):
@@ -292,4 +285,21 @@ def chromaticities(config: PyOpenColorIO.Config, space: str) -> ImagingResult[np
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DisplayView", "Gamma", "Spaced", "applied", "basis", "bracketed", "chromaticities", "joined", "lin_to_log", "luma", "matching", "matrix", "processor", "unassociated", "xyz"]
+__all__ = [
+    "REC709_SCENE",
+    "DisplayView",
+    "Gamma",
+    "Spaced",
+    "applied",
+    "basis",
+    "bracketed",
+    "chromaticities",
+    "joined",
+    "lin_to_log",
+    "luma",
+    "matching",
+    "matrix",
+    "processor",
+    "unassociated",
+    "xyz",
+]

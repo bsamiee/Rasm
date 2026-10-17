@@ -28,7 +28,7 @@ utils:
     fixed-format:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((::)?(std|alloc)::)?format$'}
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
             - has:
                 kind: token_tree
                 all:
@@ -39,7 +39,7 @@ utils:
     fixed-concat:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((::)?(std|core)::)?concat$'}
+            - matches: {rust-std-macro: {name: {regex: '^concat$'}}}
             - has:
                 kind: token_tree
                 all:
@@ -126,6 +126,8 @@ rule:
             - matches: outer
             - not: {matches: rust-const-context}
             - not: {matches: rust-test-scope}
-            - not: {any: [{matches: rust-owned-span}, {matches: rust-domain-span}]}
+            - not: {matches: rust-second-count-split}
+            - not: {has: {stopBy: end, any: [{matches: rust-byte-hash-constant}, {matches: rust-conversion-factor}, {matches: rust-earth-radius}, {matches: rust-luminance-weight}, {matches: rust-srgb-transfer}]}}
+            - not: {inside: {stopBy: end, matches: rust-srgb-transfer}}
 message: '`$COMPUTED` computes a literal from literals'
 note: 'Write one literal holding the result, or bind arithmetic to a `const` named for the fact it derives (inside its one reader when one function reads it), a reader sees the value without evaluating code. Joined constant path segments take `PathBuf::from("<base>/<segment>")`. Text built from `env!` values takes `concat!(<piece>, env!("<NAME>"))`'

@@ -28,9 +28,9 @@ Rasm/
 ├── tools/
 │   ├── ast-grep/             # Outlines, rules, and utilities per language
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
-│   ├── dylint/               # Dylint library of Rust lints with example fixtures
+│   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── nx/                   # Nx plugin inferring a project from each project file
-│   └── refurb/               # Refurb checks for Python standards that need mypy's types
+│   └── refurb/               # Python checks reading mypy types Ruff lacks
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
@@ -41,7 +41,7 @@ Rasm/
 ├── Directory.Packages.props  # .NET central package versions
 ├── Directory.Build.props     # .NET build defaults and project classification by tree position
 ├── Directory.Build.targets   # .NET items, host package references, and build targets
-├── Directory.Build.rsp       # MSBuild switches every build under the root reads
+├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
 ├── Workspace.slnx            # .NET solution
 ├── NuGet.config              # NuGet source
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits at project level
@@ -79,46 +79,20 @@ Rasm/
 
 ```mermaid
 flowchart LR
-    subgraph toolchain ["Toolchain"]
-        direction TB
-        mise_tools["mise.toml [tools], global.json, rust-toolchain.toml"] --> binaries["Tool binaries"]
-        mise_env["mise.toml [env]"] --> processes["Every process"]
-        xcode["xcode-select"] --> apple_tools["Xcode toolchain and macOS SDK"]
-        brew["Homebrew formula ghidra"] --> ghidra_tool["Ghidra install"]
-    end
-
-    subgraph dependencies ["Dependencies"]
-        direction TB
-        catalog_ts["pnpm-workspace.yaml catalog"] --> lock_ts["pnpm-lock.yaml"]
-        catalog_py["pyproject.toml dependencies and groups"] --> lock_py["uv.lock, .venv/bin on PATH"]
-        catalog_rust["Cargo.toml [workspace.dependencies]"] --> lock_rust["Cargo.lock"]
-        catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
-        catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
-        catalog_swift[".xcodeproj and Package.swift package requirements"] --> lock_swift["Package.resolved"]
-    end
-
-    subgraph taskgraph ["Task graph"]
-        direction TB
-        plugins["nx.json plugins"] --> projects["Project per project file: language and host tags, targets"]
-        target_defaults["nx.json targetDefaults by language and host tag"] --> bodies["Target body per language and host"]
-        root_nx["package.json nx"] --> root_targets["Root targets rasm:*"]
-    end
-
-    subgraph commands ["Commands"]
-        direction TB
-        lint["nx run rasm:lint"] --> checkers["One cached target per portable checker"]
-        format_tree["nx run rasm:format"] --> writers["Every portable writer and .NET fixes"]
-        check_all["nx run-many -t check"] --> project_check["Build, typecheck, test, or lint per project"]
-        check_affected["nx affected -t check"] --> project_check
-        ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner"]
-    end
-
-    toolchain --> dependencies --> taskgraph --> commands
+    tools["Tool binary and SDK version"] --> toolchain["Installed toolchain"]
+    variables["Process variable"] --> processes["Every process"]
+    packages["Package version"] --> locks["Lock file"] --> installed["Installed packages"]
+    project_files["Project file"] --> projects["Project with language and host tags"]
+    defaults["Target defaults per tag"] --> targets["Project and root targets"]
+    projects --> targets
+    toolchain & processes & installed --> targets
+    targets --> checks["Check, lint, format, build, test"]
+    checks --> ci["CI per host runner"]
 ```
 
 ## [03]-[TASKS]
 
-- Targets call one tool, arguments on the command, configuration in the tool's own file
+- Targets call one tool with its arguments on the command
 - `nx run rasm:check` runs every `lint:<tool>` and `typecheck:<tool>` root target, `nx run rasm:lint:<tool>` one checker
 - `nx run rasm:<target> -- <paths>` runs a root target over named paths when its tool takes paths in place of a default file set
 - `nx run <project>:<target>` runs one target of one project
@@ -129,8 +103,8 @@ flowchart LR
 - `nx run rasm:clean` removes declared outputs and tool residue, prunes unused installations and caches, and recovers stale macOS processes
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations
-- Workspace plugin derives each project's tags, targets, and edges from its project file, and Python edges from imports
-- `@nx/dotnet` infers .NET targets and project reference edges, `@nx/vitest` and `@nx/playwright` infer test targets
+- Workspace plugin derives project edges from project files and Python imports
+- `@nx/dotnet` infers .NET targets and project reference edges
 - File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
 - `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
 - `nx run rasm:format:files -- <paths>` runs each portable writer over the named paths it formats
@@ -139,7 +113,7 @@ flowchart LR
 - Project `cloudflare.config.ts` adds the Cloudflare Build Output under `.cloudflare/output` to inferred Vite `build` outputs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
-- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its skill states why not
+- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its guidance file states why not
 - Caches shared with projects outside the repository sit where Parametric Forge or the tool's default puts them
 - Logs sit flat in `.artifacts/logs/` as one `<producer>.log` per launchd label or tool name, each moved there through its producer's setting
 
@@ -147,7 +121,7 @@ flowchart LR
 
 | [INDEX] | [CONCERN]                      | [OWNER]                                                                                              |
 | :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | Tool binary                    | `mise.toml` `[tools]` at `latest`, prereleases included                                              |
+|  [01]   | Tool binary                    | `mise.toml` `[tools]` at `latest`                                                                    |
 |  [02]   | Process variable               | `mise.toml` `[env]`                                                                                  |
 |  [03]   | SDK version                    | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
 |  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
@@ -163,13 +137,10 @@ flowchart LR
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
-|  [17]   | MCP tool a skill replaces      | `rasm-mcp-bridge --hide <glob>` on server's `mise.toml` launchd agent row                            |
-|  [18]   | Python runtime version         | `mise.toml` `python` row, nested `pyproject.toml` `requires-python` in a host folder for its host    |
-|  [19]   | Native library an sdist links  | `mise.toml` `conda:` row, its series keyed in the package's `[tool.uv.extra-build-variables]` row    |
+|  [17]   | Python runtime version         | `mise.toml` `python` row, nested `pyproject.toml` `requires-python` in a host folder for its host    |
+|  [18]   | Native library an sdist links  | `mise.toml` `conda:` row, its series keyed in the package's `[tool.uv.extra-build-variables]` row    |
 
 - Tool rows name a release where `latest` resolves a development build
-- Tool consumers are targets, MCP rows, skills, `.gitattributes` filters, and CLAUDE.md `[CLI_TOOLING]` rows
-- Facts sit once in their owning file, other files name the owner
 
 ## [05]-[QUALITY]
 

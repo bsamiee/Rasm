@@ -7,18 +7,8 @@ using Rasm.Imaging.Tone;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct BlackLevel : IMinMaxValue<BlackLevel> {
-    public static BlackLevel MinValue { get; } = new(-float.MaxValue);
-    public static BlackLevel MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
-}
-
-public sealed record Levels(BlackLevel Black, Exposure White) : IStateRecord<Levels, LevelsParameter, InvalidGrade>, IPixelStage<Levels> {
-    public static Levels Default { get; } = new(BlackLevel.Neutral, Exposure.Neutral);
+public sealed record Levels(SignedMagnitude Black, Exposure White) : IStateRecord<Levels, LevelsParameter>, IPixelStage<Levels> {
+    public static Levels Default { get; } = new(SignedMagnitude.Zero, Exposure.Neutral);
 
     public static Option<PixelPass> Pass(Levels state, PassContext context) =>
         state == Default
@@ -31,27 +21,24 @@ public sealed record Levels(BlackLevel Black, Exposure White) : IStateRecord<Lev
 
     public static Fin<Levels> Auto(PixelFrame frame, Gamut gamut) =>
         LuminanceSamples.Gather(frame, gamut.Luminance).Bind(static samples =>
-            Exposure.Validate((float)double.Log2(samples.FrameWhite - samples.Minimum), provider: null, out Exposure white) is { } refused
-                ? refused
-                : BlackLevel.Validate((float)samples.Minimum, provider: null, out BlackLevel black) is { } error
-                    ? error
-                    : (Fin<Levels>)new Levels(black, white));
+            (SignedMagnitude.Validated((float)samples.Minimum), Exposure.Validated((float)double.Log2(samples.FrameWhite - samples.Minimum)))
+                .Apply(static (black, white) => new Levels(black, white)).As());
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LevelsParameter : IStateParameter<Levels> {
-    public static (Lens<Levels, BlackLevel> Lens, Presentation<float> Presentation) BlackPoint { get; } = (
-        Lens<Levels, BlackLevel>.New(static levels => levels.Black, static black => levels => levels with { Black = black }),
+    public static (Lens<Levels, SignedMagnitude> Lens, Presentation<float> Presentation) BlackPoint { get; } = (
+        Lens<Levels, SignedMagnitude>.New(static levels => levels.Black, static black => levels => levels with { Black = black }),
         new() { Soft = (-0.1f, 0.1f), Origin = 0f, Decimals = 4 });
-    public static (Lens<Levels, Exposure> Lens, Presentation<float> Presentation) WhitePoint { get; } = (
-        Lens<Levels, Exposure>.New(static levels => levels.White, static white => levels => levels with { White = white }),
-        Exposure.Presentation);
+    public static Lens<Levels, Exposure> WhitePoint { get; } = Lens<Levels, Exposure>.New(static levels => levels.White, static white => levels => levels with { White = white });
 
-    public static readonly LevelsParameter Black = new("black-level", StateParameter.Bounded<Levels, BlackLevel, float, InvalidGrade>(BlackPoint.Lens, BlackPoint.Presentation));
-    public static readonly LevelsParameter White = new("white-level", StateParameter.Bounded<Levels, Exposure, float, InvalidToneValue>(WhitePoint.Lens, WhitePoint.Presentation));
+    public static readonly LevelsParameter Black = new("black-level", StateParameter.Bounded(BlackPoint.Lens, BlackPoint.Presentation),
+        new("Black", "Scene value mapped to zero, values below it passing unclamped"));
+    public static readonly LevelsParameter White = new("white-level", StateParameter.Bounded(WhitePoint),
+        new("White", "Span above black mapped to one, in stops"));
 
     public StateParameter<Levels> Kind { get; }
+    public ParameterText Text { get; }
 }

@@ -6,7 +6,7 @@ from functools import partial
 from expression import Error, Ok, Option
 import PyOpenColorIO
 
-from blender.imaging.faults import ImagingConfigFault, ImagingResult, ImagingUnresolvedFault
+from blender.imaging.faults import colored, ImagingResult, ImagingUnresolvedFault
 from blender.imaging.parameters import Case
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -54,10 +54,7 @@ def opened(source: ConfigSource, spaces: Iterable[str]) -> ImagingResult[PyOpenC
             request, create = path, partial(PyOpenColorIO.Config.CreateFromFile, path)
         case EnvironmentConfig():
             request, create = PyOpenColorIO.OCIO_CONFIG_ENVVAR, PyOpenColorIO.Config.CreateFromEnv
-    try:
-        return admitted(create(), spaces)
-    except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-        return Error((ImagingConfigFault(request=request, error=error),))
+    return colored(request, create).bind(lambda config: admitted(config, spaces))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

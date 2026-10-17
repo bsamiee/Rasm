@@ -6,7 +6,7 @@ rule:
     kind: macro_invocation
     pattern: $SOURCE
     all:
-        - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln)$'}
+        - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln)$'}}}
         - has:
             kind: token_tree
             has:

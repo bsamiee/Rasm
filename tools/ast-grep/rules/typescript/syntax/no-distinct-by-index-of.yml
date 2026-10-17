@@ -30,7 +30,7 @@ utils:
     native-set:
         kind: new_expression
         all:
-            - has: {field: constructor, regex: '^((globalThis|window|self)\.)?Set$', matches: syntax-global-reference}
+            - has: {field: constructor, regex: '^((globalThis|window|self)\.)?Set$', matches: typescript-global-reference}
             - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $L}}, {not: {has: {nthChild: 2}}}]}
     array-import:
         kind: import_statement
@@ -51,7 +51,7 @@ rule:
                 - not: {has: {nthChild: 2}}
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: syntax-global-reference}
+                - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: native-set}}, {not: {has: {nthChild: 2}}}]}
         - any:
             - pattern: $FIXABLE

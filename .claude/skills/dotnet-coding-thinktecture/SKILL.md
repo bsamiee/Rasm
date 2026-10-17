@@ -24,16 +24,15 @@ Simple value objects wrap one key member under `[ValueObject<TKey>]`, complex va
 
 ```csharp
 [ValueObject<string>]
-[ValidationError<InvalidCode>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class Code {
     public int Length => _value.Length;
 
-    static partial void ValidateFactoryArguments(ref InvalidCode? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
         if (trimmed is not { Length: <= 16 }) {
-            validationError = new InvalidCode();
+            validationError = new ValidationError("code is blank or longer than 16 characters");
             return;
         }
         value = trimmed.ToUpperInvariant();
@@ -41,14 +40,13 @@ internal sealed partial class Code {
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidBounds>]
 internal sealed partial class Bounds {
     public decimal Lower { get; }
     public decimal Upper { get; }
 
-    static partial void ValidateFactoryArguments(ref InvalidBounds? validationError, ref decimal lower, ref decimal upper) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref decimal lower, ref decimal upper) {
         if (lower > upper) {
-            validationError = new InvalidBounds();
+            validationError = new ValidationError("lower bound exceeds upper bound");
             return;
         }
         lower = Math.Round(lower, 2, MidpointRounding.ToEven);
@@ -64,9 +62,9 @@ Declaration rules the analyzer enforces:
 - Complex value objects with string members set `DefaultStringComparison` (049)
 - `[IgnoreMember]` removes a member from equality, the factories, and every other generated member
 - Complex form accepts one member or none, and with one member it receives no key-derived members
-- `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`
-- Generator calls `static abstract T Create(string message)` of that type for its own errors
-- `ToString()` of the error type is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state
+- `ValidationError` is the default error, its message is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state
+- `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`, a distinct type splits generic code constrained on the factory interfaces
+- Generator sets its own null-key and unknown-key messages, the hook's message states the violated rule
 
 ### [01.1]-[GENERATED_API]
 
@@ -101,11 +99,10 @@ Trailing parameters after the members are declared by value without a default (0
 
 ```csharp
 [ValueObject<decimal>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<NegativeAmount>]
 internal readonly partial struct Amount {
-    static partial void ValidateFactoryArguments(ref NegativeAmount? validationError, ref decimal value, MidpointRounding rounding) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref decimal value, MidpointRounding rounding) {
         if (value < 0) {
-            validationError = new NegativeAmount();
+            validationError = new ValidationError("amount is negative");
             return;
         }
         value = decimal.Round(value, 2, rounding);
@@ -158,8 +155,7 @@ Smart enums declare a fixed set of items as `public static readonly` fields of a
 - Consumers call a method on the item in place of branching on it
 
 ```csharp
-[SmartEnum<string>]
-[ValidationError<UnknownKind>]
+[SmartEnum<string>(MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal sealed partial class Kind {
     public static readonly Kind Standard = new("standard", rate: 0.5m, static amount => decimal.Round(amount, 2, MidpointRounding.ToEven));
     public static readonly Kind Express = new("express", rate: 0.75m, static amount => decimal.Round(amount, 2, MidpointRounding.ToPositiveInfinity));
@@ -202,7 +198,7 @@ Generator emits one private constructor per base constructor with parameters in 
 |  [01]   | `Items`                             | Items in declaration order                                                                      |
 |  [02]   | `Get(key)`                          | `null` for a `null` key, `UnknownSmartEnumIdentifierException` for an unknown key               |
 |  [03]   | `TryGet(key, out item)`             | `false` for an unknown key                                                                      |
-|  [04]   | `Validate(key, provider, out item)` | `null` or the error, a `null` key counts as unknown, `[ValidationError<T>]` types the error     |
+|  [04]   | `Validate(key, provider, out item)` | `null` or the error, a `null` key counts as unknown, the error names the identifier             |
 |  [05]   | Conversions                         | To the key implicit and `null` for a `null` item, from the key explicit through `Get`           |
 |  [06]   | Equality                            | Identity, `GetHashCode` computed once from the key with the configured comparer                 |
 |  [07]   | `IParsable<T>`, `ISpanParsable<T>`  | Present when the key implements them, which includes `string`, `Parse` throws `FormatException` |
@@ -216,11 +212,9 @@ Generator emits one private constructor per base constructor with parameters in 
 - Generic code reaches those members through the constraint
 
 ```csharp
-internal static class Lookup {
+internal static class Items {
     public static Option<T> Find<T, TKey>(TKey key) where T : ISmartEnum<TKey, T, ValidationError> where TKey : notnull =>
         T.TryGet(key, out T? item) ? Some(item) : None;
-    public static Fin<T> Require<T, TKey, TError>(TKey key) where T : ISmartEnum<TKey, T, TError> where TKey : notnull where TError : Error, IValidationError<TError> =>
-        T.Validate(key, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
 }
 ```
 
@@ -393,7 +387,7 @@ internal sealed partial class TextOrCount {
         if (value is null) return null;
         if (value.StartsWith("text:", StringComparison.Ordinal)) item = value["text:".Length..];
         else if (value.StartsWith("count:", StringComparison.Ordinal) && int.TryParse(value["count:".Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out int count)) item = count;
-        return item is null ? new ValidationError($"Unknown text-or-count '{value}'") : null;
+        return item is null ? new ValidationError($"'{value}' is neither text:<text> nor count:<integer>") : null;
     }
 
     public string ToValue() => Switch(
@@ -405,7 +399,50 @@ internal sealed partial class TextOrCount {
 - Invalid text throws `JsonException` with the error message, `Parse` throws `FormatException` with the same message, `TryParse` returns `false`
 - JSON `null` deserializes to `null` without a `Validate` call
 
-## [06]-[CONVENIENCE_MEMBERS]
+## [06]-[VALIDATED_RESULTS]
+
+Internal static class `ValidationResults` converts `ValidationError` to `Fin` through C# 14 static extension blocks with an interface receiver:
+- Every failure is an `Expected` under `ErrorCodes.ValidationFailed` holding the validation message
+- `OutsideRange(value, low, high)` returns a hook's `ValidationError?` for a key outside the inclusive range, formatted invariantly
+- `OutsideRange` keys implement `IComparable<TKey>` and `IFormattable`
+- Class value objects with a value-type key convert implicitly to `TKey?` alone, a class passes `MinValue._value` and `MaxValue._value`
+- `X.Validated(raw)` answers `Fin<X>`, a method group in `Bind` and `Traverse`, for a type with one `IObjectFactory` and for a string-keyed smart enum
+- Types with an extra `[ObjectFactory<T>]` implement more than one `IObjectFactory` and fail `X.Validated` with `CS0411`
+- `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `ValidationResults.Validated<T, TRaw>(raw)`
+- `ValidationResults.ToFin(T.Validate(..., out T? item), item)` converts a complex value object's `Validate`
+
+```csharp
+internal static class ValidationResults {
+    public static ValidationError? OutsideRange<TKey>(TKey value, TKey low, TKey high) where TKey : IComparable<TKey>, IFormattable =>
+        value.CompareTo(low) >= 0 && value.CompareTo(high) <= 0 ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{value} lies outside [{low}, {high}]"));
+
+    public static Fin<TValue> ToFin<TValue>(ValidationError? error, TValue? value) =>
+        error is null ? value! : Error.New(ErrorCodes.ValidationFailed, error.Message);
+
+    extension<TValue, TKey>(IObjectFactory<TValue, TKey, ValidationError>) where TValue : IObjectFactory<TValue, TKey, ValidationError> where TKey : notnull {
+        public static Fin<TValue> Validated(TKey key) => ToFin(TValue.Validate(key, provider: null, out TValue? value), value);
+    }
+
+    extension<TValue>(ISmartEnum<string, TValue, ValidationError>) where TValue : ISmartEnum<string, TValue, ValidationError> {
+        public static Fin<TValue> Validated(string key) => Validated<TValue, string>(key);
+    }
+}
+
+[ValueObject<int>]
+internal readonly partial struct Count : IMinMaxValue<Count> {
+    public static Count MinValue { get; } = new(0);
+    public static Count MaxValue { get; } = new(100);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+}
+
+internal static class Crossings {
+    public static Fin<Seq<Count>> Counts(Seq<int> raw) => raw.Traverse(Count.Validated).As();
+    public static Fin<Bounds> Range(decimal lower, decimal upper) => ValidationResults.ToFin(Bounds.Validate(lower, upper, out Bounds? bounds), bounds);
+}
+```
+
+## [07]-[CONVENIENCE_MEMBERS]
 
 Package supplies plain static members beside its generators, and they stay at the BCL boundary, domain code uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
 - `Thinktecture.Empty.Action` converts to every `Action` delegate up to 16 parameters
@@ -422,7 +459,7 @@ Package supplies plain static members beside its generators, and they stay at th
 - `StringKeyedObjectComparer<T>` compares `ToValue()` of any `IConvertible<string>` type with its `Ordinal` and culture fields
 - `StringKeyedObjectComparer<T>.Ordinal` restores exact matches for one collection of a case-insensitive type
 
-## [07]-[FRAMEWORK_INTEGRATION]
+## [08]-[FRAMEWORK_INTEGRATION]
 
 Simple value objects and keyed smart enums cross every boundary as their key, complex value objects cross JSON and MessagePack as objects with their members, and every type crosses a boundary as one value through an object factory:
 
@@ -461,7 +498,7 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 - Regular unions map as table-per-hierarchy through `HasDiscriminator<string>` with one `HasValue<TCase>` per case, or as table-per-type
 - Cases with one property name share a column through `HasColumnName`
 
-## [08]-[ANTI_PATTERNS]
+## [09]-[ANTI_PATTERNS]
 
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                   |
 | :-----: | :------------------------------------------------------------------ | :--------------------------------------------------------------- |
@@ -480,4 +517,6 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |  [13]   | `string` failure case beside a `string` success value               | One distinct type per case                                       |
 |  [14]   | Hand-written serializers for an ad hoc union                        | `[ObjectFactory<string>]` with `ToValue` and `Validate`          |
 |  [15]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary  | `Thinktecture.Empty.Collection<T>()`                             |
-|  [16]   | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`      | `Validate`, which never throws                                   |
+|  [16]   | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`      | `X.Validated(raw)` over `Validate`, which never throws           |
+|  [17]   | A package validation error type under `[ValidationError<T>]`        | The default `ValidationError` with the violated rule as message  |
+|  [18]   | `Error.New(ErrorCodes.ValidationFailed, error.Message)` by hand     | `ValidationResults.ToFin` over the `Validate` result             |

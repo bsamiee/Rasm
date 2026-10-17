@@ -956,8 +956,7 @@ def prepared[T: (ToneCurve, Hable)](
     """Returns an effective automatic-white record without changing authored controls."""
     match record.curve if isinstance(record, ToneCurve) else record:
         case Logarithmic(scene_white=Gated(enabled=False)) | ReinhardExtended(scene_white=Gated(enabled=False)) | Hable(scene_white=Gated(enabled=False)):
-            pixels = image.get_pixels(OpenImageIO.FLOAT)
-            effective: BlenderResult[T] = Error((BlenderImagingFault(faults=(ImagingBufferFault(request=image, error=image.geterror()),)),)) if pixels is None else whitened(record, config, pixels)
+            effective: BlenderResult[T] = ImagingBufferFault.pixels(image).map_error(BlenderImagingFault.lifted).bind(lambda pixels: whitened(record, config, pixels))
             return effective.map(lambda effective: (effective, {}))
         case _:
             return Ok((record, {}))

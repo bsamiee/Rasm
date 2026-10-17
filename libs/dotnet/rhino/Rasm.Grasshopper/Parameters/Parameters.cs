@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Eto.Drawing;
 using Grasshopper2.Components;
 using Grasshopper2.Framework;
@@ -7,21 +8,18 @@ using Grasshopper2.UI.Icon;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
-using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Grasshopper.Parameters;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ParameterFace(ParameterText Text, string Code, Option<(string Category, Option<Color> Tint, bool Shown)> Modularity) {
-    public Nomen Localized(IPlugInSink sink) => Some<object>(sink) switch {
-        var table => new(RowText.Localize(Text.Caption, table: table), RowText.Localize(Text.Help, table: table)),
-    };
+    public Nomen Localized(IPlugInSink sink) => new(RowText.Localize(Text.Caption, sink), RowText.Localize(Text.Help, sink));
 }
 
 public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IParameter>> Create) {
     // --- [DECLARE]
-    public Option<Func<IParameter, IPlugInSink, IO<Unit>>> Attach { get; init; }
+    public Func<IParameter, IPlugInSink, IO<Unit>> Attach { get; init; } = static (_, _) => unitIO;
     public Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)> DataTypes { get; internal init; }
 
     public static ParameterRow Of(ParameterFace face, Func<Nomen, IParameter> construct) =>
@@ -33,47 +31,42 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
             from parameter in IO.lift(() => construct(face.Localized(sink)))
             from _ in IO.lift(() => Callbacks.Each(
                 presets,
-                preset => parameter.Presets.Add(RowText.Localize(preset.Caption, table: Some<object>(sink)), Conversions.Unset(Option<string>.None), preset.Value),
+                preset => parameter.Presets.Add(RowText.Localize(preset.Caption, sink), "", preset.Value),
                 nameof(Presets<>.Add)))
             from coded in Coded(parameter, face, sink)
             select coded);
 
-    public static ParameterRow Of<TData>(
-        StateParameter<TData> kind, ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Access access, Requirement requirement, Option<TData> initial)
-        where TData : notnull =>
-        kind.Accept(new ParameterField.Crossing<TData>(face, glyph, master, accent, initial, requirement, access)).Input;
-
     // --- [REALIZE]
     public IO<IParameter> Input(ModularInputAdder inputs, IPlugInSink sink) =>
         from parameter in Create(sink)
-        from attached in Attach.Match(Some: attach => attach(parameter, sink), None: static () => unitIO)
+        from attached in Attach(parameter, sink)
         from _ in IO.lift(() => Face.Modularity.Match(
             Some: optional =>
                 (optional.Shown ? (Action<IParameter, string, Color, Requirement?>)inputs.Add : inputs.AddHidden)(
-                    parameter, RowText.Localize(optional.Category, table: Some<object>(sink)), optional.Tint.IfNone(Colors.Transparent), null),
+                    parameter, RowText.Localize(optional.Category, sink), optional.Tint.IfNone(Colors.Transparent), null),
             None: () => inputs.RegularAdder.Add(parameter, parameter.Requirement)))
         select parameter;
 
     public IO<IParameter> Output(ModularOutputAdder outputs, IPlugInSink sink) =>
         from parameter in Create(sink)
-        from attached in Attach.Match(Some: attach => attach(parameter, sink), None: static () => unitIO)
+        from attached in Attach(parameter, sink)
         from _ in IO.lift(() => Face.Modularity.Match(
             Some: optional =>
                 (optional.Shown ? (Action<IParameter, string, Color>)outputs.Add : outputs.AddHidden)(
-                    parameter, RowText.Localize(optional.Category, table: Some<object>(sink)), optional.Tint.IfNone(Colors.Transparent)),
+                    parameter, RowText.Localize(optional.Category, sink), optional.Tint.IfNone(Colors.Transparent)),
             None: () => outputs.RegularAdder.Add(parameter)))
         select parameter;
 
     private static IO<IParameter> Coded(IParameter parameter, ParameterFace face, IPlugInSink sink) =>
-        IO.lift(() => parameter.UserName = RowText.Localize(face.Code, table: Some<object>(sink))).Map(parameter);
+        IO.lift(() => parameter.UserName = RowText.Localize(face.Code, sink)).Map(parameter);
 
     internal ParameterRow Presented(IGlyph glyph, int master, SpecialColour accent) =>
         this with {
-            Attach = Some<Func<IParameter, IPlugInSink, IO<Unit>>>((parameter, sink) =>
-            from attached in Attach.Match(Some: attach => attach(parameter, sink), None: static () => unitIO)
-            from icon in CanvasIcons.Accented(sink, glyph, master, accent)
-            from presented in IO.lift(() => parameter.ModifyIcon(icon, overrideExtrinsicIcon: false))
-            select unit),
+            Attach = (parameter, sink) =>
+                from attached in Attach(parameter, sink)
+                from icon in CanvasIcons.Accented(sink, glyph, master, accent)
+                from presented in IO.lift(() => parameter.ModifyIcon(icon, overrideExtrinsicIcon: false))
+                select unit,
         };
 
     internal static Parameter<TData> Construct<TData>(Nomen nomen, Access access, Requirement requirement) {
@@ -82,7 +75,7 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
             : ObjectProxies.FindById(ObjectProxies.StandardParameterIoId(typeof(TData))) switch {
                 { Type: var type } when type.IsAssignableTo(typeof(Parameter<TData>)) =>
                     (Parameter<TData>)Activator.CreateInstance(type, nomen, access)!,
-                _ => throw new RefusedDataType(typeof(TData), nameof(ObjectProxies.StandardParameterIoId)).ToException(),
+                _ => throw Error.New($"no parameter type matches {typeof(TData)}").ToException(),
             };
         parameter.Requirement = requirement;
         return parameter;
@@ -104,24 +97,20 @@ public sealed class DataParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
     // --- [PERSISTENCE]
     Guid GrasshopperIO.ICustomIoId.CustomIoId => TypeAssistant switch {
         GrasshopperIO.ICustomIoId assistant => assistant.CustomIoId,
-        _ => throw new RefusedDataType(typeof(T), nameof(TypeAssistantServer.Find)).ToException(),
+        _ => throw new UnreachableException(),
     };
 
     protected override IIcon IconInternal => TypeAssistant.Icon;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Hints {
-    public static UiNumber Of<TKey>(Presentation<TKey> presentation, TKey value, (TKey Low, TKey High) bounds)
-        where TKey : struct, System.Numerics.INumber<TKey> =>
-        presentation.Track(value, bounds) switch {
-            var range => new(int.Min(presentation.Decimals.IfNone(UiNumber.MaxDecimals), UiNumber.MaxDecimals), decimal.CreateSaturating(value),
-                decimal.CreateSaturating(range.Low), decimal.CreateSaturating(range.High)),
-        };
-}
-
 public static class ParameterField {
     // --- [DECLARE]
+    public static ParameterField<TRecord> Of<TRecord>(
+        StateParameter<TRecord> kind, ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Access access, Requirement requirement, Option<TRecord> initial)
+        where TRecord : notnull =>
+        kind.Accept(new Crossing<TRecord>(face, glyph, master, accent, initial, requirement, access));
+
     public static ParameterField<TRecord> Of<TRecord, TData>(
         Option<TRecord> initial, Lens<TRecord, TData> lens, ParameterFace face, Func<Nomen, Parameter<TData>> construct, Seq<(string Caption, TData Value)> presets,
         Option<Func<TData, Fin<TData>>> admit = default)
@@ -139,83 +128,78 @@ public static class ParameterField {
     // --- [SOLVE]
     public static IO<Func<TRecord, TRecord>> Read<TRecord>(Seq<ParameterField<TRecord>> fields, int first, IDataAccess access)
         where TRecord : notnull =>
-        from parts in fields.Map<K<IO, Func<TRecord, TRecord>>>((field, position) =>
-            IO.lift(() => field.Recall(access, first + position))).PartitionFallible().As()
-        from _ in unless(parts.Fails.IsEmpty, IO.fail<Unit>(Error.Many(parts.Fails))).As()
-        select fun((TRecord seed) => parts.Succs.Fold(seed, static (record, set) => set(record)));
+        Callbacks.Each(fields.Map((field, position) => IO.lift(() => field.Recall(access, first + position))))
+            .Map(static sets => fun((TRecord seed) => sets.Fold(seed, static (record, set) => set(record))));
 
     internal sealed class Crossing<TRecord>(
         ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Option<TRecord> initial, Requirement requirement, Access access)
         : IStateParameterVisitor<TRecord, ParameterField<TRecord>> where TRecord : notnull {
 
-        public ParameterField<TRecord> Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+        public ParameterField<TRecord> Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
             Typed(lens, [], (plugin, id, name) =>
-                DataTypes.Number(id, name, plugin.Icon, create, key)(plugin), Some<Func<TValue, Fin<TValue>>>(value => presentation.Admit(value, bounds)));
+                DataTypes.Number(id, name, plugin.Icon, domain.Create, domain.Key)(plugin), Some(domain.Admit));
 
-        public ParameterField<TRecord> OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+        public ParameterField<TRecord> OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
-            Typed(lens, [], (plugin, id, name) => DataTypes.OptionalNumber(id, name, plugin.Icon, create, key)(plugin),
-                Some<Func<Gated<TValue>, Fin<Gated<TValue>>>>(gate => presentation.Admit(gate.Value, bounds).Map(_ => gate)));
+            Typed(lens, [], (plugin, id, name) => DataTypes.OptionalNumber(id, name, plugin.Icon, domain.Create, domain.Key)(plugin),
+                Some<Func<Gated<TValue>, Fin<Gated<TValue>>>>(gate => domain.Admit(gate.Value).Map(_ => gate)));
 
-        public ParameterField<TRecord> Choice<TValue, TError>(Lens<TRecord, TValue> lens)
-            where TValue : ISmartEnum<string, TValue, TError>
-            where TError : Error, IValidationError<TError> =>
-            Typed(lens, toSeq(TValue.Items).Map(item => (face.Text.Items[item.ToValue()].Caption, item)),
-                static (plugin, id, name) => DataTypes.Keyed<TValue, string, TError>(id, name, plugin.Icon, StoredText.Capture<TValue, string>)(plugin));
+        public ParameterField<TRecord> Choice<TValue>(Lens<TRecord, TValue> lens)
+            where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+            Typed(lens, toSeq(TValue.Items).Map(static item => (item.Caption, item)),
+                static (plugin, id, name) => DataTypes.Keyed<TValue, string>(id, name, plugin.Icon, StoredText.Capture<TValue, string>)(plugin));
 
-        public ParameterField<TRecord> OptionalChoice<TValue, TError>(Lens<TRecord, Option<TValue>> lens)
-            where TValue : ISmartEnum<string, TValue, TError>
-            where TError : Error, IValidationError<TError> =>
-            Typed(lens, face.Text.Absent.Map(static caption => (Caption: caption, Value: Option<TValue>.None)).ToSeq()
-                + toSeq(TValue.Items).Map<(string Caption, Option<TValue> Value)>(item => (face.Text.Items[item.ToValue()].Caption, Some(item))),
-                static (plugin, id, name) => DataTypes.Schema(FieldTexts.Optional(StoredText.Capture<TValue, string>, static text => IO.lift(StoredText.Recall<TValue, string, TError>(text))), id, name, plugin.Icon)(plugin));
+        public ParameterField<TRecord> OptionalChoice<TValue>(Lens<TRecord, Option<TValue>> lens, string absent)
+            where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+            Typed(lens, Seq((Caption: absent, Value: Option<TValue>.None))
+                + toSeq(TValue.Items).Map<(string Caption, Option<TValue> Value)>(static item => (item.Caption, Some(item))),
+                static (plugin, id, name) => DataTypes.Schema(FieldTexts.Optional(StoredText.Capture<TValue, string>, StoredText.Recall<TValue, string>), id, name, plugin.Icon)(plugin));
 
         public ParameterField<TRecord> Variant<TValue>(Lens<TRecord, TValue> lens) where TValue : class =>
-            Archived(lens, StateCase<TValue>.Items.Map(item => (face.Text.Items[item.Key].Caption, item.Default)), FieldTexts.Variant<TValue>());
+            Archived(lens, StateCase<TValue>.Items.Map(static item => (item.Caption, item.Default)), FieldTexts.Variant<TValue>());
 
-        public ParameterField<TRecord> Enumerated<TEnum>(Lens<TRecord, TEnum> lens) where TEnum : struct, Enum =>
-            Archived(lens, toSeq(Enum.GetValues<TEnum>()).Map(item => (face.Text.Items[StoredText.Format(item)].Caption, item)), FieldTexts.Leaf(StoredText.Format, static text => IO.lift(StoredText.Member<TEnum>(text))));
+        public ParameterField<TRecord> Enumerated<TEnum>(Lens<TRecord, TEnum> lens, Func<TEnum, string> caption) where TEnum : struct, Enum =>
+            Archived(lens, toSeq(Enum.GetValues<TEnum>()).Map(item => (caption(item), item)), FieldTexts.Leaf(StoredText.Format, StoredText.Member<TEnum>));
 
         public ParameterField<TRecord> Record<TNested>(Lens<TRecord, TNested> lens) where TNested : IStateRecord<TNested> =>
             Archived(lens, [], FieldTexts.Record<TNested>());
 
         public ParameterField<TRecord> OptionalRecord<TNested>(Lens<TRecord, Gated<TNested>> lens) where TNested : IStateRecord<TNested> => Archived(lens, [], FieldTexts.Gate(FieldTexts.Record<TNested>()));
 
-        public ParameterField<TRecord> Toggle(Lens<TRecord, bool> lens) => Archived(lens, [], FieldTexts.Leaf(StoredText.Format, static text => IO.lift(StoredText.Parse<bool>(text))));
+        public ParameterField<TRecord> Toggle(Lens<TRecord, bool> lens) => Archived(lens, [], FieldTexts.Leaf(StoredText.Format, StoredText.Parse<bool>));
 
-        public ParameterField<TRecord> Raw<TRaw>(Lens<TRecord, TRaw> lens) where TRaw : notnull, ISpanParsable<TRaw> => Archived(lens, [], FieldTexts.Leaf(StoredText.Format, static text => IO.lift(StoredText.Parse<TRaw>(text))));
+        public ParameterField<TRecord> Raw<TRaw>(Lens<TRecord, TRaw> lens) where TRaw : notnull, ISpanParsable<TRaw> => Archived(lens, [], FieldTexts.Leaf(StoredText.Format, StoredText.Parse<TRaw>));
 
-        public ParameterField<TRecord> OptionalRaw<TRaw>(Lens<TRecord, Option<TRaw>> lens) where TRaw : notnull, ISpanParsable<TRaw> => Archived(lens, [], FieldTexts.Optional(StoredText.Format, static text => IO.lift(StoredText.Parse<TRaw>(text))));
+        public ParameterField<TRecord> OptionalRaw<TRaw>(Lens<TRecord, Option<TRaw>> lens) where TRaw : notnull, ISpanParsable<TRaw> => Archived(lens, [], FieldTexts.Optional(StoredText.Format, StoredText.Parse<TRaw>));
 
-        public ParameterField<TRecord> Color(Lens<TRecord, Swatch> lens) => Archived(lens, [], FieldTexts.Leaf(StoredText.Capture<Swatch, int>, static text => IO.lift(StoredText.Recall<Swatch, int, InvalidPixelValue>(text))));
+        public ParameterField<TRecord> Color(Lens<TRecord, Swatch> lens) => Archived(lens, [], FieldTexts.Leaf(StoredText.Capture<Swatch, int>, StoredText.Recall<Swatch, int>));
 
-        public ParameterField<TRecord> OptionalColor(Lens<TRecord, Gated<Swatch>> lens) => Archived(lens, [], FieldTexts.Gate(FieldTexts.Leaf(StoredText.Capture<Swatch, int>, static text => IO.lift(StoredText.Recall<Swatch, int, InvalidPixelValue>(text)))));
+        public ParameterField<TRecord> OptionalColor(Lens<TRecord, Gated<Swatch>> lens) => Archived(lens, [], FieldTexts.Gate(FieldTexts.Leaf(StoredText.Capture<Swatch, int>, StoredText.Recall<Swatch, int>)));
 
-        public ParameterField<TRecord> Gradient(Lens<TRecord, Ramp> lens) => Archived(lens, [], FieldTexts.Leaf(StoredText.Capture<Ramp, string>, static text => IO.lift(StoredText.Recall<Ramp, string, InvalidPixelValue>(text))));
+        public ParameterField<TRecord> Gradient(Lens<TRecord, Ramp> lens) => Archived(lens, [], FieldTexts.Leaf(StoredText.Capture<Ramp, string>, StoredText.Recall<Ramp, string>));
 
-        public ParameterField<TRecord> Swatches<TValue, TError>(Lens<TRecord, TValue> lens)
-            where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, TError>, IConvertible<string>
-            where TError : Error, IValidationError<TError> =>
-            Typed(lens, [], static (plugin, id, name) => DataTypes.Keyed<TValue, string, TError>(id, name, plugin.Icon, StoredText.Capture<TValue, string>)(plugin));
+        public ParameterField<TRecord> Swatches<TValue>(Lens<TRecord, TValue> lens)
+            where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
+            Typed(lens, [], static (plugin, id, name) => DataTypes.Keyed<TValue, string>(id, name, plugin.Icon, StoredText.Capture<TValue, string>)(plugin));
 
-        public ParameterField<TRecord> Keyed<TValue, TRaw, TError>(Lens<TRecord, TValue> lens)
-            where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-            where TRaw : notnull, ISpanParsable<TRaw>
-            where TError : Error, IValidationError<TError> =>
-            Typed(lens, [], static (plugin, id, name) => DataTypes.Keyed<TValue, TRaw, TError>(id, name, plugin.Icon, StoredText.Capture<TValue, TRaw>)(plugin));
+        public ParameterField<TRecord> Keyed<TValue, TRaw>(Lens<TRecord, TValue> lens)
+            where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+            where TRaw : notnull, ISpanParsable<TRaw> =>
+            Typed(lens, [], static (plugin, id, name) => DataTypes.Keyed<TValue, TRaw>(id, name, plugin.Icon, StoredText.Capture<TValue, TRaw>)(plugin));
 
-        public ParameterField<TRecord> OptionalKeyed<TValue, TRaw, TError>(Lens<TRecord, Option<TValue>> lens)
-            where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-            where TRaw : notnull, ISpanParsable<TRaw>
-            where TError : Error, IValidationError<TError> => Archived(lens, [], FieldTexts.Optional(StoredText.Capture<TValue, TRaw>, static text => IO.lift(StoredText.Recall<TValue, TRaw, TError>(text))));
+        public ParameterField<TRecord> OptionalKeyed<TValue, TRaw>(Lens<TRecord, Option<TValue>> lens)
+            where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+            where TRaw : notnull, ISpanParsable<TRaw> => Archived(lens, [], FieldTexts.Optional(StoredText.Capture<TValue, TRaw>, StoredText.Recall<TValue, TRaw>));
 
-        public ParameterField<TRecord> Loaded<TValue, TKey, TRaw, TError>(Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key)
-            where TKey : IObjectFactory<TKey, TRaw, TError>, IConvertible<TRaw>
-            where TRaw : notnull, ISpanParsable<TRaw>
-            where TError : Error, IValidationError<TError> => Archived(lens, [], FieldTexts.Optional(value => StoredText.Capture<TKey, TRaw>(key(value)), text => IO.lift(StoredText.Recall<TKey, TRaw, TError>(text)).Bind(load)));
+        public ParameterField<TRecord> Loaded<TValue, TKey, TRaw>(Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key)
+            where TKey : IObjectFactory<TKey, TRaw, ValidationError>, IConvertible<TRaw>
+            where TRaw : notnull, ISpanParsable<TRaw> {
+            FieldCodec<Option<TKey>> keys = FieldTexts.Optional(StoredText.Capture<TKey, TRaw>, StoredText.Recall<TKey, TRaw>);
+            return Archived(lens, [], new FieldCodec<Option<TValue>>(value => keys.Capture(value.Map(key)), entries => keys.Recall(entries).Bind(found => found.Traverse(load).As())));
+        }
 
         public ParameterField<TRecord> Opaque<TValue>(Lens<TRecord, TValue> lens) where TValue : notnull =>
             Typed(lens, [], static (plugin, id, name) => DataTypes.Of<TValue>(id, name, plugin.Icon, identity, static value => value.ToString()!)(plugin));

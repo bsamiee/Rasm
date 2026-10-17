@@ -40,7 +40,7 @@ utils:
     fold-step:
         kind: call_expression
         all:
-            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^map$'}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^map$'}}}}
             - has: {field: arguments, has: {matches: fold, nthChild: {position: 1, reverse: true}}}
     copy:
         any:
@@ -49,7 +49,7 @@ utils:
                 - has:
                     field: function
                     any:
-                        - {matches: syntax-global-reference, regex: '^(globalThis\.)?Array\.from$'}
+                        - {matches: typescript-global-reference, regex: '^(globalThis\.)?Array\.from$'}
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^fromIterable$'}
@@ -67,7 +67,7 @@ rule:
           any:
             - kind: call_expression
               all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^map$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^map$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {has: {nthChild: 2, matches: fold}}]}
             - kind: call_expression
               all:

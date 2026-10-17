@@ -21,9 +21,9 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
 
     public static IO<SunState> Read(RenderSettingsScope scope) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun => IO.lift(() =>
-            (Conversions.Validated<SunIntensity, double, InvalidRhinoValue>(sun.Intensity).ToValidation(),
-             sun.ManualControlOn ? Conversions.Validated<NorthAngle, double, InvalidRhinoValue>(sun.Azimuth).ToValidation() : Default.Azimuth,
-             sun.ManualControlOn ? Conversions.Validated<SunAltitude, double, InvalidRhinoValue>(sun.Altitude).ToValidation() : Default.Altitude,
+            (SunIntensity.Validated(sun.Intensity).ToValidation(),
+             sun.ManualControlOn ? NorthAngle.Validated(sun.Azimuth).ToValidation() : Default.Azimuth,
+             sun.ManualControlOn ? SunAltitude.Validated(sun.Altitude).ToValidation() : Default.Altitude,
              SunSite.Read(sun).ToValidation())
                 .Apply((intensity, azimuth, altitude, site) => new SunState { Enabled = sun.Enabled, Intensity = intensity, ManualControlOn = sun.ManualControlOn, Azimuth = azimuth, Altitude = altitude, Site = site })
                 .As()
@@ -59,44 +59,43 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SunParameter : IRowParameter<SunState> {
+public sealed partial class SunParameter : IStateParameter<SunState> {
     private static readonly Presentation<double> Degrees = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Degree), Step = 1d, Decimals = 1 };
     public static readonly SunParameter Enabled = new("enabled", new StateParameter<SunState>.Toggle(
         Lens<SunState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
-        ParameterText.Of("On", "Lights the scene with the sun"));
-    public static readonly SunParameter Intensity = new("intensity", StateParameter.Bounded<SunState, SunIntensity, double, InvalidRhinoValue>(Lens<SunState, SunIntensity>.New(static state => state.Intensity, static intensity => state => state with { Intensity = intensity }),
-    new() { Soft = (0d, 5d), Step = 0.01d, Decimals = 2 }),
-        ParameterText.Of("Intensity", "Sun intensity multiplier"));
+        new("On", "Lights the scene with the sun"));
+    public static readonly SunParameter Intensity = new("intensity", StateParameter.Bounded(Lens<SunState, SunIntensity>.New(static state => state.Intensity, static intensity => state => state with { Intensity = intensity }),
+    new Presentation<double> { Soft = (0d, 5d), Step = 0.01d, Decimals = 2 }),
+        new("Intensity", "Sun intensity multiplier"));
     public static readonly SunParameter ManualControlOn = new("manual-control", new StateParameter<SunState>.Toggle(
         Lens<SunState, bool>.New(static state => state.ManualControlOn, static on => state => state with { ManualControlOn = on })),
-        ParameterText.Of("Manual control", "Places the sun by azimuth and altitude, off places it by date, time, and location"));
-    public static readonly SunParameter Azimuth = new("azimuth", StateParameter.Bounded<SunState, NorthAngle, double, InvalidRhinoValue>(Lens<SunState, NorthAngle>.New(static state => state.Azimuth, static azimuth => state => state with { Azimuth = azimuth }), Degrees),
-        ParameterText.Of("Azimuth", "Bearing of the sun east of true north"));
-    public static readonly SunParameter Altitude = new("altitude", StateParameter.Bounded<SunState, SunAltitude, double, InvalidRhinoValue>(Lens<SunState, SunAltitude>.New(static state => state.Altitude, static altitude => state => state with { Altitude = altitude }), Degrees),
-        ParameterText.Of("Altitude", "Angle of the sun above the horizon"));
-    public static readonly SunParameter North = new("north", StateParameter.Bounded<SunState, NorthAngle, double, InvalidRhinoValue>(Lens<SunState, NorthAngle>.New(static state => state.Site.North, static north => state => state with { Site = state.Site with { North = north } }), Degrees),
-        ParameterText.Of("North", "Bearing of true north anticlockwise from world X"));
-    public static readonly SunParameter PlaceLatitude = new("latitude", StateParameter.Bounded<SunState, Latitude, double, InvalidRhinoValue>(Lens<SunState, Latitude>.New(
+        new("Manual control", "Places the sun by azimuth and altitude, off places it by date, time, and location"));
+    public static readonly SunParameter Azimuth = new("azimuth", StateParameter.Bounded(Lens<SunState, NorthAngle>.New(static state => state.Azimuth, static azimuth => state => state with { Azimuth = azimuth }), Degrees),
+        new("Azimuth", "Bearing of the sun east of true north"));
+    public static readonly SunParameter Altitude = new("altitude", StateParameter.Bounded(Lens<SunState, SunAltitude>.New(static state => state.Altitude, static altitude => state => state with { Altitude = altitude }), Degrees),
+        new("Altitude", "Angle of the sun above the horizon"));
+    public static readonly SunParameter North = new("north", StateParameter.Bounded(Lens<SunState, NorthAngle>.New(static state => state.Site.North, static north => state => state with { Site = state.Site with { North = north } }), Degrees),
+        new("North", "Bearing of true north anticlockwise from world X"));
+    public static readonly SunParameter PlaceLatitude = new("latitude", StateParameter.Bounded(Lens<SunState, Latitude>.New(
         static state => state.Site.Place.Latitude,
         static latitude => state => state with { Site = state.Site with { Place = state.Site.Place with { Latitude = latitude } } }),
     Degrees),
-        ParameterText.Of("Lat", "Latitude of the site"));
-    public static readonly SunParameter PlaceLongitude = new("longitude", StateParameter.Bounded<SunState, Longitude, double, InvalidRhinoValue>(Lens<SunState, Longitude>.New(
+        new("Lat", "Latitude of the site"));
+    public static readonly SunParameter PlaceLongitude = new("longitude", StateParameter.Bounded(Lens<SunState, Longitude>.New(
         static state => state.Site.Place.Longitude,
         static longitude => state => state with { Site = state.Site with { Place = state.Site.Place with { Longitude = longitude } } }),
     Degrees),
-        ParameterText.Of("Long", "Longitude of the site"));
-    public static readonly SunParameter TimeZone = new("time-zone", StateParameter.Bounded<SunState, StandardOffset, double, InvalidRhinoValue>(Lens<SunState, StandardOffset>.New(static state => state.Site.Standard, static standard => state => state with { Site = state.Site with { Standard = standard } }),
-    new() { Unit = Quantity.GetUnitInfo(DurationUnit.Hour), Step = 0.25d, Decimals = 2 }),
-        ParameterText.Of("Time zone", "Standard offset of the site from UTC"));
-    public static readonly SunParameter Saving = new("daylight-saving", StateParameter.OptionalBounded<SunState, DaylightSaving, int, InvalidRhinoValue>(Lens<SunState, Gated<DaylightSaving>>.New(
+        new("Long", "Longitude of the site"));
+    public static readonly SunParameter TimeZone = new("time-zone", StateParameter.Bounded(Lens<SunState, StandardOffset>.New(static state => state.Site.Standard, static standard => state => state with { Site = state.Site with { Standard = standard } }),
+    new Presentation<double> { Unit = Quantity.GetUnitInfo(DurationUnit.Hour), Step = 0.25d, Decimals = 2 }),
+        new("Time zone", "Standard offset of the site from UTC"));
+    public static readonly SunParameter Saving = new("daylight-saving", StateParameter.OptionalBounded(Lens<SunState, Gated<DaylightSaving>>.New(
         static state => state.Site.Saving.Match(Some: static saving => new Gated<DaylightSaving>(Enabled: true, saving), None: static () => new Gated<DaylightSaving>(Enabled: false, DaylightSaving.MinValue)),
         static gate => state => state with { Site = state.Site with { Saving = gate.Active } }),
-    new() { Unit = Quantity.GetUnitInfo(DurationUnit.Minute), Step = 60, Decimals = 0 }),
-        ParameterText.Of("Daylight saving", "Minutes added to the standard time while daylight saving holds"));
+    new Presentation<int> { Unit = Quantity.GetUnitInfo(DurationUnit.Minute), Step = 60, Decimals = 0 }),
+        new("Daylight saving", "Minutes added to the standard time while daylight saving holds"));
 
     public StateParameter<SunState> Kind { get; }
 

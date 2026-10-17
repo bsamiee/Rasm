@@ -26,15 +26,15 @@ public static class TextFieldOps {
             ? new FieldRun.Evaluator(body.Method, toSeq(body.Arguments).Map(static argument => Optional(Expression.Lambda<Func<string?>>(argument).Compile(preferInterpretation: true)())).Strict())
             : throw new ArgumentException($"{call.Body} is no {nameof(TextFields)} evaluator call", nameof(call));
 
-    public static Option<FieldRun> Title(TitleField field, Option<(Length Width, Length Height)> page) =>
+    public static Option<FieldRun> Title(TitleField field, Option<Sheet> sheet) =>
         field.Source.Switch(
-            (field.Key, Page: page),
+            (field.Key, Sheet: sheet),
             projectText: static (state, _) => Some(Field(() => TextFields.DocumentText(state.Key))),
             sheetText: static (state, _) => Some(Field(() => TextFields.LayoutUserText(state.Key))),
             identifier: static (_, _) => Some(Field(static () => TextFields.PageName())),
-            ordinal: static (_, _) => Some(Field(static () => TextFields.PageNumber())),
-            count: static (_, _) => Some(Field(static () => TextFields.NumPages())),
-            designation: static (state, _) => state.Page.Bind(static size => Sheet.Match(size.Width, size.Height)).Map<FieldRun>(static sheet => sheet.Size.Designation));
+            ordinal: static (state, _) => Some(Field(() => TextFields.LayoutUserText(state.Key))),
+            count: static (state, _) => Some(Field(() => TextFields.LayoutUserText(state.Key))),
+            designation: static (state, _) => state.Sheet.Map<FieldRun>(static held => held.Size.Key));
 
     // --- [RENDERING]
     public static string Text(Seq<FieldRun> runs) =>
@@ -53,5 +53,5 @@ public static class TextFieldOps {
 
     public static IO<Seq<Option<string>>> Parse(RhinoDoc doc, Seq<FieldRun> runs) =>
         IO.lift(() => Callbacks.Each(runs.Filter(static run => run.Map(literal: false, evaluator: true)), (run, index) =>
-            RefusedElement.Unless(TextFields.TryParse(Text([run]), doc, out List<string> values), Optional(values[0]).Filter(static text => text is not "####"), nameof(TextFields.TryParse), index)));
+            Refused.Unless(TextFields.TryParse(Text([run]), doc, out List<string> values), Optional(values[0]).Filter(static text => text is not "####"), nameof(TextFields.TryParse), index)));
 }

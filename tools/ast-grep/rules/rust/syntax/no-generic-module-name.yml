@@ -8,24 +8,26 @@ utils:
     generic-file:
         kind: string_literal
         regex: '^"([^"]*/)?(utils?|helpers?|common|misc|stuff|types|models|traits|structs|enums|consts?|constants|prelude)\.rs"$'
-    path-attribute:
-        kind: attribute
-        any:
-            - all:
-                - has: {nthChild: 1, kind: identifier, regex: '^path$'}
-                - has: {field: value, matches: generic-file, pattern: $NAME}
-            - all:
-                - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
-                - has: {field: arguments, has: {matches: generic-file, pattern: $NAME, follows: {regex: '^=$', follows: {kind: identifier, regex: '^path$'}}}}
 rule:
     any:
         - kind: mod_item
           all:
             - any:
                 - has: {field: name, matches: generic-name, pattern: $NAME}
-                - follows: {stopBy: &run {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, has: {matches: path-attribute}}
-            - not: {follows: {stopBy: *run, kind: attribute_item, regex: '^#\[\s*cfg\s*\(\s*test\s*\)'}}
+                - matches:
+                    rust-attributed:
+                        attribute:
+                            has:
+                                kind: attribute
+                                any:
+                                    - all:
+                                        - has: {nthChild: 1, kind: identifier, regex: '^path$'}
+                                        - has: {field: value, matches: generic-file, pattern: $NAME}
+                                    - all:
+                                        - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
+                                        - has: {field: arguments, has: {matches: generic-file, pattern: $NAME, follows: {regex: '^=$', follows: {kind: identifier, regex: '^path$'}}}}
+            - not: {matches: {rust-attributed: {attribute: {matches: rust-test-attribute}}}}
         - kind: use_as_clause
           has: {field: alias, matches: generic-name, pattern: $NAME}
 message: '`$NAME` names a kind of item or a catch-all in place of the domain its items serve'
-note: 'Move each item into the module of the domain that uses it and name modules for that domain, a catch-all module collects unrelated items with no owner, and the rename crosses files so no rewrite states it'
+note: 'Move each item into the module of the domain that uses it and name modules for that domain, a catch-all module collects unrelated items with no owner, and the rename crosses files so no rewrite states it. A test-gated module stays as written'

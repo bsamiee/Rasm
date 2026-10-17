@@ -14,26 +14,26 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Pixels;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+public interface ICaptioned {
+    public string Caption { get; }
+}
+
 public interface IStateParameterVisitor<TRecord, out TResult> {
-    public TResult Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+    public TResult Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, NumericDomain<TValue, TKey> domain)
         where TValue : notnull
         where TKey : struct, INumber<TKey>;
 
-    public TResult OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+    public TResult OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain)
         where TValue : notnull
         where TKey : struct, INumber<TKey>;
 
-    public TResult Choice<TValue, TError>(Lens<TRecord, TValue> lens)
-        where TValue : ISmartEnum<string, TValue, TError>
-        where TError : Error, IValidationError<TError>;
+    public TResult Choice<TValue>(Lens<TRecord, TValue> lens) where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned;
 
-    public TResult OptionalChoice<TValue, TError>(Lens<TRecord, Option<TValue>> lens)
-        where TValue : ISmartEnum<string, TValue, TError>
-        where TError : Error, IValidationError<TError>;
+    public TResult OptionalChoice<TValue>(Lens<TRecord, Option<TValue>> lens, string absent) where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned;
 
     public TResult Variant<TValue>(Lens<TRecord, TValue> lens) where TValue : class;
 
-    public TResult Enumerated<TEnum>(Lens<TRecord, TEnum> lens) where TEnum : struct, Enum;
+    public TResult Enumerated<TEnum>(Lens<TRecord, TEnum> lens, Func<TEnum, string> caption) where TEnum : struct, Enum;
 
     public TResult Record<TNested>(Lens<TRecord, TNested> lens) where TNested : IStateRecord<TNested>;
 
@@ -51,24 +51,20 @@ public interface IStateParameterVisitor<TRecord, out TResult> {
 
     public TResult Gradient(Lens<TRecord, Ramp> lens);
 
-    public TResult Swatches<TValue, TError>(Lens<TRecord, TValue> lens)
-        where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, TError>, IConvertible<string>
-        where TError : Error, IValidationError<TError>;
+    public TResult Swatches<TValue>(Lens<TRecord, TValue> lens)
+        where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, ValidationError>, IConvertible<string>;
 
-    public TResult Keyed<TValue, TRaw, TError>(Lens<TRecord, TValue> lens)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError>;
+    public TResult Keyed<TValue, TRaw>(Lens<TRecord, TValue> lens)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw>;
 
-    public TResult OptionalKeyed<TValue, TRaw, TError>(Lens<TRecord, Option<TValue>> lens)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError>;
+    public TResult OptionalKeyed<TValue, TRaw>(Lens<TRecord, Option<TValue>> lens)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw>;
 
-    public TResult Loaded<TValue, TKey, TRaw, TError>(Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key)
-        where TKey : IObjectFactory<TKey, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError>;
+    public TResult Loaded<TValue, TKey, TRaw>(Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key)
+        where TKey : IObjectFactory<TKey, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw>;
 
     public TResult Opaque<TValue>(Lens<TRecord, TValue> lens) where TValue : notnull;
 }
@@ -80,19 +76,20 @@ public interface IStateCaseVisitor<TUnion, out TResult> where TUnion : class {
 public interface IStateParameter<TRecord> {
     public string Key { get; }
     public StateParameter<TRecord> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 public interface IStateRecord<TSelf> where TSelf : IStateRecord<TSelf> {
     public static abstract TSelf Default { get; }
-    public static virtual IReadOnlyList<IStateParameter<TSelf>> Parameters => [];
+    public static virtual string Caption => typeof(TSelf).Name;
+    public static virtual Seq<IStateParameter<TSelf>> Parameters => [];
     public static virtual Option<IStateParameter<TSelf>> FindParameter(string key) => None;
 }
 
-public interface IStateRecord<TSelf, TParameter, TError> : IStateRecord<TSelf>
-    where TSelf : IStateRecord<TSelf, TParameter, TError>
-    where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, TError>
-    where TError : Error, IValidationError<TError> {
-    static IReadOnlyList<IStateParameter<TSelf>> IStateRecord<TSelf>.Parameters => TParameter.Items;
+public interface IStateRecord<TSelf, TParameter> : IStateRecord<TSelf>
+    where TSelf : IStateRecord<TSelf, TParameter>
+    where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, ValidationError> {
+    static Seq<IStateParameter<TSelf>> IStateRecord<TSelf>.Parameters => [.. TParameter.Items];
 
     static Option<IStateParameter<TSelf>> IStateRecord<TSelf>.FindParameter(string key) =>
         TParameter.TryGet(key, out TParameter? parameter) ? Some<IStateParameter<TSelf>>(parameter) : None;
@@ -114,9 +111,20 @@ public interface IFrameJob<TSelf, TState> : IDisposable
     public IO<PixelFrame> Run(TState state, PixelFrame color, HashMap<GuideChannel, PixelFrame> guides, IProgress<int> rows);
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-public static class StateCases {
-    public const string SelectionKey = "$case";
+public interface IPresented<TSelf> where TSelf : notnull, IPresented<TSelf> {
+    public static abstract StateParameter<TRecord> Bounded<TRecord>(Lens<TRecord, TSelf> lens);
+
+    public static abstract StateParameter<TRecord> OptionalBounded<TRecord>(Lens<TRecord, Gated<TSelf>> lens);
+}
+
+public interface IPresented<TSelf, TKey> : IPresented<TSelf>, IObjectFactory<TSelf, TKey, ValidationError>, IConvertible<TKey>, IMinMaxValue<TSelf>
+    where TSelf : notnull, IPresented<TSelf, TKey>
+    where TKey : struct, INumber<TKey> {
+    public static abstract Presentation<TKey> Presentation { get; }
+
+    static StateParameter<TRecord> IPresented<TSelf>.Bounded<TRecord>(Lens<TRecord, TSelf> lens) => StateParameter.Bounded(lens, TSelf.Presentation);
+
+    static StateParameter<TRecord> IPresented<TSelf>.OptionalBounded<TRecord>(Lens<TRecord, Gated<TSelf>> lens) => StateParameter.OptionalBounded(lens, TSelf.Presentation);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -128,12 +136,14 @@ public abstract class StateCase<TUnion> where TUnion : class {
             .Map(static type => (StateCase<TUnion>)Activator.CreateInstance(typeof(StateCase<>.Case<>).MakeGenericType(typeof(TUnion), type))!).Strict();
 
     public abstract string Key { get; }
+    public abstract string Caption { get; }
     public abstract TUnion Default { get; }
     public abstract bool Holds(TUnion value);
     public abstract TResult Accept<TResult>(IStateCaseVisitor<TUnion, TResult> visitor);
 
     public sealed class Case<TState> : StateCase<TUnion> where TState : class, TUnion, IStateRecord<TState> {
         public override string Key => typeof(TState).Name;
+        public override string Caption => TState.Caption;
         public override TUnion Default => TState.Default;
         public override bool Holds(TUnion value) => value is TState;
         public override TResult Accept<TResult>(IStateCaseVisitor<TUnion, TResult> visitor) => visitor.Case<TState>();
@@ -223,17 +233,14 @@ public sealed partial class NumberForm {
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct RampPosition : IMinMaxValue<RampPosition> {
     public static RampPosition MinValue { get; } = new(0d);
     public static RampPosition MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct RampStop {
     public static RampStop Black { get; } = new(RampPosition.MinValue, new Vector4(0f, 0f, 0f, 1f));
     public static RampStop White { get; } = new(RampPosition.MaxValue, Vector4.One);
@@ -250,36 +257,37 @@ public readonly partial struct RampStop {
               from g in Invariant.Number<float>(green)
               from b in Invariant.Number<float>(blue)
               from a in Invariant.Number<float>(alpha)
-              from stop in RampPosition.Validate(offset, provider: null, out RampPosition position) is null && Validate(position, new Vector4(r, g, b, a), out RampStop item) is null ? Some(item) : None
+              from position in RampPosition.Validated(offset).ToOption()
+              from stop in Validate(position, new Vector4(r, g, b, a), out RampStop item) is null ? Some(item) : None
               select stop
             : None;
 
     public string Format() => string.Create(CultureInfo.InvariantCulture, $"{(double)Position} {Color.X} {Color.Y} {Color.Z} {Color.W}");
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref RampPosition position, ref Vector4 color) =>
-        validationError = Vector4.AllWhereAllBitsSet(Vector4.IsFinite(color)) && color.W.CompareTo(0f) >= 0 && color.W.CompareTo(1f) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref RampPosition position, ref Vector4 color) =>
+        validationError = Vector4.AllWhereAllBitsSet(Vector4.IsFinite(color)) && color.W.CompareTo(0f) >= 0 && color.W.CompareTo(1f) <= 0 ? null
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"ramp stop color {color} must be finite with alpha in [0, 1]"));
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidPixelValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class RampInterpolation {
-    public static readonly RampInterpolation Linear = new("linear", ColourSpace.Oklab, static t => t);
-    public static readonly RampInterpolation Ease = new("ease", ColourSpace.Oklab, static t => t * t * (3d - (2d * t)));
-    public static readonly RampInterpolation Constant = new("constant", ColourSpace.Oklab, static _ => 0d);
-    public static readonly RampInterpolation LinearRgb = new("linear-rgb", ColourSpace.RgbLinear, Linear.Weight);
-    public static readonly RampInterpolation EaseRgb = new("ease-rgb", ColourSpace.RgbLinear, Ease.Weight);
-    public static readonly RampInterpolation SmootherRgb = new("smoother-rgb", ColourSpace.RgbLinear, static t => t * t * t * ((t * ((6d * t) - 15d)) + 10d));
+public sealed partial class RampInterpolation : ICaptioned {
+    public static readonly RampInterpolation Linear = new("linear", ColourSpace.Oklab, "Linear", static t => t);
+    public static readonly RampInterpolation Ease = new("ease", ColourSpace.Oklab, "Ease", static t => t * t * (3d - (2d * t)));
+    public static readonly RampInterpolation Constant = new("constant", ColourSpace.Oklab, "Constant", static _ => 0d);
+    public static readonly RampInterpolation LinearRgb = new("linear-rgb", ColourSpace.RgbLinear, "Linear RGB", Linear.Weight);
+    public static readonly RampInterpolation EaseRgb = new("ease-rgb", ColourSpace.RgbLinear, "Ease RGB", Ease.Weight);
+    public static readonly RampInterpolation SmootherRgb = new("smoother-rgb", ColourSpace.RgbLinear, "Smoother RGB", static t => t * t * t * ((t * ((6d * t) - 15d)) + 10d));
 
     public ColourSpace Space { get; }
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial double Weight(double t);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 [ObjectFactory<string>]
 public sealed partial class Ramp : IConvertible<string> {
     private static readonly Func<(Ramp Ramp, Gamut Gamut), RampTable> Tables = memo(static ((Ramp Ramp, Gamut Gamut) key) => {
@@ -319,16 +327,17 @@ public sealed partial class Ramp : IConvertible<string> {
 
     public string ToValue() => string.Join(';', Interpolation.Key.Cons(Stops.Map(static stop => stop.Format())));
 
-    public static InvalidPixelValue? Validate(string? value, IFormatProvider? provider, out Ramp? item) {
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out Ramp? item) {
         item = null;
         return value is null ? null
             : value.Split(';') is [var key, .. var fields] && RampInterpolation.TryGet(key, out RampInterpolation? interpolation) && toSeq(fields).Traverse(static field => RampStop.Parse(field)).As().Case is Seq<RampStop> stops
                 ? Validate(stops, interpolation, out item)
-                : new InvalidPixelValue();
+                : new ValidationError($"ramp '{value}' must be an interpolation key followed by ';'-separated 'position r g b a' stops");
     }
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref Seq<RampStop> stops, ref RampInterpolation interpolation) =>
-        validationError = stops.Count is >= 1 and <= 32 && stops.Zip(stops.Tail).ForAll(static pair => pair.First.Position <= pair.Second.Position) ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<RampStop> stops, ref RampInterpolation interpolation) =>
+        validationError = stops.Count is >= 1 and <= 32 && stops.Zip(stops.Tail).ForAll(static pair => pair.First.Position <= pair.Second.Position) ? null
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"ramp must hold 1 to 32 stops in ascending position, not {stops.Count}"));
 }
 
 public sealed class RampTable {
@@ -351,7 +360,6 @@ public sealed class RampTable {
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct Swatch : IMinMaxValue<Swatch> {
     public static Swatch MinValue => Black;
     public static Swatch MaxValue => White;
@@ -371,14 +379,14 @@ public readonly partial struct Swatch : IMinMaxValue<Swatch> {
             var code => new(((int)code.X << 16) | ((int)code.Y << 8) | (int)code.Z),
         };
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
+
+public sealed record ParameterText(string Caption, string Help);
 
 public sealed record Presentation<TKey> where TKey : struct, INumber<TKey> {
     public NumberForm Form { get; init; } = NumberForm.Track;
     public Option<UnitInfo> Unit { get; init; }
-    public Option<UnitInfo> DisplayUnit { get; init; }
     public Option<(TKey Low, TKey High)> Soft { get; init; }
     public Option<TKey> Origin { get; init; }
     public TrackScale Scale { get; init; } = TrackScale.Linear;
@@ -386,37 +394,45 @@ public sealed record Presentation<TKey> where TKey : struct, INumber<TKey> {
     public Option<int> Decimals { get; init; }
     public Option<Ramp> Stops { get; init; }
 
-    public Fin<TValue> Admit<TValue>(TValue value, (TKey Low, TKey High) bounds) where TValue : notnull =>
-        value is IQuantity quantity
-            ? UnitConverter.Convert(quantity.Value, quantity.UnitKey, Unit.IfNone(() => quantity.GetQuantityInfo().BaseUnitInfo).UnitKey) switch {
-                var key => key >= QuantityValue.CreateChecked(bounds.Low) && key <= QuantityValue.CreateChecked(bounds.High)
-                    ? Fin.Succ(value)
-                    : new InvalidPixelValue(),
-            }
-            : Fin.Succ(value);
-
-    public (TKey Low, TKey High) Track(TKey key, (TKey Low, TKey High) bounds) =>
-        (Soft.IfNone(bounds), ERational.FromDouble(double.CreateChecked(key)), ERational.FromDouble(double.CreateChecked(bounds.Low)), ERational.FromDouble(double.CreateChecked(bounds.High))) switch {
-            var (soft, value, low, high) =>
-                (ERational.FromDouble(double.CreateChecked(soft.Low)), ERational.FromDouble(double.CreateChecked(soft.High))) switch {
-                    var (bottom, top) =>
-                        (value.CompareTo(bottom) < 0 ? TKey.CreateSaturating(value.Subtract(ERational.Min(top.Subtract(value), value.Subtract(low))).ToDouble()) : soft.Low,
-                         value.CompareTo(top) > 0 ? TKey.CreateSaturating(value.Add(ERational.Min(value.Subtract(bottom), high.Subtract(value))).ToDouble()) : soft.High),
-                },
+    public (TKey Low, TKey High) Track(TKey key, (TKey Low, TKey High) bounds) {
+        (TKey Low, TKey High) soft = Soft.IfNone(bounds);
+        double position = Position(key, soft);
+        return position switch {
+            < 0d => (Below(At((2d * position) - 1d)), soft.High),
+            > 1d => (soft.Low, TKey.Min(At(2d * position), bounds.High)),
+            _ => soft,
         };
 
-    public double Position(TKey key, (TKey Low, TKey High) track) =>
-        Scale.Position(double.CreateChecked(key), double.CreateChecked(track.Low), double.CreateChecked(track.High));
+        TKey At(double along) => TKey.CreateSaturating(Scale.Key(along, double.CreateChecked(soft.Low), double.CreateChecked(soft.High)));
 
-    public double Key(double position, (TKey Low, TKey High) track) =>
-        (double.CreateChecked(track.Low), double.CreateChecked(track.High)) switch {
-            var (low, high) => double.Clamp(Scale.Key(position, low, high), low, high),
+        TKey Below(TKey widened) => Scale == TrackScale.Log && widened <= TKey.Zero ? key : TKey.Max(widened, bounds.Low);
+    }
+
+    public double Position(TKey key, (TKey Low, TKey High) track) =>
+        Scale == TrackScale.Log && key <= TKey.Zero ? 0d : Scale.Position(double.CreateChecked(key), double.CreateChecked(track.Low), double.CreateChecked(track.High));
+
+    public double Key(double position, (TKey Low, TKey High) track, (TKey Low, TKey High) bounds) =>
+        (double.CreateChecked(bounds.Low), double.CreateChecked(bounds.High)) switch {
+            var (low, _) when Scale == TrackScale.Log && low <= 0d && position <= 0d => low,
+            var (low, high) => double.Clamp(Scale.Key(position, double.CreateChecked(track.Low), double.CreateChecked(track.High)), low, high),
         };
 
     public Option<Vector4> Fill(double key, (TKey Low, TKey High) bounds) =>
         Stops.Map(ramp => Soft.IfNone(bounds) switch {
             var soft => ramp.Tabulate(Gamut.StandardRgb).Sample(TrackScale.Linear.Position(key, double.CreateChecked(soft.Low), double.CreateChecked(soft.High))),
         });
+}
+
+public sealed class NumericDomain<TValue, TKey> where TValue : notnull where TKey : struct, INumber<TKey> {
+    public NumericDomain(Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation) =>
+        (Create, Key, Bounds, Presentation) = (raw => Admission.Admitted(Admission.Refusal(raw, bounds.Low, bounds.High), raw).Bind(create), key, bounds, presentation);
+
+    public Func<TKey, Fin<TValue>> Create { get; }
+    public Func<TValue, TKey> Key { get; }
+    public (TKey Low, TKey High) Bounds { get; }
+    public Presentation<TKey> Presentation { get; }
+
+    public Fin<TValue> Admit(TValue value) => Create(Key(value)).Map(_ => value);
 }
 
 public sealed record Gated<TValue>(bool Enabled, TValue Value) where TValue : notnull {
@@ -433,173 +449,260 @@ public abstract class StateParameter<TRecord> {
 
     public abstract TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor);
 
-    public sealed class Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation) : StateParameter<TRecord>
+    public abstract TRecord Taken(TRecord from, TRecord into);
+
+    public abstract class Focused<TFocus> : StateParameter<TRecord> {
+        private protected Focused(Lens<TRecord, TFocus> lens) => Lens = lens;
+
+        public Lens<TRecord, TFocus> Lens { get; }
+
+        public sealed override TRecord Taken(TRecord from, TRecord into) => Lens.Set(Lens.Get(from), into);
+    }
+
+    public sealed class Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, NumericDomain<TValue, TKey> domain) : Focused<TValue>(lens)
         where TValue : notnull
         where TKey : struct, INumber<TKey> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Numeric(lens, create, key, bounds, presentation);
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Numeric(Lens, domain);
     }
 
-    public sealed class OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation) : StateParameter<TRecord>
+    public sealed class OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain) : Focused<Gated<TValue>>(lens)
         where TValue : notnull
         where TKey : struct, INumber<TKey> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalNumeric(lens, create, key, bounds, presentation);
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalNumeric(Lens, domain);
     }
 
-    public sealed class Choice<TValue, TError>(Lens<TRecord, TValue> lens) : StateParameter<TRecord>
-        where TValue : ISmartEnum<string, TValue, TError>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Choice<TValue, TError>(lens);
+    public sealed class Choice<TValue>(Lens<TRecord, TValue> lens) : Focused<TValue>(lens) where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Choice(Lens);
     }
 
-    public sealed class OptionalChoice<TValue, TError>(Lens<TRecord, Option<TValue>> lens) : StateParameter<TRecord>
-        where TValue : ISmartEnum<string, TValue, TError>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalChoice<TValue, TError>(lens);
+    public sealed class OptionalChoice<TValue>(Lens<TRecord, Option<TValue>> lens, string absent) : Focused<Option<TValue>>(lens)
+        where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalChoice(Lens, absent);
     }
 
-    public sealed class Variant<TValue>(Lens<TRecord, TValue> lens) : StateParameter<TRecord> where TValue : class {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Variant(lens);
+    public sealed class Variant<TValue>(Lens<TRecord, TValue> lens) : Focused<TValue>(lens) where TValue : class {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Variant(Lens);
     }
 
-    public sealed class Enumerated<TEnum>(Lens<TRecord, TEnum> lens) : StateParameter<TRecord> where TEnum : struct, Enum {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Enumerated(lens);
+    public sealed class Enumerated<TEnum>(Lens<TRecord, TEnum> lens, Func<TEnum, string> caption) : Focused<TEnum>(lens) where TEnum : struct, Enum {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Enumerated(Lens, caption);
     }
 
-    public sealed class Record<TNested>(Lens<TRecord, TNested> lens) : StateParameter<TRecord> where TNested : IStateRecord<TNested> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Record(lens);
+    public sealed class Record<TNested>(Lens<TRecord, TNested> lens) : Focused<TNested>(lens) where TNested : IStateRecord<TNested> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Record(Lens);
     }
 
-    public sealed class OptionalRecord<TNested>(Lens<TRecord, Gated<TNested>> lens) : StateParameter<TRecord> where TNested : IStateRecord<TNested> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalRecord(lens);
+    public sealed class OptionalRecord<TNested>(Lens<TRecord, Gated<TNested>> lens) : Focused<Gated<TNested>>(lens) where TNested : IStateRecord<TNested> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalRecord(Lens);
     }
 
-    public sealed class Toggle(Lens<TRecord, bool> lens) : StateParameter<TRecord> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Toggle(lens);
+    public sealed class Toggle(Lens<TRecord, bool> lens) : Focused<bool>(lens) {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Toggle(Lens);
     }
 
-    public sealed class Raw<TRaw>(Lens<TRecord, TRaw> lens) : StateParameter<TRecord> where TRaw : notnull, ISpanParsable<TRaw> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Raw(lens);
+    public sealed class Raw<TRaw>(Lens<TRecord, TRaw> lens) : Focused<TRaw>(lens) where TRaw : notnull, ISpanParsable<TRaw> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Raw(Lens);
     }
 
-    public sealed class OptionalRaw<TRaw>(Lens<TRecord, Option<TRaw>> lens) : StateParameter<TRecord> where TRaw : notnull, ISpanParsable<TRaw> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalRaw(lens);
+    public sealed class OptionalRaw<TRaw>(Lens<TRecord, Option<TRaw>> lens) : Focused<Option<TRaw>>(lens) where TRaw : notnull, ISpanParsable<TRaw> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalRaw(Lens);
     }
 
-    public sealed class Color(Lens<TRecord, Swatch> lens) : StateParameter<TRecord> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Color(lens);
+    public sealed class Color(Lens<TRecord, Swatch> lens) : Focused<Swatch>(lens) {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Color(Lens);
     }
 
-    public sealed class OptionalColor(Lens<TRecord, Gated<Swatch>> lens) : StateParameter<TRecord> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalColor(lens);
+    public sealed class OptionalColor(Lens<TRecord, Gated<Swatch>> lens) : Focused<Gated<Swatch>>(lens) {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalColor(Lens);
     }
 
-    public sealed class Gradient(Lens<TRecord, Ramp> lens) : StateParameter<TRecord> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Gradient(lens);
+    public sealed class Gradient(Lens<TRecord, Ramp> lens) : Focused<Ramp>(lens) {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Gradient(Lens);
     }
 
-    public sealed class Swatches<TValue, TError>(Lens<TRecord, TValue> lens) : StateParameter<TRecord>
-        where TValue : IObjectFactory<TValue, Seq<Swatch>, TError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, TError>, IConvertible<string>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Swatches<TValue, TError>(lens);
+    public sealed class Swatches<TValue>(Lens<TRecord, TValue> lens) : Focused<TValue>(lens)
+        where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, ValidationError>, IConvertible<string> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Swatches(Lens);
     }
 
-    public sealed class Keyed<TValue, TRaw, TError>(Lens<TRecord, TValue> lens) : StateParameter<TRecord>
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Keyed<TValue, TRaw, TError>(lens);
+    public sealed class Keyed<TValue, TRaw>(Lens<TRecord, TValue> lens) : Focused<TValue>(lens)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Keyed<TValue, TRaw>(Lens);
     }
 
-    public sealed class OptionalKeyed<TValue, TRaw, TError>(Lens<TRecord, Option<TValue>> lens) : StateParameter<TRecord>
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalKeyed<TValue, TRaw, TError>(lens);
+    public sealed class OptionalKeyed<TValue, TRaw>(Lens<TRecord, Option<TValue>> lens) : Focused<Option<TValue>>(lens)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.OptionalKeyed<TValue, TRaw>(Lens);
     }
 
-    public sealed class Loaded<TValue, TKey, TRaw, TError>(Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key) : StateParameter<TRecord>
-        where TKey : IObjectFactory<TKey, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Loaded<TValue, TKey, TRaw, TError>(lens, load, key);
+    public sealed class Loaded<TValue, TKey, TRaw>(Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key) : Focused<Option<TValue>>(lens)
+        where TKey : IObjectFactory<TKey, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw> {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Loaded<TValue, TKey, TRaw>(Lens, load, key);
     }
 
-    public sealed class Opaque<TValue>(Lens<TRecord, TValue> lens) : StateParameter<TRecord> where TValue : notnull {
-        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Opaque(lens);
+    public sealed class Opaque<TValue>(Lens<TRecord, TValue> lens) : Focused<TValue>(lens) where TValue : notnull {
+        public override TResult Accept<TResult>(IStateParameterVisitor<TRecord, TResult> visitor) => visitor.Opaque(Lens);
     }
 }
 
+[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct AxisFraction : IPresented<AxisFraction, float> {
+    public static AxisFraction MinValue { get; } = new(0f);
+    public static AxisFraction MaxValue { get; } = new(1f);
+    public static AxisFraction Half { get; } = new(0.5f);
+    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct PositiveFraction : IPresented<PositiveFraction, float> {
+    public static PositiveFraction MinValue { get; } = new(float.BitIncrement(0f));
+    public static PositiveFraction MaxValue { get; } = new(1f);
+    public static Presentation<float> Presentation => AxisFraction.Presentation;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct ProperFraction : IPresented<ProperFraction, float> {
+    public static ProperFraction MinValue => Zero;
+    public static ProperFraction MaxValue { get; } = new(float.BitDecrement(1f));
+    public static Presentation<float> Presentation => AxisFraction.Presentation;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct Magnitude : IMinMaxValue<Magnitude> {
+    public static Magnitude MinValue => Zero;
+    public static Magnitude MaxValue { get; } = new(float.MaxValue);
+    public static Magnitude Unit { get; } = new(1f);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct PositiveMagnitude : IMinMaxValue<PositiveMagnitude> {
+    public static PositiveMagnitude MinValue { get; } = new(float.BitIncrement(0f));
+    public static PositiveMagnitude MaxValue { get; } = new(float.MaxValue);
+    public static PositiveMagnitude Unit { get; } = new(1f);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct PrimaryScale : IMinMaxValue<PrimaryScale> {
+    public static PrimaryScale MinValue { get; } = new(1f);
+    public static PrimaryScale MaxValue { get; } = new(float.MaxValue);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct Steepness : IMinMaxValue<Steepness> {
+    public static Steepness MinValue => Zero;
+    public static Steepness MaxValue { get; } = new(10f);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct PositiveCount : IMinMaxValue<PositiveCount> {
+    public static PositiveCount MinValue { get; } = new(1);
+    public static PositiveCount MaxValue { get; } = new(int.MaxValue);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct SignedMagnitude : IMinMaxValue<SignedMagnitude> {
+    public static SignedMagnitude MinValue { get; } = new(-float.MaxValue);
+    public static SignedMagnitude MaxValue { get; } = new(float.MaxValue);
+    public static SignedMagnitude Unit { get; } = new(1f);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
+public readonly partial struct SignedFraction : IPresented<SignedFraction, float> {
+    public static SignedFraction MinValue { get; } = new(-1f);
+    public static SignedFraction MaxValue { get; } = new(1f);
+    public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral };
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct ShortSideOffset : IPresented<ShortSideOffset, float> {
     public static ShortSideOffset MinValue { get; } = new(-float.MaxValue);
     public static ShortSideOffset MaxValue { get; } = new(float.MaxValue);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (-1f, 1f), Origin = (float)Neutral };
 
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
+public readonly partial struct ShortSideLength : IPresented<ShortSideLength, float> {
     public static ShortSideLength MinValue => Neutral;
     public static ShortSideLength MaxValue { get; } = new(float.MaxValue);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
 
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct ShortSideExtent : IMinMaxValue<ShortSideExtent> {
-    public static ShortSideExtent MinValue { get; } = new(float.Epsilon);
+public readonly partial struct ShortSideExtent : IPresented<ShortSideExtent, float> {
+    public static ShortSideExtent MinValue { get; } = new(float.BitIncrement(0f));
     public static ShortSideExtent MaxValue { get; } = new(float.MaxValue);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0.001f, 8f), Scale = TrackScale.Log };
 
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct FrameAxis : IMinMaxValue<FrameAxis> {
+public readonly partial struct FrameAxis : IPresented<FrameAxis, float> {
     public static FrameAxis MinValue { get; } = new(-0.5f);
     public static FrameAxis MaxValue { get; } = new(1.5f);
     public static FrameAxis Start { get; } = new(0f);
     public static FrameAxis Middle { get; } = new(0.5f);
     public static FrameAxis End { get; } = new(1f);
+    public static Presentation<float> Presentation { get; } = AxisFraction.Presentation with { Soft = (0f, 1f) };
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
-public sealed record FramePosition(FrameAxis X, FrameAxis Y) {
+public sealed record FramePosition(FrameAxis X, FrameAxis Y) : IStateRecord<FramePosition, FramePositionParameter> {
+    public static FramePosition Default => Center;
     public static FramePosition Center { get; } = new(FrameAxis.Middle, FrameAxis.Middle);
     public static FramePosition TopLeft { get; } = new(FrameAxis.Start, FrameAxis.Start);
     public static FramePosition TopRight { get; } = new(FrameAxis.End, FrameAxis.Start);
     public static FramePosition BottomRight { get; } = new(FrameAxis.End, FrameAxis.End);
     public static FramePosition BottomLeft { get; } = new(FrameAxis.Start, FrameAxis.End);
 
-    private static readonly Lens<FramePosition, FrameAxis> XOf =
-        Lens<FramePosition, FrameAxis>.New(static position => position.X, static x => position => position with { X = x });
-    private static readonly Lens<FramePosition, FrameAxis> YOf =
-        Lens<FramePosition, FrameAxis>.New(static position => position.Y, static y => position => position with { Y = y });
-
     public (double X, double Y) Point(PixelExtent extent) => ((double)X * extent.Width, (double)Y * extent.Height);
+}
 
-    public static (StateParameter<TRecord> X, StateParameter<TRecord> Y) Kinds<TRecord>(Lens<TRecord, FramePosition> position) =>
-        (StateParameter.Bounded<TRecord, FrameAxis, float, InvalidPixelValue>(lens(position, XOf), Axis),
-         StateParameter.Bounded<TRecord, FrameAxis, float, InvalidPixelValue>(lens(position, YOf), Axis));
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class FramePositionParameter : IStateParameter<FramePosition> {
+    public static readonly FramePositionParameter X = new("x", StateParameter.Bounded(Lens<FramePosition, FrameAxis>.New(static position => position.X, static x => position => position with { X = x })),
+        new("X", "Position across the frame, rightward from the left edge"));
+    public static readonly FramePositionParameter Y = new("y", StateParameter.Bounded(Lens<FramePosition, FrameAxis>.New(static position => position.Y, static y => position => position with { Y = y })),
+        new("Y", "Position down the frame from the top edge"));
 
-    private static Presentation<float> Axis { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction), Soft = (0f, 1f) };
+    public StateParameter<FramePosition> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress, StrongBox<int> finished) : IAction {
@@ -673,32 +776,33 @@ public sealed class Derivations : IDisposable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+public static class NumericDomain {
+    public static NumericDomain<TValue, TKey> Bounded<TValue, TKey>(Presentation<TKey> presentation)
+        where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>, IMinMaxValue<TValue>
+        where TKey : struct, INumber<TKey> =>
+        new(Admission.Validated<TValue, TKey>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
+
+    public static NumericDomain<Length, TKey> Metres<TKey>((TKey Low, TKey High) bounds, Presentation<TKey> presentation) where TKey : struct, INumber<TKey> =>
+        new(static raw => Length.FromMeters(double.CreateChecked(raw)), static length => TKey.CreateChecked(length.Meters.ToDouble()), bounds, presentation with { Unit = Quantity.GetUnitInfo(LengthUnit.Meter) });
+}
+
 public static class StateParameter {
-    public static StateParameter<TRecord>.Numeric<TValue, TKey> Bounded<TRecord, TValue, TKey, TError>(Lens<TRecord, TValue> lens, Presentation<TKey> presentation)
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError> =>
-        new(lens, Validated<TValue, TKey, TError>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
+    public static StateParameter<TRecord> Bounded<TRecord, TValue>(Lens<TRecord, TValue> lens) where TValue : notnull, IPresented<TValue> => TValue.Bounded(lens);
 
-    public static StateParameter<TRecord>.OptionalNumeric<TValue, TKey> OptionalBounded<TRecord, TValue, TKey, TError>(Lens<TRecord, Gated<TValue>> lens, Presentation<TKey> presentation)
-        where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
-        where TKey : struct, INumber<TKey>
-        where TError : Error, IValidationError<TError> =>
-        new(lens, Validated<TValue, TKey, TError>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
+    public static StateParameter<TRecord> Bounded<TRecord, TValue, TKey>(Lens<TRecord, TValue> lens, Presentation<TKey> presentation)
+        where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>, IMinMaxValue<TValue>
+        where TKey : struct, INumber<TKey> =>
+        new StateParameter<TRecord>.Numeric<TValue, TKey>(lens, NumericDomain.Bounded<TValue, TKey>(presentation));
 
-    private static Fin<TValue> Validated<TValue, TKey, TError>(TKey key)
-        where TValue : IObjectFactory<TValue, TKey, TError>
-        where TKey : notnull
-        where TError : Error, IValidationError<TError> =>
-        TValue.Validate(key, provider: null, out TValue? value) is { } error ? error : value!;
+    public static StateParameter<TRecord> OptionalBounded<TRecord, TValue>(Lens<TRecord, Gated<TValue>> lens) where TValue : notnull, IPresented<TValue> => TValue.OptionalBounded(lens);
+
+    public static StateParameter<TRecord> OptionalBounded<TRecord, TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, Presentation<TKey> presentation)
+        where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>, IMinMaxValue<TValue>
+        where TKey : struct, INumber<TKey> =>
+        new StateParameter<TRecord>.OptionalNumeric<TValue, TKey>(lens, NumericDomain.Bounded<TValue, TKey>(presentation));
 }
 
-public static class Valid {
-    public static T Value<T, TError>(TError? error, T? item) where T : notnull where TError : Error =>
-        error is null ? item! : error.Throw<T>();
-}
-
-internal static class Invariant {
-    public static Option<T> Number<T>(string text) where T : INumber<T> =>
-        T.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out T? number) ? Some(number) : None;
+public static class Invariant {
+    public static Option<T> Number<T>(ReadOnlySpan<char> text, NumberStyles styles = NumberStyles.Float) where T : INumber<T> =>
+        T.TryParse(text, styles, CultureInfo.InvariantCulture, out T? number) ? Some(number) : None;
 }

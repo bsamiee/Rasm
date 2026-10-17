@@ -20,35 +20,38 @@ public sealed record ValueKey<TValue, TRaw>(string Name, string Caption, string 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ValueKey {
-    public static ValueKey<TValue, TKey> Numeric<TValue, TKey>(string name, string caption, string help, TValue @default, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation)
+    public static ValueKey<TValue, TKey> Numeric<TValue, TKey>(string name, string caption, string help, TValue @default, NumericDomain<TValue, TKey> domain)
         where TValue : notnull
         where TKey : struct, INumber<TKey> =>
-        fun((TKey raw) => raw >= bounds.Low && raw <= bounds.High ? create(raw) : new InvalidRhinoValue()) switch {
-            var accepted => new(name, caption, help, @default, new StateParameter<TValue>.Numeric<TValue, TKey>(Lens.identity<TValue>(), accepted, key, bounds, presentation),
-                accepted, key, text => StoredText.Recall(text, accepted, Some<Func<TValue, Fin<TValue>>>(value => presentation.Admit(value, bounds)))),
-        };
+        new(name, caption, help, @default, new StateParameter<TValue>.Numeric<TValue, TKey>(Lens.identity<TValue>(), domain),
+            domain.Create, domain.Key, text => StoredText.Recall(text, domain.Create, domain.Key));
 
-    public static ValueKey<TValue, TRaw> Of<TValue, TRaw, TError>(string name, string caption, string help, TValue @default)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        new(name, caption, help, @default, new StateParameter<TValue>.Keyed<TValue, TRaw, TError>(Lens.identity<TValue>()),
-            Conversions.Validated<TValue, TRaw, TError>, static value => value.ToValue(), StoredText.Recall<TValue, TRaw, TError>);
+    public static ValueKey<TValue, TRaw> Of<TValue, TRaw>(string name, string caption, string help, TValue @default)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw> =>
+        new(name, caption, help, @default, new StateParameter<TValue>.Keyed<TValue, TRaw>(Lens.identity<TValue>()),
+            Admission.Validated<TValue, TRaw>, static value => value.ToValue(), StoredText.Recall<TValue, TRaw>);
 
     public static ValueKey<TRaw, TRaw> Raw<TRaw>(string name, string caption, string help, TRaw @default) where TRaw : notnull, ISpanParsable<TRaw> =>
         new(name, caption, help, @default, new StateParameter<TRaw>.Raw<TRaw>(Lens.identity<TRaw>()), Fin.Succ, identity, StoredText.Parse<TRaw>);
 
-    public static ValueKey<TEnum, TEnum> Enum<TEnum>(string name, string caption, string help, TEnum @default) where TEnum : struct, Enum =>
-        new(name, caption, help, @default, new StateParameter<TEnum>.Enumerated<TEnum>(Lens.identity<TEnum>()),
-            static raw => System.Enum.IsDefined(raw) ? raw : new InvalidRhinoValue(), identity, StoredText.Member<TEnum>);
+    public static ValueKey<bool, bool> Raw(string name, string caption, string help, bool @default) =>
+        new(name, caption, help, @default, new StateParameter<bool>.Toggle(Lens.identity<bool>()), Fin.Succ, identity, StoredText.Parse<bool>);
 
-    public static ValueKey<Option<TValue>, string> Optional<TValue, TError>(string name, string caption, string help)
-        where TValue : IObjectFactory<TValue, string, TError>, IConvertible<string>
-        where TError : Error, IValidationError<TError> =>
-        fun(static (string text) => Conversions.Present(text).Traverse(Conversions.Validated<TValue, string, TError>).As()) switch {
-            var recall => new(name, caption, help, Option<TValue>.None, new StateParameter<Option<TValue>>.OptionalKeyed<TValue, string, TError>(Lens.identity<Option<TValue>>()),
+    public static ValueKey<TEnum, TEnum> Enum<TEnum>(string name, string caption, string help, TEnum @default, Func<TEnum, string> members) where TEnum : struct, Enum =>
+        new(name, caption, help, @default, new StateParameter<TEnum>.Enumerated<TEnum>(Lens.identity<TEnum>(), members),
+            static raw => System.Enum.IsDefined(raw) ? raw : Error.New(ErrorCodes.ValidationFailed, $"{raw} is no defined {typeof(TEnum).Name}"), identity, StoredText.Member<TEnum>);
+
+    public static ValueKey<Option<TValue>, string> Optional<TValue>(string name, string caption, string help)
+        where TValue : IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
+        fun(static (string text) => Conversions.Present(text).Traverse(Admission.Validated<TValue, string>).As()) switch {
+            var recall => new(name, caption, help, Option<TValue>.None, new StateParameter<Option<TValue>>.OptionalKeyed<TValue, string>(Lens.identity<Option<TValue>>()),
                 recall, static value => Conversions.Unset(value.Map(static held => held.ToValue())), recall),
         };
+
+    public static ValueKey<Option<TValue>, string> OptionalChoice<TValue>(string name, string caption, string help, string absent)
+        where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+        Optional<TValue>(name, caption, help) with { Kind = new StateParameter<Option<TValue>>.OptionalChoice<TValue>(Lens.identity<Option<TValue>>(), absent) };
 }
 
 public static class StoredText {
@@ -65,33 +68,34 @@ public static class StoredText {
             using StringReader input = new(text);
             using XmlReader reader = XmlReader.Create(input);
             return (TValue)new DataContractSerializer(typeof(TValue)).ReadObject(reader)!;
-        }).Run().MapFail(error => new UnreadText(text, typeof(TValue), Some(error)));
+        }).Run().MapFail(error => Error.New(ErrorCodes.ParseError, $"{text} reads as no {typeof(TValue).Name}", error));
 
     public static string Capture<TValue, TKey>(TValue value, Func<TValue, TKey> key) where TKey : notnull =>
         typeof(IQuantity).IsAssignableFrom(typeof(TValue)) ? Serialize(value) : Format(key(value));
 
-    public static Fin<TValue> Recall<TValue, TKey>(string text, Func<TKey, Fin<TValue>> create, Option<Func<TValue, Fin<TValue>>> admitted = default) where TKey : ISpanParsable<TKey> =>
+    public static Fin<TValue> Recall<TValue, TKey>(string text, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key) where TKey : ISpanParsable<TKey> =>
         typeof(IQuantity).IsAssignableFrom(typeof(TValue))
-            ? Deserialize<TValue>(text).Bind(value => admitted.Map(admit => admit(value)).IfNone(Fin.Succ(value)))
+            ? from value in Deserialize<TValue>(text)
+              from _ in create(key(value))
+              select value
             : Parse<TKey>(text).Bind(create);
 
     public static string Format<TRaw>(TRaw raw) where TRaw : notnull =>
         Convert.ToString(raw, CultureInfo.InvariantCulture)!;
 
     public static Fin<TRaw> Parse<TRaw>(string text) where TRaw : ISpanParsable<TRaw> =>
-        TRaw.TryParse(text, CultureInfo.InvariantCulture, out TRaw? raw) ? raw : new UnreadText(text, typeof(TRaw));
+        TRaw.TryParse(text, CultureInfo.InvariantCulture, out TRaw? raw) ? raw : Errors.ParseError($"{text} reads as no {typeof(TRaw).Name}");
 
     public static Fin<TEnum> Member<TEnum>(string text) where TEnum : struct, Enum =>
-        Enum.GetNames<TEnum>().Contains(text, StringComparer.Ordinal) ? Enum.Parse<TEnum>(text) : new UnreadText(text, typeof(TEnum));
+        Enum.GetNames<TEnum>().Contains(text, StringComparer.Ordinal) ? Enum.Parse<TEnum>(text) : Errors.ParseError($"{text} reads as no {typeof(TEnum).Name}");
 
     public static string Capture<TValue, TRaw>(TValue value)
         where TValue : IConvertible<TRaw>
         where TRaw : notnull, ISpanParsable<TRaw> =>
         Format(value.ToValue());
 
-    public static Fin<TValue> Recall<TValue, TRaw, TError>(string text)
-        where TValue : IObjectFactory<TValue, TRaw, TError>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        Parse<TRaw>(text).Bind(Conversions.Validated<TValue, TRaw, TError>);
+    public static Fin<TValue> Recall<TValue, TRaw>(string text)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>
+        where TRaw : notnull, ISpanParsable<TRaw> =>
+        Parse<TRaw>(text).Bind(Admission.Validated<TValue, TRaw>);
 }

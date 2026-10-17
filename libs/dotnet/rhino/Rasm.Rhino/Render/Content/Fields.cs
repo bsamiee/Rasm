@@ -18,10 +18,10 @@ public static class ContentFields {
 
     public static IO<Unit> CreateDynamicField<T>(
         RenderContent content, string internalName, string localName, string englishName, T value, Option<(T Min, T Max)> bounds, int sectionId) =>
-        IO.lift(() => Callbacks.Thrown<InvalidOperationException, bool>(() => bounds.Match(
+        IO.lift(() => Refused.Unless(bounds.Match(
                 Some: range => content.CreateDynamicField(internalName, localName, englishName, value, range.Min, range.Max, sectionId),
                 None: () => content.CreateDynamicField(internalName, localName, englishName, value, minValue: null, maxValue: null, sectionId)),
-            nameof(RenderContent.CreateDynamicField)).Bind(static accepted => Refused.Unless(accepted, nameof(RenderContent.CreateDynamicField))));
+            nameof(RenderContent.CreateDynamicField)));
 
     // --- [PARAMETERS]
     public static IO<Option<T>> GetParameter<T>(RenderContent content, string parameter, Func<object, Fin<T>> read, Option<string> requirement = default) =>
@@ -29,9 +29,7 @@ public static class ContentFields {
                 Some: extra => content.GetExtraRequirementParameter(parameter, extra),
                 None: () => content.GetParameter(parameter))),
             answer => IO.lift(() => answer.Match(
-                Some: held => Callbacks.Thrown<InvalidOperationException, Option<object>>(
-                        () => Optional(VariantType.IsInstanceOfType(held) ? AsObject(held) : held), nameof(AsObject))
-                    .Bind(value => value.Traverse(read).As()),
+                Some: held => Optional(VariantType.IsInstanceOfType(held) ? AsObject(held) : held).Traverse(read).As(),
                 None: static () => Fin.Succ(Option<T>.None))),
             static answer => IO.lift(() => answer.Bind(static held => Optional(held as IDisposable)).Iter(static held => held.Dispose())));
 
@@ -40,14 +38,10 @@ public static class ContentFields {
         RenderContent.ExtraRequirementsSetContexts context = RenderContent.ExtraRequirementsSetContexts.Program) =>
         requirement.Match(
             Some: extra => DisposalOps.Within(
-                () => Callbacks.Thrown<InvalidOperationException, object>(() => NewVariant(value), nameof(NewVariant)).ThrowIfFail(),
-                variant => IO.lift(() => Callbacks.Thrown<InvalidOperationException, bool>(
-                        () => content.SetExtraRequirementParameter(parameter, extra, variant, context), nameof(RenderContent.SetExtraRequirementParameter))
-                        .Bind(static accepted => Refused.Unless(accepted, nameof(RenderContent.SetExtraRequirementParameter)))),
+                () => NewVariant(value),
+                variant => IO.lift(() => Refused.Unless(content.SetExtraRequirementParameter(parameter, extra, variant, context), nameof(RenderContent.SetExtraRequirementParameter))),
                 static variant => IO.lift(((IDisposable)variant).Dispose)),
-            None: () => IO.lift(() => Callbacks.Thrown<InvalidOperationException, bool>(
-                    () => content.SetParameter(parameter, value), nameof(RenderContent.SetParameter))
-                .Bind(static accepted => Refused.Unless(accepted, nameof(RenderContent.SetParameter)))));
+            None: () => IO.lift(() => Refused.Unless(content.SetParameter(parameter, value), nameof(RenderContent.SetParameter))));
 
     // --- [NATIVE_VARIANT]
     private const string VariantTypeName = "Rhino.Render.Variant, RhinoCommon";

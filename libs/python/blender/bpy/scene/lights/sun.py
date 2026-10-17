@@ -3,7 +3,6 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import math
-import sys
 from typing import Annotated, ClassVar
 import zoneinfo
 
@@ -14,15 +13,15 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.operators import Done, Empty, InvokePopup, Operator, Outcome, Unchanged
-from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.animation import Animation, Keys
-from blender.bpy.data.rna.descriptors import Descriptor, Native, root_in, written
+from blender.bpy.data.rna.descriptors import Descriptor, Native, root_in, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band, entered
-from blender.bpy.faults import BlenderChoiceFault, BlenderEditFault, BlenderRenderingFault, BlenderResult, BlenderZoneFault
+from blender.bpy.faults import BlenderEditFault, BlenderRenderingFault, BlenderResult, BlenderZoneFault
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned
 from blender.bpy.scene.worlds import EnvironmentNode, Follower, followers, WorldEnvironment
 from blender.bpy.settings.attachments import Attached, Attachment, reconciling
@@ -30,7 +29,7 @@ from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import Line, Member, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Gated, Presentation, Quantity
+from blender.imaging.parameters import Case, Gated, NonNegative, Presentation, Quantity
 from blender.rendering.history import Retention
 from blender.rendering.lighting.solar import Daylight, DayStudy, LocalTime, moments, Polar, SeasonStudy, Site, SolarDay, SunPaths, SunPosition
 
@@ -50,32 +49,25 @@ zones = Choices(lambda _identity, _owner, _context: ((zone, zone, "") for zone i
 class Moment(Case, frozen=True, kw_only=True, tag=3):
     """One moment the sun stands at."""
 
-    title = "Moment"
     start: Annotated[LocalTime, msgspec.Meta(title="Moment", description="Date and clock time the sun stands at")] = LocalTime()
 
 
 class Paths(msgspec.Struct, frozen=True, kw_only=True):
     """Sun path objects and the radius of the analemma tubes."""
 
-    surface: Annotated[bool, msgspec.Meta(title="Surface", description="Sky band the sun crosses over the year")] = True
-    analemmas: Annotated[bool, msgspec.Meta(title="Analemmas", description="Sun position at each hour over the year")] = True
-    bevel: Annotated[
-        float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Bevel", description="Radius of the analemma tubes"), Presentation(soft=Some((0.00635, 0.3048)), quantity=Some(Quantity.LENGTH))
-    ] = 0.0254
+    surface: Annotated[bool, msgspec.Meta(description="Sky band the sun crosses over the year")] = True
+    analemmas: Annotated[bool, msgspec.Meta(description="Sun position at each hour over the year")] = True
+    bevel: Annotated[NonNegative, msgspec.Meta(description="Radius of the analemma tubes"), Presentation(soft=Some((0.00635, 0.3048)), quantity=Some(Quantity.LENGTH))] = 0.0254
 
 
 class SunSetup(msgspec.Struct, frozen=True, kw_only=True):
     """Site, timing, refraction, distance, and paths of a scene's sun."""
 
-    site: Annotated[Site, msgspec.Meta(title="Site", description="Place on Earth the sun is seen from")] = Site()
-    timing: Annotated[Timing, msgspec.Meta(title="Timing", description="One moment, or a study keyed one moment per frame")] = Moment()
-    refraction: Annotated[bool, msgspec.Meta(title="Refraction", description="Apparent elevation through the atmosphere")] = True
-    distance: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Distance", description="Lamp and path distance from the world origin"),
-        Presentation(soft=Some((0.0, 304.8)), quantity=Some(Quantity.LENGTH)),
-    ] = 15.24
-    paths: Annotated[Gated[Paths], msgspec.Meta(title="Paths", description="Sun paths as objects the camera sees")] = Gated(enabled=False, value=Paths())
+    site: Annotated[Site, msgspec.Meta(description="Place on Earth the sun is seen from")] = Site()
+    timing: Annotated[Timing, msgspec.Meta(description="One moment, or a study keyed one moment per frame")] = Moment()
+    refraction: Annotated[bool, msgspec.Meta(description="Apparent elevation through the atmosphere")] = True
+    distance: Annotated[NonNegative, msgspec.Meta(description="Lamp and path distance from the world origin"), Presentation(soft=Some((0.0, 304.8)), quantity=Some(Quantity.LENGTH))] = 15.24
+    paths: Annotated[Gated[Paths], msgspec.Meta(description="Sun paths as objects the camera sees")] = Gated(enabled=False, value=Paths())
 
 
 class Zoned(msgspec.Struct, frozen=True, kw_only=True):
@@ -277,22 +269,14 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
     Returns:
         `Ok` of the lamp; native zone or calendar failures before host mutation, and faults of the setup, cleanup, build, channels, frame range, and paths.
     """
-    mark = Mark(key=SunLamp.lamp.key, of=Some(scene))
-
-    def retained(item: bpy.types.Object) -> bpy.types.Object:
-        rollback.callback(bpy.data.batch_remove, ids=(item,))
-        return item
-
-    def lit(light: bpy.types.Light) -> BlenderResult[bpy.types.Object]:
-        rollback.callback(bpy.data.batch_remove, ids=(light,))
-        return written(light, "energy", 139.3).bind(lambda _: spawned("Sun", Some(light), scene.collection)).bind(lambda item: SunLamp.lamp.owned(identity, item, mark)).map(retained)
 
     def built() -> BlenderResult[bpy.types.Object]:
-        try:
-            light = bpy.data.lights.new("Sun", "SUN")
-        except (RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request="Sun", error=error),))
-        return SunLamp.light.owned(identity, light, Mark(key=SunLamp.light.key, of=Some(scene))).bind(lit)
+        return (
+            BlenderEditFault
+            .attempted("Sun", lambda: bpy.data.lights.new("Sun", "SUN"))
+            .bind(lambda light: SunLamp.light.owned(identity, light, of=Some(scene), filled=lambda light: written(light, "energy", 139.3).map(lambda _: light), scope=Some(rollback)))
+            .bind(lambda light: spawned("Sun", Some(light), scene.collection))
+        )
 
     def ranged(timing: Timing, count: int) -> BlenderResult[None]:
         match timing:
@@ -327,7 +311,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
                 dropped(scene, identity)
                 .bind(
                     lambda _: paired(
-                        Option.of_optional(earliest(SunLamp.lamp.held(identity)).get(mark)).map(Ok).default_with(built),
+                        SunLamp.lamp.made(identity, built, of=Some(scene), scope=Some(rollback)),
                         Option.of_optional(scene.world).bind(lambda world: Option.of_optional(world.node_tree)).map(followed).default_value(Ok(())),
                     )
                 )
@@ -335,12 +319,8 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
             )
         )
 
-    def published(item: bpy.types.Object) -> bpy.types.Object:
-        rollback.pop_all()
-        return item
-
     with ExitStack() as rollback:
-        return SunLamp.attachment.bound(identity).bind(lambda attached: attached.read(scene)).bind(placed).map(published)
+        return committed(SunLamp.attachment.bound(identity).bind(lambda attached: attached.read(scene)).bind(placed), rollback)
 
 
 def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> BlenderResult[tuple[bpy.types.Object, ...]]:
@@ -385,7 +365,7 @@ def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> Blende
             spline.points.foreach_get("co", live)
             return spline.type == "POLY" and spline.use_cyclic_u == cyclic and np.array_equal(live.view(np.uint32), points.ravel().view(np.uint32))
 
-        try:
+        def rebuilt() -> None:
             if len(curve.splines) != len(loops) or not all(current(spline, *loop) for spline, loop in zip(curve.splines, loops)):
                 curve.splines.clear()
                 for points, cyclic in loops:
@@ -393,56 +373,33 @@ def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> Blende
                     spline.points.add(len(points) - 1)
                     spline.points.foreach_set("co", points.ravel())
                     spline.use_cyclic_u = cyclic
-        except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=repr(curve), error=error),))
-        return bevel.apply(curve).outcome
 
-    def retained[D: bpy.types.ID](block: D) -> D:
-        rollback.callback(bpy.data.batch_remove, ids=(block,))
-        return block
+        return BlenderEditFault.attempted(repr(curve), rebuilt).bind(lambda _: bevel.apply(curve).outcome)
 
     def held[D: bpy.types.ID](row: Ownership[bpy.types.Object], owner: Ownership[D], name: str, data: Callable[[], D], filled: Callable[[D], BlenderResult[None]]) -> BlenderResult[bpy.types.Object]:
-        mark = Mark(key=row.key, of=Some(scene))
-
-        def reused(item: bpy.types.Object) -> BlenderResult[tuple[bpy.types.Object, D]]:
-            block = item.data
-            return Ok((item, block)) if isinstance(block, owner.kind) else Error((BlenderChoiceFault(path=f"{item!r}.data", identifier=type(block).__name__, accepted=(owner.kind.__name__,)),))
-
-        def built() -> BlenderResult[tuple[bpy.types.Object, D]]:
-            try:
-                block = data()
-            except (RuntimeError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request=name, error=error),))
+        def built() -> BlenderResult[bpy.types.Object]:
             return (
-                owner
-                .owned(identity, block, Mark(key=owner.key, of=Some(scene)))
-                .map(retained)
-                .bind(lambda block: spawned(name, Some(block), scene.collection).bind(lambda item: row.owned(identity, item, mark)).map(retained).map(lambda item: (item, block)))
+                BlenderEditFault
+                .attempted(name, data)
+                .bind(lambda block: owner.owned(identity, block, of=Some(scene), scope=Some(rollback)))
+                .bind(lambda block: spawned(name, Some(block), scene.collection))
             )
 
-        return (
-            Option
-            .of_optional(earliest(row.held(identity)).get(mark))
-            .map(reused)
-            .default_with(built)
-            .bind(lambda pair: filled(pair[1]).bind(lambda _: reconciled(ObjectState(values=Some(camera)), pair[0], ())).map(lambda _: pair[0]))
+        return row.made(identity, built, of=Some(scene), scope=Some(rollback)).bind(
+            lambda item: typed(item.data, owner.kind, f"{item!r}.data").bind(filled).bind(lambda _: reconciled(ObjectState(values=Some(camera)), item, ())).map(lambda _: item)
         )
 
     def placed(prepared: tuple[Option[npt.NDArray[np.float32]], Option[tuple[tuple[npt.NDArray[np.float32], bool], ...]]]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
         vertices, loops = prepared
-        return _gone(_marked(tuple(row for row, value in ((SunLamp.surface, vertices), (SunLamp.analemmas, loops)) if value.is_none()), scene, identity), scene, identity).bind(
+        return _gone(tuple(item for row, value in ((SunLamp.surface, vertices), (SunLamp.analemmas, loops)) if value.is_none() for item in row.serving(identity, scene)), identity).bind(
             lambda _: accumulated((
                 *(held(SunLamp.surface, SunLamp.mesh, "Sun Surface", lambda: bpy.data.meshes.new("Sun Surface"), lambda mesh: shaped(mesh, points, paths.faces)) for points in vertices.to_list()),
                 *(held(SunLamp.analemmas, SunLamp.curve, "Sun Analemmas", lambda: bpy.data.curves.new("Sun Analemmas", "CURVE"), lambda curve: curved(curve, points)) for points in loops.to_list()),
             ))
         )
 
-    def published(items: tuple[bpy.types.Object, ...]) -> tuple[bpy.types.Object, ...]:
-        rollback.pop_all()
-        return items
-
     with ExitStack() as rollback:
-        return geometry.bind(placed).map(published)
+        return committed(geometry.bind(placed), rollback)
 
 
 def dropped(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
@@ -483,7 +440,7 @@ def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[Out
     Returns:
         `Ok` of `Done` noting the objects removed, `Unchanged` where the scene holds no sun object; the faults of `followers` and each clear.
     """
-    if not (blocks := _marked((SunLamp.lamp, SunLamp.surface, SunLamp.analemmas), scene, identity)):
+    if not (blocks := tuple(item for row in (SunLamp.lamp, SunLamp.surface, SunLamp.analemmas) for item in row.serving(identity, scene))):
         return Ok(Unchanged(reason=f"{scene.name} holds no sun"))
 
     def cleared(tree: bpy.types.NodeTree) -> BlenderResult[tuple[None, ...]]:
@@ -499,7 +456,7 @@ def sun_removed(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[Out
         .bind(lambda world: Option.of_optional(world.node_tree))
         .map(cleared)
         .default_value(Ok(()))
-        .bind(lambda _: _gone(blocks, scene, identity))
+        .bind(lambda _: _gone(blocks, identity))
         .map(lambda count: Done(notes=(("INFO", f"Removed {count} sun objects"),)))
     )
 
@@ -521,19 +478,9 @@ def _channels(owner: bpy.types.NodeTree, follower: bpy.types.Node | EnvironmentN
             return ()
 
 
-def _marked(rows: tuple[Ownership[bpy.types.Object], ...], scene: bpy.types.Scene, identity: Identity) -> tuple[bpy.types.Object, ...]:
-    """Answers the scene's holders of the rows."""
-    return tuple(block for row in rows for block, mark in row.held(identity) if mark.of == Some(scene))
-
-
-def _gone(blocks: tuple[bpy.types.Object, ...], scene: bpy.types.Scene, identity: Identity) -> BlenderResult[int]:
-    """Removes a scene's sun objects in one `batch_remove` with the unused sun data, answering their count."""
-    try:
-        if blocks:
-            bpy.data.batch_remove(ids=blocks)
-        return Ok(len(blocks) + sum(row.removed(identity) for row in (SunLamp.light, SunLamp.mesh, SunLamp.curve)))
-    except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-        return Error((BlenderEditFault(request=repr(scene), error=error),))
+def _gone(blocks: tuple[bpy.types.Object, ...], identity: Identity) -> BlenderResult[int]:
+    """Removes the sun objects of a scene with the unused sun data, answering their count."""
+    return released(blocks).bind(lambda count: accumulated(row.removed(identity) for row in (SunLamp.light, SunLamp.mesh, SunLamp.curve)).map(lambda counts: count + sum(counts)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

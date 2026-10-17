@@ -133,7 +133,7 @@ public static class ContentKinds {
                 texture.GetPreviewLocalMapping(),
                 texture.GetDisplayInViewport(),
                 (info.AmountU(), info.AmountV(), info.AmountW(), info.ActiveAxis(), info.ActiveChannel()));
-        }), static info => IO.lift(info.Dispose));
+        }));
 
     public static IO<TextureTraits> ReadTraits(RenderTexture texture) =>
         IO.lift(() => new TextureTraits(
@@ -150,14 +150,10 @@ public static class ContentKinds {
         RenderTexture texture, RenderTexture.TextureGeneration generation, Option<int> size, Option<RhinoObject> obj, Func<SimulatedTexture, IO<T>> body) =>
         DisposalOps.Within(() => size.Match(
                 Some: pixels => texture.SimulatedTexture(generation, pixels, obj.ValueUnsafe()),
-                None: () => texture.SimulatedTexture(generation, obj: obj.ValueUnsafe())),
-            body,
-            static simulation => IO.lift(simulation.Dispose));
+                None: () => texture.SimulatedTexture(generation, obj: obj.ValueUnsafe())), body);
 
     public static IO<T> ReadEnvironment<T>(RenderEnvironment environment, bool isForDataOnly, Func<SimulatedEnvironment, Texture, IO<T>> body) =>
-        DisposalOps.Within(() => environment.SimulateEnvironment(isForDataOnly),
-            simulation => DisposalOps.Within(() => simulation.BackgroundImage.Texture(), texture => body(simulation, texture), static texture => IO.lift(texture.Dispose)),
-            static simulation => IO.lift(simulation.Dispose));
+        DisposalOps.Within(() => environment.SimulateEnvironment(isForDataOnly), simulation => DisposalOps.Within(() => simulation.BackgroundImage.Texture(), texture => body(simulation, texture)));
 
     // --- [WRITES]
     public static IO<Unit> WriteTexture(RenderTexture texture, TextureState state, RenderContent.ChangeContexts cc) =>
@@ -180,11 +176,9 @@ public static class ContentKinds {
             info.SetActiveAxis(state.GraphInfo.ActiveAxis);
             info.SetActiveChannel(state.GraphInfo.ActiveChannel);
             texture.SetGraphInfo(info);
-        }), static info => IO.lift(info.Dispose)));
+        })));
 
     // --- [SAMPLING]
     public static IO<T> WithEvaluator<T>(RenderTexture texture, RenderTexture.TextureEvaluatorFlags flags, Func<TextureEvaluator, IO<T>> body) =>
-        DisposalOps.Within(() => Missing.Unless(texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator)).ThrowIfFail(),
-            evaluator => IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize))).Bind(_ => body(evaluator)),
-            static evaluator => IO.lift(evaluator.Dispose));
+        DisposalOps.Found(() => texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator), evaluator => IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize))).Bind(_ => body(evaluator)));
 }

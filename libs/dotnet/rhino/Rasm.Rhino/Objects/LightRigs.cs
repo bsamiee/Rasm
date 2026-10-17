@@ -1,6 +1,7 @@
 using System.Globalization;
 using LanguageExt.ClassInstances;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
@@ -18,88 +19,71 @@ namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Front", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct Azimuth : System.Numerics.IMinMaxValue<Azimuth> {
     public static Azimuth MinValue { get; } = new(-Math.PI);
     public static Azimuth MaxValue { get; } = new(Math.PI);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Horizon", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct Elevation : System.Numerics.IMinMaxValue<Elevation> {
     public static Elevation MinValue { get; } = new(-Math.PI / 2d);
     public static Elevation MaxValue { get; } = new(Math.PI / 2d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct RadiusMultiple : System.Numerics.IMinMaxValue<RadiusMultiple> {
     public static RadiusMultiple MinValue { get; } = new(double.BitIncrement(0d));
     public static RadiusMultiple MaxValue { get; } = new(double.MaxValue);
     public static RadiusMultiple Default { get; } = new(2.5);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct AngularDiameter : System.Numerics.IMinMaxValue<AngularDiameter> {
     public static AngularDiameter MinValue { get; } = new(0d);
     public static AngularDiameter MaxValue { get; } = new(Math.PI / 2d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "AtKey", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct LightStops : System.Numerics.IMinMaxValue<LightStops> {
     public static LightStops MinValue { get; } = new(-double.MaxValue);
     public static LightStops MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TargetRadius : System.Numerics.IMinMaxValue<TargetRadius> {
     public static TargetRadius MinValue { get; } = new(double.BitIncrement(0d));
     public static TargetRadius MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct KeySoftness : System.Numerics.IMinMaxValue<KeySoftness> {
     public static KeySoftness MinValue { get; } = new(0d);
     public static KeySoftness MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ColorSaturation : System.Numerics.IMinMaxValue<ColorSaturation> {
     public static ColorSaturation MinValue { get; } = new(0d);
     public static ColorSaturation MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>(KeyMemberName = "Name", SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightRole {
@@ -142,9 +126,7 @@ public sealed record RigLight(
             Unicolour color = Color.Switch(
             blackbody: static blackbody => Adaptation.Blackbody(Gamut.StandardRgb, blackbody.Kelvin),
             linear: static linear => linear.Filter.Unicolour);
-            (double r, double g, double b) = color.RgbLinear;
-            double peak = Math.Max(Math.Abs(r), Math.Max(Math.Abs(g), Math.Abs(b)));
-            Unicolour normalized = new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, r / peak, g / peak, b / peak).MapToRgbGamut();
+            Unicolour normalized = Adaptation.Peaked(color).MapToRgbGamut();
             (double red, double green, double blue) = normalized.RgbLinear;
             double luminance = normalized.Xyz.Y;
             return new DistantLight(
@@ -160,18 +142,14 @@ public sealed record MatchedLook(
     public Fin<Seq<RigLight>> Derived(LightingReading reading) {
         RgbLinear Color(System.Numerics.Vector3 color) =>
             new Unicolour(reading.Gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z)
-                .ConvertToConfiguration(Gamut.StandardRgb.Configuration).RgbLinear switch {
-                    var rgb when rgb.R is 0d && rgb.G is 0d && rgb.B is 0d => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, 1d, 1d, 1d).RgbLinear,
-                    var rgb => Math.Max(Math.Abs(rgb.R), Math.Max(Math.Abs(rgb.G), Math.Abs(rgb.B))) switch {
-                        var peak => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear,
-                            rgb.R / peak, rgb.G / peak, rgb.B / peak).MapToRgbGamut().RgbLinear,
-                    },
+                .ConvertToConfiguration(Gamut.StandardRgb.Configuration) switch {
+                    { RgbLinear: { R: 0d, G: 0d, B: 0d } } => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, 1d, 1d, 1d).RgbLinear,
+                    var converted => Adaptation.Peaked(converted).MapToRgbGamut().RgbLinear,
                 };
-        double Luminance(System.Numerics.Vector3 color) => reading.Gamut.Luminance switch {
-            var weights => Math.Max((weights.X * color.X) + (weights.Y * color.Y) + (weights.Z * color.Z), LuminanceSamples.Floor),
-        };
+        double Luminance(System.Numerics.Vector3 color) =>
+            Math.Max(LuminanceSamples.Luminance(color.X, color.Y, color.Z, reading.Gamut.Luminance), LuminanceSamples.Floor);
         return
-        from azimuth in Count > 0 ? Fin.Succ(reading.Direction.X * Math.PI / 2d) : Fin.Fail<double>(new InvalidRhinoValue())
+        from azimuth in Count > 0 ? Fin.Succ(reading.Direction.X * Math.PI / 2d) : Error.New(ErrorCodes.ValidationFailed, "matched look derives no light from a count of zero")
         let elevation = reading.Direction.Y * Math.PI / 2d
         let size = reading.Hardness > 0f ? Math.Atan2(Softness * reading.Ratio, reading.Hardness) : (double)AngularDiameter.MaxValue
         let behind = reading.Backlit ? Math.PI : Math.IEEERemainder(azimuth + Math.PI, Math.Tau)
@@ -189,20 +167,18 @@ public sealed record MatchedLook(
             .Take(Count)
             .Traverse(static light => light)
             .As()
-            .ToFin()
         select lights;
     }
 
-    private Validation<Error, RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, RgbLinear color) =>
-        (Conversions.Validated<Azimuth, double, InvalidRhinoValue>(azimuth).ToValidation(),
-         Conversions.Validated<Elevation, double, InvalidRhinoValue>(elevation).ToValidation(),
-         Conversions.Validated<AngularDiameter, double, InvalidRhinoValue>(size).ToValidation(),
-         Conversions.Validated<LightStops, double, InvalidRhinoValue>(stops).ToValidation(),
-         ColorFilter.Validate(
+    private Fin<RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, RgbLinear color) =>
+        (Azimuth.Validated(azimuth),
+         Elevation.Validated(elevation),
+         AngularDiameter.Validated(size),
+         LightStops.Validated(stops),
+         Admission.Admitted(ColorFilter.Validate(
              Tint.Red * (1d + (Saturation * (color.R - 1d))),
              Tint.Green * (1d + (Saturation * (color.G - 1d))),
-             Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter) is { } error
-                 ? Validation.Fail<Error, ColorFilter>(error) : Validation.Success<Error, ColorFilter>(filter!))
+             Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter), filter))
             .Apply((a, e, s, st, filter) => new RigLight(role, emitter, a, e, Distance, s, st, filter, Light.Attenuation.InverseSquared))
             .As();
 }
@@ -217,7 +193,7 @@ public abstract partial record RigLayout {
         Switch(
             reading,
             arranged: static (_, arranged) => Fin.Succ(arranged.Rows),
-            matched: static (held, matched) => held.ToFin(new Missing(nameof(LightingReading))).Bind(matched.Look.Derived));
+            matched: static (held, matched) => held.ToFin(new Refused(nameof(LightingReading), Refused.Absent)).Bind(matched.Look.Derived));
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -257,7 +233,7 @@ public sealed record RigLabel(Guid Rig, int Slot, LightRole Role, Option<string>
 
 public sealed record HeldLight(Guid Id, uint Serial, HashMap<EqStringOrdinalIgnoreCase, string, string> Strings) {
     public Option<int> Slot =>
-        Strings.Find(LightKey.Slot.Key).Bind(static text => Callbacks.Found(int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int slot), slot));
+        Strings.Find(LightKey.Slot.Key).Bind(static text => Invariant.Number<int>(text, NumberStyles.None));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -279,8 +255,8 @@ public static class LightRigs {
             doc,
             subjects: static (document, subjects) => from found in new ObjectTarget.Ids(subjects.Ids.AsIterable().ToSeq()).Objects(document)
                                                      let bounds = Measurements.Bounds(found.Map(static held => held.Geometry.GetBoundingBox(accurate: true)))
-                                                     from box in IO.lift(bounds.ToFin(new Missing(nameof(GeometryBase.GetBoundingBox))))
-                                                     from radius in IO.lift(Conversions.Validated<TargetRadius, double, InvalidRhinoValue>(box.Diagonal.Length / 2d))
+                                                     from box in IO.lift(bounds.ToFin(new Refused(nameof(GeometryBase.GetBoundingBox), Refused.Absent)))
+                                                     from radius in IO.lift(TargetRadius.Validated(box.Diagonal.Length / 2d))
                                                      select new RigTarget.Fixed(box.Center, radius),
             @fixed: static (_, held) => IO.pure(held));
 
@@ -293,8 +269,8 @@ public static class LightRigs {
                     (Action<IDisposable> held) => Viewports.ResolveViewport(state.Document, view.Target, held).Bind(static row => Cameras.ReadPose(row.Viewport)),
                     DisposalOps.Release)
                     .Map(pose => new Plane(state.Focus, pose.Frame.XAxis, pose.Frame.YAxis)),
-            frame: static (state, frame) => IO.lift(() => Missing.Unless(state.Document.Objects.FindId(frame.Object), nameof(ObjectTable.FindId)))
-                .Bind(static found => IO.lift(() => Conversions.Present(found.ObjectFrame()).ToFin(new InvalidAnswer(nameof(RhinoObject.ObjectFrame)))))
+            frame: static (state, frame) => IO.lift(() => Refused.UnlessFound(state.Document.Objects.FindId(frame.Object), nameof(ObjectTable.FindId)))
+                .Bind(static found => IO.lift(() => Conversions.Present(found.ObjectFrame()).ToFin(new Refused(nameof(RhinoObject.ObjectFrame), Refused.Invalid))))
                 .Map(axes => new Plane(state.Focus, axes.XAxis, axes.ZAxis)));
 
     // --- [PLACEMENT]
@@ -306,7 +282,7 @@ public static class LightRigs {
         select placed;
 
     private static Validation<Error, PlacedLight> Positioned(LightRig rig, RigLight light, RigTarget.Fixed target, Transform placing, LengthUnit modelUnit) =>
-        from reach in Conversions.Validated<TargetRadius, double, InvalidRhinoValue>(light.Distance * target.Radius).ToValidation()
+        from reach in TargetRadius.Validated(light.Distance * target.Radius).ToValidation()
         let axes = light.Axes
         let radius = reach * Math.Tan(light.Size / 2d)
         let side = 2d * radius
@@ -320,39 +296,39 @@ public static class LightRigs {
         let shaped = light.Emitter.Switch(
             (At: at, Aim: target.Focus - at, Radius: radius, Side: side, Size: (double)light.Size, falloff.Gain, Across: side * (placing * axes.Across), Rise: side * (placing * axes.Rise)),
             pointLight: static (state, _) => (
-                Shape: Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(state.Radius).ToValidation()
+                Shape: EmitterRadius.Validated(state.Radius).ToValidation()
                     .Map(emitter => (LightShape)new LightShape.PointLight(state.At, emitter, CameraRelative: false)),
                  state.Gain),
             spotLight: static (state, spot) => (
-                Shape: Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(state.Radius).ToValidation()
+                Shape: EmitterRadius.Validated(state.Radius).ToValidation()
                     .Map(emitter => (LightShape)new LightShape.SpotLight(state.At, state.Aim, spot.Angle, spot.HotSpot, emitter, CameraRelative: false)),
                  state.Gain),
             directionalLight: static (state, _) => (
-                Shape: Conversions.Validated<SunAngle, double, InvalidRhinoValue>(state.Size).ToValidation()
+                Shape: SunAngle.Validated(state.Size).ToValidation()
                     .Map(angle => (LightShape)new LightShape.DirectionalLight(state.At, state.Aim, angle, CameraRelative: false)),
                 Gain: 1d),
             rectangularLight: static (state, _) => (
                 Shape: double.IsFinite(state.Side)
                     ? Validation.Success<Error, LightShape>(new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim))
-                    : Validation.Fail<Error, LightShape>(new InvalidRhinoValue()),
+                    : Validation.Fail<Error, LightShape>(Error.New(ErrorCodes.ValidationFailed, "rectangular light side is not finite")),
                  state.Gain))
         from result in fun((LightShape shape, LightIntensity intensity) => new PlacedLight(
                 light.Role, shape, light.Color.Switch(blackbody: static blackbody => (LightColor)blackbody.Kelvin, linear: static linear => (LightColor)linear.Filter), intensity, falloff.Vector))
             .Map(shaped.Shape)
-            .Apply(Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain).ToValidation())
+            .Apply(LightIntensity.Validated(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain).ToValidation())
             .As()
         select result;
 
     // --- [RECONCILE]
     public static IO<Committed<Seq<RigChange>>> Reconcile(RhinoDoc doc, LightRig rig, Option<LightingReading> reading, RigCommit commit, IPlugInSink sink) =>
-        Commits.Commit(doc, RowText.Localize(commit.Name, table: Some<object>(sink)), commit.Redraw,
+        Commits.Commit(doc, RowText.Localize(commit.Name, sink), commit.Redraw,
             from lights in IO.lift(rig.Layout.Lights(reading))
             from target in Target(doc, rig.Target)
             from basis in Basis(doc, rig.Basis, target.Focus)
             from placed in IO.lift(() => Placed(rig, lights, target, basis, doc.ModelUnits))
             from held in Held(doc, rig.Id)
             let changes = Plan(rig, held, placed)
-            from applied in Apply(doc, changes, role => RowText.Localize(commit.Caption(role), table: Some<object>(sink)))
+            from applied in Apply(doc, changes, role => RowText.Localize(commit.Caption(role), sink))
             select changes);
 
     public static IO<Seq<HeldLight>> Held(RhinoDoc doc, Guid rig) =>
@@ -391,7 +367,7 @@ public static class LightRigs {
         select unit;
 
     private static IO<Seq<Guid>> Created(RhinoDoc doc, RigChange.Create create, Func<LightRole, string> caption) =>
-        from source in create.Source.Traverse(member => IO.lift(() => Missing.Unless(doc.Objects.FindId(member), nameof(ObjectTable.FindId)))).As()
+        from source in create.Source.Traverse(member => IO.lift(() => Refused.UnlessFound(doc.Objects.FindId(member), nameof(ObjectTable.FindId)))).As()
         let joined = source.ToSeq().Bind(static found => Seq(
             AttributeEdits.LayerIndex(new LayerRef.Row(new ComponentRef<Layer>.ByIndex(found.Attributes.LayerIndex))),
             AttributeEdits.Groups(new RowsEdit<ComponentRef<Group>, ComponentRef<Group>>.Add(
@@ -446,6 +422,6 @@ public static class LightRigs {
             owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)
                      from watched in events.TraverseM(row => row.Inline(mailbox, state.Sink, owned)).As()
                      select unit,
-            (_, lease) => state.Retain(lease));
+            state.Retain);
     }
 }

@@ -1,7 +1,7 @@
 """Dispatch targets of a render queue as a closed union and the send over it."""
 
 import base64
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Annotated
 
 from expression import Error, Ok
@@ -34,7 +34,6 @@ class Renderon(Case, frozen=True, kw_only=True, tag=5):
 class JobFile(Case, frozen=True, kw_only=True, tag=6):
     """Queue written as a job file and passed to a submission command when one is set."""
 
-    title = "Job File"
     folder: Annotated[Gated[str], msgspec.Meta(description="Folder of the job file, the extension folder while off")] = Gated(enabled=False, value="")
     command: Annotated[Gated[str], msgspec.Meta(description="Submission program run with the job file's path as its argument, the job file written alone while off")] = Gated(enabled=False, value="")
 
@@ -63,17 +62,19 @@ class QueueItem(msgspec.Struct, frozen=True, kw_only=True):
 
 def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tuple[RenderingResult[str], ...]]:
     """Sends a queue to a target."""
+
+    def acknowledged(found: RenderingResult[Path]) -> RenderingResult[tuple[RenderingResult[str], ...]]:
+        return found.map(lambda path: (Ok(str(path)),))
+
     match target:
         case LocalMachine():
-            return (
-                store(host.path(queue, RunFile.QUEUE), msgspec.json.encode(queue, order="deterministic"))
-                .bind(
+            return acknowledged(
+                store(host.path(queue, RunFile.QUEUE), queue).bind(
                     lambda path: detached(
                         (host.binary, "--background", "--command", host.supervise_command, base64.b64encode(msgspec.json.encode(Run(queue=str(path), target=target))).decode("ascii")),
                         host.path(queue, RunFile.LOG),
                     )
                 )
-                .map(lambda log: (Ok(str(log)),))
             )
         case Flamenco(server=server):
             return opened(server, lambda client: submitted(client, target, queue, host.render_command))
@@ -86,14 +87,14 @@ def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tupl
                 for file in (PurePath(job.file),)
                 for start, end in (((job.frames.start, job.frames.end),) if job.frames.step == 1 else tuple((frame, frame) for frame in job.frames.numbers))
             )
-            return store(host.path(queue, RunFile.RENDERON), lines).bind(
-                lambda path: detached((executable.value, "-sq", str(path)), host.path(queue, RunFile.RENDERON_LOG)).map(lambda log: (Ok(str(log)),)) if executable.enabled else Ok((Ok(str(path)),))
+            return acknowledged(
+                store(host.path(queue, RunFile.RENDERON), lines).bind(
+                    lambda path: detached((executable.value, "-sq", str(path)), host.path(queue, RunFile.RENDERON_LOG)) if executable.enabled else Ok(path)
+                )
             )
         case JobFile(folder=folder, command=command):
             path = (msgspec.structs.replace(host, folder=folder.value) if folder.enabled else host).path(queue, RunFile.QUEUE)
-            return store(path, msgspec.json.encode(queue, order="deterministic")).bind(
-                lambda written: ran((command.value, str(written))).map(lambda _: (Ok(str(written)),)) if command.enabled else Ok((Ok(str(written)),))
-            )
+            return acknowledged(store(path, queue).bind(lambda written: ran((command.value, str(written))).map(lambda _: written) if command.enabled else Ok(written)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

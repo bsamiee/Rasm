@@ -7,7 +7,6 @@ namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct BarLevel : IMinMaxValue<BarLevel> {
     public static BarLevel MinValue { get; } = new(0d);
     public static BarLevel MaxValue { get; } = new(double.MaxValue);
@@ -16,12 +15,10 @@ public readonly partial struct BarLevel : IMinMaxValue<BarLevel> {
     public static BarLevel NrmseAdvisory { get; } = new(0.05d);
     public static BarLevel NrmseRefuse { get; } = new(0.10d);
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum<int>]
-[ValidationError<InvalidPixelValue>]
 public sealed partial class Verdict {
     public static readonly Verdict Pass = new(0);
     public static readonly Verdict Advisory = new(1);
@@ -46,7 +43,7 @@ public sealed class FrameComparison {
     public PixelFrame Difference { get; }
 
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
-        reference.Size == test.Size ? Measured(reference, test) : new UnequalFrames(reference.Size, test.Size);
+        reference.Size == test.Size ? Measured(reference, test) : Error.New($"reference size {reference.Size} differs from test size {test.Size}");
 
     public Verdict Graded(ComparisonBars bars) =>
         bars.Psnr.Graded(level => Psnr >= level)

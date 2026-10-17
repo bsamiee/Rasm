@@ -52,7 +52,7 @@ utils:
         kind: function_item
         all:
             - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, all: [{has: {field: pattern, kind: identifier, pattern: $PARAMETER}}, {has: {field: type, kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}}]}}, {not: {has: {nthChild: 2}}}]}
-            - has: {field: body, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: owner-parse}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+            - has: {field: body, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: owner-parse}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]}
     owner:
         matches: owner-shape
         has: {field: name, pattern: $OWNER}
@@ -110,7 +110,7 @@ rule:
                 - matches: keyed-parse
                 - inside: {kind: source_file, stopBy: end, regex: '\bfn\s+\w+\s*(<[^>]*>)?\s*\(\s*\w+\s*:\s*&\s*(''\w+\s+)?str\s*,?\s*\)', has: {stopBy: end, matches: holder}}
                 - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $HOLDER}}}
-        - not: {any: [{matches: rust-test-scope}, {matches: rust-domain-span}]}
+        - not: {any: [{matches: rust-test-scope}, {matches: rust-hex-pair-parse}, {matches: rust-utf8-int-parse}]}
 transform:
     CALL_DIRECT: {replace: {source: $DIRECT, replace: '^((?s).+)$', by: '($1)'}}
     CALL_BORROWED: {replace: {source: $BORROWED, replace: '^((?s).+)$', by: '(&$1)'}}

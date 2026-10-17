@@ -1,12 +1,12 @@
 import { none, type Option, rendered, some } from '../composition.ts';
 import { type Command, offset, parse, type Scanner, type Script, type Span } from './command.ts';
-import { declared, firstOperand, type Invocation, operands, placed, segments, within } from './invocation.ts';
+import { basename, declared, firstOperand, type Invocation, informational, operands, placed, quoted, segments, waits, within } from './invocation.ts';
 import { type Catalog, type Route, route, solutions } from './targets.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Refinement = (args: readonly string[], existing: readonly string[], reason: string) => readonly string[];
-type GitCall = { readonly kind: 'aliased' } | GitSubcommand;
+type GitCall = { readonly kind: 'aliased' } | { readonly kind: 'unplaced'; readonly key: string } | GitSubcommand;
 type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly kind: 'allow'; readonly rewrite: Option<Rewrite> };
 
 interface Host {
@@ -36,7 +36,7 @@ interface GitSubcommand {
 interface Located {
     readonly root: Option<string>;
     readonly home: Option<string>;
-    readonly commands: readonly (readonly [command: Command, cwd: string])[];
+    readonly commands: readonly (readonly [command: Command, cwd: Option<string>])[];
 }
 interface Splice extends Span {
     readonly text: string;
@@ -51,39 +51,52 @@ interface Rewrite {
 }
 interface Routed {
     readonly command: Command;
-    readonly invocation: Invocation;
-    readonly at: number;
+    readonly position: number;
     readonly routes: readonly Route[];
     readonly denials: readonly string[];
+    readonly launchers: readonly Invocation[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WORKTREE = 'creates a second checkout. Work in the main checkout';
+const _UNPLACED = 'runs after a directory change the hook cannot resolve. Run cd with a named directory first';
 const _BREAK = /\n|(?<!\\)(?:\\\\)*\\n/u;
+const _STACK = /^(?:-|[+-]\d+)$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [PLACES]
 
 const _located = (commands: readonly Command[], cwd: string, home: Option<string>): Located['commands'] =>
-    commands.reduce<{ readonly cwd: string; readonly held: Located['commands'] }>((state, command) => ({ cwd: command.words[0] === 'cd' ? `/${placed(command.words[1] ?? '~', state.cwd, home).join('/')}` : state.cwd, held: [...state.held, [command, state.cwd]] }), { cwd: `/${segments(cwd).join('/')}`, held: [] }).held;
+    commands.reduce<{ readonly cwd: Option<string>; readonly held: Located['commands'] }>(
+        (state, command) => {
+            const held: Located['commands'] = [...state.held, [command, state.cwd]];
+            const moved = command.invocations.find(([program]) => declared(program).writes?.includes('PWD') === true);
+            if (moved === undefined) {
+                return { cwd: state.cwd, held };
+            }
+            const [target = declared(moved[0]).defaultOperand] = operands(moved).inputs;
+            return { cwd: target === undefined || _STACK.test(target) ? none : placed(target, state.cwd, home), held };
+        },
+        { cwd: some(`/${segments(cwd).join('/')}`), held: [] },
+    ).held;
 
 // --- [DELETE]
 
-const _rooted = async (host: Host, { commands, home }: Located, root: readonly string[]): Promise<readonly string[]> => {
+const _rooted = async (host: Host, { commands, home }: Located, root: string): Promise<readonly string[]> => {
     const held = commands.flatMap(([{ source, words, spans }, cwd]) =>
         words.flatMap((word, at) => {
             const place = placed(word, cwd, home);
-            return place.length <= root.length && place.every((part, step) => part === root[step]) ? spans.slice(at, at + 1).map(({ start, end }) => ({ source, word, start, end })) : [];
+            return (place.kind === 'some' ? within(root, place.value) : !word.startsWith('-')) ? spans.slice(at, at + 1).map(({ start, end }) => ({ source, word, start, end, place })) : [];
         }),
     );
     const reasons = await Promise.all(
-        held.map(async ({ source, word, start, end }) => {
+        held.map(async ({ source, word, start, end, place }) => {
             const bytes = new TextEncoder().encode(source);
             const decoder = new TextDecoder();
             const rescanned = await parse(host.scan, `${decoder.decode(bytes.subarray(0, start))}*${decoder.decode(bytes.subarray(end))}`);
-            return rescanned.kind === 'fault' ? [`Command not parsed, ${rendered(rescanned.faults)}`] : rescanned.value.deletes.map(({ program }) => `${program} deletes ${word}, at or above repository root`);
+            return rescanned.kind === 'fault' ? [`Command not parsed, ${rendered(rescanned.faults)}`] : rescanned.value.deletes.map(({ program }) => (place.kind === 'some' ? `${program} deletes ${word}, at or above repository root` : `${program} ${_UNPLACED}`));
         }),
     );
     return reasons.flat();
@@ -93,7 +106,7 @@ const _delete = async (host: Host, { deletes }: Script, project: string, located
     if (deletes.length > 0) {
         return [...deletes.map(({ message }) => message), `Name each path literally, or run nx run ${project}:clean`];
     }
-    const rooted = located.root.kind === 'none' ? [] : await _rooted(host, located, segments(located.root.value));
+    const rooted = located.root.kind === 'none' ? [] : await _rooted(host, located, located.root.value);
     return rooted.length === 0 ? [] : [...rooted, `Name paths beneath repository root, or run nx run ${project}:clean`];
 };
 
@@ -152,15 +165,15 @@ const _calls = ({ commands, home, root }: Located): readonly GitCall[] =>
             .flatMap((invocation): readonly GitCall[] => {
                 const index = firstOperand(invocation, 1);
                 const [key, ...args] = invocation.slice(index);
-                const moved = operands([invocation[0], ...invocation.slice(1, index)]).values.reduce((folder, [name, value]) => (name === '-C' ? `/${placed(value, folder, home).join('/')}` : folder), cwd);
-                if (root.kind === 'none' || !within(moved, root.value)) {
+                const moved = operands([invocation[0], ...invocation.slice(1, index)]).values.reduce((folder, [name, value]) => (name === '-C' ? placed(value, folder, home) : folder), cwd);
+                if (root.kind === 'none' || (moved.kind === 'some' && !within(moved.value, root.value))) {
                     return [];
                 }
                 if (invocation.slice(1, index).some((word) => word.startsWith('alias.'))) {
                     return [{ kind: 'aliased' }];
                 }
                 const row = key === undefined ? undefined : _GIT.get(key);
-                return key === undefined || row === undefined ? [] : [{ kind: 'subcommand', key, row, args, cwd: moved }];
+                return key === undefined || row === undefined ? [] : [moved.kind === 'some' ? { kind: 'subcommand', key, row, args, cwd: moved.value } : { kind: 'unplaced', key }];
             }),
     );
 
@@ -183,8 +196,16 @@ const _git = async (host: Host, located: Located): Promise<readonly string[]> =>
                 if (call.kind === 'aliased') {
                     return ['Inline git alias can hide a refused subcommand'];
                 }
+                if (call.kind === 'unplaced') {
+                    return [`git ${call.key} ${_UNPLACED}`];
+                }
                 const named = call.row.refine === undefined ? [] : call.args.filter((word) => !word.startsWith('-'));
-                const existing = await Promise.all(named.map(async (word) => ((await host.exists(`/${placed(word, call.cwd, located.home).join('/')}`)) ? [word] : [])));
+                const existing = await Promise.all(
+                    named.map(async (word) => {
+                        const place = placed(word, some(call.cwd), located.home);
+                        return place.kind === 'some' && (await host.exists(place.value)) ? [word] : [];
+                    }),
+                );
                 return _refusals(call, existing.flat());
             }),
         )
@@ -192,34 +213,26 @@ const _git = async (host: Host, located: Located): Promise<readonly string[]> =>
 
 // --- [STDIN]
 
-const _informational = (program: string, options: readonly string[]): boolean => options.some((name) => name === '--help' || name === '--version' || declared(program).informational?.includes(name) === true);
+const _stdin = (commands: readonly Command[]): readonly string[] => commands.flatMap((command) => (!command.fed && command.invocations.some(waits) ? [`${command.words.join(' ')} waits on standard input nothing feeds. Pass a file or pipe input`] : []));
 
-const _stdin = (commands: readonly Command[]): readonly string[] =>
-    commands.flatMap((command) => {
-        const waits = command.invocations.some((invocation) => {
+// --- [INLINE]
+
+const _inline = (commands: readonly Command[]): readonly string[] =>
+    commands.flatMap((command) =>
+        command.invocations.flatMap((invocation) => {
             const [program] = invocation;
-            const { stdin, stdinless, recursive } = declared(program);
-            const { inputs, options } = operands(invocation);
-            return stdin !== undefined && !_informational(program, options) && !options.some((name) => stdinless?.includes(name) === true || recursive?.includes(name) === true) && (stdin === 'always' || inputs.length === 0 || inputs.includes('-'));
-        });
-        return !command.fed && waits ? [`${command.words.join(' ')} waits on standard input nothing feeds. Pass a file or pipe input`] : [];
-    });
-
-// --- [DOTNET]
-
-const _dotnet = ({ commands, home, root }: Located, project: string, routed: ReadonlySet<Invocation>): readonly string[] => {
-    const runs: ReadonlyMap<string, string> = new Map(Object.entries({ build: 'nx run <project>:build', publish: 'nx run <project>:pack', pack: 'nx run <project>:pack', test: 'nx run <project>:test', format: `nx run ${project}:lint:dotnet-format or nx run ${project}:format:dotnet-format` }));
-    return commands.flatMap(([command, cwd]) =>
-        command.invocations
-            .filter((invocation) => invocation[0] === 'dotnet' && !routed.has(invocation))
-            .flatMap(([program, subcommand, ...rest]) => {
-                const { inputs, options } = operands([program, ...rest]);
-                const inside = root.kind === 'some' && within(`/${placed(inputs[0] ?? '.', cwd, home).join('/')}`, root.value);
-                const run = subcommand !== undefined && inside && !_informational(program, options) ? runs.get(subcommand) : undefined;
-                return run === undefined ? [] : [`dotnet ${subcommand} runs outside Nx. Run ${run}`];
-            }),
+            const { code, shell } = declared(program);
+            return code !== undefined && shell !== true && (operands(invocation).options.some((name) => code.includes(name)) || (command.fed && waits(invocation))) ? [`${program} runs an inline program. Edit files with Edit or sd, run installed tools by name`] : [];
+        }),
     );
-};
+
+// --- [SEQUENCE]
+
+const _sequence = ({ sequences }: Script): readonly string[] =>
+    sequences.flatMap((steps) => {
+        const loose = steps.filter(({ writes }, at) => !steps.slice(at + 1).some(({ reads }) => writes.some((name) => reads.includes(name))));
+        return loose.length > 1 ? [`${loose.map(({ programs }) => programs.join(' | ')).join(', ')} pass no shell data between them. Send each as its own Bash call, batched when independent`] : [];
+    });
 
 // --- [REWRITE]
 
@@ -253,6 +266,12 @@ const _hidden = (command: Command): readonly Change[] =>
         return invocation[0] !== 'fd' || named === undefined || chosen ? [] : [{ splices: [{ start: named.end, end: named.end, text: ' --hidden' }], notice: none }];
     });
 
+const _refurb = (command: Command): readonly Change[] =>
+    command.invocations.flatMap((invocation, index) => {
+        const named = command.spans[offset(command, index)];
+        return invocation[0] !== 'refurb' || named === undefined ? [] : [{ splices: [{ start: named.start, end: named.end, text: 'python -m tools.refurb' }], notice: some('refurb ran as python -m tools.refurb over the mypy cache') }];
+    });
+
 const _across = (command: Command): readonly Change[] =>
     command.invocations.slice(-1).flatMap((invocation) => {
         const [program] = invocation;
@@ -261,22 +280,49 @@ const _across = (command: Command): readonly Change[] =>
         const find = first === '--' ? second : first;
         const named = command.spans[offset(command, command.invocations.length - 1)];
         const breaks = find !== undefined && (options.some((name) => name === '-F' || name === '--fixed-strings') ? find.includes('\n') : _BREAK.test(find));
-        return program !== 'sd' || named === undefined || !breaks || _informational(program, options) || options.some((name) => name === '-A' || name === '--across') ? [] : [{ splices: [{ start: named.end, end: named.end, text: ' -A' }], notice: none }];
+        return program !== 'sd' || named === undefined || !breaks || informational(program, options) || options.some((name) => name === '-A' || name === '--across') ? [] : [{ splices: [{ start: named.end, end: named.end, text: ' -A' }], notice: none }];
     });
+
+const _relaunched = (launcher: Invocation, invocation: Invocation): { readonly words: readonly string[]; readonly set: readonly string[] } => {
+    const groups = (words: Invocation): readonly { readonly names: readonly string[]; readonly words: readonly string[]; readonly given: string; readonly end: number }[] =>
+        operands(words).positions.map(({ at, names, taken }) => {
+            const { options, values } = operands([words[0], ...words.slice(at, at + 1 + taken)]);
+            return { names, words: words.slice(at, at + 1 + taken), given: JSON.stringify([options, values]), end: at + 1 + taken };
+        });
+    const fixed = groups(launcher);
+    const called = groups(invocation);
+    const kept = called.filter(({ names }) => !names.some((name) => fixed.some((held) => held.names.includes(name)))).flatMap(({ words }) => words);
+    const end = Math.max(1, ...fixed.map((group) => group.end));
+    return { words: [...launcher.slice(0, end), ...kept, ...launcher.slice(end)], set: fixed.filter(({ given }) => !called.some((held) => held.given === given)).flatMap(({ words }) => words) };
+};
 
 const _rewrite = (text: string, { commands }: Located, project: string, routed: readonly Routed[]): Option<Rewrite> => {
     const bytes = new TextEncoder().encode(text);
     const decoder = new TextDecoder();
-    const routes = routed.flatMap(({ command, invocation, at, routes: held }) =>
-        held.flatMap(({ form, forwarded, notice }): readonly Change[] => {
-            const first = command.spans[at];
-            const last = command.spans[at + invocation.length - 1];
-            const passed = forwarded.flatMap((index) => command.spans.slice(at + index, at + index + 1).map(({ start, end }) => decoder.decode(bytes.subarray(start, end))));
-            return first === undefined || last === undefined ? [] : [{ splices: [{ start: first.start, end: last.end, text: [form, ...(passed.length === 0 ? [] : ['--', ...passed])].join(' ') }], notice: some(notice) }];
-        }),
-    );
+    const replaced = (command: Command, from: number, to: number, inserted: string): readonly Splice[] => {
+        const first = command.spans[offset(command, from)];
+        const last = command.spans[offset(command, to) - 1];
+        return first === undefined || last === undefined ? [] : [{ start: first.start, end: last.end, text: inserted }];
+    };
+    const routes = routed.flatMap(({ command, position, routes: held, launchers }): readonly Change[] => {
+        const at = offset(command, position);
+        const wrapped = command.invocations.slice(0, position);
+        const absorbed = wrapped.findLastIndex(([program]) => !launchers.some(([owned]) => owned === program)) + 1;
+        const relaunched = wrapped.flatMap((invocation, index) =>
+            launchers.flatMap((launcher) => {
+                const { words, set } = launcher[0] === invocation[0] ? _relaunched(launcher, invocation) : { words: invocation, set: [] };
+                return set.length === 0 ? [] : [{ splices: replaced(command, index, index + 1, words.map(quoted).join(' ')), notice: some(`${invocation[0]} took ${set.join(' ')} from its Nx targets`) }];
+            }),
+        );
+        return held.length === 0
+            ? relaunched
+            : held.map(({ form, forwarded, notice }) => {
+                  const passed = forwarded.flatMap((index) => command.spans.slice(at + index, at + index + 1).map(({ start, end }) => decoder.decode(bytes.subarray(start, end))));
+                  return { splices: replaced(command, absorbed, position + 1, [form, ...(passed.length === 0 ? [] : ['--', ...passed])].join(' ')), notice: some(notice) };
+              });
+    });
     const outside = ({ splices }: Change): boolean => splices.every(({ start, end }) => !routes.some(({ splices: claimed }) => claimed.some((span) => start >= span.start && end <= span.end)));
-    const changes = [...routes, ...commands.flatMap(([command]) => (command.nested ? [] : [..._writers(command, project), ..._hidden(command), ..._across(command)])).filter(outside)];
+    const changes = [...routes, ...commands.flatMap(([command]) => (command.nested ? [] : [..._writers(command, project), ..._hidden(command), ..._refurb(command), ..._across(command)])).filter(outside)];
     const spliced = changes
         .flatMap(({ splices }) => splices)
         .toSorted((left, right) => left.start - right.start)
@@ -288,11 +334,14 @@ const _rewrite = (text: string, { commands }: Located, project: string, routed: 
 // --- [DECISION]
 
 const _routed = async (host: Host, owned: Catalog, { commands }: Located): Promise<readonly Routed[]> => {
-    const calls = commands.flatMap(([command, cwd]) => (command.nested ? [] : command.invocations.map((invocation, position) => ({ command, invocation, cwd, at: offset(command, position) }))));
-    const paths = [...new Set(calls.flatMap(({ invocation, cwd }) => solutions(invocation, cwd)))];
+    const calls = commands.flatMap(([command, cwd]) => (command.nested ? [] : command.invocations.map((invocation, position) => ({ command, invocation, cwd, position }))));
+    const paths = [...new Set(calls.flatMap(({ invocation, cwd }) => (cwd.kind === 'some' ? solutions(invocation, cwd.value) : [])))];
     const read = await Promise.all(paths.map(async (path) => [path, await host.read(path)] as const));
     const files = new Map(read.flatMap(([path, held]) => (held.kind === 'some' ? [[path, held.value] as const] : [])));
-    return calls.map(({ command, invocation, cwd, at }) => ({ command, invocation, at, ...route(owned, invocation, cwd, files) }));
+    return calls.map(({ command, invocation, cwd, position }) => {
+        const program = basename(invocation[0]);
+        return { command, position, ...(cwd.kind === 'some' ? route(owned, invocation, cwd.value, files) : { routes: [], denials: owned.tools.has(program) ? [`${program} ${_UNPLACED}`] : [], launchers: [] }) };
+    });
 };
 
 const commandDecision = async (host: Host, command: string, project: string): Promise<Decision> => {
@@ -303,9 +352,8 @@ const commandDecision = async (host: Host, command: string, project: string): Pr
     const [owned, root, cwd, home] = await Promise.all([host.catalog(), host.root(), host.cwd(), host.home()]);
     const located: Located = { root, home, commands: _located(parsed.value.commands, cwd, home) };
     const routed = owned.kind === 'some' ? await _routed(host, owned.value, located) : [];
-    const handed = new Set(routed.flatMap(({ invocation, routes }) => (routes.length === 0 ? [] : [invocation])));
-    const reasons = [await _delete(host, parsed.value, project, located), await _git(host, located), _stdin(parsed.value.commands), routed.flatMap(({ denials }) => denials), _dotnet(located, project, handed)].find((held) => held.length > 0);
-    return reasons === undefined ? { kind: 'allow', rewrite: _rewrite(command, located, project, routed) } : { kind: 'deny', reason: [...new Set(reasons)].join('. ') };
+    const reasons = [...(await _delete(host, parsed.value, project, located)), ...(await _git(host, located)), ..._stdin(parsed.value.commands), ..._inline(parsed.value.commands), ..._sequence(parsed.value), ...routed.flatMap(({ denials }) => denials)];
+    return reasons.length === 0 ? { kind: 'allow', rewrite: _rewrite(command, located, project, routed) } : { kind: 'deny', reason: [...new Set(reasons)].join('. ') };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -39,7 +39,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
                     DefinedContentSerializer serializer = new(row, sink);
                     return (Serializer: serializer, Ownership: new Disposal<DefinedContentSerializer>(serializer, static held => Destroy(held)));
                 },
-                held => IO.lift(() => Taken.Unless(held.Serializer.RegisterSerializer(sink.PlugIn.Id), nameof(RegisterSerializer), held.Serializer.FileExtension)
+                held => IO.lift(() => (held.Serializer.RegisterSerializer(sink.PlugIn.Id) ? Fin.Succ(unit) : Error.New($"{nameof(RegisterSerializer)} already holds {held.Serializer.FileExtension}"))
                     .Map(_ => { held.Ownership.Relinquish(); return unit; })).Uninterruptible(),
                 static held => IO.lift(held.Ownership.Dispose));
 
@@ -52,7 +52,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     // --- [DESCRIPTIONS]
     public override string EnglishDescription => row.EnglishDescription;
 
-    public override string LocalDescription => RowText.Localize(row.EnglishDescription, table: Some<object>(sink)).Local;
+    public override string LocalDescription => RowText.Localize(row.EnglishDescription, sink).Local;
 
     // --- [CALLBACKS]
     public override RenderContent? Read(string pathToFile) =>
@@ -61,7 +61,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
                 read(path).Bind(source => Contents.FreeFloating(None, source, retain)).Bind(static created => IO.lift(() =>
                     RuntimeSerialNumber(created.Content) > 0
                         ? Fin.Succ<RenderContent?>(Adopted(created))
-                        : Fin.Fail<RenderContent?>(new SerializerContent(created.Content.Id))).Uninterruptible()), DisposalOps.Release))),
+                        : Error.New($"Content {created.Content.Id} has no managed serializer identity")).Uninterruptible()), DisposalOps.Release))),
             static () => null,
             static () => null,
             new CallbackSite(sink, GetType(), nameof(Read)));
@@ -105,7 +105,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     }
 
     private static IO<T> OnFile<T>(string path, Func<string, IO<T>> run) =>
-        IO.pure(path).Bind(run).MapFail(error => new ContentFileFailed(path, error));
+        IO.pure(path).Bind(run).MapFail(error => new FileRefused(path, "failed", error));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

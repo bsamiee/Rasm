@@ -58,7 +58,7 @@ rule:
     any:
         - kind: call_expression
           all:
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?btoa$', matches: syntax-global-reference}
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?btoa$', matches: typescript-global-reference}
             - has:
                 field: arguments
                 has:
@@ -79,7 +79,7 @@ rule:
                                       all: [{has: {field: left, pattern: $S}}, {has: {field: right, matches: holds-byte-string}}]
         - kind: call_expression
           all:
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?atob$', matches: syntax-global-reference}
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?atob$', matches: typescript-global-reference}
             - any:
                 - inside:
                     stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement'}
@@ -108,7 +108,7 @@ rule:
                     - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
         - kind: call_expression
           all:
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: syntax-global-reference}
+            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: typescript-global-reference}
             - has: {field: arguments, all: [{has: {nthChild: 2, matches: radix}}, {not: {has: {nthChild: 3}}}]}
             - any:
                 - has:

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
@@ -9,98 +10,76 @@ using Emgu.CV.Structure;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
+using Rasm.Imaging.Tone;
 using SixLabors.ImageSharp.PixelFormats;
-using TorchSharp;
 using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Filters.Stylize;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
-public readonly partial struct DepthStep : IMinMaxValue<DepthStep> {
-    public static DepthStep MinValue { get; } = new(0f);
-    public static DepthStep MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
-public readonly partial struct EdgeThreshold : IMinMaxValue<EdgeThreshold> {
-    public static EdgeThreshold MinValue { get; } = new(0f);
-    public static EdgeThreshold MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
-public readonly partial struct SectorSharpness : IMinMaxValue<SectorSharpness> {
-    public static SectorSharpness MinValue { get; } = new(0f);
-    public static SectorSharpness MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
 public readonly partial struct SectorEccentricity : IMinMaxValue<SectorEccentricity> {
     public static SectorEccentricity MinValue { get; } = new(0f);
     public static SectorEccentricity MaxValue { get; } = new(2f);
 
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class StrokePlacement {
-    public static readonly StrokePlacement Center = new("center", static (near, nearWidth, far, farWidth) =>
+public sealed partial class StrokePlacement : ICaptioned {
+    public static readonly StrokePlacement Center = new("center", "Center", static (near, nearWidth, far, farWidth) =>
         near <= far ? ShapeEdge.Strip(near + 0.5f, nearWidth, 1f) : ShapeEdge.Strip(far + 0.5f, farWidth, 1f));
-    public static readonly StrokePlacement Inside = new("inside", static (near, nearWidth, far, _) =>
+    public static readonly StrokePlacement Inside = new("inside", "Inside", static (near, nearWidth, far, _) =>
         (float)double.Clamp(nearWidth - near, 0d, 1d) * ShapeEdge.Coverage((near - far) / 2d, 1d));
-    public static readonly StrokePlacement Outside = new("outside", static (near, _, far, farWidth) =>
+    public static readonly StrokePlacement Outside = new("outside", "Outside", static (near, _, far, farWidth) =>
         (float)double.Clamp(farWidth - far, 0d, 1d) * ShapeEdge.Coverage((far - near) / 2d, 1d));
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial float Cover(double near, double nearWidth, double far, double farWidth);
 }
 
+public sealed record Stroke(ShortSideLength Width, Gated<Length> World, Swatch Color) : IStateRecord<Stroke, StrokeParameter> {
+    public static Stroke Default { get; } = new(ShortSideLength.Create(3f / ReferenceFrame.Height), new(Enabled: false, Length.FromInches(0.25m)), Swatch.Black);
+}
+
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LineClass {
-    public static readonly LineClass Outer = new(
-        "outer",
-        Lens<GeometryOutline, ShortSideLength>.New(static outline => outline.OuterWidth, static width => outline => outline with { OuterWidth = width }),
-        Lens<GeometryOutline, Gated<Length>>.New(static outline => outline.OuterWorld, static world => outline => outline with { OuterWorld = world }),
-        Lens<GeometryOutline, Swatch>.New(static outline => outline.OuterColor, static color => outline => outline with { OuterColor = color }),
-        static outline => outline.Placement);
-    public static readonly LineClass Inner = new(
-        "inner",
-        Lens<GeometryOutline, ShortSideLength>.New(static outline => outline.InnerWidth, static width => outline => outline with { InnerWidth = width }),
-        Lens<GeometryOutline, Gated<Length>>.New(static outline => outline.InnerWorld, static world => outline => outline with { InnerWorld = world }),
-        Lens<GeometryOutline, Swatch>.New(static outline => outline.InnerColor, static color => outline => outline with { InnerColor = color }),
-        static _ => StrokePlacement.Center);
+public sealed partial class StrokeParameter : IStateParameter<Stroke> {
+    public static readonly StrokeParameter Width = new("width", StateParameter.Bounded(Lens<Stroke, ShortSideLength>.New(static stroke => stroke.Width, static width => stroke => stroke with { Width = width }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }),
+        new("Width", "Line width as a share of the frame's short side, the cap under a world width"));
+    public static readonly StrokeParameter World = new("world", new StateParameter<Stroke>.OptionalNumeric<Length, float>(
+        Lens<Stroke, Gated<Length>>.New(static stroke => stroke.World, static world => stroke => stroke with { World = world }),
+        NumericDomain.Metres((0f, float.MaxValue), new() { Soft = (0f, (float)Length.FromInches(1).Meters), Origin = (float)Stroke.Default.World.Value.Meters })),
+        new("World width", "Line width on the surface it marks, narrowing with distance"));
+    public static readonly StrokeParameter Color = new("color", new StateParameter<Stroke>.Color(Lens<Stroke, Swatch>.New(static stroke => stroke.Color, static color => stroke => stroke with { Color = color })),
+        new("Color", "Line color"));
 
-    public Lens<GeometryOutline, ShortSideLength> Width { get; }
-    public Lens<GeometryOutline, Gated<Length>> World { get; }
-    public Lens<GeometryOutline, Swatch> Color { get; }
+    public StateParameter<Stroke> Kind { get; }
+    public ParameterText Text { get; }
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class LineClass : ICaptioned {
+    public static readonly LineClass Outer = new(
+        "outer", Lens<GeometryOutline, Stroke>.New(static outline => outline.Outer, static stroke => outline => outline with { Outer = stroke }), "Outer", static outline => outline.Placement);
+    public static readonly LineClass Inner = new(
+        "inner", Lens<GeometryOutline, Stroke>.New(static outline => outline.Inner, static stroke => outline => outline with { Inner = stroke }), "Inner", static _ => StrokePlacement.Center);
+
+    public Lens<GeometryOutline, Stroke> Stroke { get; }
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial StrokePlacement Placement(GeometryOutline state);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OutlineSource {
@@ -110,7 +89,7 @@ public sealed partial class OutlineSource {
         GuideChannel.Depth,
         static (state, context) => context.Camera.Map<Func<Mat, Rectangle, Rectangle, Mat, Fin<Unit>>>(camera => (guide, first, second, edges) => {
             using Mat z = new();
-            using Mat curvature = new();
+            using Mat curvature = new(guide.Size, DepthType.Cv64F, 1);
             using Mat step = new();
             using Mat marks = new();
             using Mat taps = new(1 + (2 * (second.Y - first.Y)), 1 + (2 * (second.X - first.X)), DepthType.Cv32F, 1);
@@ -130,15 +109,14 @@ public sealed partial class OutlineSource {
                     CvInvoke.Compare(depth, infinity, background, CmpType.Equal);
                     depth.SetTo(new MCvScalar(0d), background);
                 });
-            return z.Correlate(curvature, taps, DepthType.Cv64F, PaddingModes.Replicate).Map(_ => {
-                CvInvoke.AbsDiff(curvature, zero, step);
-                CvInvoke.Multiply(z, ratio, z);
-                CvInvoke.Compare(step, z, marks, CmpType.GreaterThan);
-                using Mat leading = new(marks, first);
-                using Mat trailing = new(marks, second);
-                CvInvoke.BitwiseAnd(leading, trailing, edges);
-                return unit;
-            });
+            CvInvoke.Filter2D(z, curvature, taps, new Point(-1, -1), 0d, BorderType.Replicate);
+            CvInvoke.AbsDiff(curvature, zero, step);
+            CvInvoke.Multiply(z, ratio, z);
+            CvInvoke.Compare(step, z, marks, CmpType.GreaterThan);
+            using Mat leading = new(marks, first);
+            using Mat trailing = new(marks, second);
+            CvInvoke.BitwiseAnd(leading, trailing, edges);
+            return unit;
         }));
     public static readonly OutlineSource Crease = new(
         "crease",
@@ -198,19 +176,14 @@ public sealed partial class OutlineSource {
 
 public sealed record GeometryOutline(
     Option<LineClass> Silhouette, Option<LineClass> Crease, Option<LineClass> Object, Option<LineClass> Material,
-    DepthStep Step, SignedAngle CreaseAngle,
-    ShortSideLength OuterWidth, Gated<Length> OuterWorld, Swatch OuterColor, StrokePlacement Placement,
-    ShortSideLength InnerWidth, Gated<Length> InnerWorld, Swatch InnerColor,
-    Gated<Length> TaperNear, Ramp TaperRamp, Gated<Swatch> Paper, BlendingMode Mode)
-    : IStateRecord<GeometryOutline, GeometryOutlineParameter, InvalidStylize>, IPixelStage<GeometryOutline> {
-    public static GeometryOutline Default { get; } = Length.FromInches(0.25m) switch {
-        var world => new(
+    AxisFraction Step, SignedAngle CreaseAngle,
+    Stroke Outer, StrokePlacement Placement, Stroke Inner, Gated<Length> TaperNear, Ramp TaperRamp, Gated<Swatch> Paper, BlendingMode Mode)
+    : IStateRecord<GeometryOutline, GeometryOutlineParameter>, IPixelStage<GeometryOutline> {
+    public static GeometryOutline Default { get; } = new(
         Some(LineClass.Outer), Some(LineClass.Inner), Some(LineClass.Outer), None,
-        DepthStep.Create(0.05f), SignedAngle.Create(float.DegreesToRadians(180f - 134.4f)),
-        ShortSideLength.Create(3f / ReferenceFrame.Height), new(Enabled: false, world), Swatch.Black, StrokePlacement.Center,
-        ShortSideLength.Create(1.5f / ReferenceFrame.Height), new(Enabled: false, world), Swatch.Black,
-        new(Enabled: false, Length.FromFeet(10)), Ramp.Grayscale, new(Enabled: false, Swatch.Black), BlendingMode.Mix),
-    };
+        AxisFraction.Create(0.05f), SignedAngle.Create(float.DegreesToRadians(180f - 134.4f)),
+        Stroke.Default, StrokePlacement.Center, Stroke.Default with { Width = ShortSideLength.Create(1.5f / ReferenceFrame.Height) },
+        new(Enabled: false, Length.FromFeet(10)), Ramp.Grayscale, new(Enabled: false, Swatch.Black), BlendingMode.Mix);
 
     public static Seq<GuideChannel> Channels(GeometryOutline state) =>
         GuideChannel.Depth.Cons(toSeq(OutlineSource.Items).Filter(source => source.Route.Get(state).IsSome).Map(static source => source.Channel)).Distinct();
@@ -223,7 +196,7 @@ public sealed record GeometryOutline(
 
     private static unsafe Fin<Unit> Outlined(
         GeometryOutline state, PassContext context, PixelFrame depth, Seq<(OutlineSource Source, LineClass Line)> routes, PixelFrame frame, IProgress<int> progress) => frame.Filter(_ => {
-            Vector3[] colors = [.. toSeq(LineClass.Items).Map(line => line.Color.Get(state).Display.AsVector3())];
+            Vector3[] colors = [.. toSeq(LineClass.Items).Map(line => line.Stroke.Get(state).Color.Display.AsVector3())];
             using Mat range = depth.Header();
             using Mat z = new();
             using Mat cover = Mat.Zeros(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, colors.Length);
@@ -337,10 +310,11 @@ public sealed record GeometryOutline(
     }
 
     private static Fin<Func<float, double>> Width(GeometryOutline state, PassContext context, LineClass line) {
-        double frame = line.Width.Get(state).Pixels(context.Extent);
+        Stroke stroke = line.Stroke.Get(state);
+        double frame = stroke.Width.Pixels(context.Extent);
         RampTable ramp = state.TaperRamp.Tabulate(context.Working);
-        Fin<Func<float, double>> reach = line.World.Get(state).Active.Match(
-            world => world == Length.Zero || frame is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : context.Camera.ToFin(new CameraRequired()).Map(camera =>
+        Fin<Func<float, double>> reach = stroke.World.Active.Match(
+            world => world == Length.Zero || frame is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : context.Camera.ToFin(Error.New("world-sized outline width requires the frame's camera")).Map(camera =>
                 camera.Frustum.Switch(
                     (Frame: frame, Span: (double)world.Meters * context.Extent.Width / camera.Frustum.Window.Width),
                     perspective: static (scale, _) => (Func<float, double>)(depth => double.Min(scale.Span / depth, scale.Frame)),
@@ -353,59 +327,56 @@ public sealed record GeometryOutline(
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GeometryOutlineParameter : IStateParameter<GeometryOutline> {
-    private static readonly (float Low, float High) MetresBounds = (0f, float.MaxValue);
-    private static readonly Func<float, Fin<Length>> Metres = static value => value >= MetresBounds.Low && value <= MetresBounds.High ? Length.FromMeters(value) : Fin.Fail<Length>(new InvalidStylize());
-    private static readonly Func<Length, float> MetresKey = static value => (float)value.Meters;
-    private static readonly Presentation<float> Frame = ShortSideLength.Presentation with { Soft = (0f, 0.01f) };
-    private static readonly Presentation<float> World = new() {
-        Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Soft = (0f, (float)Length.FromInches(1).Meters), Origin = (float)GeometryOutline.Default.OuterWorld.Value.Meters,
-    };
-    private static readonly Presentation<float> Distance = new() {
-        Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Soft = (0f, (float)Length.FromFeet(1000).Meters), Origin = (float)GeometryOutline.Default.TaperNear.Value.Meters,
-    };
+    private static readonly NumericDomain<Length, float> Distance = NumericDomain.Metres((0f, float.MaxValue), new() {
+        Soft = (0f, (float)Length.FromFeet(1000).Meters), Origin = (float)GeometryOutline.Default.TaperNear.Value.Meters,
+    });
 
-    public static readonly GeometryOutlineParameter Silhouette = new("silhouette-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass, InvalidStylize>(OutlineSource.Silhouette.Route));
-    public static readonly GeometryOutlineParameter Crease = new("crease-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass, InvalidStylize>(OutlineSource.Crease.Route));
-    public static readonly GeometryOutlineParameter Object = new("object-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass, InvalidStylize>(OutlineSource.Object.Route));
-    public static readonly GeometryOutlineParameter Material = new("material-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass, InvalidStylize>(OutlineSource.Material.Route));
-    public static readonly GeometryOutlineParameter Step = new("depth-step", StateParameter.Bounded<GeometryOutline, DepthStep, float, InvalidStylize>(Lens<GeometryOutline, DepthStep>.New(static outline => outline.Step, static step => outline => outline with { Step = step }), new() { Soft = (0f, 0.2f) }));
-    public static readonly GeometryOutlineParameter CreaseAngle = new("crease-angle", StateParameter.Bounded<GeometryOutline, SignedAngle, float, InvalidPixelValue>(Lens<GeometryOutline, SignedAngle>.New(static outline => outline.CreaseAngle, static angle => outline => outline with { CreaseAngle = angle }),
-    SignedAngle.Presentation with { Soft = (0f, SignedAngle.Up) }));
-    public static readonly GeometryOutlineParameter OuterWidth = new("outer-width", StateParameter.Bounded<GeometryOutline, ShortSideLength, float, InvalidPixelValue>(LineClass.Outer.Width, Frame));
-    public static readonly GeometryOutlineParameter OuterWorld = new("outer-world", new StateParameter<GeometryOutline>.OptionalNumeric<Length, float>(LineClass.Outer.World, Metres, MetresKey, MetresBounds, World));
-    public static readonly GeometryOutlineParameter OuterColor = new("outer-color", new StateParameter<GeometryOutline>.Color(LineClass.Outer.Color));
-    public static readonly GeometryOutlineParameter Placement = new("placement", new StateParameter<GeometryOutline>.Choice<StrokePlacement, InvalidStylize>(
-        Lens<GeometryOutline, StrokePlacement>.New(static outline => outline.Placement, static placement => outline => outline with { Placement = placement })));
-    public static readonly GeometryOutlineParameter InnerWidth = new("inner-width", StateParameter.Bounded<GeometryOutline, ShortSideLength, float, InvalidPixelValue>(LineClass.Inner.Width, Frame));
-    public static readonly GeometryOutlineParameter InnerWorld = new("inner-world", new StateParameter<GeometryOutline>.OptionalNumeric<Length, float>(LineClass.Inner.World, Metres, MetresKey, MetresBounds, World));
-    public static readonly GeometryOutlineParameter InnerColor = new("inner-color", new StateParameter<GeometryOutline>.Color(LineClass.Inner.Color));
-    public static readonly GeometryOutlineParameter TaperNear = new("taper-near", new StateParameter<GeometryOutline>.OptionalNumeric<Length, float>(Lens<GeometryOutline, Gated<Length>>.New(static outline => outline.TaperNear, static depth => outline => outline with { TaperNear = depth }), Metres, MetresKey, MetresBounds, Distance));
-    public static readonly GeometryOutlineParameter TaperRamp = new("taper-ramp", new StateParameter<GeometryOutline>.Gradient(
-        Lens<GeometryOutline, Ramp>.New(static outline => outline.TaperRamp, static ramp => outline => outline with { TaperRamp = ramp })));
-    public static readonly GeometryOutlineParameter Paper = new("paper", new StateParameter<GeometryOutline>.OptionalColor(
-        Lens<GeometryOutline, Gated<Swatch>>.New(static outline => outline.Paper, static paper => outline => outline with { Paper = paper })));
-    public static readonly GeometryOutlineParameter Mode = new("mode", new StateParameter<GeometryOutline>.Choice<BlendingMode, InvalidGrade>(
-        Lens<GeometryOutline, BlendingMode>.New(static outline => outline.Mode, static mode => outline => outline with { Mode = mode })));
+    public static readonly GeometryOutlineParameter Silhouette = new("silhouette-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Silhouette.Route, "Off"),
+        new("Silhouettes", "Line class drawing depth steps where one surface occludes another"));
+    public static readonly GeometryOutlineParameter Crease = new("crease-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Crease.Route, "Off"),
+        new("Creases", "Line class drawing where neighboring normals turn past the crease angle"));
+    public static readonly GeometryOutlineParameter Object = new("object-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Object.Route, "Off"),
+        new("Object edges", "Line class drawing where object IDs change"));
+    public static readonly GeometryOutlineParameter Material = new("material-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Material.Route, "Off"),
+        new("Material edges", "Line class drawing where material IDs change"));
+    public static readonly GeometryOutlineParameter Step = new("depth-step", StateParameter.Bounded(Lens<GeometryOutline, AxisFraction>.New(static outline => outline.Step, static step => outline => outline with { Step = step }), AxisFraction.Presentation with { Soft = (0f, 0.2f) }),
+        new("Depth threshold", "Relative depth curvature marking a silhouette; across flat regions, 1 minus near depth divided by far depth"));
+    public static readonly GeometryOutlineParameter CreaseAngle = new("crease-angle", StateParameter.Bounded(Lens<GeometryOutline, SignedAngle>.New(static outline => outline.CreaseAngle, static angle => outline => outline with { CreaseAngle = angle }), SignedAngle.Presentation with { Soft = (0f, SignedAngle.Up) }),
+        new("Crease angle", "Turn between neighboring normals marking a crease"));
+    public static readonly GeometryOutlineParameter Outer = new("outer", new StateParameter<GeometryOutline>.Record<Stroke>(LineClass.Outer.Stroke),
+        new("Outer lines", "Width and color of outer lines"));
+    public static readonly GeometryOutlineParameter Placement = new("placement", new StateParameter<GeometryOutline>.Choice<StrokePlacement>(Lens<GeometryOutline, StrokePlacement>.New(static outline => outline.Placement, static placement => outline => outline with { Placement = placement })),
+        new("Placement", "Side of its contour an outer line draws on"));
+    public static readonly GeometryOutlineParameter Inner = new("inner", new StateParameter<GeometryOutline>.Record<Stroke>(LineClass.Inner.Stroke),
+        new("Inner lines", "Width and color of inner lines"));
+    public static readonly GeometryOutlineParameter TaperNear = new("taper-near", new StateParameter<GeometryOutline>.OptionalNumeric<Length, float>(Lens<GeometryOutline, Gated<Length>>.New(static outline => outline.TaperNear, static depth => outline => outline with { TaperNear = depth }), Distance),
+        new("Taper near", "Near depth divided by each contour's depth to locate its width on the ramp, off keeping full width"));
+    public static readonly GeometryOutlineParameter TaperRamp = new("taper-ramp", new StateParameter<GeometryOutline>.Gradient(Lens<GeometryOutline, Ramp>.New(static outline => outline.TaperRamp, static ramp => outline => outline with { TaperRamp = ramp })),
+        new("Taper ramp", "Ramp value scaling line width from distant contours at the left to near contours at the right"));
+    public static readonly GeometryOutlineParameter Paper = new("paper", new StateParameter<GeometryOutline>.OptionalColor(Lens<GeometryOutline, Gated<Swatch>>.New(static outline => outline.Paper, static paper => outline => outline with { Paper = paper })),
+        new("Paper", "Color the lines draw on, off drawing over the image"));
+    public static readonly GeometryOutlineParameter Mode = new("mode", new StateParameter<GeometryOutline>.Choice<BlendingMode>(Lens<GeometryOutline, BlendingMode>.New(static outline => outline.Mode, static mode => outline => outline with { Mode = mode })),
+        new("Blend mode", "How the drawn layer composites over the frame"));
 
     public StateParameter<GeometryOutline> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public abstract partial class EdgeOperator {
-    public static readonly EdgeOperator Laplace = new Gradient("laplace", Seq(-1f / 8f, -1f / 8f, -1f / 8f, -1f / 8f, 1f, -1f / 8f, -1f / 8f, -1f / 8f, -1f / 8f));
-    public static readonly EdgeOperator Sobel = new Gradient("sobel", Seq(1f, 0f, -1f, 2f, 0f, -2f, 1f, 0f, -1f));
-    public static readonly EdgeOperator Prewitt = new Gradient("prewitt", Seq(1f, 0f, -1f, 1f, 0f, -1f, 1f, 0f, -1f));
-    public static readonly EdgeOperator Kirsch = new Gradient("kirsch", Seq(5f, -3f, -2f, 5f, -3f, -2f, 5f, -3f, -2f));
-    public static readonly EdgeOperator Emboss = new Relief("emboss", Seq(1f, 2f, 1f, 0f, 1f, 0f, -1f, -2f, -1f));
+public abstract partial class EdgeOperator : ICaptioned {
+    public static readonly EdgeOperator Laplace = new Gradient("laplace", Seq(-1f / 8f, -1f / 8f, -1f / 8f, -1f / 8f, 1f, -1f / 8f, -1f / 8f, -1f / 8f, -1f / 8f), "Laplace");
+    public static readonly EdgeOperator Sobel = new Gradient("sobel", Seq(1f, 0f, -1f, 2f, 0f, -2f, 1f, 0f, -1f), "Sobel");
+    public static readonly EdgeOperator Prewitt = new Gradient("prewitt", Seq(1f, 0f, -1f, 1f, 0f, -1f, 1f, 0f, -1f), "Prewitt");
+    public static readonly EdgeOperator Kirsch = new Gradient("kirsch", Seq(5f, -3f, -2f, 5f, -3f, -2f, 5f, -3f, -2f), "Kirsch");
+    public static readonly EdgeOperator Emboss = new Relief("emboss", Seq(1f, 2f, 1f, 0f, 1f, 0f, -1f, -2f, -1f), "Emboss");
 
     public Seq<float> Kernel { get; }
+    public string Caption { get; }
 
     public abstract float Gain { get; }
 
@@ -416,7 +387,7 @@ public abstract partial class EdgeOperator {
         let lit = toSeq(Range(0, 9)).Filter(cell => side(axis(cell), split))
         select (lit.Fold(0f, (sum, cell) => sum + Kernel[cell]), lit.Fold(0f, (sum, cell) => sum + Kernel[(3 * (cell % 3)) + (cell / 3)]));
 
-    public abstract Fin<Unit> Respond(Mat plane, Mat response);
+    public abstract Unit Respond(Mat plane, Mat response);
 
     private protected Mat Across() => Taps(static (row, column) => (3 * (2 - row)) + column);
 
@@ -428,92 +399,91 @@ public abstract partial class EdgeOperator {
         return taps;
     }
 
-    private sealed class Gradient(string key, Seq<float> kernel) : EdgeOperator(key, kernel) {
+    private sealed class Gradient(string key, Seq<float> kernel, string caption) : EdgeOperator(key, kernel, caption) {
         public override float Gain => Steps.Fold(0f, static (gain, step) => float.Max(gain, float.Hypot(step.X, step.Y)));
 
-        public override Fin<Unit> Respond(Mat plane, Mat response) {
+        public override Unit Respond(Mat plane, Mat response) {
             using Mat across = Across();
             using Mat down = Down();
             using Mat vertical = new(plane.Size, plane.Depth, plane.NumberOfChannels);
-            return plane.Correlate(response, across, plane.Depth, PaddingModes.Replicate)
-                .Bind(_ => plane.Correlate(vertical, down, plane.Depth, PaddingModes.Replicate))
-                .Map(_ => {
-                    CvInvoke.Multiply(response, response, response);
-                    CvInvoke.Multiply(vertical, vertical, vertical);
-                    CvInvoke.Add(response, vertical, response);
-                    CvInvoke.Sqrt(response, response);
-                    return unit;
-                });
+            CvInvoke.Filter2D(plane, response, across, new Point(-1, -1), 0d, BorderType.Replicate);
+            CvInvoke.Filter2D(plane, vertical, down, new Point(-1, -1), 0d, BorderType.Replicate);
+            CvInvoke.Multiply(response, response, response);
+            CvInvoke.Multiply(vertical, vertical, vertical);
+            CvInvoke.Add(response, vertical, response);
+            CvInvoke.Sqrt(response, response);
+            return unit;
         }
     }
 
-    private sealed class Relief(string key, Seq<float> kernel) : EdgeOperator(key, kernel) {
+    private sealed class Relief(string key, Seq<float> kernel, string caption) : EdgeOperator(key, kernel, caption) {
         public override float Gain => Steps.Fold(0f, static (gain, step) => float.Max(gain, step.X));
 
-        public override Fin<Unit> Respond(Mat plane, Mat response) {
+        public override Unit Respond(Mat plane, Mat response) {
             using Mat across = Across();
             using ScalarArray floor = new(0d);
-            return plane.Correlate(response, across, plane.Depth, PaddingModes.Replicate).Map(_ => {
-                CvInvoke.Max(response, floor, response);
-                return unit;
-            });
+            CvInvoke.Filter2D(plane, response, across, new Point(-1, -1), 0d, BorderType.Replicate);
+            CvInvoke.Max(response, floor, response);
+            return unit;
         }
     }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class EdgeSource {
-    public static readonly EdgeSource Color = new("color", 3, static (row, plane, _) => {
+public sealed partial class EdgeSource : ICaptioned {
+    public static readonly EdgeSource Color = new("color", 3, separate: true, "Color", static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             (plane[3 * x], plane[(3 * x) + 1], plane[(3 * x) + 2]) = (row[x].X, row[x].Y, row[x].Z);
     });
-    public static readonly EdgeSource Luma = new("luma", 1, static (row, plane, weights) => {
+    public static readonly EdgeSource Luma = new("luma", 1, separate: false, "Luma", static (row, plane, weights) => {
         for (int x = 0; x < row.Length; x++)
-            plane[x] = (weights.X * row[x].X) + (weights.Y * row[x].Y) + (weights.Z * row[x].Z);
+            plane[x] = LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, weights);
     });
-    public static readonly EdgeSource Hue = new("hue", 2, static (row, plane, _) => {
+    public static readonly EdgeSource Hue = new("hue", 2, separate: false, "Hue", static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             (plane[2 * x], plane[(2 * x) + 1]) = double.SinCos(Hsy.From(row[x]).Hue) switch { var (sine, cosine) => (cosine / double.Tau, sine / double.Tau) };
     });
-    public static readonly EdgeSource Saturation = new("saturation", 1, static (row, plane, _) => {
+    public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, "Saturation", static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = RangeAxis.Saturation.Coordinate(Hsy.From(row[x]));
     });
-    public static readonly EdgeSource Value = new("value", 1, static (row, plane, _) => {
+    public static readonly EdgeSource Value = new("value", 1, separate: false, "Value", static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = float.Max(float.Max(row[x].X, row[x].Y), row[x].Z);
     });
-    public static readonly EdgeSource Alpha = new("alpha", 1, static (row, plane, _) => {
+    public static readonly EdgeSource Alpha = new("alpha", 1, separate: false, "Alpha", static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = row[x].W;
     });
 
     public int Planes { get; }
+    public bool Separate { get; }
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial void Read(ReadOnlySpan<Vector4> row, Span<double> plane, (double X, double Y, double Z) weights);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class EdgeRendering {
-    public static readonly EdgeRendering Magnitude = new("magnitude");
-    public static readonly EdgeRendering Lines = new("lines");
-    public static readonly EdgeRendering LinesOnFill = new("lines-on-fill");
+public sealed partial class EdgeRendering : ICaptioned {
+    public static readonly EdgeRendering Magnitude = new("magnitude", "Response");
+    public static readonly EdgeRendering Lines = new("lines", "Lines");
+    public static readonly EdgeRendering LinesOnFill = new("lines-on-fill", "Lines on fill");
+
+    public string Caption { get; }
 }
 
 public sealed record EdgeDetect(
     EdgeOperator Operator, EdgeSource Source, ShortSideLength Softening, EdgeRendering Rendering,
-    EdgeThreshold Threshold, ShortSideLength Width, Swatch Line, Swatch Fill, BlendingMode Mode)
-    : IStateRecord<EdgeDetect, EdgeDetectParameter, InvalidStylize>, IPixelStage<EdgeDetect> {
+    AxisFraction Threshold, ShortSideLength Width, Swatch Line, Swatch Fill, BlendingMode Mode)
+    : IStateRecord<EdgeDetect, EdgeDetectParameter>, IPixelStage<EdgeDetect> {
     public static EdgeDetect Default { get; } = new(
         EdgeOperator.Kirsch, EdgeSource.Luma, ShortSideLength.Neutral, EdgeRendering.LinesOnFill,
-        EdgeThreshold.Create(0.1f), ShortSideLength.Create(1f / ReferenceFrame.Height), Swatch.White, Swatch.Black, BlendingMode.Mix);
+        AxisFraction.Create(0.1f), ShortSideLength.Create(1f / ReferenceFrame.Height), Swatch.White, Swatch.Black, BlendingMode.Mix);
 
     public static Option<PixelPass> Pass(EdgeDetect state, PassContext context) =>
         state.Rendering.Map(magnitude: false, lines: state.Width == ShortSideLength.Neutral, linesOnFill: false)
@@ -521,30 +491,28 @@ public sealed record EdgeDetect(
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Detected(state, context, frame, progress)));
 
     private static unsafe Fin<Unit> Detected(EdgeDetect state, PassContext context, PixelFrame frame, IProgress<int> progress) => frame.Filter(_ => {
-        (int width, int planes, double sigma) = (frame.Size.Width, state.Source.Planes, state.Softening.Pixels(context.Extent));
-        return PixelSampling.GaussianTaps<long>(sigma).Bind(taps => {
-            using Mat plane = new(frame.Size.Height, width, DepthType.Cv64F, planes);
-            using Mat response = new(frame.Size.Height, width, DepthType.Cv64F, planes);
-            using Mat squares = new();
-            return new PixelPass.Pointwise((row, _, line) =>
-                    state.Source.Read(row, new Span<double>(plane.GetDataPointer(frame.RowIndex(line)).ToPointer(), width * planes), context.Working.Luminance))
-                .Run(frame, progress)
-                .Bind(_ => sigma > 0d ? plane.Gaussian(plane, (taps, taps), sigma, sigma, PaddingModes.Replicate) : Fin.Succ(unit))
-                .Bind(_ => state.Operator.Respond(plane, response))
-                .Bind(_ => {
-                    if (state.Source != EdgeSource.Color) {
-                        using Mat sums = Mat.Ones(1, planes, DepthType.Cv32F, 1);
-                        CvInvoke.Multiply(response, response, response);
-                        CvInvoke.Transform(response, squares, sums);
-                        CvInvoke.Sqrt(squares, response);
-                    }
-                    return state.Rendering.Switch(
-                        (State: state, Context: context, Frame: frame, Edges: response, Progress: progress),
-                        magnitude: static run => Magnitudes(run.Frame, run.Edges, run.Progress),
-                        lines: static run => Stroked(run.State, run.Context, run.Frame, run.Edges, run.State.Line, 0f, run.Progress),
-                        linesOnFill: static run => Stroked(run.State, run.Context, run.Frame, run.Edges, run.State.Fill, 1f, run.Progress));
-                });
-        });
+        (int width, int planes) = (frame.Size.Width, state.Source.Planes);
+        using Mat plane = new(frame.Size.Height, width, DepthType.Cv64F, planes);
+        using Mat response = new(frame.Size.Height, width, DepthType.Cv64F, planes);
+        using Mat squares = new();
+        return new PixelPass.Pointwise((row, _, line) =>
+                state.Source.Read(row, new Span<double>(plane.GetDataPointer(frame.RowIndex(line)).ToPointer(), width * planes), context.Working.Luminance))
+            .Run(frame, progress)
+            .Bind(_ => plane.Blur(plane, 3d * state.Softening.Pixels(context.Extent)))
+            .Map(_ => state.Operator.Respond(plane, response))
+            .Bind(_ => {
+                if (!state.Source.Separate) {
+                    using Mat sums = Mat.Ones(1, planes, DepthType.Cv32F, 1);
+                    CvInvoke.Multiply(response, response, response);
+                    CvInvoke.Transform(response, squares, sums);
+                    CvInvoke.Sqrt(squares, response);
+                }
+                return state.Rendering.Switch(
+                    (State: state, Context: context, Frame: frame, Edges: response, Progress: progress),
+                    magnitude: static run => Magnitudes(run.Frame, run.Edges, run.Progress),
+                    lines: static run => Stroked(run.State, run.Context, run.Frame, run.Edges, run.State.Line, 0f, run.Progress),
+                    linesOnFill: static run => Stroked(run.State, run.Context, run.Frame, run.Edges, run.State.Fill, 1f, run.Progress));
+            });
     });
 
     private static unsafe Fin<Unit> Magnitudes(PixelFrame frame, Mat edges, IProgress<int> progress) =>
@@ -561,9 +529,9 @@ public sealed record EdgeDetect(
         using Mat mask = new();
         using Mat reach = new();
         using ScalarArray threshold = new(state.Threshold * state.Operator.Gain);
-        if (state.Source == EdgeSource.Color) {
+        if (state.Source.Separate) {
             (double X, double Y, double Z) = context.Working.Luminance;
-            using Mat weights = new(1, EdgeSource.Color.Planes, DepthType.Cv64F, 1);
+            using Mat weights = new(1, state.Source.Planes, DepthType.Cv64F, 1);
             weights.SetTo([X, Y, Z]);
             CvInvoke.Transform(edges, value, weights);
         } else
@@ -586,38 +554,42 @@ public sealed record EdgeDetect(
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EdgeDetectParameter : IStateParameter<EdgeDetect> {
     private static readonly Presentation<float> Span = ShortSideLength.Presentation with { Soft = (0f, 0.01f) };
 
-    public static readonly EdgeDetectParameter Operator = new("operator", new StateParameter<EdgeDetect>.Choice<EdgeOperator, InvalidStylize>(
-        Lens<EdgeDetect, EdgeOperator>.New(static detect => detect.Operator, static kernel => detect => detect with { Operator = kernel })));
-    public static readonly EdgeDetectParameter Source = new("source", new StateParameter<EdgeDetect>.Choice<EdgeSource, InvalidStylize>(
-        Lens<EdgeDetect, EdgeSource>.New(static detect => detect.Source, static source => detect => detect with { Source = source })));
-    public static readonly EdgeDetectParameter Softening = new("softening", StateParameter.Bounded<EdgeDetect, ShortSideLength, float, InvalidPixelValue>(Lens<EdgeDetect, ShortSideLength>.New(static detect => detect.Softening, static softening => detect => detect with { Softening = softening }), Span));
-    public static readonly EdgeDetectParameter Rendering = new("rendering", new StateParameter<EdgeDetect>.Choice<EdgeRendering, InvalidStylize>(
-        Lens<EdgeDetect, EdgeRendering>.New(static detect => detect.Rendering, static rendering => detect => detect with { Rendering = rendering })));
-    public static readonly EdgeDetectParameter Threshold = new("threshold", StateParameter.Bounded<EdgeDetect, EdgeThreshold, float, InvalidStylize>(Lens<EdgeDetect, EdgeThreshold>.New(static detect => detect.Threshold, static threshold => detect => detect with { Threshold = threshold }), new()));
-    public static readonly EdgeDetectParameter Width = new("width", StateParameter.Bounded<EdgeDetect, ShortSideLength, float, InvalidPixelValue>(Lens<EdgeDetect, ShortSideLength>.New(static detect => detect.Width, static width => detect => detect with { Width = width }), Span));
-    public static readonly EdgeDetectParameter Line = new("line-color", new StateParameter<EdgeDetect>.Color(
-        Lens<EdgeDetect, Swatch>.New(static detect => detect.Line, static line => detect => detect with { Line = line })));
-    public static readonly EdgeDetectParameter Fill = new("fill-color", new StateParameter<EdgeDetect>.Color(
-        Lens<EdgeDetect, Swatch>.New(static detect => detect.Fill, static fill => detect => detect with { Fill = fill })));
-    public static readonly EdgeDetectParameter Mode = new("mode", new StateParameter<EdgeDetect>.Choice<BlendingMode, InvalidGrade>(
-        Lens<EdgeDetect, BlendingMode>.New(static detect => detect.Mode, static mode => detect => detect with { Mode = mode })));
+    public static readonly EdgeDetectParameter Operator = new("operator", new StateParameter<EdgeDetect>.Choice<EdgeOperator>(Lens<EdgeDetect, EdgeOperator>.New(static detect => detect.Operator, static kernel => detect => detect with { Operator = kernel })),
+        new("Type", "Kernel measuring the change around each pixel"));
+    public static readonly EdgeDetectParameter Source = new("source", new StateParameter<EdgeDetect>.Choice<EdgeSource>(Lens<EdgeDetect, EdgeSource>.New(static detect => detect.Source, static source => detect => detect with { Source = source })),
+        new("Channel", "Color or the one channel the kernel reads"));
+    public static readonly EdgeDetectParameter Softening = new("softening", StateParameter.Bounded(Lens<EdgeDetect, ShortSideLength>.New(static detect => detect.Softening, static softening => detect => detect with { Softening = softening }), Span),
+        new("Softening", "Blur ahead of the kernel as a share of the frame's short side"));
+    public static readonly EdgeDetectParameter Rendering = new("rendering", new StateParameter<EdgeDetect>.Choice<EdgeRendering>(Lens<EdgeDetect, EdgeRendering>.New(static detect => detect.Rendering, static rendering => detect => detect with { Rendering = rendering })),
+        new("Output", "Kernel response itself, lines, or lines on a fill"));
+    public static readonly EdgeDetectParameter Threshold = new("threshold", StateParameter.Bounded(Lens<EdgeDetect, AxisFraction>.New(static detect => detect.Threshold, static threshold => detect => detect with { Threshold = threshold })),
+        new("Threshold", "Share of the kernel's step response a line pixel exceeds"));
+    public static readonly EdgeDetectParameter Width = new("width", StateParameter.Bounded(Lens<EdgeDetect, ShortSideLength>.New(static detect => detect.Width, static width => detect => detect with { Width = width }), Span),
+        new("Line width", "Stroke width as a share of the frame's short side"));
+    public static readonly EdgeDetectParameter Line = new("line-color", new StateParameter<EdgeDetect>.Color(Lens<EdgeDetect, Swatch>.New(static detect => detect.Line, static line => detect => detect with { Line = line })),
+        new("Line color", "Color the lines draw in"));
+    public static readonly EdgeDetectParameter Fill = new("fill-color", new StateParameter<EdgeDetect>.Color(Lens<EdgeDetect, Swatch>.New(static detect => detect.Fill, static fill => detect => detect with { Fill = fill })),
+        new("Fill color", "Color under the lines when they draw on a fill"));
+    public static readonly EdgeDetectParameter Mode = new("mode", new StateParameter<EdgeDetect>.Choice<BlendingMode>(Lens<EdgeDetect, BlendingMode>.New(static detect => detect.Mode, static mode => detect => detect with { Mode = mode })),
+        new("Blend mode", "How the drawn layer composites over the frame"));
 
     public StateParameter<EdgeDetect> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class KuwaharaKind {
-    public static readonly KuwaharaKind Classic = new("classic", static pixels => Math.Floor(pixels), Quadrants);
-    public static readonly KuwaharaKind Anisotropic = new("anisotropic", static pixels => pixels, Sectors);
+public sealed partial class KuwaharaKind : ICaptioned {
+    public static readonly KuwaharaKind Classic = new("classic", "Classic", static pixels => Math.Floor(pixels), Quadrants);
+    public static readonly KuwaharaKind Anisotropic = new("anisotropic", "Anisotropic", static pixels => pixels, Sectors);
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial double Radius(double pixels);
@@ -657,104 +629,94 @@ public sealed partial class KuwaharaKind {
         }).Run(frame, progress);
     });
 
-    private static unsafe Fin<Unit> Sectors(Painterly state, PixelExtent extent, PixelFrame frame, IProgress<int> progress) => frame.Filter(source =>
-        PixelSampling.KernelTaps<long>(state.Uniformity.Pixels(extent)).Bind(taps => {
-            const int count = 8;
-            const double corner = 0.182d;
-            (int width, int height, double radius, double uniformity) = (frame.Size.Width, frame.Size.Height, state.Kind.Radius(state.Size.Pixels(extent)), state.Uniformity.Pixels(extent));
-            (double sharpness, double overlap) = (16d * state.Sharpness * state.Sharpness, 2d / radius);
-            (double sine, double cosine) = double.SinCos(1.5d * double.Pi / count);
-            double envelope = (overlap + cosine) / (sine * sine);
-            double diagonal = double.Sqrt(2d);
-            using Mat copy = new();
-            using Mat across = new(3, 3, DepthType.Cv64F, 1);
-            using Mat down = new();
-            using Mat colour = Lanes.Colour();
-            using Mat horizontal = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
-            using Mat vertical = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
-            using Mat product = new();
-            using Mat xx = new();
-            using Mat xy = new();
-            using Mat yy = new();
-            source.ConvertTo(copy, DepthType.Cv64F);
-            across.SetTo([-corner, 0d, corner, (2d * corner) - 1d, 0d, 1d - (2d * corner), -corner, 0d, corner]);
-            CvInvoke.Transpose(across, down);
-            return copy.Correlate(horizontal, across, DepthType.Cv64F, PaddingModes.Replicate)
-                .Bind(_ => copy.Correlate(vertical, down, DepthType.Cv64F, PaddingModes.Replicate))
-                .Bind(_ => Seq((horizontal, horizontal, xx), (horizontal, vertical, xy), (vertical, vertical, yy)).TraverseM(pair => {
+    private static unsafe Fin<Unit> Sectors(Painterly state, PixelExtent extent, PixelFrame frame, IProgress<int> progress) {
+        double radius = state.Kind.Radius(state.Size.Pixels(extent));
+        double reach = double.Ceiling((1d + state.Eccentricity) * radius) + 1d;
+        return reach > int.MaxValue
+            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach {reach} pixels exceeds the pixel index range {int.MaxValue}"))
+            : frame.Filter(source => {
+                const int count = 8;
+                const double corner = 0.182d;
+                (int width, int height, double uniformity) = (frame.Size.Width, frame.Size.Height, state.Uniformity.Pixels(extent));
+                (double sharpness, double overlap) = (16d * state.Sharpness * state.Sharpness, 2d / radius);
+                (double sine, double cosine) = double.SinCos(1.5d * double.Pi / count);
+                double envelope = (overlap + cosine) / (sine * sine);
+                double diagonal = double.Sqrt(2d);
+                using Mat copy = new();
+                using Mat across = new(3, 3, DepthType.Cv64F, 1);
+                using Mat down = new();
+                using Mat colour = Lanes.Colour();
+                using Mat horizontal = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
+                using Mat vertical = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
+                using Mat product = new();
+                using Mat xx = new();
+                using Mat xy = new();
+                using Mat yy = new();
+                source.ConvertTo(copy, DepthType.Cv64F);
+                across.SetTo([-corner, 0d, corner, (2d * corner) - 1d, 0d, 1d - (2d * corner), -corner, 0d, corner]);
+                CvInvoke.Transpose(across, down);
+                CvInvoke.Filter2D(copy, horizontal, across, new Point(-1, -1), 0d, BorderType.Replicate);
+                CvInvoke.Filter2D(copy, vertical, down, new Point(-1, -1), 0d, BorderType.Replicate);
+                return Seq((horizontal, horizontal, xx), (horizontal, vertical, xy), (vertical, vertical, yy)).TraverseM(pair => {
                     (Mat first, Mat second, Mat tensor) = pair;
                     CvInvoke.Multiply(first, second, product);
                     CvInvoke.Transform(product, tensor, colour);
-                    return uniformity > 0d ? tensor.Gaussian(tensor, (taps, taps), uniformity / 3d, uniformity / 3d, PaddingModes.Replicate) : Fin.Succ(unit);
-                }).As()).Bind(_ => {
-                    using MemoryOwner<Vector256<double>> sectors = MemoryOwner<Vector256<double>>.Allocate(2 * count);
-                    using MemoryOwner<double> deviations = MemoryOwner<double>.Allocate(count);
-                    Fin<Unit> Render(int x, int y) {
-                        ReadOnlySpan<double> dxx = new(xx.GetDataPointer(y).ToPointer(), width);
-                        ReadOnlySpan<double> dxy = new(xy.GetDataPointer(y).ToPointer(), width);
-                        ReadOnlySpan<double> dyy = new(yy.GetDataPointer(y).ToPointer(), width);
+                    return tensor.Blur(tensor, uniformity);
+                }).As().Bind(_ => new PixelPass.Pointwise((row, _, line) => {
+                    int y = frame.RowIndex(line);
+                    ReadOnlySpan2D<Vector256<double>> image = new ReadOnlySpan<Vector256<double>>(copy.DataPointer.ToPointer(), width * height).AsSpan2D(height, width);
+                    ReadOnlySpan<double> dxx = new(xx.GetDataPointer(y).ToPointer(), width);
+                    ReadOnlySpan<double> dxy = new(xy.GetDataPointer(y).ToPointer(), width);
+                    ReadOnlySpan<double> dyy = new(yy.GetDataPointer(y).ToPointer(), width);
+                    using SpanOwner<Vector256<double>> sectors = SpanOwner<Vector256<double>>.Allocate(2 * count);
+                    using SpanOwner<double> deviations = SpanOwner<double>.Allocate(count);
+                    Span<Vector256<double>> means = sectors.Span[..count];
+                    Span<Vector256<double>> spreads = sectors.Span[count..];
+                    for (int x = 0; x < width; x++) {
                         (double half, double root) = ((dxx[x] + dyy[x]) / 2d, double.Hypot(dxx[x] - dyy[x], 2d * dxy[x]) / 2d);
                         (double axisY, double axisX) = double.SinCos(double.Atan2(-2d * dxy[x], dyy[x] - dxx[x]) / 2d);
                         double stretch = 1d + (state.Eccentricity * (half > 0d ? root / half : 0d));
                         (double major, double minor) = (stretch * radius, radius / stretch);
-                        (double acrossReach, double downReach) = (double.Ceiling(double.Hypot(major * axisX, minor * axisY)), double.Ceiling(double.Hypot(major * axisY, minor * axisX)));
-                        return Try.lift(() => (int.CreateChecked(acrossReach), int.CreateChecked(downReach))).Run()
-                            .MapFail(_ => new KuwaharaFootprintUnsupported(acrossReach, downReach))
-                            .Bind(support => {
-                                (int reachX, int reachY) = support;
-                                Span<Vector256<double>> means = sectors.Span[..count];
-                                Span<Vector256<double>> spreads = sectors.Span[count..];
-                                ReadOnlySpan2D<Vector256<double>> image = new ReadOnlySpan<Vector256<double>>(copy.DataPointer.ToPointer(), width * height).AsSpan2D(height, width);
-                                means.Fill(image[y, x].WithElement(3, 1d / count));
-                                spreads.Clear();
-                                for (long cell = reachX + 1L, span = (2L * reachX) + 1; cell < span * (reachY + 1L); cell++) {
-                                    (int i, int j) = ((int)((cell % span) - reachX), (int)(cell / span));
-                                    (double diskX, double diskY) = (((axisX * i) + (axisY * j)) / major, ((axisX * j) - (axisY * i)) / minor);
-                                    double distance = (diskX * diskX) + (diskY * diskY);
-                                    if (distance > 1d)
-                                        continue;
-                                    Vector256<double> lanes = Vector256.Create(diskX, (diskX - diskY) / diagonal, diskY, (diskX + diskY) / diagonal);
-                                    Vector256<double> bend = Vector256.Create(overlap) - (envelope * lanes * lanes);
-                                    Vector256<double> swing = Vector256.Create(lanes.GetElement(2), lanes.GetElement(3), -lanes.GetElement(0), -lanes.GetElement(1));
-                                    (Vector256<double> low, Vector256<double> high) = (Vector256.Max(bend + swing, Vector256<double>.Zero), Vector256.Max(bend - swing, Vector256<double>.Zero));
-                                    double radial = double.Exp(-double.Pi * distance) / Vector256.Sum((low * low) + (high * high));
-                                    (low, high) = (low * low * radial, high * high * radial);
-                                    Vector256<double> upper = image[(int)long.Clamp((long)y + j, 0, height - 1), (int)long.Clamp((long)x + i, 0, width - 1)];
-                                    Vector256<double> lower = image[(int)long.Clamp((long)y - j, 0, height - 1), (int)long.Clamp((long)x - i, 0, width - 1)];
-                                    for (int k = 0; k < count; k++) {
-                                        (double first, double second) = k < count / 2 ? (low.GetElement(k), high.GetElement(k)) : (high.GetElement(k - (count / 2)), low.GetElement(k - (count / 2)));
-                                        (means[k], spreads[k]) = Accumulated(means[k], spreads[k], upper, first);
-                                        (means[k], spreads[k]) = Accumulated(means[k], spreads[k], lower, second);
-                                    }
-                                }
-                                for (int k = 0; k < count; k++) {
-                                    Vector256<double> deviation = Vector256.Sqrt(spreads[k] / means[k].GetElement(3));
-                                    deviations.Span[k] = double.Max(0.02d, Vector256.Sum(deviation));
-                                }
-                                double minimum = deviations.Span[0];
-                                for (int k = 1; k < count; k++)
-                                    minimum = double.Min(minimum, deviations.Span[k]);
-                                (Vector256<double> total, double weight) = (Vector256<double>.Zero, 0d);
-                                for (int k = 0; k < count; k++) {
-                                    double share = double.Pow(minimum / deviations.Span[k], sharpness);
-                                    (total, weight) = (total + (means[k] * share), weight + share);
-                                }
-                                Vector256<double> mean = total / weight;
-                                Span<Vector4> row = frame.View.Span.GetRowSpan(y);
-                                row[x] = new Vector4((float)mean.GetElement(0), (float)mean.GetElement(1), (float)mean.GetElement(2), row[x].W);
-                                return Fin.Succ(unit);
-                            });
-                    }
-                    for (int y = 0; y < height; y++) {
-                        for (int x = 0; x < width; x++) {
-                            Fin<Unit> rendered = Render(x, y);
-                            if (rendered.IsFail) return rendered;
+                        (int reachX, int reachY) = ((int)double.Ceiling(double.Hypot(major * axisX, minor * axisY)), (int)double.Ceiling(double.Hypot(major * axisY, minor * axisX)));
+                        means.Fill(image[y, x].WithElement(3, 1d / count));
+                        spreads.Clear();
+                        for (long cell = reachX + 1L, span = (2L * reachX) + 1; cell < span * (reachY + 1L); cell++) {
+                            (int i, int j) = ((int)((cell % span) - reachX), (int)(cell / span));
+                            (double diskX, double diskY) = (((axisX * i) + (axisY * j)) / major, ((axisX * j) - (axisY * i)) / minor);
+                            double distance = (diskX * diskX) + (diskY * diskY);
+                            if (distance > 1d)
+                                continue;
+                            Vector256<double> lanes = Vector256.Create(diskX, (diskX - diskY) / diagonal, diskY, (diskX + diskY) / diagonal);
+                            Vector256<double> bend = Vector256.Create(overlap) - (envelope * lanes * lanes);
+                            Vector256<double> swing = Vector256.Create(lanes.GetElement(2), lanes.GetElement(3), -lanes.GetElement(0), -lanes.GetElement(1));
+                            (Vector256<double> low, Vector256<double> high) = (Vector256.Max(bend + swing, Vector256<double>.Zero), Vector256.Max(bend - swing, Vector256<double>.Zero));
+                            double radial = double.Exp(-double.Pi * distance) / Vector256.Sum((low * low) + (high * high));
+                            (low, high) = (low * low * radial, high * high * radial);
+                            Vector256<double> upper = image[(int)long.Clamp((long)y + j, 0, height - 1), (int)long.Clamp((long)x + i, 0, width - 1)];
+                            Vector256<double> lower = image[(int)long.Clamp((long)y - j, 0, height - 1), (int)long.Clamp((long)x - i, 0, width - 1)];
+                            for (int k = 0, m = count / 2; k < count / 2; k++, m++) {
+                                (means[k], spreads[k]) = Accumulated(means[k], spreads[k], upper, low.GetElement(k));
+                                (means[k], spreads[k]) = Accumulated(means[k], spreads[k], lower, high.GetElement(k));
+                                (means[m], spreads[m]) = Accumulated(means[m], spreads[m], upper, high.GetElement(k));
+                                (means[m], spreads[m]) = Accumulated(means[m], spreads[m], lower, low.GetElement(k));
+                            }
                         }
-                        progress.Report(y + 1);
+                        double minimum = double.PositiveInfinity;
+                        for (int k = 0; k < count; k++) {
+                            deviations.Span[k] = double.Max(0.02d, Vector256.Sum(Vector256.Sqrt(spreads[k] / means[k].GetElement(3))));
+                            minimum = double.Min(minimum, deviations.Span[k]);
+                        }
+                        (Vector256<double> total, double weight) = (Vector256<double>.Zero, 0d);
+                        for (int k = 0; k < count; k++) {
+                            double share = double.Pow(minimum / deviations.Span[k], sharpness);
+                            (total, weight) = (total + (means[k] * share), weight + share);
+                        }
+                        Vector256<double> mean = total / weight;
+                        row[x] = new Vector4((float)mean.GetElement(0), (float)mean.GetElement(1), (float)mean.GetElement(2), row[x].W);
                     }
-                    return Fin.Succ(unit);
-                });
-        }));
+                }).Run(frame, progress));
+            });
+    }
 
     private static (Vector256<double> Mean, Vector256<double> Spread) Accumulated(Vector256<double> mean, Vector256<double> spread, Vector256<double> sample, double share) =>
         (mean.GetElement(3), (sample - mean).WithElement(3, 0d)) switch {
@@ -762,10 +724,10 @@ public sealed partial class KuwaharaKind {
         };
 }
 
-public sealed record Painterly(KuwaharaKind Kind, ShortSideLength Size, ShortSideLength Uniformity, SectorSharpness Sharpness, SectorEccentricity Eccentricity)
-    : IStateRecord<Painterly, PainterlyParameter, InvalidStylize>, IPixelStage<Painterly> {
+public sealed record Painterly(KuwaharaKind Kind, ShortSideLength Size, ShortSideLength Uniformity, AxisFraction Sharpness, SectorEccentricity Eccentricity)
+    : IStateRecord<Painterly, PainterlyParameter>, IPixelStage<Painterly> {
     public static Painterly Default { get; } = new(
-        KuwaharaKind.Anisotropic, ShortSideLength.Create(6f / ReferenceFrame.Height), ShortSideLength.Create(4f / ReferenceFrame.Height), SectorSharpness.MaxValue, SectorEccentricity.Create(1f));
+        KuwaharaKind.Anisotropic, ShortSideLength.Create(6f / ReferenceFrame.Height), ShortSideLength.Create(4f / ReferenceFrame.Height), AxisFraction.MaxValue, SectorEccentricity.Create(1f));
 
     public static Option<PixelPass> Pass(Painterly state, PassContext context) =>
         state.Kind.Radius(state.Size.Pixels(context.Extent)) == 0f
@@ -774,20 +736,22 @@ public sealed record Painterly(KuwaharaKind Kind, ShortSideLength Size, ShortSid
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PainterlyParameter : IStateParameter<Painterly> {
-    public static readonly PainterlyParameter Kuwahara = new("kind", new StateParameter<Painterly>.Choice<KuwaharaKind, InvalidStylize>(
-        Lens<Painterly, KuwaharaKind>.New(static painterly => painterly.Kind, static kind => painterly => painterly with { Kind = kind })));
-    public static readonly PainterlyParameter Size = new("size", StateParameter.Bounded<Painterly, ShortSideLength, float, InvalidPixelValue>(Lens<Painterly, ShortSideLength>.New(static painterly => painterly.Size, static size => painterly => painterly with { Size = size }),
-    ShortSideLength.Presentation with { Soft = (0f, 0.02f) }));
-    public static readonly PainterlyParameter Uniformity = new("uniformity", StateParameter.Bounded<Painterly, ShortSideLength, float, InvalidPixelValue>(Lens<Painterly, ShortSideLength>.New(static painterly => painterly.Uniformity, static uniformity => painterly => painterly with { Uniformity = uniformity }),
-    ShortSideLength.Presentation with { Soft = (0f, 0.01f) }));
-    public static readonly PainterlyParameter Sharpness = new("sharpness", StateParameter.Bounded<Painterly, SectorSharpness, float, InvalidStylize>(Lens<Painterly, SectorSharpness>.New(static painterly => painterly.Sharpness, static sharpness => painterly => painterly with { Sharpness = sharpness }), new()));
-    public static readonly PainterlyParameter Eccentricity = new("eccentricity", StateParameter.Bounded<Painterly, SectorEccentricity, float, InvalidStylize>(Lens<Painterly, SectorEccentricity>.New(static painterly => painterly.Eccentricity, static eccentricity => painterly => painterly with { Eccentricity = eccentricity }), new()));
+    public static readonly PainterlyParameter Kuwahara = new("kind", new StateParameter<Painterly>.Choice<KuwaharaKind>(Lens<Painterly, KuwaharaKind>.New(static painterly => painterly.Kind, static kind => painterly => painterly with { Kind = kind })),
+        new("Type", "Square quadrants, or sectors following the image's strokes"));
+    public static readonly PainterlyParameter Size = new("size", StateParameter.Bounded(Lens<Painterly, ShortSideLength>.New(static painterly => painterly.Size, static size => painterly => painterly with { Size = size }), ShortSideLength.Presentation with { Soft = (0f, 0.02f) }),
+        new("Size", "Filter radius as a share of the frame's short side"));
+    public static readonly PainterlyParameter Uniformity = new("uniformity", StateParameter.Bounded(Lens<Painterly, ShortSideLength>.New(static painterly => painterly.Uniformity, static uniformity => painterly => painterly with { Uniformity = uniformity }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }),
+        new("Uniformity", "Smoothing radius of the stroke direction as a share of the frame's short side"));
+    public static readonly PainterlyParameter Sharpness = new("sharpness", StateParameter.Bounded(Lens<Painterly, AxisFraction>.New(static painterly => painterly.Sharpness, static sharpness => painterly => painterly with { Sharpness = sharpness })),
+        new("Sharpness", "Weight toward the least varied sector"));
+    public static readonly PainterlyParameter Eccentricity = new("eccentricity", StateParameter.Bounded(Lens<Painterly, SectorEccentricity>.New(static painterly => painterly.Eccentricity, static eccentricity => painterly => painterly with { Eccentricity = eccentricity }), new Presentation<float>()),
+        new("Eccentricity", "Elongation of the sectors along strokes"));
 
     public StateParameter<Painterly> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,9 +1,8 @@
 using System.Runtime.InteropServices;
 using Eto.Forms;
-using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.UI;
 
@@ -11,7 +10,6 @@ namespace Darkroom;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class DarkroomGlyph : IGlyph {
@@ -31,7 +29,7 @@ public sealed class DarkroomPanel(RhinoDoc? document) : DefinedPanel(document, R
                 First: IterableNE.create<Child>(new HolderRow.Filled(Above: [ScopesSection.Row], Fill: HistorySection.Row, Below: [])),
                 Second: IterableNE.create<Child>(new HolderRow.Filled(Above: [], Fill: CompareSection.Row, Below: [RenderSetsSection.Row, OutputSection.Row, RenderQueueSection.Row])),
                 Orientation: Orientation.Vertical,
-                Anchor: SplitAnchor.Shared(ValueKey.Of<SplitShare, double, InvalidRhinoValue>(
+                Anchor: SplitAnchor.Shared(ValueKey.Of<SplitShare, double>(
                     "HistorySplit",
                     "Render history height",
                     "Share of the panel height the render history takes above compare",

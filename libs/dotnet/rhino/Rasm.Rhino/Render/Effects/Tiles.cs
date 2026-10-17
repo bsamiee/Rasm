@@ -10,9 +10,11 @@ using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
+using UnitsNet;
+using UnitsNet.Units;
 
 namespace Rasm.Rhino.Render.Effects;
 
@@ -25,18 +27,15 @@ internal enum TileRank {
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TileBatch : System.Numerics.IMinMaxValue<TileBatch> {
     public static TileBatch MinValue { get; } = new(1);
     public static TileBatch MaxValue { get; } = new(8);
     public static TileBatch Default { get; } = new(2);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TileBudget : System.Numerics.IMinMaxValue<TileBudget> {
     public static TileBudget MinValue { get; } = new(20);
     public static TileBudget MaxValue { get; } = new(2000);
@@ -44,19 +43,16 @@ public readonly partial struct TileBudget : System.Numerics.IMinMaxValue<TileBud
 
     public Duration Span => Duration.FromMilliseconds(_value);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TileCapacity : System.Numerics.IMinMaxValue<TileCapacity> {
     public static TileCapacity MinValue { get; } = new(16);
     public static TileCapacity MaxValue { get; } = new(4096);
     public static TileCapacity Default { get; } = new(256);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record TileLimits(TileBatch Batch, TileBudget Budget, TileCapacity Capacity) {
@@ -67,13 +63,22 @@ public sealed record TileLimitRows(
     PlugInSetting<TileBatch, int> Batch,
     PlugInSetting<TileBudget, int> Budget,
     PlugInSetting<TileCapacity, int> Capacity) {
+    public static TileLimitRows Default { get; } = new(
+        Batch: new(ValueKey.Numeric("PreviewBatch", "Tiles per tick", "Preview tiles formed in one scheduling tick", TileBatch.Default,
+            NumericDomain.Bounded<TileBatch, int>(new() { Form = NumberForm.Field })), SettingType.Integer),
+        Budget: new(ValueKey.Numeric("PreviewBudget", "Time budget", "Time available to form preview tiles in one scheduling tick", TileBudget.Default,
+            NumericDomain.Bounded<TileBudget, int>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Millisecond) })), SettingType.Integer),
+        Capacity: new(ValueKey.Numeric("PreviewCapacity", "Cached tiles", "Preview tiles retained while they are not visible", TileCapacity.Default,
+            NumericDomain.Bounded<TileCapacity, int>(new() { Form = NumberForm.Field })), SettingType.Integer));
+
     public Seq<PlugInSetting> Rows => [Batch, Budget, Capacity];
 
-    public Seq<Child> Children =>
-        (SectionRows.Setting(Batch, RowRules.Always)
-         + SectionRows.Setting(Budget, RowRules.Always)
-         + SectionRows.Setting(Capacity, RowRules.Always))
-            .Map(static row => (Child)row);
+    public Seq<Child> Children => [
+        new ControlRow.Group("Preview tiles", RowRules.Always) { Wording = Wording.Library },
+        .. SectionRows.Setting(Batch, RowRules.Always),
+        .. SectionRows.Setting(Budget, RowRules.Always),
+        .. SectionRows.Setting(Capacity, RowRules.Always),
+    ];
 
     public IO<TileLimits> Limits(ISettingReader reader) =>
         (reader.Current(Batch), reader.Current(Budget), reader.Current(Capacity))
@@ -114,35 +119,32 @@ public sealed class PreviewTiles {
     private readonly Derivations derivations;
     private readonly IPlugInSink owner;
     private readonly TimeProvider clock;
-    private readonly IO<TileLimits> limits;
     private readonly Ref<Seq<Raster>> rasters = Ref(Seq<Raster>());
 
-    private PreviewTiles(IPlugInSink owner, TimeProvider clock, IO<TileLimits> limits, Derivations derivations) =>
-        (this.owner, this.clock, this.limits, this.derivations) = (owner, clock, limits, derivations);
+    private PreviewTiles(IPlugInSink owner, TimeProvider clock, Derivations derivations) =>
+        (this.owner, this.clock, this.derivations) = (owner, clock, derivations);
 
     public static PlugInSlot<PreviewTiles> Current { get; } = new();
 
     public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register(Option<TileLimitRows> limits, Func<PreviewTiles, Seq<Func<IPlugInViews, Action<IDisposable>, IO<Unit>>>> readers) =>
         (sink, retain) => DisposalOps.Acquire(owned =>
-            from tiles in Open(sink, sink.Clock,
-                limits.Match(Some: rows => rows.Limits(sink.Settings), None: static () => IO.pure(TileLimits.Default)),
-                limits.Map(_ => SettingRoots.Saved(sink.Settings)), owned)
+            from tiles in Open(sink, sink.Clock, limits.Map(rows => (rows.Limits(sink.Settings), SettingRoots.Saved(sink.Settings))), owned)
             from acquired in readers(tiles).TraverseM(row => row(sink, owned)).As()
             from served in Current.Publish(sink, tiles)
-            select unit, (_, lease) => retain(lease));
+            select unit, retain);
 
-    public static IO<PreviewTiles> Open(IPlugInSink owner, TimeProvider clock, IO<TileLimits> limits, Option<HostEvent<Unit>> changes, Action<IDisposable> retain) =>
+    public static IO<PreviewTiles> Open(IPlugInSink owner, TimeProvider clock, Option<(IO<TileLimits> Read, HostEvent<Unit> Changed)> limits, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from derivations in DisposalOps.Acquire(IO.lift(static () => new Derivations()), static held => IO.lift(held.Dispose), owned)
-            from tiles in IO.lift(() => new PreviewTiles(owner, clock, limits, derivations))
-            from images in DisposalOps.Acquire(
-                IO.lift(() => new Disposal<IO<Unit>>(tiles.Emptied, static close => close.Run())), static lease => IO.lift(lease.Dispose), owned)
-            let read = limits.Bind(tiles.Limit)
-            from initial in read
-            from saved in changes.TraverseM(changed => changed.Choose(static _ => Some((unit, unit)))
-                .Through(Subscriptions.Idle<Unit, Unit>(_ => read), owner, owned)).As()
+            from derivations in DisposalOps.Acquire(IO.lift(static () => new Derivations()), owned)
+            from tiles in IO.lift(() => new PreviewTiles(owner, clock, derivations))
+            from images in DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(tiles.Emptied, static close => Callbacks.Settled(close, CancellationToken.None).ThrowIfFail())), owned)
+            from watched in limits.TraverseM(source =>
+                from initial in source.Read.Bind(tiles.Limit)
+                from saved in source.Changed.Choose(static _ => Some((unit, unit)))
+                    .Through(Subscriptions.Idle<Unit, Unit>(_ => source.Read.Bind(tiles.Limit)), owner, owned)
+                select unit).As()
             from worker in DisposalOps.Fork(tiles.Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())), owned)
-            select tiles, (_, lease) => retain(lease));
+            select tiles, retain);
 
     private IO<Unit> Limit(TileLimits current) => writeIO(bounds, current).Map(unit);
 
@@ -163,10 +165,10 @@ public sealed class PreviewTiles {
     public IO<Disposal<Thumbnail>> Thumbnail(Control view, TileRequest request, Size size, Action<Disposal<Thumbnail>> retain) =>
         DisposalOps.Acquire(owned =>
             from device in HostTheme.Device(size)
-            from extent in IO.lift(() => PixelExtent.Validate(device.Width, device.Height, out PixelExtent asked) is { } error ? Fin.Fail<PixelExtent>(error) : Fin.Succ(asked))
+            from extent in IO.lift(() => PixelExtent.Validated(device.Width, device.Height))
             from tile in Formed(request, extent, TileRank.Visible)
-            from pixels in FrameView.Raster(owner, view, tile.Frame, TransferCurve.Srgb, owned)
-            select new Disposal<Thumbnail>(new Thumbnail.Raster(pixels), Rhino.UI.Assets.Thumbnail.Release), (thumbnail, _) => retain(thumbnail));
+            from pixels in FrameView.Raster(view, tile.Frame, TransferCurve.Srgb, owned)
+            select new Disposal<Thumbnail>(new Thumbnail.Raster(pixels), Rhino.UI.Drawing.Thumbnail.Release), (thumbnail, _) => retain(thumbnail));
 
     public IO<Unit> Refresh =>
         from now in IO.lift(clock.GetTimestamp)
@@ -176,7 +178,6 @@ public sealed class PreviewTiles {
     public long Bytes => held.Value.Bytes;
 
     public IO<Option<Unit>> Paint(object source, Option<Control> view, PixelFrame frame, PixelExtent extent, Imaging.Color.Transfer encoding, Action<Bitmap> draw) =>
-        from current in limits.Bind(Limit)
         from now in IO.lift(clock.GetTimestamp)
         let key = (Source: source, View: view, Frame: frame, Extent: frame.Size.Fitted(extent), Encoding: encoding)
         from pixels in IO.lift(() => rasters.Value.Find(row => row.Key == key)).Bind(found => found.Match(
@@ -200,8 +201,8 @@ public sealed class PreviewTiles {
         Action<Bitmap> kept = bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))));
         return from reduced in IO.lift(() => key.Frame.Downscaled(key.Extent))
                from image in key.View.Match(
-                   Some: control => FrameView.Raster(owner, control, reduced, key.Encoding, kept),
-                   None: () => DisposalOps.Acquire(IO.lift(() => Plots.Pixels(reduced.Size, key.Encoding.Displayed(reduced))), static bitmap => IO.lift(bitmap.Dispose), kept))
+                   Some: control => FrameView.Raster(control, reduced, key.Encoding, kept),
+                   None: () => DisposalOps.Acquire(IO.lift(() => ImagePlots.Pixels(reduced.Size, key.Encoding.Displayed(reduced))), kept))
                select image;
     }
 

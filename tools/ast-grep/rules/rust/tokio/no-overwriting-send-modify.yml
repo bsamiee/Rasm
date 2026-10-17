@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-overwriting-send-modify
+language: rust
+severity: error
+utils:
+    overwrite:
+        kind: assignment_expression
+        all:
+            - has: {field: left, kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $VALUE}}
+            - has:
+                field: right
+                pattern: $NEW
+                not:
+                    any:
+                        - pattern: $VALUE
+                        - matches: escape
+                        - has: {stopBy: end, any: [{kind: identifier, pattern: $VALUE}, {matches: escape}]}
+    escape:
+        kind: 'return_expression, try_expression, break_expression, continue_expression, line_comment, block_comment'
+    statement:
+        kind: expression_statement
+        has: {matches: overwrite}
+    closure:
+        kind: closure_expression
+        has: {field: parameters, all: [{has: {nthChild: 1, any: [{kind: identifier, pattern: $VALUE}, {kind: parameter, has: {field: pattern, kind: identifier, pattern: $VALUE}}]}}, {not: {has: {nthChild: 2}}}]}
+    sole-argument:
+        kind: arguments
+        not: {has: {nthChild: 2}}
+rule:
+    kind: call_expression
+    all:
+        - inside: {kind: expression_statement}
+        - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $SENDER}}, {has: {field: field, regex: '^send_(modify|if_modified)$', pattern: $METHOD}}]}
+        - any:
+            - all:
+                - has: {field: function, has: {field: field, regex: '^send_modify$'}}
+                - has:
+                    field: arguments
+                    matches: sole-argument
+                    has:
+                        nthChild: 1
+                        matches: closure
+                        has:
+                            field: body
+                            any:
+                                - matches: overwrite
+                                - kind: block
+                                  all:
+                                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: overwrite}, {matches: statement}]}
+                                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - all:
+                - has: {field: function, has: {field: field, regex: '^send_if_modified$'}}
+                - has:
+                    field: arguments
+                    matches: sole-argument
+                    has:
+                        nthChild: 1
+                        matches: closure
+                        has:
+                            field: body
+                            kind: block
+                            all:
+                                - has: {nthChild: 1, matches: statement}
+                                - has: {nthChild: 2, kind: boolean_literal, regex: '^true$'}
+                                - not: {has: {nthChild: 3}}
+fix: $SENDER.send_replace($NEW)
+message: '`$SENDER.$METHOD` overwrites the whole watched value through a closure'
+note: 'Call `<sender>.send_replace(<value>)`, it stores the value, notifies every receiver, and returns the previous value with no closure over the borrowed one'

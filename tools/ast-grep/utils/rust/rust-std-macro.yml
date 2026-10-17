@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-std-macro
+language: rust
+arguments: [name]
+rule:
+    kind: macro_invocation
+    has:
+        field: macro
+        any:
+            - kind: identifier
+              matches: name
+            - kind: scoped_identifier
+              all:
+                - has: {field: path, regex: '^(::)?(std|core|alloc)$'}
+                - has: {field: name, matches: name}

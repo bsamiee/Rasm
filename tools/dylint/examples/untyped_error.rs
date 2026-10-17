@@ -1,8 +1,17 @@
-use core::{error::Error, fmt, hint::black_box, num::ParseIntError};
-use std::{borrow::Cow, io, rc::Rc, sync::Arc};
+#![feature(error_reporter)]
+
+use core::{
+    convert::Infallible,
+    error::Error,
+    fmt,
+    hint::black_box,
+    num::{ParseIntError, TryFromIntError},
+};
+use std::{borrow::Cow, error::Report, io, rc::Rc, sync::Arc};
 
 use anyhow::Context as _;
-use tokio::task;
+use rmcp::{ErrorData, model::ErrorCode};
+use tokio::{sync::oneshot, task};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -107,6 +116,12 @@ enum ConfigError {
         #[source]
         source: ParseIntError,
     },
+    #[error("no port named {name}")]
+    Unknown { name: String },
+    #[error("port {port} is reserved")]
+    Reserved { port: String },
+    #[error("{0}")]
+    Composed(Box<str>),
     #[error("configuration is empty")]
     Empty,
 }
@@ -137,6 +152,30 @@ enum LoadError {
 enum ReportError {
     #[error("cannot open the project")]
     Project(#[source] anyhow::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+enum RenderError {
+    #[error("cannot render the port")]
+    Format(#[from] fmt::Error),
+    #[error("port does not fit one byte")]
+    Narrow(#[from] TryFromIntError),
+    #[error("the port answer never came")]
+    Abandoned(#[from] oneshot::error::RecvError),
+    #[error("port is not a number")]
+    Parse(#[from] ParseIntError),
+    #[error("port rendering cannot fail")]
+    Never(#[from] Infallible),
+}
+
+#[derive(Debug, thiserror::Error)]
+enum Unserved {
+    #[error("{name} names no port, list ports for the served names")]
+    Unlisted { name: String },
+}
+
+impl From<Unserved> for ErrorData {
+    fn from(value: Unserved) -> Self { Self::invalid_params(Report::new(value).to_string(), None) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -223,6 +262,9 @@ fn configured(text: &str) -> Result<u16, ConfigError> {
         "" => Err(ConfigError::Empty),
         "refused" => Err(ConfigError::Message(String::from("configuration refused the port"))),
         "detail" => Err(ConfigError::Detail { detail: Box::from("port detail"), context: Cow::Borrowed("port context") }),
+        "reserved" => Err(ConfigError::Reserved { port: 80_u16.to_string() }),
+        "composed" => Err(ConfigError::Composed(format!("{text} refused the port").into())),
+        "http" | "https" => Err(ConfigError::Unknown { name: text.to_owned() }),
         _ => text.parse().map_err(|source| ConfigError::Parse { key: String::from("port"), source }),
     }
 }
@@ -236,6 +278,39 @@ fn reported(path: &str) -> anyhow::Result<String> { Ok(fs_err::read_to_string(pa
 fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
 
 const fn projected(report: anyhow::Error) -> ReportError { ReportError::Project(report) }
+
+fn rendered<F>(error: F) -> String
+where F: Error {
+    Report::new(error).to_string()
+}
+
+fn explained(error: ParseIntError) -> String { Report::new(error).pretty(true).to_string() }
+
+fn narrowed(text: &str) -> Result<u8, RenderError> {
+    let port = text.parse::<u16>()?;
+    let mut shown = String::new();
+    fmt::Write::write_fmt(&mut shown, format_args!("{port}"))?;
+    Ok(u8::try_from(port).or_else(|_error| u8::try_from(shown.len()))?)
+}
+
+fn infallible(port: Result<u16, Infallible>) -> Result<u16, RenderError> { Ok(port?) }
+
+async fn answered(receiver: oneshot::Receiver<u16>) -> Result<u16, RenderError> { Ok(receiver.await?) }
+
+fn listed(name: &str) -> Result<u16, Unserved> { if name == "port" { Ok(8080) } else { Err(Unserved::Unlisted { name: name.to_owned() }) } }
+
+fn served(name: &str, reserved: u16) -> Result<u16, ErrorData> {
+    let port = listed(name)?;
+    if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) }
+}
+
+fn mapped(name: &str) -> Result<u16, ErrorData> {
+    listed(name).map_err(ErrorData::from).and_then(|port| if port == 0 { Err(ErrorData::internal_error("port zero cannot be served", None)) } else { Ok(port) })
+}
+
+fn dispatched(name: &str, method: &str) -> Result<u16, ErrorData> { if method == "ports/read" { Ok(listed(name)?) } else { Err(ErrorData::new(ErrorCode::METHOD_NOT_FOUND, method.to_owned(), None)) } }
+
+fn extracted(name: Option<&str>) -> Result<&str, ErrorData> { name.ok_or_else(|| ErrorData::internal_error("no port name reaches the extractor", None)) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -282,6 +357,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         header(vec![1, 2, 3, 4]).map_or(0, |bytes| bytes.len()),
         rejected(&[text])?,
     ));
-    let files = [loaded("port")?, reported("port").map_err(projected)?, contexted(text)?.to_string()];
+    let files = [
+        loaded("port")?,
+        reported("port").map_err(projected)?,
+        contexted(text)?.to_string(),
+        text.parse::<u16>().err().map(rendered).unwrap_or_default(),
+        text.parse::<u16>().err().map(explained).unwrap_or_default(),
+    ];
+    black_box((
+        narrowed(text)
+            .map_or_else(|error| matches!(error, RenderError::Format(_) | RenderError::Narrow(_) | RenderError::Abandoned(_) | RenderError::Parse(_) | RenderError::Never(_)), |port| port > 0),
+        answered(oneshot::channel().1).await.unwrap_or_default(),
+        infallible(Ok(8080)).unwrap_or_default(),
+        served(text, 80).unwrap_or_default(),
+        mapped(text).unwrap_or_default(),
+        dispatched(text, "ports/read").unwrap_or_default(),
+        extracted(Some(text)).unwrap_or_default(),
+    ));
     ports.iter().all(|port| *port == 8080).then_some(()).filter(|()| files.iter().all(|file| !file.is_empty())).ok_or_else(|| Box::from("ports differ"))
 }

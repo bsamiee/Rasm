@@ -34,7 +34,7 @@ utils:
             - inside: {kind: unary_expression, has: {field: operator, regex: '^!$'}}
             - inside: {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}, matches: condition}
             - inside: {kind: parenthesized_expression, matches: condition}
-            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?Boolean$', matches: syntax-global-reference}}}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?Boolean$', matches: typescript-global-reference}}}
 rule:
     pattern: $NODE
     any:

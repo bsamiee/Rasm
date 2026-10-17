@@ -2,7 +2,6 @@ using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
 using Rhino.DocObjects.Tables;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects;
 
@@ -47,7 +46,7 @@ internal sealed class DefinedGripObject : CustomGripObject {
     internal DefinedGripObject(GripPoint point) {
         Point = point;
         weight = Conversions.Unset(point.Weight);
-        _ = DisposalOps.OnFailure(IO.lift(() => GripMapper.Initialize(point.Location, this)), IO.lift(Dispose)).Run();
+        _ = DisposalOps.OnFailure(IO.lift(() => { OriginalLocation = point.Location; }), IO.lift(Dispose)).Run();
     }
 
     internal GripPoint Point { get; }
@@ -94,8 +93,7 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
         surfaceControlPoint: static _ => ObjectGripsType.SurfaceControlPoint)) {
         this.control = control;
         grips = DisposalOps.OnFailure(
-            toSeq(points).TraverseM(point => DisposalOps.Acquire(
-                IO.lift(() => new DefinedGripObject(point)), static made => IO.lift(made.Dispose), AddGrip)).As(),
+            toSeq(points).TraverseM(point => DisposalOps.Acquire(IO.lift(() => new DefinedGripObject(point)), AddGrip)).As(),
             IO.lift(Dispose)).Run();
     }
 
@@ -123,12 +121,6 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class GripMapper {
-    [MapPropertyFromSource(nameof(CustomGripObject.OriginalLocation))]
-    internal static partial void Initialize(Point3d location, CustomGripObject grip);
-}
-
 public static class CustomGrips {
     // --- [REGISTRATION]
     public static IO<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> grips, IPlugInSink sink) where TGrips : DefinedObjectGrips {
@@ -195,6 +187,6 @@ public static class CustomGrips {
         select chosen.Count;
 
     public static IO<RhinoObject> GripUpdate(RhinoObject owner, bool deleteOriginal) =>
-        IO.lift(() => Missing.Unless(owner.Document, nameof(RhinoObject.Document))
-            .Bind(document => Missing.Unless(document.Objects.GripUpdate(owner, deleteOriginal), nameof(ObjectTable.GripUpdate))));
+        IO.lift(() => Refused.UnlessFound(owner.Document, nameof(RhinoObject.Document))
+            .Bind(document => Refused.UnlessFound(document.Objects.GripUpdate(owner, deleteOriginal), nameof(ObjectTable.GripUpdate))));
 }

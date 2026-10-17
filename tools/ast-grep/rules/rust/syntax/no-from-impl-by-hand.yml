@@ -3,8 +3,6 @@ id: no-from-impl-by-hand
 language: rust
 severity: error
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment'}
     constructor:
         any:
             - kind: call_expression
@@ -24,8 +22,8 @@ utils:
         all:
             - has: {field: name, regex: '^from$'}
             - has: {field: parameters, all: [{has: {nthChild: 1, kind: parameter, has: {field: pattern, kind: identifier, pattern: $P}}}, {not: {has: {nthChild: 2}}}]}
-            - has: {field: body, has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: constructor}}
-            - not: {has: {field: body, has: {nthChild: {position: 2, ofRule: {matches: slot}}}}}
+            - has: {field: body, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: constructor}}
+            - not: {has: {field: body, has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}
     single-field:
         any:
             - kind: field_declaration_list
@@ -45,12 +43,12 @@ rule:
           all:
             - has: {field: trait, regex: '^((::)?(std|core)::(convert::)?)?From<'}
             - has: {field: type, any: [{kind: type_identifier, pattern: $S}, {kind: generic_type, has: {field: type, pattern: $S}}]}
-            - has: {field: body, all: [{has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: from-method}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}}]}
+            - has: {field: body, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: from-method}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]}
             - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $S}}}}}}
         - kind: struct_item
           all:
             - has: {field: name, pattern: $S}
             - has: {field: body, matches: single-field}
-            - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derive-more-from}
+            - matches: {rust-attributed: {attribute: {matches: derive-more-from}}}
 message: '`$S` converts from its one field through a hand `From` impl or `derive_more::From`'
 note: 'Write `#[derive(From)]` with `use core::from::From;` (`#![feature(derive_from)]`), the derive converts a single-field struct from its field. An impl transforming the value and a multi-field or enum derive stay as written. The `redundant_error_conversion` and `contextless_io_error` dylints own a conversion into an error type, the error type takes `#[from]` on its thiserror field'

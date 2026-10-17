@@ -7,6 +7,8 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, declare_lint_pass};
 use rustc_middle::ty::{self, Ty};
 use rustc_span::Span;
 
+use crate::{bounds_of, signature};
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 declare_lint! {
@@ -50,13 +52,10 @@ impl<'tcx> LateLintPass<'tcx> for NestedTask {
         fn spawned(cx: &LateContext<'_>, spawner: DefId) -> Option<(usize, DefId)> {
             let tcx = cx.tcx;
             let (future, output) = (tcx.lang_items().future_trait()?, tcx.lang_items().get(LangItem::FutureOutput)?);
-            let signature = tcx.fn_sig(spawner).instantiate_identity().skip_normalization().skip_binder();
-            let index = signature.inputs().iter().position(|&input| {
-                matches!(input.kind(), ty::Param(_))
-                    && tcx.param_env(spawner).caller_bounds().any(|clause| clause.as_trait_clause().is_some_and(|bound| bound.def_id() == future && bound.self_ty().skip_binder() == input))
-            })?;
-            let parameter = *signature.inputs().get(index)?;
-            let ty::Adt(handle, held) = signature.output().kind() else { return None };
+            let declared = signature(tcx, spawner);
+            let index = declared.inputs().iter().position(|&input| matches!(input.kind(), ty::Param(_)) && bounds_of(tcx, spawner, input).any(|bound| bound.def_id() == future))?;
+            let parameter = *declared.inputs().get(index)?;
+            let ty::Adt(handle, held) = declared.output().kind() else { return None };
             held.types()
                 .any(|carried| matches!(carried.kind(), ty::Alias(_, alias) if alias.kind == ty::AliasTyKind::Projection { def_id: output } && alias.self_ty() == parameter))
                 .then(|| (index, handle.did()))

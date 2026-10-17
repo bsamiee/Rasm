@@ -19,13 +19,13 @@ utils:
     first-weight:
         kind: block
         all:
-            - has: {nthChild: 1, matches: weight, pattern: $W}
-            - not: {has: {nthChild: 2}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: weight, pattern: $W}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     other-weight:
         kind: block
         all:
-            - has: {nthChild: 1, matches: weight, not: {pattern: $W}}
-            - not: {has: {nthChild: 2}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: weight, not: {pattern: $W}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
 rule:
     any:
         - kind: if_expression

@@ -52,17 +52,13 @@ internal static partial class MorphMapper {
     internal static partial void Update(MorphSettings settings, MorphControl control);
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update(MorphKind.Twist twist, TwistSpaceMorph morph);
+    internal static partial TwistSpaceMorph Twist(MorphKind.Twist twist);
 
     [MapProperty(nameof(@UnrollOptions.Explode.IsSome), nameof(Unroller.ExplodeOutput))]
     [MapProperty(nameof(UnrollOptions.Explode), nameof(Unroller.ExplodeSpacing))]
     [MapProperty(nameof(@UnrollOptions.Tolerances.Absolute), nameof(Unroller.AbsoluteTolerance))]
     [MapProperty(nameof(@UnrollOptions.Tolerances.Relative), nameof(Unroller.RelativeTolerance))]
     internal static partial void Update(UnrollOptions options, Unroller unroller);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapPropertyFromSource(nameof(SporphSpaceMorph.ConstrainNormal))]
-    internal static partial void Normal(Vector3d normal, SporphSpaceMorph morph);
 
     [MapPropertyFromSource(nameof(MeshUnwrapper.SymmetryPlane))]
     internal static partial void Symmetry(Plane plane, MeshUnwrapper unwrapper);
@@ -71,21 +67,18 @@ internal static partial class MorphMapper {
 public static class Morphs {
     // --- [MORPHS]
     public static IO<Seq<T>> Morph<T>(Seq<T> targets, MorphKind kind, MorphSettings settings, Action<IDisposable> retain) where T : GeometryBase =>
-        DisposalOps.Acquire(owned => Morphing(kind, Some(settings), morph => Morphed(targets, morph.Morph, nameof(SpaceMorph.Morph), owned)), (_, release) => retain(release));
+        DisposalOps.Acquire(owned => Morphing(kind, Some(settings), morph => Morphed(targets, morph.Morph, nameof(SpaceMorph.Morph), owned)), retain);
 
     public static IO<Seq<T>> Morph<T>(Seq<T> targets, NurbsCurve origin, NurbsCurve target, MorphSettings settings, Action<IDisposable> retain) where T : GeometryBase =>
-        DisposalOps.Acquire(owned => DisposalOps.Within(
-            () => new MorphControl(origin, target),
-            control =>
-                from valid in IO.lift(() => Refused.Unless(control.IsValid, nameof(MorphControl)))
-                from configured in IO.lift(() => MorphMapper.Update(settings, control))
-                from morphed in Morphed(targets, control.Morph, nameof(MorphControl.Morph), owned)
-                select morphed,
-            static control => IO.lift(control.Dispose)), (_, release) => retain(release));
+        DisposalOps.Acquire(owned => DisposalOps.Within(() => new MorphControl(origin, target), control =>
+            from valid in IO.lift(() => Refused.Unless(control.IsValid, nameof(MorphControl)))
+            from configured in IO.lift(() => MorphMapper.Update(settings, control))
+            from morphed in Morphed(targets, control.Morph, nameof(MorphControl.Morph), owned)
+            select morphed), retain);
 
     public static IO<Seq<Plane>> Morph(Seq<Plane> planes, MorphKind kind, MorphSettings settings) =>
         Morphing(kind, Some(settings), morph => IO.lift(() =>
-            Callbacks.Each(planes, (plane, index) => RefusedElement.Unless(morph.Morph(ref plane), plane, nameof(SpaceMorph.Morph), index))));
+            Callbacks.Each(planes, (plane, index) => Refused.Unless(morph.Morph(ref plane), plane, nameof(SpaceMorph.Morph), index))));
 
     public static IO<Seq<Point3d>> MorphPoint(Seq<Point3d> points, MorphKind kind) =>
         Morphing(kind, None, morph => IO.lift(() => points.Map(morph.MorphPoint).Strict()));
@@ -93,42 +86,34 @@ public static class Morphs {
     private static IO<A> Morphing<A>(MorphKind kind, Option<MorphSettings> settings, Func<SpaceMorph, IO<A>> apply) =>
         kind.Switch(
             (Settings: settings, Apply: apply),
-            bend: static (state, of) => Morphing(() => new BendSpaceMorph(of.Start, of.End, of.Through, Conversions.Unset(of.Angle), of.Straight, of.Symmetric),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(BendSpaceMorph))), state),
-            flow: static (state, of) => Morphing(() => new FlowSpaceMorph(of.Base, of.Target, of.ReverseBase, of.ReverseTarget, of.PreventStretching),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(FlowSpaceMorph))), state),
-            maelstrom: static (state, of) => Morphing(() => new MaelstromSpaceMorph(of.Plane, of.Radius0, of.Radius1, of.Angle),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(MaelstromSpaceMorph))), state),
-            splop: static (state, of) => Morphing(() => new SplopSpaceMorph(of.Plane, of.Surface, of.Parameter, Conversions.Unset(of.Scale), Conversions.Unset(of.Angle)),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(SplopSpaceMorph))), state),
-            sporph: static (state, of) => Morphing(() => of.Parameters.Case is (Point2d source, Point2d target)
+            bend: static (state, of) => Morphing(() => new BendSpaceMorph(of.Start, of.End, of.Through, Conversions.Unset(of.Angle), of.Straight, of.Symmetric), static morph => morph.IsValid, state),
+            flow: static (state, of) => Morphing(() => new FlowSpaceMorph(of.Base, of.Target, of.ReverseBase, of.ReverseTarget, of.PreventStretching), static morph => morph.IsValid, state),
+            maelstrom: static (state, of) => Morphing(() => new MaelstromSpaceMorph(of.Plane, of.Radius0, of.Radius1, of.Angle), static morph => morph.IsValid, state),
+            splop: static (state, of) => Morphing(() => new SplopSpaceMorph(of.Plane, of.Surface, of.Parameter, Conversions.Unset(of.Scale), Conversions.Unset(of.Angle)), static morph => morph.IsValid, state),
+            sporph: static (state, of) => Morphing(
+                () => of.Parameters.Case is (Point2d source, Point2d target)
                     ? new SporphSpaceMorph(of.Source, of.Target, source, target)
                     : new SporphSpaceMorph(of.Source, of.Target),
-                morph => IO.lift(Refused.Unless(morph.IsValid, nameof(SporphSpaceMorph)))
-                    >> IO.lift(() => MorphMapper.Normal(Conversions.Unset(of.ConstrainNormal), morph)), state),
-            stretchToLength: static (state, of) => Morphing(() => new StretchSpaceMorph(of.Start, of.End, of.Length),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(StretchSpaceMorph))), state),
-            stretchToPoint: static (state, of) => Morphing(() => new StretchSpaceMorph(of.Start, of.End, of.Point),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(StretchSpaceMorph))), state),
-            taper: static (state, of) => Morphing(() => new TaperSpaceMorph(of.Start, of.End, of.StartRadius, of.EndRadius, of.Flat, of.Infinite),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(TaperSpaceMorph))), state),
-            twist: static (state, of) => Morphing(static () => new TwistSpaceMorph(), morph => IO.lift(() => MorphMapper.Update(of, morph)), state),
-            cage: static (state, of) => Morphing(() => new MeshCageMorph(of.Reference, of.Target),
-                static morph => IO.lift(Refused.Unless(morph.IsValid, nameof(MeshCageMorph))), state));
+                static morph => morph.IsValid, state, Some<Action<SporphSpaceMorph>>(morph => morph.ConstrainNormal = Conversions.Unset(of.ConstrainNormal))),
+            stretchToLength: static (state, of) => Morphing(() => new StretchSpaceMorph(of.Start, of.End, of.Length), static morph => morph.IsValid, state),
+            stretchToPoint: static (state, of) => Morphing(() => new StretchSpaceMorph(of.Start, of.End, of.Point), static morph => morph.IsValid, state),
+            taper: static (state, of) => Morphing(() => new TaperSpaceMorph(of.Start, of.End, of.StartRadius, of.EndRadius, of.Flat, of.Infinite), static morph => morph.IsValid, state),
+            twist: static (state, of) => Morphing(() => MorphMapper.Twist(of), static _ => true, state),
+            cage: static (state, of) => Morphing(() => new MeshCageMorph(of.Reference, of.Target), static morph => morph.IsValid, state));
 
-    private static IO<A> Morphing<TMorph, A>(Func<TMorph> create, Func<TMorph, IO<Unit>> prepare, (Option<MorphSettings> Settings, Func<SpaceMorph, IO<A>> Apply) state)
+    private static IO<A> Morphing<TMorph, A>(Func<TMorph> create, Func<TMorph, bool> valid, (Option<MorphSettings> Settings, Func<SpaceMorph, IO<A>> Apply) state, Option<Action<TMorph>> configure = default)
         where TMorph : SpaceMorph, IDisposable =>
         DisposalOps.Within(create, morph =>
-            from prepared in prepare(morph)
+            from accepted in IO.lift(Refused.Unless(valid(morph), typeof(TMorph).Name))
+            from constrained in IO.lift(() => configure.Iter(set => set(morph)))
             from configured in IO.lift(() => state.Settings.Iter(settings => MorphMapper.Update(settings, morph)))
             from applied in state.Apply(morph)
-            select applied,
-            static morph => IO.lift(morph.Dispose));
+            select applied);
 
     private static IO<Seq<T>> Morphed<T>(Seq<T> targets, Func<GeometryBase, bool> morph, string member, Action<IDisposable> retain) where T : GeometryBase =>
         from morphable in IO.lift(() => Callbacks.Each(targets, SpaceMorph.IsMorphable, nameof(SpaceMorph.IsMorphable)))
         from morphed in targets.Map(static (target, index) => (target, index))
-            .TraverseM(row => Copies.Edit(row.target, copy => RefusedElement.Unless(morph(copy), member, row.index), member, retain)).As()
+            .TraverseM(row => Copies.Edit(row.target, copy => IO.lift(Refused.Unless(morph(copy), member, row.index)), member, retain).Map(static edited => edited.Copy)).As()
         select morphed;
 
     // --- [FLATTENS]
@@ -140,7 +125,7 @@ public static class Morphs {
         DisposalOps.Acquire(owned =>
             from copies in meshes.TraverseM(mesh => Copies.Duplicate(mesh, owned)).As()
             from unwrapped in Unwrapped(copies, method, symmetry)
-            select unwrapped, (_, release) => retain(release));
+            select unwrapped, retain);
 
     public static IO<UnrollResult> Unroll(Func<Unroller> create, UnrollOptions options, Seq<Curve> curves, Seq<Point3d> points, Seq<TextDot> dots, Action<IDisposable> retain) =>
         from unroller in IO.lift(() => {
@@ -172,19 +157,13 @@ public static class Morphs {
         select unrolled;
 
     public static IO<SquishResult<T>> Squish<T>(Seq<GeometryBase> marks, Func<Squisher, Seq<GeometryBase>, List<GeometryBase>, T?> squish, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        DisposalOps.Acquire(owned => DisposalOps.Within(
-            static () => new Squisher(),
-            squisher => Squished(squisher, marks, squish, member, owned),
-            static squisher => IO.lift(squisher.Dispose)), (_, release) => retain(release));
+        DisposalOps.Acquire(owned => DisposalOps.Within(static () => new Squisher(), squisher => Squished(squisher, marks, squish, member, owned)), retain);
 
     private static IO<Seq<Mesh>> Unwrapped(Seq<Mesh> copies, MeshUnwrapMethod method, Option<Plane> symmetry) =>
-        DisposalOps.Within(
-            () => new MeshUnwrapper(copies),
-            unwrapper =>
-                from configured in IO.lift(() => symmetry.Iter(plane => MorphMapper.Symmetry(plane, unwrapper)))
-                from applied in IO.lift(() => Refused.Unless(unwrapper.Unwrap(method), copies, nameof(MeshUnwrapper.Unwrap)))
-                select applied,
-            static unwrapper => IO.lift(unwrapper.Dispose));
+        DisposalOps.Within(() => new MeshUnwrapper(copies), unwrapper =>
+            from configured in IO.lift(() => symmetry.Iter(plane => MorphMapper.Symmetry(plane, unwrapper)))
+            from applied in IO.lift(() => Refused.Unless(unwrapper.Unwrap(method), copies, nameof(MeshUnwrapper.Unwrap)))
+            select applied);
 
     private static IO<SquishResult<T>> Squished<T>(Squisher squisher, Seq<GeometryBase> marks, Func<Squisher, Seq<GeometryBase>, List<GeometryBase>, T?> squish, string member, Action<IDisposable> owned)
         where T : GeometryBase =>

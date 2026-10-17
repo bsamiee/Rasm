@@ -10,13 +10,11 @@ namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ClipDepth : System.Numerics.IMinMaxValue<ClipDepth> {
     public static ClipDepth MinValue { get; } = new(0d);
     public static ClipDepth MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record ClipParticipation(Seq<Guid> ObjectIds, Seq<int> LayerIndices, bool IsExclusionList);
@@ -37,11 +35,9 @@ public static class ClippingPlanes {
     public static IO<Guid> Add(RhinoDoc doc, ClipSpec spec) =>
         from style in Styled(doc, spec.Settings.DimensionStyle)
         from id in Acquired(doc, Seq(spec.Viewports), rows =>
-            DisposalOps.Within(() => new ClippingPlaneSurface(spec.Surface),
-                surface => from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
-                           from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
-                           select added,
-                static surface => IO.lift(surface.Dispose)))
+            DisposalOps.Within(() => new ClippingPlaneSurface(spec.Surface), surface => from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
+                                                                                        from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
+                                                                                        select added))
         select id;
 
     // --- [EDITS]
@@ -63,21 +59,21 @@ public static class ClippingPlanes {
         found.Map(static (target, index) => (Target: target, Index: index)).TraverseM(row => Editable(doc, row.Target, row.Index,
             from plane in ObjectTarget.Resolve<ClippingPlaneObject, ClippingPlaneSurface>(doc, row.Target.Id)
             from staged in IO.lift(() => Staged(plane.Geometry, attach, detach, settings, style))
-            from committed in IO.lift(() => RefusedElement.Unless(plane.Object.CommitChanges(), row.Target.Id, nameof(RhinoObject.CommitChanges), row.Index))
+            from committed in IO.lift(() => Refused.Unless(plane.Object.CommitChanges(), row.Target.Id, nameof(RhinoObject.CommitChanges), row.Index))
             select committed)).As();
 
-    private static IO<T> Editable<T>(RhinoDoc doc, RhinoObject target, int index, IO<T> body) =>
-        target.Attributes.Mode switch {
-            ObjectMode.Hidden => DisposalOps.Within(
-                () => RefusedElement.Unless(doc.Objects.Show(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Show), index),
-                shown => IO.lift(shown).Bind(_ => body),
-                shown => IO.lift(() => shown.Match(Succ: _ => RefusedElement.Unless(doc.Objects.Hide(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Hide), index), Fail: static _ => Fin.Succ(unit)))),
-            ObjectMode.Locked => DisposalOps.Within(
-                () => RefusedElement.Unless(doc.Objects.Unlock(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Unlock), index),
-                unlocked => IO.lift(unlocked).Bind(_ => body),
-                unlocked => IO.lift(() => unlocked.Match(Succ: _ => RefusedElement.Unless(doc.Objects.Lock(target.Id, ignoreLayerMode: true), nameof(ObjectTable.Lock), index), Fail: static _ => Fin.Succ(unit)))),
+    private static IO<T> Editable<T>(RhinoDoc doc, RhinoObject target, int index, IO<T> body) {
+        IO<T> Opened(Func<Guid, bool, bool> open, string opening, Func<Guid, bool, bool> close, string closing) =>
+            DisposalOps.Within(
+                () => Refused.Unless(open(target.Id, true), opening, index),
+                opened => IO.lift(opened).Bind(_ => body),
+                opened => IO.lift(() => opened.Match(Succ: _ => Refused.Unless(close(target.Id, true), closing, index), Fail: static _ => Fin.Succ(unit))));
+        return target.Attributes.Mode switch {
+            ObjectMode.Hidden => Opened(doc.Objects.Show, nameof(ObjectTable.Show), doc.Objects.Hide, nameof(ObjectTable.Hide)),
+            ObjectMode.Locked => Opened(doc.Objects.Unlock, nameof(ObjectTable.Unlock), doc.Objects.Lock, nameof(ObjectTable.Lock)),
             ObjectMode.Normal or ObjectMode.InstanceDefinitionObject => body,
         };
+    }
 
     private static void Staged(ClippingPlaneSurface surface, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Option<Guid> style) {
         _ = attach.Iter(row => surface.AddClipViewportId(row.Viewport.Id));
@@ -95,7 +91,7 @@ public static class ClippingPlanes {
         from state in IO.lift(() => {
             ClippingPlaneSurface surface = plane.Geometry;
             surface.GetClipParticipation(out IEnumerable<Guid> objectIds, out IEnumerable<int> layerIndices, out bool isExclusionList);
-            return from depth in Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth).Traverse(Conversions.Validated<ClipDepth, double, InvalidRhinoValue>).As()
+            return from depth in Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth).Traverse(ClipDepth.Validated).As()
                    select new ClipState(toSeq(surface.ViewportIds()),
                        Callbacks.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
                        depth, Conversions.Present(surface.DimensionStyleId));

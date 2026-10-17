@@ -1,4 +1,5 @@
-using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
@@ -6,56 +7,53 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct MixerWeight : IMinMaxValue<MixerWeight> {
-    public static MixerWeight MinValue { get; } = new(-float.MaxValue);
-    public static MixerWeight MaxValue { get; } = new(float.MaxValue);
-    public static MixerWeight Unit { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
-}
-
 public sealed record MixerState(
-    MixerWeight RedFromRed, MixerWeight RedFromGreen, MixerWeight RedFromBlue,
-    MixerWeight GreenFromRed, MixerWeight GreenFromGreen, MixerWeight GreenFromBlue,
-    MixerWeight BlueFromRed, MixerWeight BlueFromGreen, MixerWeight BlueFromBlue)
-    : IStateRecord<MixerState, MixerParameter, InvalidGrade>, IPixelStage<MixerState> {
+    SignedMagnitude RedFromRed, SignedMagnitude RedFromGreen, SignedMagnitude RedFromBlue,
+    SignedMagnitude GreenFromRed, SignedMagnitude GreenFromGreen, SignedMagnitude GreenFromBlue,
+    SignedMagnitude BlueFromRed, SignedMagnitude BlueFromGreen, SignedMagnitude BlueFromBlue)
+    : IStateRecord<MixerState, MixerParameter>, IPixelStage<MixerState> {
     public static MixerState Default { get; } = new(
-        MixerWeight.Unit, MixerWeight.Zero, MixerWeight.Zero,
-        MixerWeight.Zero, MixerWeight.Unit, MixerWeight.Zero,
-        MixerWeight.Zero, MixerWeight.Zero, MixerWeight.Unit);
+        SignedMagnitude.Unit, SignedMagnitude.Zero, SignedMagnitude.Zero,
+        SignedMagnitude.Zero, SignedMagnitude.Unit, SignedMagnitude.Zero,
+        SignedMagnitude.Zero, SignedMagnitude.Zero, SignedMagnitude.Unit);
 
     public LutTable.Affine Table => new(
         Matrix<double>.Build.DenseOfRowMajor(3, 3, [
             RedFromRed, RedFromGreen, RedFromBlue,
             GreenFromRed, GreenFromGreen, GreenFromBlue,
             BlueFromRed, BlueFromGreen, BlueFromBlue,
-        ]), (0d, 0d, 0d));
+        ]));
 
     public static Option<PixelPass> Pass(MixerState state, PassContext context) =>
         state == Default ? None : Some<PixelPass>(new PixelPass.Color(state.Table));
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MixerParameter : IStateParameter<MixerState> {
-    public static readonly MixerParameter RedFromRed = Weight("red-from-red", (0, 0), static state => state.RedFromRed, static weight => state => state with { RedFromRed = weight });
-    public static readonly MixerParameter RedFromGreen = Weight("red-from-green", (0, 1), static state => state.RedFromGreen, static weight => state => state with { RedFromGreen = weight });
-    public static readonly MixerParameter RedFromBlue = Weight("red-from-blue", (0, 2), static state => state.RedFromBlue, static weight => state => state with { RedFromBlue = weight });
-    public static readonly MixerParameter GreenFromRed = Weight("green-from-red", (1, 0), static state => state.GreenFromRed, static weight => state => state with { GreenFromRed = weight });
-    public static readonly MixerParameter GreenFromGreen = Weight("green-from-green", (1, 1), static state => state.GreenFromGreen, static weight => state => state with { GreenFromGreen = weight });
-    public static readonly MixerParameter GreenFromBlue = Weight("green-from-blue", (1, 2), static state => state.GreenFromBlue, static weight => state => state with { GreenFromBlue = weight });
-    public static readonly MixerParameter BlueFromRed = Weight("blue-from-red", (2, 0), static state => state.BlueFromRed, static weight => state => state with { BlueFromRed = weight });
-    public static readonly MixerParameter BlueFromGreen = Weight("blue-from-green", (2, 1), static state => state.BlueFromGreen, static weight => state => state with { BlueFromGreen = weight });
-    public static readonly MixerParameter BlueFromBlue = Weight("blue-from-blue", (2, 2), static state => state.BlueFromBlue, static weight => state => state with { BlueFromBlue = weight });
+    public static readonly MixerParameter RedFromRed = Weight(static state => state.RedFromRed, static weight => state => state with { RedFromRed = weight },
+        new("Red from red", "Weight of input red in output red"));
+    public static readonly MixerParameter RedFromGreen = Weight(static state => state.RedFromGreen, static weight => state => state with { RedFromGreen = weight },
+        new("Red from green", "Weight of input green in output red"));
+    public static readonly MixerParameter RedFromBlue = Weight(static state => state.RedFromBlue, static weight => state => state with { RedFromBlue = weight },
+        new("Red from blue", "Weight of input blue in output red"));
+    public static readonly MixerParameter GreenFromRed = Weight(static state => state.GreenFromRed, static weight => state => state with { GreenFromRed = weight },
+        new("Green from red", "Weight of input red in output green"));
+    public static readonly MixerParameter GreenFromGreen = Weight(static state => state.GreenFromGreen, static weight => state => state with { GreenFromGreen = weight },
+        new("Green from green", "Weight of input green in output green"));
+    public static readonly MixerParameter GreenFromBlue = Weight(static state => state.GreenFromBlue, static weight => state => state with { GreenFromBlue = weight },
+        new("Green from blue", "Weight of input blue in output green"));
+    public static readonly MixerParameter BlueFromRed = Weight(static state => state.BlueFromRed, static weight => state => state with { BlueFromRed = weight },
+        new("Blue from red", "Weight of input red in output blue"));
+    public static readonly MixerParameter BlueFromGreen = Weight(static state => state.BlueFromGreen, static weight => state => state with { BlueFromGreen = weight },
+        new("Blue from green", "Weight of input green in output blue"));
+    public static readonly MixerParameter BlueFromBlue = Weight(static state => state.BlueFromBlue, static weight => state => state with { BlueFromBlue = weight },
+        new("Blue from blue", "Weight of input blue in output blue"));
 
     public StateParameter<MixerState> Kind { get; }
-    public (int Output, int Input) Cell { get; }
+    public ParameterText Text { get; }
 
-    private static MixerParameter Weight(string key, (int Output, int Input) cell, Func<MixerState, MixerWeight> get, Func<MixerWeight, Func<MixerState, MixerState>> set) =>
-        new(key, StateParameter.Bounded<MixerState, MixerWeight, float, InvalidGrade>(Lens<MixerState, MixerWeight>.New(get, set), new() { Soft = (-2f, 2f), Origin = (float)get(MixerState.Default) }), cell);
+    private static MixerParameter Weight(Func<MixerState, SignedMagnitude> get, Func<SignedMagnitude, Func<MixerState, MixerState>> set, ParameterText text, [CallerMemberName] string member = "") =>
+        new(JsonNamingPolicy.KebabCaseLower.ConvertName(member), StateParameter.Bounded(Lens<MixerState, SignedMagnitude>.New(get, set), new Presentation<float> { Soft = (-2f, 2f), Origin = (float)get(MixerState.Default) }), text);
 }

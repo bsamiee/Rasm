@@ -12,8 +12,8 @@ using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Sparkles;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Geometry.Intersect;
 
@@ -31,17 +31,16 @@ public sealed partial class RouteSegment {
         curved: static (at, span) => span.ClosestPoint(at));
 
     public bool Crosses(RectangleF box) => Switch(new BoundingBox(box.TopLeft.To3d(), box.BottomRight.To3d()),
-        straight: static (bounds, span) => new Line(span.Start.To3d(), span.End.To3d()) switch {
-            var line => bounds.Contains(line.From) || (Intersection.LineBox(line, bounds, 0, out Interval clipped) && clipped.Min <= 1 && clipped.Max >= 0),
+        straight: static (bounds, span) => {
+            using LineCurve curve = new(span.Start.To3d(), span.End.To3d());
+            return Enters(curve, bounds);
         },
         curved: static (bounds, span) => {
             if (span.IsEmpty) return bounds.Contains(span.PointAt(span.Start).To3d());
             Plane plane = new(span.Centre.To3d(), Vector3d.XAxis, Vector3d.YAxis);
             _ = plane.Rotate(RhinoMath.ToRadians((double)span.Start + Math.Min(span.Sweep, 0)), Vector3d.ZAxis);
             using ArcCurve curve = new(new Arc(plane, span.Radius, RhinoMath.ToRadians(Math.Abs(span.Sweep))));
-            using NurbsCurve border = new Rectangle3d(Plane.WorldXY, bounds.Min, bounds.Max).ToNurbsCurve();
-            using CurveIntersections intersections = Intersection.CurveCurve(curve, border, RhinoMath.ZeroTolerance, RhinoMath.ZeroTolerance);
-            return bounds.Contains(curve.PointAtStart) || intersections.Count > 0;
+            return Enters(curve, bounds);
         });
 
     public (RouteSegment Head, RouteSegment Tail) Split(float fraction) => Switch<float, (RouteSegment Head, RouteSegment Tail)>(fraction,
@@ -53,10 +52,15 @@ public sealed partial class RouteSegment {
         });
 
     public void Trace(GraphicsPath path) => Switch(path, straight: static (drawing, span) => drawing.AddLine(span), curved: static (drawing, span) => drawing.AddArc(span));
+
+    private static bool Enters(Curve curve, BoundingBox bounds) {
+        using NurbsCurve border = new Rectangle3d(Plane.WorldXY, bounds.Min, bounds.Max).ToNurbsCurve();
+        using CurveIntersections intersections = Intersection.CurveCurve(curve, border, RhinoMath.ZeroTolerance, RhinoMath.ZeroTolerance);
+        return bounds.Contains(curve.PointAtStart) || intersections.Count > 0;
+    }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrasshopperValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WireGeometry {
@@ -168,14 +172,12 @@ public static class CanvasPainting {
                 DisposalOps.Within(args.Graphics.ProjectionState, _ => IO.lift(() => {
                     paper(args.Skin.Canvas).DrawCanvas(args.Graphics.Content, args.Canvas.Projection, args.Canvas.VisibleFrame, 1f, 1f);
                     args.OverrideDefaultPainting();
-                }), static projection => IO.lift(projection.Dispose))).As()), sink, retain);
+                }))).As()), sink, retain);
 
     internal static IO<Unit> Plotted(FlexControl control, ControlGraphics graphics, bool content, Font font, Func<PlotCanvas, IO<Unit>> marks) =>
-        DisposalOps.Within(graphics.ProjectionState,
-            _ => PlotCanvas.Of(content ? graphics.Content : graphics.Control,
-                Density(graphics.AssociatedControl).IfNone(graphics.ScreenScale) * (content ? graphics.Zoom : 1f),
-                font, enabled: true, focused: control.HasFocus).Bind(marks),
-            static projection => IO.lift(projection.Dispose));
+        DisposalOps.Within(graphics.ProjectionState, _ => PlotCanvas.Of(content ? graphics.Content : graphics.Control,
+            Density(graphics.AssociatedControl).IfNone(graphics.ScreenScale) * (content ? graphics.Zoom : 1f),
+            font, enabled: true, focused: control.HasFocus).Bind(marks));
 
     internal static IO<Unit> Plotted(Context context, Font font, bool focused, Func<PlotCanvas, IO<Unit>> marks) =>
         DisposalOps.Within(() => {
@@ -202,14 +204,14 @@ public static class CanvasPainting {
     public static IO<Unit> Route(Type shape, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
         from free in IO.lift(static () => Optional(WireShape.ShapeType).Match(
-            Some: static held => Fin.Fail<Unit>(new Taken(nameof(WireShape.ShapeType), held.ToString())),
+            Some: static held => Fin.Fail<Unit>(Error.New($"{nameof(WireShape.ShapeType)} already holds {held}")),
             None: static () => Fin.Succ(unit)))
         from lease in DisposalOps.Acquire(IO.lift(() => new Disposal<Type>(shape, static held => {
             if (WireShape.ShapeType == held) WireShape.ShapeType = null;
             _ = Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw());
-        })), static held => IO.lift(held.Dispose), held => { WireShape.ShapeType = shape; keep(held); })
+        })), held => { WireShape.ShapeType = shape; keep(held); })
         from redrawn in IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()))
-        select unit, (_, release) => retain(release));
+        select unit, retain);
 
     public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, MarkColor color, IPlugInSink sink, Action<IDisposable> retain) =>
         Overlay(GrasshopperEvents.BeforePaintWires(canvas), (plot, args) =>
@@ -224,8 +226,6 @@ public static class CanvasPainting {
 
     private static IO<Unit> Halo(PlotCanvas plot, WiresSkin skin, MarkColor color, (IParameter Source, IParameter Target) wire) =>
         from width in IO.lift(() => (float)(skin[WiresSkin.ResolveKind(wire.Source, wire.Target)].Outer.Width + 4f))
-        from drawn in DisposalOps.Within(() => new Pen(Plots.Resolve(plot, new MarkStyle.Stroke(color, 1f, width)), width) { LineCap = PenLineCap.Round },
-            pen => IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(plot.Graphics, pen)),
-            static pen => IO.lift(pen.Dispose))
+        from drawn in DisposalOps.Within(() => new Pen(Plots.Resolve(plot, new MarkStyle.Stroke(color, 1f, width)), width) { LineCap = PenLineCap.Round }, pen => IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(plot.Graphics, pen)))
         select unit;
 }

@@ -36,5 +36,36 @@ rule:
                         all:
                             - has: {field: type, pattern: $REPEATED}
                             - follows: {stopBy: end, kind: parameter, has: {field: type, pattern: $REPEATED}}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: invocation_expression
+                        has:
+                            field: function
+                            kind: member_access_expression
+                            has:
+                                field: name
+                                kind: generic_name
+                                all:
+                                    - has: {kind: identifier, regex: '^(Add|Find|Supports|Create|CreateShared)$'}
+                                    - has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+                - all:
+                    - has: {field: parameters, has: {kind: parameter, nthChild: 4}}
+                    - inside:
+                        kind: compilation_unit
+                        stopBy: end
+                        has:
+                            stopBy: end
+                            kind: declaration_list
+                            has:
+                                kind: &member 'method_declaration, field_declaration, property_declaration'
+                                has: {stopBy: end, kind: identifier, pattern: $NAME}
+                                follows:
+                                    stopBy: end
+                                    kind: *member
+                                    has: {stopBy: end, kind: identifier, pattern: $NAME}
+                                    follows: {stopBy: end, kind: *member, has: {stopBy: end, kind: identifier, pattern: $NAME}}
 message: Delegate `$NAME` restates the shape of `Func` or `Action`
-note: Type each use as the `Func` or `Action` of the same signature, or the delegate an installed library declares for it, a delegate naming parameters that share one type keeping them apart
+note: Type each use as the `Func` or `Action` of the same signature, or the delegate an installed library declares for it, a delegate stays where its names keep same-typed parameters apart, its type is the key a type registry (`Add<T>`, `Find<T>`) holds per declaring assembly, or it names a signature of four or more parameters three members of one type repeat

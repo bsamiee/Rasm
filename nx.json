@@ -2,7 +2,6 @@
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
     "cacheDirectory": ".cache/nx/cache",
     "neverConnectToCloud": true,
-    "useDaemonProcess": false,
     "namedInputs": {
         "production": [ "default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}" ],
         "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" } ],
@@ -81,13 +80,13 @@
                     "cwd": "{projectRoot}",
                     "commands": [
                         "rm -rf $NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install",
-                        "xcodebuild -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath $NX_WORKSPACE_ROOT/.cache/xcode/{projectRoot} -disableAutomaticPackageResolution install DSTROOT=$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install ARCHS=arm64 LM_SKIP_METADATA_EXTRACTION=YES",
+                        "xcodebuild -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath $NX_WORKSPACE_ROOT/.cache/xcode/{projectRoot}/release -clonedSourcePackagesDirPath $NX_WORKSPACE_ROOT/.cache/xcode/{projectRoot}/SourcePackages -disableAutomaticPackageResolution install DSTROOT=$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install ARCHS=arm64 LM_SKIP_METADATA_EXTRACTION=YES",
                         "sudo ditto $NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install /"
                     ],
                     "parallel": false
                 },
                 "parallelism": false,
-                "outputs": [ "{workspaceRoot}/.cache/xcode/{projectRoot}/Build", "{workspaceRoot}/.artifacts/{projectRoot}/install" ]
+                "outputs": [ "{workspaceRoot}/.cache/xcode/{projectRoot}/release/Build", "{workspaceRoot}/.artifacts/{projectRoot}/install" ]
             },
             {
                 "filter": { "projects": [ "tag:host:rhino" ] },
@@ -165,7 +164,7 @@
                 "filter": { "projects": [ "tag:language:typescript" ] },
                 "command": "tsc --pretty false",
                 "cache": true,
-                "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "typescript" ] } ],
+                "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ],
                 "options": { "cwd": "{projectRoot}" }
             },
             {

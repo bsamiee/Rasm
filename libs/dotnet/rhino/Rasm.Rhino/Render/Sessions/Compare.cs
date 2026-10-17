@@ -13,6 +13,8 @@ using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.Render.PostEffects;
+using UnitsNet;
+using UnitsNet.Units;
 
 namespace Rasm.Rhino.Render.Sessions;
 
@@ -40,7 +42,7 @@ public sealed record SettingsRow(EntryKey Key, string Setting, Option<string> A,
             .Map(static entry => (entry.Key, A: ValueStore.Before(entry.Value), B: entry.Value.ToOption()))
             .Map(row => bindings.Text(row.Key).Match(
                 Some: text => new SettingsRow(
-                    row.Key, RowText.Localize(text.Caption, table: Some<object>(sink)).Local, row.A.Map(text.Shown), row.B.Map(text.Shown)),
+                    row.Key, RowText.Localize(text.Caption, sink).Local, row.A.Map(text.Shown), row.B.Map(text.Shown)),
                 None: () => new SettingsRow(row.Key, EntryKey.Name(row.Key.Path), row.A, row.B)))
             .Strict();
 }
@@ -50,15 +52,26 @@ public sealed record ComparisonSettingRows(
     PlugInSetting<BarLevel, double> PsnrRefuse,
     PlugInSetting<BarLevel, double> NrmseAdvisory,
     PlugInSetting<BarLevel, double> NrmseRefuse) {
-    public Seq<PlugInSetting<BarLevel, double>> Rows => [PsnrAdvisory, PsnrRefuse, NrmseAdvisory, NrmseRefuse];
+    public static ComparisonSettingRows Default { get; } = new(
+        PsnrAdvisory: new(ValueKey.Numeric("ComparePsnrAdvisory", "PSNR advisory", "PSNR in decibels below which a compared render reads advisory", BarLevel.PsnrAdvisory,
+            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LevelUnit.Decibel), Decimals = 1 })), SettingType.Double),
+        PsnrRefuse: new(ValueKey.Numeric("ComparePsnrRefuse", "PSNR refuse", "PSNR in decibels below which a compared render is refused", BarLevel.PsnrRefuse,
+            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LevelUnit.Decibel), Decimals = 1 })), SettingType.Double),
+        NrmseAdvisory: new(ValueKey.Numeric("CompareNrmseAdvisory", "NRMSE advisory", "Normalized error above which a compared render reads advisory", BarLevel.NrmseAdvisory,
+            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Decimals = 2 })), SettingType.Double),
+        NrmseRefuse: new(ValueKey.Numeric("CompareNrmseRefuse", "NRMSE refuse", "Normalized error above which a compared render is refused", BarLevel.NrmseRefuse,
+            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Decimals = 2 })), SettingType.Double));
 
-    public Seq<Child> Children => Rows.Bind(static row => SectionRows.Setting(row, RowRules.Always)).Map(static row => (Child)row);
+    public Seq<PlugInSetting> Rows => [.. Levels];
+
+    public Seq<Child> Children => [new ControlRow.Group("Render comparison", RowRules.Always) { Wording = Wording.Library }, .. Levels.Bind(static row => SectionRows.Setting(row, RowRules.Always))];
 
     public IO<ComparisonBars> Bars(ISettingReader node) =>
         (node.Current(PsnrAdvisory), node.Current(PsnrRefuse), node.Current(NrmseAdvisory), node.Current(NrmseRefuse))
             .Apply(static (psnrAdvisory, psnrRefuse, nrmseAdvisory, nrmseRefuse) => new ComparisonBars(new Bar(psnrAdvisory, psnrRefuse), new Bar(nrmseAdvisory, nrmseRefuse)))
             .As();
 
+    private Seq<PlugInSetting<BarLevel, double>> Levels => [PsnrAdvisory, PsnrRefuse, NrmseAdvisory, NrmseRefuse];
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -123,9 +136,9 @@ public sealed class RenderingComparison : IDisposable {
 
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register(RenderHistory history) =>
         (sink, retain) => DisposalOps.Acquire(owned =>
-            from comparison in DisposalOps.Acquire(IO.lift(() => new RenderingComparison(history, sink)), static held => IO.lift(held.Dispose), owned)
+            from comparison in DisposalOps.Acquire(IO.lift(() => new RenderingComparison(history, sink)), owned)
             from published in Current.Publish(sink, comparison)
-            select unit, (_, lease) => retain(lease));
+            select unit, retain);
 
     public void Dispose() {
         try {
@@ -146,7 +159,7 @@ public sealed class RenderingComparison : IDisposable {
             from doc in document
             select (Saved: saved, Document: doc)).Match(
                 Some: listed =>
-                    from bindings in IO.lift(() => history.Bindings(listed.Document))
+                    from bindings in history.Bindings(listed.Document)
                     from captured in bindings.Capture
                     select SettingsRow.Between(listed.Saved, captured, bindings, sink),
                 None: static () => IO.pure(Seq<SettingsRow>()))
@@ -157,15 +170,14 @@ public sealed class RenderingComparison : IDisposable {
 
     // --- [WRITES]
     public IO<Unit> Choose(CompareSide side, string caption) =>
-        IO.lift(static environment => environment).Bind(environment => (
-        from request in IO.lift(() => EffectRegistry.Kinds.Of(sink).Map(kinds => side.Request(kinds)))
+        from request in EffectRegistry.Kinds.Of(sink).Map(side.Request)
         let output = Output(request)
         let next = new Chosen(side, new FrameSide(output.Feed, caption), request, None, None, None)
         from current in Updated(state => state.Filter(chosen => chosen.Side == side) | Some(next))
         from graded in when(current.Exists(chosen => ReferenceEquals(chosen, next)),
-            IO.liftVAsync(() => DisposalOps.Fork(Grade(request), lease => Updated(state => state.Map(chosen => ReferenceEquals(chosen.Request, request) ? chosen with { Work = Some(lease) } : chosen))
-                .Map(chosen => { if (!chosen.Exists(held => ReferenceEquals(held.Request, request))) lease.Dispose(); return unit; }).Run()).RunAsync(environment)).Map(unit)).As()
-        select graded).Uninterruptible());
+            DisposalOps.Fork(Grade(request), lease => Updated(state => state.Map(chosen => ReferenceEquals(chosen.Request, request) ? chosen with { Work = Some(lease) } : chosen))
+                .Map(chosen => { if (!chosen.Exists(held => ReferenceEquals(held.Request, request))) lease.Dispose(); return unit; }).Run()).Map(unit)).As()
+        select graded;
 
     public IO<Unit> Clear => Updated(static _ => Option<Chosen>.None).Map(unit);
 
@@ -221,7 +233,7 @@ public sealed class RenderingComparison : IDisposable {
             current.Bind(static chosen => chosen.Measurement).Bind(static measurement => measurement.Result).Filter(_ => differenceShown)
                 .Map(static measured => new FrameMask(
                     new Coverage.Matte(MatteChannel.Lightness, measured.Difference, EffectPipeline.Display.Encoding.Gamut, Inverted: false),
-                    new MarkStyle.Fill(new MarkColor.Trace(TraceChannel.Red), 1f))).ToSeq());
+                    new MarkStyle.Fill(TraceChannel.Red.Mark, 1f))).ToSeq());
 
     // --- [PREVIEW]
     private IO<(FrameShown Current, Option<ScopeFrames> Scope, Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>> Source)> Live =>
@@ -253,13 +265,11 @@ public sealed class RenderingComparison : IDisposable {
 
     public IO<Unit> Previewed(TileRequest request, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from release in DisposalOps.Acquire(IO.lift(() => new Disposal<TileRequest>(request, asked => Withdrawn(asked).Run())),
-                static lease => IO.lift(lease.Dispose), owned)
+            from release in DisposalOps.Acquire(IO.lift(() => new Disposal<TileRequest>(request, asked => Withdrawn(asked).Run())), owned)
             from published in Previewed(Some(request))
             select unit, retain);
 
     private IO<Unit> Previewed(Option<TileRequest> request) =>
-        IO.lift(static environment => environment).Bind(environment => (
         from shown in (from changed in atomicIO(() => {
             Option<Preview> before = previewed.Value;
             Option<Preview> after = request.Map(static asked => new Preview(asked, None, None));
@@ -269,7 +279,7 @@ public sealed class RenderingComparison : IDisposable {
                        from released in DisposalOps.Release(changed.Released.ToSeq())
                        select changed.Current).Uninterruptible()
         from formed in shown.Match(
-            Some: preview => IO.liftVAsync(() => DisposalOps.Fork(IO.lift(() => PreviewTiles.Current.Of(sink))
+            Some: preview => DisposalOps.Fork(PreviewTiles.Current.Of(sink)
                 .Bind(tiles => tiles.Formed(preview.Request, preview.Request.Rendering.Extent, TileRank.Current))
                 .Bind(frame => Landed(preview, (frame.Frame, frame.Proxy)))
                 .Catch(error => Landed(preview, error))
@@ -277,10 +287,10 @@ public sealed class RenderingComparison : IDisposable {
                     bool current = previewed.Value.Exists(shown => ReferenceEquals(shown.Request, preview.Request));
                     previewed.Value = previewed.Value.Map(shown => ReferenceEquals(shown.Request, preview.Request) ? shown with { Work = Some(lease) } : shown);
                     return current;
-                }).Map(current => { if (!current) lease.Dispose(); return unit; }).Run()).RunAsync(environment))
+                }).Map(current => { if (!current) lease.Dispose(); return unit; }).Run())
                 .Map(unit),
             None: static () => IO.pure(unit))
-        select formed).Uninterruptible());
+        select formed;
 
     private IO<Unit> Landed(Preview asked, Fin<(PixelFrame Frame, PixelFrame Scene)> formed) =>
         atomicIO(() => previewed.Value = previewed.Value.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview)).Map(unit);
@@ -299,12 +309,10 @@ public sealed class RenderingComparison : IDisposable {
     public static ControlRow Export { get; } = SectionRows.Pushed(new CommandRow.Run(
         new CommandFace("comparison-export", "Export displayed frame", "Write the displayed callback or history frame through the output targets", None, None), None,
         static scope =>
-            from comparison in IO.lift(() => Current.Of(scope.Sink))
-            from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Missing(nameof(FrameShown.Frame)))))
-            from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
-            from book in TargetRows.Book(document)
-            from origin in FileOrigin.At(scope.Sink)
-            from written in Saves.Write(document, origin, book, source)
+            from comparison in Current.Of(scope.Sink)
+            from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Refused(nameof(FrameShown.Frame), Refused.Absent))))
+            from document in scope.DocumentIO
+            from written in Saves.Write(document, scope.Sink, source)
             select unit));
 
     public static FrameSampling Sample(RowScope scope) {
@@ -325,45 +333,45 @@ public sealed class RenderingComparison : IDisposable {
         ToggleRows.Check(
             difference.Source,
             difference.Field with {
-                Caption = RowText.Localize("Difference").Local,
-                Help = RowText.Localize("Tints the frame where the compared rendering differs from the newest rendering").Local,
+                Caption = "Difference",
+                Help = "Tints the frame where the compared rendering differs from the newest rendering",
             },
             Lens.identity<bool>(),
             RowRules.Always) with {
-            Wording = Wording.Localized,
+            Wording = Wording.Library,
         };
 
     public static ControlRow Measures(ComparisonSettingRows bars) =>
         TextRows.Readout(
-            RowText.Localize("Measure").Local,
-            RowText.Localize("PSNR and NRMSE of the compared rendering against the newest rendering, graded by the comparison bars").Local,
+            "Measure",
+            "PSNR and NRMSE of the compared rendering against the newest rendering, graded by the comparison bars",
             new ReadoutSource<Option<(FrameComparison, Verdict)>>.Scoped(scope =>
                 from measured in Compared(scope, static comparison => comparison.Measure, IO.pure(Option<FrameComparison>.None))
                 from graded in measured.Traverse(result => bars.Bars(((IPlugInViews)scope.Sink).Settings).Map(levels => (result, result.Graded(levels)))).As()
                 select graded),
             static graded => graded.Match(Some: Shown, None: static () => ""),
             RowRules.Always) with {
-            Wording = Wording.Localized,
+            Wording = Wording.Library,
         };
 
     public static ControlRow Settings { get; } =
         ListRows.List(
-            RowText.Localize("Render Settings").Local,
-            RowText.Localize("The compared rendering's saved render settings against the document's current values").Local,
+            "Render Settings",
+            "The compared rendering's saved render settings against the document's current values",
             new ListRow<SettingsRow, EntryKey>(
                 IterableNE.create<ListColumn<SettingsRow>>(
-                    new ListColumn<SettingsRow>.Label(Some(RowText.Localize("Setting").Local), static row => row.Setting, None, None),
-                    new ListColumn<SettingsRow>.Label(Some(RowText.Localize("Saved").Local), static row => row.A.IfNone(""), None, None),
-                    new ListColumn<SettingsRow>.Label(Some(RowText.Localize("Current").Local), static row => row.B.IfNone(""), None, None)),
+                    new ListColumn<SettingsRow>.Label(Some("Setting"), static row => row.Setting, None, None),
+                    new ListColumn<SettingsRow>.Label(Some("Saved"), static row => row.A.IfNone(""), None, None),
+                    new ListColumn<SettingsRow>.Label(Some("Current"), static row => row.B.IfNone(""), None, None)),
                 static row => row.Key,
                 RowSource.Opaque(nameof(RenderingComparison), nameof(ListRow<,>.Items), Seq<SettingsRow>(), Items),
                 RowSource.Opaque(nameof(RenderingComparison), nameof(ListRow<,>.Selected), LanguageExt.HashSet<EntryKey>.Empty)) {
-                Wording = Wording.Localized,
+                Wording = Wording.Library,
             },
             RowRules.Always);
 
     private static IO<A> Compared<A>(RowScope scope, Func<RenderingComparison, IO<A>> read, IO<A> absent) =>
-        IO.lift(() => Current.Of(scope.Sink).ToOption()).Bind(cell => cell.Match(Some: read, None: () => absent));
+        (Current.Of(scope.Sink).Map(static comparison => Some(comparison)) | IO.pure(Option<RenderingComparison>.None)).Bind(cell => cell.Match(Some: read, None: () => absent));
 
     private static string Shown((FrameComparison Measured, Verdict Verdict) graded) =>
         RowText.Localize("{0}, {1}, {2}", arguments: [
@@ -373,19 +381,13 @@ public sealed class RenderingComparison : IDisposable {
         ]).Local;
 
     private static ValueStore<Seq<SettingsRow>> Items(RowScope scope) =>
-        new(
-            Compared(scope, comparison => comparison.Listed(scope.Document), IO.pure(Seq<SettingsRow>())).Map(static rows => Some(rows)),
-            static _ => IO.pure(Change<Seq<SettingsRow>>.None),
-            EqualityComparer<Seq<SettingsRow>>.Default.Equals,
-            Applied.Live,
-            Some(Marked(scope)));
+        ValueStore.Readout(Compared(scope, comparison => comparison.Listed(scope.Document), IO.pure(Seq<SettingsRow>())), Some(Marked(scope)));
 
     private static HostEvent<Unit> Marked(RowScope scope) =>
         new(typeof(RenderingComparison), nameof(Settings), (deliver, site, retain) =>
-            from cell in IO.lift(() => Current.Of(scope.Sink).ToOption())
+            from cell in Current.Of(scope.Sink).Map(static comparison => Some(comparison)) | IO.pure(Option<RenderingComparison>.None)
             let raises = scope.Document.ToSeq().Bind(Edited) + cell.ToSeq().Map(static comparison => comparison.Changed)
-            from attached in DisposalOps.AcquireAll(raises.Map<Func<Action<IDisposable>, IO<Unit>>>(raise => keep => raise.Attach(deliver, site, keep)),
-                DisposalOps.Release, (_, lease) => retain(lease))
+            from attached in DisposalOps.Acquire(keep => raises.TraverseM(raise => raise.Attach(deliver, site, keep)).As(), retain)
             select unit);
 
     private static Seq<HostEvent<Unit>> Edited(RhinoDoc document) =>

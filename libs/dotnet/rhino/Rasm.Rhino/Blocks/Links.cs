@@ -1,7 +1,6 @@
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
 using Rhino;
@@ -71,12 +70,12 @@ public static class Links {
 
     private static IO<Frontier> Visit(Frontier frontier, LinkedModel model) =>
         frontier.Readings.ContainsKey(model) ? IO.pure(frontier) : Read(model).Map(reading => frontier.Add(model, reading))
-            .Catch(static error => error.IsType<FileMissing>() || error.IsType<UnqualifiedPath>() || error.IsType<ArchiveRejected>(),
+            .Catch(static error => error.IsType<FileRefused>(),
                 error => IO.pure(frontier.Add(model, error)));
 
     private static IO<LinkReading> Read(LinkedModel model) =>
         model.Switch(
-            opened: static opened => IO.lift(() => Missing.Unless(RhinoDoc.FromRuntimeSerialNumber(opened.Document), nameof(RhinoDoc.FromRuntimeSerialNumber)))
+            opened: static opened => IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(opened.Document), nameof(RhinoDoc.FromRuntimeSerialNumber)))
                 .Map(doc => new LinkReading(doc.ModelUnitSystem, None, Linked(opened, doc.InstanceDefinitions.GetList(ignoreDeleted: true)))),
             stored: static stored => Archives.Read(
                 new ArchiveSource.Located(stored.Path, File3dm.TableTypeFilter.InstanceDefinition | File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.InstanceReference),

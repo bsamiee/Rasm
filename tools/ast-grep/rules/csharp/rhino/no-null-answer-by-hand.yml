@@ -21,15 +21,15 @@ rewriters:
             - has: {field: function, regex: '^Optional(\s*<.+>)?$', pattern: $LIFT}
             - has: {field: arguments, has: {kind: argument, pattern: $LIFTED}}
       transform:
-        UNLESS: {replace: {source: $LIFT, replace: '^Optional', by: Missing.Unless}}
+        UNLESS: {replace: {source: $LIFT, replace: '^Optional', by: Refused.UnlessFound}}
       fix: $UNLESS($LIFTED, $MEMBER)
 rule:
     kind: invocation_expression
-    pattern: $ANSWER.ToFin(new Missing($MEMBER))
+    pattern: $ANSWER.ToFin(new Refused($MEMBER, Refused.Empty))
     has: {field: function, has: {field: expression, matches: optional-chain}}
-    not: {matches: {csharp-owner-body: {type: {regex: '^Missing$'}, member: {regex: '^Unless$'}}}}
+    not: {matches: {csharp-owner-body: {type: {regex: '^Refused$'}, member: {regex: '^UnlessFound$'}}}}
 transform:
     OWNED: {rewrite: {source: $ANSWER, rewriters: [unchanged-arguments, owner]}}
 fix: $OWNED
-message: '`Optional($VALUE)` rebuilds `Missing.Unless` through `ToFin(new Missing(...))`'
-note: Use the nullable overload `Missing.Unless(<value>, <member>)` with each `Map` chained after it
+message: '`Optional($VALUE)` rebuilds `Refused.UnlessFound` through `ToFin(new Refused(..., Refused.Empty))`'
+note: Use the nullable overload `Refused.UnlessFound(<value>, <member>)` with each `Map` chained after it

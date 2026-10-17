@@ -9,7 +9,7 @@ from expression.collections import Block
 import msgspec
 
 from blender.bpy.commands.operators import answered, Call, Done, Empty, Operator, Outcome, Unchanged
-from blender.bpy.data.rna.descriptors import Descriptor, IdName
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.identity import Identity
@@ -105,25 +105,14 @@ class CollectionStates(Line, frozen=True, kw_only=True):
                 title="Paste Collection States",
                 description="Paste copied collection states into the active view layer",
                 form=Empty,
-                run=pasting(
-                    lambda context: (
-                        Option.of_optional(context.view_layer).map(lambda layer: (layer.layer_collection,)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),))
-                    )
-                ),
+                run=pasting(lambda context: rooted(bpy.types.ViewLayer, context).map(lambda layer: (layer.layer_collection,))),
             ),
             Operator(
                 key="collection_paste_all",
                 title="Paste States to Every Layer",
                 description="Paste copied collection states into every view layer of the scene",
                 form=Empty,
-                run=pasting(
-                    lambda context: (
-                        Option
-                        .of_optional(context.scene)
-                        .map(lambda scene: tuple(layer.layer_collection for layer in scene.view_layers))
-                        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
-                    )
-                ),
+                run=pasting(lambda context: rooted(bpy.types.Scene, context).map(lambda scene: tuple(layer.layer_collection for layer in scene.view_layers))),
             ),
         )
 
@@ -173,10 +162,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
                     handlers=bpy.app.handlers.load_post,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                     body=lambda _: (
                         Result[bpy.types.WindowManager, BlenderFaults]
-                        .bind(
-                            Option.of_optional(bpy.context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="window_manager"),)),
-                            lambda manager: accumulated(pair[1].applied(found.area) for found in query.located(manager.windows)),
-                        )
+                        .bind(rooted(bpy.types.WindowManager, bpy.context), lambda manager: accumulated(pair[1].applied(found.area) for found in query.located(manager.windows)))
                         .map(lambda _: None)
                     ),
                 ),

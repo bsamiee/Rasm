@@ -301,7 +301,7 @@ def image_type(kinds: tuple[str, ...]) -> Setting:
 
 def config_of() -> BlenderResult[PyOpenColorIO.Config]:
     """Returns Blender's admitted OCIO configuration or its complete imaging faults."""
-    return admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_SCENE_LINEAR,)).map_error(BlenderImagingFault.lifted)
+    return admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
 
 def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> BlenderResult[npt.NDArray[np.float32]]:

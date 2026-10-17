@@ -522,7 +522,7 @@ isort                     = { combine-as-imports = true, force-sort-within-secti
 pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
-pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8 }
+pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -615,69 +615,68 @@ warn_required_dynamic_aliases = true
 [tool.refurb]
 enable_all = true
 load       = ["tools.refurb"]
-mypy_args  = ["--cache-dir", ".cache/refurb"]
 disable    = [
-    "FURB101",                                # Ruff runs FURB101
-    "FURB103",                                # Ruff runs FURB103
-    "FURB104",                                # Ruff PTH109 reports the form
-    "FURB105",                                # Ruff runs FURB105
-    "FURB106",                                # `expandtabs` differs from the replacement unless tabs lead the string
-    "FURB107",                                # Rewrites to `contextlib.suppress`, which `banned-api` rejects, Ruff SIM105 and S110 report the swallowed exception
-    "FURB108",                                # Ruff PLR1714 reports the form
-    "FURB109",                                # Rewrites to a tuple membership, which Ruff PLR6201 rejects
-    "FURB110",                                # Ruff runs FURB110
-    "FURB111",                                # Ruff PLW0108 reports the form
-    "FURB112",                                # Ruff C408 reports the form
-    "FURB114",                                # Ruff SIM208 reports the form
-    "FURB116",                                # Ruff runs FURB116
-    "FURB117",                                # Ruff PTH123 reports the form
-    "FURB118",                                # `operator.itemgetter` returns `Any` under typeshed, the lambda keeps its element type
-    "FURB119",                                # Ruff RUF010 reports the form
-    "FURB120",                                # Reads defaults from stubs, `fake-bpy-module` defaults differ from Blender's native behavior
-    "FURB121",                                # Ruff SIM101 reports the form
-    "FURB124",                                # Chaining `x is y is z` compares the outer operands, which mypy comparison-overlap rejects when their types differ
-    "FURB125",                                # Ruff PLR1711 reports the form
-    "FURB126",                                # Dropping a trailing `case _` arm fails mypy exhaustive-match
-    "FURB128",                                # Ruff PLR1712 reports the form
-    "FURB130",                                # Ruff SIM118 reports the form
-    "FURB134",                                # Ruff UP033 reports the form
-    "FURB135",                                # Ruff PERF102 reports the form
-    "FURB136",                                # Ruff runs FURB136
-    "FURB137",                                # Ruff C400, C401, C409, and C419 report the form
-    "FURB138",                                # Ruff PERF401 reports the form
-    "FURB140",                                # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
-    "FURB141",                                # Ruff PTH110 reports the form
-    "FURB144",                                # Ruff PTH107 and PTH108 report the form
-    "FURB146",                                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
-    "FURB147",                                # Ruff PTH118 reports the form, the check also rejects `posixpath.join` on archive and URL paths
-    "FURB150",                                # Ruff PTH102 and PTH103 report the form
-    "FURB151",                                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
-    "FURB152",                                # Ruff runs FURB152
-    "FURB153",                                # Ruff PTH201 reports the form
-    "FURB154",                                # Ruff runs FURB154
-    "FURB155",                                # Ruff PTH116 and PTH202 through PTH205 report the form
-    "FURB156",                                # Ruff runs FURB156
-    "FURB157",                                # Ruff runs FURB157
-    "FURB160",                                # Ruff PLW0127 reports the form
-    "FURB161",                                # Ruff runs FURB161
-    "FURB162",                                # Ruff runs FURB162
-    "FURB163",                                # Ruff runs FURB163
-    "FURB164",                                # Ruff runs FURB164
-    "FURB166",                                # Ruff runs FURB166
-    "FURB167",                                # Ruff runs FURB167
-    "FURB168",                                # Ruff runs FURB168
-    "FURB169",                                # Ruff runs FURB169
-    "FURB171",                                # Ruff runs FURB171
-    "FURB172",                                # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
-    "FURB173",                                # Merged literal `{...} | d` infers its own value type, failing the target parameter's type under mypy
-    "FURB176",                                # Ruff DTZ003 and DTZ004 report the form
-    "FURB177",                                # Ruff runs FURB177
-    "FURB179",                                # Rewrites to `chain.from_iterable`, joining heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` reports `chain(*x)`
-    "FURB180",                                # Ruff runs FURB180
-    "FURB184",                                # Matches names with no type or binding check, chaining drops annotations and reused bindings
-    "FURB188",                                # Ruff runs FURB188
-    "FURB189",                                # Ruff runs FURB189
-    "FURB192",                                # Ruff runs FURB192
+    "FURB101",                # Ruff runs FURB101
+    "FURB103",                # Ruff runs FURB103
+    "FURB104",                # Ruff PTH109 reports the form
+    "FURB105",                # Ruff runs FURB105
+    "FURB106",                # `expandtabs` differs from the replacement unless tabs lead the string
+    "FURB107",                # Rewrites to `contextlib.suppress`, which `banned-api` rejects, Ruff SIM105 and S110 report the swallowed exception
+    "FURB108",                # Ruff PLR1714 reports the form
+    "FURB109",                # Rewrites to a tuple membership, which Ruff PLR6201 rejects
+    "FURB110",                # Ruff runs FURB110
+    "FURB111",                # Ruff PLW0108 reports the form
+    "FURB112",                # Ruff C408 reports the form
+    "FURB114",                # Ruff SIM208 reports the form
+    "FURB116",                # Ruff runs FURB116
+    "FURB117",                # Ruff PTH123 reports the form
+    "FURB118",                # `operator.itemgetter` returns `Any` under typeshed, the lambda keeps its element type
+    "FURB119",                # Ruff RUF010 reports the form
+    "FURB120",                # Reads defaults from stubs, `fake-bpy-module` defaults differ from Blender's native behavior
+    "FURB121",                # Ruff SIM101 reports the form
+    "FURB124",                # Chaining `x is y is z` compares the outer operands, which mypy comparison-overlap rejects when their types differ
+    "FURB125",                # Ruff PLR1711 reports the form
+    "FURB126",                # Dropping a trailing `case _` arm fails mypy exhaustive-match
+    "FURB128",                # Ruff PLR1712 reports the form
+    "FURB130",                # Ruff SIM118 reports the form
+    "FURB134",                # Ruff UP033 reports the form
+    "FURB135",                # Ruff PERF102 reports the form
+    "FURB136",                # Ruff runs FURB136
+    "FURB137",                # Ruff C400, C401, C409, and C419 report the form
+    "FURB138",                # Ruff PERF401 reports the form
+    "FURB140",                # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
+    "FURB141",                # Ruff PTH110 reports the form
+    "FURB144",                # Ruff PTH107 and PTH108 report the form
+    "FURB146",                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
+    "FURB147",                # Ruff PTH118 reports the form, the check also rejects `posixpath.join` on archive and URL paths
+    "FURB150",                # Ruff PTH102 and PTH103 report the form
+    "FURB151",                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
+    "FURB152",                # Ruff runs FURB152
+    "FURB153",                # Ruff PTH201 reports the form
+    "FURB154",                # Ruff runs FURB154
+    "FURB155",                # Ruff PTH116 and PTH202 through PTH205 report the form
+    "FURB156",                # Ruff runs FURB156
+    "FURB157",                # Ruff runs FURB157
+    "FURB160",                # Ruff PLW0127 reports the form
+    "FURB161",                # Ruff runs FURB161
+    "FURB162",                # Ruff runs FURB162
+    "FURB163",                # Ruff runs FURB163
+    "FURB164",                # Ruff runs FURB164
+    "FURB166",                # Ruff runs FURB166
+    "FURB167",                # Ruff runs FURB167
+    "FURB168",                # Ruff runs FURB168
+    "FURB169",                # Ruff runs FURB169
+    "FURB171",                # Ruff runs FURB171
+    "FURB172",                # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
+    "FURB173",                # Merged literal `{...} | d` infers its own value type, failing the target parameter's type under mypy
+    "FURB176",                # Ruff DTZ003 and DTZ004 report the form
+    "FURB177",                # Ruff runs FURB177
+    "FURB179",                # Rewrites to `chain.from_iterable`, joining heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` reports `chain(*x)`
+    "FURB180",                # Ruff runs FURB180
+    "FURB184",                # Matches names with no type or binding check, chaining drops annotations and reused bindings
+    "FURB188",                # Ruff runs FURB188
+    "FURB189",                # Ruff runs FURB189
+    "FURB192",                # Ruff runs FURB192
 ]
 
 # --- [DEPTRY] ---------------------------------------------------------------------------

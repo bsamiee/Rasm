@@ -45,6 +45,6 @@ rule:
         has:
             matches: callback-parameter
             nthChild: {position: 1, reverse: true}
-            has: {stopBy: {matches: syntax-function-boundary}, matches: selection}
+            has: {stopBy: {matches: typescript-function-boundary}, matches: selection}
 message: '`$HANDLER` selects the failure by hand inside its callback'
 note: '`catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` of the same module selects the failure by `_tag` or predicate before its callback runs'

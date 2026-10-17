@@ -10,7 +10,6 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Input;
 using Rhino.Input.Custom;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Commands;
 
@@ -30,13 +29,11 @@ public sealed record Entered<TValue>(TValue Value, bool GotDefault);
 public sealed record TransformObjectState(Seq<Guid> Objects, Seq<Guid> Grips, Seq<Guid> GripOwners, Option<BoundingBox> Extent);
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct PickCount : System.Numerics.IMinMaxValue<PickCount> {
     public static PickCount MinValue { get; } = new(1);
     public static PickCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union]
@@ -145,8 +142,7 @@ internal sealed class CallbackGetTransform(RhinoDoc document, Func<RhinoViewport
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-public static partial class Getters {
+public static class Getters {
     // --- [ROUTES]
     private static IO<T> Run<TBase, TGetter, T>(
         Func<TGetter> create,
@@ -157,7 +153,7 @@ public static partial class Getters {
         where TBase : GetBaseClass
         where TGetter : TBase =>
         DisposalOps.Within(create, getter =>
-                 from prompted in IO.lift(() => getter.SetCommandPrompt(RowText.Localize(request.Prompt, table: Some<object>(request.Site.Sink)).Local))
+                 from prompted in IO.lift(() => getter.SetCommandPrompt(RowText.Localize(request.Prompt, request.Site.Sink).Local))
                  let accepted = Accepted(getter, request, doc)
                  let routes = own(getter) + accepted.Map(static route => (route.Result, route.Then))
                  from enabled in accepted.TraverseM(static route => route.Enable).As()
@@ -165,8 +161,7 @@ public static partial class Getters {
                  from result in CommandOptions.Using(
                      getter, request.Site.Sink, request.Options,
                      chosen => Routed(routes.Add((GetResult.Option, chosen)), get(getter), request.Site.Member))
-                 select result,
-            static getter => IO.lift(getter.Dispose));
+                 select result);
 
     private static IO<T> Routed<T>(Seq<(GetResult Result, IO<T> Then)> routes, IO<GetResult> get, string member) =>
         from result in get
@@ -174,7 +169,7 @@ public static partial class Getters {
             GetResult.Cancel or GetResult.Timeout => Errors.Cancelled,
             GetResult.Nothing => new Ended(member, Result.Nothing),
             GetResult.ExitRhino => new Ended(member, Result.ExitRhino),
-            _ => new UnexpectedGetResult(result),
+            _ => new Refused(member, $"answered {result}, which no route takes"),
         }))
         select answer;
 
@@ -185,7 +180,7 @@ public static partial class Getters {
                 GetResult.Nothing,
                 IO.lift(() => {
                     getter.AcceptNothing(enable: true);
-                    _ = nothing.Shown.Iter(shown => getter.SetCommandPromptDefault(RowText.Localize(shown, table: Some<object>(request.Site.Sink)).Local));
+                    _ = nothing.Shown.Iter(shown => getter.SetCommandPromptDefault(RowText.Localize(shown, request.Site.Sink).Local));
                 }),
                 nothing.Then)),
             request.Accept.Undo.Map(then => (GetResult.Undo, IO.lift(() => getter.AcceptUndo(enable: true)), then)),
@@ -215,10 +210,10 @@ public static partial class Getters {
             distance: static (at, distance) => IO.lift(() => Quantities.From(at.Getter.Number(), Space(Optional(at.Getter.View()), at.Doc))).Bind(distance.Then));
 
     private static IO<T> Posted<T>(GetBaseClass getter, Option<Func<object, IO<T>>> message) =>
-        from value in IO.lift(() => Missing.Unless(getter.CustomMessage(), nameof(GetBaseClass.CustomMessage)))
+        from value in IO.lift(() => Refused.UnlessFound(getter.CustomMessage(), nameof(GetBaseClass.CustomMessage)))
         from answer in value switch {
             Error error => IO.fail<T>(error),
-            _ => message.Map(then => then(value)).IfNone(static () => IO.fail<T>(new Missing(nameof(Accepts<>.Message)))),
+            _ => message.Map(then => then(value)).IfNone(static () => IO.fail<T>(new Refused(nameof(Accepts<>.Message), Refused.Absent))),
         }
         select answer;
 
@@ -300,10 +295,9 @@ public static partial class Getters {
         });
 
     // --- [ENTRY]
-    public static IO<T> Number<TValue, TRaw, TError, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw>
-        where TError : Error, IValidationError<TError> =>
+    public static IO<T> Number<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
+        where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw> =>
         Run(
             static () => new GetNumber(),
             request,
@@ -315,32 +309,26 @@ public static partial class Getters {
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
-                IO.lift(() => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+                IO.lift(() => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
 
-    public static IO<T> Integer<TValue, TRaw, TError, T>(RhinoDoc doc, EntryRequest<GetInteger, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IBinaryInteger<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        from values in IO.lift(() => Callbacks.Thrown<OverflowException, (int Lower, int Upper, Option<int> Default)>(
-            () => (int.CreateChecked(TValue.MinValue.ToValue()), int.CreateChecked(TValue.MaxValue.ToValue()), request.Default.Map(static value => int.CreateChecked(value.ToValue()))),
-            nameof(int.CreateChecked)))
-        from answer in Run(
+    public static IO<T> Integer<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetInteger, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
+        where TRaw : struct, System.Numerics.IBinaryInteger<TRaw> =>
+        Run(
             static () => new GetInteger(),
             request,
             doc,
             getter => IO.lift(() => {
-                getter.SetLowerLimit(values.Lower, strictlyGreaterThan: false);
-                getter.SetUpperLimit(values.Upper, strictlyLessThan: false);
-                _ = values.Default.Iter(getter.SetDefaultInteger);
+                getter.SetLowerLimit(int.CreateChecked(TValue.MinValue.ToValue()), strictlyGreaterThan: false);
+                getter.SetUpperLimit(int.CreateChecked(TValue.MaxValue.ToValue()), strictlyLessThan: false);
+                _ = request.Default.Iter(value => getter.SetDefaultInteger(int.CreateChecked(value.ToValue())));
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
-                IO.lift(() => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
-        select answer;
+                IO.lift(() => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
 
-    public static IO<T> Distance<TValue, TError, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : IObjectFactory<TValue, Length, TError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue>
-        where TError : Error, IValidationError<TError> =>
+    public static IO<T> Distance<TValue, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
+        where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
         from space in IO.lift(() => Space(Optional(doc.Views.ActiveView), doc))
         from answer in Run(
             static () => new GetNumber(),
@@ -353,7 +341,7 @@ public static partial class Getters {
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
-                IO.lift(() => Conversions.Validated<TValue, Length, TError>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
+                IO.lift(() => Admission.Validated<TValue, Length>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
         select answer;
 
     public static IO<T> Text<T>(RhinoDoc doc, EntryRequest<GetString, string, T> request, bool literal, Func<Entered<string>, IO<T>> entered) =>
@@ -380,7 +368,7 @@ public static partial class Getters {
             request,
             doc,
             getter => Selected(getter, request),
-            getter => Seq((GetResult.Object, Listed(list => Missing.Unless(list.AddObjects(getter, allowGrips) > 0, nameof(TransformObjectList.AddObjects)), feedback, body))));
+            getter => Seq((GetResult.Object, Listed(list => Refused.UnlessFound(list.AddObjects(getter, allowGrips) > 0, nameof(TransformObjectList.AddObjects)), feedback, body))));
 
     public static IO<Unit> Dragged(TransformObjectList list, Transform xform) =>
         IO.lift(() => Refused.Unless(list.UpdateDisplayFeedbackTransform(xform), nameof(TransformObjectList.UpdateDisplayFeedbackTransform)));
@@ -393,7 +381,7 @@ public static partial class Getters {
             Conversions.Present(list.GetBoundingBox(regularObjects: true, grips: true))));
 
     private static IO<T> Listed<T>(Func<TransformObjectList, Fin<Unit>> fill, bool feedback, Func<TransformObjectList, IO<T>> body) =>
-        DisposalOps.Within(() => CreateList(feedback), list => IO.lift(() => fill(list)).Bind(_ => body(list)), static list => IO.lift(list.Dispose));
+        DisposalOps.Within(() => new TransformObjectList { DisplayFeedbackEnabled = feedback }, list => IO.lift(() => fill(list)).Bind(_ => body(list)));
 
     // --- [STAGES]
     public static IO<TValue> Stages<TStage, TValue>(TStage entry, Func<TStage, Accepts<StageStep<TStage, TValue>>, IO<StageStep<TStage, TValue>>> prompt) =>
@@ -403,23 +391,11 @@ public static partial class Getters {
 
     // --- [AWAIT]
     public static IO<T> Await<T>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<T>> work) =>
-        DisposalOps.Within(() => CreateWaiter((progress.IsSome, progress)), getter =>
+        DisposalOps.Within(() => new GetCancel { ProgressReporting = progress.IsSome, ProgressMessage = Conversions.Unset(progress) }, getter =>
             IO.liftAsync(async () => {
                 getter.SetCommandPrompt(prompt);
-                Task<Fin<T>> running = Task.Run(() => {
-                    using EnvIO environment = EnvIO.New(token: getter.Token);
-                    return Try.lift(() => work(getter.Progress).Run(environment)).Run();
-                }, getter.Token);
+                Task<Fin<T>> running = Task.Run(() => Callbacks.Settled(work(getter.Progress), getter.Token), getter.Token);
                 Fin<Unit> waited = Conversions.FromResult(getter.Wait(running, doc), nameof(GetCancel.Wait));
                 return waited is Fin<Unit>.Fail(var error) ? Fin.Fail<T>(error) : await running.ConfigureAwait(false);
-            }).Bind(IO.lift),
-            static getter => IO.lift(getter.Dispose));
-
-    // --- [MAPPING]
-    [MapPropertyFromSource(nameof(TransformObjectList.DisplayFeedbackEnabled))]
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    private static partial TransformObjectList CreateList(bool feedback);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    private static partial GetCancel CreateWaiter((bool ProgressReporting, Option<string> ProgressMessage) settings);
+            }).Bind(IO.lift));
 }

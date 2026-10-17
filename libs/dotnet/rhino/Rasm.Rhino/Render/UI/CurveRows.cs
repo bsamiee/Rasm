@@ -12,26 +12,23 @@ using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
 using Rhino.UI.Controls;
 using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Rhino.Render.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveRows {
     // --- [POINT_CURVES]
-    public static ControlRow Points(
-        RowSource<PointCurves> source, Func<PointCurveParameter, RowField<PointCurves>> field, string caption, string help, Option<StageInput> stage, RowRules rules) =>
-        Plotted(source, IterableNE.create(TraceChannel.Items[0], TraceChannel.Items.Skip(1)), trace => new CurveLane<PointCurves>(
-                field(trace.Curve.Parameter), trace,
+    public static ControlRow Points(RowSource<PointCurves> source, string caption, string help, Option<StageInput> stage, RowRules rules) =>
+        Plotted(source, IterableNE.create(TraceChannel.Items[0], TraceChannel.Items.Skip(1)), static trace => new CurveLane<PointCurves>(
+                new RowField<PointCurves>(trace.Curve.Parameter), trace,
                 held => new PlottedCurve.Channel(trace, trace.Curve.Curve.Get(held)),
                 (plotted, held) => plotted is PlottedCurve.Channel channel ? trace.Curve.Curve.Set(channel.Value, held) : held,
                 (held, mean, context) => held.Read(trace.Curve, mean, context.Working)),
             caption, help, stage, rules);
 
     // --- [HUE_CURVES]
-    public static ControlRow Hues(
-        RowSource<HueCurves> source, Func<HueCurveKind, RowField<HueCurves>> field, string caption, string help, Option<StageInput> stage, RowRules rules) =>
-        Plotted(source, IterableNE.create(HueCurveKind.Items[0], HueCurveKind.Items.Skip(1)), kind => kind.Curve.Accept(new HueLane(field(kind))), caption, help, stage, rules);
+    public static ControlRow Hues(RowSource<HueCurves> source, string caption, string help, Option<StageInput> stage, RowRules rules) =>
+        Plotted(source, IterableNE.create(HueCurveKind.Items[0], HueCurveKind.Items.Skip(1)), static kind => kind.Curve.Accept(new HueLane(new RowField<HueCurves>(kind))), caption, help, stage, rules);
 
     private sealed class HueLane(RowField<HueCurves> field) : IHueCurveVisitor<CurveLane<HueCurves>> {
         public CurveLane<HueCurves> Curve<TKind>(Lens<HueCurves, HueCurve<TKind>> lens) where TKind : IHueCurveKind =>
@@ -69,7 +66,7 @@ public static class CurveRows {
             scope.Sink,
             new CurveEditorState.Editing(lanes.Head.Key, HashMap<CurveKey, PlottedCurve>(), Seq<int>(), ShowsHistogram: true, None),
             new CurveText(Wording.English.Shown(caption, scope.Sink), named, Shown),
-            stage.Map(static input => input.Read.Map(frame => frame.Map(held => Histograms((held, input.Context.Working))))))), static value => IO.lift(value.Dispose), retain)
+            stage.Map(static input => input.Read.Map(frame => frame.Map(held => Histograms((held, input.Context.Working))))))), retain)
         let site = new CallbackSite(scope.Sink, typeof(CurveEditor), nameof(CurveEditor.Edited))
         from strip in ChoiceRows.Strip(toSeq(lanes).Map(lane => new ChoiceItem<CurveKey>(lane.Key, named(lane.Key), None)), editor.Choose, scope.Sink, retain)
         from chosen in strip.Show(Some(lanes.Head.Key))
@@ -87,7 +84,7 @@ public static class CurveRows {
                 h => editor.Anchored += h, h => editor.Anchored -= h,
                 Callbacks.Handler<AnchorShownEventArgs>(
                     shown => anchor.SwapIO(_ => shown.Anchor).Bind(_ => input.Show(shown.Anchor)).Bind(_ => output.Show(shown.Anchor)), site with { Member = nameof(CurveEditor.Anchored) }), retain)
-        from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout(new StackLayoutItem(strip.Control, HorizontalAlignment.Left), new StackLayoutItem(editor, HorizontalAlignment.Stretch))), static value => IO.lift(value.Dispose), retain)
+        from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout(new StackLayoutItem(strip.Control, HorizontalAlignment.Left), new StackLayoutItem(editor, HorizontalAlignment.Stretch))), retain)
         from arranged in IO.lift(() => {
             stack.Orientation = Orientation.Vertical;
             stack.Spacing = RhinoLayout.StackedSpacing(RhinoLayout.SpacingType.Table);
@@ -101,17 +98,19 @@ public static class CurveRows {
         CurveSide side, IterableNE<CurveLane<TRecord>> lanes, TRecord record, IO<Option<CurveAnchor>> anchored, CurveEditor editor, Option<Control> pick, IPlugInSink sink, Action<IDisposable> retain)
         where TRecord : notnull =>
         from entries in toSeq(lanes).Map(lane => side.Plotted(lane.Curve(record))).Distinct()
-            .TraverseM(axis => DisposalOps.Acquire(IO.lift(() => new NumberField<CurveCoordinate, double>(Shown(axis), Conversions.Validated<CurveCoordinate, double, InvalidGrade>, static value => value, ((double)CurveCoordinate.MinValue, (double)CurveCoordinate.MaxValue), sink) { Enabled = false }), static value => IO.lift(value.Dispose), retain)
-                .Map(field => (axis, field))).As()
+            .TraverseM(axis =>
+                from text in IO.pure(Shown(axis))
+                from field in DisposalOps.Acquire(IO.lift(() => new NumberField<CurveCoordinate, double>(text, text.Domain.Create, text.Domain.Key, text.Domain.Bounds, sink) { Enabled = false }), retain)
+                select (axis, field)).As()
         let fields = toHashMap(entries)
-        from panel in DisposalOps.Acquire(IO.lift(static () => new Panel()), static value => IO.lift(value.Dispose), retain)
+        from panel in DisposalOps.Acquire(IO.lift(static () => new Panel()), retain)
         from placed in IO.lift(() => panel.Content = fields[side.Plotted(lanes.Head.Curve(record))])
         let site = new CallbackSite(sink, typeof(NumberField<CurveCoordinate, double>), nameof(NumberField<,>.Edited))
         let handler = Callbacks.Handler<EditEventArgs<CurveCoordinate>>(args => Entered(args.Edit, side.Coordinate, anchored, editor), site)
         from held in toSeq(fields.Values).TraverseM(field => Subscriptions.Attach(h => field.Edited += h, h => field.Edited -= h, handler, retain)).As()
-        let width = fields.AsIterable().Fold(0f, static (widest, pair) => float.Max(widest, Shown(pair.Key).TextWidth(pair.Value.Font)))
+        let width = toSeq(fields.Values).Fold(0f, static (widest, field) => float.Max(widest, field.Fit.Width))
         select (
-            new RowLine(Some(side.Caption), panel, pick, Some(new FieldFit(panel, width + (2f * NumericRows.FieldInset)))),
+            new RowLine(Some(side.Caption), panel, pick, Some(new FieldFit(panel, width))),
             (Func<Option<CurveAnchor>, IO<Unit>>)(value => value.Match(
                 Some: point => fields[side.Anchored(point)] switch {
                     var field => IO.lift(() => {
@@ -124,12 +123,12 @@ public static class CurveRows {
     private static IO<Unit> Entered(Edit<CurveCoordinate> edit, Lens<CurveAnchor, double> coordinate, IO<Option<CurveAnchor>> anchored, CurveEditor editor) =>
         from held in anchored
         from entered in (
-            from value in edit.Switch(preview: static _ => None, step: static step => Some(step.Value), commit: static commit => Some(commit.Value), cancel: static _ => None)
+            from value in edit.Settled
             from point in held
             select editor.Enter(coordinate.Set(value, point))).IfNone(IO.pure(unit))
         select entered;
 
-    private static NumberText<double> Shown(CurveAxis axis) => NumberText.Scalar(axis.Presentation, ((double)CurveCoordinate.MinValue, (double)CurveCoordinate.MaxValue), "");
+    private static ScalarText<CurveCoordinate, double> Shown(CurveAxis axis) => NumberText.Scalar(NumericDomain.Bounded<CurveCoordinate, double>(axis.Presentation), "");
 
     private sealed record CurveLane<TRecord>(
         RowField<TRecord> Field, CurveKey Key, Func<TRecord, PlottedCurve> Curve, Func<PlottedCurve, TRecord, TRecord> Write, Func<TRecord, Vector4, PassContext, double> Input)
@@ -138,8 +137,6 @@ public static class CurveRows {
     private sealed record CurveSide(string Caption, Func<PlottedCurve, CurveAxis> Plotted, Func<CurveAnchor, CurveAxis> Anchored, Lens<CurveAnchor, double> Coordinate);
 
     // --- [FUNCTION_GRAPHS]
-    private static readonly Presentation<float> Percent = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
-
     private static readonly AxisRange Window =
         (LogSpace.AgXLog.Allocation.Inverse(Vector3.Zero), LogSpace.AgXLog.Allocation.Inverse(Vector3.One)) switch {
             var (low, high) => AxisRange.Create(float.Log2(low.X / Exposure.MiddleGrey), float.Log2(high.X / Exposure.MiddleGrey)),
@@ -149,11 +146,11 @@ public static class CurveRows {
         new ControlRow.Readout(RowShape.Block, (scope, retain) => Graphed(source, caption, stage, scope, retain), caption, help, rules);
 
     private static IO<RowCells> Graphed<TStage>(RowSource<TStage> source, string caption, StageInput stage, RowScope scope, Action<IDisposable> retain) where TStage : IPixelStage<TStage> =>
-        from text in IO.pure(NumberText.Scalar(Percent, ((float)Factor.MinValue, (float)Factor.MaxValue), ""))
+        from text in IO.pure(NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(AxisFraction.Presentation), ""))
         let guides = Guides(stage, text)
         let output = fun((float code) => text.Shown(Some(code)))
         from editor in DisposalOps.Acquire(IO.lift(() => new CurveEditor(
-            scope.Sink, new CurveEditorState.Graph(Window, None, guides, output), new CurveText(Wording.English.Shown(caption, scope.Sink), static _ => "", Shown), None)), static value => IO.lift(value.Dispose), retain)
+            scope.Sink, new CurveEditorState.Graph(Window, None, guides, output), new CurveText(Wording.English.Shown(caption, scope.Sink), static _ => "", Shown), None)), retain)
         let plot = scope.Read(source).Bind(state => editor.Plot(Window, Response(TStage.Pass(state, stage.Context)), guides, output))
         from heard in scope.Listen(keys => when(keys.Exists(key => string.Equals(key.Owner, source.Owner, StringComparison.Ordinal)), plot).As(), retain)
         select new RowCells(editor, None, None, None, [], [], new RowHelp(None, None), plot, None, None);
@@ -179,9 +176,8 @@ public static class CurveRows {
     private static float Linear(float stops) => float.Exp2(stops) * Exposure.MiddleGrey;
 
     // --- [LEVELS]
-    public static ControlRow LevelPoints(
-        RowSource<Levels> source, Func<LevelsParameter, RowField<Levels>> field, string caption, string help, Option<StageInput> stage, RowRules rules) =>
-        (Black: field(LevelsParameter.Black), White: field(LevelsParameter.White)) switch {
+    public static ControlRow LevelPoints(RowSource<Levels> source, string caption, string help, Option<StageInput> stage, RowRules rules) =>
+        (Black: new RowField<Levels>(LevelsParameter.Black), White: new RowField<Levels>(LevelsParameter.White)) switch {
             var points => ControlRow.Of(
                 source, IterableNE.create(points.Black, points.White), caption, help, RowShape.Block, (scope, retain) => Leveled(source, points, caption, stage, scope, retain), rules),
         };
@@ -190,7 +186,7 @@ public static class CurveRows {
         from view in DisposalOps.Acquire(IO.lift(() => new ScopeView(
             scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Points(source.Default),
             stage.Match(Some: static input => input.Read.Map(frame => frame.Map(held => new ScopeFrames(held, input.Context.Working, input.Context.Signal, None, None, None))),
-                None: static () => IO.pure(Option<ScopeFrames>.None)))), static value => IO.lift(value.Dispose), retain)
+                None: static () => IO.pure(Option<ScopeFrames>.None)))), retain)
         let site = new CallbackSite(scope.Sink, typeof(ScopeView), nameof(ScopeView.Edited))
         from bound in RowEdit.Bind(
             source, IterableNE.create(points.Black, points.White), h => view.Edited += h, h => view.Edited -= h,
@@ -198,11 +194,11 @@ public static class CurveRows {
             held => view.Receive(held.Map(static levels => (ScopeEdit)new ScopeEdit.Points(levels))),
             scope, site, retain)
         from black in
-            NumericRows.Line<Levels, BlackLevel, float, InvalidGrade>(
-                source, points.Black, LevelsParameter.BlackPoint.Lens, LevelsParameter.BlackPoint.Presentation, bound, None, scope.Sink, retain)
+            NumericRows.Line(
+                source, points.Black.Caption, LevelsParameter.BlackPoint.Lens, LevelsParameter.BlackPoint.Presentation, bound, None, scope.Sink, retain)
         from white in
-            NumericRows.Line<Levels, Exposure, float, InvalidToneValue>(
-                source, points.White, LevelsParameter.WhitePoint.Lens, LevelsParameter.WhitePoint.Presentation, bound, None, scope.Sink, retain)
+            NumericRows.Line(
+                source, points.White.Caption, LevelsParameter.WhitePoint, Exposure.Presentation, bound, None, scope.Sink, retain)
         from command in IO.lift(static () => new Command())
         from named in IO.lift(() => {
             string shown = RowText.Localize("Auto").Local;

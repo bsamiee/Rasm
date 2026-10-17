@@ -1,3 +1,4 @@
+using System.Globalization;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Document.Files;
@@ -16,17 +17,17 @@ public static class Transfer {
         scope.Shown(bound).Bind(values => Copy(values.Scoped(keys)));
 
     public static IO<ValueDiff> Paste(BindingGroup bound, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
-        from text in IO.lift(static () => Missing.Unless(Clipboard.Instance.Text, nameof(Clipboard.Text)))
+        from text in IO.lift(static () => Refused.UnlessFound(Clipboard.Instance.Text, nameof(Clipboard.Text)))
         from read in IO.lift(ValueSet.Read(text))
         let scoped = read.Scoped(keys)
-        from matched in IO.lift(UnmatchedValues.Unless(bound.Keys().Exists(scoped.Entries.ContainsKey), read.Entries.Count))
+        from matched in IO.lift(bound.Keys().Exists(scoped.Entries.ContainsKey) ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{read.Entries.Count} pasted values match no row")))
         from diff in scope.Commit(bound, scoped)
         select diff;
 
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
         from paths in Callbacks.Each(files.Map(static file => IO.lift(() => Exchange.ExistingPath(file))))
-        from dragged in DisposalOps.Within(static () => new DataObject(), data => Dragged(source, paths, image, data), static data => IO.lift(data.Dispose))
+        from dragged in DisposalOps.Within(static () => new DataObject(), data => Dragged(source, paths, image, data))
         select dragged;
 
     private static IO<Unit> Dragged(Control source, Seq<string> paths, Option<Image> image, DataObject data) =>

@@ -16,7 +16,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
-            - has: {field: object, matches: effect-effect-module}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
     piped-program:
         kind: call_expression
         has: {field: arguments, has: {nthChild: 1}}

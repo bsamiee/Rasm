@@ -195,7 +195,7 @@ Overrides reach the members an operator reads alone:
 
 ```python
 def merged(context: bpy.types.Context, target: bpy.types.Object, items: tuple[bpy.types.Object, ...]) -> BlenderResult[None]:
-    joined: tuple[bpy.types.ID, ...] = tuple(item.data for item in items)
+    joined: tuple[bpy.types.ID, ...] = tuple(item.data for item in items if item.data is not None)
     return called(bpy.ops.object.join, {}, override=Some(context.temp_override(active_object=target, selected_editable_objects=[target, *items]))).map(
         lambda _: bpy.data.batch_remove(ids=tuple(block for block in joined if block.users == 0))
     )

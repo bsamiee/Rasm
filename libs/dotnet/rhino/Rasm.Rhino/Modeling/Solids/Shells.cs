@@ -21,7 +21,7 @@ public static class Shells {
                 Blends: blends,
                 Walls: walls),
             static Fin<OffsetResult> (made) => made.Blends is null
-                ? new Refused(nameof(Brep.CreateOffsetBrep))
+                ? new Refused(nameof(Brep.CreateOffsetBrep), Refused.Declined)
                 : (Measurements.Valid(toSeq<Brep?>(made.Offsets), nameof(Brep.CreateOffsetBrep)).ToValidation(),
                    Measurements.Valid(toSeq<Brep?>(made.Blends), nameof(OffsetResult.Blends)).ToValidation(),
                    Measurements.Valid(toSeq<Brep?>(made.Walls), nameof(OffsetResult.Walls)).ToValidation())

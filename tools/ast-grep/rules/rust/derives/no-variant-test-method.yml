@@ -6,13 +6,13 @@ utils:
     variant-test:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((std|core)::)?matches$'}
+            - matches: {rust-std-macro: {name: {regex: '^matches$'}}}
             - has: {kind: token_tree, regex: '^\(\s*\*?\s*self\s*,\s*\w+::\w+\s*(\(\s*(\.\.|_)\s*\)|\{\s*\.\.\s*\})?\s*,?\s*\)$'}
     test-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: variant-test}, {kind: expression_statement, has: {matches: variant-test}}]}
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: variant-test}, {kind: expression_statement, has: {matches: variant-test}}]}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
 rule:
     kind: function_item
     all:

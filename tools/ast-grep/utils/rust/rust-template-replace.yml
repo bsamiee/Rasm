@@ -21,7 +21,7 @@ utils:
     placeholder-format:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((::)?(std|alloc)::)?format$'}
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
             - has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"\{\{\{\{\s*\{[^{}]*\}\s*\}\}\}\}"$'}}
 rule:
     matches: placeholder-replace

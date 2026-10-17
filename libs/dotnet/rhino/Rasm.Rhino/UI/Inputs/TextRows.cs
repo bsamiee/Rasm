@@ -5,9 +5,9 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -15,13 +15,12 @@ namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TextLines : System.Numerics.IMinMaxValue<TextLines> {
     public static TextLines MinValue { get; } = new(1);
     public static TextLines MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
 }
 
 [Union]
@@ -47,69 +46,22 @@ public abstract partial record ReadoutSource<TValue> where TValue : notnull {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TextRows {
     // --- [ENTRIES]
-    public static ControlRow Keyed<TRecord, TValue, TRaw, TError>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TValue> lens, EntryForm form, RowRules rules)
-        where TRecord : notnull
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        Typed(source, field,
-            record => StoredText.Capture<TValue, TRaw>(lens.Get(record)),
-            (record, text) => StoredText.Recall<TValue, TRaw, TError>(text).Map(value => lens.Set(value, record)),
-            form, None, rules);
-
-    public static ControlRow Raw<TRecord, TRaw>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TRaw> lens, EntryForm form, RowRules rules)
-        where TRecord : notnull
-        where TRaw : notnull, ISpanParsable<TRaw> =>
-        Typed(source, field,
-            record => StoredText.Format(lens.Get(record)),
-            (record, text) => StoredText.Parse<TRaw>(text).Map(raw => lens.Set(raw, record)),
-            form, None, rules);
-
-    public static ControlRow OptionalKeyed<TRecord, TValue, TRaw, TError>(
-        RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Option<TValue>> lens, EntryForm form, RowRules rules)
-        where TRecord : notnull
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        Typed(source, field,
-            record => Conversions.Unset(lens.Get(record).Map(static value => StoredText.Capture<TValue, TRaw>(value))),
-            (record, text) => Conversions.Present(text).Match(
-                Some: present => StoredText.Recall<TValue, TRaw, TError>(present).Map(value => lens.Set(Some(value), record)),
-                None: () => lens.Set(None, record)),
-            form, None, rules);
-
-    public static ControlRow OptionalRaw<TRecord, TRaw>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Option<TRaw>> lens, EntryForm form, RowRules rules)
-        where TRecord : notnull
-        where TRaw : notnull, ISpanParsable<TRaw> =>
-        Typed(source, field,
-            record => Conversions.Unset(lens.Get(record).Map(static raw => StoredText.Format(raw))),
-            (record, text) => Conversions.Present(text).Match(
-                Some: present => StoredText.Parse<TRaw>(present).Map(raw => lens.Set(Some(raw), record)),
-                None: () => lens.Set(None, record)),
-            form, None, rules);
+    public static ControlRow Field<TRecord>(
+        RowSource<TRecord> source, RowField<TRecord> field, EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowRules rules)
+        where TRecord : notnull =>
+        FieldTexts.Of(field.Parameter) switch {
+            [var codec] => ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Entered(source, field,
+                record => Conversions.Unset(codec.Capture(record).Filter(text => !codec.Absent.Exists(absent => string.Equals(absent, text, StringComparison.Ordinal)))),
+                codec.File.IsNone,
+                (record, text) => IO.lift(codec.Recall(Conversions.Present(text).IfNone(() => codec.Absent.IfNone(text)))).Bind(static step => step).Map(set => set(record)),
+                form, browse, scope, retain), rules),
+            var codecs => throw new UnreachableException($"{field.Parameter.Key} holds {codecs.Count} stored texts where an entry row holds one"),
+        };
 
     // --- [PATHS]
     public static ControlRow Path<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, string> lens, FileAction action, Seq<FileTypeRow> types, RowRules rules)
         where TRecord : notnull =>
         Typed(source, field, lens.Get, (record, text) => lens.Set(text, record), new EntryForm.SingleLine(), Some((action, types)), rules);
-
-    public static ControlRow Loaded<TRecord, TValue, TKey, TRaw, TError>(
-        RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Option<TValue>> lens, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key,
-        FileAction action, Seq<FileTypeRow> types, RowRules rules)
-        where TRecord : notnull
-        where TKey : IObjectFactory<TKey, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Entered(source, field,
-            record => Conversions.Unset(lens.Get(record).Map(value => StoredText.Capture<TKey, TRaw>(key(value)))),
-            None,
-            (record, text) => Conversions.Present(text).Match(
-                Some: present =>
-                    from found in IO.lift(StoredText.Recall<TKey, TRaw, TError>(present))
-                    from value in load(found)
-                    select lens.Set(Some(value), record),
-                None: () => IO.pure(lens.Set(None, record))),
-            new EntryForm.SingleLine(), Some((action, types)), scope, retain), rules);
 
     // --- [LIVE]
     public static ControlRow Readout<TState>(string caption, string help, ReadoutSource<TState> source, Func<TState, string> format, RowRules rules)
@@ -117,7 +69,7 @@ public static class TextRows {
         new ControlRow.Readout(RowShape.Inline, (scope, retain) =>
             from live in Live(source,
                 static (_, keep) =>
-                    from label in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.Label()), static held => IO.lift(held.Dispose), keep)
+                    from label in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.Label()), keep)
                     from faced in IO.lift(() => { (label.Wrap, label.TextAlignment, label.Font) = (Eto.Forms.WrapMode.None, Eto.Forms.TextAlignment.Right, HostTheme.Digits(label.Font)); })
                     select label,
                 (label, state) => Written(() => label.Text, text => label.Text = text, format(state)), scope, retain)
@@ -127,7 +79,7 @@ public static class TextRows {
     public static ControlRow Progress(string caption, string help, ReadoutSource<WorkState> source, RowRules rules) =>
         new ControlRow.Readout(RowShape.Inline, (scope, retain) =>
             from live in Live(source, static (_, keep) =>
-                from bar in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.ProgressBar()), static held => IO.lift(held.Dispose), keep)
+                from bar in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.ProgressBar()), keep)
                 from minimum in IO.lift(() => bar.MinValue = 0)
                 select bar, Indicated, scope, retain)
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
@@ -144,25 +96,13 @@ public static class TextRows {
                 from shown in show(built, first.Value)
                 select built, DisposalOps.Release)
             let site = new CallbackSite(scope.Sink, typeof(FrameClocks), nameof(FrameClocks.Sample))
-            from active in IO.lift(static () => Ref(Some(Seq<IDisposable>())))
-            let drain = fun((Option<Seq<IDisposable>> next) => atomicIO(() => {
-                Option<Seq<IDisposable>> taken = active.Value;
-                active.Value = taken.Bind(_ => next);
-                return taken;
-            }).Bind(static taken => DisposalOps.Release(taken.ToSeq().Flatten())).Uninterruptible())
-            from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(drain(None), static close => close.Run())), static held => IO.lift(held.Dispose), owned)
+            from active in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), owned)
             from loaded in Subscriptions.Attach(h => control.Load += h, h => control.Load -= h,
-                Callbacks.Handler<EventArgs>(_ => DisposalOps.Acquire(keep => Sampled(source, show, control, site, scope, keep),
-                    (_, lease) => {
-                        if (!atomic(() => {
-                            Option<Seq<IDisposable>> prior = active.Value;
-                            active.Value = prior.Map(items => items.Add(lease));
-                            return prior.IsSome;
-                        })) throw Errors.Cancelled.ToException();
-                    }), new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.Load))), owned)
+                Callbacks.Handler<EventArgs>(_ => DisposalOps.Acquire(keep => Sampled(source, show, control, site, scope, keep), (_, lease) => active.Retain(lease)),
+                    new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.Load))), owned)
             from unloaded in Subscriptions.Attach(h => control.UnLoad += h, h => control.UnLoad -= h,
-                Callbacks.Handler<EventArgs>(_ => drain(Some(Seq<IDisposable>())), new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.UnLoad))), owned)
-            select control, (_, lease) => retain(lease));
+                Callbacks.Handler<EventArgs>(_ => active.Drain, new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.UnLoad))), owned)
+            select control, retain);
 
     private static IO<Unit> Sampled<TState, TControl>(
         ReadoutSource<TState> source, Func<TControl, TState, IO<Unit>> show, TControl control, CallbackSite site, RowScope scope, Action<IDisposable> keep)
@@ -178,10 +118,10 @@ public static class TextRows {
         EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowRules rules)
         where TRecord : notnull =>
         ControlRow.Of(source, field, RowShape.Inline,
-            (scope, retain) => Entered(source, field, text, Some(cross), (record, typed) => IO.lift(cross(record, typed)), form, browse, scope, retain), rules);
+            (scope, retain) => Entered(source, field, text, previewed: true, (record, typed) => IO.lift(cross(record, typed)), form, browse, scope, retain), rules);
 
     private static IO<RowCells> Entered<TRecord>(
-        RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, string> text, Option<Func<TRecord, string, Fin<TRecord>>> preview,
+        RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, string> text, bool previewed,
         Func<TRecord, string, IO<TRecord>> commit, EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
         DisposalOps.Acquire(owned =>
@@ -193,7 +133,7 @@ public static class TextRows {
         let site = new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.TextControl.TextChanged))
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h,
-            edit => Callbacks.Handler<EventArgs>(_ => preview.Traverse(cross => Previewed(edit, cross, source, entry, scope)).As().Map(unit), site),
+            edit => Callbacks.Handler<EventArgs>(_ => when(previewed, Previewed(edit, commit, source, entry, scope)).As(), site),
             value =>
                 from marked in IO.lift(() => entry.Varied.Iter(mark => mark(value.IsNone)))
                 from written in (value.Map(text) | entry.Blank).Traverse(shown => Written(entry.Read, entry.Write, shown)).As()
@@ -210,24 +150,28 @@ public static class TextRows {
             Callbacks.Handler<Eto.Forms.KeyEventArgs>(args => Pressed(args, answers), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.KeyDown))), owned)
         from lost in Subscriptions.Attach(h => entry.Field.LostFocus += h, h => entry.Field.LostFocus -= h,
             Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(committed), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.LostFocus))), owned)
-        from picked in browse.Traverse(asked => Browsed(field.Caption, asked, entry.Field, committed, scope, owned)).As()
+        from picked in browse.Traverse(asked => Browsed(new LocalizeStringPair(field.Caption, field.Wording.Shown(field.Caption, scope.Sink)), asked, entry.Field, committed, scope, owned)).As()
         select new RowCells(
             entry.Shown, None, picked.Map(static held => (Eto.Forms.Control)held), None, [], [], new RowHelp(None, Conversions.Present(text(source.Default))),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], [], scope.Sink))), (_, lease) => retain(lease));
+            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], [], scope.Sink))), retain);
 
-    private static IO<Unit> Previewed<TRecord>(RowEdit<TRecord> edit, Func<TRecord, string, Fin<TRecord>> cross, RowSource<TRecord> source, Entry entry, RowScope scope)
+    private static IO<Unit> Previewed<TRecord>(RowEdit<TRecord> edit, Func<TRecord, string, IO<TRecord>> cross, RowSource<TRecord> source, Entry entry, RowScope scope)
         where TRecord : notnull =>
         from held in scope.Read(source)
-        from previewed in edit.Preview(cross(held, entry.Read()), Some(Accessors.TextChangingEventsDelay))
+        from previewed in cross(held, entry.Read())
+            .Match(
+                Succ: record => edit.Preview(record, Some(Accessors.TextChangingEventsDelay)),
+                Fail: error => error.IsExpected ? edit.Preview(error, Some(Accessors.TextChangingEventsDelay)) : IO.fail<Unit>(error))
+            .Flatten()
         select previewed;
 
     private static IO<Entry> Line(Action<IDisposable> retain) =>
-        from box in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.TextBox()), static held => IO.lift(held.Dispose), retain)
+        from box in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.TextBox()), retain)
         select new Entry(box, box, Eto.Forms.Keys.Enter, () => box.Text, text => box.Text = text,
             Some<Action<bool>>(varied => box.PlaceholderText = varied ? RowEdit.Varies : ""), Some(""));
 
     private static IO<Entry> Area(TextLines visible, Action<IDisposable> retain) =>
-        from area in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.TextArea()), static held => IO.lift(held.Dispose), retain)
+        from area in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.TextArea()), retain)
         from height in Height(visible, area.Font.LineHeight)
         from fitted in IO.lift(() => {
             (area.Wrap, area.AcceptsReturn, area.AcceptsTab, area.SpellCheck, area.Height) = (true, true, false, false, height);
@@ -235,7 +179,7 @@ public static class TextRows {
         select new Entry(area, area, Eto.Forms.Application.Instance.CommonModifier | Eto.Forms.Keys.Enter, () => area.Text, text => area.Text = text, None, Some(""));
 
     private static IO<Entry> Rich(TextLines visible, Action<IDisposable> retain) =>
-        from rich in DisposalOps.Acquire(IO.lift(static () => new RichTextAreaWithAlternateText()), static held => IO.lift(held.Dispose), retain)
+        from rich in DisposalOps.Acquire(IO.lift(static () => new RichTextAreaWithAlternateText()), retain)
         from height in Height(visible, rich.RichTextArea.Font.LineHeight)
         from fitted in IO.lift(() => {
             (rich.HideAlternateTextWhenValueChanges, rich.SelectAllOnGotFocus, rich.Height) = (true, false, height);
@@ -244,11 +188,10 @@ public static class TextRows {
             Some<Action<bool>>(varied => (rich.AlternateText, rich.ShowAlternateText) = (RowEdit.Varies, varied)), None);
 
     private static IO<int> Height(TextLines visible, float lineHeight) =>
-        IO.lift(() => EDecimal.FromSingle(lineHeight).Multiply((int)visible).RoundToExponent(0, ERounding.Ceiling).ToInt32Checked())
-            .Catch(static error => error.HasException<OverflowException>(), static _ => IO.fail<int>(new InvalidRhinoValue()));
+        IO.lift(() => EDecimal.FromSingle(lineHeight).Multiply((int)visible).RoundToExponent(0, ERounding.Ceiling).ToInt32Checked());
 
     private static IO<Entry> Secret(Action<IDisposable> retain) =>
-        from box in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.PasswordBox()), static held => IO.lift(held.Dispose), retain)
+        from box in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.PasswordBox()), retain)
         select new Entry(box, box, Eto.Forms.Keys.Enter, () => box.Text, text => box.Text = text, None, Some(""));
 
     private static IO<Unit> Written(Func<string> read, Action<string> write, string shown) =>
@@ -270,11 +213,10 @@ public static class TextRows {
             .Map(unit);
 
     private static IO<Eto.Forms.Button> Browsed(
-        string caption, (FileAction Action, Seq<FileTypeRow> Types) browse, Eto.Forms.TextControl box, Func<string, IO<Unit>> commit, RowScope scope, Action<IDisposable> retain) =>
+        LocalizeStringPair title, (FileAction Action, Seq<FileTypeRow> Types) browse, Eto.Forms.TextControl box, Func<string, IO<Unit>> commit, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from command in IO.lift(static () => new Eto.Forms.Command())
         from faced in IO.lift(() => command.ToolTip = RowText.Localize("Browse").Local)
-        let title = RowText.Localize(caption, table: Some<object>(scope.Sink))
         from picked in ButtonRows.Pick(command, (GlyphRole.Load, IconSlot.PickButton.Master), scope.Sink, owned)
         from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
             Callbacks.Handler<EventArgs>(_ =>
@@ -283,7 +225,7 @@ public static class TextRows {
                 from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
                 select committed, new CallbackSite(scope.Sink, typeof(Eto.Forms.Command), nameof(Eto.Forms.Command.Executed))), owned)
         from dropped in Transfer.Drops(box, browse.Types, commit, scope.Sink, owned)
-        select picked, (_, lease) => retain(lease));
+        select picked, retain);
 
     private static IO<Option<string>> Asked((FileAction Action, Seq<FileTypeRow> Types) browse, LocalizeStringPair title, string current, RowScope scope) =>
         HostDialogs.Filter(browse.Types.Map(static row => (row.Description, row.Extensions))) switch {
@@ -296,7 +238,7 @@ public static class TextRows {
                 })
                     .Map(static picked => Some(picked)),
                 FileAction.SelectFolder =>
-                    from document in IO.lift(scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
+                    from document in scope.DocumentIO
                     from picked in HostDialogs.ShowSelectFolderDialog(document, title, Conversions.Present(current))
                     select Some(picked),
                 _ => throw new UnreachableException(nameof(FileAction)),
@@ -307,7 +249,7 @@ public static class TextRows {
         where TState : notnull =>
         source.Switch((Scope: scope, Retain: retain),
             model: static (held, model) =>
-                from document in IO.lift(held.Scope.Document.ToFin(new Missing(nameof(RowScope.Document))))
+                from document in held.Scope.DocumentIO
                 from watched in model.Read.Watch(document, held.Retain)
                 select (IO.lift(() => Some(watched.Value)), watched.Value),
             cell: static (_, cell) => IO.lift(() => (IO.lift(() => Some(cell.Held.Value)), cell.Held.Value)),

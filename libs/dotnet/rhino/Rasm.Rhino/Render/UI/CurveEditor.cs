@@ -4,9 +4,9 @@ using Eto.Forms;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Rhino.Render.UI;
 
@@ -35,12 +35,12 @@ public abstract record PlottedCurve {
         public override CurveAxis Output => CurveAxis.Stops;
         public override Seq<CurvePoint> Points => Value.Points;
         public override PlottedCurve Identity => this with { Value = PointCurve.Identity };
-        public override MarkColor Paint => Trace;
+        public override MarkColor Paint => Trace.Mark;
         public override Option<TraceChannel> Plane => Some(Trace);
         public override Func<double, double> Fit() => Value.Fit();
 
         public override Fin<PlottedCurve> With(Seq<CurvePoint> points) =>
-            PointCurve.Validate(points, out PointCurve? curve) is { } error ? error : (Fin<PlottedCurve>)(this with { Value = curve! });
+            Admission.Admitted(PointCurve.Validate(points, out PointCurve? curve), curve).Map<PlottedCurve>(held => this with { Value = held });
     }
 
     public sealed record Hue<TKind>(HueCurve<TKind> Value) : PlottedCurve where TKind : IHueCurveKind {
@@ -54,7 +54,7 @@ public abstract record PlottedCurve {
         public override Func<double, double> Fit() => Value.Fit();
 
         public override Fin<PlottedCurve> With(Seq<CurvePoint> points) =>
-            HueCurve<TKind>.Validate(points, out HueCurve<TKind>? curve) is { } error ? error : (Fin<PlottedCurve>)(this with { Value = curve! });
+            Admission.Admitted(HueCurve<TKind>.Validate(points, out HueCurve<TKind>? curve), curve).Map<PlottedCurve>(held => this with { Value = held });
     }
 }
 
@@ -254,14 +254,12 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
         public Option<CurvePoint> Anchor => State.Selected.Last.Bind(index => Curve.Points.At(index));
 
         public static Option<Plotted> Of(CurveEditorState.Editing state, SizeF size) =>
-            state.Current.Map(curve => Plots.Plot(new RectangleF(size)) switch {
-                var plot => new Plotted(
-                    state, curve,
-                    new PlotPlane.Cartesian(plot, Placing(curve.Input), Placing(curve.Output)),
-                    new PlotPlane.Cartesian(plot, new Axis.Linear(AxisRange.Of(curve.Input)), new Axis.Linear(AxisRange.Of(curve.Output)))),
-            });
-
-        private static Axis Placing(CurveAxis axis) => axis.Periodic ? new Axis.Periodic(AxisRange.Of(axis)) : new Axis.Linear(AxisRange.Of(axis));
+            from curve in state.Current
+            let plot = Plots.Plot(new RectangleF(size))
+            select new Plotted(
+                state, curve,
+                new PlotPlane.Cartesian(plot, ImagePlots.Placed(curve.Input), ImagePlots.Placed(curve.Output)),
+                new PlotPlane.Cartesian(plot, new Axis.Linear(ImagePlots.Range(curve.Input)), new Axis.Linear(ImagePlots.Range(curve.Output))));
 
         // --- [MARKS]
         public Seq<PlotMark<CurvePart>> Marks(float scale) =>
@@ -297,7 +295,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             from plane in Curve.Plane
             from traces in State.Histogram
             where State.ShowsHistogram
-            select new PlotMark<CurvePart>(Columns(plane.Bins(traces), (int)MathF.Ceiling(Placed.Plot.Width * scale)), new MarkStyle.Fill(plane, HistogramAlpha), None);
+            select new PlotMark<CurvePart>(Columns(plane.Bins(traces), (int)MathF.Ceiling(Placed.Plot.Width * scale)), new MarkStyle.Fill(plane.Mark, HistogramAlpha), None);
 
         private MarkShape.Polygon Columns(BinGrid bins, int columns) =>
             toSeq(bins.Counts.ToArray())
@@ -394,7 +392,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, CurveEditorState state, Seq<PlotMark<CurvePart>> marks, Interaction<CurvePart> interaction) =>
         from well in Plots.Well(canvas, bounds)
         from ramp in Plotting(state, bounds.Size).Filter(static plotted => plotted.Curve.Input == CurveAxis.Hue).Match(
-            Some: plotted => Plots.Strip(canvas, plotted.Placed, static value => Plots.Encoded(Gamut.StandardRgb, Plots.HueRamp(value).AsVector3())),
+            Some: plotted => Plots.Strip(canvas, plotted.Placed, static value => Plots.Encoded(Gamut.StandardRgb, ImagePlots.HueRamp(value).AsVector3())),
             None: static () => IO.pure(unit))
         from painted in Plots.Paint(canvas, marks)
         from labels in Labelled(canvas, state, bounds.Size)

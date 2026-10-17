@@ -15,10 +15,10 @@ const EditReason = Schema.TaggedUnion({
     Unexecuted: { undo: Schema.String },
     Thrown: { undo: Schema.String, cause: Schema.Defect() },
 });
-class EditError extends Schema.TaggedError<EditError>()('EditError', { reason: EditReason }) {}
+class EditError extends Schema.TaggedError<EditError, { readonly brand: unique symbol }>()('EditError', { reason: EditReason }) {}
 
 const read = <A>(call: () => Promise<A>): Effect.Effect<A, EditError> =>
-    Effect.tryPromise({ try: call, catch: (cause) => new EditError({ reason: { _tag: 'Unread', cause } }) });
+    Effect.tryPromise({ try: call, catch: (cause) => EditError.make({ reason: { _tag: 'Unread', cause } }) });
 const renamed = Effect.fn('renamed')(function* (host: premierepro, undo: string, name: (item: ProjectItem) => string) {
     const project = yield* read(() => host.Project.getActiveProject());
     const selection = yield* read(() => host.ProjectUtils.getSelection(project));
@@ -34,13 +34,13 @@ const renamed = Effect.fn('renamed')(function* (host: premierepro, undo: string,
             });
             return { refused, executed };
         },
-        catch: (cause) => new EditError({ reason: { _tag: 'Thrown', undo, cause } }),
+        catch: (cause) => EditError.make({ reason: { _tag: 'Thrown', undo, cause } }),
     });
     yield* Array.match(ran.refused, {
         onEmpty: () => Effect.void,
-        onNonEmpty: (names) => Effect.fail(new EditError({ reason: { _tag: 'Refused', undo, names } })),
+        onNonEmpty: (names) => Effect.fail(EditError.make({ reason: { _tag: 'Refused', undo, names } })),
     });
-    return yield* ran.executed ? Effect.succeed(items.length) : Effect.fail(new EditError({ reason: { _tag: 'Unexecuted', undo } }));
+    return yield* ran.executed ? Effect.succeed(items.length) : Effect.fail(EditError.make({ reason: { _tag: 'Unexecuted', undo } }));
 });
 ```
 

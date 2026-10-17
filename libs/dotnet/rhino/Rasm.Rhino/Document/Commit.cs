@@ -34,17 +34,18 @@ public static class Commits {
                     when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())).Map(unit)));
 
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
-        WithinRedraw(doc, redraw,
-            envIO.Bind(environment => (
-            from begun in IO.lift(() => Command.InCommand() && doc.UndoRecordingEnabled && !doc.UndoRecordingIsActive
-                ? Fin.Fail<Option<uint>>(new UndoRecordUnavailable()) : Conversions.Present(doc.BeginUndoRecord(name)))
-            let ended = IO.lift(() => begun.Traverse(serial => Refused.Unless(doc.EndUndoRecord(serial), serial, nameof(RhinoDoc.EndUndoRecord))).As()
-                .Map(closed => closed.Filter(serial => doc.GetUndoRecords().Any(entry => entry.SerialNumber == serial))))
-            from value in DisposalOps.OnFailure(IO.liftVAsync(() => body.RunAsync(environment)), ended.Bind(kept => when(kept.IsSome,
-                Callbacks.Each(Seq(Step(doc, doc.Undo, nameof(RhinoDoc.Undo)), IO.lift(doc.ClearRedoRecords))).Map(unit)).As()))
-            from record in ended
-            select new Committed<T>(value, record)).Uninterruptible()));
+        WithinRedraw(doc, redraw, DisposalOps.Transacted(
+            IO.lift(() => Command.InCommand() && doc.UndoRecordingEnabled && !doc.UndoRecordingIsActive
+                ? Error.New("a running command holds no undo record") : Fin.Succ(Conversions.Present(doc.BeginUndoRecord(name)))),
+            _ => body,
+            begun => Ended(doc, begun).Bind(kept => when(kept.IsSome,
+                Callbacks.Each(Seq(Step(doc, doc.Undo, nameof(RhinoDoc.Undo)), IO.lift(doc.ClearRedoRecords))).Map(unit)).As()),
+            (begun, value) => Ended(doc, begun).Map(record => new Committed<T>(value, record))));
 
     internal static IO<Unit> Step(RhinoDoc doc, Func<bool> step, string member) =>
         IO.lift(() => Refused.Unless(step(), member).Bind(_ => Refused.Unless(doc.EndUndoRecord(doc.CurrentUndoRecordSerialNumber), nameof(RhinoDoc.EndUndoRecord))));
+
+    private static IO<Option<uint>> Ended(RhinoDoc doc, Option<uint> begun) =>
+        IO.lift(() => begun.Traverse(serial => Refused.Unless(doc.EndUndoRecord(serial), serial, nameof(RhinoDoc.EndUndoRecord))).As()
+            .Map(closed => closed.Filter(serial => doc.GetUndoRecords().Any(entry => entry.SerialNumber == serial))));
 }

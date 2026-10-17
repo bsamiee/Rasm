@@ -43,6 +43,32 @@ utils:
                     - matches: owner-value
                     - kind: impl_item
                       has: {field: body, has: {matches: owner-value}}
+    library-literal:
+        any:
+            - matches: {rust-angle-conversion: {receiver: {pattern: $_}, denominator: {pattern: $_}, degrees: {pattern: $_}, radians: {pattern: $_}}}
+            - matches: {rust-duration-unit-factor: {path: {pattern: $_}, count: {pattern: $_}, secs: {pattern: $_}, millis: {pattern: $_}, micros: {pattern: $_}, nanos: {pattern: $_}}}
+            - matches: rust-byte-hash-constant
+            - matches: rust-calendar-rule
+            - matches: rust-conversion-factor
+            - matches: rust-earth-radius
+            - matches: rust-entity-escape
+            - matches: rust-geojson-text
+            - matches: rust-html-tag-scan
+            - matches: rust-json-pointer-escape
+            - matches: rust-luminance-weight
+            - matches: rust-machine-path
+            - matches: rust-markdown-fence-scan
+            - matches: rust-obj-face
+            - matches: rust-procfs-path
+            - matches: rust-second-count-split
+            - matches: rust-srgb-transfer
+            - matches: rust-star-literal-glob
+            - matches: rust-stl-text
+            - matches: rust-template-replace
+            - matches: rust-variant-name-match
+            - matches: rust-variant-parse-match
+            - matches: rust-verbatim-prefix
+            - matches: opentelemetry-trace-context-header
 rule:
     kind: 'integer_literal, float_literal, string_literal, raw_string_literal'
     pattern: $LITERAL
@@ -52,6 +78,6 @@ rule:
         - any:
             - all: [{matches: plain-site}, {any: [{matches: earlier-plain}, {inside: {stopBy: end, matches: earlier-plain}}, {matches: owned}]}]
             - all: [{matches: negated-site}, {any: [{matches: earlier-negated}, {inside: {stopBy: end, matches: earlier-negated}}]}]
-        - not: {matches: rust-domain-span}
+        - not: {any: [{matches: library-literal}, {inside: {stopBy: {kind: function_item}, matches: library-literal}}]}
 message: '`$LITERAL` repeats a value an earlier site of the file spells'
 note: 'Declare the value once at its owner, a `let` in the one function that repeats it, a module `const`, an associated `const` of the type it measures, or the library constant stating it (`u16::MAX`, `f64::consts::PI`), and read it at every site'

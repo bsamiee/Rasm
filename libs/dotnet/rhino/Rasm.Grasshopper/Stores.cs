@@ -36,7 +36,7 @@ public sealed record KeyedText(
 
     public static KeyedText Of(SettingsFile file, string owner) =>
         new(owner,
-            key => IO.lift(() => Optional(file.Node.FindItem(key)).Traverse(item => TypeMismatch.Unless<string>(item.RawData, key)).As()),
+            key => IO.lift(() => Optional(file.Node.FindItem(key)).Traverse(item => Conversions.Typed<string>(item.RawData, key)).As()),
             entries =>
                 from set in IO.lift(() => entries.Iter(entry => entry.Text.Match(
                     Some: text => file.Set(entry.Key, text),
@@ -56,13 +56,11 @@ public static class GrasshopperStores {
             IO.lift(() => stored(setting.Value)),
             value =>
                 from before in IO.lift(() => stored(setting.Value))
-                from change in Callbacks.CapturedOptional<Change<T>>(answer => DisposalOps.Within<IDisposable, Unit>(keep =>
-                    from attached in Subscriptions.Attach<EventHandler<EventArgs>>(
-                        handler => setting.Changed += handler, handler => setting.Changed -= handler,
-                        (_, _) => answer(Try.lift(() => ValueStore.Between(before, stored(setting.Value), same)).Run()), keep)
-                    from assigned in IO.lift(() => { setting.Value = value.IfNone(setting.Default); })
-                    select unit, DisposalOps.Release))
-                select change.IfNone(Change<T>.None),
+                from after in IO.lift(() => {
+                    setting.Value = value.IfNone(setting.Default);
+                    return stored(setting.Value);
+                })
+                select ValueStore.Between(before, after, same),
             same,
             Applied.Live,
             Some(ValueStore.Signal(GrasshopperEvents.SettingChanged(setting), static _ => true)));
@@ -89,7 +87,7 @@ public static class GrasshopperStores {
     // --- [RECORDS]
     public static ValueStore<TRecord> Of<TRecord>(KeyedText text, TRecord fallback) where TRecord : IStateRecord<TRecord> =>
         ValueStore.Defaulted(
-            FieldTexts.Recalled(text.Owner, toSeq(TRecord.Parameters), path => text.Read(text.Key(EntryKey.Name(path))), fallback),
+            FieldTexts.Recalled(text.Owner, TRecord.Parameters, path => text.Read(text.Key(EntryKey.Name(path))), fallback),
             IO.pure(fallback),
             value => text.Write(
                 from item in FieldTexts.Items<TRecord>()

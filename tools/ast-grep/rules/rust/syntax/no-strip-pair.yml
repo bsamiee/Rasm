@@ -11,12 +11,12 @@ utils:
             - kind: array_expression
               not: {has: {pattern: $_, not: {kind: char_literal}}}
     option-tail:
-        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+        nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}
         inside: {kind: block, inside: {kind: function_item, field: body, has: {field: return_type, kind: generic_type, has: {field: type, regex: '^Option$'}}}}
 rule:
     kind: 'call_expression, try_expression, let_chain'
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - pattern: $S.strip_prefix($P).and_then(|$R| $R.strip_suffix($Q))
             - pattern: $S.strip_suffix($Q).and_then(|$R| $R.strip_prefix($P))

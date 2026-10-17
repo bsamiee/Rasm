@@ -4,6 +4,8 @@ use core::{
 };
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 
+use clap::Parser;
+
 // --- [MACROS] --------------------------------------------------------------------------
 
 macro_rules! counter {
@@ -41,9 +43,20 @@ thread_local! {
 
 counter!(CALLS);
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Parser)]
+struct Options {
+    #[arg(long, default_value_t = 8080)]
+    port: u32,
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    static SEEN: AtomicU32 = AtomicU32::new(0);
+    SEEN.fetch_add(1, Ordering::Relaxed);
     HITS.fetch_add(1, Ordering::Relaxed);
     CALLS.fetch_add(DEPTH.with(|depth| *depth), Ordering::Relaxed);
     VISITS.set(HITS.load(Ordering::Relaxed));
@@ -58,4 +71,5 @@ fn main() {
     for limit in TABLE.iter().chain(&LIMITS) {
         HITS.fetch_add(*limit, Ordering::Relaxed);
     }
+    HITS.fetch_add(Options::parse_from(["fixture"]).port, Ordering::Relaxed);
 }

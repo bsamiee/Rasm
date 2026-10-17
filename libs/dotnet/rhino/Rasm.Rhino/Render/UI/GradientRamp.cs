@@ -5,9 +5,9 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.Render.UI;
@@ -113,7 +113,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
                         Some: ramp => Columns(held.Canvas, held.Bar, ramp.Tabulate(editor.Gamut), editor.Gamut),
                         None: static () => IO.pure(unit)),
                     key: static (held, legend) => Legend(held.Canvas, held.Bar, held.Bounds, legend.Look))
-                from veil in Veiled(canvas, bar)
+                from veil in Plots.Veiled(canvas, new MarkShape.Band(bar))
                 from painted in Plots.Paint(canvas, marks.Map(mark => canvas.Focused && mark.Style == Some(KnotSelected) ? mark with { Style = KnotFocused } : mark))
                 select unit,
         };
@@ -133,11 +133,6 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
                 from labels in Plots.Labels(canvas, PlotPlane.Cartesian.Unit(bounds), LabelSide.Bottom, KeyLabels(look))
                 select unit,
         };
-
-    private static IO<Unit> Veiled(PlotCanvas canvas, RectangleF bar) =>
-        IO.lift(() => HostTheme.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
-            .Filter(_ => !canvas.Enabled)
-            .Iter(alpha => canvas.Graphics.FillRectangle(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), bar)));
 
     private static Color Displayed(Vector4 light) {
         Span<Vector4> row = [light];
@@ -160,24 +155,21 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
     private static Option<GradientRampState.Editor> Editing(GradientRampState state) =>
         state.Switch<Option<GradientRampState.Editor>>(editor: static editor => editor, key: static _ => None);
 
-    private static Option<RampPosition> Located(double raw) => Conversions.Validated<RampPosition, double, InvalidPixelValue>(raw).ToOption();
+    private static Option<RampPosition> Located(double raw) => RampPosition.Validated(raw).ToOption();
 
     private static Fin<(Ramp Ramp, int Index, RampStop Stop)> Added(GradientRampState.Editor editor, Ramp ramp, RampPosition at) =>
-        from stop in RampStop.Validate(at, ramp.Tabulate(editor.Gamut).Sample(at), out RampStop item) is { } error ? error : (Fin<RampStop>)item
+        from stop in Admission.Admitted(RampStop.Validate(at, ramp.Tabulate(editor.Gamut).Sample(at), out RampStop item), item)
         from added in Inserted(ramp, stop)
         select (added.Ramp, added.Index, stop);
 
-    private static Fin<(Ramp Ramp, int Index)> Inserted(Ramp ramp, RampStop stop) =>
-        ramp.Stops.Filter(held => held.Position <= stop.Position).Count switch {
-            var at => Ramp.Validate(ramp.Stops.Take(at).Add(stop).Concat(ramp.Stops.Skip(at)), ramp.Interpolation, out Ramp? added) is { } error
-                ? error
-                : (Fin<(Ramp Ramp, int Index)>)(added!, at),
-        };
+    private static Fin<(Ramp Ramp, int Index)> Inserted(Ramp ramp, RampStop stop) {
+        int at = ramp.Stops.Filter(held => held.Position <= stop.Position).Count;
+        return Admission.Admitted(Ramp.Validate(ramp.Stops.Take(at).Add(stop).Concat(ramp.Stops.Skip(at)), ramp.Interpolation, out Ramp? added), added).Map(held => (held, at));
+    }
 
     private static Fin<(GradientRampState.Editor Editor, Ramp Remaining)> Dropped(GradientRampState.Editor editor, Ramp ramp, int index) =>
-        Ramp.Validate(ramp.Stops.Take(index).Concat(ramp.Stops.Skip(index + 1)), ramp.Interpolation, out Ramp? rest) is { } error
-            ? error
-            : (Fin<(GradientRampState.Editor Editor, Ramp Remaining)>)(editor with { Shown = rest!, Selected = int.Max(index - 1, 0) }, rest!);
+        Admission.Admitted(Ramp.Validate(ramp.Stops.Take(index).Concat(ramp.Stops.Skip(index + 1)), ramp.Interpolation, out Ramp? rest), rest)
+            .Map(remaining => (editor with { Shown = remaining, Selected = int.Max(index - 1, 0) }, remaining));
 
     private static Option<Transition<GradientRampState, Ramp>> Stepping(GradientRampState.Editor editor, Ramp ramp, int index, double steps) =>
         Located(editor.Position.Moved(ramp.Stops[index].Position, steps)).Map(position => ramp.Moved(index, position) switch {
@@ -203,7 +195,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         (from editor in Editing(state)
          from ramp in editor.Shown
          from grip in editor.Grip.Map(held => held with { Raw = held.Raw + ((e.Location.X - previous.X) / Bar(editor, size).Width * Scale(e.Modifiers)) })
-         select Held(editor, ramp, grip, Inside(size, e.Location), Located(Snaps(e.Modifiers) ? editor.Position.Snapped(grip.Raw) : grip.Raw)))
+         select Held(editor, ramp, grip, Inside(size, e.Location), Located(Snaps(e.Modifiers) ? editor.Position.Snapped(grip.Raw, 0d) : grip.Raw)))
         .IfNone(new Transition<GradientRampState, Ramp>(state, None));
 
     protected override Transition<GradientRampState, Ramp> Released(GradientRampState state, SizeF size, float scale, Option<RampPart> part, MouseEventArgs e) =>

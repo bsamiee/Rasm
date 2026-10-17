@@ -14,6 +14,7 @@ import msgspec
 from blender.bpy.commands.calls import Operation
 from blender.bpy.commands.keymaps import Chord
 from blender.bpy.commands.operators import Command, Operator, Pick, Placed, Writer
+from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFaults, BlenderResult
@@ -21,6 +22,7 @@ from blender.bpy.ui.drawing.handlers import Drawing, Drew
 from blender.bpy.ui.resources.icons import Icons
 from blender.bpy.ui.surfaces.gizmos import Linked
 from blender.imaging.faults import accumulated, paired
+from blender.imaging.parameters import heading
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -178,7 +180,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
         """Owns each successful native registration immediately and unwinds in reverse."""
         panel, mode = self.toolbar.panel, self.toolbar.mode
         owner = f"{panel.__name__}._tools[{mode!r}]"
-        context = "All" if mode is None else mode.replace("_", " ").title()
+        context = "All" if mode is None else heading(mode)
         bindings = tuple((draft, f"{panel.keymap_prefix} {context}, {tool.title}") for tool, draft in zip(self.tools, drafts))
 
         def planned(tools: list[object]) -> BlenderResult[Callable[[type[bpy.types.WorkSpaceTool]], None]]:
@@ -215,9 +217,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             return paired(occupied, paired(available, native)).map(lambda values: (manager, values[1][0]))
 
         binding: BlenderResult[Option[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]] = (
-            Option.of_optional(bpy.context.window_manager).map(configured).default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="window_manager"),))).map(Some)
-            if any(draft.items for draft in drafts)
-            else Ok(Nothing)
+            rooted(bpy.types.WindowManager, bpy.context).bind(configured).map(Some) if any(draft.items for draft in drafts) else Ok(Nothing)
         )
         tools = dict(panel.tools_all())  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
         leading = paired(

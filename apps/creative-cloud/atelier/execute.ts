@@ -3,11 +3,11 @@ import { register, type routed, WRITING } from '@rasm/mcp/extension';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import type { applications } from './applications.ts';
-import { Scripting } from './scripting.ts';
+import { type Application, Scripting, ScriptingError } from './scripting.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Success<ReturnType<typeof routed>>, { fields, failure, route, unserved, unpreviewable }: Effect.Success<ReturnType<typeof applications>>) {
+const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Success<ReturnType<typeof routed>>, { fields, reach }: Effect.Success<ReturnType<typeof applications>>) {
     const [scripting, files, path] = yield* Effect.all([Scripting, FileSystem.FileSystem, Path.Path]);
     const steps: Record.ReadonlyRecord<string, { readonly command: string; readonly arguments: Schema.JsonObject }> = {
         'com.adobe.InDesign': {
@@ -68,12 +68,11 @@ const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Succes
         description: "Runs a scripting dictionary command, or a form an application's extension adds, in one application",
         parameters: fields.pipe(Schema.fieldsAssign({ ...unit(preview).fields, run: Schema.Union([Command, ...Array.map(forms, Struct.get('form'))]) })),
         success: Schema.Union([Schema.Struct({ reply: Schema.Json, failures: Schema.Array(Schema.String) }), ...Array.map(runs, (run) => run.tool.successSchema)]),
-        failure: Schema.Union([failure, ...Array.map(runs, (run) => run.tool.failureSchema)]),
     }).annotateMerge(WRITING);
-    const command = Effect.fn('command')(function* (application: Effect.Success<ReturnType<typeof route>>, { command: name, arguments: given, artifacts }: typeof Command.Type, description: string, previewed: boolean) {
+    const command = Effect.fn('command')(function* (application: typeof Application.Type, { command: name, arguments: given, artifacts }: typeof Command.Type, description: string, previewed: boolean) {
         const step = Option.filter(Record.get(steps, application.identifier), (row) => row.command === name && Predicate.isString(given.direct) && URL.parse(given.direct)?.protocol !== 'file:' && (given.language ?? row.arguments.language) === row.arguments.language);
         const sent = yield* Option.match(step, {
-            onNone: () => (previewed ? Effect.fail(unpreviewable(application)) : Effect.succeed(given)),
+            onNone: () => (previewed ? Effect.fail(ScriptingError.make({ reason: { _tag: 'Unpreviewable', application: application.name } })) : Effect.succeed(given)),
             onSome: (row) => Effect.succeed({ ...given, ...row.arguments, 'with arguments': [given.direct ?? '', description, previewed, ...Option.getOrElse(Schema.decodeUnknownOption(Schema.Array(Schema.Json))(given['with arguments']), Array.empty)] }),
         });
         const reply = yield* scripting.call((sender) => sender.execute({ application: application.url, command: name, arguments: sent }));
@@ -97,18 +96,12 @@ const execute = Effect.fn('execute')(function* ({ runs, preview }: Effect.Succes
                   Option.filter(previewed, (given) => given !== true),
                   {
                       onSome: () => Effect.fail(McpSchema.InvalidParams.make({ message: 'preview with run Command takes true: a dictionary command renders no image' })),
-                      onNone: () => Effect.map(route(parameters), (application) => [Option.some(description), command(application, run, description, Option.isSome(previewed))] as const),
+                      onNone: () => Effect.map(reach(parameters, Option.some), (application) => [Option.some(description), command(application, run, description, Option.isSome(previewed))] as const),
                   },
               )
-            : route(parameters).pipe(
-                  Effect.flatMap((target) =>
-                      Effect.fromOption(
-                          Array.findFirst(forms, ({ form, serve }) => (Schema.is(form)(run) ? serve(target) : Option.none())),
-                          () => unserved(target),
-                      ),
-                  ),
-                  Effect.flatMap((serve) => serve(run, { description, preview: previewed })),
-                  Effect.map(([, hosted]) => [Option.some(description), hosted] as const),
+            : Effect.flatMap(
+                  reach(parameters, (target) => Array.findFirst(forms, ({ form, serve }) => (Schema.is(form)(run) ? serve(target) : Option.none()))),
+                  (serve) => serve(run, { description, preview: previewed }),
               );
     });
 });

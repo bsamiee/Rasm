@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-test-attribute
+language: rust
+rule:
+    kind: attribute_item
+    any:
+        - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
+          not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
+        - regex: '^#\[\s*(\w+::)*\w*(test|bench|quickcheck|proptest)\w*\s*(\(|\]|$)'

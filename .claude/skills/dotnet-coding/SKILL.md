@@ -63,7 +63,7 @@ Functions are pure when their return value depends only on their inputs (immutab
 
 ```csharp
 internal static class Stamps {
-    public static string Format(Instant now, string? label) => string.Create(CultureInfo.InvariantCulture, $"{now} - {label ?? "unlabeled"}");
+    public static string Format(Instant now, string label) => string.Create(CultureInfo.InvariantCulture, $"{now} - {label}");
 }
 ```
 
@@ -194,7 +194,6 @@ internal static class Editions {
 None of `readonly`, `init`, and `with` makes a referenced child object immutable, immutability extends through every referenced value:
 - Remove setters and construct through a constructor or factory that enforces required values and invariants, an invalid snapshot cannot exist
 - Seal the type, store collections as `Seq<A>`, copy a mutable input collection at the boundary with `toSeq`, and keep element types immutable
-- Expose only meaningful transitions, one `With` method with `Option` parameters updates the permitted fields in one allocation
 - `Lens<A, B>` with `lens(outer, inner)` updates a nested field
 - Confine local mutation to a scope that owns it, a `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value
 
@@ -244,19 +243,19 @@ Give each step a function and select the operator by the step's signature and by
 |  [05]   | `Seq<A>` with `A -> F<B>`  | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
 |  [06]   | `T -> void`                | `Iter`                                 | Performs the terminal effect only for a present value       |
 
-- Errors from one traversed element hold the element index as a typed field
+- Errors from one traversed element hold the element index
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling
 - Nested `Bind` calls become a query
 - Nested contexts (`IO<Option<A>>`) stay nested, the consumer matches the inner `Option` once and no chain binds through it with a transformer
 - Stacks that appear throughout a workflow become a dedicated type
 
 ```csharp
-internal sealed record InvalidCommand() : Expected("command is invalid", (int)Codes.InvalidCommand);
-
 internal static class Workflow {
+    private static readonly Error InvalidCommand = Error.New(ErrorCodes.ValidationFailed, "command is invalid");
+
     public static Fin<State> Handle(Command command, State state) =>
         from normalized in Pure(Normalize(command)).ToFin()
-        from _ in guard<Error>(IsValid(normalized), new InvalidCommand())
+        from _ in guard(IsValid(normalized), InvalidCommand)
         from next in state.Transition(normalized.Amount)
         select next;
 }
@@ -266,33 +265,15 @@ Workflow runs in domain order (normalize, validate, transition), `Fin` handles t
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift`. Namespaces raising errors declare a `Codes` enum that shadows the parent namespace's `Codes` and numbers members in declaration order from 1, above `Error.New`'s code 0. Namespace errors are `sealed record`s extending `Expected` with a message and a `Codes` member. Records raised from more than one namespace sit in their nearest common parent:
+Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. A package declares an error type only when a consumer branches on it or reads its fields, failures of one shape become one record carrying the subject as fields, and a failure nobody branches on is `Error.New` at its raise site. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message, LanguageExt compares nonzero codes across every package, so a package code enum collides:
 
 ```csharp
-internal enum Codes {
-    InvalidQuantity = 1,
-}
-
-internal sealed record InvalidQuantity() : Expected("quantity out of range", (int)Codes.InvalidQuantity), IValidationError<InvalidQuantity> {
-    public static InvalidQuantity Create(string message) => new();
-}
-
-[ValueObject<int>]
-[ValidationError<InvalidQuantity>]
-internal readonly partial struct Quantity {
-    static partial void ValidateFactoryArguments(ref InvalidQuantity? validationError, ref int value) {
-        if (value is < 0 or > 1_000)
-            validationError = new InvalidQuantity();
-    }
-}
-
-internal static class Conversions {
-    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw) where T : IObjectFactory<T, TRaw, TError> where TRaw : notnull where TError : Error, IValidationError<TError> =>
-        T.Validate(raw, CultureInfo.InvariantCulture, out T? item) is { } error ? error : item!;
-}
+public sealed record NotFound(string Kind, string Key) : Expected($"no {Kind} matches {Key}", 0);
 ```
 
-`Validate` is the generated hook and the one construction path, no value type declares a `From` factory of its own. A raw value crosses into its value type through the one generic `Validated` conversion, `Conversions.Validated<Quantity, int, InvalidQuantity>(raw)` answering `Fin<Quantity>`, and back through `ToValue()`; every consumer receives a validated value and none re-validates. Consumers classify an error by type with `IsType<E>` and `Filter<E>`, and `HasCode` and `Catch(int)` select a code inside the declaring namespace alone, since codes repeat across namespaces. A package translates a dependency error it reacts to with `MapFail` into its own `Expected` that keeps the original as `Inner`. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `Expected` or `ManyErrors` renders the business errors and `Exceptional` logs the detail and renders a generic failure.
+`Validate` is the generated hook and the one construction path, no value type declares a `From` factory of its own. Every value type validates with Thinktecture's own `ValidationError`, no package declares a validation error, so generic code constrained on `IObjectFactory<T, TRaw, ValidationError>` accepts value types from every package. A raw value crosses into its value type `X` through the static extension member `X.Validated(raw)` answering `Fin<X>`, a method group in `Bind` and `Traverse`, and the failure holds the hook's message under `ErrorCodes.ValidationFailed`; every consumer receives a validated value and none re-validates. Consumers classify an error by type with `IsType<E>` and `Filter<E>`, a validation failure with `HasCode(ErrorCodes.ValidationFailed)`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `Expected` or `ManyErrors` renders the business errors and `Exceptional` logs the detail and renders a generic failure.
+
+Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
 ### [04.3]-[UNIONS]
 
@@ -323,7 +304,7 @@ internal abstract partial record Identity {
 |  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                       |
 |  [03]   | Matching on message text couples the consumer to prose                    | `IsType<E>` or `Filter<E>`                    |
 |  [04]   | `OptionT<IO, A>` or a match per step over an `Option` inside an effect    | `IO<Option<A>>` matched once by its consumer  |
-|  [05]   | `Fin` nested inside an effect duplicates the failure channel              | Typed `Expected` on the `IO` error channel    |
+|  [05]   | `Fin` nested inside an effect duplicates the failure channel              | `Expected` on the `IO` error channel          |
 |  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases |
@@ -332,7 +313,7 @@ internal abstract partial record Identity {
 
 ## [05]-[EFFECTS]
 
-`IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a domain rejection as a typed `Expected` on that channel in place of a nested result:
+`IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a domain rejection as an `Expected` on that channel in place of a nested result:
 - `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel
 - `IO.liftAsync` adapts a task thunk, its `EnvIO` overload passes `env.Token`
 - Operations that wait on I/O enter through `IO.liftAsync` and have no synchronous counterpart that blocks a thread
@@ -355,20 +336,20 @@ internal static class Host {
 Inject the narrowest dependency that represents what the consumer needs: a value for a stable snapshot, an `IO<A>` for an operation that must run on demand, and a runtime `RT` for a consumer that reads many capabilities. Wrapping the clock behind an interface does not make the consumer pure, and injecting the date makes it deterministic:
 
 ```csharp
-internal sealed record DateIsPast() : Expected("the date is in the past", (int)Codes.DateIsPast);
-
 internal static class Validators {
+    private static readonly Error DateIsPast = Error.New(ErrorCodes.ValidationFailed, "the date is in the past");
+
     public static Func<Command, Validation<Error, Command>> NotPast(LocalDate today) =>
-        command => command.Date < today ? new DateIsPast() : command;
+        command => command.Date < today ? DateIsPast : command;
 }
 ```
 
-Host reads the date once from its `TimeProvider` argument (`time.GetCurrentInstant().InZone(BclDateTimeZone.FromTimeZoneInfo(time.LocalTimeZone)).Date`), request handling supplies the command later, and a test supplies a date without a fake clock. The same argument supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside the `IO` that consumes it, and only the composition root names `TimeProvider.System`. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside the release action.
+Host reads the date once from its `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies the command later, and a test supplies a date without a fake clock. The same argument supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside the `IO` that consumes it, and only the composition root names `TimeProvider.System`. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside the release action.
 
 ### [05.2]-[POLICIES]
 
 Failure policies are distinct operations:
-- Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `Catch(code, f)` for one classified error
+- Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `Catch(predicate, f)` for one classified error
 - Retry reruns a transient failure on a schedule, `Retry(Schedule.exponential(delay) | Schedule.recurs(3))`
 - Recovery maps a final error to a value at the host, `IfFail` on the `Fin<A>`
 

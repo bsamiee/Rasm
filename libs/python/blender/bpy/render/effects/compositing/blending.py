@@ -64,17 +64,7 @@ def mixback() -> BlenderResult[NodeGroup]:
                     "foreground", bpy.types.CompositorNodeSwitch, {"Switch": End(node="pure", socket=BlendMode.NORMAL.label), "Off": ended("premultiplied", "Image")(premultiplied), "On": result}, {}
                 )
             )
-            .bind(
-                lambda foreground: node("weight", bpy.types.ShaderNodeClamp, {"Value": End(node=INPUTS, socket="coverage"), "Min": 0.0, "Max": 1.0}, {}).bind(
-                    lambda weight: node(
-                        "over",
-                        bpy.types.CompositorNodeAlphaOver,
-                        {"Background": base, "Foreground": ended("foreground", "Image")(foreground), "Fac": ended("weight", "Result")(weight), "Type": "Over", "Straight Alpha": False},
-                        {},
-                    )
-                )
-            )
-            .map(ended("over", "Image"))
+            .bind(lambda foreground: mixed("covered", "RGBA", End(node=INPUTS, socket="coverage"), base, ended("foreground", "Image")(foreground)))
         )
 
     return paired(paired(pure, alphas).bind(covered), Interface.of(Blend)).bind(

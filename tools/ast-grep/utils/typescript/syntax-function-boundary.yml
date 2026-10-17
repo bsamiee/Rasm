@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: syntax-function-boundary
-language: tsx
-rule:
-    kind: arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition

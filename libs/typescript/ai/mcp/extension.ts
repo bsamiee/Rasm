@@ -10,10 +10,10 @@ import { type Phase, REDIAL, unit, WIRE } from './bridge.ts';
 
 type ExtensionTool<P extends Schema.Codec<unknown, unknown> = Schema.Codec<unknown, unknown> & { readonly fields: Readonly<Record<string, Schema.Codec<unknown, unknown>>> }> = Tool.Tool<
     string,
-    { readonly parameters: P; readonly success: Schema.Codec<unknown, unknown>; readonly failure: Schema.Codec<Error, unknown>; readonly failureMode: 'error' }
+    { readonly parameters: P; readonly success: Schema.Codec<unknown, unknown>; readonly failure: typeof Schema.Never; readonly failureMode: 'error' }
 >;
 type ExtensionTools<V> = { readonly [K in keyof V]: ExtensionTool & { readonly name: K } };
-type Work<T extends ExtensionTool<Schema.Codec<unknown, unknown>>> = Effect.Effect<readonly [T['successSchema']['Type'], readonly McpSchema.ContentBlock[]], T['failureSchema']['Type']>;
+type Work<T extends ExtensionTool<Schema.Codec<unknown, unknown>>> = Effect.Effect<readonly [T['successSchema']['Type'], readonly McpSchema.ContentBlock[]], Error>;
 type Unit<P extends Schema.Top> = ReturnType<typeof unit<P>>['Type'];
 type Handled<Target, V extends ExtensionTools<V>, A extends readonly unknown[]> = { readonly [K in keyof V]: (target: Target, parameters: V[K]['parametersSchema']['Type'], ...context: A) => Work<V[K]> };
 interface Route<A extends readonly unknown[]> {
@@ -28,7 +28,6 @@ interface Source {
 type Resolve = (name: string, characters: string) => Effect.Effect<readonly [Resolver['success']['Type'], Option.Option<Source>], Error>;
 interface Resolver {
     readonly success: Schema.Struct<Readonly<Record<string, Schema.Codec<unknown, unknown>>>>;
-    readonly failure: Schema.Codec<Error, unknown>;
     readonly serve: (target: unknown) => Option.Option<Resolve>;
 }
 interface Dispatch {
@@ -40,7 +39,7 @@ interface Dispatch {
 }
 interface Extension<E = never, R = never> {
     readonly name: string;
-    readonly instructions: string;
+    readonly instructions: readonly string[];
     readonly Service: Context.Service<Context.ServiceClass.Shape<`@rasm/mcp/extension/${string}`, Dispatch>, Dispatch>;
     readonly layer: Layer.Layer<Context.ServiceClass.Shape<`@rasm/mcp/extension/${string}`, Dispatch>, E, R>;
 }
@@ -192,7 +191,7 @@ const decoded = <S extends Schema.Codec<unknown, unknown>>(schema: S): ((payload
     const decode = Schema.decodeUnknownEffect(schema);
     return (payload) => Effect.mapError(decode(payload, STRICT), ({ message }) => McpSchema.InvalidParams.make({ message }));
 };
-const register = Effect.fn('register')(function* <T extends ExtensionTool<Schema.Codec<unknown, unknown>>>(tool: T, prepare: (parameters: T['parametersSchema']['Type']) => Effect.Effect<readonly [Option.Option<string>, Work<T>], T['failureSchema']['Type'] | McpSchema.InvalidParams>) {
+const register = Effect.fn('register')(function* <T extends ExtensionTool<Schema.Codec<unknown, unknown>>>(tool: T, prepare: (parameters: T['parametersSchema']['Type']) => Effect.Effect<readonly [Option.Option<string>, Work<T>], Error>) {
     const interval = Duration.minutes(1);
     const document = (schema: Schema.Top): unknown => {
         const { schema: root, definitions } = Schema.toJsonSchemaDocument(schema, { onExcessProperty: STRICT.onExcessProperty });
@@ -259,23 +258,23 @@ const register = Effect.fn('register')(function* <T extends ExtensionTool<Schema
 });
 
 // --- [EXTENSIONS]
-const make = <const U extends ExtensionTools<U>, const V extends ExtensionTools<V>, S extends Schema.Top, P extends Schema.Codec<unknown, unknown>, F extends Resolver['success'], X extends Resolver['failure'], E, R>(
+const make = <const U extends ExtensionTools<U>, const V extends ExtensionTools<V>, S extends Schema.Top, P extends Schema.Codec<unknown, unknown>, F extends Resolver['success'], E, R>(
     definition: {
         readonly name: string;
         readonly serves: S;
-        readonly instructions: string;
+        readonly instructions: readonly string[];
         readonly preview: P;
         readonly runs: U;
         readonly tools: V;
         readonly activity: { readonly [K in keyof V]?: (parameters: V[K]['parametersSchema']['Type']) => string };
-        readonly face: { readonly success: F; readonly failure: X };
+        readonly face: F;
     },
     handlers: Effect.Effect<
         {
             readonly linked?: (target: S['Type']) => Effect.Effect<Option.Option<string>>;
             readonly runs: Handled<S['Type'], U, [Unit<P>]>;
             readonly tools: Handled<S['Type'], V, []>;
-            readonly face: (target: S['Type'], name: string, characters: string) => Effect.Effect<readonly [F['Type'], Option.Option<Source>], X['Type']>;
+            readonly face: (target: S['Type'], name: string, characters: string) => Effect.Effect<readonly [F['Type'], Option.Option<Source>], Error>;
         },
         E,
         R
@@ -314,7 +313,7 @@ const make = <const U extends ExtensionTools<U>, const V extends ExtensionTools<
                     previewed(preview) ? Effect.succeed([Option.some(description), runs[name](target, parameters, { description, preview })] as const) : Effect.fail(McpSchema.InvalidParams.make({ message: `preview names no target ${definition.name} renders` })),
                 ),
                 tools: hosted<V, []>(definition.tools, (name, target, parameters) => Effect.succeed([Option.fromUndefinedOr(definition.activity[name]?.(parameters)), tools[name](target, parameters)] as const)),
-                face: { ...definition.face, serve: (target) => Option.map(served(target), (narrowed) => (name, characters) => face(narrowed, name, characters)) },
+                face: { success: definition.face, serve: (target) => Option.map(served(target), (narrowed) => (name, characters) => face(narrowed, name, characters)) },
             })),
         ),
     };
@@ -347,7 +346,6 @@ const routed = Effect.fn('routed')(function* (extensions: readonly Extension<unk
                         description: Option.getOrUndefined(Array.findFirst(hosts, ({ tool }) => Option.fromUndefinedOr(Tool.getDescription(tool)))),
                         parameters: fields,
                         success: joined(Array.map(hosts, ({ tool }) => tool.successSchema)),
-                        failure: Schema.Union(Array.map(hosts, ({ tool }) => tool.failureSchema)),
                     }).annotateMerge(Context.make(Tool.Readonly, Boolean.every(hints(Tool.Readonly))).pipe(Context.add(Tool.Idempotent, Boolean.every(hints(Tool.Idempotent))), Context.add(Tool.Destructive, Boolean.some(hints(Tool.Destructive))), Context.add(Tool.OpenWorld, Boolean.some(hints(Tool.OpenWorld))))),
                     serve: (target) =>
                         Option.map(
@@ -383,21 +381,10 @@ const routed = Effect.fn('routed')(function* (extensions: readonly Extension<unk
         ),
     };
 });
-const publish = Effect.fn('publish')(function* <F extends Schema.Struct.Fields, Target, E extends Error>(
-    routes: readonly Route<[]>[],
-    { fields, failure, route, unserved }: { readonly fields: Schema.Struct<F>; readonly failure: Schema.Codec<E, unknown>; readonly route: (routing: Schema.Struct<F>['Type']) => Effect.Effect<Target, E>; readonly unserved: (target: Target) => E },
-) {
-    yield* Effect.forEach(
-        routes,
-        ({ tool, serve }) =>
-            register(tool.setParameters(Schema.Struct(tool.parametersSchema.fields).pipe(Schema.fieldsAssign(fields.fields))).setFailure(Schema.Union([failure, tool.failureSchema])), (parameters) =>
-                route(parameters).pipe(
-                    Effect.flatMap((target) => Effect.fromOption(serve(target), () => unserved(target))),
-                    Effect.flatMap((run) => run(parameters)),
-                ),
-            ),
-        { discard: true },
-    );
+const publish = Effect.fn('publish')(function* <F extends Schema.Struct.Fields>(routes: readonly Route<[]>[], { fields, reach }: { readonly fields: Schema.Struct<F>; readonly reach: <A>(routing: Schema.Struct<F>['Type'], pick: (target: unknown) => Option.Option<A>) => Effect.Effect<A, Error> }) {
+    yield* Effect.forEach(routes, ({ tool, serve }) => register(tool.setParameters(Schema.Struct(tool.parametersSchema.fields).pipe(Schema.fieldsAssign(fields.fields))), (parameters) => Effect.flatMap(reach(parameters, serve), (run) => run(parameters))), {
+        discard: true,
+    });
 });
 
 // --- [RANKING]
@@ -410,4 +397,4 @@ const ranked = (query: string, candidates: readonly string[]): readonly string[]
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Executions, type Extension, LinkError, listen, make, Progress, publish, READING, ranked, register, routed, WRITING, watched };
+export { Executions, type Extension, LinkError, listen, make, publish, READING, ranked, register, routed, WRITING, watched };

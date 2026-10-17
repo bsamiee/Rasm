@@ -8,8 +8,8 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Input;
@@ -25,8 +25,7 @@ namespace Rasm.Rhino.UI;
 public enum TabVisibility { Hidden, Visible, Selected }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<OptionsDialogPage.PageType>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
+[SmartEnum<OptionsDialogPage.PageType>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class PageDialog {
     public static readonly PageDialog Options = new(OptionsDialogPage.PageType.Options, "OptionsPage", RhinoEtoApp.ApplicationPreferencesWindowForPage);
     public static readonly PageDialog DocumentProperties = new(OptionsDialogPage.PageType.DocumentProperties, "DocumentPropertiesPage", RhinoEtoApp.DocumentPropertiesWindowForPage);
@@ -35,11 +34,6 @@ public sealed partial class PageDialog {
 
     [UseDelegateFromConstructor]
     public partial Window? WindowForPage(OptionsDialogPage page);
-
-    public static bool operator <(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) < 0;
-    public static bool operator <=(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) <= 0;
-    public static bool operator >(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) > 0;
-    public static bool operator >=(PageDialog left, PageDialog right) => Comparer<PageDialog>.Default.Compare(left, right) >= 0;
 }
 
 public sealed record PageTarget(string EnglishTitle, PageDialog Dialog) {
@@ -63,26 +57,28 @@ public static class Showing {
         IO.lift(() => toSeq(EtoExtensions.WindowsFromDocument<TWindow>(doc)).Head).Bind(open => open.Match(
             Some: static found => IO.lift(found.BringToFront).Map(found),
             None: () => DisposalOps.Acquire(owned =>
-                from window in DisposalOps.Acquire(IO.lift(static () => new TWindow()), static held => IO.lift(held.Dispose), owned)
+                from window in DisposalOps.Acquire(IO.lift(static () => new TWindow()), owned)
                 from prepared in Opened(window, doc)
                 select window, (window, _) => window.Show(doc))));
 
     private static IO<Unit> Opened<TWindow>(TWindow window, RhinoDoc doc) where TWindow : DefinedWindow =>
-        from owner in IO.lift(() => WrongType.Unless<IPlugInViews>(IPlugInSink.Of(window)))
+        from owner in IO.lift(() => Conversions.Cast<IPlugInViews>(IPlugInSink.Of(window)))
         from main in Appearance.InitialMainWindowPosition()
-        from frame in DisposalOps.Acquire(IO.lift(static () => new ViewFrame()), static held => IO.lift(held.Dispose), window.Retain)
-        from view in RealizedView.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None, frame.Retain)
-        from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Window, HostTheme.In(window), frames => window.Icon = frames, window.Retain)).As()
+        from frame in DisposalOps.Acquire(IO.lift(static () => new ViewFrame()), window.Owned.Retain)
+        from body in DisposalOps.Acquire(ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None), frame.Owned.Retain)
+        from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Window, HostTheme.In(window), frames => window.Icon = frames, window.Owned.Retain)).As()
         from configured in IO.lift(() => {
-            window.Title = RowText.Localize(window.Row.Caption, table: Some<object>(owner)).Local;
-            frame.Content = view;
+            window.Title = RowText.Localize(window.Row.Caption, owner).Local;
+            frame.Content = body.Content;
             window.Content = frame;
             window.UseRhinoStyle();
             window.ClientSize = Size.Ceiling(frame.GetPreferredSize());
             _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - ((SizeF)window.Size / 2f)));
             window.LocalizeAndRestore(window.Row.Identity);
         })
-        from shown in view.Shown(visible: true)
+        from edges in ViewOps.WhileLoaded(window, keep => DisposalOps.Acquire(
+            body.Shown(visible: true).Map(_ => new Disposal<ViewBody>(body, static held => held.Shown(visible: false).Run())), keep).Map(unit),
+            CallbackSite.Of(window, nameof(window.LoadComplete)), window.Owned.Retain)
         select unit;
 
     // --- [DIALOGS]
@@ -94,12 +90,12 @@ public static class Showing {
     private static IO<(Unit Value, bool Suppress)> Presented(IPlugInViews owner, View.Dialog row, RhinoDoc doc, Option<CheckBox> box) =>
         DisposalOps.Within((Action<IDisposable> retain) =>
             from attended in HostDialogs.Attended
-            from dialog in DisposalOps.Acquire(IO.lift(static () => new CommandDialog()), static held => IO.lift(held.Dispose), retain)
-            from view in RealizedView.Open(owner, row, Some(doc), new CommitMode.Deferred(ValueSet.Empty), None, retain)
-            let scope = view.Scope
-            let bindings = view.Group
+            from dialog in DisposalOps.Acquire(IO.lift(static () => new CommandDialog()), retain)
+            from body in DisposalOps.Acquire(ViewBody.Open(owner, row, Some(doc), new CommitMode.Deferred(ValueSet.Empty), None), retain)
+            let scope = body.Scope
+            let bindings = body.Group
             from configured in IO.lift(() => {
-                dialog.Title = RowText.Localize(row.Caption, table: Some<object>(owner)).Local;
+                dialog.Title = RowText.Localize(row.Caption, owner).Local;
                 dialog.SavePosition = false;
                 dialog.Buttons = (row.Cancelable, row.Help.IsSome) switch {
                     (true, true) => CommandDialog.ShowButtons.OKCancelHelp,
@@ -107,13 +103,13 @@ public static class Showing {
                     (false, true) => CommandDialog.ShowButtons.CloseHelp,
                     (false, false) => CommandDialog.ShowButtons.Close,
                 };
-                dialog.Content = view;
+                dialog.Content = body.Content;
                 _ = box.Iter(held => dialog.ButtonOptions = held);
                 _ = row.DisplayMode.Iter(mode => dialog.DisplayMode = mode);
                 dialog.UseRhinoStyle();
                 dialog.LocalizeAndRestore(row.Identity);
             })
-            from shown in view.Shown(visible: true)
+            from shown in body.Shown(visible: true)
             from help in row.Help.Traverse(topic => Subscriptions.Attach(
                 handler => dialog.HelpButtonClick += handler, handler => dialog.HelpButtonClick -= handler,
                 Callbacks.Handler<EventArgs>(_ => topic.Show, new CallbackSite(owner, row.Identity, nameof(CommandDialog.HelpButtonClick))), retain)).As()
@@ -122,7 +118,7 @@ public static class Showing {
                 .Catch(static error => error.Is(Errors.Cancelled), error => scope.Revert(bindings).Bind(_ => IO.fail<Unit>(error)))
             from committed in row.Store.Match(
                 Some: store => store.Switch(
-                    (Doc: doc, Name: RowText.Localize(row.Caption, table: Some<object>(owner)).Local, Apply: scope.Apply(bindings)),
+                    (Doc: doc, Name: RowText.Localize(row.Caption, owner).Local, Apply: scope.Apply(bindings)),
                     applicationStores: static (state, _) => state.Apply,
                     documentStores: static (state, held) => Commits.Commit(state.Doc, state.Name, held.Redraw, state.Apply).Map(static done => done.Value)),
                 None: () => scope.Apply(bindings))
@@ -172,8 +168,8 @@ public static class Showing {
             IO.lift(() => Optional(LastCollections(owner: null)).Exists(placements => placements.ContainsKey(row.Identity.GUID)))
                 .Bind(remembered => unless(remembered,
                       from dockBar in IO.lift(() => Conversions.Required(Panels.PanelDockBar(sibling), nameof(Panels.PanelDockBar)))
-                      from collection in IO.lift(() => Missing.Unless(FromDockBarId(owner: null, dockBar), nameof(FromDockBarId)))
-                      from item in IO.lift(() => Missing.Unless(ItemFromId(collection, sibling), nameof(ItemFromId)))
+                      from collection in IO.lift(() => Refused.UnlessFound(FromDockBarId(owner: null, dockBar), nameof(FromDockBarId)))
+                      from item in IO.lift(() => Refused.UnlessFound(ItemFromId(collection, sibling), nameof(ItemFromId)))
                       from placed in IO.lift(() => Refused.Unless(AddTabPanel(collection, row.Identity.GUID, IndexOf(collection, item) + 1, makeActivePanel: false), nameof(AddTabPanel)))
                       select placed).As()))
             .As()
@@ -181,7 +177,7 @@ public static class Showing {
 
     // --- [PAGES]
     public static IO<Option<Window>> WindowForPage(OptionsDialogPage page) =>
-        IO.lift(() => Conversions.Validated<PageDialog, OptionsDialogPage.PageType, InvalidRhinoValue>(page.OptionsPageType)
+        IO.lift(() => PageDialog.Validated(page.OptionsPageType)
             .Map(dialog => Optional(dialog.WindowForPage(page))));
 
     public static IO<Unit> SetActivePageTo(StackedDialogPage page, PageTarget target) =>
@@ -190,14 +186,16 @@ public static class Showing {
             nameof(StackedDialogPage.SetActivePageTo)));
 
     public static IO<Unit> OpenPage(PageTarget target, RhinoDoc doc) =>
-        from name in IO.lift(() => Missing.Unless(RhinoGet.StringToCommandOptionName(target.EnglishTitle), nameof(RhinoGet.StringToCommandOptionName)))
+        from name in IO.lift(() => Refused.UnlessFound(RhinoGet.StringToCommandOptionName(target.EnglishTitle), nameof(RhinoGet.StringToCommandOptionName)))
         from opened in Documents.RunScript(doc, $"! _{target.Dialog.Command} _{name}", echo: false, display: None)
         select opened;
 
     // --- [SCRIPTS]
     public static IO<Unit> RunScript(IPlugInViews owner, View view, RowScope scope, RhinoDoc doc) =>
-        from bindings in IO.lift(ViewCatalog.Tree(view).Traverse(held => ViewOps.Bindings(owner, held, scope).ToValidation()).As().ToFin()
-            .Map(static groups => new BindingGroup(groups.Bind(static bound => bound.Bindings))))
+        from groups in ViewCatalog.Tree(view).Map<K<IO, BindingGroup>>(held => ViewOps.Bindings(owner, held, scope)).PartitionFallible().As()
+        from bindings in groups.Fails.IsEmpty
+            ? IO.pure(new BindingGroup(groups.Succs.Bind(static bound => bound.Bindings)))
+            : IO.fail<BindingGroup>(Error.Many(groups.Fails))
         let site = new CallbackSite(owner, view.Identity, nameof(RunScript))
         let fields = ViewCatalog.Tree(view)
             .Bind(static held => held.Children)
@@ -205,7 +203,6 @@ public static class Showing {
             .Choose(static row => row.Switch<Option<(string Caption, EntryKey Key)>>(
                 field: static field => field.Keys is [var key] ? (field.Caption, key) : None,
                 readout: static _ => None,
-                command: static _ => None,
                 @group: static _ => None))
         let pass =
             from shown in scope.Shown(bindings)
@@ -281,8 +278,8 @@ public static class Showing {
     public static IO<T> PushPickButton<T>(Panel panel, IO<T> pick) => Picked(panel.PushPickButton, pick);
 
     private static IO<A> Picked<A>(Action<EventHandler<EventArgs>> push, IO<A> pick) =>
-        envIO.Bind(environment =>
-            Callbacks.Captured<A>(answer => IO.lift(() => push((_, _) => answer(Try.lift(() => pick.Run(environment)).Run()))), nameof(EtoExtensions.PushPickButton)));
+        cancelToken.Bind(token =>
+            Callbacks.Captured<A>(answer => IO.lift(() => push((_, _) => answer(Callbacks.Settled(pick, token)))), nameof(EtoExtensions.PushPickButton)));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

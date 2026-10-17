@@ -15,47 +15,43 @@ namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidFileValue>]
 public readonly partial struct PixelDensity : IMinMaxValue<PixelDensity> {
     public static PixelDensity MinValue { get; } = new(1d / (double)Length.FromMeters(1).Inches);
     public static PixelDensity MaxValue { get; } = new(uint.MaxValue / (double)Length.FromMeters(1).Inches);
 
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidFileValue>]
 public sealed partial class SoftwareName {
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') ? null : new ValidationError($"software name '{value}' must be non-empty printable ASCII");
 }
 
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidFileValue>]
 public sealed partial class FieldName {
     private const int KeywordLength = 79;
 
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value.Length is > 0 and <= KeywordLength
             && value[0] != ' ' && value[^1] != ' ' && !value.Contains("  ", StringComparison.Ordinal)
             && !value.AsSpan().ContainsAnyExceptInRange(' ', 'ÿ') && !value.AsSpan().ContainsAnyInRange('\u007F', ' ')
             && !FileMetadata.HeaderNames.Contains(value)
             ? null
-            : new InvalidFileValue();
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture,
+                $"field name '{value}' must be 1 to {KeywordLength} Latin-1 characters without edge or double spaces and no reserved header name"));
 }
 
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidFileValue>]
 public sealed partial class FieldText {
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
-        validationError = value.Contains('\0', StringComparison.Ordinal) ? new InvalidFileValue() : null;
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Contains('\0', StringComparison.Ordinal) ? new ValidationError("field text must hold no NUL character") : null;
 }
 
 public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created, PixelDensity Density, Map<FieldName, FieldText> Fields) {

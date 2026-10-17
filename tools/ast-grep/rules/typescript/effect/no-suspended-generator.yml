@@ -33,7 +33,7 @@ rule:
                 has: {field: body, matches: thunk-body}
         - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
 constraints:
-    M: {matches: effect-effect-module}
+    M: {matches: {effect-module: {name: {regex: '\bEffect$'}}}}
 fix: $GENERATOR
 message: '`$M.suspend` wraps `$M.gen`, an effect that defers its body'
 note: 'Keep the `<module>.gen` effect alone, a generator effect runs its body anew at each run'

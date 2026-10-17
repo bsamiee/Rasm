@@ -1086,7 +1086,7 @@ class EffectStack[E: Effect = Effect]:
                             .bind(lambda _: record.map(lambda view: self._displayed(scene, view)).default_value(Ok(None)))
                         )
                     )
-                    .map(lambda _: tuple(owner.removed(identity) for owner in ownerships(row.record)))
+                    .bind(lambda _: accumulated(owner.removed(identity) for owner in ownerships(row.record)))
                     .map(lambda _: None)
                 )
 
@@ -1188,7 +1188,7 @@ class EffectStack[E: Effect = Effect]:
 
         def separated(entry: bpy.types.SceneCompositorEffect, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> BlenderResult[bool]:
             copied: bpy.types.NodeTree = group.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            return owner.owned(identity, copied, Mark(key=owner.key, of=Some(scene))).bind(lambda owned: written(entry, "node_group", owned)).map(lambda _: True)
+            return owner.owned(identity, copied, of=Some(scene)).bind(lambda owned: written(entry, "node_group", owned)).map(lambda _: True)
 
         def placed(pinned: Pinned, group: bpy.types.CompositorNodeTree) -> BlenderResult[bool]:
             with ExitStack() as rollback:

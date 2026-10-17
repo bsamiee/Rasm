@@ -111,7 +111,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             The `(height, width, 4)` plane, alpha equal to coverage; the `read` case holding the path and OpenImageIO's text.
         """
-        tint = np.array((color.red, color.green, color.blue, 1.0), dtype=np.float32)
+        tint = np.array((*msgspec.structs.astuple(color), 1.0), dtype=np.float32)
         return self.coverage(names).map(lambda covered: covered[..., None] * tint)
 
 

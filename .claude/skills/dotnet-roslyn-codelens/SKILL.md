@@ -46,7 +46,7 @@ Before `Read` on a `.cs` file, the wanted view decides:
 |  [17]   | `mcp__roslyn-codelens__find_reflection_usage`      | "Is this used dynamically?"                                                     |
 |  [18]   | `mcp__roslyn-codelens__find_attribute_usages`      | "Find all [Authorize] controllers" / "What holds this attribute?"               |
 |  [19]   | `mcp__roslyn-codelens__find_obsolete_usage`        | "What calls an `[Obsolete]` member?" / "Which deprecations are pending?"        |
-|  [20]   | `mcp__roslyn-codelens__get_diagnostics`            | "Are there compiler errors?" / "Show warnings" / "Will this build?"             |
+|  [20]   | `mcp__roslyn-codelens__get_diagnostics`            | "Are there compiler errors?" / "Show warnings"                                  |
 |  [21]   | `mcp__roslyn-codelens__get_code_fixes`             | "How do I fix this warning?"                                                    |
 |  [22]   | `mcp__roslyn-codelens__trust_solution`             | "Authorize analyzers for another solution"                                      |
 |  [23]   | `mcp__roslyn-codelens__list_trusted_paths`         | "Is this solution trusted?"                                                     |
@@ -181,6 +181,7 @@ Reference kinds:
 - `mcp__roslyn-codelens__get_diagnostics` — compiler errors, warnings, and analyzer diagnostics
     - `unreliable` in its summary means the solution loaded degraded, items can then name errors no real build reports
     - `mcp__roslyn-codelens__rebuild_solution` then a rerun clears `unreliable`, a block that persists leaves diagnostics to the build
+    - Blocks naming `CodeStyle` assemblies alone drop no generated source, compiler items stay exact
 - `mcp__roslyn-codelens__get_code_fixes` — structured edits for one diagnostic at one location
 - `mcp__roslyn-codelens__get_code_actions` — every refactoring and fix available at a position, with an optional range
 - `mcp__roslyn-codelens__apply_code_action` — runs a refactoring by title, preview by default, the in-memory snapshot updates at once on success
@@ -219,7 +220,7 @@ Code generation runs through `mcp__roslyn-codelens__apply_code_action` with the 
 
 #### [03.4.1]-[ANALYZER_TRUST]
 
-`mcp__roslyn-codelens__get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Pass `includeAnalyzers=true` when the answer must match the build, and before `mcp__roslyn-codelens__get_code_fixes` for an analyzer diagnostic.
+`mcp__roslyn-codelens__get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Pass `includeAnalyzers=true` for analyzer findings and before `mcp__roslyn-codelens__get_code_fixes` for an analyzer diagnostic, `nx run <project>:build` decides whether a project builds.
 
 Solutions named on the server's command line are trusted for the session, every other solution needs `mcp__roslyn-codelens__trust_solution`. `mcp__roslyn-codelens__get_code_fixes` loads the fix providers as analyzer code and answers `SolutionNotTrusted` on an untrusted solution, compiler diagnostics included.
 
@@ -227,9 +228,9 @@ Solutions named on the server's command line are trusted for the session, every 
 
 Analyzers run under `.editorconfig` severities with no analyzer option values. Style analyzers that read an option (`IDE0055` formatting) report against Roslyn defaults, their `mcp__roslyn-codelens__get_diagnostics` items are no finding. `nx run rasm:lint:dotnet-format` decides style findings, and `nx run rasm:format` writes formatting.
 
-Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and the server's startup log names each one as `ReferencesNewerCompiler`. Under a preview SDK, `mcp__roslyn-codelens__get_diagnostics` omits `CodeStyle` (`IDE*`) diagnostics, the build reports them until a server release bundles the SDK's Roslyn.
+Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and `unreliable.loadDiagnostics` in a `mcp__roslyn-codelens__get_diagnostics` summary names each one as `ReferencesNewerCompiler`. Under a preview SDK, `mcp__roslyn-codelens__get_diagnostics` omits `CodeStyle` (`IDE*`) diagnostics, the build reports them until a server release bundles the SDK's Roslyn.
 
-When a call returns `SolutionNotTrusted`, call `mcp__roslyn-codelens__trust_solution` and retry. `scope` defaults to `session`, `persistent` writes the path to the trust store, and `addRoot` with a directory trusts every solution below it. `mcp__roslyn-codelens__list_trusted_paths` reports the current state, `mcp__roslyn-codelens__revoke_trust` removes an entry.
+When a call returns `SolutionNotTrusted`, confirm with the user that analyzer DLLs can run in-process, then call `mcp__roslyn-codelens__trust_solution` and retry. `scope` defaults to `session`, `persistent` writes the path to the trust store, and `addRoot` with a directory trusts every solution below it. `mcp__roslyn-codelens__list_trusted_paths` reports the current state, `mcp__roslyn-codelens__revoke_trust` removes an entry.
 
 ### [03.5]-[EXCEPTION_ANALYSIS]
 
@@ -338,7 +339,7 @@ Solutions named on the server's command line load with the first one active. Wit
 10. `mcp__roslyn-codelens__get_diagnostics` — existing errors and warnings
 11. `mcp__roslyn-codelens__get_code_fixes` / `mcp__roslyn-codelens__get_code_actions` — code fixes and refactorings
 12. `mcp__roslyn-codelens__apply_code_action` — the chosen fix or refactoring
-13. `mcp__roslyn-codelens__find_unused_symbols` — dead code to delete
+13. `mcp__roslyn-codelens__find_unused_symbols` with `includeInternal=true` — unreferenced internal code to delete, public API without consumers stays
 
 Name concrete types, interfaces, and call sites: "`<Interface>` implementations: `<TypeA>`, `<TypeB>`".
 

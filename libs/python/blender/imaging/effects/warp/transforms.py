@@ -1,7 +1,6 @@
 """Perspective tilt, affine placement, and seeded camera shake across a scene shutter."""
 
 import math
-import sys
 from typing import Annotated
 
 from expression import Some
@@ -11,12 +10,9 @@ from blender.imaging.chain import Effect, Stage
 from blender.imaging.compositing.layers import Affine
 from blender.imaging.effects.generators.noise import Octaves
 from blender.imaging.geometry.homography import Quad
-from blender.imaging.geometry.panoramas import Elevation, PanoramaView, Rectilinear, Turn
+from blender.imaging.geometry.panoramas import PanoramaView, Rectilinear
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Finite, Gated, GraphForm, Motion, NonNegative, Position, Presentation, Quantity, Seed
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
+from blender.imaging.parameters import Elevation, Finite, Gated, GraphForm, Motion, NonNegative, Position, Positive, Presentation, Quantity, Seed, Turn
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -50,7 +46,6 @@ class Transform(Effect, frozen=True, kw_only=True, tag=38):
     """Tilts, places, and shakes a frame with optional motion blur across its scene shutter."""
 
     stage = Stage.WARP
-    title = "Transform"
     pointwise = False
     pin: Annotated[Gated[Quad], msgspec.Meta(title="Corner Pin", description="Project the frame into four independently placed corners before camera tilt and affine placement")] = Gated(
         enabled=False, value=Quad()
@@ -63,7 +58,7 @@ class Transform(Effect, frozen=True, kw_only=True, tag=38):
     shake: Annotated[Gated[Shake], msgspec.Meta(description="Seeded camera motion over time")] = Gated(enabled=False, value=Shake())
     extension: Annotated[Extension, msgspec.Meta(description="Content sampled past the frame edge")] = Extension.CLIP
     filtername: Annotated[str, msgspec.Meta(description="Reconstruction filter name supplied by the native sampler"), GraphForm.SETTING] = "triangle"
-    filterwidth: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, description="Full filter support width in source pixels")] = 2.0
+    filterwidth: Annotated[Positive, msgspec.Meta(description="Full filter support width in source pixels")] = 2.0
     motion_blur: Annotated[bool, msgspec.Meta(description="Integrate spatial travel and timed shake across the exposure")] = False
 
 

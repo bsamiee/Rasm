@@ -1,14 +1,10 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    is_in_test, is_inside_always_const_context,
-    macros::root_macro_call_first_node,
-    paths::{PathNS, lookup_path_str},
-    sym,
-};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, is_in_test, is_inside_always_const_context, macros::root_macro_call_first_node, paths::PathNS, sym};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{Expr, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::TyCtxt;
+
+use crate::paths;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,25 +17,27 @@ declare_lint! {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Assertion {
-    matching: FxHashSet<DefId>,
+    assertions: FxHashSet<DefId>,
 }
 
 impl_lint_pass!(Assertion => [ASSERTION]);
 
 impl Assertion {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
-        Self { matching: ["core::assert_matches", "core::debug_assert_matches"].into_iter().flat_map(|path| lookup_path_str(tcx, PathNS::Macro, path)).collect() }
+        Self {
+            assertions: [sym::assert_macro, sym::assert_eq_macro, sym::assert_ne_macro, sym::debug_assert_macro, sym::debug_assert_eq_macro, sym::debug_assert_ne_macro]
+                .into_iter()
+                .filter_map(|name| tcx.get_diagnostic_item(name))
+                .chain(paths(tcx, PathNS::Macro, &["core::assert_matches", "core::debug_assert_matches"]))
+                .collect(),
+        }
     }
 }
 
 impl<'tcx> LateLintPass<'tcx> for Assertion {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let Some(call) = root_macro_call_first_node(cx, expr)
-            && (cx
-                .tcx
-                .get_diagnostic_name(call.def_id)
-                .is_some_and(|name| [sym::assert_macro, sym::assert_eq_macro, sym::assert_ne_macro, sym::debug_assert_macro, sym::debug_assert_eq_macro, sym::debug_assert_ne_macro].contains(&name))
-                || self.matching.contains(&call.def_id))
+            && self.assertions.contains(&call.def_id)
             && !call.span.from_expansion()
             && !is_in_test(cx.tcx, expr.hir_id)
             && !is_inside_always_const_context(cx.tcx, expr.hir_id)

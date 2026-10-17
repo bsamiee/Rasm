@@ -63,4 +63,4 @@ rule:
           all:
             - has: {field: operator, regex: '^\|=$'}
             - has: {field: right, matches: xor}
-            - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: for_expression, field: body}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment, empty_statement, label'}}}}}}}
+            - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: for_expression, field: body}, not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}}

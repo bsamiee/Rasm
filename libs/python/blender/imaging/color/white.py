@@ -51,7 +51,7 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
         """Solves a neutral pick, distinguishing processor faults from colors outside the white domain."""
 
         def solved(built: PyOpenColorIO.Processor) -> Option[Self]:
-            tristimulus = applied(built.getDefaultCPUProcessor(), np.array(msgspec.structs.astuple(color), dtype=np.float32)).astype(np.float64)
+            tristimulus = applied(built.getDefaultCPUProcessor(), np.array(color, dtype=np.float32)).astype(np.float64)
             if (total := (float(tristimulus @ (1.0, 15.0, 3.0)))) <= 0.0:
                 return Nothing
             rows, uv = cls.locus(), tristimulus[:2] * (4.0, 6.0) / total

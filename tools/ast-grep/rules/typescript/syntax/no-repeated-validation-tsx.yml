@@ -4,7 +4,7 @@ language: tsx
 severity: error
 utils:
     declares:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, pattern: $X}}}
     string-parameter:
         kind: identifier

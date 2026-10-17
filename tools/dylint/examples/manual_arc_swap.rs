@@ -6,6 +6,8 @@ use std::sync::{
     nonpoison::{Mutex, RwLock},
 };
 
+use tokio::sync::watch;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Default)]
@@ -31,6 +33,31 @@ struct Tuned {
 #[derive(Debug, Default)]
 struct Lent {
     snapshot: Mutex<Arc<Config>>,
+}
+
+#[derive(Debug, Default)]
+struct Published {
+    current: watch::Sender<Config>,
+}
+
+#[derive(Debug)]
+struct Overwritten {
+    current: watch::Sender<Config>,
+}
+
+#[derive(Debug, Default)]
+struct Watched {
+    current: watch::Sender<Config>,
+}
+
+#[derive(Debug, Default)]
+struct Tweaked {
+    current: watch::Sender<Config>,
+}
+
+#[derive(Debug)]
+struct Paired {
+    current: watch::Sender<Config>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -61,6 +88,41 @@ impl Lent {
     const fn lock(&self) -> &Mutex<Arc<Config>> { &self.snapshot }
 }
 
+impl Published {
+    fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
+
+    fn port(&self) -> u16 { self.current.borrow().port }
+}
+
+impl Overwritten {
+    fn new() -> Self { Self { current: watch::Sender::new(Config::default()) } }
+
+    fn update(&self, next: Config) { self.current.send_modify(|current| *current = next); }
+
+    fn port(&self) -> u16 { self.current.borrow().port }
+}
+
+impl Watched {
+    fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
+
+    fn watch(&self) -> watch::Receiver<Config> { self.current.subscribe() }
+}
+
+impl Tweaked {
+    fn retune(&self, port: u16) { self.current.send_modify(|current| current.port = port); }
+
+    fn port(&self) -> u16 { self.current.borrow().port }
+}
+
+impl Paired {
+    fn new() -> (Self, watch::Receiver<Config>) {
+        let (current, receiver) = watch::channel(Config::default());
+        (Self { current }, receiver)
+    }
+
+    fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
+}
+
 fn shared() -> u16 {
     let lock = Arc::new(Mutex::new(Arc::new(Config::default())));
     let writer = Arc::clone(&lock);
@@ -68,14 +130,31 @@ fn shared() -> u16 {
     lock.lock().port
 }
 
+fn local() -> u16 {
+    let sender = watch::Sender::new(Config::default());
+    sender.send_replace(Config { port: 10 });
+    sender.borrow().port
+}
+
+fn channel() -> u16 {
+    let (sender, receiver) = watch::channel(Config::default());
+    sender.send_replace(Config { port: 11 });
+    receiver.borrow().port
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
     let (registry, cache, tuned, lent) = (Registry::default(), Cache::default(), Tuned::default(), Lent::default());
+    let (published, overwritten, watched, tweaked, (paired, receiver)) = (Published::default(), Overwritten::new(), Watched::default(), Tweaked::default(), Paired::new());
     registry.update(Config { port: 80 });
     cache.update(Config { port: 81 });
     tuned.retune(82);
     tuned.replace(Config { port: 83 });
     lent.update(Config { port: 84 });
-    black_box([registry.current().port, cache.port(), tuned.port(), lent.lock().lock().port, shared()]);
+    overwritten.update(Config { port: 85 });
+    tweaked.retune(86);
+    black_box([published.update(Config { port: 87 }), watched.update(Config { port: 88 }), paired.update(Config { port: 89 })]);
+    black_box((watched.watch(), receiver));
+    black_box([registry.current().port, cache.port(), tuned.port(), lent.lock().lock().port, shared(), published.port(), overwritten.port(), tweaked.port(), local(), channel()]);
 }

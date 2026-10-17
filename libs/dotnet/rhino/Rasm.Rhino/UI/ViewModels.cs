@@ -42,11 +42,11 @@ public static class SectionModels {
             IO.lift(() => model.Discard(provider.Id))));
 
     public static IO<T> UndoRecord<T>(ICollapsibleSection section, string description, IO<T> body) =>
-        Model(section).Bind(model => DisposalOps.Within(() => new UndoRecord(description, model), _ => body, static held => IO.lift(held.Dispose)));
+        Model(section).Bind(model => DisposalOps.Within(() => new UndoRecord(description, model), _ => body));
 
     private static IO<IRdkViewModel> Model(ICollapsibleSection section) =>
-        IO.lift(() => Missing.Unless(section.ViewModel, nameof(ICollapsibleSection.ViewModel)));
+        IO.lift(() => Refused.UnlessFound(section.ViewModel, nameof(ICollapsibleSection.ViewModel)));
 
     private static IO<T> GetData<T>(IRdkViewModel model, Provider<T> provider, bool forWrite) where T : class =>
-        IO.lift(() => Missing.Unless((T?)model.GetData(provider.Id, forWrite, bAutoChangeBracket: true), nameof(IRdkViewModel.GetData)));
+        IO.lift(() => Refused.UnlessFound((T?)model.GetData(provider.Id, forWrite, bAutoChangeBracket: true), nameof(IRdkViewModel.GetData)));
 }

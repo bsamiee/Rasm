@@ -12,7 +12,7 @@ public sealed record NodeResult(Seq<(string Name, Option<object> Value)> Outputs
 public static class Scripts {
     // --- [PYTHON]
     public static IO<PythonScript> Engine(RhinoDoc doc, HashMap<string, object?> variables) =>
-        from engine in IO.lift(static () => Missing.Unless(PythonScript.Create(), nameof(PythonScript.Create)))
+        from engine in IO.lift(static () => Refused.UnlessFound(PythonScript.Create(), nameof(PythonScript.Create)))
         from configured in IO.lift(() => engine.SetupScriptContext(doc))
         from bound in IO.lift(() => variables.Iter(engine.SetVariable))
         select engine;
@@ -37,13 +37,13 @@ public static class Scripts {
             select answer);
 
     public static IO<PythonCompiledCode> Compile(PythonScript engine, string script) =>
-        Raising(engine, IO.lift(() => Optional(engine.Compile(script)).ToFin(new Refused(nameof(PythonScript.Compile)))));
+        Raising(engine, IO.lift(() => Optional(engine.Compile(script)).ToFin(new Refused(nameof(PythonScript.Compile), Refused.Declined))));
 
     public static IO<Option<object>> GetVariable(PythonScript engine, string name) =>
         IO.lift(() => Optional(engine.GetVariable(name)));
 
     private static IO<T> Raising<T>(PythonScript engine, IO<T> call) =>
-        call | @catch(static error => error.IsExceptional, error => IO.fail<T>(new ScriptRaised(engine.GetStackTraceFromException(error.ToException()), error)));
+        call | @catch(static error => error.IsExceptional, error => IO.fail<T>(Error.New($"Python raised {engine.GetStackTraceFromException(error.ToException())}", error)));
 
     // --- [RHINOCODE]
     public static IO<Unit> RunFile(RhinoDoc doc, string path) =>
@@ -55,18 +55,14 @@ public static class Scripts {
 
     // --- [NODES]
     public static IO<Seq<ComponentFunctionInfo>> NodeInCodeFunctions() =>
-        IO.lift(static () => toSeq(Components.NodeInCodeFunctions.GetDynamicMembers()).Strict())
-            .Catch(static error => error.HasException<ApplicationException>(), static _ => IO.fail<Seq<ComponentFunctionInfo>>(new Missing(nameof(Components.NodeInCodeFunctions))));
+        IO.lift(static () => toSeq(Components.NodeInCodeFunctions.GetDynamicMembers()).Strict());
 
     public static IO<ComponentFunctionInfo> FindComponent(string fullName) =>
-        IO.lift(() => Missing.Unless(Components.FindComponent(fullName), nameof(Components.FindComponent)))
-            .Catch(
-                static error => error.HasException<ArgumentNullException>() || error.HasException<ApplicationException>(),
-                static _ => IO.fail<ComponentFunctionInfo>(new Missing(nameof(Components.FindComponent))));
+        IO.lift(() => Refused.UnlessFound(Components.FindComponent(fullName), nameof(Components.FindComponent)));
 
     public static IO<NodeResult> Evaluate(ComponentFunctionInfo node, Seq<Option<object>> inputs, bool keepTree) =>
         from answer in IO.lift(() => (Values: node.Evaluate(inputs.Map(static input => input.ValueUnsafe()), keepTree, out string[] warnings), Warnings: warnings))
-        from values in IO.lift(Optional(answer.Values).ToFin(new Refused(nameof(ComponentFunctionInfo.Evaluate))))
+        from values in IO.lift(Optional(answer.Values).ToFin(new Refused(nameof(ComponentFunctionInfo.Evaluate), Refused.Declined)))
         select new NodeResult(
             toSeq(node.OutputNames).Zip(toSeq(values), static (name, value) => (Name: name, Value: Optional(value))),
             Conversions.Rows(answer.Warnings));

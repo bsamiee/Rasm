@@ -58,16 +58,16 @@ interface Hosted {
     readonly toSpecifier: () => string;
 }
 
-const owning = (member: string): ReadonlySet<unknown> =>
-    new Set(
+const owning = <A>(key: string): ((value: unknown) => value is A) => {
+    const owners = new Set(
         Array.flatMap(Object.getOwnPropertyNames(indesign), (name): readonly unknown[] => {
             const type: unknown = Reflect.get(indesign, name);
-            return Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? [type.prototype] : [];
+            return Predicate.isFunction(type) && Object.hasOwn(type.prototype, key) ? [type.prototype] : [];
         }),
     );
-const [objects, collections] = [owning('toSpecifier'), owning('everyItem')];
-const hosted = (value: unknown): value is Hosted => Predicate.isObject(value) && objects.has(Object.getPrototypeOf(value));
-const collected = (value: unknown): value is BaseCollection<unknown> => Predicate.isObject(value) && collections.has(Object.getPrototypeOf(value));
+    return (value): value is A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
+};
+const [hosted, collected] = [owning<Hosted>('toSpecifier'), owning<BaseCollection<unknown>>('everyItem')];
 const located = (document: Document, id: number): Option.Option<PageItem> => {
     const found = document.pageItems.itemByID(id);
     return found.isValid ? Array.head(found.getElements()) : Option.none();
@@ -119,26 +119,38 @@ const member = (enumeration: typeof Enumeration, name: string): Option.Option<En
 const UNSUPPORTED = /\$<|\$\d{2}/u;
 const REFERENCE = /\$(?<sign>[$&])/gu;
 
-class FieldError extends Schema.TaggedError<FieldError>()('FieldError', { field: Schema.String, cause: Schema.Defect() }) {}
+const Reason = Schema.TaggedUnion({
+    Rejected: { field: Schema.String, cause: Schema.Defect() },
+    Modal: { step: Schema.String },
+    Refused: { step: Schema.String, cause: Schema.Defect() },
+    Unrendered: { page: Schema.Int },
+    Untranslatable: { pattern: Schema.String, constructs: Schema.NonEmptyArray(Schema.String) },
+    Unavailable: { name: Schema.String },
+    Unwritten: { file: Schema.String, cause: Schema.Defect() },
+});
+class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: unique symbol }>()('InDesignError', { reason: Reason }) {}
 
-const pattern = (value: unknown): Effect.Effect<unknown, PatternError> =>
+const pattern = (value: unknown): Effect.Effect<unknown, InDesignError> =>
     Predicate.isRegExp(value) ? Effect.fromResult(grep(value)) : Effect.succeed(value);
-const replacement = (value: unknown): Effect.Effect<unknown, PatternError> =>
+const replacement = (value: unknown): Effect.Effect<unknown, InDesignError> =>
     Predicate.isString(value) && UNSUPPORTED.test(value)
-        ? Effect.fail(new PatternError({ pattern: value, constructs: [value] }))
+        ? Effect.fail(InDesignError.make({ reason: { _tag: 'Untranslatable', pattern: value, constructs: [value] } }))
         : Effect.succeed(Predicate.isString(value) ? value.replace(REFERENCE, (_, sign: string) => (sign === '$' ? '\\$' : '$0')) : value);
-const checks: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (value: unknown) => Effect.Effect<unknown, PatternError>>> = {
+const checks: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (value: unknown) => Effect.Effect<unknown, InDesignError>>> = {
     FindGrepPreference: { findWhat: pattern },
     ChangeGrepPreference: { changeTo: replacement },
     NestedGrepStyle: { grepExpression: pattern },
 };
-const written = (target: { readonly constructorName: string }, values: object): Effect.Effect<void, Array.NonEmptyArray<FieldError | PatternError>> =>
+const written = (target: { readonly constructorName: string }, values: object): Effect.Effect<void, Array.NonEmptyArray<InDesignError>> =>
     Effect.validate(
         Object.entries(values),
         ([field, given]: readonly [string, unknown]) => {
-            const put = (value: unknown): Effect.Effect<unknown, FieldError> =>
-                Effect.try({ try: () => Object.assign(target, { [field]: value }), catch: (cause) => new FieldError({ field, cause }) });
-            const named = (value: unknown): readonly Effect.Effect<unknown, FieldError>[] =>
+            const put = (value: unknown): Effect.Effect<unknown, InDesignError> =>
+                Effect.try({
+                    try: () => Object.assign(target, { [field]: value }),
+                    catch: (cause) => InDesignError.make({ reason: { _tag: 'Rejected', field, cause } }),
+                });
+            const named = (value: unknown): readonly Effect.Effect<unknown, InDesignError>[] =>
                 Array.map(
                     Predicate.isString(value) ? Array.flatMap(Record.values(enumerations), (each) => Option.toArray(member(each, value))) : [],
                     put,
@@ -157,7 +169,7 @@ const written = (target: { readonly constructorName: string }, values: object): 
 
 `members` keeps each member's canonical spelling, the one key equal to its `String`. Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"), and the host's type check picks the enumeration: `justification: 'centerAlign'` writes `Justification.CENTER_ALIGN`. `replacement` maps JavaScript's `$&` and `$$` to Change To's `$0` and `\$` and refuses named and two-digit references. Values leave through a `JSON.stringify` replacer that tests enumerators before strings, since a text read can return a `SpecialCharacters` enumerator, and writes each object `hosted` accepts as class, specifier, and `isValid`.
 
-- New members take `add()` with required arguments, then `written` fields, since `add(record)` and `properties` drop keys they refuse
+- New members take `add()` with required arguments, then `written` fields, since `add(record)` throws on a value it refuses and `properties` drops keys it refuses
 - Swatch fields take a swatch name, style fields a style object alone, and font fields `"<family>\t<style>"`, silently keeping the old face on failure
 - Enumerators compare through `Justification.CENTER_ALIGN.equals(value)`
 
@@ -178,16 +190,13 @@ Throws inside a step roll back every change in every document and record no undo
 ```ts
 import { app, SaveOptions, ScriptLanguage, UndoModes } from 'adobe:indesign';
 
-const StepReason = Schema.TaggedUnion({ Modal: {}, Refused: { cause: Schema.Defect() } });
-class StepError extends Schema.TaggedError<StepError>()('StepError', { step: Schema.String, reason: StepReason }) {}
-
 const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, preview: boolean, body: Effect.Effect<A, E, R>) {
     yield* Effect.filterOrFail(
         Effect.sync(() => app.modalState),
         (modal) => !modal,
-        () => new StepError({ step, reason: { _tag: 'Modal' } }),
+        () => InDesignError.make({ reason: { _tag: 'Modal', step } }),
     );
-    const [services, outcome, opened] = [yield* Effect.context<R>(), yield* Deferred.make<A, E | StepError>(), app.documents.everyItem().id];
+    const [services, outcome, opened] = [yield* Effect.context<R>(), yield* Deferred.make<A, E | InDesignError>(), app.documents.everyItem().id];
     const recorded = Effect.flatMap(
         Effect.tap(Effect.exit(body), (exit) => Deferred.done(outcome, exit)),
         (exit) => (preview ? Effect.interrupt : exit),
@@ -204,7 +213,7 @@ const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, pre
 });
 ```
 
-`entered` runs its step inside a peer call the plug-in serves during an ExtendScript `$.sleep`, a host refusal failing `Refused`. `transacted` returns the body's value, or its typed failure with every change rolled back. Under `preview` the body's value returns and the interruption rolls the document back with no undo step: a dry run, a rendered preview, or a host refusal reported as data. `Deferred.fail` completes `outcome` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Bodies run on the caller's services, which a bare `Effect.runSync` drops, and an async body fails `StepError`. `transacted` refuses with `Modal` before its `doScript` while `app.modalState` reads true.
+`entered` runs its step inside a peer call the plug-in serves during an ExtendScript `$.sleep`, a host refusal failing `Refused`. `transacted` returns the body's value, or its typed failure with every change rolled back. Under `preview` the body's value returns and the interruption rolls the document back with no undo step: a dry run, a rendered preview, or a host refusal reported as data. `Deferred.fail` completes `outcome` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Bodies run on the caller's services, which a bare `Effect.runSync` drops, and an async body fails `Refused`. `transacted` refuses with `Modal` before its `doScript` while `app.modalState` reads true.
 
 - Nested `doScript` calls are savepoints inside their outer step
 - Rollback restores documents and app-wide find, change, and export preferences, and leaves `app.scriptPreferences` and files on disk
@@ -217,7 +226,7 @@ const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, pre
 ExtendScript writes and rolled-back reads send source text with arguments as data, and a write names its function step with the undo name. Values leave the nested function through outer variables. A catch around a nested throw receives no thrown value, and `done`, set before the throw, tells a rollback from a failure:
 
 ```ts
-const based = (target: Hosted, field: string): Effect.Effect<unknown, StepError> => {
+const based = (target: Hosted, field: string): Effect.Effect<unknown, InDesignError> => {
     const source = [
         'var target = resolve(arguments[0]), field = arguments[1], value = null, done = false;',
         'try {',
@@ -229,7 +238,7 @@ const based = (target: Hosted, field: string): Effect.Effect<unknown, StepError>
     ].join('\n');
     return Effect.try({
         try: (): unknown => app.doScript(source, ScriptLanguage.JAVASCRIPT, [target.toSpecifier(), field]),
-        catch: (cause) => new StepError({ step: 'Clear Overrides', reason: { _tag: 'Refused', cause } }),
+        catch: (cause) => InDesignError.make({ reason: { _tag: 'Refused', step: 'Clear Overrides', cause } }),
     });
 };
 ```
@@ -249,7 +258,7 @@ const based = (target: Hosted, field: string): Effect.Effect<unknown, StepError>
 const held = <T extends { readonly constructorName: string }, K extends keyof T & string>(
     owner: T,
     values: Pick<T, K>,
-): Effect.Effect<void, Array.NonEmptyArray<FieldError | PatternError>, Scope.Scope> =>
+): Effect.Effect<void, Array.NonEmptyArray<InDesignError>, Scope.Scope> =>
     Effect.andThen(
         Effect.acquireRelease(
             Effect.sync(() => Record.fromIterableWith(Struct.keys(values), (key) => [key, owner[key]])),
@@ -283,9 +292,9 @@ interface Box {
     readonly right: number;
 }
 
-const extent = (...located: readonly (Page | PageItem)[]): Box =>
+const extent = (...placed: readonly (Page | PageItem)[]): Box =>
     Struct.makeReducer<Box>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(
-        Array.flatMap(located, (each) =>
+        Array.flatMap(placed, (each) =>
             Array.flatMap([AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR], (anchor) =>
                 Array.map(
                     each.resolve(
@@ -317,8 +326,6 @@ Export reads app-wide preferences another script left, fails with no throw under
 import fs from 'adobe:fs';
 import { app, type Document, ExportFormat, ExportRangeOrAllPages, MeasurementUnits, UserInteractionLevels } from 'adobe:indesign';
 
-class Unrendered extends Schema.TaggedError<Unrendered>()('Unrendered', { page: Schema.Int }) {}
-
 const rendered = Effect.fn('rendered')(function* (
     document: Document,
     page: number,
@@ -333,7 +340,7 @@ const rendered = Effect.fn('rendered')(function* (
     const target = yield* Effect.filterOrFail(
         Effect.sync(() => document.pages.item(page)),
         ({ isValid }) => isValid,
-        () => new Unrendered({ page }),
+        () => InDesignError.make({ reason: { _tag: 'Unrendered', page } }),
     );
     const { top, left, bottom, right } = extent(target);
     const pointsPerInch = 72;
@@ -349,7 +356,7 @@ const rendered = Effect.fn('rendered')(function* (
     return yield* Effect.filterOrFail(
         Effect.sync(() => new Uint8Array(fs.readFileSync(file.read))),
         (image) => image.length > 0,
-        () => new Unrendered({ page }),
+        () => InDesignError.make({ reason: { _tag: 'Unrendered', page } }),
     );
 }, Effect.scoped);
 ```
@@ -391,11 +398,6 @@ InDesign's GREP dialect reads some JavaScript pattern syntax with another meanin
 import MagicString from 'magic-string';
 import regjsparser, { type AstNode } from 'regjsparser';
 
-class PatternError extends Schema.TaggedError<PatternError>()('PatternError', {
-    pattern: Schema.String,
-    constructs: Schema.NonEmptyArray(Schema.String),
-}) {}
-
 interface Splice {
     readonly start: number;
     readonly end: number;
@@ -426,17 +428,19 @@ const splices = (node: AstNode<typeof features>): readonly Result.Result<Splice,
             return [];
     }
 };
-const grep = ({ source, flags, ignoreCase, multiline }: RegExp): Result.Result<string, PatternError> => {
+const grep = ({ source, flags, ignoreCase, multiline }: RegExp): Result.Result<string, InDesignError> => {
+    const untranslatable = (constructs: Array.NonEmptyArray<string>): InDesignError =>
+        InDesignError.make({ reason: { _tag: 'Untranslatable', pattern: source, constructs } });
     const rows = Result.mapError(
         Result.try(() => splices(regjsparser.parse(source, flags.includes('v') ? 'v' : 'u', features))),
-        () => new PatternError({ pattern: source, constructs: [source] }),
+        () => untranslatable([source]),
     );
     const spliced = (kept: readonly Result.Result<Splice, string>[]): string =>
         Array.reduce(Array.getSuccesses(kept), new MagicString(source), (edited, { start, end, text }) => edited.overwrite(start, end, text))
             .toString();
     return Result.flatMap(rows, (kept) =>
         Array.match(Array.getFailures(kept), {
-            onNonEmpty: (constructs) => Result.fail(new PatternError({ pattern: source, constructs })),
+            onNonEmpty: (constructs) => Result.fail(untranslatable(constructs)),
             onEmpty: () => Result.succeed(`${ignoreCase ? '(?i)' : ''}${multiline ? '' : '(?-m)'}${spliced(kept)}`),
         }),
     );
@@ -476,23 +480,23 @@ Searches and changes run in one sequence:
 import { readFileSync } from 'adobe:fs';
 import { app, FontStatus } from 'adobe:indesign';
 
-const FaceReason = Schema.TaggedUnion({ Unavailable: { name: Schema.String }, Unwritten: { file: Schema.String, cause: Schema.Defect() } });
-class FaceError extends Schema.TaggedError<FaceError>()('FaceError', { reason: FaceReason }) {}
-
 const face = Effect.fn('face')(function* (family: string, style: string, characters: string, folder: string) {
     const name = `${family}\t${style}`;
     const font = yield* Effect.filterOrFail(
         Effect.sync(() => app.fonts.itemByName(name)),
         ({ status }) => !status.equals(FontStatus.NOT_AVAILABLE),
-        () => new FaceError({ reason: { _tag: 'Unavailable', name } }),
+        () => InDesignError.make({ reason: { _tag: 'Unavailable', name } }),
     );
     const [{ location, postscriptName }, subset] = [font, `${folder}/${font.postscriptName}`];
-    const unwritten = (file: string) => (cause: unknown): FaceError => new FaceError({ reason: { _tag: 'Unwritten', file, cause } });
-    const file = yield* location.startsWith('/')
+    const unwritten =
+        (file: string) =>
+        (cause: unknown): InDesignError =>
+            InDesignError.make({ reason: { _tag: 'Unwritten', file, cause } });
+    const path = yield* location.startsWith('/')
         ? Effect.succeed(location)
         : Effect.as(Effect.try({ try: () => font.createSubsetFont(characters, subset), catch: unwritten(subset) }), subset);
-    const bytes = yield* Effect.try({ try: () => new Uint8Array(readFileSync(file)), catch: unwritten(file) });
-    return { bytes, postscriptName, subset: file === subset };
+    const bytes = yield* Effect.try({ try: () => new Uint8Array(readFileSync(path)), catch: unwritten(path) });
+    return { bytes, postscriptName, subset: path === subset };
 });
 ```
 

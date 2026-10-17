@@ -3,15 +3,7 @@ id: rust-test-scope
 language: rust
 utils:
     marked:
-        follows:
-            stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
-            kind: attribute_item
-            matches: marker
-    marker:
-        any:
-            - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
-              not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
-            - regex: '^#\[\s*(\w+::)*\w*(test|bench|quickcheck|proptest)\w*\s*(\(|\]|$)'
+        matches: {rust-attributed: {attribute: {matches: rust-test-attribute}}}
 rule:
     inside:
         stopBy: end

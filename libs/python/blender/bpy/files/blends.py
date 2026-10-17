@@ -20,6 +20,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called
+from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderReadFault, BlenderResult, BlenderWriteFault
@@ -364,11 +365,11 @@ def projected(project: Project) -> BlenderResult[None]:
                     case items:
                         return accumulated(written(item, "path", path) for item in items).map(lambda _: None)
 
-            return (
-                accumulated((written(current, "name", project.name).map(lambda _: None), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items())))
-                .bind(lambda _: called(bpy.ops.project.save_project, {}).map(lambda _: None) if current.is_dirty else Ok(None))
-                .map(lambda _: cleanup.pop_all())
-                .map(lambda _: None)
+            return committed(
+                accumulated((written(current, "name", project.name).map(lambda _: None), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(
+                    lambda _: called(bpy.ops.project.save_project, {}).map(lambda _: None) if current.is_dirty else Ok(None)
+                ),
+                cleanup,
             )
 
     match bpy.data.project:

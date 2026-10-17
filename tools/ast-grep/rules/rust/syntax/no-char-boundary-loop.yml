@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: expression_statement
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - has:
             nthChild: 1
             kind: while_expression

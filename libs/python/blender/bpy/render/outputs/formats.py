@@ -9,6 +9,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import answered
+from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import DataType
@@ -244,18 +245,11 @@ displays = Choices(lambda _identity, _owner, _context: ((name, name, "Display en
 presets = Preset(key="image_formats", form=Snapshot)
 format_listing = Listing(
     preset=presets,
-    current=lambda context: Result[bpy.types.Scene, BlenderFaults].bind(
-        Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: Snapshot.capture(scene.render.image_settings)
-    ),
+    current=lambda context: rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.render.image_settings)),
     matches=lambda context, values: (
-        Result[bpy.types.Scene, BlenderFaults]
-        .bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: Snapshot.capture(scene.render.image_settings))
-        .map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
+        rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.render.image_settings)).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
     ),
-    applied=lambda context, value: Result[bpy.types.Scene, BlenderFaults].bind(
-        Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
-        lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds this preset"),
-    ),
+    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds this preset")),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

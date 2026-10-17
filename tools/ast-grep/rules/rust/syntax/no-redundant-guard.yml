@@ -97,18 +97,16 @@ utils:
               has: {field: value, matches: iteration}
             - kind: let_declaration
               all: [{has: {field: value, matches: iteration}}, {any: [{has: {field: pattern, kind: slice_pattern}}, {has: {field: alternative, pattern: $_}}]}]
-    slot:
-        not: {kind: 'line_comment, block_comment, empty_statement, label'}
     consuming-block:
         kind: block
         all:
             - has:
-                nthChild: {position: 1, ofRule: {matches: slot}}
+                nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
                 any:
                     - matches: consumer
                     - kind: expression_statement
                       has: {nthChild: 1, matches: consumer}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
 rule:
     pattern: $GUARD
     any:

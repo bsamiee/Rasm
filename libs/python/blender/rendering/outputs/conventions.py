@@ -18,8 +18,8 @@ type Conventions = Blender | Nuke
 class Space(Choice):
     """Space of a spatial vector pass."""
 
-    WORLD = 1, "World"
-    CAMERA = 2, "Camera"
+    WORLD = 1
+    CAMERA = 2
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -46,7 +46,6 @@ class Convention(Case, frozen=True, kw_only=True):
 class Blender(Convention, frozen=True, tag=4):
     """Blender's native pass names and axes."""
 
-    title = "Blender"
     names = MappingProxyType({})
     axes = MappingProxyType(dict.fromkeys(Space, (1, 2, 3)))
     motion = (1, 2, 3, 4)
@@ -55,7 +54,6 @@ class Blender(Convention, frozen=True, tag=4):
 class Nuke(Convention, frozen=True, tag=5):
     """Nuke's layer names, spatial axes, and motion channels."""
 
-    title = "Nuke"
     names = MappingProxyType({"Combined": "rgba", "Position": "Pworld", "Depth": "z"})
     axes = MappingProxyType({Space.WORLD: (1, 3, -2), Space.CAMERA: (1, 2, -3)})
     motion = (3, 4, 2, 3)

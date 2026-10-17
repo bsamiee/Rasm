@@ -19,6 +19,6 @@ rule:
                         has: {field: left, any: [{kind: identifier, pattern: $STATE}, {kind: field_expression, has: {field: value, kind: identifier, pattern: $STATE}}]}
         - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $STATE}}}}
         - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, kind: identifier, pattern: $STATE}}}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
 message: '`iter::from_fn` closure keeps iteration state in captured `$STATE`'
 note: 'Write `gen move { <loop>; yield <item>; }` (`#![feature(gen_blocks)]`), the block holds the state as locals and yields each item in place of a closure writing back to a captured variable'

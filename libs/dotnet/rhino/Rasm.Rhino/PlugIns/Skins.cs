@@ -3,7 +3,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Resources;
@@ -85,17 +85,17 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
                 DisposalOps.Replace(
                     owned =>
                         from mark in Mark
-                        from status in DisposalOps.Acquire(IO.lift(static () => new Label { Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), static value => IO.lift(value.Dispose), owned)
-                        from bar in DisposalOps.Acquire(IO.lift(static () => new ProgressBar()), static value => IO.lift(value.Dispose), owned)
+                        from status in DisposalOps.Acquire(IO.lift(static () => new Label { Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), owned)
+                        from bar in DisposalOps.Acquire(IO.lift(static () => new ProgressBar()), owned)
                         from detail in DisposalOps.Acquire(IO.lift(() => new StackLayout(status, bar) {
                             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
                             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                        }), static value => IO.lift(value.Dispose), owned)
+                        }), owned)
                         from content in Layout(mark, detail, owned)
                         from window in DisposalOps.Acquire(IO.lift(() => new Form {
                             Title = ApplicationName, WindowStyle = WindowStyle.None, Resizable = false, Minimizable = false, Maximizable = false, ShowInTaskbar = false, Topmost = true,
                             Content = content,
-                        }), static value => IO.lift(value.Dispose), owned)
+                        }), owned)
                         from shown in IO.lift(() => {
                             Refresh(load.Value, status, bar);
                             window.UseRhinoStyle();
@@ -103,23 +103,20 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
                             window.Show();
                         })
                         select (Window: window, Status: status, Bar: bar),
-                    (held, lease) => atomic(() => {
-                        Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
-                        splash.Value = Some((held.Window, held.Status, held.Bar, lease));
-                        return previous;
-                    }).TraverseM(static previous => Callbacks.Each(Seq(IO.lift(previous.Window.Close), IO.lift(previous.Lease.Dispose)))).As().Map(unit))
+                    (held, lease) => Swapped(Some((held.Window, held.Status, held.Bar, lease))))
                     .Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As(),
             CallbackSite.Of(this));
 
     protected sealed override void HideSplash() =>
-        Callbacks.Run(
-            IO.lift(() => atomic(() => {
-                Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
-                splash.Value = None;
-                return previous;
-            })).Bind(static previous => previous.TraverseM(static held =>
-                Callbacks.Each(Seq(IO.lift(held.Window.Close), IO.lift(held.Lease.Dispose)))).As()).Uninterruptible(),
-            CallbackSite.Of(this));
+        Callbacks.Run(Swapped(None), CallbackSite.Of(this));
+
+    private IO<Unit> Swapped(Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> next) =>
+        IO.lift(() => atomic(() => {
+            Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
+            splash.Value = next;
+            return previous;
+        })).Bind(static previous => previous.TraverseM(static held =>
+            Callbacks.Each(Seq(IO.lift(held.Window.Close), IO.lift(held.Lease.Dispose)))).As()).Map(unit).Uninterruptible();
 
     // --- [HELP]
     protected sealed override void ShowHelp() =>
@@ -127,9 +124,9 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
             DisposalOps.Within<IDisposable, Unit>(
                 owned =>
                     from mark in Mark
-                    from detail in DisposalOps.Acquire(IO.lift(static () => new Label { Text = RowText.Localize("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), static value => IO.lift(value.Dispose), owned)
+                    from detail in DisposalOps.Acquire(IO.lift(static () => new Label { Text = RowText.Localize("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), owned)
                     from content in Layout(mark, detail, owned)
-                    from dialog in DisposalOps.Acquire(IO.lift(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content }), static value => IO.lift(value.Dispose), owned)
+                    from dialog in DisposalOps.Acquire(IO.lift(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content }), owned)
                     from shown in IO.lift(() => {
                         dialog.UseRhinoStyle();
                         dialog.ShowModal(RhinoEtoApp.MainWindow);
@@ -147,7 +144,7 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
                     Filter = HostDialogs.Filter(Seq((RowText.Localize("Rhino Templates").Local, Seq(".3dm")))),
                     InitialDirectory = FileSettings.TemplateFolder,
                 })).Bind(static dialog => dialog)
-                from opened in paths.TraverseM(static path => IO.lift(() => Missing.Unless(OpenNewDocument(path), nameof(OpenNewDocument)))).As()
+                from opened in paths.TraverseM(static path => IO.lift(() => Refused.UnlessFound(OpenNewDocument(path), nameof(OpenNewDocument)))).As()
                 select unit),
             CallbackSite.Of(this));
 
@@ -188,13 +185,13 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
     }
 
     private IO<StackLayout> Layout(Option<Icon> mark, Control detail, Action<IDisposable> retain) =>
-        from heading in DisposalOps.Acquire(IO.lift(() => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont }), static value => IO.lift(value.Dispose), retain)
-        from image in mark.TraverseM(icon => DisposalOps.Acquire(IO.lift(() => new ImageView { Image = icon }), static value => IO.lift(value.Dispose), retain)).As()
+        from heading in DisposalOps.Acquire(IO.lift(() => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont }), retain)
+        from image in mark.TraverseM(icon => DisposalOps.Acquire(IO.lift(() => new ImageView { Image = icon }), retain)).As()
         from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. image.ToSeq().Map<StackLayoutItem>(static view => view), heading, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
             Padding = RhinoLayout.Padding(RhinoLayout.PaddingType.Dialog),
             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
             HorizontalContentAlignment = HorizontalAlignment.Center,
-        }), static value => IO.lift(value.Dispose), retain)
+        }), retain)
         select layout;
 
     private static void Placed(Form window, Size client) {

@@ -7,13 +7,11 @@ namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ReflectionCount : System.Numerics.IMinMaxValue<ReflectionCount> {
     public static ReflectionCount MinValue { get; } = new(1);
     public static ReflectionCount MaxValue { get; } = new(1000);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -161,7 +159,7 @@ public static class Intersections {
                     ? new CurveCrossing<TAt, TSpan>.Hit(crossing.ParameterA, at(crossing), crossing.PointA, crossing.PointB)
                     : new CurveCrossing<TAt, TSpan>.Overlap(crossing.OverlapA, span(crossing)))
                 .Strict()),
-            static events => DisposalOps.Release(Conversions.Rows([events])));
+            static events => DisposalOps.Release(events));
 
     // --- [CURVES_AND_POINTS]
     public static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> Acquire(Func<(bool Accepted, Curve[] Curves, Point3d[] Points)> host, string member, Action<IDisposable> retain) =>
@@ -169,7 +167,7 @@ public static class Intersections {
             host,
             answer =>
                 from made in Refused.Unless(answer.Accepted, answer, member)
-                from curves in Missing.Unless(made.Curves, member)
+                from curves in Refused.UnlessFound(made.Curves, member)
                 from valid in Measurements.Valid(toSeq<Curve?>(curves), member)
                 select (Curves: valid, Points: toSeq(made.Points)),
             static answer => DisposalOps.Release(Conversions.Rows(answer.Curves)), retain);
@@ -183,8 +181,8 @@ public static class Intersections {
             None: () => (Accepted: Intersection.MeshMesh(meshes, tolerances.MeshIntersection, out Polyline[] polylines, overlaps, out Polyline[] overlapped, overlapMesh, out Mesh merged, textLog.ValueUnsafe(), token, progress.ValueUnsafe()), Polylines: polylines, Overlaps: overlapped, Mesh: merged, Member: nameof(Intersection.MeshMesh))),
             Fin<MeshCrossings> (answer) => answer.Accepted
                 ? new MeshCrossings(Conversions.Rows(answer.Polylines), Conversions.Rows(answer.Overlaps), Optional(answer.Mesh))
-                : token.IsCancellationRequested ? Errors.Cancelled : new Refused(answer.Member),
-            static answer => DisposalOps.Release(Conversions.Rows([answer.Mesh])), retain)
+                : token.IsCancellationRequested ? Errors.Cancelled : new Refused(answer.Member, Refused.Declined),
+            static answer => DisposalOps.Release(answer.Mesh), retain)
         select crossings;
 
     public static IO<Option<(double T, Seq<int> Faces)>> MeshRay(Mesh mesh, Ray3d ray) =>
@@ -210,7 +208,7 @@ public static class Intersections {
             (Points: points, Direction: direction, tolerances.Absolute),
             mesh: static (state, meshes) => (Points: Intersection.ProjectPointsToMeshesEx(meshes, state.Points, state.Direction, state.Absolute, out int[] sources), Sources: sources, Member: nameof(Intersection.ProjectPointsToMeshesEx)),
             brep: static (state, breps) => (Points: Intersection.ProjectPointsToBrepsEx(breps, state.Points, state.Direction, state.Absolute, out int[] sources), Sources: sources, Member: nameof(Intersection.ProjectPointsToBrepsEx))))
-        from projected in IO.lift(Missing.Unless(answer.Points, answer.Member))
+        from projected in IO.lift(Refused.UnlessFound(answer.Points, answer.Member))
         select toSeq(answer.Sources).Zip(toSeq(projected));
 
     // --- [CLASHES]

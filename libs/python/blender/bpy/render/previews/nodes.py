@@ -28,7 +28,7 @@ from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome,
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle, resolved
-from blender.bpy.data.rna.descriptors import Descriptor, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import Change, PathHandler, SceneHandler, UpdateHandler
 from blender.bpy.extension.identity import Identity, Name
@@ -903,7 +903,7 @@ class NodePreview:
             )
             return paired(editors, stages).map(lambda parts: (*parts[0], *itertools.chain.from_iterable(parts[1])))
 
-        scene: BlenderResult[bpy.types.Scene] = Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
+        scene = rooted(bpy.types.Scene, context)
         return paired(paired(scene, self.settings(identity)), paired(self.stack.config(), identity.name(Name.ATTACHMENT, PreviewScene.value))).bind(lambda parts: planned(*parts[0], *parts[1]))
 
     @property

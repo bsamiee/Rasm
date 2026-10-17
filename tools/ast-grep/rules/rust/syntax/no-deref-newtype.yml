@@ -3,8 +3,6 @@ id: no-deref-newtype
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     self-field:
         kind: field_expression
         all:
@@ -27,8 +25,8 @@ utils:
     forwarding-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: field-forward}
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: field-forward}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     own-type:
         has: {field: type, any: [{kind: type_identifier, pattern: $NAME}, {kind: generic_type, has: {field: type, pattern: $NAME}}]}
     pointer-type:
@@ -46,7 +44,7 @@ utils:
             - has: {field: name, pattern: $NAME}
             - not: {has: {field: type_parameters, has: {kind: lifetime_parameter}}}
             - not: {has: {field: body, matches: pointer-field}}
-            - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*repr\s*\(.*\balign\s*\('}}
+            - not: {matches: {rust-attributed: {attribute: {regex: '^#\[\s*repr\s*\(.*\balign\s*\('}}}}
     undropped:
         inside: {kind: source_file, stopBy: end, not: {has: {stopBy: end, kind: impl_item, has: {field: trait, regex: '^((std|core)::)?(ops::)?Drop$'}, matches: own-type}}}
 rule:
@@ -60,7 +58,7 @@ rule:
             - matches: undropped
         - kind: attribute_item
           all:
-            - has: {kind: attribute, all: [{has: {nthChild: 1, kind: identifier, regex: '^derive$'}}, {has: {field: arguments, has: {kind: identifier, regex: '^(Deref|DerefMut)$', pattern: $TRAIT}}}]}
+            - matches: {rust-derive: {trait: {regex: '^(Deref|DerefMut)$', pattern: $TRAIT}}}
             - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: plain-struct}
             - matches: undropped
 message: '`$TRAIT` for `$NAME` converts it implicitly into its inner value'

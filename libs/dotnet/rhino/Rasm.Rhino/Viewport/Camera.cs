@@ -8,23 +8,19 @@ namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct CameraAngle : System.Numerics.IMinMaxValue<CameraAngle> {
     public static CameraAngle MinValue { get; } = new(double.BitIncrement(0d));
     public static CameraAngle MaxValue { get; } = new(double.BitDecrement(0.5 * Math.PI * (1d - RhinoMath.SqrtEpsilon)));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ParallelExtent : System.Numerics.IMinMaxValue<ParallelExtent> {
     public static ParallelExtent MinValue { get; } = new(double.BitIncrement(0d));
     public static ParallelExtent MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union]
@@ -48,8 +44,8 @@ public static class Cameras {
                 Refused.Unless(viewport.GetCameraFrame(out Plane read), read, nameof(RhinoViewport.GetCameraFrame)),
                 viewport.IsParallelProjection
                     ? Refused.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out _, out _), Math.Min(Math.Max(right, -left), Math.Max(top, -bottom)), nameof(RhinoViewport.GetFrustum))
-                        .Bind(Conversions.Validated<ParallelExtent, double, InvalidRhinoValue>).Map<CameraLens>(static extent => extent)
-                    : Conversions.Validated<CameraAngle, double, InvalidRhinoValue>(viewport.CameraAngle)
+                        .Bind(ParallelExtent.Validated).Map<CameraLens>(static extent => extent)
+                    : CameraAngle.Validated(viewport.CameraAngle)
                         .Map<CameraLens>(angle => viewport.IsTwoPointPerspectiveProjection ? new CameraLens.TwoPoint(angle, viewport.CameraUp) : angle))
             .Apply((frame, lens) => new CameraPose(frame, viewport.CameraTarget, lens)).As());
 
@@ -65,7 +61,7 @@ public static class Cameras {
             held => IO.lift(() => Restore(viewport, held.Camera, held.Camera.TargetPoint)))), DisposalOps.Release);
 
     public static IO<ViewportInfo> ToViewportInfo(CameraPose pose, BoundingBox bounds, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(static () => new ViewportInfo()), static camera => IO.lift(camera.Dispose), retain)
+        DisposalOps.Acquire(IO.lift(static () => new ViewportInfo()), retain)
             .Bind(camera => IO.lift(() => Posed(camera, pose).Bind(posed => Refused.Unless(posed.SetFrustumNearFar(bounds), posed, nameof(ViewportInfo.SetFrustumNearFar)))));
 
     private static Fin<ViewportInfo> Posed(ViewportInfo camera, CameraPose pose) =>
@@ -85,39 +81,32 @@ public static class Cameras {
 
     // --- [SNAPSHOTS]
     public static IO<CameraSnapshot> Snapshot(RhinoViewport viewport, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new ViewportInfo(viewport)), static camera => IO.lift(camera.Dispose), retain)
+        DisposalOps.Acquire(IO.lift(() => new ViewportInfo(viewport)), retain)
             .Bind(camera => IO.lift(() => (
-                InvalidAnswer.Unless(camera.IsValidCamera, camera, nameof(camera)),
-                InvalidAnswer.Unless(camera.IsValidFrustum, camera, nameof(camera)))
+                Refused.UnlessValid(camera.IsValidCamera, camera, nameof(camera)),
+                Refused.UnlessValid(camera.IsValidFrustum, camera, nameof(camera)))
                 .Apply((held, _) => new CameraSnapshot(held, viewport.ChangeCounter)).As()));
 
     public static Fin<Unit> Restore(RhinoViewport viewport, ViewportInfo camera, Point3d target) =>
-        guard<Error>(!viewport.LockedProjection, new CameraLocked()).ToFin()
+        guard(!viewport.LockedProjection, Error.New("viewport camera is locked")).ToFin()
             .Bind(_ => Refused.Unless(viewport.SetViewProjection(camera, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection)))
             .Map(fun((Unit _) => viewport.SetCameraTarget(target, updateCameraLocation: false)));
 
     // --- [FRAME]
     public static Fin<System.Numerics.Matrix4x4> ToMatrix(Transform xform) =>
-        xform.ToFloatArray(rowDominant: false) switch {
-            var entries => entries.All(float.IsFinite)
-                ? MemoryMarshal.Cast<float, System.Numerics.Matrix4x4>(entries.AsSpan())[0]
-                : new InvalidRhinoValue(),
-        };
-
-    public static Fin<System.Numerics.Vector3> Numeric(Point3d point) =>
-        Seq(point.X, point.Y, point.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
-            ? new System.Numerics.Vector3((float)point.X, (float)point.Y, (float)point.Z)
-            : new InvalidRhinoValue();
+        xform.ToFloatArray(rowDominant: false) is var entries && entries.All(float.IsFinite)
+            ? MemoryMarshal.Cast<float, System.Numerics.Matrix4x4>(entries.AsSpan())[0]
+            : Error.New(ErrorCodes.ValidationFailed, "transform holds an entry outside single precision");
 
     public static Fin<System.Numerics.Vector3> Numeric(Vector3d vector) =>
         Seq(vector.X, vector.Y, vector.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
             ? new System.Numerics.Vector3((float)vector.X, (float)vector.Y, (float)vector.Z)
-            : new InvalidRhinoValue();
+            : Error.New(ErrorCodes.ValidationFailed, "vector holds a component outside single precision");
 
-    public static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<FocalLength> focal, Option<FNumber> aperture) =>
+    public static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<LensDistance> focal, Option<PositiveMagnitude> aperture) =>
         aperture.IsSome
-            ? focal.Traverse(length => Conversions.Validated<FocusDistance, float, InvalidPixelValue>((float)(view.FocalBlurDistance * LengthUnit.Scale(spaceUnit, LengthUnit.Meters)))
-                .Bind(focus => LensFocus.Validate(length, focus, out LensFocus held) is { } invalid ? Fin.Fail<LensFocus>(invalid) : Fin.Succ(held))).As()
+            ? focal.Traverse(length => LensDistance.Validated((float)(view.FocalBlurDistance * LengthUnit.Scale(spaceUnit, LengthUnit.Meters)))
+                .Bind(focus => Admission.Admitted(LensFocus.Validate(length, focus, out LensFocus held), held))).As()
             : Fin.Succ(Option<LensFocus>.None);
 
     public static Fin<Camera> ToCamera(ViewInfo view, LengthUnit spaceUnit, PixelExtent extent, Option<LensFocus> lens) =>
@@ -128,7 +117,7 @@ public static class Cameras {
                     Refused.Unless(view.Viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _),
                             (Left: parallel ? left * metres : left / near, Right: parallel ? right * metres : right / near,
                                 Bottom: parallel ? bottom * metres : bottom / near, Top: parallel ? top * metres : top / near), nameof(ViewportInfo.GetFrustum))
-                        .Bind(static window => ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held) is { } invalid ? Fin.Fail<ViewWindow>(invalid) : Fin.Succ(held)))
+                        .Bind(static window => Admission.Admitted(ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held), held)))
                 .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
                 .As(),
         };
@@ -141,7 +130,7 @@ public static class Cameras {
                         (placed.Map(static light => (light.Id, light.LightGeometry.Location))
                                 + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, point.PointGeometry.Location))
                                 + Conversions.Rows(doc.Objects.GetObjectsByType<InstanceObject>()).Map(static block => (block.Id, Location: block.InsertionPoint)))
-                            .Traverse(row => Numeric(row.Location * metres).Map(position => (row.Id, position))).As(),
+                            .Traverse(row => Numeric((Vector3d)(row.Location * metres)).Map(position => (row.Id, position))).As(),
                         directional.Traverse(static light => Numeric(-light.LightGeometry.Direction).Map(direction => (light.Id, direction))).As())
                         .Apply(static (sun, points, directions) => new SceneLights(sun, toHashMap(points), toHashMap(directions))).As(),
                 });

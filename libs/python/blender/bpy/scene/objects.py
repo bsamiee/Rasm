@@ -1,7 +1,6 @@
 """Desired object state, native stack edits, mesh geometry, evaluated bounds, and scoped writes."""
 
 from collections.abc import Callable, Iterable, Mapping
-from contextlib import ExitStack
 from functools import partial, reduce
 from itertools import chain, starmap
 from typing import Annotated, ClassVar
@@ -16,9 +15,10 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.operators import answered, Operator, Outcome
+from blender.bpy.data.ids.ownership import kept
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Not, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, written
 from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, Selection, Snapshot, ViewLayers
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderUnmetFault
 from blender.bpy.scene.collections import joined
@@ -133,8 +133,8 @@ class SubdivisionLevels(msgspec.Struct, frozen=True, kw_only=True):
 class LevelEdit(msgspec.Struct, frozen=True, kw_only=True):
     """Subdivision levels and the objects receiving them."""
 
-    levels: Annotated[SubdivisionLevels, msgspec.Meta(title="Levels", description="Viewport and render subdivision levels")] = SubdivisionLevels()
-    scope: Annotated[Scope, msgspec.Meta(title="Scope", description="Objects whose modifiers take the levels")] = Selection()
+    levels: Annotated[SubdivisionLevels, msgspec.Meta(description="Viewport and render subdivision levels")] = SubdivisionLevels()
+    scope: Annotated[Scope, msgspec.Meta(description="Objects whose modifiers take the levels")] = Selection()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -166,18 +166,7 @@ def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) ->
 
 def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> BlenderResult[bpy.types.Object]:
     """Creates and joins an object, releasing it when native membership is refused."""
-
-    def published(_: object) -> bpy.types.Object:
-        scope.pop_all()
-        return item
-
-    with ExitStack() as scope:
-        try:
-            item = bpy.data.objects.new(name, data.to_optional())
-        except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=name, error=error),))
-        scope.callback(bpy.data.objects.remove, item, do_unlink=True)
-        return joined(collection, (item,)).map(published)
+    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(name, data.to_optional())), lambda item: joined(collection, (item,)).map(lambda _: item))
 
 
 # --- [STACKS]
@@ -205,7 +194,7 @@ def restack(row: Restacked) -> tuple[Step, ...]:
     named = any(parameter.identifier == "name" for parameter in functions["new"].parameters)
 
     def removed(key: str) -> Step:
-        return lambda: catch(lambda: stack.remove(stack[key]), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(stack), error=error),))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return lambda: BlenderEditFault.attempted(repr(stack), lambda: stack.remove(stack[key]))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     def added(key: str) -> Step:
         def inserted() -> BlenderResult[None]:
@@ -220,7 +209,7 @@ def restack(row: Restacked) -> tuple[Step, ...]:
         return inserted
 
     def moved(stack: bpy.types.ObjectModifiers | bpy.types.ObjectConstraints, before: int, index: int) -> BlenderResult[None]:
-        return catch(lambda: stack.move(before, index), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(stack), error=error),))
+        return BlenderEditFault.attempted(repr(stack), lambda: stack.move(before, index))
 
     leaving = tuple(edit.key for edit in row.edits if isinstance(edit, (Deleted, Reparametrized)))
     order = [entry.name for entry in stack if entry.name not in leaving]
@@ -402,9 +391,7 @@ def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tup
         case Scenes(names=names) | ViewLayers(scenes=names):
             return ViewLayers(scenes=names).owners(context).map(reaching)
         case Selection() | Objects():
-            return paired(scope.owners(context), Option.of_optional(context.view_layer).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),))).map(
-                lambda pair: tuple((item, (pair[1],)) for item in pair[0])
-            )
+            return paired(scope.owners(context), rooted(bpy.types.ViewLayer, context)).map(lambda pair: tuple((item, (pair[1],)) for item in pair[0]))
 
 
 def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[Reconciled, ...]]:

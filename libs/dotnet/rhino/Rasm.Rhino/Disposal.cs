@@ -11,64 +11,93 @@ public sealed class Disposal<T>(T held, Action<T> release) : IDisposable {
     public void Relinquish() => _ = Interlocked.Exchange(ref holding, value: null);
 }
 
+public sealed class Retained<T>(Func<Seq<T>, IO<Unit>> release) : IDisposable {
+    private readonly Ref<Option<Seq<T>>> held = Ref(Some(Seq<T>()));
+
+    public IO<Unit> Drain => Taken(open: true);
+
+    public IO<Unit> Close => Taken(open: false);
+
+    public void Retain(T value) {
+        if (!atomic(() => {
+            Option<Seq<T>> prior = held.Value;
+            held.Value = prior.Map(items => items.Add(value));
+            return prior.IsSome;
+        })) throw Errors.Cancelled.ToException();
+    }
+
+    public IO<Unit> Replace(T value) =>
+        atomicIO(() => {
+            Option<Seq<T>> prior = held.Value;
+            held.Value = prior.Map(_ => Seq(value));
+            return prior;
+        }).Bind(prior => prior.Match(Some: release, None: () => release(Seq(value)).Bind(static _ => IO.fail<Unit>(Errors.Cancelled)))).Uninterruptible();
+
+    public void Dispose() => Close.Run();
+
+    private IO<Unit> Taken(bool open) =>
+        atomicIO(() => {
+            Option<Seq<T>> prior = held.Value;
+            held.Value = prior.Filter(_ => open).Map(static _ => Seq<T>());
+            return prior;
+        }).Bind(prior => prior.Match(Some: release, None: static () => IO.pure(unit))).Uninterruptible();
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DisposalOps {
     // --- [ACQUISITION]
+    public static IO<TResult> Transacted<TOpen, TValue, TResult>(IO<TOpen> open, Func<TOpen, IO<TValue>> body, Func<TOpen, IO<Unit>> rollback, Func<TOpen, TValue, IO<TResult>> commit) =>
+        from environment in envIO
+        from result in (from held in open
+                        from value in OnFailure(IO.liftVAsync(() => IO.pure(held).Bind(body).RunAsync(environment)), IO.pure(held).Bind(rollback))
+                        from committed in commit(held, value)
+                        select committed).Uninterruptible()
+        select result;
+
     public static IO<T> Acquire<T>(IO<T> acquire, Func<T, IO<Unit>> release, Action<T> retain) =>
         (from held in acquire
          from retained in OnFailure(IO.lift(() => retain(held)), IO.pure(held).Bind(release))
          select held).Uninterruptible();
 
+    public static IO<T> Acquire<T>(IO<T> acquire, Action<T> retain) where T : IDisposable =>
+        Acquire(acquire, static held => IO.lift(held.Dispose), retain);
+
     public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Action<IDisposable> retain) =>
-        from environment in envIO
-        from result in (from held in Journal<IDisposable>(Release)
-                        from retained in OnFailure(IO.lift(() => retain(held.Release)), held.Close)
-                        from value in OnFailure(IO.liftVAsync(() => IO.pure(held.Retain).Bind(body).RunAsync(environment)), held.Close)
-                        select value).Uninterruptible()
-        select result;
+        Transacted(
+            from held in IO.lift(static () => new Retained<IDisposable>(Release))
+            from retained in OnFailure(IO.lift(() => retain(held)), held.Close)
+            select held,
+            held => body(held.Retain),
+            static held => held.Close,
+            static (_, value) => IO.pure(value));
 
     public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Action<TResult, IDisposable> retain) =>
-        from environment in envIO
-        from result in (from held in Journal<IDisposable>(Release)
-                        from value in OnFailure(IO.liftVAsync(() => IO.pure(held.Retain).Bind(body).RunAsync(environment)), held.Close)
-                        from retained in OnFailure(IO.lift(() => retain(value, held.Release)), held.Close)
-                        select value).Uninterruptible()
-        select result;
+        Replace(body, (value, lease) => {
+            retain(value, lease);
+            return IO.pure(unit);
+        });
 
     public static IO<TResult> Replace<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Func<TResult, IDisposable, IO<Unit>> publish) =>
-        from environment in envIO
-        from result in (from held in Journal<IDisposable>(Release)
-                        from value in OnFailure(IO.liftVAsync(() => IO.pure(held.Retain).Bind(body).RunAsync(environment)), held.Close)
-                        from retire in OnFailure(IO.lift(() => publish(value, held.Release)), held.Close)
-                        from retired in retire
-                        select value).Uninterruptible()
-        select result;
+        Transacted(
+            IO.lift(static () => new Retained<IDisposable>(Release)),
+            held => body(held.Retain),
+            static held => held.Close,
+            (held, value) => OnFailure(IO.lift(() => publish(value, held)), held.Close).Bind(static retire => retire).Map(_ => value));
 
-    public static IO<Seq<TResult>> AcquireAll<T, TResult>(Seq<Func<Action<T>, IO<TResult>>> acquire, Func<Seq<T>, IO<Unit>> release, Action<Seq<TResult>, IDisposable> retain) =>
-        from environment in envIO
-        from result in (from held in Journal(release)
-                        let acquisitions = acquire.TraverseM(factory => IO.pure(held.Retain).Bind(factory)).As()
-                        from values in OnFailure(IO.liftVAsync(() => acquisitions.RunAsync(environment)), held.Close)
-                        from retained in OnFailure(IO.lift(() => retain(values, held.Release)), held.Close)
-                        select values).Uninterruptible()
-        select result;
+    public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body) where T : IDisposable =>
+        Within(acquire, body, static held => IO.lift(held.Dispose));
 
     public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body, Func<T, IO<Unit>> release) =>
-        from environment in envIO
-        from result in (from held in IO.lift(acquire)
-                        let cleanup = IO.pure(held).Bind(release)
-                        from value in OnFailure(IO.liftVAsync(() => IO.pure(held).Bind(body).RunAsync(environment)), cleanup)
-                        from released in cleanup
-                        select value).Uninterruptible()
-        select result;
+        Within(IO.lift(acquire), body, release);
+
+    public static IO<TResult> Within<T, TResult>(IO<T> acquire, Func<T, IO<TResult>> body, Func<T, IO<Unit>> release) =>
+        Transacted(acquire, body, release, (held, value) => release(held).Map(_ => value));
 
     public static IO<TResult> Within<T, TResult>(Func<Action<T>, IO<TResult>> body, Func<Seq<T>, IO<Unit>> release) =>
-        from environment in envIO
-        from result in (from held in Journal(release)
-                        from value in OnFailure(IO.liftVAsync(() => IO.pure(held.Retain).Bind(body).RunAsync(environment)), held.Close)
-                        from released in held.Close
-                        select value).Uninterruptible()
-        select result;
+        Transacted(IO.lift(() => new Retained<T>(release)), held => body(held.Retain), static held => held.Close, static (held, value) => held.Close.Map(_ => value));
+
+    public static IO<TResult> Found<T, TResult>(Func<T?> acquire, string member, Func<T, IO<TResult>> body) where T : class, IDisposable =>
+        Within(acquire, held => IO.lift(Refused.UnlessFound(held, member)).Bind(body), static held => Release(held));
 
     public static IO<ForkIO<TResult>> Fork<TResult>(IO<TResult> body, Action<IDisposable> retain) =>
         from environment in envIO
@@ -78,10 +107,7 @@ public static class DisposalOps {
         select result;
 
     public static IO<T> OnFailure<T>(IO<T> effect, IO<Unit> release) =>
-        envIO
-            .Bind(environment => IO.liftVAsync(() => effect.RunAsync(environment))
-                .IfFail(error => release.MapFail(fault => error + fault).Bind(_ => IO.fail<T>(error)))
-                .Uninterruptible());
+        OnFailure(effect, _ => release);
 
     public static IO<T> OnFailure<T>(IO<T> effect, Func<Error, IO<Unit>> release) =>
         envIO
@@ -95,23 +121,11 @@ public static class DisposalOps {
          from changed in OnFailure(IO.lift(() => { write(value); retain(lease); }), IO.lift(lease.Dispose))
          select changed).Uninterruptible();
 
-    private static IO<(Action<T> Retain, IO<Unit> Close, IDisposable Release)> Journal<T>(Func<Seq<T>, IO<Unit>> release) =>
-        IO.lift(static () => Ref(Some(Seq<T>()))).Map(held => {
-            Action<T> retain = value => {
-                if (!atomic(() => {
-                    Option<Seq<T>> prior = held.Value;
-                    held.Value = prior.Map(items => items.Add(value));
-                    return prior.IsSome;
-                })) throw Errors.Cancelled.ToException();
-            };
-            IO<Unit> close = atomicIO(() => {
-                Option<Seq<T>> prior = held.Value;
-                held.Value = None;
-                return prior;
-            }).Bind(prior => prior.Match(Some: release, None: static () => IO.pure(unit))).Uninterruptible();
-            IDisposable lease = new Disposal<IO<Unit>>(close, static effect => effect.Run());
-            return (retain, close, lease);
-        });
+    public static IO<Unit> Published<TMember>(Retained<IDisposable> owned, TMember value, IDisposable lease, Func<TMember> read, Action<TMember> write) =>
+        from prior in IO.lift(read)
+        from written in OnFailure(IO.lift(() => write(value)), IO.lift(() => write(prior)).Bind(_ => Release(lease)))
+        from replaced in owned.Replace(lease)
+        select replaced;
 
     private static IO<Unit> Attach<TResult>(ForkIO<TResult> fork, EnvIO environment, Action<IDisposable> retain) =>
         from registration in IO.lift(() => environment.Token.Register(() => fork.Cancel.Run()))
@@ -120,8 +134,8 @@ public static class DisposalOps {
         select attached;
 
     // --- [RELEASE]
-    public static IO<Unit> Release<T>(Seq<T> held) where T : IDisposable =>
-        Callbacks.Each(held.Rev().Map(static item => IO.lift(item.Dispose))).Map(unit).Uninterruptible();
+    public static IO<Unit> Release<T>(params Seq<T> held) where T : IDisposable? =>
+        Callbacks.Each(held.Rev().Bind(static item => item is { } present ? Seq(IO.lift(present.Dispose)) : [])).Map(unit).Uninterruptible();
 
     public static IDisposable Composite(Seq<IDisposable> held) =>
         new Disposal<Seq<IDisposable>>(held, static items => Release(items).Run());

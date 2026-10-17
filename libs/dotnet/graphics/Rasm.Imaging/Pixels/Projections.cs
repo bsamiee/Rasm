@@ -9,34 +9,29 @@ namespace Rasm.Imaging.Pixels;
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct FieldOfView : IMinMaxValue<FieldOfView> {
+public readonly partial struct FieldOfView : IPresented<FieldOfView, float> {
     public static FieldOfView MinValue { get; } = new(float.BitIncrement(0f));
     public static FieldOfView MaxValue { get; } = new(float.BitDecrement(float.Pi));
     public static FieldOfView SixthTurn { get; } = new(float.Pi / 3f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct SweepAngle : IMinMaxValue<SweepAngle> {
+public readonly partial struct SweepAngle : IPresented<SweepAngle, float> {
     public static SweepAngle MinValue { get; } = new(float.BitIncrement(0f));
     public static SweepAngle MaxValue { get; } = new(float.BitDecrement(float.Tau));
     public static SweepAngle HalfTurn { get; } = new(float.Pi);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
     SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct SignedAngle : IMinMaxValue<SignedAngle> {
+public readonly partial struct SignedAngle : IPresented<SignedAngle, float> {
     public static SignedAngle MinValue { get; } = new(-float.Pi);
     public static SignedAngle MaxValue { get; } = new(float.Pi);
     public static SignedAngle Down { get; } = new(-float.Pi / 2f);
@@ -44,70 +39,39 @@ public readonly partial struct SignedAngle : IMinMaxValue<SignedAngle> {
     public static SignedAngle Up { get; } = new(float.Pi / 2f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
     SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct Elevation : IMinMaxValue<Elevation> {
+public readonly partial struct Elevation : IPresented<Elevation, float> {
     public static Elevation MinValue { get; } = new(-float.Pi / 2f);
     public static Elevation MaxValue { get; } = new(float.Pi / 2f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
-}
-
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Rectilinear", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
-    SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct PaniniDistance : IMinMaxValue<PaniniDistance> {
-    public static PaniniDistance MinValue { get; } = new(0f);
-    public static PaniniDistance MaxValue { get; } = new(float.MaxValue);
-    public static PaniniDistance Panini { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
-}
-
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
-    SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct VerticalCompression : IMinMaxValue<VerticalCompression> {
-    public static VerticalCompression MinValue { get; } = new(0f);
-    public static VerticalCompression MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
     SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct CylinderHeight : IMinMaxValue<CylinderHeight> {
     public static CylinderHeight MinValue { get; } = new(-float.MaxValue);
     public static CylinderHeight MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct FullTurnRadius : IMinMaxValue<FullTurnRadius> {
     public static FullTurnRadius MinValue { get; } = new(float.BitIncrement(0f));
     public static FullTurnRadius MaxValue { get; } = new(float.MaxValue);
     public static FullTurnRadius Standard { get; } = new(2f * 10.5f / 12f);
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct ViewWindow {
     public double CenterX { get; }
     public double CenterY { get; }
@@ -141,9 +105,10 @@ public readonly partial struct ViewWindow {
 
     private static ViewWindow Centered(double width, PixelExtent extent) => new(0d, 0d, width, width * extent.Height / extent.Width);
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref double centerX, ref double centerY, ref double width, ref double height) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double centerX, ref double centerY, ref double width, ref double height) =>
         validationError = double.IsFinite(centerX) && double.IsFinite(centerY)
-            && width is > 0d and < double.PositiveInfinity && height is > 0d and < double.PositiveInfinity ? null : new InvalidPixelValue();
+            && width is > 0d and < double.PositiveInfinity && height is > 0d and < double.PositiveInfinity ? null
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"view window at ({centerX}, {centerY}) of {width}x{height} must be finite with positive size"));
 }
 
 public sealed class Homography {
@@ -182,7 +147,6 @@ public sealed class Homography {
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 [ObjectFactory<string>]
 public sealed partial class FrameQuad : IConvertible<string> {
     public (double X, double Y) TopLeft { get; }
@@ -211,13 +175,13 @@ public sealed partial class FrameQuad : IConvertible<string> {
     public string ToValue() =>
         string.Create(CultureInfo.InvariantCulture, $"{TopLeft.X},{TopLeft.Y},{TopRight.X},{TopRight.Y},{BottomRight.X},{BottomRight.Y},{BottomLeft.X},{BottomLeft.Y}");
 
-    public static InvalidPixelValue? Validate(string? value, IFormatProvider? provider, out FrameQuad? item) {
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out FrameQuad? item) {
         item = null;
         return value is null
             ? null
             : toSeq(value.Split(',')).Traverse(static field => Invariant.Number<double>(field)).As().Case switch {
                 Seq<double> and [var x0, var y0, var x1, var y1, var x2, var y2, var x3, var y3] => Validate((x0, y0), (x1, y1), (x2, y2), (x3, y3), out item),
-                _ => new InvalidPixelValue(),
+                _ => new ValidationError($"frame quad '{value}' must be eight comma-separated numbers"),
             };
     }
 
@@ -225,11 +189,11 @@ public sealed partial class FrameQuad : IConvertible<string> {
         (((EFloat.FromDouble(corner.X) - EFloat.FromDouble(previous.X)) * (EFloat.FromDouble(next.Y) - EFloat.FromDouble(corner.Y)))
             - ((EFloat.FromDouble(corner.Y) - EFloat.FromDouble(previous.Y)) * (EFloat.FromDouble(next.X) - EFloat.FromDouble(corner.X)))).Sign;
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref (double X, double Y) topLeft, ref (double X, double Y) topRight, ref (double X, double Y) bottomRight, ref (double X, double Y) bottomLeft) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref (double X, double Y) topLeft, ref (double X, double Y) topRight, ref (double X, double Y) bottomRight, ref (double X, double Y) bottomLeft) =>
         validationError = double.IsFinite(topLeft.X) && double.IsFinite(topLeft.Y) && double.IsFinite(topRight.X) && double.IsFinite(topRight.Y)
             && double.IsFinite(bottomRight.X) && double.IsFinite(bottomRight.Y) && double.IsFinite(bottomLeft.X) && double.IsFinite(bottomLeft.Y)
             && (Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
-                is ( > 0, > 0, > 0, > 0) or ( < 0, < 0, < 0, < 0) ? null : new InvalidPixelValue();
+                is ( > 0, > 0, > 0, > 0) or ( < 0, < 0, < 0, < 0) ? null : new ValidationError("frame quad corners must be finite and form a convex quadrilateral");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -263,45 +227,20 @@ public abstract partial record Frustum {
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct FocalLength : IMinMaxValue<FocalLength> {
-    public static FocalLength MinValue { get; } = new(float.BitIncrement(0f));
-    public static FocalLength MaxValue { get; } = new(float.MaxValue);
+public readonly partial struct LensDistance : IMinMaxValue<LensDistance> {
+    public static LensDistance MinValue { get; } = new(float.BitIncrement(0f));
+    public static LensDistance MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct FocusDistance : IMinMaxValue<FocusDistance> {
-    public static FocusDistance MinValue { get; } = new(float.BitIncrement(0f));
-    public static FocusDistance MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidPixelValue>]
-public readonly partial struct FNumber : IMinMaxValue<FNumber> {
-    public static FNumber MinValue { get; } = new(float.BitIncrement(0f));
-    public static FNumber MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct LensFocus {
-    public FocalLength FocalLength { get; }
-    public FocusDistance FocusDistance { get; }
+    public LensDistance FocalLength { get; }
+    public LensDistance FocusDistance { get; }
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref FocalLength focalLength, ref FocusDistance focusDistance) =>
-        validationError = (float)focusDistance > (float)focalLength ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref LensDistance focalLength, ref LensDistance focusDistance) =>
+        validationError = (float)focusDistance > (float)focalLength ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"focus distance {focusDistance} must exceed focal length {focalLength}"));
 }
 
 public sealed record Camera {
@@ -330,20 +269,21 @@ public sealed record Camera {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidPixelValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class WrapMode {
-    public static readonly WrapMode Black = new("black", static (point, size, offset) => (point + offset) switch {
+public sealed partial class WrapMode : ICaptioned {
+    public static readonly WrapMode Black = new("black", "Clip", static (point, size, offset) => (point + offset) switch {
         var center => (double.Clamp(center, 0.5d, size - 0.5d), double.Clamp(center + 0.5d, 0d, 1d) * double.Clamp(size + 0.5d - center, 0d, 1d)),
     });
-    public static readonly WrapMode Clamp = new("clamp", static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
-    public static readonly WrapMode Periodic = new("periodic", static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
+    public static readonly WrapMode Clamp = new("clamp", "Extend", static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
+    public static readonly WrapMode Periodic = new("periodic", "Repeat", static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
         var turn => (turn < 0d ? turn + size : turn, 1d),
     });
-    public static readonly WrapMode Mirror = new("mirror", static (point, size, offset) => (2d * size) switch {
+    public static readonly WrapMode Mirror = new("mirror", "Mirror", static (point, size, offset) => (2d * size) switch {
         var period => double.Abs(((point % period) + (offset % period)) % period) switch { var turn => (double.Min(turn, period - turn), 1d) },
     });
+
+    public string Caption { get; }
 
     public bool Tiles => Map(black: false, clamp: false, periodic: true, mirror: true);
 
@@ -489,7 +429,7 @@ public abstract partial record Projection {
             select Uncentered((azimuth.Cos * reach, azimuth.Sin * reach));
     }
 
-    public sealed record Panini(PixelExtent Extent, FieldOfView Field, PaniniDistance Distance, VerticalCompression Compression) : Projection(Extent) {
+    public sealed record Panini(PixelExtent Extent, FieldOfView Field, Magnitude Distance, AxisFraction Compression) : Projection(Extent) {
         public override bool Upright => true;
 
         private protected override Option<Vector3> Direction((double X, double Y) point) =>
@@ -521,10 +461,10 @@ public abstract partial record Projection {
     }
 }
 
-public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevation, SignedAngle Roll) : IStateRecord<PanoramaView, PanoramaViewParameter, InvalidPixelValue> {
+public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevation, SignedAngle Roll) : IStateRecord<PanoramaView, PanoramaViewParameter> {
     public static PanoramaView Default { get; }
 
-    public Quaternion Rotation => Turn(Heading, Elevation, Roll);
+    public Quaternion Rotation => Quaternion.CreateFromYawPitchRoll(-(float)Heading, Elevation, Roll);
 
     public static Option<(float Heading, float Elevation, float Roll)> Facing(Vector3 left, Vector3 right) =>
         from input in float.IsFinite(left.X) && float.IsFinite(left.Y) && float.IsFinite(left.Z)
@@ -541,21 +481,19 @@ public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevat
         let yaw = double.SinCos(heading)
         let pitch = double.SinCos(elevation)
         select ((float)heading, (float)elevation, (float)double.Atan2((-across.X * yaw.Sin * pitch.Sin) + (across.Y * pitch.Cos) + (across.Z * yaw.Cos * pitch.Sin), (across.X * yaw.Cos) + (across.Z * yaw.Sin)));
-
-    private static Quaternion Turn(float heading, float elevation, float roll) => Quaternion.CreateFromYawPitchRoll(-heading, elevation, roll);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidPixelValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanoramaViewParameter : IStateParameter<PanoramaView> {
-    public static readonly PanoramaViewParameter Heading = new("heading", StateParameter.Bounded<PanoramaView, SignedAngle, float, InvalidPixelValue>(
-        Lens<PanoramaView, SignedAngle>.New(static view => view.Heading, static heading => view => view with { Heading = heading }), SignedAngle.Presentation));
-    public static readonly PanoramaViewParameter Elevation = new("elevation", StateParameter.Bounded<PanoramaView, Elevation, float, InvalidPixelValue>(
-        Lens<PanoramaView, Elevation>.New(static view => view.Elevation, static elevation => view => view with { Elevation = elevation }), Pixels.Elevation.Presentation));
-    public static readonly PanoramaViewParameter Roll = new("roll", StateParameter.Bounded<PanoramaView, SignedAngle, float, InvalidPixelValue>(
-        Lens<PanoramaView, SignedAngle>.New(static view => view.Roll, static roll => view => view with { Roll = roll }), SignedAngle.Presentation));
+    public static readonly PanoramaViewParameter Heading = new("heading", StateParameter.Bounded(Lens<PanoramaView, SignedAngle>.New(static view => view.Heading, static heading => view => view with { Heading = heading })),
+        new("Heading", "Turn of the view to the right"));
+    public static readonly PanoramaViewParameter Elevation = new("elevation", StateParameter.Bounded(Lens<PanoramaView, Elevation>.New(static view => view.Elevation, static elevation => view => view with { Elevation = elevation })),
+        new("Elevation", "Tilt of the view upward"));
+    public static readonly PanoramaViewParameter Roll = new("roll", StateParameter.Bounded(Lens<PanoramaView, SignedAngle>.New(static view => view.Roll, static roll => view => view with { Roll = roll })),
+        new("Roll", "Turn of the view about its axis, counterclockwise"));
 
     public StateParameter<PanoramaView> Kind { get; }
+    public ParameterText Text { get; }
 }

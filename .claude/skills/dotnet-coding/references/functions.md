@@ -185,7 +185,6 @@ Function dependencies decouple the consumer from the implementation, take a dete
 Runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` lifts a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
 
 ```csharp
-internal sealed record OwnerUnknown() : Expected("the owner is unknown", (int)Codes.OwnerUnknown);
 internal sealed record AppRuntime(ConnectionIO Connection, TimeProvider Time) : Has<Eff<AppRuntime>, ConnectionIO> {
     static K<Eff<AppRuntime>, ConnectionIO> Has<Eff<AppRuntime>, ConnectionIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
 }
@@ -196,7 +195,7 @@ internal static class Workflow {
         Func<Command, IO<Unit>> save, Command command) =>
         from valid in Eff<RT, Command>.Lift(() => validate(command).ToFin())
         from owner in lookup(valid.OwnerId)
-        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(new OwnerUnknown()))
+        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(Error.New($"no owner has id {valid.OwnerId}")))
         from _ in save(valid)
         select found;
 }
@@ -206,7 +205,7 @@ internal static class Host {
         Workflow.Book(Validators.NotPast(Today(runtime.Time)), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
 
     private static LocalDate Today(TimeProvider time) =>
-        time.GetCurrentInstant().InZone(BclDateTimeZone.FromTimeZoneInfo(time.LocalTimeZone)).Date;
+        time.ToZonedClock().GetCurrentDate();
 }
 ```
 
@@ -254,25 +253,19 @@ Immutable state stays separate from behavior, and a pure transition returns its 
 
 ```csharp
 internal sealed record State(decimal Balance);
-internal sealed record Insufficient() : Expected("insufficient balance", (int)Codes.Insufficient);
 
 internal static class Transitions {
     public static Fin<State> Debit(this State state, decimal amount) =>
-        state.Balance < amount ? new Insufficient() : new State(state.Balance - amount);
+        state.Balance < amount ? Error.New("insufficient balance") : new State(state.Balance - amount);
 }
 ```
 
-Boundary services expose reads as `IO<Option<A>>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `IO.lift`, the one consumer matches absence once through `ToFin` with a typed `Expected` that puts it on the `IO` error channel, and `IO.lift(Fin<A>)` lifts the transition's rejection onto the same channel:
+Boundary services expose reads as `IO<Option<A>>` and writes as `IO<Unit>` while the transition stays pure: the repository lifts its `Option` read with `IO.lift`, the one consumer matches absence once through `ToFin` with an `Error` that puts it on the `IO` error channel, and `IO.lift(Fin<A>)` lifts the transition's rejection onto the same channel:
 
 ```csharp
-internal sealed record NotFound() : Expected("state not found", (int)Codes.NotFound);
-
 internal interface IRepository<T> {
     public IO<Option<T>> Get(Guid id);
     public IO<Unit> Save(Guid id, T value);
-}
-internal interface INotifier {
-    public IO<Unit> Send(Command command, State state);
 }
 
 internal sealed class MemoryStates : IRepository<State> {
@@ -281,20 +274,20 @@ internal sealed class MemoryStates : IRepository<State> {
     public IO<Option<State>> Get(Guid id) => IO.lift(() => store.Find(id));
     public IO<Unit> Save(Guid id, State value) => IO.lift(() => store.AddOrUpdate(id, value));
 }
-internal sealed class Handler(IRepository<State> states, INotifier notifier) {
+internal sealed class Handler(IRepository<State> states, Func<Command, State, IO<Unit>> notify) {
     public IO<Unit> Handle(Command command) =>
         from state in Require(states.Get(command.TargetId))
         from next in IO.lift(Workflow.Handle(command, state))
         from _ in states.Save(command.TargetId, next)
-        from __ in notifier.Send(command, next)
+        from __ in notify(command, next)
         select unit;
 
     private static IO<State> Require(IO<Option<State>> lookup) =>
-        lookup.Bind(static option => IO.lift(option.ToFin(new NotFound())));
+        lookup.Bind(static option => IO.lift(option.ToFin(Error.New("state not found"))));
 }
 ```
 
-`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel in place of nested result types. `Save` and `Send` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the typed error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary. A terminal step with more than one effect keeps each one visible. Composition has limits:
+`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel in place of nested result types. `Save` and `notify` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary. A terminal step with more than one effect keeps each one visible. Composition has limits:
 - `Option` short-circuits and discards the reason, a missing state and an insufficient balance read the same, `Fin` keeps the reason
 - Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations
 - Database transactions cannot protect an external call from a process failure after the call and before the commit

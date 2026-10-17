@@ -4,13 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using NodaTime.Text;
 using Rasm.Imaging.Files;
+using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Files;
 
 namespace Rasm.Rhino.Render.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class QueueHeartbeat {
     public Duration Interval { get; }
     public int Misses { get; }
@@ -19,14 +19,13 @@ public sealed partial class QueueHeartbeat {
     public static (Duration Low, Duration High) Intervals { get; } = (Duration.FromMilliseconds(1), Duration.FromMilliseconds(uint.MaxValue - 1));
     public static (int Low, int High) MissedIntervals { get; } = (2, int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Duration interval, ref int misses) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Duration interval, ref int misses) =>
         validationError = interval >= Intervals.Low && interval <= Intervals.High && misses >= MissedIntervals.Low
             ? null
-            : new InvalidRhinoValue();
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"progress needs an interval inside [{Intervals.Low}, {Intervals.High}] and at least {MissedIntervals.Low} missed intervals"));
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RunEnd {
@@ -51,29 +50,19 @@ public sealed record QueueProgress(
     Option<string> Job, int ProcessId, Instant ProcessStart, RetryCount Retries, RetryDelay Delay, Option<RunEnd> Ended, HashMap<ContentKey, EntryProgress> Entries) {
     // --- [FILE]
     public static IO<FileStream> Acquire(OutputPath path, Action<FileStream> retain) =>
-        DisposalOps.Acquire(
-            IO.lift(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)),
-            static stream => IO.lift(stream.Dispose), retain);
+        DisposalOps.Acquire(IO.lift(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)), retain);
 
     public static IO<Option<QueueProgress>> Read(OutputPath path) =>
-        IO.lift(() => File.ReadAllBytes(path))
-            .Bind(static bytes => IO.lift(() => Missing.Unless(JsonSerializer.Deserialize(bytes, ProgressContext.Default.ProgressRecord), nameof(JsonSerializer.Deserialize))))
-            .Catch(static error => error.HasException<JsonException>(), error => IO.fail<ProgressRecord>(new ProgressUnreadable(path, error)))
-            .Bind(record => IO.lift(ProgressMapper.FromRecord(record, path)))
-            .Map(static progress => Some(progress))
-            .Catch(static error => error.HasException<FileNotFoundException>(), static _ => IO.pure(Option<QueueProgress>.None));
+        JsonFiles.Read(path, ProgressContext.Default.ProgressRecord, ProgressMapper.FromRecord, "render queue record");
 
     public static IO<Unit> Write(OutputPath path, QueueProgress progress) =>
-        FilePublication.Write(path, overwrite: true, stream => IO.liftAsync(async environment => {
-            await JsonSerializer.SerializeAsync(stream, ProgressMapper.ToRecord(progress), ProgressContext.Default.ProgressRecord, environment.Token).ConfigureAwait(false);
-            return unit;
-        }));
+        JsonFiles.Write(path, ProgressMapper.ToRecord(progress), ProgressContext.Default.ProgressRecord);
 
     public static IO<Unit> Touch(OutputPath path, TimeProvider clock) =>
         IO.lift(() => File.SetLastWriteTimeUtc(path, clock.GetUtcNow().UtcDateTime));
 
     public static IO<QueueProgress> Started(Option<string> job, RenderBatch queue, Option<QueueProgress> resumed, QueueSettings settings) =>
-        use(Process.GetCurrentProcess).Map(self => new QueueProgress(
+        DisposalOps.Within(Process.GetCurrentProcess, self => IO.lift(() => new QueueProgress(
                 job,
                 self.Id,
                 self.StartTime.ToUniversalTime().ToInstant(),
@@ -82,8 +71,7 @@ public sealed record QueueProgress(
                 None,
                 toHashMap(queue.Entries.Map(entry => (entry.Key, resumed.Bind(record => record.Entries.Find(entry.Key)).IfNone(EntryProgress.Empty) with {
                     Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version.Taken.Map(version => (output.Name.Scope, version)))),
-                })))))
-            .Bracket();
+                }))))));
 
     // --- [STATE]
     public bool Succeeded => Ended.Exists(static end => end == RunEnd.Succeeded);
@@ -92,23 +80,24 @@ public sealed record QueueProgress(
 
     public Option<Relaunch> Relaunch => Job.Map(job => new Relaunch(job, Delay));
 
-    public static IO<RunState> State(Option<QueueProgress> record, OutputPath path, TimeProvider clock, QueueHeartbeat heartbeat) =>
-        record.Match(
+    public static IO<(QueueSettings Settings, Option<QueueProgress> Prior, RunState State)> Observed(QueueContext context) =>
+        from settings in context.Settings
+        from prior in Read(context.Record)
+        from state in prior.Match(
             Some: held => held.Ended.Match(
                 Some: static end => IO.pure<RunState>(new RunState.Ended(end)),
                 None: () =>
-                    from heard in IO.lift(() => File.GetLastWriteTimeUtc(path).ToInstant())
-                    from now in IO.lift(clock.GetCurrentInstant)
+                    from heard in IO.lift(() => File.GetLastWriteTimeUtc(context.Record).ToInstant())
+                    from now in IO.lift(context.Sink.Clock.GetCurrentInstant)
                     from live in Live(held)
-                    select live && (now - heard).ToInt128Nanoseconds() < heartbeat.Interval.ToInt128Nanoseconds() * heartbeat.Misses
+                    select live && (now - heard).ToInt128Nanoseconds() < settings.Heartbeat.Interval.ToInt128Nanoseconds() * settings.Heartbeat.Misses
                         ? (RunState)new RunState.Active(held.ProcessId, heard)
                         : new RunState.Crashed(heard)),
-            None: static () => IO.pure<RunState>(new RunState.Absent()));
+            None: static () => IO.pure<RunState>(new RunState.Absent()))
+        select (settings, prior, state);
 
     private static IO<bool> Live(QueueProgress record) =>
-        use(IO.lift(() => Process.GetProcessById(record.ProcessId)))
-            .Map(process => process.StartTime.ToUniversalTime().ToInstant() == record.ProcessStart)
-            .Bracket()
+        DisposalOps.Within(() => Process.GetProcessById(record.ProcessId), process => IO.lift(() => process.StartTime.ToUniversalTime().ToInstant() == record.ProcessStart))
             .Catch(static error => error.HasException<ArgumentException>() || error.HasException<InvalidOperationException>(), static _ => IO.pure(value: false));
 }
 
@@ -134,35 +123,34 @@ internal static class ProgressMapper {
                 [.. row.Value.Versions.AsIterable().Map(static version => new ProgressRecord.Version([.. version.Key.Map(static part => (string)part)], version.Value))]))]);
 
     // --- [INBOUND]
-    internal static Fin<QueueProgress> FromRecord(ProgressRecord record, OutputPath path) =>
+    internal static Fin<QueueProgress> FromRecord(ProgressRecord record) =>
         (
             Parsed(InstantPattern.ExtendedIso.Parse(record.ProcessStart), record.ProcessStart),
-            Conversions.Validated<RetryCount, int, InvalidRhinoValue>(record.Retries).ToValidation(),
-            Conversions.Validated<RetryDelay, int, InvalidRhinoValue>(record.Delay).ToValidation(),
-            Optional(record.Ended).Traverse(static end => Conversions.Validated<RunEnd, string, InvalidRhinoValue>(end).ToValidation()).As(),
+            RetryCount.Validated(record.Retries).ToValidation(),
+            RetryDelay.Validated(record.Delay).ToValidation(),
+            Optional(record.Ended).Traverse(static end => RunEnd.Validated(end).ToValidation()).As(),
             toSeq(record.Entries).Traverse(Entry).As()
         )
             .Apply((start, retries, delay, end, entries) => new QueueProgress(Optional(record.Job), record.ProcessId, start, retries, delay, end, toHashMap(entries)))
             .As()
-            .ToFin()
-            .MapFail(error => new ProgressUnreadable(path, error));
+            .ToFin();
 
     internal static Validation<Error, T> Parsed<T>(ParseResult<T> parsed, string text) =>
-        parsed.Success ? parsed.Value : new ProgressTextRefused(text);
+        parsed.Success ? parsed.Value : Unparsed(text);
+
+    private static Error Unparsed(string text) => Errors.ParseError($"Render queue record text {text} is unreadable");
 
     private static Validation<Error, (ContentKey Key, EntryProgress Progress)> Entry(ProgressRecord.Entry entry) =>
         (
-            (UInt128.TryParse(entry.Key, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out UInt128 key)
-                ? Conversions.Validated<ContentKey, UInt128, InvalidRhinoValue>(key)
-                : Fin.Fail<ContentKey>(new ProgressTextRefused(entry.Key))).ToValidation(),
-            Optional(entry.Last).Traverse(static last => Conversions.Validated<SequenceNumber, int, InvalidRhinoValue>(last).ToValidation()).As(),
+            Invariant.Number<UInt128>(entry.Key, NumberStyles.HexNumber).ToFin(Unparsed(entry.Key)).Bind(ContentKey.Validated).ToValidation(),
+            Optional(entry.Last).Traverse(static last => SequenceNumber.Validated(last).ToValidation()).As(),
             toSeq(entry.Times).Traverse(static time => Parsed(DurationPattern.Roundtrip.Parse(time), time)).As(),
             toSeq(entry.Versions).Traverse(Version).As()
         ).Apply(static (key, last, times, versions) => (key, new EntryProgress(last, times, toHashMap(versions)))).As();
 
     private static Validation<Error, (Seq<NamePart> Scope, OutputVersion Version)> Version(ProgressRecord.Version row) =>
         (
-            toSeq(row.Scope).Traverse(static part => Conversions.Validated<NamePart, string, InvalidRhinoValue>(part).ToValidation()).As(),
-            Conversions.Validated<OutputVersion, int, InvalidRhinoValue>(row.Number).ToValidation()
+            toSeq(row.Scope).Traverse(static part => NamePart.Validated(part).ToValidation()).As(),
+            OutputVersion.Validated(row.Number).ToValidation()
         ).Apply(static (scope, version) => (scope, version)).As();
 }

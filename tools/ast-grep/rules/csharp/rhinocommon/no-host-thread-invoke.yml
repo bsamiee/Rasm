@@ -105,6 +105,9 @@ rule:
           all:
             - has: {kind: member_binding_expression, has: {field: name, matches: context-invoke}}
             - has: {field: condition, matches: context-receiver}
-    not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
+    not:
+        any:
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}
+            - inside: {stopBy: end, kind: class_declaration, has: {kind: base_list, has: {stopBy: end, matches: {csharp-type-name: {name: {regex: '^SynchronizationContext$'}}}}}}
 message: '`$CALL` marshals one call to the UI thread'
 note: Call `OnUiThread()` once on an `IO` holding every UI-thread call

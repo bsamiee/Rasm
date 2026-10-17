@@ -29,7 +29,7 @@ utils:
                 - has: {kind: string}
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.isArray$', matches: syntax-global-reference}
+                - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.isArray$', matches: typescript-global-reference}
                 - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:
@@ -39,8 +39,8 @@ rule:
           inside: {kind: class_body}
         - matches: shape-test
           inside:
-            matches: syntax-function-boundary
-            stopBy: {matches: syntax-function-boundary}
+            matches: typescript-function-boundary
+            stopBy: {matches: typescript-function-boundary}
             all:
                 - has:
                     field: parameters

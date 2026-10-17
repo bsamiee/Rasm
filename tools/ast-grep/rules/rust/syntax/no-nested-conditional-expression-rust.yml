@@ -3,8 +3,6 @@ id: no-nested-conditional-expression-rust
 language: rust
 severity: error
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment, empty_statement'}
     statement:
         kind: 'expression_statement, let_declaration, empty_statement'
     valued-if:
@@ -35,7 +33,7 @@ utils:
               regex: '^\*'
               has: {matches: plain-read}
     bound-name:
-        kind: identifier
+        kind: 'identifier, shorthand_field_identifier'
         pattern: $BOUND
         regex: '^[a-z_]'
         not: {any: [{inside: {kind: 'tuple_struct_pattern, struct_pattern', field: type}}, {inside: {kind: scoped_identifier}}]}
@@ -66,13 +64,13 @@ utils:
     nested-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: tail-conditional, not: {matches: consuming-tail}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: tail-conditional, not: {matches: consuming-tail}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     nested-match-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}], not: {matches: consuming-tail}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}], not: {matches: consuming-tail}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     nested-value:
         any:
             - matches: conditional
@@ -88,7 +86,7 @@ utils:
                 has:
                     kind: block
                     any:
-                        - all: [{has: {nthChild: 1, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: 2}}}]
+                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]
                         - pattern: $X
     guard-foldable-arm:
         kind: match_arm
@@ -99,8 +97,8 @@ utils:
                     - matches: else-branch
                     - kind: block
                       all:
-                        - has: {nthChild: 1, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
-                        - not: {has: {nthChild: 2}}
+                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
+                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
             - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
             - not:
                 has:
@@ -115,7 +113,7 @@ utils:
                             inside:
                                 kind: match_arm
                                 stopBy: end
-                                has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
+                                has: {field: pattern, has: {stopBy: end, kind: 'identifier, shorthand_field_identifier', pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
     nesting-branch:
         any:
             - matches: valued-if
@@ -129,7 +127,7 @@ utils:
     body-tail:
         kind: expression_statement
         all:
-            - nthChild: {position: 1, reverse: true, ofRule: {matches: slot}}
+            - nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}
             - not: {has: {regex: '^;$'}}
             - inside:
                 kind: block

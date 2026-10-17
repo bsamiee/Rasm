@@ -17,11 +17,7 @@ public sealed record ProcessSetting<T>(IO<T> Read, Func<T, IO<Unit>> Write) wher
     public IO<Unit> Edit(Func<T, T> change) => Read.Map(change).Bind(Write);
 
     public IO<TResult> Within<TResult>(Func<T, T> change, IO<TResult> body) =>
-        envIO.Bind(environment =>
-            (from prior in Read
-             from result in DisposalOps.OnFailure(Edit(change).Bind(_ => IO.liftVAsync(() => body.RunAsync(environment))), Write(prior))
-             from restored in Write(prior)
-             select result).Uninterruptible());
+        DisposalOps.Transacted(Read, prior => Write(change(prior)).Bind(_ => body), Write, (prior, result) => Write(prior).Map(_ => result));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -49,8 +45,7 @@ public abstract partial record AppSettingsFamily<TSettings> where TSettings : cl
     public sealed record Writable : AppSettingsFamily<TSettings> {
         public Writable(Func<TSettings> current, Func<TSettings> factory, Action<TSettings> update) : base(factory) {
             Setting = new ProcessSetting<TSettings>(IO.lift(current), state => IO.lift(() => update(state)));
-            Store = ValueStore.Defaulted(Setting.Read, Default, Setting.Write, Same, Applied.Live,
-                Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true)));
+            Store = ValueStore.Defaulted(Setting.Read, Default, Setting.Write, Same, Applied.Live, AppSettings.Changed);
         }
 
         public ProcessSetting<TSettings> Setting { get; }
@@ -68,29 +63,27 @@ public sealed record DefinedViewSettings(bool DefinedViewSetCPlane, bool Defined
 public sealed record ShortcutRow(KeyboardKey Key, ModifierKey Modifier, Option<string> Macro);
 
 [ValueObject<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CommandName {
     private static readonly SearchValues<char> Separators = SearchValues.Create(" ,;\b\v\r\n\t");
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new InvalidRhinoValue();
+        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new ValidationError("name is blank or holds a space, comma, semicolon, or control separator");
         value = trimmed ?? value;
     }
 }
 
 [ValueObject<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PackageSource {
     public const char Separator = ';';
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new InvalidRhinoValue();
+        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new ValidationError($"source is blank or holds {Separator}");
         value = trimmed ?? value;
     }
 }
@@ -102,6 +95,9 @@ internal static partial class SettingsMapper {
 }
 
 public static class AppSettings {
+    // --- [CHANGES]
+    internal static readonly Option<HostEvent<Unit>> Changed = Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true));
+
     // --- [FAMILIES]
     public static readonly AppSettingsFamily<AppearanceSettingsState>.Writable Appearance = new(AppearanceSettings.GetCurrentState, AppearanceSettings.GetDefaultState, AppearanceSettings.UpdateFromState);
     public static readonly AppSettingsFamily<ChooseOneObjectSettingsState>.Writable ChooseOneObject = new(ChooseOneObjectSettings.GetCurrentState, ChooseOneObjectSettings.GetDefaultState, ChooseOneObjectSettings.UpdateFromState);
@@ -180,7 +176,7 @@ public static class AppSettings {
     private static ProcessSetting<Seq<CommandName>> CommandList(Func<string[]?> read, Action<string[]> write) => new(
         IO.lift(() => Callbacks.Each(
             Conversions.Rows(read()).Choose(static name => Conversions.Present(name)),
-            static (name, _) => Conversions.Validated<CommandName, string, InvalidRhinoValue>(name))),
+            static (name, _) => CommandName.Validated(name))),
         names => IO.lift(() => write([.. names])));
 
     // --- [FILES]
@@ -191,7 +187,7 @@ public static class AppSettings {
     public static readonly ProcessSetting<Seq<PackageSource>> PackageSources = new(
         IO.lift(static () => Callbacks.Each(
             Conversions.Rows(PackageManagerSettings.Sources?.Split(PackageSource.Separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
-            static (source, _) => Conversions.Validated<PackageSource, string, InvalidRhinoValue>(source))),
+            static (source, _) => PackageSource.Validated(source))),
         static sources => IO.lift(() => PackageManagerSettings.Sources = string.Join(PackageSource.Separator, sources.Map(static source => (string)source))).Map(unit));
 
     public static ProcessSetting<bool> SearchPath(string folder) => new(

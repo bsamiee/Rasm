@@ -14,14 +14,13 @@ public static class Edits {
             when(response.HasFlag(Effects.ExpireDisplay) || response.HasFlag(Effects.InvalidateDisplay), IO.lift(document.Display.UpdateDisplay)).As()))).Map(unit);
 
     public static IO<A> Commit<A>(Document document, VerbNoun name, AutoSaveReason reason, Func<ActionList, IO<A>> body) =>
-        (from environment in envIO
-         from actions in IO.lift(static () => ActionList.Empty)
-         let rollback = IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
-             Some: held => IO.lift(() => held.Undo(document)).Bind(_ => Respond(document, held)),
-             None: static () => IO.pure(unit)))
-         from value in DisposalOps.OnFailure(IO.liftVAsync(() => IO.pure(actions).Bind(body).RunAsync(environment)), rollback)
-         from committed in Recorded(document, actions, name, reason)
-         select value).Uninterruptible();
+        DisposalOps.Transacted(
+            IO.lift(static () => ActionList.Empty),
+            body,
+            actions => IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
+                Some: held => IO.lift(() => held.Undo(document)).Bind(_ => Respond(document, held)),
+                None: static () => IO.pure(unit))),
+            (actions, value) => Recorded(document, actions, name, reason).Map(_ => value));
 
     private static IO<Unit> Recorded(Document document, ActionList actions, VerbNoun name, AutoSaveReason reason) =>
         IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
@@ -32,9 +31,9 @@ public static class Edits {
 
     // --- [CLUSTERS]
     public static IO<IDocumentObject> ClusterObjects(Document document, Seq<IDocumentObject> objects, ActionList actions) =>
-        IO.lift(Fin<IDocumentObject> () => document.Methods.ClusterObjects([.. objects], actions) is { } cluster
-            ? Fin.Succ(cluster)
-            : new ClusterRefused(document.Objects.Connectivity.SubsetTopology(objects)));
+        IO.lift(Fin<IDocumentObject> () => document.Methods.CanCreateCluster(objects, out string whyNot)
+            ? Fin.Succ(document.Methods.ClusterObjects([.. objects], actions))
+            : Error.New(whyNot));
 
     // --- [SELECTION]
     private static LanguageExt.HashSet<Guid> Adjacent(Connectivity connectivity, Seq<IDocumentObject> selected, bool upstream, bool downstream) =>

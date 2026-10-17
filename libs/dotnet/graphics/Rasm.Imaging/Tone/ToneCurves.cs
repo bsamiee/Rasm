@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Rasm.Imaging.Color;
@@ -16,225 +17,159 @@ public interface IToneCurve {
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct MiddleGreyContrast : IMinMaxValue<MiddleGreyContrast> {
-    public static MiddleGreyContrast MinValue { get; } = new(0.1f);
-    public static MiddleGreyContrast MaxValue { get; } = new(10f);
-    public static MiddleGreyContrast Default { get; } = new(1.5f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct ContrastSkewness : IMinMaxValue<ContrastSkewness> {
-    public static ContrastSkewness MinValue { get; } = new(-1f);
-    public static ContrastSkewness MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct TargetBlack : IMinMaxValue<TargetBlack> {
     public static TargetBlack MinValue { get; } = new(0f);
     public static TargetBlack MaxValue { get; } = new(0.15f);
     public static TargetBlack Default { get; } = new(0.000152f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct Factor : IMinMaxValue<Factor> {
-    public static Factor MinValue { get; } = new(0f);
-    public static Factor MaxValue { get; } = new(1f);
-    public static Factor Half { get; } = new(0.5f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ShoulderStrength : IMinMaxValue<ShoulderStrength> {
     public static ShoulderStrength MinValue { get; } = new(0f);
     public static ShoulderStrength MaxValue { get; } = new(16f);
     public static ShoulderStrength Default { get; } = new(2f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ShoulderLength : IMinMaxValue<ShoulderLength> {
     public static ShoulderLength MinValue { get; } = new(1e-5f);
     public static ShoulderLength MaxValue { get; } = new(1f);
     public static ShoulderLength Default { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct CurveGamma : IMinMaxValue<CurveGamma> {
     public static CurveGamma MinValue { get; } = new(0.1f);
     public static CurveGamma MaxValue { get; } = new(10f);
     public static CurveGamma Linear { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct DragoBias : IMinMaxValue<DragoBias> {
     public static DragoBias MinValue { get; } = new(0.5f);
     public static DragoBias MaxValue { get; } = new(1f);
     public static DragoBias Default { get; } = new(0.85f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ReceptorIntensity : IMinMaxValue<ReceptorIntensity> {
     public static ReceptorIntensity MinValue { get; } = new(-float.Log(float.MaxValue));
     public static ReceptorIntensity MaxValue { get; } = new(float.Log(float.MaxValue));
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct ReceptorContrast : IMinMaxValue<ReceptorContrast> {
-    public static ReceptorContrast MinValue { get; } = new(float.BitIncrement(0f));
-    public static ReceptorContrast MaxValue { get; } = new(float.MaxValue);
-    public static ReceptorContrast Flattest { get; } = new(0.3f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ShoulderCoefficient : IMinMaxValue<ShoulderCoefficient> {
     public static ShoulderCoefficient MinValue { get; } = new(0.001f);
     public static ShoulderCoefficient MaxValue { get; } = new(0.5f);
     public static ShoulderCoefficient Published { get; } = new(0.15f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct LinearCoefficient : IMinMaxValue<LinearCoefficient> {
     public static LinearCoefficient MinValue { get; } = new(0f);
     public static LinearCoefficient MaxValue { get; } = new(0.6f);
     public static LinearCoefficient Published { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct LinearAngle : IMinMaxValue<LinearAngle> {
-    public static LinearAngle MinValue { get; } = new(0f);
+    public static LinearAngle MinValue { get; } = new(0.1f);
     public static LinearAngle MaxValue { get; } = new(0.3f);
     public static LinearAngle Published { get; } = new(0.1f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ToeCoefficient : IMinMaxValue<ToeCoefficient> {
-    public static ToeCoefficient MinValue { get; } = new(float.BitIncrement(0f));
+    public static ToeCoefficient MinValue { get; } = new(0.001f);
     public static ToeCoefficient MaxValue { get; } = new(0.9f);
     public static ToeCoefficient Published { get; } = new(0.2f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ToeNumerator : IMinMaxValue<ToeNumerator> {
     public static ToeNumerator MinValue { get; } = new(0.0001f);
-    public static ToeNumerator MaxValue { get; } = new(0.05f);
+    public static ToeNumerator MaxValue { get; } = new(float.BitDecrement((float)LinearAngle.MinValue * (float)ToeDenominator.MinValue));
     public static ToeNumerator Published { get; } = new(0.02f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct ToeDenominator : IMinMaxValue<ToeDenominator> {
     public static ToeDenominator MinValue { get; } = new(0.2f);
     public static ToeDenominator MaxValue { get; } = new(0.6f);
     public static ToeDenominator Published { get; } = new(0.3f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(SkipIParsable = true,
+    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
+    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct HableWhite : IPresented<HableWhite, float> {
+    public static HableWhite MinValue { get; } = new(-10f);
+    public static HableWhite MaxValue { get; } = new((float)Exposure.MaxValue);
+    public static HableWhite Published { get; } = new(float.Log2(11.2f));
+    public static Presentation<float> Presentation => Exposure.Presentation;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct PrimaryInset : IMinMaxValue<PrimaryInset> {
     public static PrimaryInset MinValue => Neutral;
     public static PrimaryInset MaxValue { get; } = new(0.99f);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct PrimaryRotation : IMinMaxValue<PrimaryRotation> {
     public static PrimaryRotation MaxValue { get; } = new(float.BitDecrement((float)((Math.PI - (
         from gamut in toSeq(Gamut.Items)
@@ -249,42 +184,42 @@ public readonly partial struct PrimaryRotation : IMinMaxValue<PrimaryRotation> {
     internal static double Angle(RgbConfiguration rgb, Chromaticity primary) =>
         Math.Atan2(primary.Y - rgb.WhitePoint.Chromaticity.Y, primary.X - rgb.WhitePoint.Chromaticity.X);
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record CurveApplication(
-    Factor PreserveHue, Factor Purity, Option<Gamut> BasePrimaries,
+    AxisFraction PreserveHue, AxisFraction Purity, Option<Gamut> BasePrimaries,
     PrimaryInset RedInset, PrimaryInset GreenInset, PrimaryInset BlueInset,
     PrimaryRotation RedRotation, PrimaryRotation GreenRotation, PrimaryRotation BlueRotation) {
     public static CurveApplication Default { get; } = new(
-        Factor.MaxValue, Factor.MinValue, None,
+        AxisFraction.MaxValue, AxisFraction.MinValue, None,
         PrimaryInset.Neutral, PrimaryInset.Neutral, PrimaryInset.Neutral,
         PrimaryRotation.Neutral, PrimaryRotation.Neutral, PrimaryRotation.Neutral);
 }
 
-public sealed record SigmoidState(MiddleGreyContrast Contrast, ContrastSkewness Skew, TargetBlack Black) {
-    public static SigmoidState Default { get; } = new(MiddleGreyContrast.Default, ContrastSkewness.Neutral, TargetBlack.Default);
+public sealed record SigmoidState(CurveGamma Contrast, SignedFraction Skew, TargetBlack Black) {
+    public static SigmoidState Default { get; } = new(CurveGamma.Create(1.5f), SignedFraction.Neutral, TargetBlack.Default);
 }
 
 public sealed record PiecewiseState(
-    Factor ToeStrength, Factor ToeLength, Factor ShoulderAngle, CurveGamma Gamma, ShoulderStrength ShoulderStrength, ShoulderLength ShoulderLength) {
-    public static PiecewiseState Default { get; } = new(Factor.Half, Factor.Half, Factor.MaxValue, CurveGamma.Linear, ShoulderStrength.Default, ShoulderLength.Default);
+    AxisFraction ToeStrength, AxisFraction ToeLength, AxisFraction ShoulderAngle, CurveGamma Gamma, ShoulderStrength ShoulderStrength, ShoulderLength ShoulderLength) {
+    public static PiecewiseState Default { get; } = new(AxisFraction.Half, AxisFraction.Half, AxisFraction.MaxValue, CurveGamma.Linear, ShoulderStrength.Default, ShoulderLength.Default);
 }
 
 public sealed record LogarithmicState(DragoBias Bias, Gated<Exposure> White) {
     public static LogarithmicState Default { get; } = new(DragoBias.Default, new(Enabled: false, Exposure.Neutral));
 }
 
-public sealed record PhotoreceptorState(ReceptorIntensity Intensity, Gated<ReceptorContrast> Contrast, Factor LightAdaptation, Factor ChromaticAdaptation) {
-    public static PhotoreceptorState Default { get; } = new(ReceptorIntensity.Neutral, new(Enabled: false, ReceptorContrast.Flattest), Factor.MinValue, Factor.MinValue);
+public sealed record PhotoreceptorState(ReceptorIntensity Intensity, Gated<PositiveMagnitude> Contrast, AxisFraction LightAdaptation, AxisFraction ChromaticAdaptation) {
+    public static PositiveMagnitude FlattestContrast { get; } = PositiveMagnitude.Create(0.3f);
+    public static PhotoreceptorState Default { get; } = new(ReceptorIntensity.Neutral, new(Enabled: false, FlattestContrast), AxisFraction.MinValue, AxisFraction.MinValue);
 }
 
 public sealed record HableState(
-    ShoulderCoefficient A, LinearCoefficient B, LinearAngle C, ToeCoefficient D, ToeNumerator E, ToeDenominator F, Gated<Exposure> White) {
+    ShoulderCoefficient A, LinearCoefficient B, LinearAngle C, ToeCoefficient D, ToeNumerator E, ToeDenominator F, Gated<HableWhite> White) {
     public static HableState Default { get; } = new(
         ShoulderCoefficient.Published, LinearCoefficient.Published, LinearAngle.Published,
-        ToeCoefficient.Published, ToeNumerator.Published, ToeDenominator.Published, new(Enabled: true, new Exposure(float.Log2(11.2f))));
+        ToeCoefficient.Published, ToeNumerator.Published, ToeDenominator.Published, new(Enabled: true, HableWhite.Published));
 }
 
 public readonly record struct SigmoidCurve(float WhiteTarget, float PaperExposure, float FilmFog, float ContrastPower, float SkewPower) : IToneCurve {
@@ -369,7 +304,7 @@ public static class ToneCurves {
         }
     };
 
-    public static Vector3 PreserveHue(Vector3 input, Vector3 mapped, Factor preserve) {
+    public static Vector3 PreserveHue(Vector3 input, Vector3 mapped, AxisFraction preserve) {
         (int min, int mid, int max) = input.X >= input.Y
             ? input.Y > input.Z ? (2, 1, 0) : input.Z > input.X ? (1, 0, 2) : input.Z > input.Y ? (1, 2, 0) : (2, 1, 0)
             : input.X >= input.Z ? (2, 0, 1) : input.Z > input.Y ? (0, 1, 2) : (0, 2, 1);
@@ -407,18 +342,11 @@ public static class ToneCurves {
         ToneMapped(context, ToneMapOperator.Reinhard, new ToneMapParameters());
 
     internal static PixelPass ReinhardExtended(ToneMapping state, PassContext context) =>
-        Whitened(context, state.ReinhardWhite.Active, white => Curved(context, context.Working,
-            Seq<Action<Span<Vector4>>>(row => TransferCurve.PerLane(row, value => value / (1d + value) * (1d + (value / ((double)white * white)))))));
+        Whitened(context, state.ReinhardWhite.Active, white => ToneMapped(context, ToneMapOperator.ReinhardExtended, new ToneMapParameters(whitePoint: white)));
 
-    internal static PixelPass Hable(ToneMapping state, PassContext context) {
-        HableState hable = state.Hable;
-        (double a, double b, double c, double d, double e, double f) = ((float)hable.A, (float)hable.B, (float)hable.C, (float)hable.D, (float)hable.E, (float)hable.F);
-        double Curve(double value) => value * ((a * value * (f - e)) + (b * ((c * f) - e))) / (f * ((value * ((a * value) + b)) + (d * f)));
-        return Whitened(context, hable.White.Active, white => Curve(white) switch {
-            0d => new UndefinedHableNormalization(white),
-            var normalization => Curved(context, context.Working, Seq<Action<Span<Vector4>>>(row => TransferCurve.PerLane(row, value => Curve(value) / normalization))),
-        });
-    }
+    internal static PixelPass Hable(ToneMapping state, PassContext context) =>
+        Whitened(context, state.Hable.White.Active, white =>
+            ToneMapped(context, ToneMapOperator.Hable, new ToneMapParameters(a: state.Hable.A, b: state.Hable.B, c: state.Hable.C, d: state.Hable.D, e: state.Hable.E, f: state.Hable.F, w: white)));
 
     internal static PixelPass PbrNeutral(ToneMapping _, PassContext context) =>
         Curved(context, Gamut.StandardRgb, Seq(Neutral));
@@ -426,26 +354,22 @@ public static class ToneCurves {
     private static PixelPass.Color Applied<TCurve>(ToneMapping state, PassContext context, TCurve curve) where TCurve : struct, IToneCurve {
         (CurveApplication application, Gamut basis) = (state.Application, state.Application.BasePrimaries.IfNone(context.Working));
         return Curved(context, basis, Seq(
-            new LutTable.Affine(Gamut.Between(Adjusted(basis, application, Factor.MaxValue), basis.Configuration), (0d, 0d, 0d)).Apply,
+            new LutTable.Affine(Gamut.Between(Adjusted(basis, application, AxisFraction.MaxValue), basis.Configuration)).Apply,
             row => {
                 foreach (ref Vector4 pixel in row)
                     pixel = new Vector4(PreserveHue(pixel.AsVector3(), new Vector3(curve.Map(pixel.X), curve.Map(pixel.Y), curve.Map(pixel.Z)), application.PreserveHue), pixel.W);
             },
-            new LutTable.Affine(Gamut.Between(basis.Configuration, Adjusted(basis, application, application.Purity)), (0d, 0d, 0d)).Apply));
+            new LutTable.Affine(Gamut.Between(basis.Configuration, Adjusted(basis, application, application.Purity))).Apply));
     }
 
     private static PixelPass.Color Curved(PassContext context, Gamut basis, Seq<Action<Span<Vector4>>> curve) =>
-        Formation.Formed(
-            Seq(new LutTable.Affine(context.Working.MatrixTo(basis), (0d, 0d, 0d)).Apply, Desaturated) + curve,
-            new ColorEncoding(basis, new Transfer.Standard(TransferCurve.Linear), Nits.ReferenceWhite), context.Display);
+        Formation.Formed(context, basis, Desaturated.Cons(curve), new ColorEncoding(basis, TransferCurve.Linear, Nits.ReferenceWhite));
 
-    private static PixelPass Whitened(PassContext context, Option<Exposure> white, Func<float, Fin<PixelPass>> formed) =>
+    private static PixelPass Whitened<TWhite>(PassContext context, Option<TWhite> white, Func<float, PixelPass> formed) where TWhite : IPresented<TWhite, float> =>
         white.Match(
-            Some: manual => formed(manual.Scale).IfFail(static error => new PixelPass.Frame((_, _) => error)),
+            Some: manual => formed(float.Exp2(manual.ToValue())),
             None: () => Measured(context, (_, samples) =>
-                Exposure.Validate((float)double.Log2(samples.FrameWhite), provider: null, out Exposure measured) is null
-                    ? formed(measured.Scale)
-                    : new FrameWhiteOutOfRange(samples.FrameWhite)));
+                Admission.Validated<TWhite, float>((float)double.Log2(samples.FrameWhite)).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"frame white {samples.FrameWhite} falls outside the scene white range"), error)).Map(measured => formed(float.Exp2(measured.ToValue())))));
 
     private static PixelPass.Frame Measured(PassContext context, Func<PixelFrame, LuminanceSamples, Fin<PixelPass>> formed) =>
         new((frame, progress) =>
@@ -464,22 +388,21 @@ public static class ToneCurves {
         foreach (Vector4 pixel in frame.View.Span) {
             Vector4 sample = pixel;
             Desaturated(new Span<Vector4>(ref sample));
-            (red, green, blue, count) = pixel.W > 0f && double.IsFinite(LuminanceSamples.Luminance(pixel.AsVector3(), weights))
+            (red, green, blue, count) = pixel.W > 0f && double.IsFinite(LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights))
                 ? (red + sample.X, green + sample.Y, blue + sample.Z, count + 1L) : (red, green, blue, count);
         }
         (double r, double g, double b) = (red / count, green / count, blue / count);
-        double mean = (weights.X * r) + (weights.Y * g) + (weights.Z * b);
+        double mean = LuminanceSamples.Luminance(r, g, b, weights);
         double intensity = double.Exp(-(float)state.Intensity);
         double contrast = state.Contrast.Active.Match(
             Some: static manual => (double)(float)manual,
-            None: () => logs.Maximum == logs.Minimum ? 1d : ReceptorContrast.Flattest + ((1d - ReceptorContrast.Flattest) * double.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4d)));
+            None: () => logs.Maximum == logs.Minimum ? 1d : PhotoreceptorState.FlattestContrast + ((1d - PhotoreceptorState.FlattestContrast) * double.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4d)));
         (double light, double chromatic) = ((float)state.LightAdaptation, (float)state.ChromaticAdaptation);
         (double globalR, double globalG, double globalB) = (double.Lerp(mean, r, chromatic), double.Lerp(mean, g, chromatic), double.Lerp(mean, b, chromatic));
         return row => {
             foreach (ref Vector4 pixel in row) {
-                Vector3 color = pixel.AsVector3();
-                double luminance = LuminanceSamples.Luminance(color, weights);
-                pixel = new Vector4(Mapped(color.X, globalR, luminance), Mapped(color.Y, globalG, luminance), Mapped(color.Z, globalB, luminance), pixel.W);
+                double luminance = LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights);
+                pixel = new Vector4(Mapped(pixel.X, globalR, luminance), Mapped(pixel.Y, globalG, luminance), Mapped(pixel.Z, globalB, luminance), pixel.W);
             }
         };
 
@@ -490,7 +413,7 @@ public static class ToneCurves {
             };
     }
 
-    private static Configuration Adjusted(Gamut basis, CurveApplication application, Factor share) =>
+    private static Configuration Adjusted(Gamut basis, CurveApplication application, AxisFraction share) =>
         basis.Configuration.Rgb switch {
             var rgb => new(new RgbConfiguration(
                 Moved(rgb, rgb.ChromaticityR, 1d - ((float)share * application.RedInset), application.RedRotation),

@@ -1,5 +1,5 @@
 import { Array, Effect, Formatter, Number, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
-import { type BBOX, type Font as Face, open } from 'fontkit';
+import { type BBOX, type Font as Face, type Glyph, open } from 'fontkit';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,6 +26,16 @@ const Options = Schema.Struct({
     coordinates: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.Finite).annotate({ description: "Axis values in the face's axis order, its own instance when absent" })),
     size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size; an opsz axis follows it' })),
 });
+const Name = Schema.optional(Schema.Struct({ en: Schema.optional(Schema.Union([Schema.String, Schema.Uint8Array])) }));
+const Tables = Schema.Struct({
+    directory: Schema.Struct({ tables: Schema.Record(Schema.String, Schema.Struct(Struct.Record(['offset', 'length'], Schema.Int))) }),
+    stream: Schema.Struct({ view: Schema.instanceOf(DataView) }),
+    variationCoords: Schema.NullOr(Schema.Array(Schema.Finite)),
+    'CFF ': Schema.OptionFromOptional(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
+    GSUB: Schema.OptionFromOptional(Schema.Struct({ featureList: Schema.Array(Schema.Struct({ tag: Schema.String, feature: Schema.Struct({ featureParams: Schema.OptionFromNullOr(Schema.Struct({ nameID: Schema.Int })) }) })) })),
+    fvar: Schema.OptionFromOptional(Schema.Struct({ instance: Schema.Array(Schema.Struct({ nameID: Schema.Int, coord: Schema.Array(Schema.Finite) })) })),
+    name: Schema.Struct({ records: Schema.Struct({ fontSubfamily: Name, preferredSubfamily: Name, fontFeatures: Schema.optional(Schema.Record(Schema.String, Name)) }) }),
+});
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -50,41 +60,28 @@ const read = Effect.fn('read')(function* (file: string, postscriptName: string, 
         ({ variationAxes }) => Option.isNone(coordinates) || !Record.isEmptyRecord(variationAxes),
         () => FontError.make({ file, reason: { _tag: 'Static', postscriptName } }),
     );
-    const Name = Schema.optional(Schema.Struct({ en: Schema.optional(Schema.Union([Schema.String, Schema.Uint8Array])) }));
-    const Tables = Schema.Struct({
-        directory: Schema.Struct({ tables: Schema.Record(Schema.String, Schema.Struct(Struct.Record(['offset', 'length'], Schema.Int))) }),
-        stream: Schema.Struct({ view: Schema.instanceOf(DataView) }),
-        variationCoords: Schema.NullOr(Schema.Array(Schema.Finite)),
-        'CFF ': Schema.OptionFromOptional(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
-        GSUB: Schema.OptionFromOptional(Schema.Struct({ featureList: Schema.Array(Schema.Struct({ tag: Schema.String, feature: Schema.Struct({ featureParams: Schema.OptionFromNullOr(Schema.Struct({ nameID: Schema.Int })) }) })) })),
-        fvar: Schema.OptionFromOptional(Schema.Struct({ instance: Schema.Array(Schema.Struct({ nameID: Schema.Int, coord: Schema.Array(Schema.Finite) })) })),
-        name: Schema.Struct({ records: Schema.Struct({ fontSubfamily: Name, preferredSubfamily: Name, fontFeatures: Schema.optional(Schema.Record(Schema.String, Name)) }) }),
-    });
-    const [font, tables] = yield* Effect.try({
-        try: () => {
-            const instance = Record.isEmptyRecord(base.variationAxes) ? base : base.getVariation(Record.fromEntries([...Array.zip(Record.keys(base.variationAxes), Option.getOrElse(coordinates, Array.empty)), ...Option.toArray(Option.map(size, (opsz) => ['opsz', opsz] as const))]));
-            return [instance, Record.fromIterableWith(Struct.keys(Tables.fields), (key) => [key, Reflect.get(instance, key)])] as const;
-        },
+    const font = yield* Effect.try({
+        try: () => (Record.isEmptyRecord(base.variationAxes) ? base : base.getVariation(Record.fromEntries([...Array.zip(Record.keys(base.variationAxes), Option.getOrElse(coordinates, Array.empty)), ...Option.toArray(Option.map(size, (opsz) => ['opsz', opsz] as const))]))),
         catch: unreadable,
     });
-    const face = yield* Effect.mapError(Schema.decodeUnknownEffect(Tables)(tables), unreadable);
+    const face = yield* Effect.mapError(Schema.decodeUnknownEffect(Tables)(font), unreadable);
     return yield* Effect.try({
         try: () => {
             const TYPO = { ascender: 68, descender: 70, lineGap: 72, length: 78 } as const;
             const { records } = face.name;
             const names: NonNullable<typeof records.fontFeatures> = { ...records.fontFeatures, 2: records.fontSubfamily, 17: records.preferredSubfamily };
             const os2 = Option.fromUndefinedOr(font['OS/2']);
-            const em = (units: number) => units / font.unitsPerEm;
-            const label = (id: number) => Option.filter(Option.fromNullishOr(names[id]?.en), Predicate.isString);
-            const drawn = (instance: Face, characters: string) => Array.filter(instance.glyphsForString(characters), (glyph) => glyph.id !== 0);
-            const edge = (instance: Face, character: string, side: keyof BBOX) => Option.map(Array.head(drawn(instance, character)), (glyph) => glyph.bbox[side]);
-            const stroke = (position: number, thickness: number) => (thickness === 0 ? Option.none() : Option.some({ position, thickness }));
+            const em = (units: number): number => units / font.unitsPerEm;
+            const label = (id: number): Option.Option<string> => Option.filter(Option.fromNullishOr(names[id]?.en), Predicate.isString);
+            const drawn = (instance: Face, characters: string): Glyph[] => Array.filter(instance.glyphsForString(characters), (glyph) => glyph.id !== 0);
+            const edge = (instance: Face, character: string, side: keyof BBOX): Option.Option<number> => Option.map(Array.head(drawn(instance, character)), (glyph) => glyph.bbox[side]);
+            const stroke = (position: number, thickness: number): (typeof Font.Type)['underline'] => (thickness === 0 ? Option.none() : Option.some({ position, thickness }));
             const typo = Option.map(
                 Option.filter(Record.get(face.directory.tables, 'OS/2'), ({ length }) => length >= TYPO.length),
                 ({ offset }) => ({ ascender: face.stream.view.getInt16(offset + TYPO.ascender), descender: -Math.abs(face.stream.view.getInt16(offset + TYPO.descender)), lineGap: face.stream.view.getInt16(offset + TYPO.lineGap) }),
             );
             const cjk = Array.isReadonlyArrayNonEmpty(drawn(font, CHARACTERS.cjk));
-            const vertical = (field: 'ascender' | 'descender', side: keyof BBOX) =>
+            const vertical = (field: 'ascender' | 'descender', side: keyof BBOX): Option.Option<number> =>
                 pipe(
                     typo,
                     Option.filter(() => !cjk),
@@ -92,7 +89,7 @@ const read = Effect.fn('read')(function* (file: string, postscriptName: string, 
                     Option.orElse(() => edge(font, CHARACTERS[field], side)),
                     Option.map(em),
                 );
-            const height = (field: 'xHeight' | 'capHeight') =>
+            const height = (field: 'xHeight' | 'capHeight'): Option.Option<number> =>
                 pipe(
                     edge(font, CHARACTERS[field], 'maxY'),
                     Option.orElse(() => Option.filter(Option.flatMapNullishOr(os2, Struct.get(field)), (units) => units !== 0)),
@@ -131,4 +128,4 @@ const read = Effect.fn('read')(function* (file: string, postscriptName: string, 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHARACTERS, Font, FontError, Options, read };
+export { CHARACTERS, Font, Options, read };

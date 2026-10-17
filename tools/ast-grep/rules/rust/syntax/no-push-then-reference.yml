@@ -44,7 +44,7 @@ rule:
     kind: 'expression_statement, let_declaration, call_expression, try_expression'
     all:
         - inside: {kind: block}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - follows: {matches: pushed}
         - any:
             - all:

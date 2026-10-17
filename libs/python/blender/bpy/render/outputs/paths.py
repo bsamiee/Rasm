@@ -169,7 +169,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def _filled(self, layer: str, output: Output, item: Option[str], frame: Option[int] = Nothing) -> Fields:
-        named = output.name.lower()
+        named = output.token
         return Fields(
             words=self.fields.words | {Word.LAYER: layer, Word.OUTPUT: named, Word.PASS: item.default_value(named)},
             counts=self.fields.counts

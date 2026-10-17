@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
@@ -87,42 +88,40 @@ public static class Contents {
                 byIndex: static (state, byIndex) => Rows(state.Doc, state.Kinds).Map(rows => rows.At(byIndex.Index)),
                 byName: static (state, byName) => Rows(state.Doc, state.Kinds)
                     .Map(rows => rows.Filter(content => string.Equals(content.Name, byName.Name, StringComparison.Ordinal)))
-                    .Bind(static named => named.Count > 1
-                        ? IO.fail<Option<RenderContent>>(new CountMismatch(nameof(RenderContent.Name), Required: 1, named.Count))
+                    .Bind(named => named.Count > 1
+                        ? IO.fail<Option<RenderContent>>(Error.New(string.Create(CultureInfo.InvariantCulture, $"{named.Count} render contents share the name {byName.Name}")))
                         : IO.pure(named.Head)))
-            .Bind(found => IO.lift(found.ToFin(new MissingComponent<RenderContent>(row))))
-        from child in IO.lift(() => slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content => EmptySlot.Unless(content.FindChild(slot), content.Id, slot))))
+            .Bind(found => IO.lift(found.ToFin(new NotFound(nameof(RenderContent), $"{row}"))))
+        from child in IO.lift(() => slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content => Optional(content.FindChild(slot)).ToFin(new NotFound("child content", $"slot {slot} of {content.Id}")))))
         select child;
 
     // --- [LIFETIME]
     public static IO<(RenderContent Content, Disposal<RenderContent> Ownership)> FreeFloating(Option<RhinoDoc> doc, ContentSource source, Action<IDisposable> retain) {
         return source.Switch(
             (Doc: doc.ValueUnsafe(), Retain: retain),
-            fromXml: static (state, xml) => Created(() => Missing.Unless(RenderContent.FromXml(xml.Xml, state.Doc), nameof(RenderContent.FromXml))
+            fromXml: static (state, xml) => Created(() => Refused.UnlessFound(RenderContent.FromXml(xml.Xml, state.Doc), nameof(RenderContent.FromXml))
                 .Map(static content => { AutoDelete(content, autoDelete: true); return content; }), state.Retain),
             loadFromFile: static (state, file) => Created(() => Exchange.ExistingPath(file.FileName)
-                .Bind(static path => Missing.Unless(RenderContent.LoadFromFile(path), nameof(RenderContent.LoadFromFile))), state.Retain),
+                .Bind(static path => Refused.UnlessFound(RenderContent.LoadFromFile(path), nameof(RenderContent.LoadFromFile))), state.Retain),
             newContentFromTypeId: static (state, type) =>
-                Created(() => Missing.Unless(RenderContentType.NewContentFromTypeId(type.TypeId, state.Doc), nameof(RenderContentType.NewContentFromTypeId)), state.Retain),
-            makeGroupInstance: static (state, group) => Created(() => Missing.Unless(group.Content.MakeGroupInstance(), nameof(RenderContent.MakeGroupInstance)), state.Retain),
-            makeCopy: static (state, copy) => Created(() => Missing.Unless(copy.Content.MakeCopy(), nameof(RenderContent.MakeCopy)), state.Retain),
+                Created(() => Refused.UnlessFound(RenderContentType.NewContentFromTypeId(type.TypeId, state.Doc), nameof(RenderContentType.NewContentFromTypeId)), state.Retain),
+            makeGroupInstance: static (state, group) => Created(() => Refused.UnlessFound(group.Content.MakeGroupInstance(), nameof(RenderContent.MakeGroupInstance)), state.Retain),
+            makeCopy: static (state, copy) => Created(() => Refused.UnlessFound(copy.Content.MakeCopy(), nameof(RenderContent.MakeCopy)), state.Retain),
             edit: static (state, edit) => Created(() => Optional(edit.Content.Edit()).ToFin(Errors.Cancelled), state.Retain),
             fromMaterial: static (state, material) =>
-                Created(() => Missing.Unless<RenderContent>(RenderMaterial.FromMaterial(material.Material, state.Doc), nameof(RenderMaterial.FromMaterial)), state.Retain),
+                Created(() => Refused.UnlessFound<RenderContent>(RenderMaterial.FromMaterial(material.Material, state.Doc), nameof(RenderMaterial.FromMaterial)), state.Retain),
             createBasicMaterial: static (state, basic) =>
-                Created(() => Missing.Unless<RenderContent>(RenderMaterial.CreateBasicMaterial(basic.Material, state.Doc), nameof(RenderMaterial.CreateBasicMaterial)), state.Retain),
+                Created(() => Refused.UnlessFound<RenderContent>(RenderMaterial.CreateBasicMaterial(basic.Material, state.Doc), nameof(RenderMaterial.CreateBasicMaterial)), state.Retain),
             newBitmapTexture: static (state, bitmap) =>
-                Created(() => Missing.Unless<RenderContent>(RenderTexture.NewBitmapTexture(bitmap.Image, state.Doc), nameof(RenderTexture.NewBitmapTexture)), state.Retain),
+                Created(() => Refused.UnlessFound<RenderContent>(RenderTexture.NewBitmapTexture(bitmap.Image, state.Doc), nameof(RenderTexture.NewBitmapTexture)), state.Retain),
             fromSimulation: static (state, simulated) =>
                 DisposalOps.Within(() => new SimulatedTexture(state.Doc), simulation =>
                     simulated.Configure(simulation).Bind(_ =>
-                        Created(() => Missing.Unless<RenderContent>(RenderTexture.NewBitmapTexture(simulation, state.Doc), nameof(RenderTexture.NewBitmapTexture)), state.Retain)),
-                    static simulation => IO.lift(simulation.Dispose)),
+                        Created(() => Refused.UnlessFound<RenderContent>(RenderTexture.NewBitmapTexture(simulation, state.Doc), nameof(RenderTexture.NewBitmapTexture)), state.Retain))),
             newBasicEnvironment: static (state, environment) =>
                 DisposalOps.Within(static () => new SimulatedEnvironment(), simulation =>
                     environment.Configure(simulation).Bind(_ =>
-                        Created(() => Missing.Unless<RenderContent>(RenderEnvironment.NewBasicEnvironment(simulation, state.Doc), nameof(RenderEnvironment.NewBasicEnvironment)), state.Retain)),
-                    static simulation => IO.lift(simulation.Dispose)),
+                        Created(() => Refused.UnlessFound<RenderContent>(RenderEnvironment.NewBasicEnvironment(simulation, state.Doc), nameof(RenderEnvironment.NewBasicEnvironment)), state.Retain))),
             nativeFactory: static (state, factory) => Created(factory.Create, state.Retain));
 
         static IO<(RenderContent Content, Disposal<RenderContent> Ownership)> Created(Func<Fin<RenderContent>> acquire, Action<IDisposable> retain) =>
@@ -134,10 +133,10 @@ public static class Contents {
     internal static extern void AutoDelete(RenderContent content, bool autoDelete);
 
     public static IO<RenderMaterial> Import(RhinoDoc doc, Material material, bool reference) =>
-        IO.lift(() => Missing.Unless(RenderMaterial.CreateImportedMaterial(material, doc, reference), nameof(RenderMaterial.CreateImportedMaterial)));
+        IO.lift(() => Refused.UnlessFound(RenderMaterial.CreateImportedMaterial(material, doc, reference), nameof(RenderMaterial.CreateImportedMaterial)));
 
     public static IO<RenderContent> Create(RhinoDoc doc, Guid typeId, Option<(RenderContent Parent, string ChildSlotName)> slot) =>
-        IO.lift(() => Missing.Unless(
+        IO.lift(() => Refused.UnlessFound(
             slot.Match(Some: into => RenderContent.Create(doc, typeId, into.Parent, into.ChildSlotName), None: () => RenderContent.Create(doc, typeId)),
             nameof(RenderContent.Create)));
 
@@ -146,11 +145,11 @@ public static class Contents {
             .Map(_ => { content.Ownership.Relinquish(); return unit; })).Uninterruptible();
 
     public static IO<RenderContent> Detach(RhinoDoc doc, RenderContent content, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove)).ThrowIfFail()),
-            static held => IO.lift(held.Dispose), held => retain(new Disposal<RenderContent>(held, static detached => detached.Dispose())));
+        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove)).ThrowIfFail()), held => retain(new Disposal<RenderContent>(held, static detached => detached.Dispose())));
 
     public static IO<Unit> Replace(RenderContent target, RenderContent replacement) =>
-        IO.lift(() => Unattached.Unless(target.DocumentOwner is not null, target.Id).Bind(_ => Refused.Unless(target.Replace(replacement), nameof(RenderContent.Replace))));
+        IO.lift(() => (target.DocumentOwner is not null ? Fin.Succ(unit) : Error.New($"Content {target.Id} belongs to no document"))
+            .Bind(_ => Refused.Unless(target.Replace(replacement), nameof(RenderContent.Replace))));
 
     public static IO<Seq<Guid>> Purge(RhinoDoc doc, RenderContentKind kinds) =>
         Rows(doc, kinds).Bind(rows => Callbacks.Each(rows
@@ -215,9 +214,8 @@ public static class Contents {
 
     public static IO<Bitmap> Icon(RenderContent content, Size size, Option<DynamicIconUsage> usage, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => usage.Match(
-            Some: dynamic => content.DynamicIcon(size, out Bitmap bitmap, dynamic) ? Fin.Succ(bitmap) : new Missing(nameof(RenderContent.DynamicIcon)),
-            None: () => content.Icon(size, out Bitmap bitmap) ? Fin.Succ(bitmap) : new Missing(nameof(RenderContent.Icon))).ThrowIfFail()),
-            static bitmap => IO.lift(bitmap.Dispose), bitmap => retain(bitmap));
+            Some: dynamic => content.DynamicIcon(size, out Bitmap bitmap, dynamic) ? Fin.Succ(bitmap) : new Refused(nameof(RenderContent.DynamicIcon), Refused.Absent),
+            None: () => content.Icon(size, out Bitmap bitmap) ? Fin.Succ(bitmap) : new Refused(nameof(RenderContent.Icon), Refused.Absent)).ThrowIfFail()), bitmap => retain(bitmap));
 
     // --- [FILES]
     public static IO<Unit> SaveToFile(RenderContent content, string fileName, RenderContent.EmbedFilesChoice embed) =>

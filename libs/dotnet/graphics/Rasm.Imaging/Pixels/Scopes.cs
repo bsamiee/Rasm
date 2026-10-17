@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.Intrinsics;
@@ -7,6 +8,7 @@ using CommunityToolkit.HighPerformance.Helpers;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Pixels;
 
@@ -30,19 +32,17 @@ public sealed partial class ClipEnd {
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct BinRange {
     public int First { get; }
     public int Last { get; }
 
     public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref int first, ref int last) =>
-        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new InvalidPixelValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int first, ref int last) =>
+        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
 }
 
 [SmartEnum<int>]
-[ValidationError<InvalidPixelValue>]
 public sealed partial class ChromaZoom {
     public static readonly ChromaZoom Normal = new(1);
     public static readonly ChromaZoom Doubled = new(2);
@@ -51,7 +51,6 @@ public sealed partial class ChromaZoom {
 }
 
 [SmartEnum<int>]
-[ValidationError<InvalidPixelValue>]
 public sealed partial class SampleSquare {
     public static readonly SampleSquare One = new(1);
     public static readonly SampleSquare Three = new(3);
@@ -191,7 +190,7 @@ internal readonly struct HistogramFold((double X, double Y, double Z) luminance,
         ReadOnlySpan<ClipLevels> clips = clipping.ToSpan();
         Span2D<int> planes = bins[..(4 * HistogramAxis.Bins)].AsSpan2D(4, HistogramAxis.Bins);
         foreach (Vector4 pixel in row) {
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, (luminance.X * pixel.X) + (luminance.Y * pixel.Y) + (luminance.Z * pixel.Z));
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance));
             int covered = pixel.W > 0f ? 1 : 0;
             for (int plane = 0; plane < 4; plane++)
                 planes[plane, HistogramAxis.Bin(levels[plane])] += double.IsNaN(levels[plane]) ? 0 : covered;
@@ -215,7 +214,7 @@ internal readonly struct WaveformFold((double X, double Y, double Z) luminance, 
         Span2D<int> planes = bins.AsSpan2D(4 * rows, columns);
         for (int x = 0; x < row.Length; x++) {
             Vector4 pixel = row[x];
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, (luminance.X * pixel.X) + (luminance.Y * pixel.Y) + (luminance.Z * pixel.Z));
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance));
             (int covered, int column) = (row[x].W > 0f ? 1 : 0, (int)((long)x * columns / width));
             for (int plane = 0; plane < 4; plane++)
                 planes[(plane * rows) + int.Clamp(int.CreateSaturating(levels[plane] * rows), 0, rows - 1), column] += double.IsNaN(levels[plane]) ? 0 : covered;

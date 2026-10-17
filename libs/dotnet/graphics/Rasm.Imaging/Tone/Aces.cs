@@ -51,11 +51,12 @@ internal static class AcesTransform {
             rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb) switch {
                 var limit => Gamuts((limit, context.Display.Peak)) switch {
                     var gamut => Formation.Formed(
-                        Seq(new LutTable.Affine(context.Working.MatrixTo(Gamut.Acescg), (0d, 0d, 0d)).Apply, row => {
+                        context, Gamut.Acescg,
+                        Seq<Action<Span<Vector4>>>(row => {
                             foreach (ref Vector4 pixel in row)
                                 pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
                         }),
-                        new ColorEncoding(limit, TransferCurve.Linear, Nits.ReferenceWhite), context.Display),
+                        new ColorEncoding(limit, TransferCurve.Linear, Nits.ReferenceWhite)),
                 },
             };
 

@@ -14,9 +14,12 @@ utils:
     discarded-error:
         kind: tuple_struct_pattern
         regex: '^(\w+::)*Err\s*\(\s*(_\w*|\.\.)\s*\)$'
+    logged:
+        has: {field: value, matches: rust-inspected-error}
     ok-condition:
         kind: let_condition
         has: {field: pattern, matches: ok-pattern}
+        not: {matches: logged}
     empty-body:
         any:
             - kind: block
@@ -42,6 +45,7 @@ utils:
     result-source:
         any:
             - kind: call_expression
+              not: {matches: rust-inspected-error}
             - kind: 'await_expression, try_expression, parenthesized_expression'
               has: {nthChild: 1, matches: result-source}
     option-owner:
@@ -55,10 +59,7 @@ utils:
     bound-elsewhere:
         kind: identifier
         pattern: $R
-        not:
-            any:
-                - inside: {kind: 'let_declaration, parameter, closure_parameters', field: pattern}
-                - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
+        not: {matches: rust-result-view}
 rule:
     pattern: $SITE
     all:
@@ -88,17 +89,19 @@ rule:
                 - not: {has: {field: alternative, pattern: $_}}
             - kind: if_expression
               all:
-                - has: {field: condition, kind: let_condition, has: {field: pattern, matches: err-pattern}}
+                - has: {field: condition, kind: let_condition, has: {field: pattern, matches: err-pattern}, not: {matches: logged}}
                 - has: {field: consequence, matches: empty-body}
                 - not: {has: {field: alternative, pattern: $_}}
             - kind: match_arm
               all:
                 - has: {field: pattern, has: {matches: discarded-error}, not: {has: {field: condition, pattern: $_}}}
                 - has: {field: value, any: [{matches: empty-body}, {matches: leaving-body}]}
+                - not: {inside: {kind: match_block, inside: {kind: match_expression, matches: logged}}}
             - kind: let_declaration
               all:
                 - has: {field: pattern, matches: ok-pattern}
                 - has: {field: alternative, pattern: $_}
-        - not: {any: [{matches: rust-owned-span}, {matches: rust-domain-span}]}
+                - not: {matches: logged}
+        - not: {any: [{has: {stopBy: end, matches: rust-hex-pair-parse}}, {inside: {stopBy: end, any: [{matches: rust-binary-header-read}, {matches: rust-hex-pair-parse}, {matches: rust-utf8-int-parse}]}}]}
 message: '`$SITE` turns a failure into absence, a flag, or nothing and drops its reason'
-note: 'Keep the `Result` and propagate it with `?`, map the error into the caller''s variant with `map_err`, or recover through a closure that reads the error, a function that cannot produce a value returns the reason it cannot. A result `inspect_err` hands to a log first stays as written. Clippy `manual_unwrap_or_default`, `map_err_ignore`, and `unused_result_ok` report a `Result` resolved to a default.'
+note: 'Keep the `Result` and propagate it with `?`, map the error into the caller''s variant with `map_err`, or recover through a closure that reads the error, a function that cannot produce a value returns the reason it cannot. A result `inspect_err` hands to a log in the call right before the drop stays as written, and so does an `as_ref().ok()` view of a binding whose `Result` a later use in the body returns, propagates, or reads. Clippy `manual_unwrap_or_default`, `map_err_ignore`, and `unused_result_ok` report a `Result` resolved to a default.'

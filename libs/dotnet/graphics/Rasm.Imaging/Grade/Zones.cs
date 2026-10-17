@@ -198,32 +198,27 @@ internal sealed partial class GradingStyle {
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct ZoneAdjustment : IMinMaxValue<ZoneAdjustment> {
+public readonly partial struct ZoneAdjustment : IPresented<ZoneAdjustment, float> {
     public static ZoneAdjustment MinValue { get; } = new(0.1f);
     public static ZoneAdjustment MaxValue { get; } = new(1.9f);
     public static ZoneAdjustment Neutral { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct PivotAdjustment : IMinMaxValue<PivotAdjustment> {
+public readonly partial struct PivotAdjustment : IPresented<PivotAdjustment, float> {
     public static PivotAdjustment MinValue { get; } = new(0.2f);
     public static PivotAdjustment MaxValue { get; } = new(1.8f);
     public static PivotAdjustment Neutral { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct ZoneWidth : IMinMaxValue<ZoneWidth> {
+public readonly partial struct ZoneWidth : IPresented<ZoneWidth, float> {
     public static ZoneWidth MinValue { get; } = new(0.01f);
     public static ZoneWidth MaxValue { get; } = new((float)Exposure.MaxValue - (float)Exposure.MinValue);
     public static Presentation<float> Presentation { get; } = GradingStyle.Linear.Neutral switch {
@@ -234,37 +229,34 @@ public readonly partial struct ZoneWidth : IMinMaxValue<ZoneWidth> {
         },
     };
 
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct ZoneContrast : IMinMaxValue<ZoneContrast> {
+public readonly partial struct ZoneContrast : IPresented<ZoneContrast, float> {
     public static ZoneContrast MinValue { get; } = new(0.01f);
     public static ZoneContrast MaxValue { get; } = new(1.99f);
     public static ZoneContrast Neutral { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record Zone<TAdjustment>(TAdjustment Master, TAdjustment Red, TAdjustment Green, TAdjustment Blue, Exposure Start, ZoneWidth Width)
-    where TAdjustment : struct, IObjectFactory<TAdjustment, float, InvalidGrade>, IConvertible<float>, IMinMaxValue<TAdjustment> {
+    where TAdjustment : struct, IObjectFactory<TAdjustment, float, ValidationError>, IConvertible<float>, IMinMaxValue<TAdjustment> {
     internal ZoneSpan Span => new(new Vector4(Red.ToValue(), Green.ToValue(), Blue.ToValue(), Master.ToValue()), Start, Width);
 
     internal static Zone<TAdjustment> Of(ZoneSpan span) =>
         new(Adjusted(span.Values.W), Adjusted(span.Values.X), Adjusted(span.Values.Y), Adjusted(span.Values.Z),
-            Valid.Value(Exposure.Validate(span.Start, provider: null, out Exposure start), start),
-            Valid.Value(ZoneWidth.Validate(span.Width, provider: null, out ZoneWidth width), width));
+            Exposure.Create(span.Start),
+            ZoneWidth.Create(span.Width));
 
-    private static TAdjustment Adjusted(float value) => Valid.Value(TAdjustment.Validate(value, provider: null, out TAdjustment adjustment), adjustment);
+    private static TAdjustment Adjusted(float value) => Admission.Validated<TAdjustment, float>(value).ThrowIfFail();
 }
 
 public sealed record ToneZones(
     Zone<ZoneAdjustment> Blacks, Zone<PivotAdjustment> Shadows, Zone<ZoneAdjustment> Midtones, Zone<PivotAdjustment> Highlights, Zone<ZoneAdjustment> Whites, ZoneContrast SContrast)
-    : IStateRecord<ToneZones, ToneZonesParameter, InvalidGrade>, IPixelStage<ToneZones> {
+    : IStateRecord<ToneZones, ToneZonesParameter>, IPixelStage<ToneZones> {
     public static ToneZones Default { get; } = GradingStyle.Linear.Neutral switch {
         var neutral => new(
             Zone<ZoneAdjustment>.Of(neutral.Blacks), Zone<PivotAdjustment>.Of(neutral.Shadows), Zone<ZoneAdjustment>.Of(neutral.Midtones),
@@ -278,66 +270,97 @@ public sealed record ToneZones(
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToneZonesParameter : IStateParameter<ToneZones> {
     private static readonly ZoneKinds Blacks = Kinds(
-        Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Blacks, static zone => zones => zones with { Blacks = zone }), ZoneAdjustment.Presentation);
+        Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Blacks, static zone => zones => zones with { Blacks = zone }));
     private static readonly ZoneKinds Shadows = Kinds(
-        Lens<ToneZones, Zone<PivotAdjustment>>.New(static zones => zones.Shadows, static zone => zones => zones with { Shadows = zone }), PivotAdjustment.Presentation);
+        Lens<ToneZones, Zone<PivotAdjustment>>.New(static zones => zones.Shadows, static zone => zones => zones with { Shadows = zone }));
     private static readonly ZoneKinds Midtones = Kinds(
-        Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Midtones, static zone => zones => zones with { Midtones = zone }), ZoneAdjustment.Presentation);
+        Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Midtones, static zone => zones => zones with { Midtones = zone }));
     private static readonly ZoneKinds Highlights = Kinds(
-        Lens<ToneZones, Zone<PivotAdjustment>>.New(static zones => zones.Highlights, static zone => zones => zones with { Highlights = zone }), PivotAdjustment.Presentation);
+        Lens<ToneZones, Zone<PivotAdjustment>>.New(static zones => zones.Highlights, static zone => zones => zones with { Highlights = zone }));
     private static readonly ZoneKinds Whites = Kinds(
-        Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Whites, static zone => zones => zones with { Whites = zone }), ZoneAdjustment.Presentation);
+        Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Whites, static zone => zones => zones with { Whites = zone }));
 
-    public static readonly ToneZonesParameter BlacksMaster = new("blacks-master", Blacks.Master);
-    public static readonly ToneZonesParameter BlacksRed = new("blacks-red", Blacks.Red);
-    public static readonly ToneZonesParameter BlacksGreen = new("blacks-green", Blacks.Green);
-    public static readonly ToneZonesParameter BlacksBlue = new("blacks-blue", Blacks.Blue);
-    public static readonly ToneZonesParameter BlacksStart = new("blacks-start", Blacks.Start);
-    public static readonly ToneZonesParameter BlacksWidth = new("blacks-width", Blacks.Width);
-    public static readonly ToneZonesParameter ShadowsMaster = new("shadows-master", Shadows.Master);
-    public static readonly ToneZonesParameter ShadowsRed = new("shadows-red", Shadows.Red);
-    public static readonly ToneZonesParameter ShadowsGreen = new("shadows-green", Shadows.Green);
-    public static readonly ToneZonesParameter ShadowsBlue = new("shadows-blue", Shadows.Blue);
-    public static readonly ToneZonesParameter ShadowsStart = new("shadows-start", Shadows.Start);
-    public static readonly ToneZonesParameter ShadowsWidth = new("shadows-width", Shadows.Width);
-    public static readonly ToneZonesParameter MidtonesMaster = new("midtones-master", Midtones.Master);
-    public static readonly ToneZonesParameter MidtonesRed = new("midtones-red", Midtones.Red);
-    public static readonly ToneZonesParameter MidtonesGreen = new("midtones-green", Midtones.Green);
-    public static readonly ToneZonesParameter MidtonesBlue = new("midtones-blue", Midtones.Blue);
-    public static readonly ToneZonesParameter MidtonesStart = new("midtones-start", Midtones.Start);
-    public static readonly ToneZonesParameter MidtonesWidth = new("midtones-width", Midtones.Width);
-    public static readonly ToneZonesParameter HighlightsMaster = new("highlights-master", Highlights.Master);
-    public static readonly ToneZonesParameter HighlightsRed = new("highlights-red", Highlights.Red);
-    public static readonly ToneZonesParameter HighlightsGreen = new("highlights-green", Highlights.Green);
-    public static readonly ToneZonesParameter HighlightsBlue = new("highlights-blue", Highlights.Blue);
-    public static readonly ToneZonesParameter HighlightsStart = new("highlights-start", Highlights.Start);
-    public static readonly ToneZonesParameter HighlightsWidth = new("highlights-width", Highlights.Width);
-    public static readonly ToneZonesParameter WhitesMaster = new("whites-master", Whites.Master);
-    public static readonly ToneZonesParameter WhitesRed = new("whites-red", Whites.Red);
-    public static readonly ToneZonesParameter WhitesGreen = new("whites-green", Whites.Green);
-    public static readonly ToneZonesParameter WhitesBlue = new("whites-blue", Whites.Blue);
-    public static readonly ToneZonesParameter WhitesStart = new("whites-start", Whites.Start);
-    public static readonly ToneZonesParameter WhitesWidth = new("whites-width", Whites.Width);
-    public static readonly ToneZonesParameter SContrast = new("s-contrast", StateParameter.Bounded<ToneZones, ZoneContrast, float, InvalidGrade>(Lens<ToneZones, ZoneContrast>.New(static zones => zones.SContrast, static contrast => zones => zones with { SContrast = contrast }), ZoneContrast.Presentation));
+    public static readonly ToneZonesParameter BlacksMaster = new("blacks-master", Blacks.Master,
+        new("Blacks", "Adjustment of the blacks in every channel, one leaving them unchanged"));
+    public static readonly ToneZonesParameter BlacksRed = new("blacks-red", Blacks.Red,
+        new("Blacks red", "Adjustment of the blacks in red"));
+    public static readonly ToneZonesParameter BlacksGreen = new("blacks-green", Blacks.Green,
+        new("Blacks green", "Adjustment of the blacks in green"));
+    public static readonly ToneZonesParameter BlacksBlue = new("blacks-blue", Blacks.Blue,
+        new("Blacks blue", "Adjustment of the blacks in blue"));
+    public static readonly ToneZonesParameter BlacksStart = new("blacks-start", Blacks.Start,
+        new("Blacks start", "Stops from middle grey where the blacks begin, reaching downward"));
+    public static readonly ToneZonesParameter BlacksWidth = new("blacks-width", Blacks.Width,
+        new("Blacks width", "Stops the blacks span"));
+    public static readonly ToneZonesParameter ShadowsMaster = new("shadows-master", Shadows.Master,
+        new("Shadows", "Adjustment of the shadows in every channel, one leaving them unchanged"));
+    public static readonly ToneZonesParameter ShadowsRed = new("shadows-red", Shadows.Red,
+        new("Shadows red", "Adjustment of the shadows in red"));
+    public static readonly ToneZonesParameter ShadowsGreen = new("shadows-green", Shadows.Green,
+        new("Shadows green", "Adjustment of the shadows in green"));
+    public static readonly ToneZonesParameter ShadowsBlue = new("shadows-blue", Shadows.Blue,
+        new("Shadows blue", "Adjustment of the shadows in blue"));
+    public static readonly ToneZonesParameter ShadowsStart = new("shadows-start", Shadows.Start,
+        new("Shadows start", "Stops from middle grey where the shadows begin, reaching downward"));
+    public static readonly ToneZonesParameter ShadowsWidth = new("shadows-width", Shadows.Width,
+        new("Shadows width", "Stops the shadows span"));
+    public static readonly ToneZonesParameter MidtonesMaster = new("midtones-master", Midtones.Master,
+        new("Midtones", "Adjustment of the midtones in every channel, one leaving them unchanged"));
+    public static readonly ToneZonesParameter MidtonesRed = new("midtones-red", Midtones.Red,
+        new("Midtones red", "Adjustment of the midtones in red"));
+    public static readonly ToneZonesParameter MidtonesGreen = new("midtones-green", Midtones.Green,
+        new("Midtones green", "Adjustment of the midtones in green"));
+    public static readonly ToneZonesParameter MidtonesBlue = new("midtones-blue", Midtones.Blue,
+        new("Midtones blue", "Adjustment of the midtones in blue"));
+    public static readonly ToneZonesParameter MidtonesStart = new("midtones-start", Midtones.Start,
+        new("Midtones center", "Stops from middle grey the midtones center on"));
+    public static readonly ToneZonesParameter MidtonesWidth = new("midtones-width", Midtones.Width,
+        new("Midtones width", "Stops the midtones span"));
+    public static readonly ToneZonesParameter HighlightsMaster = new("highlights-master", Highlights.Master,
+        new("Highlights", "Adjustment of the highlights in every channel, one leaving them unchanged"));
+    public static readonly ToneZonesParameter HighlightsRed = new("highlights-red", Highlights.Red,
+        new("Highlights red", "Adjustment of the highlights in red"));
+    public static readonly ToneZonesParameter HighlightsGreen = new("highlights-green", Highlights.Green,
+        new("Highlights green", "Adjustment of the highlights in green"));
+    public static readonly ToneZonesParameter HighlightsBlue = new("highlights-blue", Highlights.Blue,
+        new("Highlights blue", "Adjustment of the highlights in blue"));
+    public static readonly ToneZonesParameter HighlightsStart = new("highlights-start", Highlights.Start,
+        new("Highlights start", "Stops from middle grey where the highlights begin, reaching upward"));
+    public static readonly ToneZonesParameter HighlightsWidth = new("highlights-width", Highlights.Width,
+        new("Highlights width", "Stops the highlights span"));
+    public static readonly ToneZonesParameter WhitesMaster = new("whites-master", Whites.Master,
+        new("Whites", "Adjustment of the whites in every channel, one leaving them unchanged"));
+    public static readonly ToneZonesParameter WhitesRed = new("whites-red", Whites.Red,
+        new("Whites red", "Adjustment of the whites in red"));
+    public static readonly ToneZonesParameter WhitesGreen = new("whites-green", Whites.Green,
+        new("Whites green", "Adjustment of the whites in green"));
+    public static readonly ToneZonesParameter WhitesBlue = new("whites-blue", Whites.Blue,
+        new("Whites blue", "Adjustment of the whites in blue"));
+    public static readonly ToneZonesParameter WhitesStart = new("whites-start", Whites.Start,
+        new("Whites start", "Stops from middle grey where the whites begin, reaching upward"));
+    public static readonly ToneZonesParameter WhitesWidth = new("whites-width", Whites.Width,
+        new("Whites width", "Stops the whites span"));
+    public static readonly ToneZonesParameter SContrast = new("s-contrast", StateParameter.Bounded(Lens<ToneZones, ZoneContrast>.New(static zones => zones.SContrast, static contrast => zones => zones with { SContrast = contrast })),
+        new("Contrast", "Slope of the S-curve through the tones, one leaving the image unchanged"));
 
     public StateParameter<ToneZones> Kind { get; }
+    public ParameterText Text { get; }
 
-    private static ZoneKinds Kinds<TAdjustment>(Lens<ToneZones, Zone<TAdjustment>> zone, Presentation<float> presentation)
-        where TAdjustment : struct, IObjectFactory<TAdjustment, float, InvalidGrade>, IConvertible<float>, IMinMaxValue<TAdjustment> =>
+    private static ZoneKinds Kinds<TAdjustment>(Lens<ToneZones, Zone<TAdjustment>> zone)
+        where TAdjustment : struct, IPresented<TAdjustment, float> =>
         fun((Lens<Zone<TAdjustment>, TAdjustment> channel) =>
-            (StateParameter<ToneZones>)StateParameter.Bounded<ToneZones, TAdjustment, float, InvalidGrade>(lens(zone, channel), presentation)) switch {
+            StateParameter.Bounded(lens(zone, channel))) switch {
                 var adjusted => new(
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Master, static value => at => at with { Master = value })),
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Red, static value => at => at with { Red = value })),
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Green, static value => at => at with { Green = value })),
                     adjusted(Lens<Zone<TAdjustment>, TAdjustment>.New(static at => at.Blue, static value => at => at with { Blue = value })),
-                    StateParameter.Bounded<ToneZones, Exposure, float, InvalidToneValue>(lens(zone, Lens<Zone<TAdjustment>, Exposure>.New(static at => at.Start, static start => at => at with { Start = start })), Exposure.Presentation),
-                    StateParameter.Bounded<ToneZones, ZoneWidth, float, InvalidGrade>(lens(zone, Lens<Zone<TAdjustment>, ZoneWidth>.New(static at => at.Width, static width => at => at with { Width = width })), ZoneWidth.Presentation)),
+                    StateParameter.Bounded(lens(zone, Lens<Zone<TAdjustment>, Exposure>.New(static at => at.Start, static start => at => at with { Start = start }))),
+                    StateParameter.Bounded(lens(zone, Lens<Zone<TAdjustment>, ZoneWidth>.New(static at => at.Width, static width => at => at with { Width = width })))),
             };
 
     private readonly record struct ZoneKinds(

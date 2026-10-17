@@ -5,11 +5,11 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - pattern: $R.collect::<Result<$C, _>>()
             - pattern: $R.collect::<Option<$C>>()
-        - not: {matches: rust-owned-span}
+        - not: {has: {stopBy: end, matches: rust-hex-pair-parse}}
         - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
 constraints:
     R: {not: {kind: 'identifier, self, field_expression'}}

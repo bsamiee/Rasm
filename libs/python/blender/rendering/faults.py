@@ -4,13 +4,11 @@ import datetime
 from enum import auto, Enum
 from pathlib import Path
 import re
-from typing import Self
 
 from expression import Option, Result
-import httpx2
 import msgspec
 
-from blender.imaging.faults import Faults, ImagingFaults, Refusal
+from blender.imaging.faults import Faults, ImagingFaults, Numeric, Refusal
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -69,7 +67,7 @@ class RenderingWriteFault(Refusal[Path, OSError], frozen=True):
     """Record write or file copy its writer refused."""
 
 
-class RenderingSendFault(Refusal[str | httpx2.URL | Path, Cause | int | OverflowError], frozen=True):
+class RenderingSendFault(Refusal[str | Path, Cause | int | OverflowError], frozen=True):
     """HTTP request refused by transport or response status."""
 
 
@@ -93,31 +91,12 @@ class RenderingTimeFault(Refusal[datetime.date | tuple[datetime.datetime, dateti
     """Calendar result outside native datetime arithmetic."""
 
 
-class RenderingSizeFault(Refusal[tuple[int, int], Option[tuple[int, int]] | OverflowError | FloatingPointError | ValueError | MemoryError], frozen=True):
-    """Dimensions or their allocation refused by the receiving host."""
+class RenderingSizeFault(Refusal[tuple[int, int], Option[tuple[int, int]]], frozen=True):
+    """Pixel dimensions outside the receiving host bounds, or empty when no bounds are named."""
 
 
-class RenderingArithmeticFault(Refusal[tuple[float, ...], OverflowError | FloatingPointError | msgspec.ValidationError], frozen=True):
-    """Numeric operands whose result exceeds the native representation."""
-
-    @classmethod
-    def of(cls, request: msgspec.Struct | tuple[object, ...], error: OverflowError | FloatingPointError | msgspec.ValidationError) -> Self:
-        """Constructs a numeric refusal from its native structured request."""
-
-        def operands(value: object) -> tuple[float, ...]:
-            match value:
-                case float():
-                    return (value,)
-                case msgspec.Struct():
-                    return operands(msgspec.structs.astuple(value))
-                case Option():
-                    return operands(tuple(value.to_list()))
-                case tuple():
-                    return tuple(number for item in value for number in operands(item))
-                case _:
-                    return ()
-
-        return cls(request=operands(request), error=error)
+class RenderingArithmeticFault(Refusal[msgspec.Struct | tuple[float | msgspec.Struct, ...], Numeric], frozen=True):
+    """Operands whose arithmetic, allocation, or native representation refused them."""
 
 
 class RenderingImagingFault(msgspec.Struct, frozen=True, kw_only=True):

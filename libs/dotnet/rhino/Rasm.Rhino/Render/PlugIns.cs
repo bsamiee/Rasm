@@ -147,7 +147,7 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
         base.RegisterCustomRenderSaveFileTypes(saveFileTypes);
         Callbacks.Run(IO.lift(() => renderer.SaveTypes.Iter(type => saveFileTypes.RegisterFileType(
             Seq(type.Target.FileFormat.Extension[1..]),
-            RowText.Localize(type.Description, table: Some<object>(this)).Local,
+            RowText.Localize(type.Description, this).Local,
             (fileName, includeAlpha, window) => Callbacks.Succeeded(
                 Saves.Write(this, type.Target with { Alpha = includeAlpha }, fileName, window), CallbackSite.Of(this, nameof(CustomRenderSaveFileTypes.SaveFileHandler)))))),
             CallbackSite.Of(this));

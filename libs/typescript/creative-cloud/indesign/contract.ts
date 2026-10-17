@@ -97,7 +97,8 @@ const Refusal = Schema.TaggedUnion({
 });
 const Reason = Schema.TaggedUnion({
     Missing: { subject: Schema.String, query: Schema.String, candidates: Schema.Array(Schema.String), range: Schema.OptionFromOptionalKey(Schema.Struct(Struct.Record(['first', 'last'], Index))) },
-    Thrown: { cause: Schema.Defect(), line: Schema.OptionFromOptionalKey(Schema.Int), source: Schema.OptionFromOptionalKey(Schema.String), corrections: Outcome.fields.corrections, kept: Schema.Boolean },
+    Thrown: { cause: Schema.Defect() },
+    Script: { cause: Schema.Defect(), line: Schema.OptionFromOptionalKey(Schema.Int), source: Schema.OptionFromOptionalKey(Schema.String), corrections: Outcome.fields.corrections, kept: Schema.Boolean },
     Rejected: { fields: Schema.NonEmptyArray(Refusal) },
     Blocked: {},
     Unsettled: {},
@@ -111,7 +112,8 @@ class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: 
                     onEmpty: () => `No ${subject}`,
                     onNonEmpty: (listed) => `No ${subject}; candidates: ${Array.join(listed, ', ')}`,
                 }),
-            Thrown: ({ cause, line, source, corrections, kept }) =>
+            Thrown: ({ cause }) => Formatter.format(cause),
+            Script: ({ cause, line, source, corrections, kept }) =>
                 Array.join([Formatter.format(cause), ...Option.toArray(Option.map(line, (at) => Array.join([`line ${at}`, ...Option.toArray(source)], ': '))), ...Option.toArray(Option.map(corrections, (applied) => `corrections: ${Array.join(applied, '; ')}`)), kept ? 'changes kept' : 'changes undone'], '\n'),
             Rejected: ({ fields }) =>
                 Array.join(
@@ -141,6 +143,8 @@ class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: 
         });
     }
 }
+const thrown = (cause: unknown): InDesignError => InDesignError.make({ reason: { _tag: 'Thrown', cause } });
+const missing = (subject: string, query: string, candidates: readonly string[]): InDesignError => InDesignError.make({ reason: { _tag: 'Missing', subject, query, candidates, range: Option.none() } });
 
 // --- [RPCS] ----------------------------------------------------------------------------
 
@@ -280,4 +284,4 @@ const Panel = RpcGroup.make(Execute, Enter, Render, Inspect, Face, Subset, Find,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Body, Box, Execute, Face, Find, InDesignError, Inspect, Menu, PATH, Panel, Peer, Preflight, Queries, Refusal, Render, Shot, Specifier, Subset, Target };
+export { Body, Box, Execute, Face, Find, InDesignError, Inspect, Menu, missing, PATH, Panel, Peer, Preflight, Queries, Refusal, Render, Shot, Specifier, Subset, Target, thrown };

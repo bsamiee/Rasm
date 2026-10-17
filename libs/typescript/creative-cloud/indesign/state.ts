@@ -3,8 +3,8 @@ import indesign from 'adobe:indesign';
 import { host } from 'adobe:uxp';
 import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
-import { Inspect, Menu, Preflight } from './contract.ts';
-import { active, inspect as described, missing, read, scope } from './dom.ts';
+import { type InDesignError, Inspect, Menu, missing, Preflight } from './contract.ts';
+import { active, inspect as described, type Model, read } from './dom.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -41,8 +41,7 @@ const problems = Effect.fn('problems')(function* (document: Document, named: Opt
 const state = Effect.fn('state')(function* () {
     const { app, StyleType } = indesign;
     const { State } = Inspect.successSchema.cases;
-    const modal = yield* read(Schema.Boolean, () => app.modalState);
-    yield* modal ? Effect.void : scope;
+    const modal = app.modalState;
     const documents = modal ? [] : app.documents.everyItem().getElements();
     const paths = yield* Effect.forEach(documents, (document) => (document.saved ? Effect.asSome(Effect.promise(() => document.fullName)) : Effect.succeedNone));
     const live = yield* Effect.transposeOption(
@@ -94,24 +93,17 @@ const state = Effect.fn('state')(function* () {
                   ),
               },
     }));
-}, Effect.scoped);
-const inspect = Effect.fnUntraced(function* ({ target, fields }: Rpc.Payload<typeof Inspect>) {
-    return yield* Option.match(target, { onNone: state, onSome: (named) => Effect.andThen(scope, described(named, fields)) });
-}, Effect.scoped);
-const menu = Effect.fnUntraced(function* ({ area }: Rpc.Payload<typeof Menu>) {
-    yield* scope;
-    return yield* read(Menu.successSchema, () => {
+});
+const inspect = ({ target, fields }: Rpc.Payload<typeof Inspect>): Effect.Effect<Rpc.Success<typeof Inspect>, InDesignError, Model> => Option.match(target, { onNone: state, onSome: (named) => described(named, fields) });
+const menu = ({ area }: Rpc.Payload<typeof Menu>): Effect.Effect<Rpc.Success<typeof Menu>, InDesignError> =>
+    read(Menu.successSchema, () => {
         const every = indesign.app.menuActions.everyItem();
         return Array.filter(
             Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within })),
             (action) => action.area.startsWith(Option.getOrElse(area, () => '')),
         );
     });
-}, Effect.scoped);
-const preflight = Effect.fnUntraced(function* ({ profile }: Rpc.Payload<typeof Preflight>) {
-    yield* scope;
-    return yield* problems(yield* active, profile);
-}, Effect.scoped);
+const preflight = ({ profile }: Rpc.Payload<typeof Preflight>): Effect.Effect<Rpc.Success<typeof Preflight>, InDesignError> => Effect.flatMap(active, (document) => problems(document, profile));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

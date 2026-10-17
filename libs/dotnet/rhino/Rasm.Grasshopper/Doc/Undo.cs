@@ -1,7 +1,6 @@
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
 using QuikGraph;
-using QuikGraph.Algorithms;
 using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.Doc;
@@ -42,16 +41,11 @@ public static class HistoryOps {
                 .ToBidirectionalGraph(static node => node.Children.Select(child => new SEquatableEdge<Node>(node, child)), allowParallelEdges: false)
                 .ToArrayBidirectionalGraph());
 
-    public static IO<Option<(Node Ancestor, Seq<Node> Path)>> Reconcile(History history, Node from, Node to) =>
-        from == to
-            ? IO.pure(Some((Ancestor: from, Path: Seq(from))))
-            : Topology(history)
-                .Map(graph => Callbacks.Found(new UndirectedBidirectionalGraph<Node, SEquatableEdge<Node>>(graph)
-                        .ShortestPathsDijkstra(static _ => 1, from)(to, out IEnumerable<SEquatableEdge<Node>> edges), edges)
-                    .Map(path => toSeq(path).Scan(from, static (node, edge) => edge.GetOtherVertex(node)).Strict()))
-                .Map(path => from nodes in path
-                             from ancestor in nodes.Find(node => node == to || node.IsDescendantNode(to))
-                             select (Ancestor: ancestor, Path: nodes));
+    public static IO<Option<(Node Ancestor, Seq<Node> Path)>> Reconcile(Node start, Node end) =>
+        from lineages in IO.lift(() => (Rising: Lineage(start), Falling: Lineage(end)))
+        let shared = lineages.Rising.Rev().Zip(lineages.Falling.Rev()).TakeWhile(static pair => pair.First == pair.Second).Count
+        select from ancestor in lineages.Rising.At(lineages.Rising.Count - shared)
+               select (Ancestor: ancestor, Path: lineages.Rising.Take(lineages.Rising.Count - shared + 1) + lineages.Falling.Take(lineages.Falling.Count - shared).Rev());
 
     public static IO<Seq<(Node Node, Grasshopper2.Undo.Action Action)>> Applied(History history) =>
         IO.lift(() => toSeq(history.CentralUndoSequence)
@@ -59,21 +53,21 @@ public static class HistoryOps {
             .Zip(toSeq(history.UndoActions), static (node, action) => (Node: node, Action: action))
             .Strict());
 
+    private static Seq<Node> Lineage(Node node) => toSeq(LanguageExt.List.unfold(node, static step => Optional(step.Parent))).Strict();
+
     // --- [RECORDS]
     public static IO<A> Recorded<A>(IDocumentObject target, VerbNoun name, AutoSaveReason reason, Func<Grasshopper2.Undo.Action> capture, IO<A> edit, Func<A, bool> changed) =>
-        IO.lift(static environment => environment).Bind(environment =>
-            (from edited in IO.liftVAsync(() => (
-                 from action in IO.lift(capture)
-                 from value in edit
-                 select (Action: action, Value: value)).RunAsync(environment))
-             from committed in when(changed(edited.Value),
-                 IO.lift(() => target.AddUndoRecord(name, edited.Action)).Bind(_ =>
-                     Callbacks.Each(Seq(
-                         IO.lift(() => target.RequestAutoSave(reason)).Map(unit),
-                         when(edited.Action.Response.HasFlag(Effects.ExpireSolution), IO.lift(() => Optional(target.Document).Iter(document => document.Solution.DelayedExpire(target)))).As(),
-                         when(edited.Action.Response.HasFlag(Effects.ExpireLayout), IO.lift(target.OnLayoutChanged)).As(),
-                         when(edited.Action.Response.HasFlag(Effects.ExpireLayout), IO.lift(() => Optional(target.Attributes).Iter(static attributes => attributes.InvalidateLayout()))).As(),
-                         when(edited.Action.Response.HasFlag(Effects.ExpireDisplay), IO.lift(target.OnDisplayChanged)).As())))
-                     .Map(static _ => unit)).As()
-             select edited.Value).Uninterruptible());
+        DisposalOps.Transacted(
+            IO.lift(capture),
+            _ => edit,
+            static _ => unitIO,
+            (action, value) => when(changed(value),
+                IO.lift(() => target.AddUndoRecord(name, action)).Bind(_ =>
+                    Callbacks.Each(Seq(
+                        IO.lift(() => target.RequestAutoSave(reason)).Map(unit),
+                        when(action.Response.HasFlag(Effects.ExpireSolution), IO.lift(() => Optional(target.Document).Iter(document => document.Solution.DelayedExpire(target)))).As(),
+                        when(action.Response.HasFlag(Effects.ExpireLayout), IO.lift(target.OnLayoutChanged)).As(),
+                        when(action.Response.HasFlag(Effects.ExpireLayout), IO.lift(() => Optional(target.Attributes).Iter(static attributes => attributes.InvalidateLayout()))).As(),
+                        when(action.Response.HasFlag(Effects.ExpireDisplay), IO.lift(target.OnDisplayChanged)).As())))
+                    .Map(static _ => unit)).As().Map(_ => value));
 }

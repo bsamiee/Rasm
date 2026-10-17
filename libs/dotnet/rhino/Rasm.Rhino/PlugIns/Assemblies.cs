@@ -10,9 +10,8 @@ namespace Rasm.Rhino.PlugIns;
 public static class AssemblyLoading {
     // --- [NATIVE_LIBRARIES]
     private static nint Library(string frameworks, string name) =>
-        (from spy in use(static () => new RiskyAction(nameof(NativeLibrary.TryLoad)))
-         from library in IO.lift(() => NativeLibrary.TryLoad(Path.Join(frameworks, $"lib{name}.dylib"), out nint handle) ? handle : 0)
-         select library).Bracket().Run();
+        DisposalOps.Within(static () => new RiskyAction(nameof(NativeLibrary.TryLoad)),
+            _ => IO.lift(() => NativeLibrary.TryLoad(Path.Join(frameworks, $"lib{name}.dylib"), out nint handle) ? handle : 0)).Run();
 
     // --- [INITIALIZATION]
     public static readonly Unit Initialized = Initialize(typeof(AssemblyLoading).Assembly);

@@ -8,6 +8,6 @@ rule:
         - has: {field: name, pattern: $ALIAS}
         - has: {field: type, pattern: $TARGET}
         - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
-        - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*cfg\s*\('}}
+        - not: {matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}}
 message: '`$ALIAS` is another name for `$TARGET`'
 note: 'Spell `<target>` at each use of `<alias>`. A `#[cfg]` alias names a type that differs per platform and stays as written'

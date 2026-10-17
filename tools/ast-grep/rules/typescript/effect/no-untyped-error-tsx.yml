@@ -6,7 +6,7 @@ utils:
     native-error:
         any:
             - kind: new_expression
-              has: {field: constructor, matches: syntax-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
+              has: {field: constructor, matches: typescript-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
             - kind: as_expression, satisfies_expression, parenthesized_expression
               has: {matches: native-error}
     effect-channel:
@@ -24,9 +24,9 @@ utils:
             - matches: native-error
             - any:
                 - kind: new_expression
-                  has: {field: 'constructor', not: {matches: syntax-package-reference}}
+                  has: {field: 'constructor', not: {matches: typescript-package-reference}}
                 - kind: call_expression
-                  has: {field: function, not: {matches: syntax-package-reference}}
+                  has: {field: function, not: {matches: typescript-package-reference}}
               all:
                 - has:
                     field: arguments
@@ -48,7 +48,7 @@ utils:
                   has:
                     kind: return_statement
                     has: {matches: untagged-error, pattern: $ERROR}
-                    stopBy: {matches: syntax-function-boundary}
+                    stopBy: {matches: typescript-function-boundary}
     strict-constructor:
         kind: member_expression
         all:
@@ -71,7 +71,7 @@ utils:
         any:
             - all:
                 - has: {field: property, regex: '^filterOrFail$'}
-                - has: {field: object, matches: effect-effect-module}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
             - all:
                 - has: {field: property, regex: '^(filterOrFail|liftPredicate)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\bResult$'}}}}
@@ -80,7 +80,7 @@ utils:
         any:
             - all:
                 - has: {field: property, regex: '^(try|tryPromise)$'}
-                - has: {field: object, matches: effect-effect-module}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
             - all:
                 - has: {field: property, regex: '^try$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\bResult$'}}}}

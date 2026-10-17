@@ -277,7 +277,7 @@ def prepared(
             head,
             PyOpenColorIO.ColorSpaceTransform(src=record.space, dst=PyOpenColorIO.ROLE_SCENE_LINEAR),
         ])
-        pixels = Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (BlenderImagingFault(faults=(ImagingBufferFault(request=image, error=image.geterror()),)),))
+        pixels = ImagingBufferFault.pixels(image).map_error(BlenderImagingFault.lifted)
 
         def published(values: npt.NDArray[np.float32]) -> BlenderResult[tuple[Lookup, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
             result = OpenImageIO.ImageBuf(OpenImageIO.ImageSpec(image.spec()))

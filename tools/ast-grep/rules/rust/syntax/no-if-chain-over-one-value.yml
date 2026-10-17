@@ -17,13 +17,6 @@ utils:
               has: {matches: variant-value}
             - kind: block
               has: {nthChild: {position: 1, reverse: true}, any: [{matches: variant-value}, {kind: expression_statement, has: {matches: variant-value}}]}
-    enum-variant:
-        kind: identifier
-        regex: '^[A-Z]([A-Za-z0-9]*[a-z][A-Za-z0-9]*)?$'
-        not:
-            any:
-                - regex: '^(Some|None|Ok|Err|Self)$'
-                - precedes: {regex: '^::$'}
     pattern-operand:
         any:
             - kind: 'integer_literal, char_literal, boolean_literal, float_literal'
@@ -38,6 +31,13 @@ utils:
                 - not: {has: {field: arguments, has: {pattern: $_, not: {matches: pattern-operand}}}}
     text-operand:
         kind: 'string_literal, raw_string_literal'
+    scrutinee:
+        any:
+            - {kind: reference_expression, has: {field: value, pattern: $VALUE}}
+            - pattern: $VALUE
+    bound:
+        kind: let_condition
+        has: {field: value, matches: scrutinee}
     equality:
         kind: binary_expression
         all:
@@ -50,15 +50,13 @@ utils:
             - kind: macro_invocation
               all:
                 - has: {field: macro, regex: '^matches$'}
-                - not: {has: {kind: token_tree, has: {stopBy: end, matches: enum-variant}}}
                 - any:
                     - pattern: matches!($VALUE, $$$_)
                     - pattern: matches!($VALUE.$FIELD, $$$_)
                     - pattern: matches!(*$VALUE, $$$_)
-            - kind: let_condition
-              all:
-                - has: {field: value, pattern: $VALUE}
-                - not: {has: {field: pattern, any: [{matches: enum-variant}, {has: {stopBy: end, matches: enum-variant}}]}}
+            - matches: bound
+            - kind: let_chain
+              has: {nthChild: 1, matches: bound}
     text-condition:
         matches: equality
         has: {field: right, matches: text-operand}
@@ -73,7 +71,6 @@ utils:
 rule:
     kind: if_expression
     all:
-        - not: {inside: {kind: else_clause}}
         - any:
             - all:
                 - matches: constant-test
@@ -84,5 +81,6 @@ rule:
                 - any:
                     - matches: rust-text-decoder
                     - has: {field: consequence, matches: variant-value}
+        - not: {inside: {kind: else_clause, inside: {kind: if_expression, any: [{matches: constant-test}, {matches: text-test}]}}}
 message: '`if` chain tests `$VALUE` branch by branch'
-note: 'Write one `match` over the value with an arm per constant or pattern (`match <value> { <pattern> => .., <pattern> => .. }`), the compiler then checks the arms for overlap and exhaustiveness. The `string_tag` dylint owns a chain over text literals outside a decoder, and a chain over variants of an enum other than `Option` and `Result` stays, Clippy `wildcard_enum_match_arm` rejects the `_` arm its match needs'
+note: 'Write one `match` over the value with an arm per constant or pattern (`match <value> { <pattern> => .., <pattern> => .. }`), a `let` chain link becomes an arm guard (`<pattern> if <test> =>`), the compiler then checks the arms for overlap and exhaustiveness. The `string_tag` dylint owns a chain over text literals outside a decoder, and the `owned_catch_all` dylint names each variant a catch-all arm over a repository enum covers'

@@ -10,25 +10,21 @@ namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidColor>]
 public readonly partial struct AllocationStop : IMinMaxValue<AllocationStop> {
     public static AllocationStop MinValue { get; } = new(-24f);
     public static AllocationStop MaxValue { get; } = new(16f);
     public static AllocationStop Default { get; } = new(-10f);
 
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidColor>]
 public readonly partial struct AllocationSpan : IMinMaxValue<AllocationSpan> {
     public static AllocationSpan MinValue { get; } = new(float.BitIncrement(0f));
     public static AllocationSpan MaxValue { get; } = new(40f);
     public static AllocationSpan Default { get; } = new(20f);
 
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -104,7 +100,7 @@ public static class Bakes {
         select (LutTable)new LutTable.Sequence(bake.Input.Encoding.LinearTo(linear) + steps + linear.LinearTo(bake.Output));
 
     public static LutTable Export(ChartFit fit, FitDirection direction) =>
-        new LutTable.Affine(fit.Transform(direction).Matrix, (0d, 0d, 0d));
+        new LutTable.Affine(fit.Transform(direction).Matrix);
 
     internal static Fin<Lut3D> Lattice(LatticeSize size, Seq<Action<Span<Vector4>>> steps) {
         using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * size * size * size);

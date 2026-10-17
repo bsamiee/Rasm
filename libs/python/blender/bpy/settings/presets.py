@@ -20,7 +20,7 @@ from blender.rendering.edits import merge, transfer
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, title="Name", description="Name of the preset and its file")]
+type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, description="Name of the preset and its file")]
 type Stock[T] = Mapping[str, T | Path]
 
 # --- [MODELS] ---------------------------------------------------------------------------

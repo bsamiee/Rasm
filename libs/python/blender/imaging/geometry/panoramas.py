@@ -12,13 +12,11 @@ from scipy.spatial.transform import Rotation
 
 from blender.imaging.geometry.homography import Quad
 from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Case, Finite, Presentation, Quantity
+from blender.imaging.parameters import Case, Elevation, Finite, NonNegative, Positive, Presentation, Quantity, Turn, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FieldOfView = Annotated[float, msgspec.Meta(gt=0.0, lt=math.pi), Presentation(quantity=Some(Quantity.ANGLE))]
-type Turn = Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi), Presentation(quantity=Some(Quantity.ANGLE))]
-type Elevation = Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0), Presentation(quantity=Some(Quantity.ANGLE))]
 type SensorDimension = Annotated[float, msgspec.Meta(ge=0.001, le=sys.float_info.max)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -43,8 +41,7 @@ class Fisheye(Panorama, frozen=True, kw_only=True):
 class Rectilinear(Panorama, frozen=True, kw_only=True, tag=1):
     """Pinhole projection of a perspective camera."""
 
-    title = "Rectilinear"
-    aspect: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, description="Frame width over frame height")] = 4.0 / 3.0
+    aspect: Annotated[Positive, msgspec.Meta(description="Frame width over frame height")] = 4.0 / 3.0
     field_of_view: Annotated[FieldOfView, msgspec.Meta(title="Field of View", description="Horizontal angle the frame spans")] = math.radians(60.0)
     shift: Annotated[tuple[Finite, Finite], Presentation(quantity=Some(Quantity.FRAME))] = (0.0, 0.0)
 
@@ -129,8 +126,6 @@ class CentralCylindrical(Panorama, frozen=True, kw_only=True, tag=3):
 class MirrorBall(Panorama, frozen=True, kw_only=True, tag=4):
     """Reflection in a mirrored sphere seen along the view axis."""
 
-    title = "Mirror Ball"
-
     @staticmethod
     def to_image(rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps rays to the ball's circle, with zero coverage straight behind."""
@@ -150,8 +145,6 @@ class MirrorBall(Panorama, frozen=True, kw_only=True, tag=4):
 
 class FisheyeEquidistant(Fisheye, frozen=True, kw_only=True, tag=5):
     """Fisheye whose image radius grows with the angle from the view axis."""
-
-    title = "Fisheye Equidistant"
 
     def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps rays to the image circle, with zero coverage past half the field of view."""
@@ -173,7 +166,6 @@ class FisheyeEquidistant(Fisheye, frozen=True, kw_only=True, tag=5):
 class FisheyeEquisolid(Fisheye, frozen=True, kw_only=True, tag=6):
     """Fisheye whose image radius follows the equisolid angle on a physical sensor."""
 
-    title = "Fisheye Equisolid"
     lens: Annotated[float, msgspec.Meta(ge=0.00001, le=0.1, description="Focal length"), Presentation(quantity=Some(Quantity.CAMERA_LENGTH))] = 0.0105
     sensor: Annotated[tuple[SensorDimension, SensorDimension], Presentation(quantity=Some(Quantity.CAMERA_LENGTH))] = (0.036, 0.024)
 
@@ -204,7 +196,6 @@ class FisheyeEquisolid(Fisheye, frozen=True, kw_only=True, tag=6):
 class Stereographic(Panorama, frozen=True, kw_only=True, tag=7):
     """Conformal projection of the sphere from the point behind the viewer."""
 
-    title = "Stereographic"
     centred = True
     field_of_view: Annotated[float, msgspec.Meta(gt=0.0, lt=2.0 * math.pi, title="Field of View", description="Angle the frame's greater side spans"), Presentation(quantity=Some(Quantity.ANGLE))] = (
         math.pi
@@ -239,12 +230,11 @@ class Stereographic(Panorama, frozen=True, kw_only=True, tag=7):
 class Panini(Panorama, frozen=True, kw_only=True, tag=8):
     """Cylinder projection from a center behind its axis, preserving vertical lines."""
 
-    title = "Panini"
     upright = True
     centred = True
     field_of_view: Annotated[FieldOfView, msgspec.Meta(title="Field of View", description="Angle the frame's greater side spans")] = math.radians(60.0)
-    distance: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, description="Projection center behind the sphere center, 0 rectilinear"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
-    compression: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Vertical Compression", description="Fade from rectilinear heights to hard vertical compression")] = 0.0
+    distance: Annotated[NonNegative, msgspec.Meta(description="Projection center behind the sphere center, 0 rectilinear"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
+    compression: Annotated[Unit, msgspec.Meta(title="Vertical Compression", description="Fade from rectilinear heights to hard vertical compression")] = 0.0
 
     @property
     def weights(self) -> tuple[float, float]:
@@ -352,7 +342,6 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
 
 __all__ = [
     "CentralCylindrical",
-    "Elevation",
     "Equirectangular",
     "FieldOfView",
     "Fisheye",
@@ -366,5 +355,4 @@ __all__ = [
     "Rectilinear",
     "SensorDimension",
     "Stereographic",
-    "Turn",
 ]

@@ -304,7 +304,7 @@ def exported(call: Call[Named]) -> BlenderResult[Done]:
 
     def ready(scene: bpy.types.Scene) -> BlenderResult[Done]:
         entry = distortion.named(call.identity, scene, call.record.name).bind(lambda held: distortion.read(call.identity, held))
-        config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
+        config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
         framing = FrameSize().bound(call.identity).bind(lambda framed: framed.read(scene, Some(Whole())))
         return Result[tuple[tuple[PyOpenColorIO.Config, Entry[Distortion]], Framing], BlenderFaults].bind(
             paired(paired(config, entry), framing), lambda parts: written(parts[0][0], parts[0][1].effect, parts[1])

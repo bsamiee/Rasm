@@ -17,8 +17,8 @@ using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Geometry.Intersect;
 using UnitSystem = Rhino.UnitSystem;
@@ -39,43 +39,38 @@ public sealed record ComponentRow<TSelf>(
     Seq<ParameterRow> Inputs,
     Seq<ParameterRow> Outputs,
     Seq<Guid> SupportedPins,
-    Func<TSelf, IDataAccess, IO<Unit>> Solve,
-    Func<TSelf, Seq<ControlRow>> Panel,
-    Option<Func<TSelf, Fin<IAttributes>>> Attributes)
+    Func<TSelf, IDataAccess, IO<Unit>> Solve)
     where TSelf : ModularComponent {
-    // --- [HELP]
+    // --- [PRESENTATION]
     public Option<HelpTopic> Help { get; init; }
+    public Func<TSelf, Seq<ControlRow>> Panel { get; init; } = static _ => [];
+    public Option<Func<TSelf, Fin<IAttributes>>> Attributes { get; init; }
 
     // --- [ATTACHMENT]
     public Func<TSelf, Action<IDisposable>, IO<Unit>> Attached { get; init; } = static (_, _) => IO.pure(unit);
 
     // --- [DECLARE]
-    public static ComponentRow<TSelf> Of(
-        Nomen face, IGlyph glyph, int master, SpecialColour accent, Seq<ParameterRow> inputs, Seq<ParameterRow> outputs, Seq<Guid> supportedPins,
-        Func<TSelf, IDataAccess, IO<Unit>> solve) =>
-        new(face, glyph, master, accent, inputs, outputs, supportedPins, solve, static _ => [], None);
-
     public static ComponentRow<TSelf> Of<TRecord>(
         Nomen face, IGlyph glyph, int master, SpecialColour accent, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
         Seq<Guid> supportedPins, TRecord fallback, Func<TSelf, IDataAccess, TRecord, IO<Unit>> solve)
         where TRecord : notnull =>
-        Of(face, glyph, master, accent, inputs.Concat(fields.Map(static field => field.Input)).Strict(), outputs, supportedPins,
+        new(face, glyph, master, accent, inputs.Concat(fields.Map(static field => field.Input)).Strict(), outputs, supportedPins,
             (owner, access) => ParameterField.Read(fields, inputs.Count, access).Bind(set => solve(owner, access, set(fallback))));
 }
 
 public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMetre) {
     // --- [READ]
     public static IO<SolveUnits> Read(IDataAccess access) =>
-        from native in IO.lift(() => {
-            _ = access.GetTolerance(out double absolute, out double relative);
+        from native in IO.lift(Fin<(double Absolute, double Relative, double Angle, double UnitsPerMetre)> () => {
+            _ = access.GetTolerance(out double absolute);
             _ = access.GetTolerance(out Angle angle);
             _ = access.GetUnitScaling(UnitSystem.Meters, out double unitsPerMetre);
-            return (Absolute: absolute, Relative: relative, Angle: angle.Radians, UnitsPerMetre: unitsPerMetre);
+            return (access.GetItem(RelativeTolerancePin.Id, out double pinned) && pinned >= 0d
+                    ? Fin.Succ(pinned)
+                    : Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)).Map(static document => document.ModelRelativeTolerance))
+                .Map(relative => (Absolute: absolute, Relative: Math.Clamp(relative, 1e-12, 1e6), Angle: angle.Radians, UnitsPerMetre: unitsPerMetre));
         })
-        from relative in IO.lift(Fin<double> () => double.IsNaN(native.Relative)
-            ? Rhino.Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)).Map(static document => document.ModelRelativeTolerance)
-            : native.Relative)
-        from tolerances in IO.lift(Fin<Tolerances> () => Tolerances.Validate(native.Absolute, relative, native.Angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value) is { } error ? error : value!)
+        from tolerances in IO.lift(() => Admission.Admitted(Tolerances.Validate(native.Absolute, native.Relative, native.Angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value))
         select new SolveUnits(tolerances, native.UnitsPerMetre);
 
     // --- [LENGTHS]
@@ -91,7 +86,7 @@ public sealed class SolveProgress(IDataAccess access, long totalRows, long compl
 
 public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion where TSelf : DefinedComponent<TSelf>, IComponentDefinition<TSelf> {
     // --- [STATE]
-    private readonly AtomSeq<Action<IDataAccess, EnvIO, Fin<Unit>>> matches = AtomSeq<Action<IDataAccess, EnvIO, Fin<Unit>>>();
+    private readonly AtomSeq<Action<IDataAccess, Fin<Unit>>> matches = AtomSeq<Action<IDataAccess, Fin<Unit>>>();
     private readonly Ref<Option<(Action<IDisposable> Retain, IDisposable Lease)>> attachment =
         Ref(Option<(Action<IDisposable> Retain, IDisposable Lease)>.None);
 
@@ -100,18 +95,11 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
 
     protected DefinedComponent(GrasshopperIO.IReader reader) : base(reader) {
         DocumentChanged += AttachmentChanged;
-        IParameter[] parameters = [.. Parameters.Inputs, .. Parameters.Outputs];
-        foreach (AngleParameter angle in parameters.OfType<AngleParameter>())
-            angle.ReduceAngles = angle.CustomValues.Get(nameof(AngleParameter.ReduceAngles), @default: false);
-        foreach (VectorParameter vector in parameters.OfType<VectorParameter>()) {
-            vector.UnitiseVectors = vector.CustomValues.Get(nameof(VectorParameter.UnitiseVectors), @default: false);
-            vector.ReverseVectors = vector.CustomValues.Get(nameof(VectorParameter.ReverseVectors), @default: false);
-        }
         CallbackSite site = DefinedGrasshopperPlugin.Site(this);
         Callbacks.Run(Callbacks.Each(
             TSelf.Row.Inputs.Map((row, index) => (Row: row, Parameter: Parameters.Input(index)))
                 .Concat(TSelf.Row.Outputs.Map((row, index) => (Row: row, Parameter: Parameters.Output(index))))
-                .Bind(placed => placed.Row.Attach.Map(attach => attach(placed.Parameter, site.Sink)).ToSeq())), site);
+                .Map(placed => placed.Row.Attach(placed.Parameter, site.Sink))), site);
     }
 
     public IEnumerable<Guid> SupportedPins => TSelf.Row.SupportedPins;
@@ -139,7 +127,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
 
     // --- [ATTACHMENT]
     private void AttachmentChanged(object? sender, ObjectDocumentEventArgs e) =>
-        Callbacks.Run(Callbacks.Each(Seq(
+        Callbacks.Started(Callbacks.Each(Seq(
             Detached,
             when(Document is not null, DisposalOps.Acquire(
                 retain => TSelf.Row.Attached((TSelf)this, retain).Map(retain),
@@ -155,23 +143,10 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         atomicIO(() => attachment.Value.Map(static scope => scope.Retain).ToFin(Errors.Cancelled))
             .Bind(static held => IO.lift(held)).Bind(acquire);
 
-    // --- [PERSISTENCE]
-    public override void Store(GrasshopperIO.IWriter writer) {
-        IParameter[] parameters = [.. Parameters.Inputs, .. Parameters.Outputs];
-        foreach (AngleParameter angle in parameters.OfType<AngleParameter>())
-            angle.CustomValues.Set(nameof(AngleParameter.ReduceAngles), angle.ReduceAngles);
-        foreach (VectorParameter vector in parameters.OfType<VectorParameter>()) {
-            vector.CustomValues.Set(nameof(VectorParameter.UnitiseVectors), vector.UnitiseVectors);
-            vector.CustomValues.Set(nameof(VectorParameter.ReverseVectors), vector.ReverseVectors);
-        }
-        base.Store(writer);
-    }
-
     // --- [SOLVE]
     protected sealed override void Process(IDataAccess access) {
-        using EnvIO environment = EnvIO.New(token: access.Solution.Token);
-        Fin<Unit> solved = Try.lift(() => TSelf.Row.Solve((TSelf)this, access).Run(environment)).Run();
-        _ = matches.ToSeq().Iter(deliver => deliver(access, environment, solved));
+        Fin<Unit> solved = Callbacks.Settled(TSelf.Row.Solve((TSelf)this, access), access.Solution.Token);
+        _ = matches.ToSeq().Iter(deliver => deliver(access, solved));
         Seq<Error> failed = solved.Match(
             Succ: static _ => Seq<Error>(),
             Fail: static error => toSeq(error.AsIterable()).Filter(static leaf => !leaf.Is(Errors.Cancelled)).Strict());
@@ -180,17 +155,16 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
     }
 
     public IO<Seq<A>> Matched<A>(SolutionMode mode, Func<IDataAccess, IO<A>> read) =>
-        from document in IO.lift(() => Rhino.Missing.Unless(Document, nameof(Document)))
+        from document in IO.lift(() => Refused.UnlessFound(Document, nameof(Document)))
         from captured in IO.lift(static () => new ConcurrentDictionary<(Solution Solution, int Index), Fin<A>>())
         from token in cancelToken
         from values in DisposalOps.Within<IDisposable, Seq<A>>(retain =>
-            from source in DisposalOps.Acquire(
-                IO.lift(() => CancellationTokenSource.CreateLinkedTokenSource(token)), static source => IO.lift(source.Dispose), retain)
+            from source in DisposalOps.Acquire(IO.lift(() => CancellationTokenSource.CreateLinkedTokenSource(token)), retain)
             let requested = source.Token
-            from collected in Subscriptions.Attach<Action<IDataAccess, EnvIO, Fin<Unit>>>(
-                handler => _ = matches.Add(handler), handler => _ = matches.Swap(held => held.Filter(deliver => deliver != handler).Strict()), (access, environment, solved) => {
+            from collected in Subscriptions.Attach<Action<IDataAccess, Fin<Unit>>>(
+                handler => _ = matches.Add(handler), handler => _ = matches.Swap(held => held.Filter(deliver => deliver != handler).Strict()), (access, solved) => {
                     if (access.Solution.Token != requested) return;
-                    Fin<A> value = Try.lift(() => read(access).Run(environment)).Run();
+                    Fin<A> value = Callbacks.Settled(read(access), requested);
                     captured[(access.Solution, access.Index)] = solved.Match(
                         Succ: _ => value,
                         Fail: error => value.Match(Succ: _ => Fin.Fail<A>(error), Fail: fault => Fin.Fail<A>(error + fault)));
@@ -199,10 +173,9 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
                 handler => document.Solution.SolutionAboutToStart += handler,
                 handler => document.Solution.SolutionAboutToStart -= handler, (_, _) => Expire(), retain)
             from solution in Solutions.Start(document.Solution, source, mode)
-            from parts in toSeq(captured.Where(row => ReferenceEquals(row.Key.Solution, solution)).OrderBy(static row => row.Key.Index))
-                .Map<K<IO, A>>(static row => IO.lift(row.Value)).PartitionFallible().As()
-            from failed in unless(parts.Fails.IsEmpty, IO.fail<Unit>(Error.Many(parts.Fails))).As()
-            select parts.Succs, DisposalOps.Release)
+            from matched in IO.lift(() => Callbacks.Each(toSeq(captured.Where(row => ReferenceEquals(row.Key.Solution, solution)).OrderBy(static row => row.Key.Index)),
+                static (row, _) => row.Value))
+            select matched, DisposalOps.Release)
         select values;
 
     // --- [PANEL]
@@ -217,9 +190,9 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
             panel.AddBar(drawCategoryLabels: false).AddPushButton(
                 icon: null,
                 new Nomen(RowText.Localize("Help"), RowText.Localize("Open help for this component.")),
-                () => Callbacks.Run(topic.Show, site)).Style = IconTextStyle.Text))
+                () => Callbacks.Started(topic.Show, site)).Style = IconTextStyle.Text))
         .Bind(_ => IO.lift(() => TSelf.Row.Panel((TSelf)this))).Bind(rows => unless(rows.IsEmpty,
-              from document in IO.lift(static () => Rhino.Missing.Unless(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
+              from document in IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
               from scope in RowScope.Open(site.Sink, Some(document), new CommitMode.Immediate())
               from held in IO.lift(static () => AtomSeq<IDisposable>())
               from installed in DisposalOps.OnFailure(
@@ -242,7 +215,7 @@ public static class ComponentOps {
                 ? Optional(assembly.GetCustomAttribute<AssemblyTitleAttribute>()).Map(static title => title.Title)
                     .Filter(static title => !string.IsNullOrWhiteSpace(title)).IfNone(() => Path.GetFileNameWithoutExtension(assembly.Location))
                 : face.Chapter)
-            .WithName(RowText.Localize(face.Name, table: assembly)).WithInfo(RowText.Localize(face.Info, table: assembly));
+            .WithName(RowText.Localize(face.Name, assembly)).WithInfo(RowText.Localize(face.Info, assembly));
 
     // --- [COMPLETED_INPUTS]
     public static IO<Option<A>> Completed<A>(ModularComponent component, Func<ObjectSolutionState, Option<A>> read) =>
@@ -254,7 +227,7 @@ public static class ComponentOps {
 
     // --- [MESSAGES]
     public static Message Rendered(Func<string, string, MessageAction[], Message> level, Error note, Seq<MessageAction> actions) =>
-        level(ErrorOps.Line(note), Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Localize(cause))), [.. actions]);
+        level(note.Message, Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Localize(cause))), [.. actions]);
 
     public static IO<Unit> Note(IDataAccess access, Func<string, string, MessageAction[], Message> level, Error note, Seq<MessageAction> actions) =>
         IO.lift(() => access.AddMessage(Rendered(level, note, actions)));

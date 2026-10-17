@@ -28,11 +28,11 @@ utils:
                         - has: {field: property, regex: '^then$'}
                         - has: {field: object, matches: process-run}
     scope:
-        any: [{matches: syntax-function-boundary}, {kind: program}]
+        any: [{matches: typescript-function-boundary}, {kind: program}]
     spawner-service:
         any:
             - kind: identifier
-              matches: {syntax-import-reference: {source: {regex: '^effect/process/ChildProcessSpawner$'}, exported: {regex: '^ChildProcessSpawner$'}}}
+              matches: {typescript-import-reference: {source: {regex: '^effect/process/ChildProcessSpawner$'}, exported: {regex: '^ChildProcessSpawner$'}}}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^ChildProcessSpawner$'}

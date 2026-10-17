@@ -88,11 +88,10 @@ Exporters read world positions and topology from the evaluated mesh inside the `
 ```python
 def surface(source: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> BlenderResult[tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]]:
     def read(mesh: bpy.types.Mesh) -> tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]:
-        positions: NDArray[np.float32] = np.empty(len(mesh.vertices) * 3, np.float32)
-        corners: NDArray[np.int32] = np.empty(len(mesh.loops), np.int32)
-        starts: NDArray[np.int32] = np.empty(len(mesh.polygons), np.int32)
-        mesh.attributes["position"].data.foreach_get("vector", positions)
-        mesh.attributes[".corner_vert"].data.foreach_get("value", corners)
+        positions, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
+        for key, member, buffer in (("position", "vector", positions), (".corner_vert", "value", corners)):
+            if isinstance(attribute := mesh.attributes[key], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
+                attribute.data.foreach_get(member, buffer)
         mesh.polygons.foreach_get("loop_start", starts)
         world: NDArray[np.float32] = np.asarray(source.matrix_world, np.float32)
         return positions.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3], corners, starts
@@ -112,8 +111,9 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
         mesh.vertices.add(len(positions))
         mesh.loops.add(len(corners))
         mesh.polygons.add(len(starts))
-        mesh.attributes["position"].data.foreach_set("vector", positions.ravel())
-        mesh.attributes[".corner_vert"].data.foreach_set("value", corners)
+        for key, member, buffer in (("position", "vector", positions.ravel()), (".corner_vert", "value", corners)):
+            if isinstance(attribute := mesh.attributes[key], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
+                attribute.data.foreach_set(member, buffer)
         mesh.polygons.foreach_set("loop_start", starts)
         mesh.update()
         return mesh
@@ -121,10 +121,7 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
     with ExitStack() as rollback:
         mesh: bpy.types.Mesh = bpy.data.meshes.new(name)
         rollback.callback(bpy.data.batch_remove, ids=(mesh,))
-        result: BlenderResult[bpy.types.Mesh] = catch(filled, exception=RuntimeError)(mesh).map_error(lambda error: (BlenderEditFault(request=name, error=error),))
-        for _ in result.to_option().to_list():
-            rollback.pop_all()
-        return result
+        return committed(catch(filled, exception=RuntimeError)(mesh).map_error(lambda error: (BlenderEditFault(request=name, error=error),)), rollback)
 ```
 
 `positions` buffers not shaped `(n, 3)` raise `RuntimeError`, and `rollback` removes the mesh.

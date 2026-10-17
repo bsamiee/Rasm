@@ -4,7 +4,7 @@ language: rust
 rule:
     kind: macro_invocation
     all:
-        - has: {field: macro, regex: '^((::)?(std|alloc|core)::)?(format|write|writeln)$'}
+        - matches: {rust-std-macro: {name: {regex: '^(format|write|writeln)$'}}}
         - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\{\w*:02[xX]\}"$'}}
         - inside:
             stopBy: {kind: 'function_item, closure_expression, for_expression'}

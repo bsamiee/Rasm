@@ -3,8 +3,8 @@ import indesign from 'adobe:indesign';
 import { Temporary } from '@rasm/uxp/runtime';
 import { Array, Effect, Option, Predicate, pipe, String, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
-import { Face, type Subset } from './contract.ts';
-import { active, missing, read, scope, thrown } from './dom.ts';
+import { Face, missing, type Subset, thrown } from './contract.ts';
+import { active, read } from './dom.ts';
 import { scripted } from './execute.ts';
 import { find } from './find.ts';
 
@@ -12,7 +12,6 @@ import { find } from './find.ts';
 
 const face = Effect.fnUntraced(function* ({ name }: Rpc.Payload<typeof Face>) {
     const { app } = indesign;
-    yield* scope;
     const document = yield* Effect.option(active);
     const every = app.fonts.everyItem();
     const held = Array.flatMap(Option.toArray(document), ({ fonts }) => Array.zip(fonts.everyItem().name, fonts.everyItem().status));
@@ -72,7 +71,7 @@ const face = Effect.fnUntraced(function* ({ name }: Rpc.Payload<typeof Face>) {
                 query: Option.none(),
                 save: Option.none(),
             };
-            const [{ matches }] = yield* Effect.flatMap(find(request, Option.none()), (job) => scripted(request, job));
+            const { matches } = (yield* scripted(request, find(request, Option.none()))).result;
             return [
                 ...Array.map(matches, Struct.get('specifier')),
                 ...Array.filter([...open.allParagraphStyles, ...open.allCharacterStyles], (each) => {
@@ -108,11 +107,10 @@ const face = Effect.fnUntraced(function* ({ name }: Rpc.Payload<typeof Face>) {
             Option.getOrUndefined,
         ),
     }));
-}, Effect.scoped);
+});
 const subset = Effect.fnUntraced(function* ({ postscriptName, text }: Rpc.Payload<typeof Subset>) {
     const { app } = indesign;
     const folder = yield* Temporary;
-    yield* scope;
     const at = yield* Effect.fromOption(
         Array.findFirstIndex(app.fonts.everyItem().postscriptName, (each) => each === postscriptName),
         () => missing(`installed face ${postscriptName}`, postscriptName, []),
@@ -120,7 +118,7 @@ const subset = Effect.fnUntraced(function* ({ postscriptName, text }: Rpc.Payloa
     const file = `${folder}${postscriptName}.otf`;
     yield* Effect.try({ try: () => app.fonts.item(at).createSubsetFont(text, file), catch: thrown });
     return file;
-}, Effect.scoped);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

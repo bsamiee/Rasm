@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import ClassVar
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,12 +15,12 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.data.ids.images import Bounded, ResultRead
-from blender.bpy.data.rna.descriptors import root_in, struct_at
+from blender.bpy.data.rna.descriptors import root_in, rooted, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler, SceneHandler, UpdateHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.trees import fingerprinted
 from blender.bpy.render.color.luts import Enabled
 from blender.bpy.render.effects.stack import EffectStack, viewed
@@ -190,14 +190,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
             return tuple(queued for slot, request in wanted.items() for queued in job(slot, request))
 
-        return (
-            Result[bpy.types.Scene, BlenderFaults].bind(
-                root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
-                lambda scene: paired(self.parts(identity, scene), self.stack.config()).map(lambda pair: requests(scene, pair)),
-            )
-            if wanted
-            else Ok(())
-        )
+        return rooted(bpy.types.Scene, context).bind(lambda scene: paired(self.parts(identity, scene), self.stack.config()).map(lambda pair: requests(scene, pair))) if wanted else Ok(())
 
     # --- [LIFECYCLE]
 
@@ -258,11 +251,7 @@ def fitted(plane: npt.NDArray[np.float32], side: int) -> BlenderResult[npt.NDArr
 
     def resized(size: tuple[int, int]) -> BlenderResult[npt.NDArray[np.float32]]:
         buffer = OpenImageIO.ImageBufAlgo.resize(OpenImageIO.ImageBuf(plane), roi=OpenImageIO.ROI(0, size[0], 0, size[1], 0, 1, 0, plane.shape[2]))
-        return (
-            Option.of_optional(buffer.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (BlenderImagingFault(faults=(ImagingBufferFault(request=buffer, error=buffer.geterror()),)),))
-            if not buffer.has_error
-            else Error((BlenderImagingFault(faults=(ImagingBufferFault(request=buffer, error=buffer.geterror()),)),))
-        )
+        return ImagingBufferFault.checked(buffer).bind(ImagingBufferFault.pixels).map_error(BlenderImagingFault.lifted)
 
     return Bounded(pixels=side).fitted(plane.shape[1], plane.shape[0]).map(resized).default_value(Ok(plane))
 

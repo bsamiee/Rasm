@@ -1,5 +1,6 @@
 use core::{cmp::Ordering, fmt, hint::black_box, num::NonZero, ops::Range};
 use std::{
+    io,
     process::{ExitStatus, Output},
     sync::mpsc,
 };
@@ -311,6 +312,38 @@ enum Pending<T> {
     Waiting,
 }
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+#[derive(Debug, thiserror::Error)]
+enum ManifestError {
+    #[error("cannot read the manifest")]
+    Read(#[source] io::Error),
+    #[error("cannot write the manifest")]
+    Write(#[source] io::Error),
+    #[error("manifest names no package")]
+    Unnamed,
+}
+
+#[derive(Debug, thiserror::Error)]
+enum ServeError<X> {
+    #[error("cannot start the runtime")]
+    Runtime(#[source] io::Error),
+    #[error("cannot serve the endpoint")]
+    Serve(#[source] io::Error),
+    #[error("endpoint failed")]
+    Endpoint(#[source] X),
+}
+
+#[derive(Debug, thiserror::Error)]
+enum SchemaError {
+    #[error("{path} breaks the schema at line {line}")]
+    Invalid { path: String, line: u32 },
+    #[error("{path} ends at line {line}")]
+    Truncated { path: String, line: u32 },
+    #[error("schema holds {0} keys")]
+    Oversized(usize),
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl fmt::Display for Pixel {
@@ -515,5 +548,8 @@ fn main() {
         }),
         (row(&Account { login: String::from("ada"), email: String::from("ada@example.com") }), reading(&Celsius(1.0)).0, fahrenheit(&Celsius(2.0)).0),
         (signal(Phase::Start) == Signal::Begin, signal(Phase::Stop) == Signal::End, Either { left: true, right: false }.open(), Both { left: true, right: true }.open()),
+        [ManifestError::Read(io::Error::from(io::ErrorKind::NotFound)), ManifestError::Write(io::Error::from(io::ErrorKind::PermissionDenied)), ManifestError::Unnamed].map(|error| error.to_string()),
+        [SchemaError::Invalid { path: String::from("a"), line: 1 }, SchemaError::Truncated { path: String::from("b"), line: 2 }, SchemaError::Oversized(3)].map(|error| error.to_string()),
+        [ServeError::Runtime(io::Error::from(io::ErrorKind::NotFound)), ServeError::Serve(io::Error::from(io::ErrorKind::AddrInUse)), ServeError::Endpoint(fmt::Error)].map(|error| error.to_string()),
     ));
 }

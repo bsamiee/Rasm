@@ -123,12 +123,10 @@ public abstract partial record DefinitionEdit {
     public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit {
         internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
             from path in IO.lift(() => Exchange.ExistingPath(Source.FullPath))
-            from modified in DisposalOps.Within(
-                () => FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()),
-                reference => IO.lift(() => Missing.Unless(reference, nameof(FileReference.CreateFromFullAndRelativePaths)))
-                    .Bind(held => IO.lift(() => Refused.Unless(
-                        doc.InstanceDefinitions.ModifySourceArchive(definition.Index, held, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive)))),
-                static reference => DisposalOps.Release(Conversions.Rows([reference])))
+            from modified in DisposalOps.Found(
+                () => FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()), nameof(FileReference.CreateFromFullAndRelativePaths),
+                reference => IO.lift(() => Refused.Unless(
+                    doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, UpdateType, LayerStyle, quiet: true), nameof(InstanceDefinitionTable.ModifySourceArchive))))
             select modified;
     }
 
@@ -232,15 +230,14 @@ public static class Definitions {
     // --- [PREVIEW]
     public static IO<TValue> Preview<TValue>(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size pixels, Func<Bitmap, IO<TValue>> body) =>
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
-        from result in DisposalOps.Within(
+        from result in DisposalOps.Found(
                 () => method.Switch(
                     (Definition: definition, Pixels: pixels),
                     byMode: static (target, mode) =>
                         target.Definition.CreatePreviewBitmap(Conversions.Unset(mode.Selected), mode.Projection, mode.DisplayMode, target.Pixels, mode.ApplyDpiScaling),
                     byCamera: static (target, camera) =>
                         target.Definition.CreatePreviewBitmap(camera.DisplayModeId, camera.Projection, camera.Camera, camera.DrawDecorations, target.Pixels, camera.ApplyDpiScaling)),
-                bitmap => IO.lift(() => Missing.Unless(bitmap, nameof(InstanceDefinition.CreatePreviewBitmap))).Bind(body),
-                static bitmap => DisposalOps.Release(Conversions.Rows([bitmap])))
+                nameof(InstanceDefinition.CreatePreviewBitmap), body)
         select result;
 
     // --- [WRITES]

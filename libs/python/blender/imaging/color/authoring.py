@@ -4,7 +4,6 @@ import copy
 from enum import auto, Enum
 import pathlib
 import shutil
-import tempfile
 from typing import Self
 
 from expression import Error, Ok, Option
@@ -13,8 +12,8 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.faults import ImagingConfigFault, ImagingFaults, ImagingResult, ImagingWriteFault, paired
-from blender.imaging.files.images import published
+from blender.imaging.faults import colored, ImagingColorFault, ImagingResult, ImagingWriteFault
+from blender.imaging.files.images import published, staging
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -117,7 +116,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             stage: Folder receiving base files, LUT folders, and generated CLFs.
 
         Returns:
-            The merged config, or `config` and `write` faults from native authoring and file operations.
+            The merged config, or `color` and `write` faults from native authoring and file operations.
         """
         rows = PyOpenColorIO.Config()
         request = rows
@@ -207,7 +206,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             request.setWorkingDir(str(stage))
             return Ok(request)
         except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-            return Error((ImagingConfigFault(request=request, error=error),))
+            return Error((ImagingColorFault(request=request, error=error),))
         except OSError as error:
             return Error((ImagingWriteFault(request=stage, error=error),))
 
@@ -219,28 +218,13 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             path: Archive destination.
 
         Returns:
-            The published path, or `config` and `write` faults including resource cleanup failures.
+            The published path, or `color` and `write` faults including resource cleanup failures.
         """
 
         def encoded(config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
-            def archive(destination: str) -> ImagingResult[None]:
-                try:
-                    config.archive(destination)
-                    return Ok(None)
-                except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-                    return Error((ImagingConfigFault(request=config, error=error),))
+            return published(str(path), lambda destination: colored(config, lambda: config.archive(destination))).map(pathlib.Path)
 
-            return published(str(path), archive).map(pathlib.Path)
-
-        try:
-            stage = tempfile.TemporaryDirectory()
-        except OSError as error:
-            return Error((ImagingWriteFault(request=path, error=error),))
-        try:
-            result = self.staged(base, pathlib.Path(stage.name)).bind(encoded)
-        finally:
-            removed = catch(stage.cleanup, exception=OSError)().map_error(lambda error: (ImagingWriteFault(request=path, error=error),))
-        return paired(result, removed).map(lambda pair: pair[0])
+        return staging(path, lambda stage: self.staged(base, stage.parent).bind(encoded))
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> ImagingResult[pathlib.Path]:
         """Replaces a configuration folder whole with a staged config and all its files.
@@ -250,33 +234,20 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             folder: Installation folder a host reads at its next start.
 
         Returns:
-            The installed config path, or `config` and `write` faults including resource cleanup failures.
+            The installed config path, or `color` and `write` faults including resource cleanup failures.
         """
 
-        def refused(error: OSError) -> ImagingFaults:
-            return (ImagingWriteFault(request=folder, error=error),)
-
-        def replaced(config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
+        def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
             path = stage / "config.ocio"
             return (
                 catch(path.write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
                 .bind(lambda _: catch(shutil.rmtree, exception=OSError)(folder).or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error)))
                 .bind(lambda _: catch(stage.rename, exception=OSError)(folder))
                 .map(lambda installed: installed / path.name)
-                .map_error(refused)
+                .map_error(lambda error: (ImagingWriteFault(request=folder, error=error),))
             )
 
-        try:
-            folder.parent.mkdir(parents=True, exist_ok=True)
-            scratch = tempfile.TemporaryDirectory(dir=folder.parent)
-        except OSError as error:
-            return Error(refused(error))
-        try:
-            stage = pathlib.Path(scratch.name) / folder.name
-            result = self.staged(base, stage).bind(replaced)
-        finally:
-            removed = catch(scratch.cleanup, exception=OSError)().map_error(refused)
-        return paired(result, removed).map(lambda pair: pair[0])
+        return staging(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

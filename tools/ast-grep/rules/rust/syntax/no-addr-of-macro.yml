@@ -7,7 +7,7 @@ rule:
     all:
         - has: {field: macro, regex: '^((::)?(std|core)::)?(ptr::)?addr_of(_mut)?$', pattern: $MACRO}
         - has: {kind: token_tree, pattern: $ARGS}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - all: [{pattern: $RECEIVER}, {inside: {kind: field_expression, field: value}}]
             - kind: macro_invocation

@@ -11,7 +11,7 @@ utils:
     width-format:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
             - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}, regex: '\{[^{}]*:[^{}.$]*\w\$'}}
 rule:
     kind: call_expression

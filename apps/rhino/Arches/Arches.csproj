@@ -7,4 +7,8 @@
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
+
+    <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../../libs/dotnet/Admission.cs" />
+    </ItemGroup>
 </Project>

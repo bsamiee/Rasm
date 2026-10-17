@@ -47,7 +47,7 @@ public sealed record SubObjectState(ComponentIndex ComponentIndex, bool IsSelect
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record Cut(GeometryBase Geometry, ObjectAttributes Attributes) : IDisposable {
-    public void Dispose() => DisposalOps.Release<IDisposable>([Geometry, Attributes]).Run();
+    public void Dispose() => DisposalOps.Release<IDisposable>(Geometry, Attributes).Run();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -95,15 +95,13 @@ public static class RhinoObjects {
             o.IsSubObjectHighlighted(componentIndex)));
 
     public static IO<string> Description(RhinoObject o) =>
-        DisposalOps.Within(static () => new TextLog(),
-            log => IO.lift(() => { o.Description(log); return log.ToString(); }),
-            static log => IO.lift(log.Dispose));
+        DisposalOps.Within(static () => new TextLog(), log => IO.lift(() => { o.Description(log); return log.ToString(); }));
 
     // --- [SELECTION]
     public static IO<Seq<ObjectSelection>> SelectSubObjects(RhinoObject o, Seq<ComponentIndex> components, ObjectSelection selection, bool syncHighlight) =>
         IO.lift(() => Callbacks.Each(components, (component, index) =>
             (ObjectSelection)o.SelectSubObject(component, selection is not ObjectSelection.Unselected, syncHighlight, selection is ObjectSelection.Persistent) switch {
-                var state => RefusedElement.Unless(state == selection, state, nameof(RhinoObject.SelectSubObject), index),
+                var state => Refused.Unless(state == selection, state, nameof(RhinoObject.SelectSubObject), index),
             }));
 
     public static IO<Unit> HighlightSubObjects(RhinoObject o, Seq<ComponentIndex> components, bool highlight) =>
@@ -111,7 +109,7 @@ public static class RhinoObjects {
 
     // --- [CUTS]
     public static IO<Seq<Cut>> CreateCuts(RhinoObject o, Plane plane, string name, Option<double> thickness, Tolerances tolerances, IPlugInSink sink, Action<IDisposable> retain) =>
-        from localized in IO.lift(() => RowText.Localize(name, table: Some<object>(sink)).Local)
+        from localized in IO.lift(() => RowText.Localize(name, sink).Local)
         from answer in Copies.Owned(
             () => thickness.Match(
                 Some: value => (Results: o.CreateSlices(plane, localized, value, tolerances.Absolute, out ObjectAttributes[] rows), Rows: rows, Member: nameof(RhinoObject.CreateSlices)),

@@ -2,9 +2,7 @@
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from enum import Enum
-import functools
 import itertools
-import typing
 from typing import Literal, Self
 
 import bpy
@@ -12,7 +10,6 @@ from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import idprop
 import msgspec
-import msgspec.inspect
 import msgspec.structs
 
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, holds, Value, written
@@ -21,43 +18,15 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaul
 from blender.bpy.settings import shapes
 from blender.bpy.settings.properties import RecordGroup, Unit
 from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Case, Choice, Gated, GraphForm, Knot, markers, Presentation, Quantity, Ramp, Rgb
+from blender.imaging.parameters import Case, Choice, Gated, heading, markers, Presentation, Quantity
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type SocketSide = Literal["INPUT", "OUTPUT"]
 type InterfaceItem = bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel
 type DesiredItem = tuple[Socket, SocketSide] | InterfacePanel
-type SocketShape = (
-    shapes.Number
-    | shapes.Integer
-    | shapes.Vector
-    | shapes.Components[SocketShape]
-    | shapes.Flag
-    | shapes.Color
-    | shapes.Text
-    | shapes.Enumerated
-    | shapes.Flags
-    | Omitted
-    | Gate
-    | shapes.Nested
-    | shapes.Tagged
-    | shapes.Records
-)
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Omitted(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Graph-owned field, ramp, or knot list holding no interface socket."""
-
-
-class Gate(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Gated record whose enabled flag toggles the panel of its value field."""
-
-    record: type[msgspec.Struct]
-    value_field: msgspec.structs.FieldInfo
-    value: shapes.Declared[SocketShape]
 
 
 class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
@@ -128,7 +97,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
             return cls(inputs=tuple(item for item in items if isinstance(item, Socket)), panels=tuple(item for item in items if isinstance(item, InterfacePanel)))
 
         def walk(path: tuple[Key | type[Case], ...], record: shapes.Record, held: Option[object]) -> BlenderResult[Interface]:
-            return socket_fields(record).bind(
+            return shapes.field_shapes(record).bind(
                 lambda rows: accumulated(
                     entry(
                         (*path, field.name),
@@ -137,7 +106,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                         lambda: held.map(lambda value: getattr(value, field.name)).or_else_with(
                             lambda: Some(field.default) if field.default is not msgspec.NODEFAULT else Some(field.default_factory()) if field.default_factory is not msgspec.NODEFAULT else Nothing
                         ),
-                        field.name.replace("_", " ").title(),
+                        heading(field.name),
                         "",
                     )
                     for field, shape in rows
@@ -148,15 +117,9 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
             return inner.map(lambda face: (InterfacePanel(key=item_key(*path), name=name, description=description, toggle=toggle, inputs=face.inputs, panels=face.panels),))
 
         def entry(
-            path: tuple[Key | type[Case], ...],
-            field: msgspec.structs.FieldInfo,
-            declared: shapes.Declared[SocketShape],
-            default: Callable[[], Option[object]],
-            heading: str,
-            summary: str,
-            presented: Option[object] = Nothing,
+            path: tuple[Key | type[Case], ...], field: msgspec.structs.FieldInfo, declared: shapes.Declared, default: Callable[[], Option[object]], fallback: str, summary: str
         ) -> BlenderResult[tuple[Socket | InterfacePanel, ...]]:
-            title = declared.title.default_value(heading)
+            title = declared.title.default_value(fallback)
             description = declared.description.default_value(summary)
 
             def socket(
@@ -173,49 +136,39 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                     )
                 )
 
-            def ranged(low: float | None, high: float | None, soft: Option[tuple[float, float]], scale: float) -> dict[str, float]:
-                bounds = soft.map(lambda span: (Some(span[0] * scale), Some(span[1] * scale))).default_value((Option.of_optional(low), Option.of_optional(high)))
-                return {name: limit for name, side in zip(("min_value", "max_value"), bounds) for limit in side.to_list()}
-
             def given(lowered: Callable[[object], BlenderResult[Value]], members: Mapping[str, Value] = {}) -> BlenderResult[dict[str, Value]]:
                 return default().map(lambda value: lowered(value).map(lambda result: {**members, "default_value": result})).default_value(Ok(dict(members)))
 
-            annotation = presented.default_value(field.type)
-            shown = next(iter(markers(annotation, Presentation)), Presentation())
+            shown = Presentation.of(field.type)
             match declared.shape:
                 case shapes.Number(kind=number):
-                    unit = Unit.of(annotation, number)
-                    return socket(
-                        bpy.types.NodeSocketFloat,
-                        bpy.types.NodeTreeInterfaceSocketFloat,
-                        unit.bounds(number).bind(
-                            lambda bounds: given(lambda value: unit.stored(value, number), {"subtype": refused.get(unit.number, unit.number), **ranged(*bounds, shown.soft, unit.scale)})
-                        ),
-                    )
-                case shapes.Integer(kind=msgspec.inspect.IntType(ge=low, le=high)):
+                    unit = Unit.of(field.type, number)
+
+                    def numbered(bounds: tuple[float, float]) -> BlenderResult[dict[str, Value]]:
+                        low, high, spanned = unit.spanned(shown, bounds)
+                        return given(lambda value: unit.stored(value, number), {"subtype": refused.get(spanned.number, spanned.number), "min_value": low, "max_value": high})
+
+                    return socket(bpy.types.NodeSocketFloat, bpy.types.NodeTreeInterfaceSocketFloat, unit.bounds(number).bind(numbered))
+                case shapes.Integer(kind=whole):
+                    low, high, counted = Unit.of(field.type, whole).counted(shown, whole)
                     return socket(
                         bpy.types.NodeSocketInt,
                         bpy.types.NodeTreeInterfaceSocketInt,
-                        given(
-                            lambda value: Ok(msgspec.convert(value, int)),
-                            {"subtype": "FACTOR" if low is not None and high is not None else "NONE", **{name: round(limit) for name, limit in ranged(low, high, shown.soft, 1.0).items()}},
-                        ),
+                        given(lambda value: Ok(msgspec.convert(value, int)), {"subtype": counted.number, "min_value": low, "max_value": high}),
                     )
                 case shapes.Vector(kind=tupled):
-                    unit = Unit.of(annotation, tupled)
+                    unit = Unit.of(field.type, tupled)
 
                     def stored(value: object) -> BlenderResult[Value]:
                         return unit.stored(value, tupled)
 
+                    def directed(bounds: tuple[float, float]) -> BlenderResult[dict[str, Value]]:
+                        low, high, spanned = unit.spanned(shown, bounds)
+                        return given(stored, {"dimensions": len(tupled.item_types), "subtype": refused.get(spanned.vector, spanned.vector), "min_value": low, "max_value": high})
+
                     if len(tupled.item_types) == 3 and shown.quantity == Some(Quantity.ANGLE):
                         return socket(bpy.types.NodeSocketRotation, bpy.types.NodeTreeInterfaceSocketRotation, given(stored))
-                    return socket(
-                        bpy.types.NodeSocketVector,
-                        bpy.types.NodeTreeInterfaceSocketVector,
-                        unit.bounds(tupled).bind(
-                            lambda bounds: given(stored, {"dimensions": len(tupled.item_types), "subtype": refused.get(unit.vector, unit.vector), **ranged(*bounds, shown.soft, unit.scale)})
-                        ),
-                    )
+                    return socket(bpy.types.NodeSocketVector, bpy.types.NodeTreeInterfaceSocketVector, unit.bounds(tupled).bind(directed))
                 case shapes.Components(items=items):
                     return panel(
                         path,
@@ -233,8 +186,10 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                     return socket(
                         bpy.types.NodeSocketColor,
                         bpy.types.NodeTreeInterfaceSocketColor,
-                        given(lambda value: Unit.of(annotation, color).stored(msgspec.to_builtins(value), color).map(lambda channels: (*channels, 1.0))),
+                        given(lambda value: Unit.of(field.type, color).stored(msgspec.to_builtins(value), color).map(lambda channels: (*channels, 1.0))),
                     )
+                case shapes.Text(space=True):
+                    return Ok(())
                 case shapes.Text():
                     return socket(bpy.types.NodeSocketString, bpy.types.NodeTreeInterfaceSocketString, given(lambda value: Ok(msgspec.convert(value, str))))
                 case shapes.Enumerated(enum=choices):
@@ -256,25 +211,18 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                         )
                         for member in choices
                     ).map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
-                case Omitted():
-                    return Ok(())
-                case Gate(value_field=value_field, value=value):
+                case shapes.Gate(value=value):
                     gate = default().bind(lambda chosen: Some(chosen) if isinstance(chosen, Gated) else Nothing)
                     held = gate.map(lambda chosen: chosen.value)
-                    face = (
-                        walk((*path, value_field.name), value.shape.record, held)
-                        if isinstance(value.shape, shapes.Nested)
-                        else entry(
-                            (*path, value_field.name),
-                            value_field,
-                            shapes.Declared(shape=value.shape),
-                            lambda: held,
-                            title,
-                            description,
-                            Some(field.type if markers(field.type, Presentation) else value_field.type),
-                        ).map(lambda items: faced((items,)))
-                    )
-                    return panel(path, title, description, Some(gate.map(lambda chosen: chosen.enabled).default_value(False)), face)
+
+                    def valued(row: msgspec.structs.FieldInfo, inner: shapes.Declared) -> BlenderResult[Interface]:
+                        match inner.shape:
+                            case shapes.Nested(record=record):
+                                return walk((*path, row.name), record, held)
+                            case _:
+                                return entry((*path, row.name), row, shapes.Declared(shape=inner.shape), lambda: held, title, description).map(lambda items: faced((items,)))
+
+                    return panel(path, title, description, Some(gate.map(lambda chosen: chosen.enabled).default_value(False)), value.map(lambda pair: valued(*pair)).default_value(Ok(cls())))
                 case shapes.Nested(record=record):
                     return panel(path, title, Option.of_optional(record.__doc__).default_value(""), Nothing, walk(path, record, default()))
                 case shapes.Tagged(cases=cases):
@@ -294,6 +242,8 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                     return accumulated((menu, *(branch(record) for record, _ in cases))).map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
                 case shapes.Records():
                     return panel(path, title, description, Nothing, Ok(cls()))
+                case shapes.OptionalText() | shapes.Literals() | shapes.Entries() | shapes.Pointer():
+                    return shapes.refused(field.type, declared.shape)
 
         return walk((), kind, Nothing)
 
@@ -335,67 +285,6 @@ class Restated(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def socket_shape(kind: msgspec.inspect.Type, annotation: object) -> BlenderResult[shapes.Declared[SocketShape]]:
-    """Parses one inspected declaration into its interface socket shape or the refusal naming its annotation."""
-
-    def leaf(shape: SocketShape) -> BlenderResult[shapes.Declared[SocketShape]]:
-        return Ok(shapes.Declared(shape=shape))
-
-    def structured(kind: msgspec.inspect.StructType) -> BlenderResult[shapes.Declared[SocketShape]]:
-        if (origin := (typing.get_origin(kind.cls) or kind.cls)) is Rgb:
-            return leaf(shapes.Color(kind=kind))
-        if kind.cls is Ramp:
-            return leaf(Omitted())
-        if issubclass(origin, Gated):
-            value_field, inner = next(
-                (field, item) for declared, field, item in zip(msgspec.structs.fields(Gated), msgspec.structs.fields(kind.cls), kind.fields) if isinstance(declared.type, typing.TypeVar)
-            )
-            return socket_field(value_field, inner.type).map(lambda row: shapes.Declared(shape=Gate(record=kind.cls, value_field=value_field, value=row[1])))
-        return leaf(shapes.Nested(record=kind.cls))
-
-    match kind:
-        case msgspec.inspect.Metadata(type=inner, extra_json_schema=schema):
-            return socket_shape(inner, annotation).map(lambda held: shapes.titled(held, schema))
-        case msgspec.inspect.FloatType():
-            return leaf(shapes.Number(kind=kind))
-        case msgspec.inspect.IntType():
-            return leaf(shapes.Integer(kind=kind))
-        case msgspec.inspect.TupleType(item_types=items):
-            return (
-                leaf(shapes.Vector(kind=kind))
-                if shapes.vector(kind)
-                else accumulated(socket_shape(item, annotation) for item in items).map(lambda parts: shapes.Declared(shape=shapes.Components(items=parts)))
-            )
-        case msgspec.inspect.BoolType():
-            return leaf(shapes.Flag())
-        case msgspec.inspect.StructType():
-            return structured(kind)
-        case msgspec.inspect.StrType():
-            return leaf(shapes.Text())
-        case msgspec.inspect.EnumType(cls=enum):
-            return leaf(shapes.Enumerated(enum=enum))
-        case msgspec.inspect.FrozenSetType(item_type=msgspec.inspect.EnumType(cls=enum)) | msgspec.inspect.SetType(item_type=msgspec.inspect.EnumType(cls=enum)):
-            return leaf(shapes.Flags(enum=enum))
-        case msgspec.inspect.UnionType():
-            return shapes.tagged(kind).map(leaf).default_with(lambda: shapes.refused(annotation, kind))
-        case msgspec.inspect.VarTupleType(item_type=msgspec.inspect.StructType(cls=record)):
-            return leaf(Omitted() if (typing.get_origin(record) or record) is Knot else shapes.Records(record=record))
-        case _:
-            return shapes.refused(annotation, kind)
-
-
-def socket_field(field: msgspec.structs.FieldInfo, kind: msgspec.inspect.Type) -> BlenderResult[tuple[msgspec.structs.FieldInfo, shapes.Declared[SocketShape]]]:
-    """Parses one field into its socket shape, a graph-owned field holding no socket."""
-    return Ok((field, shapes.Declared(shape=Omitted()))) if markers(field.type, GraphForm) else socket_shape(kind, field.type).map(lambda held: (field, held))
-
-
-@functools.cache
-def socket_fields(record: shapes.Record) -> BlenderResult[shapes.Fields[SocketShape]]:
-    """Parses a record's interface socket fields once."""
-    fields = msgspec.structs.fields(record)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    return accumulated(map(socket_field, fields, msgspec.inspect.multi_type_info(field.type for field in fields)))
 
 
 def described(annotation: object) -> str:
@@ -627,16 +516,13 @@ def _resolved(tree: bpy.types.NodeTree, slot: str) -> dict[Key, InterfaceItem]:
 __all__ = [
     "Declared",
     "DesiredItem",
-    "Gate",
     "Interface",
     "InterfaceItem",
     "InterfacePanel",
     "MenuItem",
     "MenuItems",
-    "Omitted",
     "Restated",
     "Socket",
-    "SocketShape",
     "SocketSide",
     "Withdrawn",
     "addresses",

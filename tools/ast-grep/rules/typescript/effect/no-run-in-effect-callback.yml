@@ -8,19 +8,19 @@ utils:
         has:
             field: function
             any:
-                - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}}}
+                - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}}}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}
                 - kind: call_expression
                   has:
                     field: function
                     any:
-                        - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}}}
+                        - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}}}
                         - kind: member_expression
                           all:
-                            - has: {field: object, matches: effect-effect-module}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                             - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}
     effect-combinator:
         kind: call_expression
@@ -40,11 +40,11 @@ utils:
                                         |RequestResolver|Logger|Metric)$
                     - not:
                         all:
-                            - has: {field: object, matches: effect-effect-module}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                             - has: {field: property, regex: '^run'}
             - has: {field: function, kind: call_expression, matches: effect-combinator}
     callback:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         any:
             - inside: {kind: arguments}
             - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments}}}
@@ -57,7 +57,7 @@ utils:
                 field: function
                 kind: member_expression
                 all:
-                    - has: {field: object, pattern: $M, matches: effect-effect-module}
+                    - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^(runSync|runPromise)$'}
             - has: {field: arguments, has: {pattern: $EFFECT}, not: {has: {nthChild: 2}}}
     run-callback:
@@ -73,7 +73,7 @@ utils:
     fixable-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, has: {field: object, matches: effect-effect-module}}
+            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}
             - not: {has: {field: type_arguments, kind: type_arguments}}
             - not: {has: {field: arguments, has: {nthChild: 3}}}
             - not: {has: {kind: comment, stopBy: end}}
@@ -88,7 +88,7 @@ rule:
                 stopBy: {not: {kind: 'object, pair'}}
                 matches: callback
                 has:
-                    stopBy: {matches: syntax-function-boundary}
+                    stopBy: {matches: typescript-function-boundary}
                     matches: run-invocation
                     pattern: $RUN
                     not: {inside: {matches: effect-generator-function, stopBy: end}}

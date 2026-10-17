@@ -107,23 +107,22 @@ Each gap closes where its value is read, with types the package or a schema stat
 |  [01]   | Member a host has and typings omit        | `Schema.decodeUnknownOption(schema)(Reflect.get(owner, name))` |
 |  [02]   | Value or failure with a misstated shape   | `Schema` decode at its read                                    |
 |  [03]   | Parameter type no host argument satisfies | `Reflect.apply(member, owner, [argument])`, under `satisfies`  |
-|  [04]   | Specifier no `types` entry declares       | `paths` row to a declaration file an installed package holds   |
-|  [05]   | Module object typed with no module        | Module passed as an argument of the package's type             |
+|  [04]   | Module object typed with no module        | Module passed as an argument of the package's type             |
 
 Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, where the host returns an `ArrayBuffer` and a numeric `code`:
 
 ```ts
 import { readFileSync } from 'adobe:fs';
 
-class FileError extends Schema.TaggedError<FileError>()('FileError', { path: Schema.String, code: Schema.Int }) {}
+class FileError extends Schema.TaggedError<FileError, { readonly brand: unique symbol }>()('FileError', { path: Schema.String, code: Schema.Int }) {}
 
 const Coded = Schema.Struct({ code: FileError.fields.code });
 const bytes = (path: string): Effect.Effect<Uint8Array, FileError> =>
-    Effect.try({ try: () => new Uint8Array(readFileSync(path)), catch: identity }).pipe(
-        Effect.catch((cause) =>
+    Effect.sync(() => new Uint8Array(readFileSync(path))).pipe(
+        Effect.catchDefect((cause) =>
             Option.match(Schema.decodeUnknownOption(Coded)(cause), {
                 onNone: () => Effect.die(cause),
-                onSome: ({ code }) => Effect.fail(new FileError({ path, code })),
+                onSome: ({ code }) => Effect.fail(FileError.make({ path, code })),
             }),
         ),
     );
@@ -155,7 +154,7 @@ const Reason = Schema.TaggedUnion({
     Absent: { subject: Schema.String, candidates: Schema.Array(Schema.String) },
     Rejected: { field: Schema.String, cause: Schema.Defect() },
 });
-class HostError extends Schema.TaggedError<HostError>()('HostError', { reason: Reason }) {
+class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', { reason: Reason }) {
     override get message(): string {
         return Reason.match(this.reason, {
             Absent: ({ subject, candidates }) => Array.join([`No ${subject}`, ...candidates], ', '),
@@ -167,13 +166,13 @@ class HostError extends Schema.TaggedError<HostError>()('HostError', { reason: R
 const Change = Schema.Struct({ name: Schema.String, values: Schema.Record(Schema.String, Schema.Json) });
 const changed = Effect.fn('changed')(function* (find: (name: string) => Option.Option<object>, names: () => readonly string[], input: unknown) {
     const { name, values } = yield* Schema.decodeUnknownEffect(Change)(input);
-    const target = yield* Effect.fromOption(find(name), () => new HostError({ reason: { _tag: 'Absent', subject: name, candidates: names() } }));
+    const target = yield* Effect.fromOption(find(name), () => HostError.make({ reason: { _tag: 'Absent', subject: name, candidates: names() } }));
     yield* Effect.validate(
         Object.entries(values),
         ([field, value]) =>
             Effect.try({
                 try: () => Object.assign(target, { [field]: value }),
-                catch: (cause) => new HostError({ reason: { _tag: 'Rejected', field, cause } }),
+                catch: (cause) => HostError.make({ reason: { _tag: 'Rejected', field, cause } }),
             }),
         { discard: true },
     );
@@ -256,13 +255,13 @@ Hosts log a rejected command and show nothing. One registration runs every comma
 ```ts
 import { entrypoints } from 'adobe:uxp';
 
-const registered = <R, ER>(
+const registered = <R, ER, E>(
     layer: Layer.Layer<R, ER>,
     status: HTMLElement,
-    commands: Record.ReadonlyRecord<string, Effect.Effect<string, unknown, R>>,
+    commands: Record.ReadonlyRecord<string, Effect.Effect<string, E, R>>,
 ): void => {
     const runtime = ManagedRuntime.make(Layer.provideMerge(layer, HostClock));
-    const rendered = Effect.onExit((exit: Exit.Exit<string, unknown>) =>
+    const rendered = Effect.onExit((exit: Exit.Exit<string, E>) =>
         Effect.sync(() => {
             status.setAttribute('data-state', exit._tag);
             status.replaceChildren(Exit.match(exit, { onSuccess: identity, onFailure: Cause.pretty }));

@@ -1,14 +1,29 @@
 """Domain values, presentation, and annotation markers for imaging parameters."""
 
 from enum import auto, Enum, IntEnum, StrEnum
+import functools
+import math
+import re
 import sys
 from typing import Annotated, ClassVar, Final, Self
 
 from expression import Nothing, Option, Some
 import msgspec
+import numpy as np
+import numpy.typing as npt
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+
+class CaseMeta(msgspec.StructMeta):
+    """Record metaclass giving each case subclass declaring no title the one its class name gives."""
+
+    def __init__(self, name: str, bases: tuple[type, ...], namespace: dict[str, object], /, **options: object) -> None:
+        """Completes the record class, then derives a subclass title when the namespace declares none."""
+        super().__init__(name, bases, namespace, **options)
+        if "title" not in namespace and any(isinstance(base, CaseMeta) for base in bases):
+            self.title = heading(name)
 
 
 class Quantity(Enum):
@@ -32,11 +47,15 @@ class Choice(IntEnum):
 
     label: str
 
-    def __new__(cls, value: int, label: str) -> Self:
-        """Constructs a choice with its declared identity and label."""
+    def __new__(cls, value: int, *_: object) -> Self:
+        """Constructs a choice with its declared identity, payload reaching `__init__`."""
         member = int.__new__(cls, value)
-        member._value_, member.label = value, label
+        member._value_ = value
         return member
+
+    def __init__(self, _: int, label: str | None = None) -> None:
+        """Sets the declared label, or the one the member name gives."""
+        self.label = Option.of_optional(label).default_with(lambda: heading(self.name))
 
 
 class Interpolation(StrEnum):
@@ -81,8 +100,11 @@ type Finite = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float
 type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 type Positive = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
-type FrameLength = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
-type FrameExtent = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max), Presentation(quantity=Some(Quantity.FRAME_GREATER))]
+type AtLeastOne = Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max)]
+type FrameLength = Annotated[NonNegative, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME_GREATER))]
+type FrameExtent = Annotated[Positive, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME_GREATER))]
+type Turn = Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi), Presentation(quantity=Some(Quantity.ANGLE))]
+type Elevation = Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0), Presentation(quantity=Some(Quantity.ANGLE))]
 type Position = Annotated[tuple[Finite, Finite], Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -100,6 +122,11 @@ class Presentation(msgspec.Struct, frozen=True, kw_only=True):
     decimals: Option[int] = Nothing
     quantity: Option[Quantity] = Nothing
 
+    @classmethod
+    def of(cls, annotation: object) -> Self:
+        """Folds the presentation markers of an annotation from the inner one outward, each present outer setting overriding the inner one."""
+        return functools.reduce(lambda inner, outer: cls(**{name: getattr(outer, name).or_else(getattr(inner, name)) for name in cls.__struct_fields__}), markers(annotation, cls), cls())
+
 
 class Gated[T](msgspec.Struct, frozen=True, kw_only=True):
     """Editable value retained while its row or section is disabled."""
@@ -111,7 +138,7 @@ class Gated[T](msgspec.Struct, frozen=True, kw_only=True):
 class Motion(msgspec.Struct, frozen=True, kw_only=True):
     """Clock advancement and scene-frame hold for animated parameters."""
 
-    speed: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max, description="Clock frames per scene frame, 0 holding a still"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
+    speed: Annotated[NonNegative, msgspec.Meta(description="Clock frames per scene frame, 0 holding a still"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
     hold: Annotated[int, msgspec.Meta(ge=1, description="Scene frames each clock value holds")] = 1
 
 
@@ -121,6 +148,10 @@ class Rgb[T: float = float](msgspec.Struct, frozen=True, kw_only=True, array_lik
     red: T
     green: T
     blue: T
+
+    def __array__(self, dtype: npt.DTypeLike | None = None, copy: bool | None = None) -> npt.NDArray[np.float64]:
+        """Components as a three-element array, the form numpy reads a color in."""
+        return np.array(msgspec.structs.astuple(self), dtype=dtype, copy=copy)
 
 
 class Knot[X: float, Y: float](msgspec.Struct, frozen=True, kw_only=True, array_like=True):
@@ -149,13 +180,18 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
     hue_path: HuePath = HuePath.NEAR
 
 
-class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind"):
+class Case(msgspec.Struct, metaclass=CaseMeta, frozen=True, kw_only=True, tag_field="kind"):
     """Record alternative with a concrete persistent tag and display title."""
 
     title: ClassVar[str]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def heading(name: str) -> str:
+    """Display text of an identifier: words split at underscores and lower-to-upper case changes, each capitalized."""
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name).replace("_", " ").title()
 
 
 def markers[M](annotation: object, marker: type[M]) -> tuple[M, ...]:
@@ -168,10 +204,13 @@ def markers[M](annotation: object, marker: type[M]) -> tuple[M, ...]:
 
 __all__ = [
     "STOP_RANGE",
+    "AtLeastOne",
     "Case",
+    "CaseMeta",
     "Choice",
     "ColorMode",
     "ColorSpace",
+    "Elevation",
     "Finite",
     "FrameExtent",
     "FrameLength",
@@ -191,6 +230,8 @@ __all__ = [
     "Seed",
     "Stop",
     "Stops",
+    "Turn",
     "Unit",
+    "heading",
     "markers",
 ]

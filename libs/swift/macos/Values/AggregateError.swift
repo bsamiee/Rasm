@@ -9,11 +9,12 @@ public struct AggregateError<Element: Sendable>: Error {
         self.remaining = remaining
     }
 
-    public var errors: [Element] { [first] + remaining }
-
-    public static func + (left: Self, right: Self) -> Self {
-        Self(first: left.first, remaining: left.remaining + right.errors)
+    public init?(_ errors: [Element]) {
+        guard let first: Element = errors.first else { return nil }
+        self.init(first: first, remaining: Array(errors.dropFirst()))
     }
+
+    public var errors: [Element] { [first] + remaining }
 
     public func map<Next>(_ transform: (Element) -> Next) -> AggregateError<Next> {
         AggregateError<Next>(first: transform(first), remaining: remaining.map(transform))
@@ -37,24 +38,15 @@ extension Result {
     }
 }
 
-public func combine<First, Second, Failure>(
-    _ first: Result<First, AggregateError<Failure>>,
-    _ second: Result<Second, AggregateError<Failure>>,
-) -> Result<(First, Second), AggregateError<Failure>> {
-    switch (first, second) {
-        case (.success(let first), .success(let second)): .success((first, second))
-        case (.failure(let first), .failure(let second)): .failure(first + second)
-        case (.failure(let first), .success): .failure(first)
-        case (.success, .failure(let second)): .failure(second)
+public func combine<each Value, Failure>(
+    _ results: repeat Result<each Value, AggregateError<Failure>>
+) -> Result<(repeat each Value), AggregateError<Failure>> {
+    var errors: [Failure] = []
+    for failures: [Failure] in repeat (each results).failure?.errors ?? [] {
+        errors += failures
     }
-}
-
-public func combine<First, Second, Third, Failure>(
-    _ first: Result<First, AggregateError<Failure>>,
-    _ second: Result<Second, AggregateError<Failure>>,
-    _ third: Result<Third, AggregateError<Failure>>,
-) -> Result<(First, Second, Third), AggregateError<Failure>> {
-    combine(combine(first, second), third).map { pair in (pair.0.0, pair.0.1, pair.1) }
+    return AggregateError(errors).map(Result.failure)
+        ?? Result { () throws(AggregateError<Failure>) in (repeat try (each results).get()) }
 }
 
 public func traverse<Element, Value, Failure>(
@@ -67,6 +59,5 @@ public func traverse<Element, Value, Failure>(
             case .failure(let error): split.errors.append(contentsOf: error.errors)
         }
     }
-    return split.errors.first.map { first in .failure(AggregateError(first: first, remaining: Array(split.errors.dropFirst()))) }
-        ?? .success(split.values)
+    return AggregateError(split.errors).map(Result.failure) ?? .success(split.values)
 }

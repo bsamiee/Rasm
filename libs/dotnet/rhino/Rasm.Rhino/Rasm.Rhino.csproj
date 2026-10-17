@@ -12,9 +12,11 @@
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="LanguageExt.Streaming" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 
@@ -44,6 +46,10 @@
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../Admission.cs" />
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">

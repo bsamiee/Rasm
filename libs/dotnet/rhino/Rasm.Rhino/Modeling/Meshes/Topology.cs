@@ -53,11 +53,7 @@ public static class MeshTopology {
     // --- [BOOLEANS]
     public static IO<Seq<(Mesh Mesh, Seq<int> Inputs)>> Boolean(MeshBoolean method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         from token in cancelToken
-        from answer in Booleaned(method, tolerances, progress, retain, token)
-        select answer;
-
-    private static IO<Seq<(Mesh Mesh, Seq<int> Inputs)>> Booleaned(MeshBoolean method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain, CancellationToken token) =>
-        Copies.Owned(
+        from answer in Copies.Owned(
             () => method.Switch(
                 MeshTopologyMapper.Boolean((tolerances.MeshIntersection, token, progress.ValueUnsafe())),
                 booleanUnion: static (options, of) => (Meshes: Mesh.CreateBooleanUnion(of.Meshes, options, out Result result, out int[][] map), Result: result, Map: map, Member: nameof(Mesh.CreateBooleanUnion)),
@@ -70,10 +66,11 @@ public static class MeshTopology {
                     Result.Failure when token.IsCancellationRequested => Fin.Fail<Unit>(Errors.Cancelled),
                     var result => Conversions.FromResult(result, made.Member),
                 }
-                from rows in (Missing.Unless(made.Meshes, made.Member).Bind(meshes => Measurements.Valid([.. meshes], made.Member)).ToValidation(), Missing.Unless(made.Map, made.Member).ToValidation())
+                from rows in (Refused.UnlessFound(made.Meshes, made.Member).Bind(meshes => Measurements.Valid([.. meshes], made.Member)).ToValidation(), Refused.UnlessFound(made.Map, made.Member).ToValidation())
                     .Apply(static (meshes, map) => meshes.Zip(toSeq(map), static (mesh, inputs) => (Mesh: mesh, Inputs: toSeq(inputs)))).As().ToFin()
                 select rows,
-            static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain);
+            static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain)
+        select answer;
 
     // --- [SPLITS]
     public static IO<(Option<Seq<Mesh>> Meshes, Option<Seq<Point3d>> OpenCutEnds)> Split(Mesh mesh, MeshSplit method, Tolerances tolerances, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
@@ -94,7 +91,7 @@ public static class MeshTopology {
             made => (made.Meshes switch {
                 null when token.IsCancellationRequested => Fin.Fail<Option<Seq<Mesh>>>(Errors.Cancelled),
                 null when method is MeshSplit.Self or MeshSplit.Non2Manifolds => Option<Seq<Mesh>>.None,
-                null => new Missing(made.Member),
+                null => new Refused(made.Member, Refused.Absent),
                 var meshes => Measurements.Valid([.. meshes], made.Member).Map(Some),
             }).Map(meshes => (Meshes: meshes, OpenCutEnds: made.OpenCutEnds.Map(static ends => toSeq(ends)))),
             static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain)
@@ -111,7 +108,7 @@ public static class MeshTopology {
                         .Apply(static (remaining, extracted) => (Remaining: remaining, Extracted: extracted)).As().ToFin(),
                     static extracted => DisposalOps.Release(extracted.ToSeq()), output)
                 select result,
-            (_, release) => retain(release));
+            retain);
 
     // --- [MATCHING]
     public static IO<Seq<Mesh>> MatchEdges(Seq<Mesh> inputMeshes, double distance, bool simpleSplits, bool rachet, bool average, bool join, Action<IDisposable> retain) =>
@@ -122,7 +119,7 @@ public static class MeshTopology {
                     from matched in Copies.Acquire(() => Mesh.MatchEdges(copies, distance, simpleSplits, rachet, average, @join), nameof(Mesh.MatchEdges), output)
                     select matched,
                 DisposalOps.Release),
-            (_, release) => retain(release));
+            retain);
 
     // --- [MEASURES]
     public static IO<Seq<MeshThicknessMeasurement>> ComputeThickness(Seq<Mesh> meshes, double maximumThickness, Option<double> sharpAngle) =>

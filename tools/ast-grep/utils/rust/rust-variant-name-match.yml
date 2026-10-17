@@ -7,7 +7,7 @@ utils:
             - kind: string_literal
             - kind: macro_invocation
               all:
-                - has: {field: macro, regex: '^((std|core)::)?write$'}
+                - matches: {rust-std-macro: {name: {regex: '^write$'}}}
                 - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"[^"{}\\]*"\s*,?\s*\)$'}
             - kind: call_expression
               all:
@@ -15,8 +15,8 @@ utils:
                 - has: {field: arguments, has: {nthChild: 1, kind: string_literal}, not: {has: {nthChild: 2}}}
             - kind: block
               all:
-                - has: {nthChild: 1, any: [{matches: literal-text}, {kind: expression_statement, has: {matches: literal-text}}]}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: literal-text}, {kind: expression_statement, has: {matches: literal-text}}]}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     unit-arm:
         kind: match_arm
         all:
@@ -29,11 +29,8 @@ utils:
             - any:
                 - not: {has: {field: trait, pattern: $_}}
                 - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\s*<\s*str\s*>$'}
-    error-impl:
-        kind: impl_item
-        all:
-            - has: {field: trait, regex: '(^|::)Error$'}
-            - has: {field: type, pattern: $T}
+    error-type:
+        matches: {rust-error-type: {name: {pattern: $T}}}
 rule:
     kind: match_expression
     all:
@@ -48,11 +45,26 @@ rule:
             stopBy: {kind: 'function_item, closure_expression'}
             all:
                 - has: {field: name, regex: '^(fmt|as_str|as_ref|name)$', pattern: $METHOD}
-                - not: {matches: rust-const-called}
+                - not:
+                    all:
+                        - has: {kind: function_modifiers, regex: '\bconst\b'}
+                        - inside:
+                            kind: source_file
+                            stopBy: end
+                            has:
+                                stopBy: end
+                                kind: call_expression
+                                matches: rust-const-context
+                                has:
+                                    field: function
+                                    any:
+                                        - pattern: $METHOD
+                                        - {kind: scoped_identifier, has: {field: name, pattern: $METHOD}}
+                                        - {kind: field_expression, has: {field: field, pattern: $METHOD}}
                 - inside: {kind: declaration_list, inside: {matches: naming-impl}}
         - inside:
             kind: source_file
             stopBy: end
             all:
                 - has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}
-                - not: {has: {stopBy: end, matches: error-impl}}
+                - not: {has: {stopBy: end, matches: error-type}}

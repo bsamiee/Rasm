@@ -4,7 +4,7 @@ language: tsx
 severity: error
 utils:
     listener-callback:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         inside:
             kind: arguments
             inside:
@@ -15,23 +15,23 @@ rule:
     not:
         all:
             - has: {field: function, regex: 'clear(Timeout|Interval|Immediate)$'}
-            - inside: {matches: listener-callback, stopBy: {matches: syntax-function-boundary}}
+            - inside: {matches: listener-callback, stopBy: {matches: typescript-function-boundary}}
     has:
         field: function
         pattern: $NAME
         any:
-            - matches: syntax-global-reference
+            - matches: typescript-global-reference
               regex: '^((window|self)\.(setTimeout|setInterval)|((globalThis|window|self)\.)?(setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|AbortSignal\.timeout|process\.nextTick))$'
             - matches:
-                syntax-import-reference:
+                typescript-import-reference:
                     source: {regex: '^(node:)?timers$'}
                     exported: {regex: '^(setImmediate|clearTimeout|clearInterval|clearImmediate)$'}
             - matches:
-                syntax-import-reference:
+                typescript-import-reference:
                     source: {regex: '^(node:)?timers/promises$'}
                     exported: {regex: '^(setTimeout|setInterval|setImmediate)$'}
             - matches:
-                syntax-import-reference:
+                typescript-import-reference:
                     source: {regex: '^(node:)?process$'}
                     exported: {regex: '^nextTick$'}
             - kind: member_expression
@@ -40,7 +40,7 @@ rule:
                 - has:
                     field: object
                     matches:
-                        syntax-import-reference:
+                        typescript-import-reference:
                             source: {regex: '^(node:)?timers/promises$'}
                             exported: {regex: '^scheduler$'}
 message: '`$NAME` schedules on the host timer outside the effect runtime'

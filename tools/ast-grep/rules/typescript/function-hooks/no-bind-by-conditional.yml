@@ -30,20 +30,20 @@ utils:
     combinator:
         pattern: $G($R.value)
         inside:
-            matches: syntax-function-boundary
-            stopBy: {matches: syntax-function-boundary}
+            matches: typescript-function-boundary
+            stopBy: {matches: typescript-function-boundary}
             has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $G}}}
     ternary-continuation:
         all:
-            - any: [{pattern: ok($X), not: {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}, {pattern: $Y}]
+            - any: [{pattern: ok($X), not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}, {pattern: $Y}]
             - not: {any: [{matches: combinator}, {has: {stopBy: end, matches: combinator}}, {matches: foreign-use}, {has: {stopBy: end, matches: foreign-use}}]}
             - any: [{all: [{pattern: $R.value}, {pattern: $USE}]}, {has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
-            - any: [{kind: await_expression, pattern: $AWAITED}, {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression, pattern: $AWAITED}}, {not: {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}]
+            - any: [{kind: await_expression, pattern: $AWAITED}, {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITED}}, {not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}]
     statement-continuation:
         all:
             - not: {has: {stopBy: end, matches: foreign-use}}
             - any: [{has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
-            - any: [{has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression, pattern: $AWAITS}}, {not: {has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}]
+            - any: [{has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITS}}, {not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}]
 rewriters:
     - id: unwrapped
       rule: {kind: member_expression, pattern: $R.value}
@@ -87,7 +87,7 @@ rule:
             - precedes: {pattern: $_}
             - not: {precedes: {stopBy: end, has: {stopBy: end, matches: foreign-use}}}
             - any: [{precedes: {stopBy: end, has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}}, {not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $R.value}}}}]
-            - any: [{precedes: {stopBy: end, has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression, pattern: $AWAITS}}}, {not: {precedes: {stopBy: end, has: {stopBy: {matches: syntax-function-boundary}, kind: await_expression}}}}]
+            - any: [{precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITS}}}, {not: {precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}}]
         - kind: if_statement
           all:
             - matches: tail-statement

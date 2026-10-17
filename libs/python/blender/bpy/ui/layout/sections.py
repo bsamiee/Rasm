@@ -16,7 +16,6 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
-from msgspec import inspect
 
 from blender.bpy.commands import operators
 from blender.bpy.commands.calls import called
@@ -30,6 +29,7 @@ from blender.bpy.settings.attachments import Attached, Attachment, Host, Slot
 from blender.bpy.settings.history import ValueHistory
 from blender.bpy.settings.presets import copied, pasted, Preset, PresetName, removed
 from blender.bpy.settings.properties import RecordGroup
+from blender.bpy.settings.shapes import ENABLED, Entries, field_shapes, Gate, Nested, Records, Shape, Tagged
 from blender.bpy.ui.layout.lists import keyed
 from blender.bpy.ui.layout.rows import (
     acquired,
@@ -39,10 +39,10 @@ from blender.bpy.ui.layout.rows import (
     Line,
     located,
     Member,
-    operated,
     OperatorButton,
     placed,
     Popover,
+    pressed,
     Property,
     realized,
     refused,
@@ -53,7 +53,6 @@ from blender.bpy.ui.layout.rows import (
     SurfaceDraw,
 )
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Gated, Knot, Ramp, Rgb
 from blender.rendering.history import Retention
 
 if typing.TYPE_CHECKING:
@@ -136,7 +135,7 @@ class Picked(msgspec.Struct, frozen=True, kw_only=True):
 class Locked(msgspec.Struct, frozen=True, kw_only=True):
     """Record field a lock row flips."""
 
-    field: Annotated[str, msgspec.Meta(title="Field", description="Key of the record field the lock keeps")]
+    field: Annotated[str, msgspec.Meta(description="Key of the record field the lock keeps")]
 
 
 class Named(msgspec.Struct, frozen=True, kw_only=True):
@@ -344,32 +343,15 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         apply, delete, export = commands.apply, commands.delete, commands.export
         footer = (OperatorButton(target=commands.save, text=Some("")), OperatorButton(target=commands.load, text=Some("")))
 
-        def draw(parts: tuple[tuple[str, ...], tuple[RowDraw, ...]]) -> RowDraw:
-            (applying, deleting, exporting), buttons = parts
-
+        def draw(buttons: tuple[RowDraw, ...]) -> RowDraw:
             def entry(layout: bpy.types.UILayout, context: bpy.types.Context, stem: str, kept: T | Path, value: BlenderResult[T], matched: Option[bool]) -> None:
                 line, chosen = layout.row(align=True), Named(stem=stem)
-                alerted(
-                    line,
-                    value.bind(lambda _: operated(line.operator(applying, text=bpy.path.display_name(stem), icon="CHECKMARK" if matched == Some(True) else "BLANK1"), applying)).bind(
-                        lambda properties: operators.Own(command=apply, values=chosen).invocation(identity).bind(lambda placement: placement[1](properties))
-                    ),
-                )
+                alerted(line, value.bind(lambda _: pressed(line, identity, apply, chosen, text=bpy.path.display_name(stem), icon="CHECKMARK" if matched == Some(True) else "BLANK1")))
 
                 def actions(row: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
-                    alerted(
-                        row,
-                        operated(row.operator(exporting, text="", icon="EXPORT"), exporting).bind(
-                            lambda properties: operators.Own(command=export, values=Selected(items=(chosen,))).invocation(identity).bind(lambda placement: placement[1](properties))
-                        ),
-                    )
+                    alerted(row, pressed(row, identity, export, Selected(items=(chosen,)), text="", icon="EXPORT"))
                     if isinstance(kept, Path):
-                        alerted(
-                            row,
-                            operated(row.operator(deleting, text="", icon="X"), deleting).bind(
-                                lambda properties: operators.Own(command=delete, values=Selected(items=(chosen,))).invocation(identity).bind(lambda placement: placement[1](properties))
-                            ),
-                        )
+                        alerted(row, pressed(row, identity, delete, Selected(items=(chosen,)), text="", icon="X"))
 
                 invoking(actions)(line, context, context)
 
@@ -388,7 +370,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
             return shown
 
-        return paired(accumulated(identity.name(Name.OPERATOR, command.key) for command in (apply, delete, export)), accumulated(realized(row, identity) for row in footer)).map(draw)
+        return accumulated(realized(row, identity) for row in footer).map(draw)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Acquires the listing's rows."""
@@ -452,9 +434,6 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         def settled[V](change: Option[V]) -> operators.Outcome:
             return change.map(lambda _: operators.Done()).default_value(vacant)
 
-        def managed(context: bpy.types.Context) -> BlenderResult[bpy.types.WindowManager]:
-            return Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
-
         def now() -> datetime.datetime:
             return datetime.datetime.now(datetime.UTC)
 
@@ -471,9 +450,9 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         def stepped(context: bpy.types.Context, offset: int) -> BlenderResult[operators.Outcome]:
             return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(settled)
 
-        def scoped(context: bpy.types.Context, host: Host) -> BlenderResult[Option[operators.Done]]:
+        def scoped(call: operators.Call[operators.Empty], host: Host) -> BlenderResult[Option[operators.Done]]:
             return (
-                paired(self.scope.map(lambda scope: scope.owners(context)).default_value(Ok((host,))), managed(context))
+                paired(self.scope.map(lambda scope: scope.owners(call.context)).default_value(Ok((host,))), call.root(bpy.types.WindowManager))
                 .bind(lambda pair: pasted(pair[1], tuple(map(attached.struct, pair[0]))))
                 .map(lambda outcomes: Some(operators.Done()) if any(outcome.written for outcome in outcomes) else Nothing)
             )
@@ -484,12 +463,12 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 stem,
                 operators.Empty,
                 lambda call: (
-                    paired(hosted(attached.name, call.context).bind(lambda host: Snapshot.capture(attached.struct(host))), managed(call.context))
+                    paired(hosted(attached.name, call.context).bind(lambda host: Snapshot.capture(attached.struct(host))), call.root(bpy.types.WindowManager))
                     .map(lambda pair: copied(pair[1], pair[0]))
                     .map(lambda _: operators.Done())
                 ),
             ),
-            Verb.PASTE: Verb.PASTE.row(stem, operators.Empty, lambda call: recorded(call.context, lambda host: scoped(call.context, host))),
+            Verb.PASTE: Verb.PASTE.row(stem, operators.Empty, lambda call: recorded(call.context, lambda host: scoped(call, host))),
             Verb.OLDER: Verb.OLDER.row(stem, operators.Empty, lambda call: stepped(call.context, 1)),
             Verb.NEWER: Verb.NEWER.row(stem, operators.Empty, lambda call: stepped(call.context, -1)),
         }
@@ -544,8 +523,8 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             fields = slots.listing.map(lambda _: tuple(row for row in msgspec.structs.fields(attached.group.record) if row.name in attached.group.struct.bl_rna.properties)).default_value(())
             clipboard, steps = (tuple(OperatorButton(target=slots.plain[verb]) for verb in verbs) for verbs in ((Verb.COPY, Verb.PASTE), (Verb.OLDER, Verb.NEWER)))
 
-            def draw(parts: tuple[tuple[Option[RowDraw], tuple[tuple[RowDraw, ...], tuple[RowDraw, ...]]], tuple[str, tuple[str, str]]]) -> RowDraw:
-                (listing, (copying, stepping)), (locking, (restoring, forgetting)) = parts
+            def draw(parts: tuple[Option[RowDraw], tuple[tuple[RowDraw, ...], tuple[RowDraw, ...]]]) -> RowDraw:
+                listing, (copying, stepping) = parts
 
                 def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                     found = hosted(attached.name, context)
@@ -555,12 +534,7 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                         locks, group = attached.locks(host), attached.struct(host)
                         for row in fields:
                             icon: IconItems = "LOCKED" if row.name in locks else "UNLOCKED"
-                            alerted(
-                                layout,
-                                operated(layout.operator(locking, text=group.bl_rna.properties[row.name].name, icon=icon), locking).bind(
-                                    lambda properties: operators.Own(command=slots.lock, values=Locked(field=row.name)).invocation(identity).bind(lambda placement: placement[1](properties))
-                                ),
-                            )
+                            alerted(layout, pressed(layout, identity, slots.lock, Locked(field=row.name), text=group.bl_rna.properties[row.name].name, icon=icon))
                     layout.separator()
                     for draws in (copying, stepping):
                         line = layout.row(align=True)
@@ -575,12 +549,8 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                         alerted(
                             line,
                             paired(
-                                operated(line.operator(restoring, text=f"{moment.astimezone():%X}", icon="BACK" if offset > 0 else "FORWARD"), restoring).bind(
-                                    lambda properties: operators.Own(command=slots.picked[Verb.RESTORE], values=chosen).invocation(identity).bind(lambda placement: placement[1](properties))
-                                ),
-                                operated(line.operator(forgetting, text="", icon="X"), forgetting).bind(
-                                    lambda properties: operators.Own(command=slots.picked[Verb.FORGET], values=chosen).invocation(identity).bind(lambda placement: placement[1](properties))
-                                ),
+                                pressed(line, identity, slots.picked[Verb.RESTORE], chosen, text=f"{moment.astimezone():%X}", icon="BACK" if offset > 0 else "FORWARD"),
+                                pressed(line, identity, slots.picked[Verb.FORGET], chosen, text="", icon="X"),
                             ),
                         )
                     alerted(layout, held)
@@ -588,11 +558,8 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 return shown
 
             return paired(
-                paired(
-                    slots.listing.map(lambda listing: realized(listing, identity).map(Some)).default_value(Ok(Nothing)),
-                    paired(accumulated(realized(row, identity) for row in clipboard), accumulated(realized(row, identity) for row in steps)),
-                ),
-                paired(identity.name(Name.OPERATOR, slots.lock.key), paired(identity.name(Name.OPERATOR, slots.picked[Verb.RESTORE].key), identity.name(Name.OPERATOR, slots.picked[Verb.FORGET].key))),
+                slots.listing.map(lambda listing: realized(listing, identity).map(Some)).default_value(Ok(Nothing)),
+                paired(accumulated(realized(row, identity) for row in clipboard), accumulated(realized(row, identity) for row in steps)),
             ).map(draw)
 
         return self.store.bound(identity).bind(built)
@@ -825,7 +792,6 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
     group: RecordGroup[T, S], identity: Identity, replacements: Mapping[MemberDescriptorType, RowContent] = MappingProxyType({})
 ) -> BlenderResult[tuple[tuple[RowContent, ...], Nest]]:
     """Realizes native fields as scalar rows and nested record, union, or collection panels."""
-    enabled, value = Gated.__struct_fields__
     supplied = {slot.__name__: row for slot, row in replacements.items() if issubclass(typing.get_origin(group.record) or group.record, slot.__objclass__)}
 
     def inside(found: tuple[tuple[RowContent, ...], Nest]) -> BlenderResult[Nest]:
@@ -841,9 +807,7 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
 
         return placed(rows, identity).map(stacked)
 
-    def split(row: msgspec.structs.FieldInfo, kind: inspect.Type, struct: "type[bpy.types.bpy_struct[object]]", *, panel: bool = True) -> BlenderResult[Property | Nest]:
-        while isinstance(kind, inspect.Metadata):
-            kind = kind.type
+    def split(row: msgspec.structs.FieldInfo, shape: Shape, struct: "type[bpy.types.bpy_struct[object]]", *, panel: bool = True) -> BlenderResult[Property | Nest]:
         key = row.name
 
         def nested(record: type[msgspec.Struct], native: type[bpy.types.PropertyGroup]) -> BlenderResult[Nest]:
@@ -855,10 +819,10 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
                 header, body = layout.panel(idname, default_closed=True)
                 header.use_property_split = False
                 if gated:
-                    header.prop(held, enabled, text="")
+                    header.prop(held, ENABLED, text="")
                 header.label(text=group.bl_rna.properties[row.name].name)
                 for shown in Option.of_optional(body).to_list():
-                    shown.active = bool(getattr(held, enabled)) if gated else True
+                    shown.active = bool(getattr(held, ENABLED)) if gated else True
                     nest(shown, held if gated else group, context, idname)
 
             return draw
@@ -893,50 +857,34 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
 
             return draw
 
-        match kind:
-            case inspect.StructType(cls=declaration, fields=native) if (typing.get_origin(declaration) or declaration) is Gated:
-                inner = next(field.type for field in native if field.name == value)
-                while isinstance(inner, inspect.Metadata):
-                    inner = inner.type
-                nested_gate = isinstance(inner, inspect.StructType) and (typing.get_origin(inner.cls) or inner.cls) is Gated
-                field = next(field for field in msgspec.structs.fields(declaration) if field.name == value)
-                return split(field, inner, struct.__annotations__[key].keywords["type"], panel=False).bind(
+        if not isinstance(shape, Gate | Nested | Entries | Tagged | Records):
+            return Ok(Property(target=row))
+        native = struct.__annotations__[key].keywords["type"]
+        match shape:
+            case Gate(value=Option(tag="some", some=(field, inner))):
+                return split(field, inner.shape, native, panel=False).bind(
                     lambda child: (
                         Ok(Property(target=row))
-                        if isinstance(child, Property) and not nested_gate
+                        if isinstance(child, Property) and not isinstance(inner.shape, Gate)
                         else (realized(child, identity).map(lambda draw: lambda layout, holder, context, _prefix: draw(layout, holder, context)) if isinstance(child, Property) else Ok(child)).map(
                             lambda nest: paneled(nest, gated=True)
                         )
                     )
                 )
-            case inspect.StructType(cls=inner) if (typing.get_origin(inner) or inner) not in {Rgb, Ramp}:
-                found = nested(inner, struct.__annotations__[key].keywords["type"]).map(reached)
-            case inspect.DictType(key_type=inspect.EnumType(cls=enum)):
-                native = struct.__annotations__[key].keywords["type"]
+            case Gate():
+                return Ok(Property(target=row))
+            case Nested(record=record):
+                found = nested(record, native).map(reached)
+            case Entries(gate=gate):
                 found = (
-                    accumulated(split(entry, inspect.type_info(entry.type), native).map(lambda part: (entry, part)) for entry in RecordGroup.entries(row, enum))
-                    .map(lambda parts: joined(parts, {}))
-                    .bind(inside)
-                    .map(reached)
+                    accumulated(split(entry, gate, native).map(lambda part: (entry, part)) for entry in RecordGroup.entries(row, shape)).map(lambda parts: joined(parts, {})).bind(inside).map(reached)
                 )
-            case inspect.UnionType(types=(inspect.CustomType(cls=target), inspect.NoneType()) | (inspect.NoneType(), inspect.CustomType(cls=target))) if issubclass(target, bpy.types.ID):
-                return Ok(Property(target=row))
-            case inspect.UnionType(types=alternatives):
-                cases: list[BlenderResult[tuple[str, Nest]]] = []
-                for alternative in alternatives:
-                    case = alternative
-                    while isinstance(case, inspect.Metadata):
-                        case = case.type
-                    if isinstance(case, inspect.StructType):
-                        name = (typing.get_origin(case.cls) or case.cls).__name__
-                        cases.append(nested(case.cls, struct.__annotations__[key].keywords["type"].__annotations__[name].keywords["type"]).map(lambda nest: (name, nest)))
-                    else:
-                        cases.append(Error(refused(row.name, type(case).__name__, (inspect.StructType.__name__,))))
-                found = accumulated(cases).map(lambda parts: chosen(parts, struct.__annotations__[key].keywords["type"]))
-            case inspect.VarTupleType(item_type=inspect.StructType(cls=inner)) if (typing.get_origin(inner) or inner) is not Knot:
-                found = nested(inner, struct.__annotations__[key].keywords["type"]).map(each)
-            case _:
-                return Ok(Property(target=row))
+            case Tagged(cases=cases):
+                found = accumulated(nested(case, native.__annotations__[case.__name__].keywords["type"]).map(lambda nest: (case.__name__, nest)) for case, _ in cases).map(
+                    lambda parts: chosen(parts, native)
+                )
+            case Records(record=record):
+                found = nested(record, native).map(each)
         return found.map(lambda nest: paneled(nest, gated=False) if panel else nest)
 
     def joined(parts: tuple[tuple[msgspec.structs.FieldInfo, Property | Nest], ...], supplied: Mapping[str, RowContent]) -> tuple[tuple[RowContent, ...], Nest]:
@@ -948,9 +896,11 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
 
         return tuple(supplied.get(row.name, part) for row, part in parts if isinstance(part, Property)), draw
 
-    rows = tuple(row for row in msgspec.structs.fields(group.record) if row.name in group.struct.__annotations__ or row.name in group.struct.bl_rna.properties)
-    kinds = inspect.multi_type_info(row.type for row in rows)
-    return accumulated(split(row, kind, group.struct).map(lambda part: (row, part)) for row, kind in zip(rows, kinds)).map(lambda parts: joined(parts, supplied))
+    return field_shapes(group.record).bind(
+        lambda rows: accumulated(
+            split(row, shape.shape, group.struct).map(lambda part: (row, part)) for row, shape in rows if row.name in group.struct.__annotations__ or row.name in group.struct.bl_rna.properties
+        ).map(lambda parts: joined(parts, supplied))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

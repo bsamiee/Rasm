@@ -15,6 +15,6 @@ rule:
         - any: [{has: {field: name, matches: money-name}}, {has: {field: pattern, kind: identifier, matches: money-name}}]
         - has: {field: type, any: [{matches: float}, {has: {stopBy: end, matches: float}}]}
         - not: {inside: {kind: parameters, inside: {matches: rust-fixed-signature}}}
-        - not: {inside: {stopBy: end, kind: 'struct_item, enum_item', follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '\bderive\s*\([^)]*\bSerialize\b'}}}
+        - not: {inside: {stopBy: end, matches: rust-serde-record}}
 message: '`$DECLARATION` holds money as a binary float'
-note: 'Type the amount as `rust_decimal::Decimal`, decimal fractions of a currency unit hold exactly and rounding follows `round_dp_with_strategy`. A float field of a `Serialize` struct stays as written, `Decimal` serializes as a string under the catalog `serde-with-str` feature'
+note: 'Type the amount as `rust_decimal::Decimal`, decimal fractions of a currency unit hold exactly and rounding follows `round_dp_with_strategy`. A float field of a `Serialize` or `Deserialize` struct stays as written, `Decimal` serializes as a string under the catalog `serde-with-str` feature'

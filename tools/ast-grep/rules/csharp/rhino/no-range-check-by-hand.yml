@@ -264,4 +264,4 @@ rule:
                 inside: {kind: declaration_list, inside: {matches: csharp-error-record}}
             - inside: {stopBy: end, matches: csharp-validation-hook}
 message: '`$CHECK` states a numeric range check by hand'
-note: Use a value type implementing `IMinMaxValue<TSelf>` whose validation hook rejects an out-of-range value with the error its `[ValidationError<TError>]` names, a relative change clamping its key into `T.MinValue` and `T.MaxValue` before `Conversions.Validated`. Bounds supplied as a tuple argument belong to the input boundary accepting that runtime range
+note: Use a value type implementing `IMinMaxValue<TSelf>` whose validation hook rejects an out-of-range value through `Admission.Refusal(value, MinValue, MaxValue)`, a relative change clamping its key into `T.MinValue` and `T.MaxValue` before `<type>.Validated`. Bounds supplied as a tuple argument belong to the input boundary accepting that runtime range

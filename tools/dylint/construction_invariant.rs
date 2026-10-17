@@ -1,17 +1,13 @@
-use core::ops::ControlFlow;
-
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    res::MaybeResPath as _,
     sym,
     ty::{option_arg_ty, same_type_modulo_regions},
-    visitors::for_each_expr,
 };
 use rustc_hir::{Expr, FieldDef, def::DefKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, declare_lint_pass};
 use rustc_middle::ty::{Ty, Visibility};
 
-use crate::{constructed, result_parts};
+use crate::{any_expr, constructed, parameter, result_parts, signature};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -62,16 +58,10 @@ impl<'tcx> LateLintPass<'tcx> for ConstructionInvariant {
                 && matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)
                 && cx.tcx.trait_impl_of_assoc(owner.to_def_id()).is_none()
                 && cx.tcx.visibility(owner) != Visibility::Restricted(cx.tcx.parent_module_from_def_id(owner).to_mod_id())
-                && same_type_modulo_regions(cx.tcx.fn_sig(owner).instantiate_identity().skip_normalization().skip_binder().output(), built)
-                && let parameters = cx.tcx.hir_body_owned_by(owner).params
-                && let Some((value, check)) = fields.iter().find_map(|(field, argument)| {
-                    parameters
-                        .iter()
-                        .any(|parameter| argument.res_local_id() == Some(parameter.pat.hir_id))
-                        .then(|| check(cx, adt.did(), field.did))
-                        .flatten()
-                        .map(|check| (typeck.expr_ty(argument), check))
-                })
+                && same_type_modulo_regions(signature(cx.tcx, owner.to_def_id()).output(), built)
+                && let body = cx.tcx.hir_body_owned_by(owner)
+                && let Some((value, check)) =
+                    fields.iter().find_map(|(field, argument)| parameter(body, argument).and_then(|_| check(cx, adt.did(), field.did)).map(|check| (typeck.expr_ty(argument), check)))
             {
                 let name = cx.tcx.item_name(adt.did());
                 let checker = format!("{name}::{}", cx.tcx.item_name(check));
@@ -99,14 +89,11 @@ fn check(cx: &LateContext<'_>, owner: DefId, field: DefId) -> Option<DefId> {
     let assoc_fns = |implementation: DefId| cx.tcx.associated_item_def_ids(implementation).iter().copied().filter(move |item| cx.tcx.def_kind(*item) == DefKind::AssocFn);
     let flows = |function: DefId| {
         function.as_local().and_then(|local| Some((cx.tcx.hir_maybe_body_owned_by(local)?, cx.tcx.typeck(local)))).is_some_and(|(body, typeck)| {
-            for_each_expr(cx.tcx, body.value, |expr| {
-                let unchanged = constructed(typeck, expr).is_some_and(|(_, fields)| {
-                    typeck.expr_ty(expr).ty_adt_def().is_some_and(|adt| adt.did() == owner)
-                        && fields.iter().any(|(declared, argument)| declared.did == field && body.params.iter().any(|parameter| argument.res_local_id() == Some(parameter.pat.hir_id)))
-                });
-                if unchanged { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
+            any_expr(cx.tcx, body.value, |expr| {
+                constructed(typeck, expr).is_some_and(|(_, fields)| {
+                    typeck.expr_ty(expr).ty_adt_def().is_some_and(|adt| adt.did() == owner) && fields.iter().any(|(declared, argument)| declared.did == field && parameter(body, argument).is_some())
+                })
             })
-            .is_some()
         })
     };
     let converting = cx.tcx.get_diagnostic_item(sym::TryFrom).into_iter().flat_map(|try_from| {
@@ -116,8 +103,8 @@ fn check(cx: &LateContext<'_>, owner: DefId, field: DefId) -> Option<DefId> {
             .flat_map(assoc_fns)
     });
     let refusing = cx.tcx.inherent_impls(owner).iter().copied().flat_map(assoc_fns).filter(|function| {
-        let signature = cx.tcx.fn_sig(*function).instantiate_identity().skip_normalization().skip_binder();
-        refusing(cx, signature.output(), built) && signature.inputs().iter().any(|input| same_type_modulo_regions(*input, value))
+        let declared = signature(cx.tcx, *function);
+        refusing(cx, declared.output(), built) && declared.inputs().iter().any(|input| same_type_modulo_regions(*input, value))
     });
     converting.chain(refusing).find(|&function| flows(function))
 }

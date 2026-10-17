@@ -81,28 +81,32 @@ public sealed record ValueHistory {
         from rows in ArchivableDictionaries.Children(source)
         from pairs in Callbacks.Each(rows, static (row, _) =>
             (StoredText.Parse<Guid>(row.Key).ToValidation(), History(row.Value).ToValidation())
-                .Apply(static (id, history) => (id, history)).As().ToFin())
-        select toHashMap(pairs);
+                .Apply(static (id, history) => history.Map(held => (id, held))).As().ToFin())
+        select toHashMap(pairs.Somes());
 
-    private static Fin<ValueHistory> History(ArchivableDictionary source) =>
+    private static Fin<Option<ValueHistory>> History(ArchivableDictionary source) =>
         (ArchivableDictionaries.Required<ArchivableDictionary>(source, DoneKey).Bind(Entries).ToValidation(),
          ArchivableDictionaries.Required<ArchivableDictionary>(source, UndoneKey).Bind(Entries).ToValidation())
-            .Apply(static (done, undone) => new ValueHistory(
-                toSeq(done.OrderByDescending(static entry => entry.Serial)), toSeq(undone.OrderBy(static entry => entry.Serial)),
-                done.Concat(undone).Fold(BigInteger.Zero, static (next, entry) => BigInteger.Max(next, entry.Serial + BigInteger.One))))
+            .Apply(static (done, undone) => (done, undone).Apply(static (finished, reverted) => new ValueHistory(
+                toSeq(finished.OrderByDescending(static entry => entry.Serial)), toSeq(reverted.OrderBy(static entry => entry.Serial)),
+                finished.Concat(reverted).Fold(BigInteger.Zero, static (next, entry) => BigInteger.Max(next, entry.Serial + BigInteger.One)))).As())
             .As().ToFin();
 
-    private static Fin<Seq<HistoryEntry>> Entries(ArchivableDictionary source) =>
+    private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from entries in Callbacks.Each(rows, static (row, _) =>
             ((from serial in StoredText.Parse<BigInteger>(row.Key)
-              from accepted in serial >= BigInteger.Zero ? Fin.Succ(serial) : Fin.Fail<BigInteger>(new UnreadText(row.Key, typeof(BigInteger)))
+              from accepted in serial >= BigInteger.Zero ? Fin.Succ(serial) : Fin.Fail<BigInteger>(Errors.ParseError($"{row.Key} reads as no {nameof(BigInteger)}"))
               select accepted).ToValidation(),
              ArchivableDictionaries.Required<long>(row.Value, AtKey).ToValidation(),
-             ArchivableDictionaries.Required<ArchivableDictionary>(row.Value, BeforeKey).Bind(ValueSet.Codec.FromDictionary).ToValidation(),
-             ArchivableDictionaries.Required<ArchivableDictionary>(row.Value, AfterKey).Bind(ValueSet.Codec.FromDictionary).ToValidation())
-                .Apply(static (serial, at, before, after) => new HistoryEntry(serial, before.Diff(after), Instant.FromUnixTimeTicks(at))).As().ToFin())
-        select entries;
+             Nested(row.Value, BeforeKey).ToValidation(),
+             Nested(row.Value, AfterKey).ToValidation())
+                .Apply(static (serial, at, before, after) =>
+                    (before, after).Apply((held, next) => new HistoryEntry(serial, held.Diff(next), Instant.FromUnixTimeTicks(at))).As()).As().ToFin())
+        select entries.Traverse(static entry => entry).As();
+
+    private static Fin<Option<ValueSet>> Nested(ArchivableDictionary source, string key) =>
+        ArchivableDictionaries.Required<ArchivableDictionary>(source, key).Bind(ValueSet.Codec.FromDictionary).Map(static stored => stored.Present);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -167,7 +171,7 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
 
     public IO<ValueDiff> Restore(BigInteger serial) =>
         from history in History
-        from target in IO.lift(history.Toward(serial).ToFin(new Missing(nameof(Restore))))
+        from target in IO.lift(history.Toward(serial).ToFin(new Refused(nameof(Restore), Refused.Absent)))
         from diff in Commit(target, [])
         select diff;
 

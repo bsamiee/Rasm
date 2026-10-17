@@ -11,34 +11,19 @@ namespace Rasm.Imaging.Tone;
 [ValueObject<float>(SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
 public readonly partial struct KneeOffset : IMinMaxValue<KneeOffset> {
     public static KneeOffset MinValue { get; } = new(0.5f);
     public static KneeOffset MaxValue { get; } = new(2f);
     public static KneeOffset Bt2390 => MinValue;
 
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Floor", SkipIParsable = true,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct DisplayBlack : IMinMaxValue<DisplayBlack> {
-    public static DisplayBlack MinValue => Floor;
-    public static DisplayBlack MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-public sealed record PeakMapping(Nits TargetPeak, DisplayBlack Black, KneeOffset Knee) : IStateRecord<PeakMapping, PeakParameter, InvalidToneValue> {
-    public static PeakMapping Default { get; } = new(Display.Rec2100PqHdr.Peak, DisplayBlack.Floor, KneeOffset.Bt2390);
+public sealed record PeakMapping(Nits TargetPeak, AxisFraction Black, KneeOffset Knee) : IStateRecord<PeakMapping, PeakParameter> {
+    public static PeakMapping Default { get; } = new(Display.Rec2100PqHdr.Peak, AxisFraction.MinValue, KneeOffset.Bt2390);
 
     public static Fin<Nits> MeasuredPeak(PixelFrame frame, Nits white) =>
-        LuminanceSamples.Greatest(frame).Bind(samples =>
-            Nits.Validate((float)(samples.FrameWhite * (float)white), provider: null, out Nits peak) is { } error ? error : (Fin<Nits>)peak);
+        LuminanceSamples.Greatest(frame).Bind(samples => Nits.Validated((float)(samples.FrameWhite * (float)white)));
 
     public Option<PixelPass> Pass(Nits white, Nits sourcePeak) {
         float fitted = float.Min((float)TargetPeak, (float)sourcePeak);
@@ -57,7 +42,7 @@ public sealed record PeakMapping(Nits TargetPeak, DisplayBlack Black, KneeOffset
                 var x => float.Clamp((gain * (x + (floor * float.Pow(1f - x, power)) - floor)) + floor, floor, peak) * source,
             };
 
-        return sourcePeak > TargetPeak || Black != DisplayBlack.Floor
+        return sourcePeak > TargetPeak || Black != AxisFraction.MinValue
             ? Some<PixelPass>(new PixelPass.Color(row => {
                 TransferCurve.Pq.Encode(row, white);
                 foreach (ref Vector4 pixel in row)
@@ -69,18 +54,19 @@ public sealed record PeakMapping(Nits TargetPeak, DisplayBlack Black, KneeOffset
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidToneValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PeakParameter : IStateParameter<PeakMapping> {
-    public static readonly PeakParameter TargetPeak = new("target-peak", StateParameter.Bounded<PeakMapping, Nits, float, InvalidColor>(Lens<PeakMapping, Nits>.New(static mapping => mapping.TargetPeak, static peak => mapping => mapping with { TargetPeak = peak }),
+    public static readonly PeakParameter TargetPeak = new("target-peak", StateParameter.Bounded(Lens<PeakMapping, Nits>.New(static mapping => mapping.TargetPeak, static peak => mapping => mapping with { TargetPeak = peak }),
     new Presentation<float> {
         Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LuminanceUnit.Nit), Soft = ((float)Nits.ReferenceWhite, (float)Nits.MaxValue), Step = 1f, Decimals = 0,
-    }));
-    public static readonly PeakParameter Black = new("display-black", StateParameter.Bounded<PeakMapping, DisplayBlack, float, InvalidToneValue>(Lens<PeakMapping, DisplayBlack>.New(static mapping => mapping.Black, static black => mapping => mapping with { Black = black }),
-    new Presentation<float> { Soft = ((float)DisplayBlack.Floor, 1e-3f), Step = 1e-5f, Decimals = 6 }));
-    public static readonly PeakParameter Knee = new("knee-offset", StateParameter.Bounded<PeakMapping, KneeOffset, float, InvalidToneValue>(Lens<PeakMapping, KneeOffset>.New(static mapping => mapping.Knee, static knee => mapping => mapping with { Knee = knee }),
-    new Presentation<float> { Step = 0.01f, Decimals = 2 }));
+    }),
+        new("Target peak", "Brightest luminance of the display the highlights roll off into"));
+    public static readonly PeakParameter Black = new("display-black", StateParameter.Bounded(Lens<PeakMapping, AxisFraction>.New(static mapping => mapping.Black, static black => mapping => mapping with { Black = black }), AxisFraction.Presentation with { Soft = ((float)AxisFraction.MinValue, 1e-3f), Decimals = 4 }),
+        new("Display black", "Display black as a share of the target peak"));
+    public static readonly PeakParameter Knee = new("knee-offset", StateParameter.Bounded(Lens<PeakMapping, KneeOffset>.New(static mapping => mapping.Knee, static knee => mapping => mapping with { Knee = knee }), new Presentation<float> { Step = 0.01f, Decimals = 2 }),
+        new("Knee offset", "Distance below the target peak where the rolloff begins, its minimum the BT.2390 knee"));
 
     public StateParameter<PeakMapping> Kind { get; }
+    public ParameterText Text { get; }
 }

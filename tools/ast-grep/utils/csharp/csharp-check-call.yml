@@ -5,7 +5,7 @@ utils:
     unique-check:
         matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Unique$'}}}
     conversion-check:
-        matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|FromResult|Validated)$'}}}
+        matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|FromResult)$'}}}
     guard-name:
         matches: {csharp-type-name: {name: {regex: '^guard$'}}}
     io-lift:
@@ -25,7 +25,7 @@ rule:
     kind: invocation_expression
     any:
         - all:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|InRange)(\s*<.+>)?$'}}
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless\w*|InRange|Validated)(\s*<.+>)?$'}}
             - has: {field: arguments, matches: plain-arguments}
         - all:
             - has:

@@ -30,7 +30,7 @@ Types hold only values producers create and consumers read:
 
 | [INDEX] | [REJECTED]                                           | [REQUIRED]                                     | [REASON]                        |
 | :-----: | :--------------------------------------------------- | :--------------------------------------------- | :------------------------------ |
-|  [01]   | Member, case, or argument nothing reads              | Deleted with every reference                   | Unread shape widens every match |
+|  [01]   | Unread argument, or unread non-public member or case | Deleted with every reference                   | Unread shape widens every match |
 |  [02]   | Joint or derivable fact stored as separate fields    | Fact once, `Option<(A, B)>` for joint facts    | Copies disagree                 |
 |  [03]   | `int` code or joined `string` as field               | Enum, tuple, or `Seq` converted in one member  | Primitive hides cases and parts |
 |  [04]   | Siblings or constant families differing in one value | One shape, value as field or parameter         | Variants repeat shared fields   |
@@ -42,10 +42,11 @@ Types hold only values producers create and consumers read:
 
 Error records hold the failed call and its facts:
 
-| [INDEX] | [REJECTED]                                    | [REQUIRED]                                 | [REASON]                    |
-| :-----: | :-------------------------------------------- | :----------------------------------------- | :-------------------------- |
-|  [01]   | Shared helper raising one fixed member name   | Helper taking member its caller invoked    | Error names wrong call      |
-|  [02]   | Error field holding another fact or host code | Case per documented failure with its facts | Consumer cannot match cause |
+| [INDEX] | [REJECTED]                                        | [REQUIRED]                                 | [REASON]                   |
+| :-----: | :------------------------------------------------ | :----------------------------------------- | :------------------------- |
+|  [01]   | Shared helper raising one fixed member name       | Helper taking member its caller invoked    | Error names wrong call     |
+|  [02]   | Error field holding another fact or raw host code | Field per fact, host code as its host enum | Consumer cannot read cause |
+|  [03]   | Factory on error record with one or two callers   | Ternary or `guard` at each raise site      | Helper outweighs the raise |
 
 ## [04]-[EFFECTS]
 
@@ -73,6 +74,7 @@ Each concept and value has one owner, and callers reach it directly:
 |  [05]   | Literal or heuristic copied from ported source     | Derived from construction, or one stated rule    | Accident becomes rule         |
 |  [06]   | Positional pairing, index lookup, zip then unzip   | Rows holding values, arrays zipped at one length | Positions drift apart         |
 |  [07]   | Argument restating value callee or host derives    | Dropped, `None` picks overload or skips setter   | Value stated twice            |
+|  [08]   | Public member removed for lacking callers          | Kept, rebuilt when weak, redundant, or misshaped | Library serves future apps    |
 
 ## [06]-[NAMING]
 

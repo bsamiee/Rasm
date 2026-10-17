@@ -16,7 +16,7 @@ public static class SurfaceEvaluation {
         from normal in IO.lift(() => surface.NormalAt(at.X, at.Y))
         from jet in IO.lift(() => (
                 Refused.Unless(surface.Evaluate(at.X, at.Y, order, out Point3d point, out Vector3d[] derivatives), (Point: point, Partials: derivatives), nameof(Surface.Evaluate)).ToValidation(),
-                InvalidAnswer.Unless(normal != Vector3d.Zero, normal, nameof(Surface.NormalAt)).ToValidation())
+                Refused.UnlessValid(normal != Vector3d.Zero, normal, nameof(Surface.NormalAt)).ToValidation())
             .Apply((sampled, unitNormal) => new SurfaceJet(
                 sampled.Point,
                 unitNormal,
@@ -26,22 +26,22 @@ public static class SurfaceEvaluation {
 
     public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv, Action<IDisposable> retain) =>
         from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)).ToFin())
-        from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? new Degenerate(nameof(Surface.CurvatureAt)) : at)
+        from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Surface.CurvatureAt)} takes no point at a singularity") : at)
         from curvature in Copies.Owned(
             () => surface.CurvatureAt(sampled.X, sampled.Y),
-            static answer => Missing.Unless(answer, nameof(Surface.CurvatureAt)).Bind(static value => InvalidAnswer.Unless(value.IsSet, value, nameof(Surface.CurvatureAt))),
-            static answer => DisposalOps.Release(Conversions.Rows([answer])), retain)
+            static answer => Refused.UnlessFound(answer, nameof(Surface.CurvatureAt)).Bind(static value => Refused.UnlessValid(value.IsSet, value, nameof(Surface.CurvatureAt))),
+            static answer => DisposalOps.Release(answer), retain)
         select curvature;
 
     // --- [CURVES]
     public static IO<Seq<Curve>> IsoCurves(BrepFace face, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
         Copies.Acquire(
-            () => OutOfDomain.Unless(face.Domain((int)constant), parameter, nameof(BrepFace.TrimAwareIsoCurve)).Map(at => face.TrimAwareIsoCurve(Varying(constant), at)),
+            () => Conversions.Within(face.Domain((int)constant), parameter, nameof(BrepFace.TrimAwareIsoCurve)).Map(at => face.TrimAwareIsoCurve(Varying(constant), at)),
             nameof(BrepFace.TrimAwareIsoCurve), retain);
 
     public static IO<Seq<Curve>> IsoCurves(Surface surface, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
         Copies.Acquire(
-            () => OutOfDomain.Unless(surface.Domain((int)constant), parameter, nameof(Surface.IsoCurve)).Map(at => surface.IsoCurve(Varying(constant), at)),
+            () => Conversions.Within(surface.Domain((int)constant), parameter, nameof(Surface.IsoCurve)).Map(at => surface.IsoCurve(Varying(constant), at)),
             nameof(Surface.IsoCurve), retain).Map(static curve => Seq(curve));
 
     public static IO<Curve> ShortPath(Surface surface, Point2d start, Point2d end, Tolerances tolerances, Action<IDisposable> retain) =>
@@ -61,7 +61,7 @@ public static class SurfaceEvaluation {
 
     // --- [DOMAIN]
     private static Validation<Error, Point2d> InDomain(Surface surface, Point2d uv, string member) =>
-        (OutOfDomain.Unless(surface.Domain((int)SurfaceDirection.U), uv.X, member).ToValidation(), OutOfDomain.Unless(surface.Domain((int)SurfaceDirection.V), uv.Y, member).ToValidation())
+        (Conversions.Within(surface.Domain((int)SurfaceDirection.U), uv.X, member).ToValidation(), Conversions.Within(surface.Domain((int)SurfaceDirection.V), uv.Y, member).ToValidation())
             .Apply(static (u, v) => new Point2d(u, v))
             .As();
 

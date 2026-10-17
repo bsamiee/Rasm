@@ -24,19 +24,12 @@ allow-renamed-params-for       = []    # `renamed_function_params` covers `From`
 # --- [GRAPH]
 allowed-duplicate-crates = [
     "syn",                   # 2 under proc macros not on `syn` 3
-    "core-foundation",       # 0.9 under hyper-util's `system-configuration` for reqwest `system-proxy`
-    "getrandom",             # 0.2 under newest `ring`, locked for weak features of rustls-webpki and reqwest that no build compiles, 0.3 under `rand_core` 0.9
-    "windows-sys",           # 0.52 under newest `ring`
+    "getrandom",             # 0.3 under `ahash`, `jsonschema`, `jsonschema-value`, `referencing`, and `rand_core` 0.9, 0.4 under `rand` 0.10, `uuid`, `tempfile`, and `jobserver`
     "rand",                  # 0.9 under newest `opentelemetry_sdk` 0.33.1 `trace`, its main branch still requires 0.9, 0.10 under rmcp `server-side-http`
     "rand_core",             # 0.9 under `rand` 0.9 beside 0.10 under `rand` 0.10
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
-    "base64",                # 0.22 under newest `jsonwebtoken` 11.1.0 beside 0.23 under hyper-util
-    "untrusted",             # 0.7 under newest `aws-lc-rs` 1.18.2 beside 0.9 under rustls-webpki
-    "schemars",              # 0.9 as an optional integration newest `serde_with` 3.24.0 declares for tower-oauth2-resource-server
-    "indexmap",              # 1 as an optional integration newest `serde_with` 3.24.0 declares
-    "hashbrown",             # 0.12 under `indexmap` 1
-    "bitflags",              # 1 under `defmt`, an optional integration of `jiff` under `serde_with`
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
+    "bitflags",              # 1 under newest `defmt` 1.2.0, which `cargo metadata` resolves through the weak `defmt?/alloc` of every `jiff` 0.2.38 and `jiff-core` 0.1.1 build though no build compiles it (rust-clippy#16440), beside 2 under `nix`, `rustix`, and `tower-http`
 ]
 
 # --- [BANS]
@@ -183,8 +176,6 @@ disallowed-types            = [
     { path = "std::hash::DefaultHasher", replacement = "xxhash_rust::xxh3::Xxh3Default", reason = "SipHash keys and algorithm are unspecified across Rust releases, content identity needs a stable hash" },
     { path = "std::hash::RandomState", replacement = "xxhash_rust::xxh3::Xxh3DefaultBuilder", reason = "Hashes vary per instance, result order and identity stay deterministic" },
     { path = "rand::rngs::SysRng", reason = "Seeds from the OS, domain code takes its generator as an argument, the path resolves under `rand` 0.10", allow-invalid = true },
-    { path = "std::collections::HashMap", replacement = "indexmap::IndexMap", reason = "Default `RandomState` varies iteration order per instance, `IndexMap` keeps insertion order with hashed lookups" },
-    { path = "std::collections::HashSet", replacement = "indexmap::IndexSet", reason = "Default `RandomState` varies iteration order per instance, `IndexSet` keeps insertion order with hashed lookups" },
     { path = "once_cell::sync::OnceCell", replacement = "std::sync::OnceLock", reason = "`std` owns the type, a `static` holds a `LazyLock` or takes its value from `main`" },
     { path = "once_cell::unsync::OnceCell", replacement = "core::cell::OnceCell", reason = "`core` owns the type" },
     { path = "once_cell::sync::Lazy", replacement = "std::sync::LazyLock", reason = "`std` owns the type" },
@@ -200,4 +191,5 @@ await-holding-invalid-types = [
     { path = "std::sync::nonpoison::RwLockWriteGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
     { path = "std::sync::nonpoison::MappedRwLockReadGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
     { path = "std::sync::nonpoison::MappedRwLockWriteGuard", reason = "Guards held across an `.await` block every task the worker polls, `tokio::sync::RwLock` holds a guard across an `.await`" },
+    { path = "tokio::sync::watch::Ref", reason = "Holds the channel read lock, a send waiting on it across an `.await` deadlocks, the value is cloned or copied out before the `.await`" },
 ]

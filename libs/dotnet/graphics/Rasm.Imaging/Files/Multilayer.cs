@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using System.Text;
 using Rasm.Imaging.Color;
@@ -21,37 +22,36 @@ public sealed record ExrLayout {
 
     public static ExrLayout Coordinates { get; } = new(Data, ExrCompression.Zip, None);
 
-    public static Seq<OutputDepth> Depths => toSeq(OutputDepth.Items).Filter(static depth => Table(depth).IsSome);
+    public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
 
     public static Fin<ExrLayout> From(OutputDepth depth, ExrCompression compression, Gamut gamut) =>
-        Table(depth).Map(sample => new ExrLayout(sample, compression, Some(gamut))).ToFin(new DepthRefused(depth, Depths));
+        OutputDepth.Sampled("EXR", depth, Table).Map(sample => new ExrLayout(sample, compression, Some(gamut)));
 
     internal static Option<ExrSample> Table(OutputDepth depth) =>
         depth.Map<Option<ExrSample>>(uInt8: None, uInt10: None, uInt12: None, uInt14: None, uInt16: None, float16: new ExrSample(depth, PixelType.Half), float32: Data);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidFileValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ExrCompression {
-    public static readonly ExrCompression Uncompressed = new("uncompressed", Compression.None, Compression.None);
-    public static readonly ExrCompression Rle = new("rle", Compression.RLE, Compression.RLE);
-    public static readonly ExrCompression Zips = new("zips", Compression.ZIPS, Compression.ZIPS);
-    public static readonly ExrCompression Zip = new("zip", Compression.ZIP, Compression.ZIP);
-    public static readonly ExrCompression Piz = new("piz", Compression.PIZ, Compression.PIZ);
-    public static readonly ExrCompression Pxr24 = new("pxr24", Compression.PXR24, Compression.ZIP);
-    public static readonly ExrCompression B44 = new("b44", Compression.B44, Compression.ZIP);
-    public static readonly ExrCompression B44A = new("b44a", Compression.B44A, Compression.ZIP);
+public sealed partial class ExrCompression : ICaptioned {
+    public static readonly ExrCompression Uncompressed = new("uncompressed", Compression.None, Compression.None, "None");
+    public static readonly ExrCompression Rle = new("rle", Compression.RLE, Compression.RLE, "RLE (lossless)");
+    public static readonly ExrCompression Zips = new("zips", Compression.ZIPS, Compression.ZIPS, "ZIPS (lossless)");
+    public static readonly ExrCompression Zip = new("zip", Compression.ZIP, Compression.ZIP, "ZIP (lossless)");
+    public static readonly ExrCompression Piz = new("piz", Compression.PIZ, Compression.PIZ, "PIZ (lossless)");
+    public static readonly ExrCompression Pxr24 = new("pxr24", Compression.PXR24, Compression.ZIP, "Pxr24 (lossy)");
+    public static readonly ExrCompression B44 = new("b44", Compression.B44, Compression.ZIP, "B44 (lossy)");
+    public static readonly ExrCompression B44A = new("b44a", Compression.B44A, Compression.ZIP, "B44A (lossy)");
 
     public Compression Codec { get; }
     public Compression Data { get; }
+    public string Caption { get; }
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidFileValue>]
 public abstract partial class PassKind {
     public static readonly PassKind Rgba = new ColorPass("rgba", Seq("R", "G", "B", "A"));
     public static readonly PassKind Rgb = new ColorPass("rgb", Seq("R", "G", "B"));
@@ -81,7 +81,6 @@ public abstract partial class PassKind {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidFileValue>]
 public sealed partial class PassName {
     private const int NameBytes = 255;
 
@@ -92,8 +91,9 @@ public sealed partial class PassName {
     internal static PassName Z { get; } = new("z");
     internal static PassName Pworld { get; } = new("Pworld");
 
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.Contains('\0', StringComparison.Ordinal) && Encoding.UTF8.GetByteCount(value) + 2 <= NameBytes ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.Contains('\0', StringComparison.Ordinal) && Encoding.UTF8.GetByteCount(value) + 2 <= NameBytes ? null
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"pass name '{value}' must be non-empty, free of NUL, and at most {NameBytes - 2} UTF-8 bytes"));
 }
 
 public sealed record IdentityLayer(ushort Id, PassName Name, Vector3 Colour) {
@@ -132,7 +132,7 @@ public abstract partial record ReaderConvention {
     internal Fin<Func<Vector3, Vector3>> Normal(Option<Camera> camera) =>
         Normals.Switch((Convention: this, Camera: camera),
             world: static state => Fin.Succ(state.Convention.Axes),
-            view: static state => state.Camera.ToFin(new CameraRequired()).Map(held => {
+            view: static state => state.Camera.ToFin(Error.New("view-space normals require the frame's camera")).Map(held => {
                 Quaternion toView = Quaternion.Conjugate(held.Orientation);
                 return (Func<Vector3, Vector3>)(normal => state.Convention.Screen(Vector3.Transform(normal, toView)));
             }));
@@ -174,7 +174,7 @@ public abstract partial record ExrPass {
 
     public sealed record Position(PixelFrame Distance) : ExrPass {
         internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            camera.ToFin(new CameraRequired()).Map(held => Seq(new ExrLayer(convention.Position, PassKind.Xyz, Distance, (source, first, part) => {
+            camera.ToFin(Error.New("position pass requires the frame's camera")).Map(held => Seq(new ExrLayer(convention.Position, PassKind.Xyz, Distance, (source, first, part) => {
                 for (int x = 0; x < source.Length; x++)
                     part[x] = new Vector4(convention.Axes(held.WorldPoint((first.X + x + 0.5d, first.Y + 0.5d), source[x].X)), 1f);
             })));
@@ -218,7 +218,7 @@ public sealed record PassSet {
         from groups in passes.Traverse(pass => pass.Layers(convention, camera).ToValidation()).As()
         let layers = groups.Flatten().Strict()
         from names in toSeq(convention.Beauty.Cons(layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
-            .Traverse(static count => count.Value is 1 ? Validation.Success<Error, Unit>(unit) : Validation.Fail<Error, Unit>(new PassTaken(count.Key)))
+            .Traverse(static count => count.Value is 1 ? Validation.Success<Error, Unit>(unit) : Error.New($"pass name {count.Key} repeats in one pass set"))
             .As()
         select new PassSet(convention, layout, layers);
 
@@ -226,7 +226,7 @@ public sealed record PassSet {
         Layers.Map(static (layer, index) => (Frame: layer.Source, Index: index + 1))
             .Traverse(entry => entry.Frame.Extent == beauty.Extent && Layout.Map(parts: true, interleaved: entry.Frame.Window == beauty.Window)
                 ? Validation.Success<Error, Unit>(unit)
-                : Validation.Fail<Error, Unit>(new LayerWindowRefused(entry.Index, entry.Frame.Window, entry.Frame.Extent)))
+                : Error.New(string.Create(CultureInfo.InvariantCulture, $"pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from the beauty canvas")))
             .As()
             .Map(static _ => unit);
 }
@@ -247,7 +247,7 @@ internal static class ExrParts {
 
         static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<PassName> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) {
             if (window.Right - 1L > int.MaxValue || window.Bottom - 1L > int.MaxValue)
-                return new WindowRefused(window);
+                return Error.New($"EXR window {window} exceeds the coordinates EXR holds");
             Seq<ChannelBuffer> buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict();
             Header header = new(
                 PartType.Scanline,
@@ -269,7 +269,7 @@ internal static class ExrParts {
                     parts: static state => state.Layers.Map(layer => Part(state.Exr, state.Attributes, layer.Name, layer.Source.Window, Seq(layer))),
                     interleaved: static state => Seq(Part(state.Exr, state.Attributes, None, state.Exr.Beauty.Window, state.Layers))),
                 None: () => Seq(Part(exr, attributes, None, exr.Beauty.Window, Seq(new ExrLayer(None, beauty, exr.Beauty, ExrLayer.Held)))));
-            return parts.Traverse(static part => part.ToValidation()).As().ToFin();
+            return parts.Traverse(static part => part).As();
         }
 
         WriterOptions options = new(new WriterLimits(
@@ -281,7 +281,7 @@ internal static class ExrParts {
         return from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
                from token in cancelToken
                from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, options, token))
-               from _ in IO.lift(CodecRefused.Unless(result))
+               from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new Expected($"EXR codec refused writing {stream.Name} with {result.Status}", 0, Optional(result.Error).Map(Error.New)))
                select unit;
     }
 }

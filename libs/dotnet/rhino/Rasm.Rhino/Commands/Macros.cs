@@ -14,9 +14,9 @@ public static class Macros {
         from running in IO.lift(Command.InCommand)
         from answer in running ? body : Callbacks.Captured<Unit>(capture => IO.lift(() => Command.RunProxyCommand(
             (_, _, _) => {
-                Fin<Unit> result = Try.lift(body.Run).Run();
+                Fin<Unit> result = Callbacks.Settled(body, CancellationToken.None);
                 capture(result);
-                return Conversions.ToResult(IO.lift(result)).IfFail(Result.Failure);
+                return Conversions.ToResult(result).IfFail(Result.Failure);
             }, doc: null, data: null)), nameof(Command.RunProxyCommand))
         select answer;
 }

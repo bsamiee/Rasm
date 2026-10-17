@@ -10,7 +10,7 @@ utils:
               regex: '^import\.meta\.(dirname|filename)$'
             - kind: identifier
               regex: '^__(dirname|filename)$'
-              matches: syntax-global-reference
+              matches: typescript-global-reference
     path-source:
         any:
             - matches: directory-read

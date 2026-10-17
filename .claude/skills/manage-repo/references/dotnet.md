@@ -4,8 +4,7 @@ MSBuild directory files and central package versions own every shared .NET decla
 
 ## [01]-[UPGRADES]
 
-- Upgrades read central rows from `Directory.Packages.props` and move each row holding a version, prereleases included
-- Rows holding a range stay
+- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, a row holding a range stays
 - `dotnet package update` moves rows a project references alone, range rows included, and takes prereleases only for a row on a prerelease
 - `dotnet package update` fails its whole preview restore on one incompatible release
 - Version edits splice the attribute text in place, `dotnet package update` and `XmlDocument` or `ProjectRootElement` saves collapse row alignment
@@ -13,16 +12,14 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
 - SDK moves enable the new SDK's analyzer rules through `latest-all`
-- Analyzer rules contradicting a form the repository requires take an `.editorconfig` row
 
 ## [02]-[FILE_BASED_APPS]
 
 C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, central package versions, and `.editorconfig` through a virtual project named after the entry file:
 - Entry files open with `#!`, the marker Roslyn's file-based program discovery reads, included files hold none
 - `dotnet build`, `dotnet restore`, and `dotnet format` take one entry file per call, a second file hands every argument to MSBuild
-- `ArtifactsPath` with `IncludeProjectNameInArtifactsPaths` places output under `bin/<file>.cs/` and `obj/<file>.cs/`
-- Solution files hold no entry file, `dotnet sln add` rejects one
-- `dotnet build` restores an entry file's virtual project itself, a solution restore covers none
+- `ArtifactsPath` defaults `IncludeProjectNameInArtifactsPaths` to true, placing output under `bin/<file>.cs/` and `obj/<file>.cs/`
+- Solution files hold no entry file, `dotnet sln add` rejects one and `dotnet build` restores its virtual project itself
 - Roslyn virtual projects (`dotnet format`, C# language server) set `IncludeProjectNameInArtifactsPaths` false before `Directory.Build.props` and SDK's bundled framework after it
 - `#:property` directives follow the bundled framework, so `#:property TargetFramework=$(RepoTargetFramework)` holds every tool at the repository framework
 - `dotnet msbuild` rejects a `.cs` file with `MSB4025`
@@ -32,12 +29,13 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 ## [03]-[PROJECTS]
 
 - Use `README.md` for the group a library joins
+- Shared source no library owns is one internal file each consumer compiles through its own `Compile` item, a root item reaches projects that never use it
 - `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET`
-- Targets declare their binlog an output, a cache hit restores the log of the run it replays
+- Targets declare their binlog an output
 
 ## [04]-[CHECKERS]
 
-- `Directory.Build.rsp` turns on BuildCheck for every MSBuild command under the root, `MSBuildTreatWarningsAsErrors` fails each report
-- File-based app builds read no `Directory.Build.rsp` and reject `-check` as an argument, their virtual projects run no BuildCheck
+- `Directory.Build.rsp` turns on BuildCheck
+- IDE design-time builds, `dotnet format`, and Roslyn workspaces read no `Directory.Build.rsp`, a setting they need sits in `Directory.Build.props`
+- File-based app builds read only `-m` and `-mt` from `Directory.Build.rsp` and reject `-check` as an argument, their virtual projects run no BuildCheck
 - C# API bans sit in `tools/ast-grep/rules/csharp` alone, a `BannedSymbols.txt` list splits their policy
-- Analyzer packages join for a diagnostic no enabled analyzer or ast-grep rule reports

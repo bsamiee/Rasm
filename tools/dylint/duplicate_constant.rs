@@ -34,7 +34,7 @@ impl<'tcx> LateLintPass<'tcx> for DuplicateConstant {
             },
         );
         let shared = provided.into_iter().filter(|(declared, constants)| {
-            matches!(tcx.associated_item(*declared).kind, AssocKind::Const { name: _ })
+            matches!(tcx.associated_item(*declared).kind, AssocKind::Const { .. })
                 && !tcx.defaultness(*declared).has_value()
                 && constants.len() > 1
                 && tcx.all_impls(tcx.parent(declared.to_def_id())).count() == constants.len()

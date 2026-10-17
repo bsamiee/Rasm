@@ -27,15 +27,14 @@ public sealed partial class MeshModifier {
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct WireDensity : System.Numerics.IMinMaxValue<WireDensity> {
     // --- [LIMITS]
     public static WireDensity MinValue { get; } = new(-1);
     public static WireDensity MaxValue { get; } = new(int.MaxValue);
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
 }
 
 public sealed record DecalState(
@@ -257,8 +256,8 @@ public static partial class AttributeEdits {
     public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>
         IO.lift(() => edit.Switch(
 state: (staged, active), replace: static (state, replace) => Refused.Unless(state.staged.SetActiveInViewportOverrides([.. replace.Rows], state.active), nameof(ObjectAttributes.SetActiveInViewportOverrides)), add: static (state, add) => Callbacks.Each(add.Rows, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out _)
-                ? unit : RefusedElement.Unless(state.staged.AddActiveInViewportOverride(id, state.active), nameof(ObjectAttributes.AddActiveInViewportOverride), index)).Map(static _ => unit), remove: static (state, remove) => Callbacks.Each(remove.Keys, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out bool stored)
-                ? RefusedElement.Unless(state.staged.RemoveActiveInViewportOverride(id, stored), nameof(ObjectAttributes.RemoveActiveInViewportOverride), index) : unit).Map(static _ => unit)));
+                ? unit : Refused.Unless(state.staged.AddActiveInViewportOverride(id, state.active), nameof(ObjectAttributes.AddActiveInViewportOverride), index)).Map(static _ => unit), remove: static (state, remove) => Callbacks.Each(remove.Keys, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out bool stored)
+                ? Refused.Unless(state.staged.RemoveActiveInViewportOverride(id, stored), nameof(ObjectAttributes.RemoveActiveInViewportOverride), index) : unit).Map(static _ => unit)));
 
     public static IO<Unit> HideInDetail(ObjectAttributes staged, RowsEdit<Guid, Guid> edit) =>
         IO.lift(() => edit.Switch(
@@ -275,7 +274,7 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
 
     // --- [FRAME]
     public static IO<Unit> ObjectFrame(ObjectAttributes staged, Plane frame) =>
-        from valid in IO.lift(Fin<Plane> () => frame.IsValid ? frame : new InvalidPlane(nameof(ObjectAttributes.SetObjectFrame)))
+        from valid in IO.lift(Fin<Plane> () => frame.IsValid ? frame : Error.New(ErrorCodes.ValidationFailed, $"{nameof(ObjectAttributes.SetObjectFrame)} takes no invalid plane"))
         from written in IO.lift(() => staged.SetObjectFrame(valid))
         select written;
 
@@ -294,11 +293,8 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
 
     public static IO<Seq<uint>> Decals(ObjectAttributes staged, RowsEdit<DecalCreateParams, int> edit) =>
         Edited(edit, IO.lift(staged.Decals.RemoveAllDecals),
-            row => DisposalOps.Within(() => Decal.Create(row),
-                made => from decal in IO.lift(() => Missing.Unless(made, nameof(Decal.Create)))
-                        from crc in IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))
-                        select crc,
-                static made => DisposalOps.Release(Optional(made).ToSeq())),
+            row => DisposalOps.Found(() => Decal.Create(row), nameof(Decal.Create),
+                decal => IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))),
             keys => toHashSet(keys) switch {
                 var crcs => DisposalOps.Within(
                     (Action<IDisposable> held) => IO.lift(() => Callbacks.Each(
@@ -309,10 +305,7 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
 
     public static IO<Unit> MaterialRefs(ObjectAttributes staged, RowsEdit<MaterialRefState, Guid> edit) =>
         Edited(edit, IO.lift(staged.MaterialRefs.Clear),
-            row => DisposalOps.Within(
-                () => Callbacks.Thrown<ArgumentException, MaterialRef>(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), nameof(staged.MaterialRefs.Create)),
-                made => IO.lift(made).Bind(created => IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))),
-                static made => IO.lift(() => { _ = made.IfSucc(static created => created.Dispose()); })),
+            row => DisposalOps.Within(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), created => IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))),
             keys => IO.lift(() => keys.Iter(key => staged.MaterialRefs.Remove(key))))
             .Map(unit);
 
@@ -344,9 +337,7 @@ public static class AttributeOps {
             Callbacks.Found(attributes.HasActiveInViewportOverride(viewport, out bool active), active)));
 
     public static IO<T> WithComputedSectionStyle<T>(ObjectAttributes attributes, RhinoDoc doc, ObjectAttributes sectioner, bool computeColors, Guid viewport, Func<SectionStyle, IO<T>> body) =>
-        DisposalOps.Within(() => attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport),
-            made => IO.lift(() => Missing.Unless(made, nameof(ObjectAttributes.ComputedSectionStyle))).Bind(body),
-            static made => DisposalOps.Release(Optional(made).ToSeq()));
+        DisposalOps.Found(() => attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport), nameof(ObjectAttributes.ComputedSectionStyle), body);
 
     // --- [FOLD]
     public static IO<Unit> Apply(RhinoDoc doc, ObjectAttributes staged, Seq<Func<RhinoDoc, ObjectAttributes, IO<Unit>>> edits) =>

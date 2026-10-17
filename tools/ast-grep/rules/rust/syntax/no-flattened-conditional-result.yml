@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-flattened-conditional-result
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: arguments, not: {has: {pattern: $_}}}
+        - has:
+            field: function
+            kind: field_expression
+            all:
+                - has: {field: field, regex: '^flatten$'}
+                - has:
+                    field: value
+                    kind: call_expression
+                    has:
+                        field: function
+                        kind: field_expression
+                        all:
+                            - has: {field: field, regex: '^ok_or(_else)?$'}
+                            - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^then(_some)?$'}}, {has: {field: value, pattern: $CONDITION}}]}}
+message: '`$CONDITION` selects a result through an `Option` and a nested `Result` flattened back'
+note: 'Write `<condition>.ok_or_else(|| <error>).and_then(|()| <result>)` (`bool::ok_or_else`), `<condition>.ok_or_else(|| <error>)?` ahead of the result, an `if` with an `Err` branch, or an arm guard, the condition selects between the error and the result with no `Option` between them'

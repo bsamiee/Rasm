@@ -16,7 +16,7 @@ rule:
     all:
         - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?successors$'}
         - has: {field: arguments, all: [{has: {nthChild: 1, pattern: Some($E)}}, {has: {nthChild: 2, matches: source-step}}, {not: {has: {nthChild: 3}}}]}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
 transform:
     RECEIVER: {replace: {source: $E, replace: '^([&*][\s\S]*|[\s\S]*\sas\s[\s\S]*)$', by: '($1)'}}
 fix: $RECEIVER.sources()

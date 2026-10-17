@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-matched-select-output
+language: rust
+severity: error
+utils:
+    matched:
+        kind: match_expression
+        has: {field: value, kind: identifier, pattern: $OUTPUT}
+rule:
+    kind: let_declaration
+    all:
+        - has: {field: pattern, kind: identifier, pattern: $OUTPUT}
+        - has: {field: value, kind: macro_invocation, has: {field: macro, regex: '^(::)?(tokio::)?select$'}}
+        - not: {has: {field: alternative, pattern: $_}}
+        - precedes: {any: [{matches: matched}, {kind: expression_statement, has: {matches: matched}}]}
+        - not: {precedes: {stopBy: end, follows: {stopBy: end, any: [{matches: matched}, {kind: expression_statement, has: {matches: matched}}]}, any: [{pattern: $OUTPUT}, {has: {stopBy: end, kind: identifier, pattern: $OUTPUT}}]}}
+message: '`$OUTPUT` carries a `select!` branch out to a `match` that runs its work'
+note: 'Move each `match` arm body into the handler of the `select!` branch that produces it and drop the tag value between them, `select!` drops every branch future before a handler runs'

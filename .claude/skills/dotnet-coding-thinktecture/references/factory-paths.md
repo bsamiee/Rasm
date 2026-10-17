@@ -30,15 +30,15 @@ internal sealed partial class Location {
     private Location(string value) => (Store, Path) = Split(value);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string store, ref string path) {
-        if (string.IsNullOrWhiteSpace(store) || store.Contains(':', StringComparison.Ordinal)) validationError = new ValidationError("Store is non-empty and holds no ':'");
-        else if (string.IsNullOrWhiteSpace(path)) validationError = new ValidationError("Path is non-empty");
+        if (string.IsNullOrWhiteSpace(store) || store.Contains(':', StringComparison.Ordinal)) validationError = new ValidationError($"store '{store}' is blank or holds ':'");
+        else if (string.IsNullOrWhiteSpace(path)) validationError = new ValidationError("path is blank");
         store = store.Trim();
         path = path.Trim();
     }
 
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out Location? item) {
         item = null;
-        if (string.IsNullOrWhiteSpace(value)) return new ValidationError("A location is not empty");
+        if (string.IsNullOrWhiteSpace(value)) return new ValidationError("location is blank");
         (string store, string path) = Split(value);
         return Validate(store, path, out item);
     }
@@ -88,7 +88,7 @@ internal sealed partial class Level {
             "high" => High,
             _ => null,
         };
-        return item is null ? new ValidationError($"Unknown level '{value}'") : null;
+        return item is null ? new ValidationError($"'{value}' names no level") : null;
     }
 
     public static ValidationError? Validate(char value, IFormatProvider? provider, out Level? item) {
@@ -97,12 +97,12 @@ internal sealed partial class Level {
             '2' => High,
             _ => null,
         };
-        return item is null ? new ValidationError($"Unknown level '{value}'") : null;
+        return item is null ? new ValidationError($"'{value}' names no level") : null;
     }
 
-    public string ToValue() => Key == 1 ? "low" : "high";
+    public string ToValue() => Key is 1 ? "low" : "high";
 
-    char IConvertible<char>.ToValue() => Key == 1 ? '1' : '2';
+    char IConvertible<char>.ToValue() => Key is 1 ? '1' : '2';
 }
 ```
 

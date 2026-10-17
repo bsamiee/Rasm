@@ -7,6 +7,7 @@ import { Socket } from 'effect/socket';
 
 const Application = Schema.Struct({ name: Schema.String, identifier: Schema.String, running: Schema.Boolean, scriptable: Schema.Boolean, url: Schema.URL, version: Schema.OptionFromOptionalKey(Schema.String) });
 const Window = Schema.Struct({ id: Schema.Int, title: Schema.OptionFromOptionalKey(Schema.String), level: Schema.Literals(['normal', 'modal', 'other']), ...Struct.Record(['width', 'height'], Schema.Finite) });
+const Size = Schema.Struct(Struct.Record(['width', 'height'], Schema.Int));
 const Face = Schema.Struct(Struct.Record(['postscriptName', 'family', 'style', 'fullName', 'file'], Schema.String));
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -44,7 +45,7 @@ class Scripting extends Context.Service<Scripting>()('@rasm/atelier/scripting', 
                 Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.JsonObject }, success: Schema.Json, error: ScriptingError }),
                 Rpc.make('contentType', { payload: { url: Schema.URL }, success: Schema.OptionFromNullOr(Schema.String), error: ScriptingError }),
                 Rpc.make('windows', { payload: { application: Schema.URL }, success: Schema.Array(Window), error: ScriptingError }),
-                Rpc.make('capture', { payload: { window: Schema.Int, url: Schema.URL, longest: Schema.Int }, success: Schema.Struct(Struct.Record(['width', 'height'], Schema.Int)), error: ScriptingError }),
+                Rpc.make('capture', { payload: { window: Schema.Int, url: Schema.URL, longest: Schema.Int }, success: Size, error: ScriptingError }),
                 Rpc.make('faces', { success: Schema.Array(Face), error: ScriptingError }),
             ),
             { disableTracing: true },
@@ -79,4 +80,4 @@ class Scripting extends Context.Service<Scripting>()('@rasm/atelier/scripting', 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Face, Scripting, ScriptingError, Window };
+export { Application, Face, Scripting, ScriptingError, Size, Window };

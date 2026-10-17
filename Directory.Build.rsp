@@ -1,2 +1,2 @@
 -check
--clp:ErrorsOnly;NoSummary;DisableConsoleColor
+-clp:ErrorsOnly;DisableConsoleColor

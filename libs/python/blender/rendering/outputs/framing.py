@@ -1,15 +1,15 @@
 """Frame size, overscan, render region, and safe areas."""
 
 from fractions import Fraction
-import sys
 from typing import Annotated, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 
-from blender.imaging.parameters import Case, Choice, Positive, Presentation, Quantity, Unit
-from blender.rendering.faults import RenderingResult, RenderingSizeFault
+from blender.imaging.faults import guarded
+from blender.imaging.parameters import Case, Choice, NonNegative, Positive, Presentation, Quantity, Unit
+from blender.rendering.faults import RenderingArithmeticFault, RenderingResult, RenderingSizeFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -21,9 +21,9 @@ type Side = Annotated[int, msgspec.Meta(ge=1)]
 class Fit(Choice):
     """Camera axis the sensor size spans."""
 
-    AUTO = 1, "Auto"
-    HORIZONTAL = 2, "Horizontal"
-    VERTICAL = 3, "Vertical"
+    AUTO = 1
+    HORIZONTAL = 2
+    VERTICAL = 3
 
 
 class Broadcast(Choice):
@@ -42,20 +42,17 @@ class Whole(Case, frozen=True, kw_only=True, tag=5):
 
     title = "Whole Frame"
     overscan: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, description="Fraction of each frame side added beyond each edge, the camera grown to keep the frame's view"),
-        Presentation(soft=Some((0.0, 0.25)), decimals=Some(3)),
+        NonNegative, msgspec.Meta(description="Fraction of each frame side added beyond each edge, the camera grown to keep the frame's view"), Presentation(soft=Some((0.0, 0.25)), decimals=Some(3))
     ] = 0.0
 
 
 class Region(Case, frozen=True, kw_only=True, tag=6):
     """Rectangle of the frame measured from its bottom-left corner, rendered alone."""
 
-    title = "Region"
-    left: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Left edge as a fraction of the frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
-    bottom: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Bottom edge as a fraction of the frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
-    right: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Right edge as a fraction of the frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
-    top: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Top edge as a fraction of the frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
+    left: Annotated[Unit, msgspec.Meta(description="Left edge as a fraction of the frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    bottom: Annotated[Unit, msgspec.Meta(description="Bottom edge as a fraction of the frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
+    right: Annotated[Unit, msgspec.Meta(description="Right edge as a fraction of the frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
+    top: Annotated[Unit, msgspec.Meta(description="Top edge as a fraction of the frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
     crop: Annotated[bool, msgspec.Meta(description="Write the region's pixels alone in place of the whole frame")] = False
 
 
@@ -69,7 +66,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
     )
     pixel_aspect_x: Annotated[Positive, msgspec.Meta(description="Horizontal pixel aspect")] = 1.0
     pixel_aspect_y: Annotated[Positive, msgspec.Meta(description="Vertical pixel aspect")] = 1.0
-    density: Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Pixel Density", description="Pixels per meter written into files that store a density")] = 72 / 0.0254
+    density: Annotated[Positive, msgspec.Meta(title="Pixel Density", description="Pixels per meter written into files that store a density")] = 72 / 0.0254
     extent: Annotated[Extents, msgspec.Meta(description="Whole frame with its overscan, or a region rendered alone")] = Whole()
 
     @property
@@ -95,12 +92,12 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             case Whole():
                 return Ok((width + 2 * pad_x, height + 2 * pad_y))
             case Region(left=left, bottom=bottom, right=right, top=top):
-                try:
-                    with np.errstate(over="raise", invalid="raise", under="ignore"):
-                        across, up = np.float32(width), np.float32(height)
-                        return Ok((int(np.float32(right) * across) - int(np.float32(left) * across), int(np.float32(top) * up) - int(np.float32(bottom) * up)))
-                except (OverflowError, FloatingPointError) as error:
-                    return Error((RenderingSizeFault(request=(width, height), error=error),))
+
+                def counted() -> RenderingResult[tuple[int, int]]:
+                    across, up = np.float32(width), np.float32(height)
+                    return Ok((int(np.float32(right) * across) - int(np.float32(left) * across), int(np.float32(top) * up) - int(np.float32(bottom) * up)))
+
+                return guarded(RenderingArithmeticFault, (width, height), counted)
 
     def rendered(self, bounds: tuple[int, int]) -> RenderingResult[tuple[Self, tuple[Side, Side]]]:
         """Admits covered pixels and fits overscan within the receiving renderer's bounds."""

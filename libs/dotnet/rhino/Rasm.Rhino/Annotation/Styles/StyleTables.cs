@@ -75,7 +75,7 @@ public static class StyleTables {
     private static Seq<(ComponentIdentity Row, IO<bool> Delete)> Candidates<T>(RhinoDocCommonTable<T> table, Seq<T> rows, Func<T, bool> held) where T : ModelComponent =>
         rows.Map(row => (
             new ComponentIdentity(row.Id, row.ComponentType),
-            IO.lift(() => held(row) ? Fin.Succ(value: false) : RefusedElement.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
+            IO.lift(() => held(row) ? Fin.Succ(value: false) : Refused.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
 
     private static IO<LanguageExt.HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<(ComponentIdentity Row, IO<bool> Delete)> candidates) =>
         toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))) switch {
@@ -105,7 +105,7 @@ public static class StyleTables {
 
     public static IO<Committed<ReconciledStyles>> Reconcile(RhinoDoc doc, StyleSpec spec, Func<StyleRows, IO<Unit>> reassign, string name, RedrawPolicy redraw, IPlugInSink sink) =>
         from plan in Plan(doc, spec)
-        from committed in Commits.Commit(doc, RowText.Localize(name, table: Some<object>(sink)).Local, redraw,
+        from committed in Commits.Commit(doc, RowText.Localize(name, sink).Local, redraw,
             from hatchPatterns in TableOps.Upsert(doc, TableKinds.HatchPatterns, plan.HatchPatterns.Upserts, HatchPatterns.Written, HatchPatterns.Unchanged)
             from linetypes in TableOps.Upsert(doc, TableKinds.Linetypes, plan.Linetypes.Upserts, Linetypes.Written, Linetypes.Unchanged)
             from sectionStyles in TableOps.Upsert(doc, TableKinds.SectionStyles, plan.SectionStyles.Upserts, (staged, definition) => SectionStyles.Written(doc, staged, definition), SectionStyles.Unchanged)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using NodaTime.Text;
 
 namespace Rasm.Drafting;
@@ -14,46 +15,45 @@ public sealed partial class RevisionAlphabet {
 }
 
 [ComplexValueObject(SkipToString = true)]
-[ValidationError<InvalidDrafting>]
 public sealed partial class RevisionIndex {
     public RevisionAlphabet Alphabet { get; }
     public int Ordinal { get; }
 
-    public string Letters => Spell(Alphabet.Symbols, Ordinal);
-
     public static Fin<RevisionIndex> FromLetters(RevisionAlphabet alphabet, string text) =>
         text.ToUpperInvariant() switch {
-            var letters when letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) => new InvalidDrafting(),
-            var letters => Validate(alphabet,
-                toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1),
-                out RevisionIndex? index) is { } error ? error : index!,
+            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) =>
+                Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"revision letters {letters} must be 1 to {alphabet.MaxLetters} of {alphabet.Symbols}")),
+            var letters => Admitted(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
         };
 
-    public Fin<RevisionIndex> Next() => Validate(Alphabet, Ordinal + 1, out RevisionIndex? next) is { } error ? error : next!;
+    public Fin<RevisionIndex> Next() => Admitted(Alphabet, Ordinal + 1);
 
-    public override string ToString() => Letters;
+    public override string ToString() => Spell(Alphabet.Symbols, Ordinal);
 
     private static string Spell(string symbols, int ordinal) =>
         ordinal is 0 ? "" : Spell(symbols, (ordinal - 1) / symbols.Length) + symbols[(ordinal - 1) % symbols.Length];
 
-    static partial void ValidateFactoryArguments(ref InvalidDrafting? validationError, ref RevisionAlphabet alphabet, ref int ordinal) =>
-        validationError = ordinal >= 1 && ordinal <= alphabet.Count ? null : new InvalidDrafting();
+    private static Fin<RevisionIndex> Admitted(RevisionAlphabet alphabet, int ordinal) =>
+        Admission.Admitted(Validate(alphabet, ordinal, out RevisionIndex? index), index);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref RevisionAlphabet alphabet, ref int ordinal) =>
+        validationError = Admission.Refusal(ordinal, 1, alphabet.Count);
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class TitleRule {
     public static readonly TitleRule Required = new(mandatory: true, static (_, text) => text);
     public static readonly TitleRule Optional = new(mandatory: false, static (_, text) => text);
-    public static readonly TitleRule Revision = new(mandatory: false, static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static index => index.Letters));
+    public static readonly TitleRule Revision = new(mandatory: false, static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static index => index.ToString()));
     public static readonly TitleRule IssueDate = new(mandatory: true, static (_, text) =>
-        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new InvalidDrafting());
+        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : Error.New(ErrorCodes.ValidationFailed, $"issue date {text} must be an ISO date"));
 
     public bool Mandatory { get; }
 
     public Validation<Error, Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
         entry.Match(
-            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => new InvalidTitleField(field, error)).ToValidation(),
-            None: () => Mandatory ? new MissingTitleField(field) : Success<Error, Option<string>>(None));
+            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} entry is invalid", error)).ToValidation(),
+            None: () => Mandatory ? Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has no entry") : Success<Error, Option<string>>(None));
 
     [UseDelegateFromConstructor]
     private partial Fin<string> Normalize(RevisionAlphabet alphabet, string text);
@@ -70,7 +70,6 @@ public abstract partial record TitleSource {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidDrafting>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TitleField {
@@ -97,17 +96,16 @@ public sealed partial class TitleField {
 
     public TitleSource Source { get; }
 
-    public static Validation<Error, HashMap<TitleField, string>> Accept(RevisionAlphabet alphabet, HashMap<TitleField, string> entries) =>
-        toSeq(Items)
+    public static Validation<Error, Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
+        toSeq(Items).Filter(entries.ContainsKey)
             .Traverse(field => field.Source.Switch(
-                    (Field: field, Alphabet: alphabet, Entry: entries.Find(field).Map(static text => text.Trim()).Filter(static text => text.Length > 0)),
+                    (Field: field, Alphabet: convention.Revisions, Entry: entries.Find(field).Map(static text => text.Trim()).Filter(static text => text.Length > 0)),
                     projectText: static (input, source) => source.Rule.Accept(input.Field, input.Alphabet, input.Entry),
                     sheetText: static (input, source) => source.Rule.Accept(input.Field, input.Alphabet, input.Entry),
                     identifier: static (_, _) => Success<Error, Option<string>>(None),
                     ordinal: static (_, _) => Success<Error, Option<string>>(None),
                     count: static (_, _) => Success<Error, Option<string>>(None),
                     designation: static (_, _) => Success<Error, Option<string>>(None))
-                .Map(accepted => accepted.Map(text => (field, text))))
-            .As()
-            .Map(static accepted => toHashMap(accepted.Somes()));
+                .Map(text => (field, text)))
+            .As();
 }

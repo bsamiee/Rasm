@@ -7,38 +7,38 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI.Controls;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Render.UI;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+internal delegate IO<Bitmap> FrameRaster(Control view, PixelFrame frame, Transfer encoding, Action<Bitmap> retain);
+
+internal delegate IO<float> DisplayHeadroom(Control view);
+
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct FrameZoom : IMinMaxValue<FrameZoom> {
     public static FrameZoom MinValue { get; } = new(float.BitIncrement(0f));
     public static FrameZoom MaxValue { get; } = new(float.MaxValue);
     public static FrameZoom Actual { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct OverlayOpacity : IMinMaxValue<OverlayOpacity> {
     public static OverlayOpacity MinValue { get; } = new(0f);
     public static OverlayOpacity MaxValue { get; } = new(1f);
     public static OverlayOpacity Half { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 [ObjectFactory<string>]
 public sealed partial class FrameRegion : IConvertible<string> {
     public AxisFraction Left { get; }
@@ -50,29 +50,29 @@ public sealed partial class FrameRegion : IConvertible<string> {
 
     public RectangleF Edges => RectangleF.FromSides(Left, Top, Right, Bottom);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref AxisFraction left, ref AxisFraction top, ref AxisFraction right, ref AxisFraction bottom) =>
-        validationError = left < right && top < bottom ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref AxisFraction left, ref AxisFraction top, ref AxisFraction right, ref AxisFraction bottom) =>
+        validationError = left < right && top < bottom ? null : new ValidationError("frame left lies at or right of its right, or top at or below its bottom");
 
-    internal static InvalidRhinoValue? Validate(RectangleF edges, out FrameRegion? item) {
+    internal static ValidationError? Validate(RectangleF edges, out FrameRegion? item) {
         item = null;
         return AxisFraction.Validate(edges.Left, CultureInfo.InvariantCulture, out AxisFraction left) is null
             && AxisFraction.Validate(edges.Top, CultureInfo.InvariantCulture, out AxisFraction top) is null
             && AxisFraction.Validate(edges.Right, CultureInfo.InvariantCulture, out AxisFraction right) is null
             && AxisFraction.Validate(edges.Bottom, CultureInfo.InvariantCulture, out AxisFraction bottom) is null
                 ? Validate(left, top, right, bottom, out item)
-                : new InvalidRhinoValue();
+                : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame edges {edges} hold a fraction outside [{AxisFraction.MinValue}, {AxisFraction.MaxValue}]"));
     }
 
-    public static InvalidRhinoValue? Validate(string? value, IFormatProvider? provider, out FrameRegion? item) {
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out FrameRegion? item) {
         item = null;
         return value is null
             ? null
             : toSeq(value.Split(','))
-                .Traverse(static field => Callbacks.Found(float.TryParse(field, NumberStyles.Float, CultureInfo.InvariantCulture, out float number), number))
+                .Traverse(static field => Invariant.Number<float>(field))
                 .As()
                 .Case switch {
                     Seq<float> and [var left, var top, var right, var bottom] => Validate(RectangleF.FromSides(left, top, right, bottom), out item),
-                    _ => new InvalidRhinoValue(),
+                    _ => new ValidationError($"{value} is no four comma-separated fractions"),
                 };
     }
 
@@ -93,9 +93,9 @@ public sealed record FrameShown(FrameSide Side, Option<PixelFrame> Frame);
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class CompareMode {
-    public static readonly CompareMode VerticalWipe = new(Some(Orientation.Vertical), Keys.Q, GlyphRole.VerticalWipe, "Vertical Wipe");
-    public static readonly CompareMode HorizontalWipe = new(Some(Orientation.Horizontal), Keys.W, GlyphRole.HorizontalWipe, "Horizontal Wipe");
-    public static readonly CompareMode SideBySide = new(Option<Orientation>.None, Keys.E, GlyphRole.SideBySide, "Side by Side");
+    public static readonly CompareMode VerticalWipe = new(Some(Orientation.Vertical), Keys.Q, GlyphRole.VerticalWipe, "Vertical wipe");
+    public static readonly CompareMode HorizontalWipe = new(Some(Orientation.Horizontal), Keys.W, GlyphRole.HorizontalWipe, "Horizontal wipe");
+    public static readonly CompareMode SideBySide = new(Option<Orientation>.None, Keys.E, GlyphRole.SideBySide, "Side by side");
 
     public Option<Orientation> Rule { get; }
     public Keys Shortcut { get; }
@@ -184,7 +184,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private Option<IDisposable> appearance;
 
     public FrameView(IPlugInSink sink, (FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks) initial, FrameSampling sampling)
-        : base(sink, Initial(initial), Some(Sampled(sink, sampling))) {
+        : base(sink, Initial(initial), Some(Sampled(sampling))) {
         Compare = Titled(new CheckCommand(), "Compare");
         Modes = toSeq(CompareMode.Items).Map(static mode => (mode, Titled(new RadioCommand { Shortcut = mode.Shortcut }, mode.Caption))).Strict();
         Swap = Titled(new Command { Shortcut = Keys.Alt | Keys.W }, "Swap");
@@ -258,10 +258,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         new(initial.Current, initial.Reference, Nits.ReferenceWhite, new FrameTransform.Fitted(), Comparing: initial.Reference.IsSome, CompareMode.VerticalWipe, AxisFraction.Half, Swapped: false,
             initial.Masks, None, FrameRegion.Whole, None, Picking: false, None);
 
-    private static Func<Control, IO<Func<FrameViewState, FrameViewState>>> Sampled(IPlugInSink sink, FrameSampling sampling) =>
+    private static Func<Control, IO<Func<FrameViewState, FrameViewState>>> Sampled(FrameSampling sampling) =>
         view =>
             from sampled in sampling.Read
-            from target in Target(sink, view)
+            from target in Target(view)
             select fun((FrameViewState held) => held with {
                 Current = sampled.Current,
                 Reference = sampled.Reference,
@@ -296,7 +296,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                 }),
                 IO.lift(() => { Cursor = selected; })
                     .Bind(_ => IO.lift(() => { cache = cache with { Pick = prior }; }))
-                    .Bind(_ => DisposalOps.Release(Seq(lease))))
+                    .Bind(_ => DisposalOps.Release(lease)))
                 .Bind(_ => IO.lift(() => { cache = cache with { Pick = Some((Some(shape), Seq((shape, lease)))) }; }))
                 .Bind(_ => DisposalOps.Release(prior.ToSeq().Bind(static pick => pick.Owned).Map(static owned => owned.Lease)));
         }).Map(static _ => unit);
@@ -425,7 +425,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     // --- [READS]
     public IO<Option<FrameZoom>> Zoom =>
-        IO.lift(() => Placed(State, Size, ParentWindow.LogicalPixelSize).Bind(static at => Conversions.Validated<FrameZoom, float, InvalidRhinoValue>(at.Zoom).ToOption()));
+        IO.lift(() => Placed(State, Size, ParentWindow.LogicalPixelSize).Bind(static at => FrameZoom.Validated(at.Zoom).ToOption()));
 
     public IO<Option<(double X, double Y)>> Hovered =>
         IO.lift(() =>
@@ -521,13 +521,13 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         key.Switch(
             (State: state, Ground: Grounded(state)),
             ground: static (held, _) => new PartFacet(PartRole.Image, held.Ground, RowText.Localize("Frame").Local, Measured(held.State), None),
-            rule: static (held, _) => new PartFacet(PartRole.Image, held.Ground, RowText.Localize("Wipe").Local, Some(RowText.Localize("{0:P0}", None, (float)held.State.Split).Local), None),
+            rule: static (held, _) => new PartFacet(PartRole.Image, held.Ground, RowText.Localize("Wipe").Local, Some(RowText.Localize("{0:P0}", arguments: [(float)held.State.Split]).Local), None),
             edge: static (held, edge) => new PartFacet(PartRole.Image, edge.Handle.Shape, RowText.Localize("Area").Local, Some(RowText.Localize(
-                "{0:P0}, {1:P0}, {2:P0}, {3:P0}", None, (float)held.State.Area.Left, (float)held.State.Area.Top, (float)held.State.Area.Right, (float)held.State.Area.Bottom).Local), None),
+                "{0:P0}, {1:P0}, {2:P0}, {3:P0}", arguments: [(float)held.State.Area.Left, (float)held.State.Area.Top, (float)held.State.Area.Right, (float)held.State.Area.Bottom]).Local), None),
             flip: static (_, flip) => new PartFacet(PartRole.Button, Cursors.Pointer, RowText.Localize(Flipping(flip.Axis)).Local, None, None),
             corner: static (held, corner) => new PartFacet(PartRole.Image, Cursors.Move, RowText.Localize("Corner").Local, held.State.Quad
                 .Map(quad => corner.Handle.Point.Get(QuadMapper.ToCorners(quad)))
-                .Map(static point => RowText.Localize("{0:0.#}, {1:0.#}", None, point.X, point.Y).Local), None));
+                .Map(static point => RowText.Localize("{0:0.#}, {1:0.#}", arguments: [point.X, point.Y]).Local), None));
 
     protected override Option<Transition<FrameViewState, FrameEdit>> Pressed(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
         At(state, size, scale, e.Location).Map(at => (state.Picking, e.Buttons) switch {
@@ -604,8 +604,8 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private static Option<string> Measured(FrameViewState state) =>
         state.Current.Frame.Map(frame => state.Transform.Switch(
             frame,
-            fitted: static (shown, _) => RowText.Localize("{0} × {1}", None, shown.Size.Width, shown.Size.Height).Local,
-            placed: static (shown, placed) => RowText.Localize("{0} × {1}, {2:P0}", None, shown.Size.Width, shown.Size.Height, (float)placed.Zoom).Local));
+            fitted: static (shown, _) => RowText.Localize("{0} × {1}", arguments: [shown.Size.Width, shown.Size.Height]).Local,
+            placed: static (shown, placed) => RowText.Localize("{0} × {1}, {2:P0}", arguments: [shown.Size.Width, shown.Size.Height, (float)placed.Zoom]).Local));
 
     private static Transition<FrameViewState, FrameEdit> Gripped(FrameViewState state, Placement at, Option<FramePart> part, PointF pointer) =>
         Compared(state).IsSome && state.Mode.Rule.IsSome
@@ -628,7 +628,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private static Transition<FrameViewState, FrameEdit> Wiped(FrameViewState state, Placement at, PointF pointer) =>
         Viewed((from rule in state.Mode.Rule
                 let fraction = at.Fraction(pointer)
-                from split in Conversions.Validated<AxisFraction, float, InvalidGrade>(rule is Orientation.Vertical ? fraction.X : fraction.Y).ToOption()
+                from split in AxisFraction.Validated(rule is Orientation.Vertical ? fraction.X : fraction.Y).ToOption()
                 select state with { Split = split })
             .IfNone(state));
 
@@ -636,7 +636,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         Viewed(Placing(at, at.Zoom, start - (new Vector2(moved.X, moved.Y) * (at.Scale / at.Zoom))).Map(transform => state with { Transform = transform }).IfNone(state));
 
     private static Option<FrameTransform> Placing(Placement at, float zoom, Vector2 center) =>
-        Conversions.Validated<FrameZoom, float, InvalidRhinoValue>(zoom).ToOption()
+        FrameZoom.Validated(zoom).ToOption()
             .Map(valid => (FrameTransform)new FrameTransform.Placed(valid, Vector2.Clamp(center, Vector2.Zero, at.Extent)));
 
     private static Transition<FrameViewState, FrameEdit> Zoomed(FrameViewState state, Placement at, PointF pointer, float factor) =>
@@ -783,11 +783,11 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static float CaptionInset => RhinoLayout.Padding(RhinoLayout.PaddingType.RhinoPanel).Top;
 
-    public static IO<Bitmap> Raster(IPlugInSink sink, Control view, PixelFrame frame, Transfer encoding, Action<Bitmap> retain) =>
-        IO.lift(static () => Optional(Platform.Instance.Find<Func<IPlugInSink, Control, PixelFrame, Transfer, Action<Bitmap>, IO<Bitmap>>>()))
+    public static IO<Bitmap> Raster(Control view, PixelFrame frame, Transfer encoding, Action<Bitmap> retain) =>
+        IO.lift(static () => Optional(Platform.Instance.Find<FrameRaster>()))
             .Bind(found => found.Match(
-                Some: create => create()(sink, view, frame, encoding, retain),
-                None: () => DisposalOps.Acquire(IO.lift(() => Plots.Pixels(frame.Size, encoding.Displayed(frame))), static bitmap => IO.lift(bitmap.Dispose), retain)));
+                Some: create => create()(view, frame, encoding, retain),
+                None: () => DisposalOps.Acquire(IO.lift(() => ImagePlots.Pixels(frame.Size, encoding.Displayed(frame))), retain)));
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, FrameViewState state, Seq<PlotMark<FramePart>> marks, Interaction<FramePart> interaction) =>
         from well in Plots.Well(canvas, bounds)
@@ -808,21 +808,21 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         from readout in Readout(canvas, state, bounds.Size)
         select unit;
 
-    private static IO<Nits> Target(IPlugInSink sink, Control view) =>
-        IO.lift(static () => Optional(Platform.Instance.Find<Func<IPlugInSink, Control, IO<float>>>()))
+    private static IO<Nits> Target(Control view) =>
+        IO.lift(static () => Optional(Platform.Instance.Find<DisplayHeadroom>()))
             .Bind(found => found.Match(
-                Some: create => create()(sink, view),
+                Some: create => create()(view),
                 None: static () => IO.pure(1f)))
-            .Bind(static headroom => IO.lift(Conversions.Validated<Nits, float, InvalidColor>(headroom * (float)Nits.ReferenceWhite)));
+            .Bind(static headroom => IO.lift(Nits.Validated(headroom * (float)Nits.ReferenceWhite)));
 
-    private static IO<Bitmap> Mapped(IPlugInSink sink, Control view, FrameFeed feed, PixelFrame frame, Nits target, Action<Bitmap> retain) =>
-        feed.Peak.Bind(peak => new PeakMapping(target, DisplayBlack.Floor, KneeOffset.Bt2390).Pass(Nits.ReferenceWhite, peak)).Match(
+    private static IO<Bitmap> Mapped(Control view, FrameFeed feed, PixelFrame frame, Nits target, Action<Bitmap> retain) =>
+        feed.Peak.Bind(peak => new PeakMapping(target, AxisFraction.MinValue, KneeOffset.Bt2390).Pass(Nits.ReferenceWhite, peak)).Match(
             Some: pass =>
                 from light in IO.lift(() => feed.Encoding.Light(frame))
                 from mapped in IO.lift(() => pass.Run(light, new Progress<int>()))
-                from image in Raster(sink, view, light, TransferCurve.Linear, retain)
+                from image in Raster(view, light, TransferCurve.Linear, retain)
                 select image,
-            None: () => Raster(sink, view, frame, feed.Encoding, retain));
+            None: () => Raster(view, frame, feed.Encoding, retain));
 
     private static Seq<(Placement At, FrameShown Side, RectangleF Clip)> Layers(FrameViewState state, SizeF size, float scale) =>
         Divided(state, size, scale).Match(
@@ -847,12 +847,12 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private IO<Unit> Pictured(PlotCanvas canvas, RectangleF bounds, PixelFrame frame, FrameFeed feed, Nits target) =>
         from board in Thumbnails.Checker(canvas, bounds, Checkerboard.Frame)
-        from image in Cached(Cache.FrameSlot, (frame, feed, target), retain => Mapped(Sink, this, feed, frame, target, retain))
+        from image in Cached(Cache.FrameSlot, (frame, feed, target), retain => Mapped(this, feed, frame, target, retain))
         from drawn in Imaged(canvas, image, bounds, frame.Size, feed.Reduction)
         select drawn;
 
     private IO<Unit> Tinted(PlotCanvas canvas, (Placement At, PixelFrame Frame, FrameMask Mask, Color Color) tint, ImageInterpolation reduction) =>
-        from image in Cached(Cache.TintSlot, (tint.Frame, tint.Mask, tint.Color), retain => DisposalOps.Acquire(IO.lift(() => Folded(tint.Frame, tint.Mask.Coverage, tint.Color)), static bitmap => IO.lift(bitmap.Dispose), retain))
+        from image in Cached(Cache.TintSlot, (tint.Frame, tint.Mask, tint.Color), retain => DisposalOps.Acquire(IO.lift(() => Folded(tint.Frame, tint.Mask.Coverage, tint.Color)), retain))
         from drawn in Imaged(canvas, image, tint.At.Frame, tint.Frame.Size, reduction)
         select drawn;
 
@@ -876,7 +876,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             for (int column = 0; column < weights.Length; column++)
                 words[(index * weights.Length) + column] = new Color(color, color.A * weights[column]).ToArgb();
         }
-        return Plots.Pixels(frame.Size, words);
+        return ImagePlots.Pixels(frame.Size, words);
     }
 
     private static IO<Unit> Captioned(PlotCanvas canvas, FrameViewState state, SizeF size) =>
@@ -928,13 +928,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             None: static () => IO.pure(unit));
 
     private static IO<Unit> Turned(PlotCanvas canvas, Image icon, (Orientation Axis, RectangleF Band, float Degrees) flip) =>
-        DisposalOps.Within(
-            canvas.Graphics.SaveTransformState,
-            _ => IO.lift(() => {
-                canvas.Graphics.TranslateTransform(flip.Band.Center);
-                canvas.Graphics.RotateTransform(flip.Degrees);
-            }).Bind(_ => Stamped(canvas, icon, flip.Band.Size)),
-            static saved => IO.lift(saved.Dispose));
+        DisposalOps.Within(canvas.Graphics.SaveTransformState, _ => IO.lift(() => {
+            canvas.Graphics.TranslateTransform(flip.Band.Center);
+            canvas.Graphics.RotateTransform(flip.Degrees);
+        }).Bind(_ => Stamped(canvas, icon, flip.Band.Size)));
 
     private static IO<Unit> Stamped(PlotCanvas canvas, Image icon, SizeF size) =>
         IO.lift(() => canvas.Graphics.DrawImage(icon, RectangleF.FromCenter(PointF.Empty, size)));

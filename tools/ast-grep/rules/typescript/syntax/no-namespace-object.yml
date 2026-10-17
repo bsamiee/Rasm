@@ -12,14 +12,14 @@ utils:
 rule:
     kind: variable_declarator
     all:
-        - inside: {matches: syntax-module-constant}
+        - inside: {matches: typescript-module-constant}
         - has: {field: name, kind: identifier, pattern: $NAME}
         - has:
             field: value
             any:
                 - matches: function-object
-                - matches: syntax-expression-wrapper
-                  has: {stopBy: {not: {matches: syntax-expression-wrapper}}, matches: function-object}
+                - matches: typescript-expression-wrapper
+                  has: {stopBy: {not: {matches: typescript-expression-wrapper}}, matches: function-object}
         - not:
             inside:
                 kind: program

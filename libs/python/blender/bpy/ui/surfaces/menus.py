@@ -7,16 +7,16 @@ from enum import Enum
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
-from msgspec import inspect
 
 from blender.bpy.commands.calls import MenuPopup
 from blender.bpy.commands.operators import answered, Outcome, Stock, Unchanged
 from blender.bpy.data.rna.conditions import Condition, polled
-from blender.bpy.data.rna.descriptors import Descriptor, root_in
+from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Applied, Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.settings import shapes
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import acquired, bound, fits, OperatorButton, painted, placed, Property, Pulldown, realized, RowContent, RowDraw, SurfaceDraw
 from blender.bpy.ui.layout.sections import Listing, Store
@@ -99,16 +99,6 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                 rows = tuple(row for slot in slots for row in slot.to_list())
                 search = False
 
-                def slot(row: OperatorButton | Pulldown | Property | RowDraw) -> BlenderResult[RowDraw]:
-                    match row:
-                        case Property(target=target):
-                            return bound(
-                                ((target, lambda held: fits(held, (bpy.types.BoolProperty, bpy.types.EnumProperty), (inspect.BoolType, Enum))),),
-                                Ok(lambda held: held[0].map(lambda target: realized(msgspec.structs.replace(row, target=target), identity).map(Some)).default_value(Ok(Nothing))),
-                            )
-                        case _:
-                            return realized(row, identity)
-
                 def radial(draws: tuple[Option[RowDraw], ...]) -> SurfaceDraw:
                     def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
                         pie = layout.menu_pie()
@@ -120,6 +110,14 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                                     pie.separator()
 
                     return shown
+
+                def slot(row: OperatorButton | Pulldown | Property | RowDraw) -> BlenderResult[RowDraw]:
+                    admitted = (
+                        bound(((row.target, lambda held: fits(held, (bpy.types.BoolProperty, bpy.types.EnumProperty), (shapes.Flag, Enum))),), Ok(lambda _: lambda *_: None))
+                        if isinstance(row, Property)
+                        else Ok(None)
+                    )
+                    return admitted.bind(lambda _: realized(row, identity))
 
                 def drawing() -> BlenderResult[SurfaceDraw]:
                     return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in slots).map(radial)
@@ -144,11 +142,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 
         def listed(selected: tuple[Descriptor, ...]) -> Listing[Snapshot]:
             def captured(context: bpy.types.Context) -> "BlenderResult[tuple[bpy.types.bpy_struct[object], Snapshot]]":
-                return (
-                    root_in(self.scope.owner_type, context)
-                    .map(lambda owner: Snapshot.capture(owner, Some(selected)).map(lambda snapshot: (owner, snapshot)))
-                    .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key=self.scope.owner_type.__name__),)))
-                )
+                return rooted(self.scope.owner_type, context).bind(lambda owner: Snapshot.capture(owner, Some(selected)).map(lambda snapshot: (owner, snapshot)))
 
             def finished(outcomes: tuple[Applied, ...]) -> BlenderResult[Outcome]:
                 owner = self.scope.owner_type.__name__

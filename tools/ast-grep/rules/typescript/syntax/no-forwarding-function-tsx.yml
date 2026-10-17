@@ -10,8 +10,8 @@ utils:
               pattern: $ROOT
               not:
                 inside:
-                    matches: syntax-function-boundary
-                    stopBy: {matches: syntax-function-boundary}
+                    matches: typescript-function-boundary
+                    stopBy: {matches: typescript-function-boundary}
                     any:
                         - has: {field: name, pattern: $ROOT}
                         - has: {field: parameter, kind: identifier, pattern: $ROOT}
@@ -25,8 +25,8 @@ utils:
               pattern: $INNER
               not:
                 inside:
-                    matches: syntax-function-boundary
-                    stopBy: {matches: syntax-function-boundary}
+                    matches: typescript-function-boundary
+                    stopBy: {matches: typescript-function-boundary}
                     any:
                         - has: {field: name, pattern: $INNER}
                         - has: {field: parameter, kind: identifier, pattern: $INNER}

@@ -3,8 +3,6 @@ id: no-redundant-error-source-attribute
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     attribute-run:
         kind: 'attribute_item, line_comment, block_comment'
     from-attribute:
@@ -31,7 +29,7 @@ utils:
         kind: 'enum_variant, struct_item'
         all:
             - has: {field: body, kind: field_declaration_list, has: {matches: redundant-source}}
-            - not: {has: {stopBy: end, matches: comment}}
+            - not: {matches: rust-commented}
     other-attribute:
         kind: attribute_item
         not: {matches: source-attribute}

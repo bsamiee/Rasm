@@ -2,8 +2,6 @@
 id: rust-statement-loop
 language: rust
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment, empty_statement'}
     state-write:
         any:
             - kind: call_expression
@@ -37,7 +35,7 @@ utils:
         kind: block
         all:
             - has: {matches: write-statement}
-            - not: {has: {pattern: $_, matches: slot, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}]}}}
+            - not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}]}}}
     guarded-write:
         kind: expression_statement
         has:
@@ -52,8 +50,8 @@ utils:
     return-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: slot}}, kind: expression_statement, has: {nthChild: 1, matches: valued-return}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, kind: expression_statement, has: {nthChild: 1, matches: valued-return}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     guarded-return:
         kind: expression_statement
         has:
@@ -70,13 +68,13 @@ utils:
                 - matches: write-block
                 - all:
                     - has: {matches: guarded-write}
-                    - not: {has: {pattern: $_, matches: slot, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
+                    - not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
     searching-body:
         kind: block
         all:
             - not: {has: {stopBy: end, kind: await_expression}}
             - has: {matches: guarded-return}
-            - not: {has: {pattern: $_, matches: slot, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
+            - not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
     plain-next:
         kind: call_expression
         all:
@@ -117,7 +115,7 @@ rule:
             - has:
                 field: body
                 has:
-                    nthChild: {position: 1, ofRule: {matches: slot}}
+                    nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
                     any:
                         - kind: match_expression
                           has: {field: value, matches: plain-next}

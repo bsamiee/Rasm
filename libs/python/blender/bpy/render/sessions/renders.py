@@ -17,7 +17,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Acquired, Call, Done, Operator, Properties, Stock
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.snapshots import Scenes, Snapshot
+from blender.bpy.data.rna.snapshots import Endpoints, Persisted, Scenes, Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -123,19 +123,14 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
         scope = ExitStack()
         pending: set[bpy.types.Scene] = set()
 
-        def built(
-            parts: tuple[tuple[tuple[Attached[RenderOverride], Framed], PassRouting], Stored[tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]]],
-        ) -> BlenderResult[Acquisitions]:
+        def built(parts: tuple[tuple[tuple[Attached[RenderOverride], Framed], PassRouting], Stored[Endpoints]]) -> BlenderResult[Acquisitions]:
             ((held, framed), routing), recovery = parts
 
             def restored(scene: bpy.types.Scene) -> BlenderResult[Option[str]]:
-                def reverted(state: tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]) -> BlenderResult[None]:
-                    before, after = state
-                    endpoint: BlenderResult[Tree[tuple[tuple[object, str], object]]] = Option.of_optional(after).to_result_with(
-                        lambda: (BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)
-                    )
+                def reverted(state: Endpoints) -> BlenderResult[None]:
+                    before = state.before
 
-                    def restored(after: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[None]:
+                    def restored(after: Persisted) -> BlenderResult[None]:
                         missing = Tree(roots=tuple(key for key in before.roots if key not in after.owners), owners={key: held for key, held in before.owners.items() if key not in after.owners})
                         return (
                             Snapshot
@@ -144,14 +139,14 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                             .bind(lambda path: routing.reconciled(scene, bpy.context, path))
                             .bind(
                                 lambda _: (
-                                    recovery.write(scene, (missing, None)).bind(lambda _: Error((BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)))
+                                    recovery.write(scene, Endpoints(before=missing)).bind(lambda _: Error((BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)))
                                     if missing.owners
                                     else recovery.removed(scene).map(lambda _: None)
                                 )
                             )
                         )
 
-                    return Result[Tree[tuple[tuple[object, str], object]], BlenderFaults].bind(endpoint, restored)
+                    return state.completed(scene, recovery.name).bind(restored)
 
                 def finished(_: None) -> BlenderResult[Option[str]]:
                     pending.discard(scene)
@@ -202,7 +197,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                         def overridden(owned: tuple[tuple[Snapshot, ...], tuple[tuple[bpy.types.Object, Snapshot], ...]]) -> BlenderResult[None]:
                             owners = (scene, *(owner for owner, _ in owned[1]))
 
-                            def changed(before: Tree[tuple[tuple[object, str], object]]) -> BlenderResult[None]:
+                            def changed(before: Persisted) -> BlenderResult[None]:
                                 pending.add(scene)
                                 applied = paired(
                                     reduce(lambda outcome, snapshot: outcome.bind(lambda _: snapshot.apply(scene).outcome), (*owned[0], stamp), Result[None, BlenderFaults](ok=None)),
@@ -211,14 +206,14 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                                 final = tuple(Snapshot.capture(owner, native=True) for owner in owners)
                                 trees = tuple(tree for answer in final for tree in answer.to_option().to_list())
                                 after = Tree.joined(trees)
-                                endpoint = Snapshot.persisted(after).bind(lambda projected: recovery.write(scene, (before, projected)))
+                                endpoint = Snapshot.persisted(after).bind(lambda projected: recovery.write(scene, Endpoints(before=before, after=projected)))
                                 return paired(applied, paired(accumulated(final), endpoint)).map(lambda _: None)
 
                             return (
                                 accumulated(Snapshot.capture(owner, native=True) for owner in owners)
                                 .map(Tree.joined)
                                 .bind(Snapshot.persisted)
-                                .bind(lambda before: recovery.write(scene, (before, None)).bind(lambda _: changed(before)))
+                                .bind(lambda before: recovery.write(scene, Endpoints(before=before)).bind(lambda _: changed(before)))
                             )
 
                         return (

@@ -4,11 +4,9 @@ language: tsx
 severity: error
 utils:
     uninterruptible:
-        matches: effect-effect-member
-        has: {field: property, regex: '^uninterruptible$'}
+        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^uninterruptible$'}}}
     fork-member:
-        matches: effect-effect-member
-        has: {field: property, regex: '^(forkIn|forkChild|forkScoped|forkDetach|runFork)$'}
+        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(forkIn|forkChild|forkScoped|forkDetach|runFork)$'}}}
     fork-step:
         any:
             - matches: fork-member

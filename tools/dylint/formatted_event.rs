@@ -4,7 +4,7 @@ use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     fn_def_id,
     macros::{macro_backtrace, root_macro_call},
-    paths::{PathNS, lookup_path_str},
+    paths::PathNS,
     peel_hir_expr_refs,
     res::MaybeDef as _,
     source::walk_span_to_context,
@@ -18,7 +18,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, TyCtxt};
 use rustc_span::{Span, hygiene::MacroKind};
 
-use crate::is_text;
+use crate::{is_text, path};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ pub(crate) struct FormattedEvent {
 impl_lint_pass!(FormattedEvent => [FORMATTED_EVENT]);
 
 impl FormattedEvent {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { value: lookup_path_str(tcx, PathNS::Type, "tracing_core::field::Value").into_iter().next(), reported: FxHashSet::default() } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { value: path(tcx, PathNS::Type, "tracing_core::field::Value"), reported: FxHashSet::default() } }
 }
 
 impl<'tcx> LateLintPass<'tcx> for FormattedEvent {

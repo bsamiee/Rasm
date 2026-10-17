@@ -10,6 +10,9 @@
     },
     "enableAllProjectMcpServers": true,
     "disabledMcpjsonServers": [ "greptile", "arena" ],
+    "permissions": {
+        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli" ]
+    },
     "hooks": {
         "SessionStart": [
             {

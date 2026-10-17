@@ -54,15 +54,16 @@ internal readonly struct BlueNoise : IOffsetField {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidQuantization>]
-public partial class Dither : IStateRecord<Dither, DitherParameter, InvalidQuantization>, IPixelStage<Dither> {
-    public static readonly Dither Off = new Pointwise<NoOffset>("off");
-    public static readonly Dither WhiteNoise = new Pointwise<WhiteNoise>("white-noise");
-    public static readonly Dither BlueNoise = new Pointwise<BlueNoise>("blue-noise");
-    public static readonly Dither FloydSteinberg = new("floyd-steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
+public partial class Dither : IStateRecord<Dither, DitherParameter>, IPixelStage<Dither>, ICaptioned {
+    public static readonly Dither Off = new Pointwise<NoOffset>("off", "Off");
+    public static readonly Dither WhiteNoise = new Pointwise<WhiteNoise>("white-noise", "White noise");
+    public static readonly Dither BlueNoise = new Pointwise<BlueNoise>("blue-noise", "Blue noise");
+    public static readonly Dither FloydSteinberg = new("floyd-steinberg", "Floyd-Steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
 
     [IgnoreMember]
     public static Dither Default => WhiteNoise;
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial PixelPass Pass(Quantizer levels);
@@ -96,15 +97,16 @@ public partial class Dither : IStateRecord<Dither, DitherParameter, InvalidQuant
         return unit;
     }
 
-    private sealed class Pointwise<TField>(string key) : Dither(key, static levels => new PixelPass.Pointwise(levels.Quantize<TField>)) where TField : IOffsetField;
+    private sealed class Pointwise<TField>(string key, string caption) : Dither(key, caption, static levels => new PixelPass.Pointwise(levels.Quantize<TField>)) where TField : IOffsetField;
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidQuantization>]
 public sealed partial class DitherParameter : IStateParameter<Dither> {
-    public static readonly DitherParameter Method = new("method", new StateParameter<Dither>.Choice<Dither, InvalidQuantization>(Lens.identity<Dither>()));
+    public static readonly DitherParameter Method = new("method", new StateParameter<Dither>.Choice<Dither>(Lens.identity<Dither>()),
+        new("Method", "Noise or diffused error added before integer quantization"));
 
     public StateParameter<Dither> Kind { get; }
+    public ParameterText Text { get; }
 }

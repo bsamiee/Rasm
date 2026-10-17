@@ -11,7 +11,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, AdtDef};
 use rustc_span::Symbol;
 
-use crate::{Access, Place, access, constructed, is_error, pattern_fields, place};
+use crate::{Access, Place, access, constructed, impl_owner, is_error, pattern_fields, place};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -56,8 +56,8 @@ impl SplitOutcome {
             let declared = |field: LocalDefId| cx.tcx.type_of(field).instantiate_identity().skip_normalization();
             let options = fields.iter().filter_map(|&field| Some((field, is_error(cx, option_arg_ty(cx, declared(field))?))));
             let flags = fields.iter().filter(|&&field| declared(field).is_bool()).flat_map(|&flag| options.clone().map(move |(value, _)| Pair::Flag { flag, value }));
-            let outcomes =
-                options.clone().filter(|&(_, failing)| !failing).flat_map(|(value, _)| options.clone().filter(|&(_, failing)| failing).map(move |(error, _)| Pair::Outcome { value, error }));
+            let (errors, values) = options.clone().partition::<Vec<_>, _>(|&(_, failing)| failing);
+            let outcomes = values.iter().flat_map(|&(value, _)| errors.iter().map(move |&(error, _)| Pair::Outcome { value, error }));
             flags.chain(outcomes).collect()
         })
     }
@@ -104,7 +104,7 @@ impl<'tcx> LateLintPass<'tcx> for SplitOutcome {
             let held = |field: LocalDefId| fields.iter().find(|(declared, _)| declared.did == field.to_def_id()).map(|&(_, value)| peel_blocks(value));
             let called = |call: &Expr<'_>, owner: Symbol| {
                 let method = typeck.type_dependent_def_id(call.hir_id)?;
-                cx.tcx.inherent_impl_of_assoc(method).filter(|implementation| cx.tcx.type_of(*implementation).instantiate_identity().skip_normalization().is_diag_item(cx, owner))?;
+                impl_owner(cx.tcx, method).filter(|implementor| implementor.is_diag_item(cx, owner))?;
                 Some(cx.tcx.item_name(method))
             };
             for &pair in Self::pairs(&mut self.pairs, cx, adt) {

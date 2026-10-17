@@ -7,6 +7,7 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
+using Rasm.Imaging.Tone;
 using SixLabors.ImageSharp.PixelFormats;
 using Wacton.Unicolour;
 
@@ -18,25 +19,13 @@ internal interface IBlendKernel {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
-public readonly partial struct Mix : IMinMaxValue<Mix> {
-    public static Mix MinValue { get; } = new(0f);
-    public static Mix MaxValue => Full;
-    public static Mix Full { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
-}
-
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MatteChannel {
     public static readonly MatteChannel Lightness = new("lightness", static (row, luminance, weights) => {
         for (int x = 0; x < row.Length; x++)
-            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(((luminance.X * row[x].X) + (luminance.Y * row[x].Y) + (luminance.Z * row[x].Z)) * row[x].W, 0d, 1d);
+            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance) * row[x].W, 0d, 1d);
     });
     public static readonly MatteChannel Alpha = new("alpha", static (row, _, weights) => {
         for (int x = 0; x < row.Length; x++)
@@ -48,7 +37,6 @@ public sealed partial class MatteChannel {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MaskOperation {
@@ -133,80 +121,79 @@ file readonly struct DivideKernel : IBlendKernel {
     public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) => Vector256.ConditionalSelect(Vector256.IsZero(b), a, a / b);
 }
 
+file static class Shade {
+    public static Hsb Of(Vector256<double> rgb) => new Unicolour(ColourSpace.Rgb, (rgb[0], rgb[1], rgb[2])).Hsb;
+
+    public static Vector256<double> Rgb(double hue, double saturation, double brightness) =>
+        new Unicolour(ColourSpace.Hsb, (hue, saturation, brightness)).Rgb switch {
+            var rgb => Vector256.Create(rgb.R, rgb.G, rgb.B, 0d),
+        };
+}
+
 file readonly struct HueKernel : IBlendKernel {
     public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) =>
-        new Unicolour(ColourSpace.Rgb, (b[0], b[1], b[2])).Hsb switch {
-            { S: 0d } => a,
-            var layer => new Unicolour(ColourSpace.Rgb, (a[0], a[1], a[2])).Hsb switch {
-                var under => new Unicolour(ColourSpace.Hsb, (layer.H, under.S, under.B)).Rgb switch {
-                    var rgb => Vector256.Create(rgb.R, rgb.G, rgb.B, 0d),
-                },
-            },
+        (Shade.Of(a), Shade.Of(b)) switch {
+            (_, { S: 0d }) => a,
+            var (under, layer) => Shade.Rgb(layer.H, under.S, under.B),
         };
 }
 
 file readonly struct SaturationKernel : IBlendKernel {
     public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) =>
-        new Unicolour(ColourSpace.Rgb, (a[0], a[1], a[2])).Hsb switch {
-            { S: 0d } => a,
-            var under => new Unicolour(ColourSpace.Hsb, (under.H, new Unicolour(ColourSpace.Rgb, (b[0], b[1], b[2])).Hsb.S, under.B)).Rgb switch {
-                var rgb => Vector256.Create(rgb.R, rgb.G, rgb.B, 0d),
-            },
+        (Shade.Of(a), Shade.Of(b)) switch {
+            ( { S: 0d }, _) => a,
+            var (under, layer) => Shade.Rgb(under.H, layer.S, under.B),
         };
 }
 
 file readonly struct ColorKernel : IBlendKernel {
     public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) =>
-        new Unicolour(ColourSpace.Rgb, (b[0], b[1], b[2])).Hsb switch {
-            { S: 0d } => a,
-            var layer => new Unicolour(ColourSpace.Hsb, (layer.H, layer.S, new Unicolour(ColourSpace.Rgb, (a[0], a[1], a[2])).Hsb.B)).Rgb switch {
-                var rgb => Vector256.Create(rgb.R, rgb.G, rgb.B, 0d),
-            },
+        (Shade.Of(a), Shade.Of(b)) switch {
+            (_, { S: 0d }) => a,
+            var (under, layer) => Shade.Rgb(layer.H, layer.S, under.B),
         };
 }
 
 file readonly struct ValueKernel : IBlendKernel {
     public static Vector256<double> Apply(Vector256<double> a, Vector256<double> b) =>
-        new Unicolour(ColourSpace.Rgb, (a[0], a[1], a[2])).Hsb switch {
-            var under => new Unicolour(ColourSpace.Hsb, (under.H, under.S, new Unicolour(ColourSpace.Rgb, (b[0], b[1], b[2])).Hsb.B)).Rgb switch {
-                var rgb => Vector256.Create(rgb.R, rgb.G, rgb.B, 0d),
-            },
+        (Shade.Of(a), Shade.Of(b)) switch {
+            var (under, layer) => Shade.Rgb(under.H, under.S, layer.B),
         };
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public abstract partial class BlendingMode {
-    public static readonly BlendingMode Mix = new Mode<MixKernel>("mix", "norm"u8);
-    public static readonly BlendingMode Darken = new Mode<DarkenKernel>("darken", "dark"u8);
-    public static readonly BlendingMode Multiply = new Mode<MultiplyKernel>("multiply", "mul "u8);
-    public static readonly BlendingMode Burn = new Mode<BurnKernel>("burn", "idiv"u8);
-    public static readonly BlendingMode Lighten = new Mode<LightenKernel>("lighten", "lite"u8);
-    public static readonly BlendingMode Screen = new Mode<ScreenKernel>("screen", "scrn"u8);
-    public static readonly BlendingMode Dodge = new Mode<DodgeKernel>("dodge", "div "u8);
-    public static readonly BlendingMode Add = new Mode<AddKernel>("add", "lddg"u8);
-    public static readonly BlendingMode Overlay = new Mode<OverlayKernel>("overlay", "over"u8);
-    public static readonly BlendingMode SoftLight = new Mode<SoftLightKernel>("soft-light", "sLit"u8);
-    public static readonly BlendingMode LinearLight = new Mode<LinearLightKernel>("linear-light", "lLit"u8);
-    public static readonly BlendingMode Difference = new Mode<DifferenceKernel>("difference", "diff"u8);
-    public static readonly BlendingMode Exclusion = new Mode<ExclusionKernel>("exclusion", "smud"u8);
-    public static readonly BlendingMode Subtract = new Mode<SubtractKernel>("subtract", "fsub"u8);
-    public static readonly BlendingMode Divide = new Mode<DivideKernel>("divide", "fdiv"u8);
-    public static readonly BlendingMode Hue = new Mode<HueKernel>("hue", "hue "u8);
-    public static readonly BlendingMode Saturation = new Mode<SaturationKernel>("saturation", "sat "u8);
-    public static readonly BlendingMode Color = new Mode<ColorKernel>("color", "colr"u8);
-    public static readonly BlendingMode Value = new Mode<ValueKernel>("value", "lum "u8);
+public abstract partial class BlendingMode : ICaptioned {
+    public static readonly BlendingMode Mix = new Mode<MixKernel>("mix", "norm"u8, "Mix");
+    public static readonly BlendingMode Darken = new Mode<DarkenKernel>("darken", "dark"u8, "Darken");
+    public static readonly BlendingMode Multiply = new Mode<MultiplyKernel>("multiply", "mul "u8, "Multiply");
+    public static readonly BlendingMode Burn = new Mode<BurnKernel>("burn", "idiv"u8, "Color burn");
+    public static readonly BlendingMode Lighten = new Mode<LightenKernel>("lighten", "lite"u8, "Lighten");
+    public static readonly BlendingMode Screen = new Mode<ScreenKernel>("screen", "scrn"u8, "Screen");
+    public static readonly BlendingMode Dodge = new Mode<DodgeKernel>("dodge", "div "u8, "Color dodge");
+    public static readonly BlendingMode Add = new Mode<AddKernel>("add", "lddg"u8, "Add");
+    public static readonly BlendingMode Overlay = new Mode<OverlayKernel>("overlay", "over"u8, "Overlay");
+    public static readonly BlendingMode SoftLight = new Mode<SoftLightKernel>("soft-light", "sLit"u8, "Soft light");
+    public static readonly BlendingMode LinearLight = new Mode<LinearLightKernel>("linear-light", "lLit"u8, "Linear light");
+    public static readonly BlendingMode Difference = new Mode<DifferenceKernel>("difference", "diff"u8, "Difference");
+    public static readonly BlendingMode Exclusion = new Mode<ExclusionKernel>("exclusion", "smud"u8, "Exclusion");
+    public static readonly BlendingMode Subtract = new Mode<SubtractKernel>("subtract", "fsub"u8, "Subtract");
+    public static readonly BlendingMode Divide = new Mode<DivideKernel>("divide", "fdiv"u8, "Divide");
+    public static readonly BlendingMode Hue = new Mode<HueKernel>("hue", "hue "u8, "Hue");
+    public static readonly BlendingMode Saturation = new Mode<SaturationKernel>("saturation", "sat "u8, "Saturation");
+    public static readonly BlendingMode Color = new Mode<ColorKernel>("color", "colr"u8, "Color");
+    public static readonly BlendingMode Value = new Mode<ValueKernel>("value", "lum "u8, "Value");
 
     public uint BlendModeKey { get; }
+    public string Caption { get; }
 
     public abstract void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated);
 
     public abstract void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights);
 
     private sealed class Mode<TKernel> : BlendingMode where TKernel : IBlendKernel {
-        public Mode(string key, ReadOnlySpan<byte> code) : base(key, BinaryPrimitives.ReadUInt32BigEndian(code)) { }
+        public Mode(string key, ReadOnlySpan<byte> code, string caption) : base(key, BinaryPrimitives.ReadUInt32BigEndian(code), caption) { }
 
         public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
             for (int x = 0; x < backdrop.Length; x++) {
@@ -271,9 +258,9 @@ public abstract partial record Coverage {
 
     public sealed record Luma(Gamut Gamut, BinRange Bins) : Coverage {
         public override void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights) {
-            (double red, double green, double blue) = Gamut.Luminance;
+            (double X, double Y, double Z) luminance = Gamut.Luminance;
             for (int x = 0; x < row.Length; x++)
-                weights[x] = row[x].W > 0f && Bins.Holds((red * row[x].X) + (green * row[x].Y) + (blue * row[x].Z)) ? 1f : 0f;
+                weights[x] = row[x].W > 0f && Bins.Holds(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance)) ? 1f : 0f;
         }
     }
 
@@ -324,10 +311,10 @@ file readonly struct LayerAction(Memory2D<Vector4> rows, Memory2D<Vector4> layer
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Blend {
-    public static PixelPass Mixed(PixelPass stage, BlendingMode mode, Mix mix, Seq<Mask> masks) =>
-        mix == Mix.MinValue
+    public static PixelPass Mixed(PixelPass stage, BlendingMode mode, AxisFraction mix, Seq<Mask> masks) =>
+        mix == AxisFraction.MinValue
             ? new PixelPass.Color(static _ => { })
-            : mode == BlendingMode.Mix && mix == Mix.Full && masks.IsEmpty
+            : mode == BlendingMode.Mix && mix == AxisFraction.MaxValue && masks.IsEmpty
             ? stage
             : stage.Switch<Blending, PixelPass>(
                 new Blending(mode, mix, masks),
@@ -351,8 +338,8 @@ public static class Blend {
                     });
                 }));
 
-    public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, Mix opacity, Seq<Mask> masks, PixelAlphaRepresentation representation) =>
-        opacity == Mix.MinValue ? @base.Copy() : new(@base.Origin, @base.Size, @base.Extent, block => {
+    public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, AxisFraction opacity, Seq<Mask> masks, PixelAlphaRepresentation representation) =>
+        opacity == AxisFraction.MinValue ? @base.Copy() : new(@base.Origin, @base.Size, @base.Extent, block => {
             @base.Block.CopyTo(block);
             ParallelHelper.For(0, @base.Size.Height, new LayerAction(
                 block.AsMemory().Cast<float, Vector4>().AsMemory2D(@base.Size.Height, @base.Size.Width), layer.View, new Blending(mode, opacity, masks), @base, representation));

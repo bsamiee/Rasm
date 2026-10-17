@@ -8,10 +8,10 @@ using Grasshopper2.UI.Toolbar;
 using Grasshopper2.UI.Tooltip;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -27,11 +27,11 @@ public static class CanvasChrome {
         from bar in IO.lift(() => new Bar([.. projected
             .Map(static (@group, index) => (index is 0 ? Seq<BarItem>() : Seq<BarItem>(Spacer.Default())).Concat(@group.Map(static entry => entry.Item)))
             .Flatten()]) { Style = BarStyle.DefaultWithoutCategories })
-        from control in DisposalOps.Acquire(IO.lift(() => new BarControl(bar)), static held => IO.lift(held.Dispose), keep)
+        from control in DisposalOps.Acquire(IO.lift(() => new BarControl(bar)), keep)
         from refreshes in projected.Flatten().TraverseM(entry => entry.Link(control, keep)).As()
         let refresh = Callbacks.Each(refreshes.Add(IO.lift(bar.Invalidate))).Map(unit)
         from shown in refresh
-        select (Control: control, Refresh: refresh), (_, release) => retain(release));
+        select (Control: control, Refresh: refresh), retain);
 
     private sealed record BarEntry(BarItem Item, Func<BarControl, Action<IDisposable>, IO<IO<Unit>>> Link);
 
@@ -103,7 +103,7 @@ public static class CanvasChrome {
             from held in rows.TraverseM(row => row.Actions.TraverseM(action => Added(control, row, action, scope, keep)).As()).As()
             let refresh = Callbacks.Each(from row in rows from action in row.Actions select Shown(control.FloatingButtons, row.Command, action, scope)).Map(unit)
             from shown in refresh
-            select refresh, (_, release) => retain(release));
+            select refresh, retain);
     }
 
     private sealed record FloatingAction(string Name, CommandFace Face, Option<RowRule> Enabled, Func<RowScope, IO<Unit>> Execute, Option<Func<RowScope, IO<bool>>> Checked);
@@ -136,7 +136,7 @@ public static class CanvasChrome {
                 button.Enabled = false;
                 button.Close();
             });
-        }), static lease => IO.lift(lease.Dispose), retain)
+        }), retain)
         select unit;
 
     private static IO<Unit> Shown(FloatingButtonCollection buttons, FloatingCommand command, FloatingAction action, RowScope scope) =>
@@ -157,7 +157,7 @@ public static class CanvasChrome {
         IPlugInSink sink, Option<(IGlyph Glyph, int Master)> glyph, string caption, string help, bool warnings, bool errors,
         Either<Seq<(string Label, string Value)>, (Action<Context, Rectangle> Painter, Size Size)> body) =>
         from icon in glyph.Traverse(held => CanvasIcons.Vector(sink, held.Glyph, held.Master)).As()
-        let local = fun((string text) => RowText.Localize(text, table: Some<object>(sink)).Local)
+        let local = fun((string text) => RowText.Localize(text, sink).Local)
         from shown in IO.lift(() => body.Match(
             Left: lines => Frame.Show(icon.ValueUnsafe(), local(caption), local(help), [.. lines.Map(line => new LazyStrings(local(line.Label), line.Value))], warnings, errors),
             Right: drawn => Frame.Show(icon.ValueUnsafe(), local(caption), local(help), drawn.Painter, drawn.Size, warnings, errors)))

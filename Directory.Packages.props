@@ -30,6 +30,7 @@
         <PackageVersion Include="LanguageExt.Streaming"                                   Version="5.0.0-beta-78" />                     <!-- Compositional streaming with pipes, sources, sinks, and conduits -->
         <PackageVersion Include="LanguageExt.Sys"                                         Version="5.0.0-beta-78" />                     <!-- Effect wrappers for console, file system, time, and environment -->
         <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream"                     Version="4.0.1-preview" />                     <!-- Pooled memory stream allocator reducing garbage collection pressure -->
+        <PackageVersion Include="Microsoft.VisualStudio.Threading"                        Version="18.12.1" />
         <PackageVersion Include="Mono.Unix"                                               Version="7.1.0-final.1.21458.1" />             <!-- Unix filesystem operations and typed native errors -->
         <PackageVersion Include="NodaTime"                                                Version="3.3.5" />                             <!-- Date and time types with explicit calendars, instants, and zones -->
         <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />                             <!-- Protobuf well-known type conversions for instants and durations -->
@@ -267,8 +268,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Machine Learning">
-        <PackageVersion Include="libtorch-cpu"                                            Version="2.10.0" />                            <!-- Native CPU tensor runtime binaries for TorchSharp -->
-        <PackageVersion Include="libtorch-cpu-win-arm64"                                  Version="2.10.0" />                            <!-- Windows ARM64 native CPU tensor runtime binaries for TorchSharp -->
         <PackageVersion Include="Microsoft.ML"                                            Version="6.0.0-preview.26457.2" />             <!-- Machine learning framework with data pipelines, trainers, and inference -->
         <PackageVersion Include="Microsoft.ML.AutoML"                                     Version="0.24.0-preview.26457.2" />            <!-- Automated pipeline, model, and hyperparameter search -->
         <PackageVersion Include="Microsoft.ML.FastTree"                                   Version="6.0.0-preview.26457.2" />             <!-- Gradient boosted decision tree trainers -->
@@ -279,7 +278,6 @@
         <PackageVersion Include="Microsoft.ML.Tokenizers.Data.Cl100kBase"                 Version="3.0.0-preview.26457.2" />             <!-- Tiktoken vocabulary data for cl100k_base models -->
         <PackageVersion Include="Microsoft.ML.Tokenizers.Data.O200kBase"                  Version="3.0.0-preview.26457.2" />             <!-- Tiktoken vocabulary data for o200k_base models -->
         <PackageVersion Include="TorchAudio"                                              Version="0.107.0" />                           <!-- Audio processing bindings over LibTorch -->
-        <PackageVersion Include="TorchSharp"                                              Version="0.107.0" />                           <!-- Tensor computation and deep learning bindings over LibTorch -->
         <PackageVersion Include="TorchVision"                                             Version="0.107.0" />                           <!-- Vision transforms and model bindings over LibTorch -->
         <PackageVersion Include="Whisper.net"                                             Version="1.9.2-preview1" />                    <!-- Cross-platform speech recognition bindings for ggml models -->
         <PackageVersion Include="Whisper.net.Runtime"                                     Version="1.9.2-preview1" />                    <!-- Default CPU inference runtime binaries for every platform -->

@@ -3,8 +3,6 @@ id: no-repeated-forwarding-method
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     own-field:
         kind: field_expression
         all:
@@ -52,16 +50,16 @@ utils:
               has: {nthChild: 1, matches: plain-tail}
     one-statement:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     wrap-shape:
         kind: function_item
-        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: wrap-tail}}
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: wrap-tail}}
     free-shape:
         kind: function_item
-        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: free-tail}}
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: free-tail}}
     plain-shape:
         kind: function_item
-        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: plain-tail}}
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: plain-tail}}
     wrap-trio:
         all:
             - matches: wrap-shape

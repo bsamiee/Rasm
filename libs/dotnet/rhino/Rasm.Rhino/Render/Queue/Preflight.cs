@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Objects;
@@ -12,10 +13,99 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, DocumentStatistics Statistics, Map<int, ulong> Memory) {
+[Union]
+public abstract partial record PreflightFinding {
+    public abstract Error Error { get; }
+
+    public sealed record QueueEmpty : PreflightFinding {
+        public override Error Error => Error.New("Render queue holds no entry");
+    }
+
+    public sealed record SourceViewMissing(int Index, RenderSettings.RenderingSources Source) : PreflightFinding {
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} renders {Source}, which names no view the document holds"));
+    }
+
+    public sealed record OverscanSourceRefused(int Index, RenderSettings.RenderingSources Source) : PreflightFinding {
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} widens {Source}, and overscan widens the active viewport alone"));
+    }
+
+    public sealed record EntryRefused(int Index, Error Cause) : PreflightFinding {
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} holds a value its render refuses"), Cause);
+    }
+
+    public sealed record DestinationUnresolved(Error Cause) : PreflightFinding {
+        public override Error Error => Cause;
+    }
+
+    public sealed record FolderUnwritable(string Folder) : PreflightFinding {
+        public override Error Error => Error.New($"{Folder} cannot be created or written");
+    }
+
+    public sealed record SpaceLow(string Folder, long Free) : PreflightFinding {
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"{Folder} holds {Free} bytes free"));
+    }
+
+    public sealed record CopyTooLarge(string Folder, long Copy, long Free) : PreflightFinding {
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Copy of {Copy} bytes exceeds the {Free} bytes free at {Folder}"));
+    }
+
+    public sealed record LinkBroken(string Definition, string File, Error Cause) : PreflightFinding {
+        public override Error Error => Error.New($"{Definition} links {File}, which does not read", Cause);
+    }
+
+    public sealed record RendererMissing(Guid Renderer) : PreflightFinding {
+        public override Error Error => Error.New($"Current renderer {Renderer} is not installed");
+    }
+
+    public sealed record CommandPending(string Prompt) : PreflightFinding {
+        public override Error Error => Error.New($"A command waits at {Prompt}");
+    }
+
+    public sealed record RenderingsUnsaved : PreflightFinding {
+        public override Error Error => Error.New("Rhino saves no finished rendering, so no queue frame lands");
+    }
+
+    public sealed record QueueActive(int ProcessId) : PreflightFinding {
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Render queue process {ProcessId} is rendering"));
+    }
+
+    public sealed record UntitledEdits(uint Document) : PreflightFinding {
+        public override Error Error => Error.New($"Document {Document} holds edits and no file");
+    }
+
+    public sealed record LinkUpdatePrompts : PreflightFinding {
+        public override Error Error => Error.New("Linked block updates prompt, which stops an unattended render");
+    }
+
+    public sealed record LinkStale(string Definition, string File) : PreflightFinding {
+        public override Error Error => Error.New($"{Definition} holds an outdated load of {File}");
+    }
+
+    public sealed record LinkCycle(Seq<string> Files) : PreflightFinding {
+        public override Error Error => Error.New($"Linked files {string.Join(", ", Files)} link each other");
+    }
+
+    public sealed record LinkUnitsDiffer(string Definition, string File, UnitSystem Units, UnitSystem FileUnits) : PreflightFinding {
+        public override Error Error => Error.New($"{Definition} in {Units} links {File} in {FileUnits}");
+    }
+
+    public sealed record TextureMissing(string Path) : PreflightFinding {
+        public override Error Error => Error.New($"{Path} is not found");
+    }
+
+    public sealed record RenderOnCpu : PreflightFinding {
+        public override Error Error => Error.New("Rhino Render runs on the CPU in safe mode");
+    }
+
+    public sealed record FileOutsideCopy(string Path) : PreflightFinding {
+        public override Error Error => Error.New($"{Path} stays outside the copy");
+    }
+}
+
+public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, DocumentStatistics Statistics, Map<int, ulong> Memory) {
     // --- [VERDICT]
     public Validation<Error, Unit> Verdict =>
-        Refusals.Traverse(static refusal => Validation.Fail<Error, Unit>(refusal)).As().Map(static _ => unit);
+        Refusals.Traverse(static refusal => Validation.Fail<Error, Unit>(refusal.Error)).As().Map(static _ => unit);
 
     // --- [CHECK]
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
@@ -34,10 +124,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
          NamedSnapshots.Names(doc).Map(names => rendered.Map((entry, index) => Entered(doc, names, entry.Entry, index, entry.Frame)).Flatten().Strict()),
          RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels),
          reach.Local
-             ? from settings in context.Settings
-               from prior in QueueProgress.Read(context.Record)
-               from state in QueueProgress.State(prior, context.Record, context.Sink.Clock, settings.Heartbeat)
-               select Some(state)
+             ? QueueProgress.Observed(context).Map(static observed => Some(observed.State))
              : IO.pure(Option<RunState>.None),
          IO.lift(Host.Read),
          Measured(doc, plan, reach),
@@ -47,15 +134,15 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
         };
 
     // --- [READS]
-    private static Seq<Error> Entered(RhinoDoc doc, Seq<string> snapshots, QueueEntry<Unit> entry, int index, Fin<OverscanFrame> rendered) =>
-        (Held(doc, snapshots, entry.Source) ? Seq<Error>() : Seq<Error>(new SourceViewMissing(index, entry.Source.RenderSource)))
+    private static Seq<PreflightFinding> Entered(RhinoDoc doc, Seq<string> snapshots, QueueEntry<Unit> entry, int index, Fin<OverscanFrame> rendered) =>
+        (Held(doc, snapshots, entry.Source) ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.SourceViewMissing(index, entry.Source.RenderSource)))
         + (entry.Overscan == Overscan.Off || entry.Source.RenderSource is RenderSettings.RenderingSources.ActiveViewport
-            ? Seq<Error>()
-            : Seq<Error>(new OverscanSourceRefused(index, entry.Source.RenderSource)))
+            ? Seq<PreflightFinding>()
+            : Seq<PreflightFinding>(new PreflightFinding.OverscanSourceRefused(index, entry.Source.RenderSource)))
         + Seq(rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(entry.Moment).As().Map(static _ => unit))
             .Partition()
             .Fails
-            .Map(error => (Error)new EntryRefused(index, error));
+            .Map<PreflightFinding>(error => new PreflightFinding.EntryRefused(index, error));
 
     private static bool Held(RhinoDoc doc, Seq<string> snapshots, RenderSourceState source) =>
         source.RenderSource switch {
@@ -63,7 +150,7 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
             RenderSettings.RenderingSources.SpecificViewport => source.SpecificViewport.Exists(name => doc.Views.Find(name, compareCase: false) is not null),
             RenderSettings.RenderingSources.NamedView => source.NamedView.Exists(name => Conversions.Present(doc.NamedViews.FindByName(name)).IsSome),
             RenderSettings.RenderingSources.SnapShot => source.Snapshot
-                .Bind(static name => Conversions.Validated<SnapshotName, string, InvalidRhinoValue>(name).ToOption())
+                .Bind(static name => SnapshotName.Validated(name).ToOption())
                 .Exists(wanted => snapshots.Exists(held => wanted == held)),
         };
 
@@ -96,33 +183,37 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
         DocumentStatistics statistics,
         LinkClosure links,
         Option<LinkedInstanceDefinitionUpdateStyle> style,
-        Seq<Error> entered,
+        Seq<PreflightFinding> entered,
         RenderWindow.StandardChannels channels,
         Option<RunState> run,
         Host host,
         Disk disk,
         Textures textures) =>
         new(
-            (plan.Entries.IsEmpty ? Seq<Error>(new QueueEmpty()) : Seq<Error>())
+            (plan.Entries.IsEmpty ? Seq<PreflightFinding>(new PreflightFinding.QueueEmpty()) : Seq<PreflightFinding>())
             + entered
-            + disk.Output.Match(Succ: static held => held.ToSeq().Bind(static volume => volume.Refusals(None)), Fail: static error => Seq(error))
-            + links.Broken.Choose(static broken => Stored(broken.Link.Target).Map(file => (Error)new LinkBroken(broken.Link.Name, file, broken.Error)))
-            + (reach.Local ? host.Refusals : Seq<Error>())
+            + disk.Output.Match(
+                Succ: static held => held.ToSeq().Bind(static volume => volume.Refusals(None)),
+                Fail: static error => Seq<PreflightFinding>(new PreflightFinding.DestinationUnresolved(error)))
+            + links.Broken.Choose(static broken => Stored(broken.Link.Target).Map<PreflightFinding>(file => new PreflightFinding.LinkBroken(broken.Link.Name, file, broken.Error)))
+            + (reach.Local ? host.Refusals : Seq<PreflightFinding>())
             + run.Bind(static state => state.Switch(
-                absent: static _ => Option<Error>.None,
-                active: static active => Some<Error>(new QueueActive(active.ProcessId)),
-                ended: static _ => Option<Error>.None,
-                crashed: static _ => Option<Error>.None)).ToSeq()
-            + (reach.Quits ? host.Untitled.Map(static serial => (Error)new UntitledEdits(serial)) : Seq<Error>())
-            + (reach.Package.IsSome && style.IsNone ? Seq<Error>(new LinkUpdatePrompts()) : Seq<Error>())
-            + disk.Package.ToSeq().Bind(volume => volume.Match(Succ: held => held.Refusals(statistics.FileLength), Fail: static error => Seq(error))),
-            links.Stale.Choose(static link => Stored(link.Target).Map(file => (Error)new LinkStale(link.Name, file)))
-            + links.Cycles.Map(static files => (Error)new LinkCycle(files.Choose(Stored)))
-            + links.Mismatched.Choose(static row => Stored(row.Link.Target).Map(file => (Error)new LinkUnitsDiffer(row.Link.Name, file, row.Link.Units, row.FileUnits)))
-            + textures.Absent.Map(static path => (Error)new TextureMissing(path))
+                absent: static _ => Option<PreflightFinding>.None,
+                active: static active => Some<PreflightFinding>(new PreflightFinding.QueueActive(active.ProcessId)),
+                ended: static _ => Option<PreflightFinding>.None,
+                crashed: static _ => Option<PreflightFinding>.None)).ToSeq()
+            + (reach.Quits ? host.Untitled.Map<PreflightFinding>(static serial => new PreflightFinding.UntitledEdits(serial)) : Seq<PreflightFinding>())
+            + (reach.Package.IsSome && style.IsNone ? Seq<PreflightFinding>(new PreflightFinding.LinkUpdatePrompts()) : Seq<PreflightFinding>())
+            + disk.Package.ToSeq().Bind(volume => volume.Match(
+                Succ: held => held.Refusals(statistics.FileLength),
+                Fail: static error => Seq<PreflightFinding>(new PreflightFinding.DestinationUnresolved(error)))),
+            links.Stale.Choose(static link => Stored(link.Target).Map<PreflightFinding>(file => new PreflightFinding.LinkStale(link.Name, file)))
+            + links.Cycles.Map<PreflightFinding>(static files => new PreflightFinding.LinkCycle(files.Choose(Stored)))
+            + links.Mismatched.Choose(static row => Stored(row.Link.Target).Map<PreflightFinding>(file => new PreflightFinding.LinkUnitsDiffer(row.Link.Name, file, row.Link.Units, row.FileUnits)))
+            + textures.Absent.Map<PreflightFinding>(static path => new PreflightFinding.TextureMissing(path))
             + (reach.Local
-                ? (host.SafeMode && host.Renderer == CyclesSetting.PlugInId ? Seq<Error>(new RenderOnCpu()) : Seq<Error>())
-                : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map(static path => (Error)new FileOutsideCopy(path))),
+                ? (host.SafeMode && host.Renderer == CyclesSetting.PlugInId ? Seq<PreflightFinding>(new PreflightFinding.RenderOnCpu()) : Seq<PreflightFinding>())
+                : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map<PreflightFinding>(static path => new PreflightFinding.FileOutsideCopy(path))),
             statistics,
             toMap(rendered.Map((entry, index) => entry.Frame.ToOption().Map(held => (index, QueueEstimate.Memory(statistics, held.Padded, channels)))).Somes()));
 
@@ -132,10 +223,10 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
     private readonly record struct Reach(bool Local, bool Quits, Option<Destination> Package);
 
     private sealed record Host(Guid Renderer, bool Installed, bool SafeMode, bool AutoSaved, Option<string> Pending, Seq<uint> Untitled) {
-        public Seq<Error> Refusals =>
-            (Installed ? Seq<Error>() : Seq<Error>(new RendererMissing(Renderer)))
-            + Pending.Map(static prompt => (Error)new CommandPending(prompt)).ToSeq()
-            + (AutoSaved ? Seq<Error>() : Seq<Error>(new RenderingsUnsaved()));
+        public Seq<PreflightFinding> Refusals =>
+            (Installed ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.RendererMissing(Renderer)))
+            + Pending.Map<PreflightFinding>(static prompt => new PreflightFinding.CommandPending(prompt)).ToSeq()
+            + (AutoSaved ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.RenderingsUnsaved()));
 
         public static Host Read() =>
             Utilities.DefaultRenderPlugInId switch {
@@ -157,10 +248,10 @@ public sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Documen
     private sealed record Volume(string Folder, bool Writable, Option<long> Free) {
         private const long Floor = 256L << 20;
 
-        public Seq<Error> Refusals(Option<long> copy) =>
-            (Writable ? Seq<Error>() : Seq<Error>(new FolderUnwritable(Folder)))
-            + Free.Filter(static free => free < Floor).Map(free => (Error)new SpaceLow(Folder, free)).ToSeq()
-            + (from free in Free from size in copy where size > free select (Error)new CopyTooLarge(Folder, size, free)).ToSeq();
+        public Seq<PreflightFinding> Refusals(Option<long> copy) =>
+            (Writable ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.FolderUnwritable(Folder)))
+            + Free.Filter(static free => free < Floor).Map<PreflightFinding>(free => new PreflightFinding.SpaceLow(Folder, free)).ToSeq()
+            + (from free in Free from size in copy where size > free select (PreflightFinding)new PreflightFinding.CopyTooLarge(Folder, size, free)).ToSeq();
 
         public static IO<Volume> Of(string folder) =>
             IO.lift(() => Nearest(new DirectoryInfo(folder))).Bind(found => found.Match(

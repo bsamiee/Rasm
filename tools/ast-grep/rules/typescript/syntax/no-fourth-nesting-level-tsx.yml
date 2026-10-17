@@ -4,14 +4,14 @@ language: tsx
 severity: error
 utils:
     function:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
     control:
         any:
             - kind: for_statement, for_in_statement, while_statement, do_statement, switch_statement
             - kind: if_statement
               not: {inside: {kind: else_clause}}
             - kind: ternary_expression
-              not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: syntax-expression-wrapper}}}}
+              not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: typescript-expression-wrapper}}}}
     boundary: {any: [{matches: control}, {matches: function}]}
 rule:
     matches: control

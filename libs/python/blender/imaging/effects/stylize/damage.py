@@ -3,40 +3,21 @@
 from enum import IntEnum
 from fractions import Fraction
 from math import floor
-from sys import float_info
 from typing import Annotated
 
-from expression import Error, Ok, Option, Some
+from expression import Ok, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.effects.generators.noise import (
-    cellular,
-    cellular_sites,
-    CellularSite,
-    Cut,
-    Estimate,
-    estimated,
-    Feature,
-    Fractal,
-    integrated,
-    Interpolation,
-    Octaves,
-    Perlin,
-    Precision,
-    sample,
-    Voronoi,
-)
+from blender.imaging.effects.generators.noise import cellular, cellular_sites, CellularSite, Cut, Estimate, Feature, Fractal, integrated, Interpolation, Octaves, Perlin, Precision, sample, Voronoi
 from blender.imaging.effects.generators.particles import Population
-from blender.imaging.faults import accumulated, ImagingBufferFault, ImagingGeneratorFault, ImagingRepresentationFault, ImagingResult, paired
-from blender.imaging.parameters import Finite, Gated, Motion, Presentation, Quantity, Rgb, Seed, Stops
+from blender.imaging.faults import accumulated, guarded, ImagingBufferFault, ImagingNumericFault, ImagingResult, paired
+from blender.imaging.parameters import AtLeastOne, Finite, FrameExtent, FrameLength, Gated, Motion, NonNegative, Presentation, Quantity, Rgb, Seed, Stops, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Nonnegative = Annotated[float, msgspec.Meta(ge=0.0, le=float_info.max)]
 
 
 class Noise(IntEnum):
@@ -58,21 +39,19 @@ class Noise(IntEnum):
 class Speckles(msgspec.Struct, frozen=True, kw_only=True):
     """Independent opaque or translucent black and white film spots."""
 
-    population: Annotated[Population, msgspec.Meta(title="Population", description="Spot cells, diameter, spread, and radial softness")] = Population(
+    population: Annotated[Population, msgspec.Meta(description="Spot cells, diameter, spread, and radial softness")] = Population(
         spacing=0.02, density=0.02, size=0.2, variation=1.0, spread=0.0, softness=0.3
     )
-    white: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="White", description="Fraction of spots that are white")] = 0.5
+    white: Annotated[Unit, msgspec.Meta(description="Fraction of spots that are white")] = 0.5
 
 
 class Scratches(msgspec.Struct, frozen=True, kw_only=True):
     """Vertical film scratches with fixed horizontal sites and evolving presence."""
 
-    count: Annotated[float, msgspec.Meta(ge=1.0, le=float_info.max, title="Count", description="Scratch cells across the frame width"), Presentation(soft=Some((1.0, 20.0)))] = 3.0
-    width: Annotated[_Nonnegative, msgspec.Meta(title="Width", description="Width of a scratch"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER))] = (
-        0.0008
-    )
-    white: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="White", description="Fraction of scratches that are white")] = 0.7
-    rate: Annotated[_Nonnegative, msgspec.Meta(title="Rate", description="Presence evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
+    count: Annotated[AtLeastOne, msgspec.Meta(description="Scratch cells across the frame width"), Presentation(soft=Some((1.0, 20.0)))] = 3.0
+    width: Annotated[FrameLength, msgspec.Meta(description="Width of a scratch"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4))] = 0.0008
+    white: Annotated[Unit, msgspec.Meta(description="Fraction of scratches that are white")] = 0.7
+    rate: Annotated[NonNegative, msgspec.Meta(description="Presence evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
 
     def sampled(self, points: npt.NDArray[np.float64], extent: tuple[float, float], clock: float, *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns continuous nearest-owned scratch coverage and covered white ink.
@@ -106,9 +85,10 @@ class Scratches(msgspec.Struct, frozen=True, kw_only=True):
             seed: Shot's explicit random origin.
 
         Returns:
-            Mean coverage and covered white ink, or a numerical representation refusal.
+            Mean coverage and covered white ink, or a numeric refusal.
         """
-        try:
+
+        def computed() -> ImagingResult[npt.NDArray[np.float64]]:
             scale = Fraction(self.count) / Fraction(extent[0])
             left, right = (Fraction(value) * scale for value in interval)
             y = Fraction(clock) * Fraction(self.rate)
@@ -140,23 +120,19 @@ class Scratches(msgspec.Struct, frozen=True, kw_only=True):
                 return sum((column(index) for index in range(floor(left), floor(right) + 1)), np.zeros(2, dtype=np.float64))
 
             return cellular_sites(Voronoi(dimensions=2, spacing=1.0), ((left, y), (right, y)), seed=seed, stream=Noise.SCRATCHES).map(composed)
-        except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
-            return Error((ImagingGeneratorFault(request=self, error=error),))
+
+        return guarded(ImagingNumericFault, self, computed, frozenset())
 
 
 class Hairs(msgspec.Struct, frozen=True, kw_only=True):
     """Curled, trimmed cell edges selected as hair strands on the film."""
 
-    count: Annotated[_Nonnegative, msgspec.Meta(title="Count", description="Nominal strand density through cell selection"), Presentation(soft=Some((0.0, 20.0)))] = 1.0
-    width: Annotated[_Nonnegative, msgspec.Meta(title="Width", description="Width of a hair"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER))] = 0.0012
-    white: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="White", description="Fraction of hairs that are white")] = 0.0
-    length: Annotated[
-        float,
-        msgspec.Meta(gt=0.0, le=float_info.max, title="Length", description="Scale of the cells that form strands"),
-        Presentation(soft=Some((0.001, 0.2)), decimals=Some(3), quantity=Some(Quantity.FRAME_GREATER)),
-    ] = 0.08
-    curl: Annotated[_Nonnegative, msgspec.Meta(title="Curl", description="Coordinate displacement as a multiple of strand length"), Presentation(soft=Some((0.0, 5.0)))] = 1.0
-    rate: Annotated[_Nonnegative, msgspec.Meta(title="Rate", description="Strand evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.1
+    count: Annotated[NonNegative, msgspec.Meta(description="Nominal strand density through cell selection"), Presentation(soft=Some((0.0, 20.0)))] = 1.0
+    width: Annotated[FrameLength, msgspec.Meta(description="Width of a hair"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4))] = 0.0012
+    white: Annotated[Unit, msgspec.Meta(description="Fraction of hairs that are white")] = 0.0
+    length: Annotated[FrameExtent, msgspec.Meta(description="Scale of the cells that form strands"), Presentation(soft=Some((0.001, 0.2)), decimals=Some(3))] = 0.08
+    curl: Annotated[NonNegative, msgspec.Meta(description="Coordinate displacement as a multiple of strand length"), Presentation(soft=Some((0.0, 5.0)))] = 1.0
+    rate: Annotated[NonNegative, msgspec.Meta(description="Strand evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.1
 
     def sampled(self, points: npt.NDArray[np.float64], extent: tuple[float, float], clock: float, *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns warped, selected, trimmed hair coverage and covered white ink.
@@ -196,11 +172,11 @@ class Weave(msgspec.Struct, frozen=True, kw_only=True):
     """Horizontal and vertical film displacement through the projector gate."""
 
     amplitude: Annotated[
-        tuple[_Nonnegative, _Nonnegative],
-        msgspec.Meta(title="Amplitude", description="Maximum horizontal and vertical displacement"),
+        tuple[NonNegative, NonNegative],
+        msgspec.Meta(description="Maximum horizontal and vertical displacement"),
         Presentation(soft=Some((0.0, 0.005)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER)),
     ] = (0.0006, 0.0006)
-    rate: Annotated[_Nonnegative, msgspec.Meta(title="Rate", description="Displacement evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.125
+    rate: Annotated[NonNegative, msgspec.Meta(description="Displacement evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.125
 
     def sampled(self, clock: float, *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns independently seeded displayed displacement of the film.
@@ -222,23 +198,11 @@ class Weave(msgspec.Struct, frozen=True, kw_only=True):
 class Gate(msgspec.Struct, frozen=True, kw_only=True):
     """Stationary rounded projector aperture with a rough, feathered edge."""
 
-    inset: Annotated[
-        _Nonnegative, msgspec.Meta(title="Inset", description="Aperture inset from each frame edge"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3), quantity=Some(Quantity.FRAME_GREATER))
-    ] = 0.02
-    radius: Annotated[
-        _Nonnegative,
-        msgspec.Meta(title="Radius", description="Corner radius within the remaining aperture"),
-        Presentation(soft=Some((0.0, 0.1)), decimals=Some(3), quantity=Some(Quantity.FRAME_GREATER)),
-    ] = 0.02
-    feather: Annotated[
-        _Nonnegative, msgspec.Meta(title="Feather", description="Transition width at the aperture edge"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER))
-    ] = 0.005
-    roughness: Annotated[
-        _Nonnegative,
-        msgspec.Meta(title="Roughness", description="Maximum displacement of the aperture edge"),
-        Presentation(soft=Some((0.0, 0.02)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER)),
-    ] = 0.003
-    color: Annotated[Rgb[Finite], msgspec.Meta(title="Color", description="Display color outside the aperture")] = Rgb(red=0.0, green=0.0, blue=0.0)
+    inset: Annotated[FrameLength, msgspec.Meta(description="Aperture inset from each frame edge"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3))] = 0.02
+    radius: Annotated[FrameLength, msgspec.Meta(description="Corner radius within the remaining aperture"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3))] = 0.02
+    feather: Annotated[FrameLength, msgspec.Meta(description="Transition width at the aperture edge"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4))] = 0.005
+    roughness: Annotated[FrameLength, msgspec.Meta(description="Maximum displacement of the aperture edge"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4))] = 0.003
+    color: Annotated[Rgb[Finite], msgspec.Meta(description="Display color outside the aperture")] = Rgb(red=0.0, green=0.0, blue=0.0)
 
     def sampled(self, points: npt.NDArray[np.float64], extent: tuple[float, float], *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns continuous rough rounded-aperture coverage before pixel integration.
@@ -282,7 +246,6 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
     """Film marks and weave behind a stationary projector aperture."""
 
     stage = Stage.DAMAGE
-    title = "Damage"
     pointwise = False
     motion: Motion = Motion()
     seed: Seed = 0
@@ -304,39 +267,37 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
         Returns:
             Speck, scratch, hair coverage/ink pairs and gate coverage, with numerical error.
         """
-        try:
-            with np.errstate(over="raise", divide="raise", invalid="raise"):
-                left, bottom, right, top = bounds
-                area = (right - left) * (top - bottom)
-                rectangle = ((left, bottom), (right, top))
-                empty = np.zeros((precision.replicates, 2), dtype=np.float64)
-                spots = (
-                    self.speckles.value.population.integrated(
-                        bounds, seed=self.seed, precision=precision, stream=floor(clock) * len(Noise) + Noise.SPECKLES, paint=lambda tone: float(tone < self.speckles.value.white)
-                    ).map(lambda estimate: estimate.replicates)
-                    if self.speckles.enabled
-                    else Ok(empty)
+
+        def computed() -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
+            left, bottom, right, top = bounds
+            area = (right - left) * (top - bottom)
+            rectangle = ((left, bottom), (right, top))
+            empty = np.zeros((precision.replicates, 2), dtype=np.float64)
+            spots = (
+                self.speckles.value.population.integrated(
+                    bounds, seed=self.seed, precision=precision, stream=floor(clock) * len(Noise) + Noise.SPECKLES, paint=lambda tone: float(tone < self.speckles.value.white)
+                ).map(lambda estimate: estimate.replicates)
+                if self.speckles.enabled
+                else Ok(empty)
+            )
+            scratches = self.scratches.value.integrated((left, right), extent, clock, seed=self.seed).map(lambda value: np.broadcast_to(value, empty.shape)) if self.scratches.enabled else Ok(empty)
+            hairs = (
+                integrated(self.hairs.value, lambda points: self.hairs.value.sampled(points, extent, clock, seed=self.seed), rectangle, precision=precision).map(
+                    lambda estimate: estimate.replicates / area
                 )
-                scratches = (
-                    self.scratches.value.integrated((left, right), extent, clock, seed=self.seed).map(lambda value: np.broadcast_to(value, empty.shape)) if self.scratches.enabled else Ok(empty)
+                if self.hairs.enabled
+                else Ok(empty)
+            )
+            gate = (
+                integrated(self.gate.value, lambda points: self.gate.value.sampled(points, extent, seed=self.seed), rectangle, precision=precision).map(
+                    lambda estimate: estimate.replicates[:, None] / area
                 )
-                hairs = (
-                    integrated(self.hairs.value, lambda points: self.hairs.value.sampled(points, extent, clock, seed=self.seed), rectangle, precision=precision).map(
-                        lambda estimate: estimate.replicates / area
-                    )
-                    if self.hairs.enabled
-                    else Ok(empty)
-                )
-                gate = (
-                    integrated(self.gate.value, lambda points: self.gate.value.sampled(points, extent, seed=self.seed), rectangle, precision=precision).map(
-                        lambda estimate: estimate.replicates[:, None] / area
-                    )
-                    if self.gate.enabled
-                    else Ok(np.ones((precision.replicates, 1), dtype=np.float64))
-                )
-                return accumulated((spots, scratches, hairs, gate)).map(lambda values: estimated(np.concatenate(values, axis=1), precision))
-        except (FloatingPointError, MemoryError, OverflowError, ValueError) as error:
-            return Error((ImagingGeneratorFault(request=self, error=error),))
+                if self.gate.enabled
+                else Ok(np.ones((precision.replicates, 1), dtype=np.float64))
+            )
+            return accumulated((spots, scratches, hairs, gate)).map(lambda values: Estimate.of(np.concatenate(values, axis=1), precision))
+
+        return guarded(ImagingNumericFault, self, computed)
 
     def applied(
         self, source: OpenImageIO.ImageBuf, bounds: tuple[float, float, float, float], extent: tuple[float, float], clock: float, *, precision: Precision
@@ -353,16 +314,6 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
         Returns:
             Native result RGBA and scalar damage key, with joint replicate error or provider faults.
         """
-
-        def located(values: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
-            image = OpenImageIO.ImageBuf(values)
-            image.copy_metadata(source)
-            image.set_origin(source.xbegin, source.ybegin, source.zbegin)
-            image.roi_full = source.roi_full
-            return ImagingBufferFault.checked(image)
-
-        def pixels(image: OpenImageIO.ImageBuf) -> ImagingResult[npt.NDArray[np.float32]]:
-            return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=image, error=image.geterror()),))
 
         def processed(plane: npt.NDArray[np.float32]) -> ImagingResult[Estimate[tuple[OpenImageIO.ImageBuf, OpenImageIO.ImageBuf]]]:
             left, bottom, right, top = bounds
@@ -387,9 +338,10 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
                 transform = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, float(shift[0] / step_x), float(-shift[1] / step_y), 1.0)
                 moved = (
                     accumulated(
-                        located(replicate.astype(np.float32))
+                        ImagingBufferFault
+                        .located(replicate.astype(np.float32), source)
                         .bind(lambda image: ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, False, "clamp")))
-                        .bind(pixels)
+                        .bind(ImagingBufferFault.pixels)
                         for replicate in marked
                     )
                     if self.weave.enabled
@@ -399,37 +351,30 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
                 def gated(replicates: tuple[npt.NDArray[np.float32], ...]) -> ImagingResult[Estimate[tuple[OpenImageIO.ImageBuf, OpenImageIO.ImageBuf]]]:
                     result = np.stack(replicates).astype(np.float64)
                     gate = fields[..., 6:]
-                    color = np.array((self.gate.value.color.red, self.gate.value.color.green, self.gate.value.color.blue))
+                    color = np.array(self.gate.value.color)
                     result[..., :3] = result[..., :3] * gate + color * result[..., 3:4] * (1.0 - gate)
                     result[..., 4:] = 1.0 - (1.0 - result[..., 4:]) * gate
-                    estimate = estimated(result, precision)
-                    return paired(located(estimate.value[..., :4].astype(np.float32)), located(estimate.value[..., 4:].astype(np.float32))).map(
-                        lambda images: Estimate(value=images, standard_error=estimate.standard_error, precision=precision, replicates=result)
+                    estimate = Estimate.of(result, precision)
+                    return paired(ImagingBufferFault.located(estimate.value[..., :4].astype(np.float32), source), ImagingBufferFault.located(estimate.value[..., 4:].astype(np.float32), source)).map(
+                        estimate.carrying
                     )
 
                 return moved.bind(gated)
 
             return paired(fields, displacement).bind(composed)
 
-        try:
-            with np.errstate(over="raise", divide="raise", invalid="raise"):
-                return pixels(source).bind(processed)
-        except (FloatingPointError, ValueError) as error:
-            return Error((ImagingGeneratorFault(request=self, error=error),))
-        except (TypeError, OverflowError, MemoryError) as error:
-            return Error((ImagingRepresentationFault(request=self, error=error),))
+        return guarded(ImagingNumericFault, self, lambda: ImagingBufferFault.pixels(source).bind(processed))
 
 
 class Flicker(Effect, frozen=True, kw_only=True, tag=47):
     """Lamp variation as a spatially uniform scene-linear exposure in stops."""
 
     stage = Stage.EXPOSURE
-    title = "Flicker"
     pointwise = True
     motion: Motion = Motion()
     seed: Seed = 0
-    amplitude: Annotated[Stops, msgspec.Meta(title="Amplitude", description="Signed maximum exposure variation in stops")] = 0.05
-    rate: Annotated[_Nonnegative, msgspec.Meta(title="Rate", description="Lamp evolution in cells per motion frame"), Presentation(soft=Some((0.0, 10.0)))] = 2.5
+    amplitude: Annotated[Stops, msgspec.Meta(description="Signed maximum exposure variation in stops")] = 0.05
+    rate: Annotated[NonNegative, msgspec.Meta(description="Lamp evolution in cells per motion frame"), Presentation(soft=Some((0.0, 10.0)))] = 2.5
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

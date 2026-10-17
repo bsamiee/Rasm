@@ -14,6 +14,7 @@
         "**/.artifacts/**": true,
         "**/.cache/**": true,
         "**/.venv/**": true,
+        "**/docs/research/**": true,
         "**/node_modules/**": true
     },
 
@@ -43,6 +44,7 @@
     // --- [TYPESCRIPT] ------------------------------------------------------------------
     "js/ts.experimental.useTsgo": true,
     "js/ts.tsdk.path": "./node_modules/typescript",
+    "js/ts.trace.server": "off",
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 
     // --- [DOTNET] ----------------------------------------------------------------------
@@ -58,6 +60,7 @@
     // --- [SWIFT] -----------------------------------------------------------------------
     "swift.buildPath": "${workspaceFolder}/.cache/swiftpm/vscode",
     "swift.searchSubfoldersForPackages": true,
+    "swift.ignoreSearchingForPackagesInSubfolders": [ ".", ".build", "Packages", "out", "bazel-out", "bazel-bin", "research" ],
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.jdt.ls.java.home": "~/.local/share/mise/installs/java/latest",

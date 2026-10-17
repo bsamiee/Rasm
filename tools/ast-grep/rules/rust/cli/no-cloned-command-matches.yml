@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cloned-command-matches
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(get_matches|try_get_matches_from)$', pattern: $METHOD}}
+        - pattern: $COMMAND.clone().$METHOD($$$)
+        - inside:
+            kind: 'function_item, closure_expression'
+            stopBy: &owner {kind: 'function_item, closure_expression'}
+            has:
+                stopBy: *owner
+                kind: let_declaration
+                all:
+                    - has: {field: pattern, kind: identifier, pattern: $COMMAND}
+                    - has: {field: value, kind: call_expression}
+constraints:
+    COMMAND: {kind: identifier}
+message: '`$COMMAND` is cloned to keep the command readable after `$METHOD` consumes it'
+note: 'Bind `let mut <command>` and call `get_matches_mut()` or `try_get_matches_from_mut(<arguments>)`, clap parses through `&mut Command` and leaves the built command readable. A command bound to a reference, field, or parameter stays'

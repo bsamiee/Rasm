@@ -6,7 +6,6 @@ namespace Rasm.Drafting;
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidDrafting>]
 public sealed partial class LetteringForm {
     public static readonly LetteringForm TypeA = new("type-a", divisor: 14, xHeight: 10, pitch: 21);
     public static readonly LetteringForm TypeB = new("type-b", divisor: 10, xHeight: 7, pitch: 15);
@@ -18,20 +17,19 @@ public sealed partial class LetteringForm {
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringStandard {
-    public static readonly LetteringStandard Iso3098 = new(static () => SheetSize.A2, Length.FromMillimeters(2.5m), Length.FromMillimeters(3.5m));
-    public static readonly LetteringStandard AsmeY142 = new(static () => SheetSize.AnsiC, Length.FromInches(0.12m), Length.FromInches(0.16m));
+    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m),
+        height: static size => size.Sides.Long <= SheetSize.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
+    public static readonly LetteringStandard AsmeY142 = new(zoneHeight: Length.FromInches(0.24m), height: static _ => Length.FromInches(0.12m));
 
-    private readonly Func<SheetSize> _largestSmallSheet;
-    private readonly Length _smallSheetHeight;
-    private readonly Length _largeSheetHeight;
+    public Length ZoneHeight { get; }
 
-    public Length Height(SheetSize size) => size.Sides.Long <= _largestSmallSheet().Sides.Long ? _smallSheetHeight : _largeSheetHeight;
+    [UseDelegateFromConstructor]
+    public partial Length Height(SheetSize size);
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidDrafting>]
 public sealed partial class Terminator {
     public static readonly Terminator ClosedArrow = new("closed-arrow", proportion: 1);
     public static readonly Terminator OpenArrow = new("open-arrow", proportion: 1);
@@ -43,7 +41,7 @@ public sealed partial class Terminator {
 
 public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator Terminator, DrawingScale Scale) {
     // --- [LETTERING]
-    public Length TextHeight => Size.Series.Convention.Lettering.Height(Size);
+    public Length TextHeight => Size.Convention.Lettering.Height(Size);
     public Length TextGap => Stroke * 2;
     public Length BaselineSpacing => Stroke * Form.Pitch;
     public QuantityValue LineSpaceScale => QuantityValue.FromTerms(Form.Pitch, Form.Divisor);
@@ -64,8 +62,8 @@ public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator
     public int LengthResolution => Places(Length.FromInches(1), radix: 2);
     public int AlternateLengthResolution => Places(Length.FromMillimeters(1), radix: 10);
 
-    private int Places(Length extent, int radix) =>
-        Scale.ToModel(Stroke) switch {
-            var quantum => LanguageExt.List.unfold(extent, place => place > quantum ? Some((place, place / radix)) : None).Count(),
-        };
+    private int Places(Length extent, int radix) {
+        Length quantum = Scale.ToModel(Stroke);
+        return LanguageExt.List.unfold(extent, place => place > quantum ? Some((place, place / radix)) : None).Count();
+    }
 }

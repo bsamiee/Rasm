@@ -3,7 +3,7 @@ use core::iter;
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     fn_def_id, is_default_equivalent,
-    paths::{PathNS, lookup_path_str},
+    paths::PathNS,
     peel_blocks,
     res::{MaybeDef as _, MaybeResPath as _, MaybeTypeckRes as _},
     source::snippet_with_context,
@@ -24,7 +24,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, AdtDef, GenericArg, Ty, TyCtxt};
 use rustc_span::Span;
 
-use crate::{accessed_field, boxed_future};
+use crate::{accessed_field, boxed_future, derives, path};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -44,43 +44,31 @@ impl_lint_pass!(ManualLanguageFeature => [MANUAL_LANGUAGE_FEATURE]);
 
 impl ManualLanguageFeature {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
-        Self {
-            views: [sym::string_as_str, sym::vec_as_slice]
-                .into_iter()
-                .filter_map(|name| tcx.get_diagnostic_item(name))
-                .chain(lookup_path_str(tcx, PathNS::Value, "core::option::Option::as_deref"))
-                .collect(),
-        }
+        Self { views: [sym::string_as_str, sym::vec_as_slice].into_iter().filter_map(|name| tcx.get_diagnostic_item(name)).chain(path(tcx, PathNS::Value, "core::option::Option::as_deref")).collect() }
     }
 
     fn deref_scrutinee<'tcx>(&self, cx: &LateContext<'tcx>, scrutinee: &'tcx Expr<'tcx>) {
         fn derefs_purely<'tcx>(cx: &LateContext<'tcx>, owned: Ty<'tcx>) -> bool { cx.tcx.lang_items().deref_pure_trait().is_some_and(|pure| implements_trait(cx, owned, pure, &[])) }
 
         let typeck = cx.typeck_results();
-        let viewed = if let ExprKind::MethodCall(view, receiver, [], _) = scrutinee.kind
-            && cx.ty_based_def(scrutinee).opt_def_id().is_some_and(|resolved| self.views.contains(&resolved))
-            && let received = typeck.expr_ty(receiver).peel_refs()
-            && derefs_purely(cx, option_arg_ty(cx, received).unwrap_or(received))
-        {
-            Some((receiver, format!("`{}`", view.ident)))
-        } else if let ExprKind::AddrOf(BorrowKind::Ref, Mutability::Not, dereferenced) = scrutinee.kind
-            && let ExprKind::Unary(UnOp::Deref, owner) = dereferenced.kind
-            && let owned = typeck.expr_ty(owner)
-            && !owned.is_ref()
-            && derefs_purely(cx, owned)
-        {
-            Some((
-                if let ExprKind::Unary(UnOp::Deref, referenced) = owner.kind
-                    && typeck.expr_ty(referenced).is_ref()
-                {
-                    referenced
-                } else {
-                    owner
-                },
-                "`&*`".to_owned(),
-            ))
-        } else {
-            None
+        let viewed = match scrutinee.kind {
+            ExprKind::MethodCall(view, receiver, [], _)
+                if cx.ty_based_def(scrutinee).opt_def_id().is_some_and(|resolved| self.views.contains(&resolved))
+                    && let received = typeck.expr_ty(receiver).peel_refs()
+                    && derefs_purely(cx, option_arg_ty(cx, received).unwrap_or(received)) =>
+                Some((receiver, format!("`{}`", view.ident))),
+            ExprKind::AddrOf(BorrowKind::Ref, Mutability::Not, &Expr { kind: ExprKind::Unary(UnOp::Deref, owner), .. })
+                if let owned = typeck.expr_ty(owner)
+                    && !owned.is_ref()
+                    && derefs_purely(cx, owned) =>
+                Some((
+                    match owner.kind {
+                        ExprKind::Unary(UnOp::Deref, referenced) if typeck.expr_ty(referenced).is_ref() => referenced,
+                        _ => owner,
+                    },
+                    "`&*`".to_owned(),
+                )),
+            _ => None,
         };
         if let Some((receiver, view)) = viewed {
             let mut applicability = Applicability::MaybeIncorrect;
@@ -211,15 +199,7 @@ impl<'tcx> LateLintPass<'tcx> for ManualLanguageFeature {
                 && written.len() < declared.len()
                 && declared.iter_enumerated().all(|(index, field)| written.contains(&index) || field.value.is_some())
             {
-                let applicability = if cx
-                    .tcx
-                    .get_diagnostic_item(sym::Default)
-                    .is_some_and(|default| cx.tcx.non_blanket_impls_for_ty(default, built).any(|implementation| cx.tcx.is_automatically_derived(implementation)))
-                {
-                    Applicability::MachineApplicable
-                } else {
-                    Applicability::MaybeIncorrect
-                };
+                let applicability = if derives(cx, built, sym::Default) { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect };
                 span_lint_hir_and_then(cx, MANUAL_LANGUAGE_FEATURE, expr.hir_id, base.span, "`..Default::default()` fills fields that declare their own default values", |diag| {
                     diag.span_suggestion(base.span, "write `..` to take each field's declared default", "", applicability);
                 });

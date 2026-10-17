@@ -46,7 +46,7 @@ public abstract partial record AnalysisDefinition {
                 from mesh in Optional(entry.Mesh).ToSeq()
                 select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => scale.ColorAt(Measure(obj, entry.Face, mesh, vertex))).ToArray()))
             from painted in IO.lift(() => Callbacks.Each(colors, static (entry, _) =>
-                RefusedElement.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))
+                Refused.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))
             select unit;
     }
 
@@ -143,7 +143,7 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
 public static class AnalysisModes {
     // --- [REGISTRATION]
     public static IO<VisualAnalysisMode> Register<TMode>() where TMode : DefinedAnalysisMode, new() =>
-        IO.lift(static () => MissingGuid.Unless(typeof(TMode)).Map(static _ => VisualAnalysisMode.Register(typeof(TMode))));
+        IO.lift(static () => VisualAnalysisMode.Register(typeof(TMode)));
 
     // --- [OBJECTS]
     public static IO<Unit> Enable(RhinoDoc doc, Seq<RhinoObject> objects, VisualAnalysisMode mode, bool enabled, RedrawPolicy redraw) =>

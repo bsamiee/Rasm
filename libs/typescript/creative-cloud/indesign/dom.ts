@@ -3,12 +3,30 @@ import indesign from 'adobe:indesign';
 import { Array, Cache, Context, Effect, flow, identity, Layer, Match, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import { isNonEmpty } from 'effect/String';
-import { InDesignError, Inspect, type Refusal } from './contract.ts';
+import { InDesignError, Inspect, missing, type Refusal, type Specifier, thrown } from './contract.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Untranslatable = Pick<(typeof Refusal.cases.Untranslatable)['Type'], '_tag' | 'pattern' | 'constructs'>;
-type Row = readonly [path: readonly string[], field: string, name: string, value: unknown, candidates: readonly (readonly [enumeration: string, member: string])[]];
+interface Host {
+    readonly constructorName: string;
+    readonly toSpecifier: () => typeof Specifier.Type;
+    readonly [field: string]: unknown;
+}
+interface Collection {
+    readonly constructorName: string;
+    readonly length: number;
+    readonly item: (key: unknown) => unknown;
+    readonly everyItem: () => Host | undefined;
+}
+interface Leaf {
+    readonly path: readonly string[];
+    readonly type: string;
+    readonly field: string;
+    readonly name: string;
+    readonly value: unknown;
+}
+type Row = Omit<Leaf, 'type'> & { readonly candidates: readonly { readonly enumeration: string; readonly member: string }[] };
 type Checks = Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (value: unknown) => Effect.Effect<readonly [value: unknown, notes: readonly string[]], Untranslatable>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -21,14 +39,9 @@ const SEPARATORS = /[^a-z0-9]/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Callable = Schema.declare(Predicate.isFunction);
-const Hosted = Schema.StructWithRest(Schema.Struct({ constructorName: Schema.String, toSpecifier: Callable }), [Schema.Record(Schema.String, Schema.Unknown)]);
-const Collection = Schema.Struct({ constructorName: Schema.String, length: Schema.Int, item: Callable, itemByRange: Callable, everyItem: Callable });
 const Typed = [Schema.String, Schema.String, Schema.String, Schema.Boolean, Schema.Array(Schema.Finite)] as const;
 const Parameter = Schema.Tuple([...Typed, Schema.Boolean]);
 const Rows = Schema.NullOr(Schema.Tuple([Schema.String, Schema.Array(Parameter), Schema.Array(Schema.Tuple([...Typed, Schema.Array(Parameter)])), Schema.Array(Parameter)]));
-
-type Host = typeof Hosted.Type;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -87,23 +100,17 @@ class Model extends Context.Service<Model>()('@rasm/indesign/dom/Model', {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const exported = Array.map(Object.getOwnPropertyNames(indesign), (name) => [name, Reflect.get(indesign, name)] as const);
-const owning = (member: string): readonly (readonly [string, { readonly prototype: unknown }])[] => Array.flatMap(exported, ([name, type]) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? [[name, type] as const] : []));
-const host = (
-    (held: ReadonlySet<unknown>) =>
-    (value: unknown): value is Host =>
-        Predicate.isObject(value) && held.has(Object.getPrototypeOf(value))
-)(new Set(Array.map(owning('toSpecifier'), ([, type]) => type.prototype)));
+const owning = <A>(member: string): { readonly names: ReadonlySet<string>; readonly owns: (value: unknown) => value is A } => {
+    const owners = Array.flatMap(exported, ([name, type]) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? [[name, type.prototype] as const] : []));
+    const held = new Set(Array.map(owners, ([, prototype]) => prototype));
+    return { names: new Set(Array.map(owners, ([name]) => name)), owns: (value): value is A => Predicate.isObject(value) && held.has(Object.getPrototypeOf(value)) };
+};
+const { owns: host } = owning<Host>('toSpecifier');
+const { names: plurals, owns: collection } = owning<Collection>('everyItem');
+const { owns: addable } = owning<Collection & { readonly add: (...values: readonly unknown[]) => unknown }>('add');
 const classes = new Set(Array.flatMap(exported, ([name, type]) => (Predicate.isFunction(type) ? [name] : [])));
-const collected = owning('everyItem');
-const plurals = new Set(Array.map(collected, ([name]) => name));
-const collection = (
-    (held: ReadonlySet<unknown>) =>
-    (value: unknown): value is typeof Collection.Type =>
-        Predicate.isObject(value) && held.has(Object.getPrototypeOf(value))
-)(new Set(Array.map(collected, ([, type]) => type.prototype)));
+const noted = (name: string, given: unknown, accepted: unknown): string => `${name} = ${JSON.stringify(given)} assigned ${String(accepted)}`;
 const record = (value: unknown): value is Record.ReadonlyRecord<string, unknown> => Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype;
-const thrown = (cause: unknown): InDesignError => InDesignError.make({ reason: { _tag: 'Thrown', cause, line: Option.none(), source: Option.none(), corrections: Option.none(), kept: false } });
-const missing = (subject: string, query: string, candidates: readonly string[]): InDesignError => InDesignError.make({ reason: { _tag: 'Missing', subject, query, candidates, range: Option.none() } });
 const members = (enumeration: Enumeration): readonly Enumerator[] =>
     Array.flatMap(Object.getOwnPropertyNames(Object.getPrototypeOf(enumeration)), (key) => {
         const member: unknown = Reflect.get(enumeration, key);
@@ -148,17 +155,6 @@ const active = Effect.try({ try: () => indesign.app.activeDocument, catch: () =>
 const located = (path: string): Effect.Effect<Option.Option<Host | readonly Host[]>> =>
     Effect.sync(() => Option.filter(Option.liftThrowable((): unknown => indesign.app.doScript('resolve(arguments[0])', indesign.ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is Host | readonly Host[] => host(found) || (Array.isArray(found) && Array.every(found, host))));
 const corrections = (value: unknown): Effect.Effect<readonly unknown[]> => (Predicate.isString(value) ? Effect.map(located(value), (object) => [...Option.toArray(object), ...Array.map(named(value), ([, member]) => member)]) : Effect.succeed([]));
-const wired = (value: unknown): unknown =>
-    Match.value(value).pipe(
-        Match.when(Schema.is(Schema.Array(Schema.Unknown)), (items) => ['[', ...Array.map(items, wired)]),
-        Match.when(record, (fields) => ['{', ...Array.flatMap(Object.entries(fields), ([field, held]) => [field, wired(held)])]),
-        Match.orElse(identity),
-    );
-const unwired = (value: unknown): unknown =>
-    Match.value(value).pipe(
-        Match.when(Schema.is(Schema.Array(Schema.Unknown)), ([tag, ...items]) => (tag === '[' ? Array.map(items, unwired) : Object.fromEntries(Array.map(Array.chunksOf(items, 2), ([field, held]) => [String(field), unwired(held)])))),
-        Match.orElse(identity),
-    );
 
 const resolve = Effect.fn('resolve')(function* (specifier: string) {
     const model = yield* Model;
@@ -186,14 +182,14 @@ const resolve = Effect.fn('resolve')(function* (specifier: string) {
         }),
     });
 });
-const leaves = (owner: object, fields: Record.ReadonlyRecord<string, unknown>, path: readonly string[]): readonly { readonly owner: object; readonly path: readonly string[]; readonly type: string; readonly field: string; readonly name: string; readonly value: unknown }[] =>
+const leaves = (owner: object, fields: Record.ReadonlyRecord<string, unknown>, path: readonly string[]): readonly (Leaf & { readonly owner: object })[] =>
     Array.flatMap(Object.entries(fields), ([field, value]) => {
         const inner: unknown = record(value) ? Reflect.get(owner, field) : undefined;
         return record(value) && host(inner) ? leaves(inner, value, [...path, field]) : [{ owner, path, type: host(owner) ? owner.constructorName : '', field, name: Array.join([...path, field], '.'), value }];
     });
 const screened =
     (checks: Checks, at: (typeof Refusal.Type)['target']) =>
-    ({ type, field, name, value }: { readonly type: string; readonly field: string; readonly name: string; readonly value: unknown }): Effect.Effect<readonly [unknown, readonly string[]], typeof Refusal.Type> =>
+    ({ type, field, name, value }: Leaf): Effect.Effect<readonly [unknown, readonly string[]], typeof Refusal.Type> =>
         Option.match(Option.flatMap(Record.get(checks, type), Record.get(field)), {
             onNone: () => Effect.succeed([value, []] as const),
             onSome: (check) =>
@@ -203,9 +199,7 @@ const screened =
                 }),
         });
 const prepared = (owner: object | string, values: Record.ReadonlyRecord<string, unknown>, checks: Checks): Effect.Effect<{ readonly rows: readonly Row[]; readonly refusals: readonly (typeof Refusal.Type)[]; readonly notes: readonly string[] }> => {
-    const listed: readonly { readonly path: readonly string[]; readonly type: string; readonly field: string; readonly name: string; readonly value: unknown }[] = Predicate.isString(owner)
-        ? Array.map(Object.entries(values), ([field, value]) => ({ path: [], type: owner, field, name: field, value }))
-        : leaves(owner, values, []);
+    const listed: readonly Leaf[] = Predicate.isString(owner) ? Array.map(Object.entries(values), ([field, value]) => ({ path: [], type: owner, field, name: field, value })) : leaves(owner, values, []);
     return Effect.map(
         Effect.partition(listed, (leaf) =>
             Effect.map(
@@ -213,7 +207,7 @@ const prepared = (owner: object | string, values: Record.ReadonlyRecord<string, 
                     checks,
                     Option.map(Option.liftPredicate(owner, host), (root) => root.toSpecifier()),
                 )(leaf),
-                ([value, notes]) => ({ notes, row: [leaf.path, leaf.field, leaf.name, value, Predicate.isString(value) ? Array.map(named(value), ([enumeration, member]) => [enumeration, String(member)] as const) : []] as const }),
+                ([value, notes]) => ({ notes, row: { ...Struct.pick(leaf, ['path', 'field', 'name']), value, candidates: Predicate.isString(value) ? Array.map(named(value), ([enumeration, member]) => ({ enumeration, member: String(member) })) : [] } }),
             ),
         ),
         ([kept, refusals]) => ({ refusals, notes: Array.flatMap(kept, Struct.get('notes')), rows: Array.map(kept, Struct.get('row')) }),
@@ -230,11 +224,11 @@ const write = Effect.fn('write')(function* (target: object, values: Record.Reado
                     Effect.flatMap(corrections(given), Effect.findFirst(flow(put, Effect.isSuccess))),
                     Option.match({
                         onNone: () => Effect.fail(refused),
-                        onSome: (accepted) => Effect.succeed(Option.liftPredicate(`${name} = ${JSON.stringify(given)} assigned ${String(accepted)}`, () => accepted instanceof indesign.Enumerator)),
+                        onSome: (accepted) => Effect.succeed(Option.liftPredicate(noted(name, given, accepted), () => accepted instanceof indesign.Enumerator)),
                     }),
                 ),
             );
-        return Effect.flatMap(screened(checks, at)(leaf), ([given, noted]) => Effect.map(placed(given), (assigned) => [...noted, ...Option.toArray(assigned)]));
+        return Effect.flatMap(screened(checks, at)(leaf), ([given, notes]) => Effect.map(placed(given), (assigned) => [...notes, ...Option.toArray(assigned)]));
     }).pipe(Effect.mapError((fields) => InDesignError.make({ reason: { _tag: 'Rejected', fields } })));
     return Array.flatten(written);
 });
@@ -251,7 +245,7 @@ const inspect = Effect.fn('inspect')(function* (target: string, fields: Rpc.Payl
     const { app, ScriptLanguage } = indesign;
     const model = yield* Model;
     const styling =
-        'var target = resolve(arguments[0]), names = [], kept = [], done = false, methods = ["clearOverrides", "clearObjectStyleOverrides", "clearCellStyleOverrides", "clearTableStyleOverrides"]; for (var at = 1; at < arguments.length; at++) names.push(arguments[at]); try { app.doScript(function () { var cleared = 0; for (var each = 0; each < methods.length; each++) if (typeof target[methods[each]] === "function") { target[methods[each]](); cleared++; } kept = cleared === 0 ? null : []; for (var name = 0; kept !== null && name < names.length; name++) kept.push(target[names[name]]); done = true; throw 0; }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT); } catch (error) { if (!done) throw error; } kept';
+        'var target = resolve(arguments[0]), settings = app.scriptPreferences, unit = settings.measurementUnit, names = [], kept = [], done = false, methods = ["clearOverrides", "clearObjectStyleOverrides", "clearCellStyleOverrides", "clearTableStyleOverrides"]; for (var at = 1; at < arguments.length; at++) names.push(arguments[at]); settings.measurementUnit = MeasurementUnits.POINTS; try { app.doScript(function () { var cleared = 0; for (var each = 0; each < methods.length; each++) if (typeof target[methods[each]] === "function") { target[methods[each]](); cleared++; } kept = cleared === 0 ? null : []; for (var name = 0; kept !== null && name < names.length; name++) kept.push(target[names[name]]); done = true; throw 0; }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT); } catch (error) { if (!done) throw error; } finally { settings.measurementUnit = unit; } kept';
     const names = Array.map(exported, ([name]) => name);
     const wanted = Option.getOrElse(fields, (): readonly string[] => []);
     const typed = (type: string | undefined): Option.Option<string> => Option.filter(Option.fromUndefinedOr(type), (name) => classes.has(name));
@@ -394,4 +388,4 @@ const inspect = Effect.fn('inspect')(function* (target: string, fields: Rpc.Payl
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { active, Callable, type Checks, collection, encoded, exported, type Host, host, inspect, LAST_STEP, Model, missing, plurals, prepared, read, record, resolve, scope, thrown, type Untranslatable, unwired, wired, write };
+export { active, addable, type Checks, collection, encoded, exported, type Host, host, inspect, LAST_STEP, Model, noted, plurals, prepared, read, record, resolve, scope, type Untranslatable, write };

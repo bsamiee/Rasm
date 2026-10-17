@@ -1,4 +1,4 @@
-import { basename, declared, type Given, type Invocation, invocations, operands, segments, unquoted, within } from './invocation.ts';
+import { basename, declared, type Given, type Invocation, informational, invocations, operands, segments, unquoted, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -9,7 +9,6 @@ type Exclusion = { readonly kind: 'path'; readonly path: string } | { readonly k
 
 interface Declared {
     readonly executor?: string;
-    readonly cache?: boolean;
     readonly defaultConfiguration?: string;
     readonly options?: { readonly command?: string; readonly commands?: readonly Line[]; readonly args?: Args; readonly cwd?: string };
     readonly configurations?: { readonly [name: string]: { readonly args?: Args } };
@@ -21,15 +20,13 @@ interface Task {
     readonly project: string;
     readonly target: string;
     readonly sole: boolean;
-    readonly cache: boolean;
     readonly cwd: string;
-    readonly wrappers: readonly string[];
+    readonly launchers: readonly Invocation[];
     readonly tool: readonly string[];
     readonly command: readonly string[];
     readonly passed: readonly string[];
     readonly include: readonly string[];
     readonly exclude: readonly Exclusion[];
-    readonly pinned: readonly string[];
     readonly options: readonly string[];
     readonly values: readonly Given[];
     readonly varied: readonly string[];
@@ -49,10 +46,12 @@ interface Route {
     readonly forwarded: readonly number[];
     readonly form: string;
     readonly notice: string;
+    readonly lacking: readonly string[];
 }
 interface Routing {
     readonly routes: readonly Route[];
     readonly denials: readonly string[];
+    readonly launchers: readonly Invocation[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -67,6 +66,18 @@ const _MEMBER = /<Project\b[^>]*\bPath="(?<path>[^"]+)"/gu;
 
 const _absolute = (base: string, path: string): string => `/${segments(path.startsWith('/') ? path : `${base}/${path}`).join('/')}`;
 const _folder = (path: string): string => `/${segments(path).slice(0, -1).join('/')}`;
+
+const _base = (program: string, values: readonly Given[], cwd: string): string => {
+    const { relocations = [], manifests = [] } = declared(program);
+    const moved = values.findLast(([name]) => relocations.includes(name))?.[1] ?? '.';
+    return manifests.some((suffix) => moved.endsWith(suffix)) ? _folder(_absolute(cwd, moved)) : _absolute(cwd, moved);
+};
+
+const _members = (path: string, listed: string): readonly string[] =>
+    listed
+        .matchAll(_MEMBER)
+        .map(({ groups }) => _folder(_absolute(_folder(path), (groups?.path ?? '').replaceAll('\\', '/'))))
+        .toArray();
 
 // --- [CATALOG]
 
@@ -98,27 +109,26 @@ const _tasks = (root: string, project: string, target: string, entry: Declared):
             .toArray();
     const args = (typeof entry.defaultConfiguration === 'string' ? entry.configurations?.[entry.defaultConfiguration]?.args : undefined) ?? entry.options?.args ?? [];
     const lines: readonly (Line | undefined)[] = entry.executor === 'nx:run-commands' ? (entry.options?.commands ?? [entry.options?.command]) : [undefined];
-    const cwd = _absolute(root, entry.options?.cwd ?? '.');
+    const folder = _absolute(root, entry.options?.cwd ?? '.');
     return lines.map((line) => {
         const [command, given] = typeof line === 'object' ? [line.command, line.forwardAllArgs === false ? [] : args] : [line, args];
         const plain = command !== undefined && _PLAIN.test(command) && (typeof given !== 'string' || _PLAIN.test(given));
         const chain = plain ? invocations([...words(command), ...(typeof given === 'string' ? words(given) : given)]) : [];
         const tool = chain.at(-1);
         const parsed: Parsed = tool === undefined ? { inputs: [], words: [], passed: [], options: [], values: [] } : _parsed(tool);
-        const { commands = parsed.words.length, excludes = [], patterns = [], pins = [] } = tool === undefined ? {} : declared(tool[0]);
+        const { commands = parsed.words.length, excludes = [], patterns = [] } = tool === undefined ? {} : declared(tool[0]);
+        const cwd = tool === undefined ? folder : _base(tool[0], parsed.values, folder);
         return {
             project,
             target,
             sole: lines.length === 1,
-            cache: entry.cache === true,
             cwd,
-            wrappers: chain.slice(0, -1).map(([program]) => program),
+            launchers: chain.slice(0, -1),
             tool: tool ?? [],
             command: parsed.words.slice(0, commands),
             passed: parsed.passed,
             include: parsed.words.slice(commands).map((path) => _absolute(cwd, path)),
             exclude: parsed.values.flatMap(([name, value]) => [...(excludes.includes(name) ? [_exclusion(cwd, value, 'path')] : []), ...(patterns.includes(name) ? [_exclusion(cwd, value, 'pattern')] : [])]),
-            pinned: parsed.options.filter((name) => pins.includes(name)),
             options: parsed.options,
             values: parsed.values,
         };
@@ -166,15 +176,7 @@ const _scope = (words: Invocation, extra: readonly number[], cwd: string, files:
     const path = _absolute(cwd, only);
     const listed = files.get(path);
     if (suffixes.some((suffix) => only.endsWith(suffix))) {
-        return listed === undefined
-            ? { kind: 'none' }
-            : {
-                  kind: 'every',
-                  folders: listed
-                      .matchAll(_MEMBER)
-                      .map(({ groups }) => _folder(_absolute(_folder(path), (groups?.path ?? '').replaceAll('\\', '/'))))
-                      .toArray(),
-              };
+        return listed === undefined ? { kind: 'none' } : { kind: 'every', folders: _members(path, listed) };
     }
     if (manifests.some((suffix) => only.endsWith(suffix))) {
         return { kind: 'at', cwd: _folder(path), forwarded: [] };
@@ -197,15 +199,13 @@ const _covers = (root: string, task: Task, path: string): boolean => {
     return !excluded && (task.include.length === 0 ? [task.cwd] : task.include).some((folder) => within(path, folder) || within(folder, path));
 };
 
-const _routed = (owned: Catalog, words: Invocation, cwd: string, files: ReadonlyMap<string, string>, strict: boolean): readonly Route[] => {
+const _routed = (owned: Catalog, words: Invocation, call: Parsed, base: string, files: ReadonlyMap<string, string>, strict: boolean): readonly Route[] => {
     const [program] = words;
-    const { spans = [], relocations = [], manifests = [] } = declared(program);
-    const call = _parsed(words);
-    const moved = call.values.findLast(([name]) => relocations.includes(name))?.[1] ?? '.';
-    const base = manifests.some((suffix) => moved.endsWith(suffix)) ? _folder(_absolute(cwd, moved)) : _absolute(cwd, moved);
+    const { spans = [], relocations = [] } = declared(program);
     const spanned = call.options.some((name) => spans.includes(name));
     const candidates = (owned.tools.get(program) ?? []).filter((task) => task.sole && task.command.every((word, at) => words[call.inputs[at] ?? -1] === word) && call.passed.every((word) => task.passed.includes(word)) && task.varied.every((name) => task.options.includes(name) === call.options.includes(name)));
-    const takes = (task: Task): boolean => !strict || (call.options.every((name) => spans.includes(name) || relocations.includes(name) || task.options.includes(name)) && call.values.every(([name, value]) => relocations.includes(name) || task.values.some(([held, given]) => held === name && given === value)));
+    const holds = (task: Task, name: string): boolean => task.values.some(([held, given]) => held === name && call.values.some(([option, value]) => option === name && value === given));
+    const takes = (task: Task): boolean => (!strict || call.options.every((name) => spans.includes(name) || relocations.includes(name) || task.options.includes(name))) && call.values.every(([name]) => relocations.includes(name) || holds(task, name) || !(strict || candidates.some((other) => holds(other, name))));
     const folders = new Set(candidates.map(({ cwd: folder }) => folder));
     const fitted = candidates.flatMap((task) => {
         const scope = _scope(words, call.inputs.slice(task.command.length), base, files, folders);
@@ -227,32 +227,62 @@ const _routed = (owned: Catalog, words: Invocation, cwd: string, files: Readonly
     const projects = [...new Set(tasks.map((task) => task.project))];
     const targets = [...new Set(tasks.map((task) => task.target))].toSorted();
     const { scope, paths } = first;
+    const selected = tasks.every((task) => task.tool.includes(task.project) && words.includes(task.project));
     const omitted = tasks.some((task) => task.tool.includes(task.project) && !words.includes(task.project));
     const same = (owned.tools.get(program) ?? []).filter((task) => targets.includes(task.target));
-    const spanning = scope.kind === 'every' ? scope.folders.every((folder) => tasks.some((task) => task.cwd === folder)) : !(spanned || omitted || projects.length > 1) || tasks.length === same.length;
+    const spanning = scope.kind === 'every' ? scope.folders.every((folder) => tasks.some((task) => task.cwd === folder)) : selected || !(spanned || omitted || projects.length > 1) || tasks.length === same.length;
     const covered = paths.every((path) => tasks.some((task) => _covers(owned.root, task, path)));
     const forwarded = scope.kind === 'at' && tasks.every(({ include }) => include.length === 0) ? scope.forwarded : [];
-    const routable = tasks.every((task) => task.cache || task.wrappers.length > 0 || task.pinned.length > 0);
-    if (!(spanning && covered && routable) || (projects.length > 1 && targets.length > 1)) {
+    const lacking = [
+        ...new Set([
+            ...call.options.filter((name) => !(spans.includes(name) || relocations.includes(name) || tasks.some((task) => task.options.includes(name)))),
+            ...call.values.flatMap(([name, value]) => (relocations.includes(name) || tasks.some((task) => task.values.some(([held, given]) => held === name && given === value)) ? [] : [name])),
+        ]),
+    ];
+    if (!(spanning && covered) || (strict && lacking.length > 0) || (projects.length > 1 && targets.length > 1)) {
         return [];
     }
     const form = projects.length === 1 && targets.length === 1 ? `nx run ${projects.join('')}:${targets.join('')}` : `nx run-many -t ${targets.join(',')} -p ${projects.join(',')}`;
-    return [{ forwarded, form, notice: `${words.join(' ')} ran as ${form}` }];
+    return [{ forwarded, form, notice: `${words.join(' ')} ran as ${form}`, lacking }];
 };
 
 const route = (owned: Catalog, head: Invocation, cwd: string, files: ReadonlyMap<string, string>): Routing => {
     const words: Invocation = [basename(head[0]), ...head.slice(1)];
-    const strict = _routed(owned, words, cwd, files, true);
-    const loose = strict.length > 0 || (declared(words[0]).pins ?? []).length === 0 ? [] : _routed(owned, words, cwd, files, false);
-    const pinning = (owned.tools.get(words[0]) ?? []).filter(({ sole, pinned }) => sole && pinned.length > 0);
-    const { options, values } = _parsed(words);
-    const lacking = [...new Set([...options.filter((name) => !pinning.some((task) => task.options.includes(name))), ...values.flatMap(([name, value]) => (pinning.some((task) => task.values.some(([held, given]) => held === name && given === value)) ? [] : [name]))])];
+    const [program] = words;
+    const { manifests = [], solutions: suffixes = [] } = declared(program);
+    const call = _parsed(words);
+    if (informational(program, call.options)) {
+        return { routes: [], denials: [], launchers: [] };
+    }
+    const base = _base(program, call.values, cwd);
+    const strict = _routed(owned, words, call, base, files, true);
+    const loose = strict.length > 0 ? [] : _routed(owned, words, call, base, files, false);
+    const named = call.words.flatMap((word) => {
+        const path = _absolute(base, word);
+        const listed = files.get(path);
+        if (manifests.some((suffix) => word.endsWith(suffix))) {
+            return [_folder(path)];
+        }
+        return listed === undefined || !suffixes.some((suffix) => word.endsWith(suffix)) ? [] : [_folder(path), ..._members(path, listed)];
+    });
+    const folders = named.length === 0 ? [base] : named;
+    const tasks = (owned.tools.get(program) ?? []).filter(({ sole }) => sole);
+    const related = tasks.filter(({ command }) => command.every((word, at) => call.words[at] === word));
+    const prefixes = new Set(related.map(({ launchers }) => JSON.stringify(launchers)));
+    const local = tasks.filter((task) => task.command.slice(0, Math.max(call.words.length, 1)).every((word, at) => call.words[at] === word) && folders.some((folder) => (task.include.length === 0 ? task.cwd === folder : task.include.some((path) => within(folder, path)))));
+    const owners = manifests.length === 0 ? related : local;
+    const forms = [...new Set(owners.filter((task) => related.includes(task)).map(({ project, target }) => `nx run ${project}:${target}`))];
+    const unowned = strict.length > 0 || loose.length > 0 || owners.length === 0 || !within(base, owned.root);
     return {
         routes: strict,
-        denials: loose.map(({ form, forwarded }) => {
-            const fact = lacking.length === 0 ? `${words.join(' ')} sets an option value its Nx targets differ on` : `No Nx target passes ${lacking.join(' or ')} to ${words[0]}`;
-            return `${fact}. Run ${[form, ...(forwarded.length === 0 ? [] : ['--', ...forwarded.flatMap((index) => words.slice(index, index + 1))])].join(' ')}`;
-        }),
+        denials: [
+            ...loose.map(
+                ({ form, forwarded, lacking }) =>
+                    `${lacking.length === 0 ? `${words.join(' ')} sets an option value its Nx targets differ on` : `No Nx target passes ${lacking.join(' or ')} to ${program}`}. Run ${[form, ...(forwarded.length === 0 ? [] : ['--', ...forwarded.flatMap((index) => words.slice(index, index + 1))])].join(' ')}`,
+            ),
+            ...(unowned ? [] : [`${words.join(' ')} matches no Nx target. ${forms.length > 0 ? `Run ${forms.join(' or ')}` : `nx show project ${[...new Set(owners.map(({ project }) => project))].join(' or ')} lists the targets to run`}`]),
+        ],
+        launchers: prefixes.size === 1 ? (related[0]?.launchers ?? []) : [],
     };
 };
 

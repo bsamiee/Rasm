@@ -4,43 +4,35 @@ namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Start", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ArcLength : System.Numerics.IMinMaxValue<ArcLength> {
     public static ArcLength MinValue { get; } = new(0d);
     public static ArcLength MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Start", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct NormalizedLength : System.Numerics.IMinMaxValue<NormalizedLength> {
     public static NormalizedLength MinValue { get; } = new(0d);
     public static NormalizedLength MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct DerivativeCount : System.Numerics.IMinMaxValue<DerivativeCount> {
     public static DerivativeCount MinValue { get; } = new(0);
     public static DerivativeCount MaxValue { get; } = new(int.MaxValue - 1);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SearchDistance : System.Numerics.IMinMaxValue<SearchDistance> {
     public static SearchDistance MinValue { get; } = new(double.BitIncrement(0d));
     public static SearchDistance MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union<double, ArcLength, NormalizedLength>(T1Name = "CurveParameter", T2Name = "LengthParameter", T3Name = "NormalizedLengthParameter", MapMethods = SwitchMapMethodsGeneration.None)]
@@ -82,7 +74,7 @@ public static class CurveEvaluation {
     public static Fin<double> Resolve(Curve curve, CurveAddress at, string member) =>
         at.Switch(
             (Curve: curve, Member: member),
-            curveParameter: static (state, address) => OutOfDomain.Unless(state.Curve.Domain, address, state.Member),
+            curveParameter: static (state, address) => Conversions.Within(state.Curve.Domain, address, state.Member),
             lengthParameter: static (state, address) => Refused.Unless(state.Curve.LengthParameter(address, out double t), t, nameof(Curve.LengthParameter)),
             normalizedLengthParameter: static (state, address) => Refused.Unless(state.Curve.NormalizedLengthParameter(address, out double t), t, nameof(Curve.NormalizedLengthParameter)));
 
@@ -90,12 +82,12 @@ public static class CurveEvaluation {
     public static Fin<CurveStation> Station(Curve curve, CurveAddress at) =>
         from t in Resolve(curve, at, nameof(Curve.PointAt))
         let read = curve.TangentAt(t)
-        from tangent in InvalidAnswer.Unless(read.IsValid && !read.IsTiny(), read, nameof(Curve.TangentAt))
+        from tangent in Refused.UnlessValid(read.IsValid && !read.IsTiny(), read, nameof(Curve.TangentAt))
         select new CurveStation(CurveSample.Of(curve, t), tangent, curve.CurvatureAt(t));
 
     public static Fin<Seq<Vector3d>> Derivatives(Curve curve, CurveAddress at, DerivativeCount count, CurveEvaluationSide side) =>
         from t in Resolve(curve, at, nameof(Curve.DerivativeAt))
-        from jet in Missing.Unless(curve.DerivativeAt(t, count, side), nameof(Curve.DerivativeAt))
+        from jet in Refused.UnlessFound(curve.DerivativeAt(t, count, side), nameof(Curve.DerivativeAt))
         select toSeq(jet);
 
     public static Fin<double> LengthAt(Curve curve, CurveAddress at) =>
@@ -113,27 +105,27 @@ public static class CurveEvaluation {
         select frame;
 
     public static IO<Seq<Plane>> PerpendicularFrames(Curve curve, Seq<double> parameters) =>
-        from frames in IO.lift(() => Missing.Unless(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames)))
-            .Catch(
-                static error => error.HasException<InvalidOperationException>(),
-                static _ => IO.fail<Plane[]>(new UnorderedParameters()))
-        from complete in IO.lift(CountMismatch.Unless(parameters.Count, frames.Length, nameof(Curve.GetPerpendicularFrames)))
-        select toSeq(frames);
+        from ordered in IO.lift(Fin<Unit> () => parameters.Zip(parameters.Tail).ForAll(static pair => pair.First < pair.Second)
+            ? unit
+            : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Curve.GetPerpendicularFrames)} requires strictly increasing parameters"))
+        from frames in IO.lift(() => Refused.UnlessFound(curve.GetPerpendicularFrames(parameters), nameof(Curve.GetPerpendicularFrames)))
+        from complete in IO.lift(() => Refused.Unless(frames.Length == parameters.Count, toSeq(frames), nameof(Curve.GetPerpendicularFrames)))
+        select complete;
 
     // --- [POINTS]
     public static Fin<Seq<CurveSample>> Points(Curve curve, CurvePointSet set) =>
         set.Switch(
             curve,
             divideByCount: static (source, rule) =>
-                Missing.Unless(source.DivideByCount(rule.SegmentCount, rule.IncludeEnds, out Point3d[] points), nameof(Curve.DivideByCount)).Map(parameters => CurveSample.Of(parameters, points)),
+                Refused.UnlessFound(source.DivideByCount(rule.SegmentCount, rule.IncludeEnds, out Point3d[] points), nameof(Curve.DivideByCount)).Map(parameters => CurveSample.Of(parameters, points)),
             divideByLength: static (source, rule) =>
-                Missing.Unless(source.DivideByLength(rule.SegmentLength, rule.IncludeEnds, rule.Reverse, out Point3d[] points), nameof(Curve.DivideByLength)).Map(parameters => CurveSample.Of(parameters, points)),
+                Refused.UnlessFound(source.DivideByLength(rule.SegmentLength, rule.IncludeEnds, rule.Reverse, out Point3d[] points), nameof(Curve.DivideByLength)).Map(parameters => CurveSample.Of(parameters, points)),
             divideEquidistant: static (source, rule) =>
-                Missing.Unless(source.DivideEquidistant(rule.Distance, out double[] parameters), nameof(Curve.DivideEquidistant)).Map(points => CurveSample.Of(parameters, points)),
+                Refused.UnlessFound(source.DivideEquidistant(rule.Distance, out double[] parameters), nameof(Curve.DivideEquidistant)).Map(points => CurveSample.Of(parameters, points)),
             inflectionPoints: static (source, _) =>
-                Missing.Unless(source.InflectionPoints(out double[] parameters), nameof(Curve.InflectionPoints)).Map(points => CurveSample.Of(parameters, points)),
+                Refused.UnlessFound(source.InflectionPoints(out double[] parameters), nameof(Curve.InflectionPoints)).Map(points => CurveSample.Of(parameters, points)),
             maxCurvaturePoints: static (source, _) =>
-                Missing.Unless(source.MaxCurvaturePoints(out double[] parameters), nameof(Curve.MaxCurvaturePoints)).Map(points => CurveSample.Of(parameters, points)),
+                Refused.UnlessFound(source.MaxCurvaturePoints(out double[] parameters), nameof(Curve.MaxCurvaturePoints)).Map(points => CurveSample.Of(parameters, points)),
             extremeParameters: static (source, rule) =>
                 toSeq(source.ExtremeParameters(rule.Direction)) switch {
                     var parameters => Refused.Unless(!parameters.IsEmpty || source.IsPeriodic, parameters.Map(t => CurveSample.Of(source, t)).Strict(), nameof(Curve.ExtremeParameters)),

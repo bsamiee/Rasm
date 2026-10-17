@@ -6,7 +6,7 @@ rule:
     kind: binary_expression
     all:
         - has: {field: operator, regex: '^\*$'}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - pattern: $D.$SECS() * $THOUSAND
             - pattern: $THOUSAND * $D.$SECS()

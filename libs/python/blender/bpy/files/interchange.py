@@ -15,6 +15,7 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Open, Operator, Save
+from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
@@ -202,7 +203,7 @@ def reconciled(identity: Identity, collection: bpy.types.Collection, exporters: 
             return Ok(None)
 
         def completed(_: tuple[None, ...]) -> BlenderResult[None]:
-            return accumulated(removed(item) for name, item in existing.items() if name not in exporters).map(lambda _: cleanup.pop_all()).map(lambda _: None)
+            return committed(accumulated(removed(item) for name, item in existing.items() if name not in exporters), cleanup).map(lambda _: None)
 
         return accumulated(starmap(placed, exporters.items())).bind(completed)
 

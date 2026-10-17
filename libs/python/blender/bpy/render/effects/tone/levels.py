@@ -41,7 +41,7 @@ def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
 def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
     """Writes covered frame extrema as levels, retaining the entry's blend, and names an undo step where the levels changed."""
     found: BlenderResult[Option[Levels]] = (
-        admitted(PyOpenColorIO.GetCurrentConfig(), (Levels.space,))
+        admitted(PyOpenColorIO.GetCurrentConfig(), ())
         .bind(lambda config: samples_of(config, file.pixels))
         .map(Samples.extent)
         .map(option.bind(lambda extent: Levels.of(extent.low, extent.white)))

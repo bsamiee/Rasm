@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-let-else-destructure
+language: rust
+severity: error
+utils:
+    destructure:
+        kind: 'struct_pattern, tuple_pattern, tuple_struct_pattern'
+    binding:
+        any:
+            - kind: shorthand_field_identifier
+              pattern: $FIELD
+              inside: {kind: field_pattern, not: {has: {kind: mutable_specifier}}, regex: '^\w+$'}
+            - kind: identifier
+              pattern: $FIELD
+              any:
+                - inside: {kind: field_pattern, field: pattern}
+                - inside: {kind: 'tuple_pattern, tuple_struct_pattern', not: {has: {field: type, pattern: $FIELD}}}
+    refuted:
+        kind: let_declaration
+        all:
+            - has: {field: pattern, kind: tuple_struct_pattern, pattern: $REFUTED, all: [{has: {field: type, pattern: $_}}, {has: {kind: identifier, nthChild: 2, pattern: $FIELD}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: value, kind: identifier, pattern: $FIELD}
+            - not: {has: {field: type, pattern: $_}}
+            - has:
+                field: alternative
+                kind: block
+                pattern: $ELSE
+                not:
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: identifier
+                              regex: '^[a-z_]'
+                              not:
+                                any:
+                                    - inside: {kind: 'scoped_identifier, scoped_type_identifier'}
+                                    - inside: {kind: macro_invocation, field: macro}
+                            - kind: string_literal
+                              regex: '\{[a-z_]'
+                            - kind: 'line_comment, block_comment'
+rule:
+    kind: let_declaration
+    all:
+        - has: {field: pattern, matches: destructure, pattern: $PATTERN}
+        - has: {field: value, pattern: $VALUE}
+        - not: {has: {field: alternative, pattern: $_}}
+        - any:
+            - has: {field: type, pattern: $TYPE}
+            - not: {has: {field: type, pattern: $_}}
+        - precedes: {matches: refuted}
+        - has: {field: pattern, has: {stopBy: end, matches: binding}}
+rewriters:
+    - id: shorthand
+      rule: {kind: shorthand_field_identifier, pattern: $FIELD}
+      fix: '$FIELD: $REFUTED'
+    - id: positional
+      rule: {kind: identifier, pattern: $FIELD, not: {inside: {kind: tuple_struct_pattern, field: type}}}
+      fix: $REFUTED
+transform:
+    MERGED: rewrite($PATTERN, rewriters=[shorthand, positional])
+    ANNOTATION:
+        replace: {source: $TYPE, replace: '^(.+)$', by: ': $1'}
+fix:
+    template: let $MERGED$ANNOTATION = $VALUE else $ELSE;
+    expandEnd: {matches: refuted}
+message: '`$FIELD` leaves `$PATTERN` only to be refuted by the next `let ... else`'
+note: 'Refute the field inside the destructuring pattern (`let <struct> { <field>: Some(<field>), .. } = <value> else { .. };`), one `let ... else` binds every field and diverges on the refuted one'

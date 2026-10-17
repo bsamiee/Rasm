@@ -15,12 +15,11 @@ namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipIParsable = true)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StateName {
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
-        validationError = value.Length > 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Length > 0 ? null : new ValidationError("state name is empty");
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -55,7 +54,7 @@ public sealed partial class NamedTable {
     public partial IO<Unit> Delete(RhinoDoc doc, string key);
 
     private static IO<Unit> DeleteSnapshot(RhinoDoc doc, string key) =>
-        from name in IO.lift(() => Conversions.Validated<SnapshotName, string, InvalidRhinoValue>(key))
+        from name in IO.lift(() => SnapshotName.Validated(key))
         from deleted in NamedSnapshots.RunSnapshot(doc, new SnapshotChange.Delete(name))
         select deleted;
 }
@@ -85,7 +84,7 @@ public abstract partial record NamedChange {
 public sealed record NamedPosition(Guid Id, string Name, Seq<(Guid ObjectId, Transform Xform)> Objects);
 
 public sealed record LayerStateRestore(uint Properties, bool ModelProperties, bool ViewportProperties)
-    : IStateRecord<LayerStateRestore, LayerStateRestoreParameter, InvalidRhinoValue> {
+    : IStateRecord<LayerStateRestore, LayerStateRestoreParameter> {
     private const RestoreLayerProperties ViewportGroup =
         RestoreLayerProperties.ViewportVisible | RestoreLayerProperties.ViewportColor | RestoreLayerProperties.ViewportPrintColor | RestoreLayerProperties.ViewportPrintWidth;
     public static LayerStateRestore Default { get; } = new((uint)RestoreLayerProperties.All, ModelProperties: true, ViewportProperties: true);
@@ -94,7 +93,6 @@ public sealed record LayerStateRestore(uint Properties, bool ModelProperties, bo
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public abstract partial class LayerStateRestoreParameter : IStateParameter<LayerStateRestore> {
@@ -102,28 +100,30 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
     public static readonly LayerStateRestoreParameter Properties = new Field<uint>(
         KeyName.Create("RestoreLayerProperties"), Lens<LayerStateRestore, uint>.New(static mask => mask.Properties, static properties => mask => mask with { Properties = properties }),
         static lens => new StateParameter<LayerStateRestore>.Raw<uint>(lens), SettingType.UnsignedInteger,
-        "Layer settings to restore", "Layer properties a layer state restore applies");
+        new("Layer settings to restore", "Layer properties a layer state restore applies"));
     public static readonly LayerStateRestoreParameter ModelProperties = new Field<bool>(
         KeyName.Create("ModelPropertiesChecked"), Lens<LayerStateRestore, bool>.New(static mask => mask.ModelProperties, static enabled => mask => mask with { ModelProperties = enabled }),
         static lens => new StateParameter<LayerStateRestore>.Toggle(lens), SettingType.Bool,
-        "Model layer settings", "Restore the checked layer settings");
+        new("Model layer settings", "Restore the checked layer settings"));
     public static readonly LayerStateRestoreParameter ViewportProperties = new Field<bool>(
         KeyName.Create("ViewportPropertiesChecked"), Lens<LayerStateRestore, bool>.New(static mask => mask.ViewportProperties, static enabled => mask => mask with { ViewportProperties = enabled }),
         static lens => new StateParameter<LayerStateRestore>.Toggle(lens), SettingType.Bool,
-        "Layout or Detail Layer settings to restore", "Restore the checked layout and detail layer settings");
+        new("Layout or detail layer settings to restore", "Restore the checked layout and detail layer settings"));
+
     public StateParameter<LayerStateRestore> Kind { get; }
+    public ParameterText Text { get; }
 
     // --- [PERSISTENCE]
     internal abstract IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner);
     internal abstract IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value);
 
     private sealed class Field<TRaw>(KeyName key, Lens<LayerStateRestore, TRaw> lens, Func<Lens<LayerStateRestore, TRaw>, StateParameter<LayerStateRestore>> kind,
-        SettingType<TRaw> setting, string caption, string help) : LayerStateRestoreParameter((string)key, kind(lens)) where TRaw : notnull, ISpanParsable<TRaw> {
+        SettingType<TRaw> setting, ParameterText text) : LayerStateRestoreParameter((string)key, kind(lens), text) where TRaw : notnull, ISpanParsable<TRaw> {
         private readonly PlugInSetting<TRaw, TRaw> row = new(
-            ValueKey.Raw((string)key, caption, help, lens.Get(LayerStateRestore.Default)), setting, Applied.IdleSave, [], Hidden: false);
+            ValueKey.Raw((string)key, text.Caption, text.Help, lens.Get(LayerStateRestore.Default)), setting) { Applied = Applied.IdleSave };
 
         internal override IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner) =>
-            from held in Store(Some(doc), owner).Read.Catch(static error => error.IsType<UnreadText>(), _ => IO.pure(Some(row.Value.Default)))
+            from held in Store(Some(doc), owner).Read.Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => IO.pure(Some(row.Value.Default)))
             from value in held.Match(Some: IO.pure, None: () => owner.Node.Current(row))
             select lens.SetF(value);
 
@@ -157,7 +157,9 @@ public static class NamedStates {
     private static IO<Unit> SaveLayerState(RhinoDoc doc, NamedState.LayerState state) =>
         from scope in Scope(doc, state.Viewport)
         from restorable in IO.lift(state.Edits.Bind(static modify => modify.Edits)
-            .Traverse(edit => UnrestorableEdit.Unless(edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope), edit.Member).ToValidation()).As().ToFin())
+            .Traverse(edit => (edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope)
+                ? Fin.Succ(unit)
+                : Error.New(ErrorCodes.ValidationFailed, $"a layer state restore does not revert {edit.Member}")).ToValidation()).As().ToFin())
         let edited = from changed in state.Edits.TraverseM(modify => Layers.Apply(doc, modify)).As()
                      from saved in Saved(doc, state.Name, scope)
                      select saved
@@ -175,7 +177,7 @@ public static class NamedStates {
         select result;
 
     private static IO<int> LayerStateIndex(RhinoDoc doc, string name) =>
-        IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(new Missing(nameof(NamedLayerStateTable.FindName))));
+        IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(new Refused(nameof(NamedLayerStateTable.FindName), Refused.Absent)));
 
     private static IO<Option<Guid>> Scope(RhinoDoc doc, Option<ViewportTarget> viewport) =>
         viewport.Traverse(target => DisposalOps.Within<IDisposable, Guid>(retain =>
@@ -193,7 +195,7 @@ public static class NamedStates {
     // --- [CONSTRUCTION_PLANES]
     public static IO<Seq<bool>> RestoreConstructionPlane(RhinoDoc doc, string name, ViewportSet viewports, RedrawPolicy redraw) =>
         from plane in IO.lift(() => Conversions.Present(doc.NamedConstructionPlanes.Find(name))
-            .Map(index => doc.NamedConstructionPlanes[index]).ToFin(new Missing(nameof(NamedConstructionPlaneTable.Find))))
+            .Map(index => doc.NamedConstructionPlanes[index]).ToFin(new Refused(nameof(NamedConstructionPlaneTable.Find), Refused.Absent)))
         from restored in Navigation.ApplyToViewports(doc, viewports, port => IO.lift(() => port.PushConstructionPlane(plane)), redraw)
         select restored;
 
@@ -202,7 +204,7 @@ public static class NamedStates {
         IO.lift(() => Callbacks.Each(Conversions.Rows(doc.NamedPositions.Ids), (id, _) =>
             Callbacks.Each(Conversions.Rows(doc.NamedPositions.Objects(id)), (found, index) => {
                 Transform xform = Transform.Unset;
-                return RefusedElement.Unless(doc.NamedPositions.ObjectXform(id, found, ref xform), (ObjectId: found.Id, Xform: xform), nameof(NamedPositionTable.ObjectXform), index);
+                return Refused.Unless(doc.NamedPositions.ObjectXform(id, found, ref xform), (ObjectId: found.Id, Xform: xform), nameof(NamedPositionTable.ObjectXform), index);
             }).Map(objects => new NamedPosition(id, doc.NamedPositions.Name(id), objects))));
 
     public static IO<Unit> RestorePosition(RhinoDoc doc, string name) =>
@@ -225,7 +227,7 @@ public static class NamedStates {
         select unit;
 
     private static IO<Unit> Positioned(RhinoDoc doc, string name, Func<NamedPositionTable, Guid, bool> call, string member) =>
-        from id in IO.lift(() => Conversions.Present(doc.NamedPositions.Id(name)).ToFin(new Missing(nameof(NamedPositionTable.Id))))
+        from id in IO.lift(() => Conversions.Present(doc.NamedPositions.Id(name)).ToFin(new Refused(nameof(NamedPositionTable.Id), Refused.Absent)))
         from changed in IO.lift(() => Refused.Unless(call(doc.NamedPositions, id), member))
         select changed;
 
@@ -279,7 +281,7 @@ public static class NamedStates {
     // --- [RESTORE_MASK]
     private static readonly IO<(KeyName Section, SettingsNode Node)> MaskOwner =
         from commands in IO.lift(static () => Conversions.Required(PlugIn.IdFromName("Commands"), nameof(PlugIn.IdFromName)))
-        from section in IO.lift(Conversions.Validated<KeyName, string, InvalidRhinoValue>(commands.ToString()))
+        from section in IO.lift(KeyName.Validated(commands.ToString()))
         select (Section: section, Node: new SettingsNode(commands).Child("LayerStates"));
 
     public static IO<LayerStateRestore> RestoreMask(RhinoDoc doc) =>

@@ -1,6 +1,6 @@
 """Unclamped channel mixing and color-space interpretation through OCIO."""
 
-from typing import Annotated, ClassVar, override, Self
+from typing import Annotated, override, Self
 
 from expression import Ok, Option, Some
 import msgspec
@@ -23,18 +23,17 @@ type Remap = Mixer | Conversion
 class Weights(msgspec.Struct, frozen=True, kw_only=True):
     """Input-channel weights summed by one output channel."""
 
-    red: Annotated[Weight, msgspec.Meta(title="Red", description="Weight of the input red channel")]
-    green: Annotated[Weight, msgspec.Meta(title="Green", description="Weight of the input green channel")]
-    blue: Annotated[Weight, msgspec.Meta(title="Blue", description="Weight of the input blue channel")]
+    red: Annotated[Weight, msgspec.Meta(description="Weight of the input red channel")]
+    green: Annotated[Weight, msgspec.Meta(description="Weight of the input green channel")]
+    blue: Annotated[Weight, msgspec.Meta(description="Weight of the input blue channel")]
 
 
 class Mixer(Case, frozen=True, kw_only=True, tag=1):
     """Linear channel mixing with signed weights and unclamped output."""
 
-    title = "Mixer"
-    red: Annotated[Weights, msgspec.Meta(title="Red", description="Weights summed by the output red channel")] = Weights(red=1.0, green=0.0, blue=0.0)
-    green: Annotated[Weights, msgspec.Meta(title="Green", description="Weights summed by the output green channel")] = Weights(red=0.0, green=1.0, blue=0.0)
-    blue: Annotated[Weights, msgspec.Meta(title="Blue", description="Weights summed by the output blue channel")] = Weights(red=0.0, green=0.0, blue=1.0)
+    red: Annotated[Weights, msgspec.Meta(description="Weights summed by the output red channel")] = Weights(red=1.0, green=0.0, blue=0.0)
+    green: Annotated[Weights, msgspec.Meta(description="Weights summed by the output green channel")] = Weights(red=0.0, green=1.0, blue=0.0)
+    blue: Annotated[Weights, msgspec.Meta(description="Weights summed by the output blue channel")] = Weights(red=0.0, green=0.0, blue=1.0)
 
     @classmethod
     def of(cls, rows: tuple[Rgb, Rgb, Rgb]) -> Self:
@@ -44,15 +43,14 @@ class Mixer(Case, frozen=True, kw_only=True, tag=1):
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:
         """Fresh matrix transform retaining alpha unchanged."""
-        return matrix(np.array([msgspec.structs.astuple(row) for row in msgspec.structs.astuple(self)], dtype=np.float64))
+        return matrix(np.array(msgspec.structs.astuple(self), dtype=np.float64))
 
 
 class Conversion(Case, frozen=True, kw_only=True, tag=2):
     """Color-space interpretation and conversion using the supplied OCIO configuration."""
 
-    title = "Conversion"
-    source: Annotated[ColorSpace, msgspec.Meta(title="Source", description="Colorspace the values are read as")] = PyOpenColorIO.ROLE_SCENE_LINEAR
-    target: Annotated[ColorSpace, msgspec.Meta(title="Target", description="Colorspace the values convert to")] = PyOpenColorIO.ROLE_SCENE_LINEAR
+    source: Annotated[ColorSpace, msgspec.Meta(description="Colorspace the values are read as")] = PyOpenColorIO.ROLE_SCENE_LINEAR
+    target: Annotated[ColorSpace, msgspec.Meta(description="Colorspace the values convert to")] = PyOpenColorIO.ROLE_SCENE_LINEAR
 
     @property
     def transform(self) -> PyOpenColorIO.ColorSpaceTransform:
@@ -64,10 +62,8 @@ class Primaries(Effect, frozen=True, kw_only=True, tag=9):
     """Remaps scene-linear channels before gamut compression."""
 
     stage = Stage.PRIMARIES
-    title = "Primaries"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
-    remap: Annotated[Remap, msgspec.Meta(title="Remap", description="Channel mixing or colorspace interpretation")] = Mixer()
+    remap: Annotated[Remap, msgspec.Meta(description="Channel mixing or colorspace interpretation")] = Mixer()
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:

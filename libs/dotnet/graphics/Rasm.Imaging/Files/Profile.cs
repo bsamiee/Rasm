@@ -13,7 +13,7 @@ internal static class ColorTags {
     internal static readonly Seq<(Transfer Transfer, CicpTransferCharacteristics Code, Nits White)> Transfers = [
         (TransferCurve.Linear, CicpTransferCharacteristics.Linear, Nits.ReferenceWhite),
         (TransferCurve.Srgb, CicpTransferCharacteristics.Iec61966_2_1, Nits.ReferenceWhite),
-        (GammaExponent.Gamma22, CicpTransferCharacteristics.Gamma2_2, Nits.ReferenceWhite),
+        (Transfer.Gamma.Gamma22, CicpTransferCharacteristics.Gamma2_2, Nits.ReferenceWhite),
         (TransferCurve.Pq, CicpTransferCharacteristics.SmpteSt2084, Nits.FileWhite),
         (TransferCurve.Hlg, CicpTransferCharacteristics.AribStdB67, Nits.FileWhite),
     ];

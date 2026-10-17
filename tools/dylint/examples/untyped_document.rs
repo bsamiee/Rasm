@@ -1,4 +1,4 @@
-use core::hint::black_box;
+use core::{hint::black_box, ops::Index};
 
 use serde::Deserialize;
 use serde_json::{Deserializer, Map, Value, json};
@@ -14,6 +14,22 @@ const NAME: &str = "name";
 struct Tool {
     name: String,
     size: u64,
+}
+
+struct Carrier<'meta>(&'meta Map<String, Value>);
+
+impl Index<&str> for Carrier<'_> {
+    type Output = str;
+
+    fn index(&self, key: &str) -> &str { self.0.get(key).and_then(Value::as_str).unwrap_or_default() }
+}
+
+struct Flags<'meta>(&'meta Map<String, Value>);
+
+impl Index<&str> for Flags<'_> {
+    type Output = bool;
+
+    fn index(&self, key: &str) -> &bool { if let Some(Value::Bool(flag)) = self.0.get(key) { flag } else { &false } }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -57,6 +73,10 @@ fn streamed(text: &str) -> Option<Result<Value, serde_json::Error>> { Deserializ
 
 fn member<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document Value> { object.get(key) }
 
+fn keyed<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document str> { object.get(key).and_then(Value::as_str) }
+
+fn picked<'document>(object: &'document Map<String, Value>, keys: &[&str]) -> Vec<&'document str> { keys.iter().copied().filter_map(|key| object.get(key).and_then(Value::as_str)).collect() }
+
 fn nested<'document>(document: &'document Value, key: &str) -> Option<&'document Value> { document.get(key) }
 
 fn taken(document: &mut Value) -> Value { document.take() }
@@ -96,6 +116,9 @@ fn main() {
         first(&document);
         textual(&document);
         nested(&document, &tool.name);
+        keyed(&object, &tool.name);
+        picked(&object, &[NAME]);
+        black_box((&Carrier(&object)[NAME], Flags(&object)[NAME]));
         streamed(text).transpose()?;
         head(&listed(&tool.size.to_string())?);
         taken(&mut document);

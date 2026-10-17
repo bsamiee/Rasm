@@ -35,6 +35,6 @@ rule:
           all:
             - has: {field: name, pattern: $NAME}
             - has: {field: body, matches: flag-pair}
-            - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '\bderive\s*\([^)]*\b(Serialize|Deserialize)\b'}}
+            - not: {matches: rust-serde-record}
 message: '`$NAME` encodes one choice as `bool` flags `$FIRST` and `$SECOND`'
 note: 'Take one enum with a variant per combination the code handles, a flag pair allows combinations no caller means. `&bool` or `Option<bool>` adds a state to each flag. Clippy `fn_params_excessive_bools` and `struct_excessive_bools` report two plain `bool` parameters or fields. A serde struct keeps its `Option<bool>` fields, each absent, `true`, or `false` on the wire'

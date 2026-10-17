@@ -11,7 +11,7 @@ import { type AnyNode, parse, type Token } from 'acorn';
 import { ancestor } from 'acorn-walk';
 import MagicString from 'magic-string';
 
-class SourceError extends Schema.TaggedError<SourceError>()('SourceError', {
+class SourceError extends Schema.TaggedError<SourceError, { readonly brand: unique symbol }>()('SourceError', {
     line: Schema.OptionFromOptionalKey(Schema.Int),
     cause: Schema.Defect(),
 }) {}
@@ -55,7 +55,7 @@ const compiled = (
             const source = run.toString();
             return { run: (): unknown => run(...Object.values(bound)), header: source.slice(0, source.indexOf(body)).split('\n').length - 1 };
         },
-        catch: (cause) => new SourceError({ line: Option.map(Schema.decodeUnknownOption(Located)(cause), ({ loc }) => loc.line), cause }),
+        catch: (cause) => SourceError.make({ line: Option.map(Schema.decodeUnknownOption(Located)(cause), ({ loc }) => loc.line), cause }),
     });
 ```
 

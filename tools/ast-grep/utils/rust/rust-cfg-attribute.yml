@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-cfg-attribute
+language: rust
+rule:
+    kind: attribute_item
+    has: {kind: attribute, has: {nthChild: 1, kind: identifier, regex: '^cfg$'}}

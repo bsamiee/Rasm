@@ -1,6 +1,6 @@
 ---
 name: secrets
-description: "Use when a program needs a runtime secret or an agent needs a credential, covering Doppler scopes, doppler run, infra rows, 1Password sign-in, op reads and writes, SSH, and commit signing."
+description: "Use when a command or build reads a secret or an agent needs a credential, covering Doppler scopes, doppler run, infra rows, 1Password sign-in, op reads and writes, SSH, and commit signing."
 ---
 
 # [SECRETS]
@@ -11,6 +11,8 @@ description: "Use when a program needs a runtime secret or an agent needs a cred
 
 Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, then the directory scope in `~/.doppler/.doppler.yaml`:
 - Repository directory scope holds a CLI token alone, every command names `--project` and `--config`
+- Nx targets running a secret-reading tool hold its `doppler run` prefix, a call of that tool outside every target takes the same prefix
+- Builds read a secret when package build targets of a compiled project read one, MSBuild reads each injected variable as a property
 - Scope JSON names project and config `enclave.project` and `enclave.config`
 
 | [INDEX] | [TASK]                   | [COMMAND]                                                                     |
@@ -31,10 +33,7 @@ Doppler resources exist alone as typed `infra/cli.ts` rows of `Project`, `Enviro
 - `Secret` rows name `project`, `config`, `name`, and `value`, `@pulumiverse/doppler` stores `value` as a Pulumi secret
 - `Secret` import ids take the form `<project>.<config>.<name>`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
-- Target `rasm:infra` runs `doppler run --project rasm --config dev_repo --no-fallback --attempts 1 -- node infra/cli.ts`
 - `infra/cli.ts` reads each `Secret` value from the environment `dev_repo` injects, a branch config inheriting every `dev` secret
-- `dev_repo` supplies `DOPPLER_TOKEN` to `@pulumiverse/doppler`, `PULUMI_ACCESS_TOKEN` to Pulumi, and `GITHUB_TOKEN` to `@pulumi/github`, each its own `Secret` row
-- `nx run rasm:infra:up` applies rows, `nx run rasm:infra:refresh` reads live state into the stack
 - Use `Skill(manage-repo)` for infra rows
 
 ## [03]-[OP_SIGNIN]

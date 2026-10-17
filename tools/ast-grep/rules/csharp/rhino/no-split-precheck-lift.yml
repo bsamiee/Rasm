@@ -27,7 +27,7 @@ utils:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless|Validated|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Unless\w*|Validated|NonEmpty|InRange|Unique)(\s*<.+>)?$'}}
                 - has: {field: arguments, matches: value-arguments}
             - kind: invocation_expression
               all:
@@ -65,7 +65,7 @@ utils:
     missing-host:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Missing$'}, member: {regex: '^Unless$'}}}}
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Refused$'}, member: {regex: '^UnlessFound$'}}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {kind: invocation_expression}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     host-step:
         any:

@@ -1,5 +1,6 @@
 """Render queues of jobs over scenes, view layers, cameras, and frame ranges, and their stored records."""
 
+from collections.abc import Callable
 from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Annotated
@@ -145,18 +146,23 @@ def load[T](path: Path, kind: type[T]) -> RenderingResult[T]:
         return Error((RenderingReadFault(request=path, error=error),))
 
 
-def store(path: Path, content: bytes) -> RenderingResult[Path]:
-    """Writes a file in one rename over its path."""
+def store(path: Path, content: msgspec.Struct | bytes) -> RenderingResult[Path]:
+    """Writes a record, encoded in deterministic key order, or raw bytes in one rename over its path."""
 
     def replaced() -> Path:
         staged = path.with_name(f"{path.name}.partial")
         path.parent.mkdir(parents=True, exist_ok=True)
-        staged.write_bytes(content)
+        staged.write_bytes(content if isinstance(content, bytes) else msgspec.json.encode(content, order="deterministic"))
         return staged.replace(path)
 
     return catch(replaced, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=path, error=error),))
 
 
+def revised[T: msgspec.Struct](path: Path, kind: type[T], change: Callable[[T], T]) -> RenderingResult[T]:
+    """Reads a stored record and stores its change, answering the changed record."""
+    return load(path, kind).map(change).bind(lambda held: store(path, held).map(lambda _: held))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bound", "Fixed", "Frame", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue", "load", "store"]
+__all__ = ["Bound", "Fixed", "Frame", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue", "load", "revised", "store"]

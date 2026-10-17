@@ -17,10 +17,10 @@ rule:
             - has: {field: arguments, has: {nthChild: 2, kind: 'arrow_function, function_expression'}}
         - all:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^(addEventListener|addListener|prependListener|on|once)$'}}
-            - has: {field: function, has: {field: object, matches: syntax-global-reference, regex: '^(globalThis|window|self|document|process)\b', pattern: $TARGET}}
+            - has: {field: function, has: {field: object, matches: typescript-global-reference, regex: '^(globalThis|window|self|document|process)\b', pattern: $TARGET}}
             - has: {field: arguments, has: {nthChild: 1, pattern: $EVENT}}
             - has: {field: arguments, has: {nthChild: 2, pattern: $HANDLER}}
-            - inside: {stopBy: end, matches: syntax-function-boundary}
+            - inside: {stopBy: end, matches: typescript-function-boundary}
             - not: {has: {field: arguments, has: {nthChild: 3, has: {stopBy: end, kind: 'property_identifier, shorthand_property_identifier', regex: '^signal$'}}}}
             - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: removal, has: {field: arguments, has: {nthChild: 2, pattern: $HANDLER, not: {kind: 'arrow_function, function_expression'}}}}}}
 message: '`$TARGET` keeps the `$EVENT` listener attached'

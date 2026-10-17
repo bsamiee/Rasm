@@ -4,7 +4,6 @@ import itertools
 from typing import Annotated, ClassVar, override
 
 from expression import Error, Ok, Option, Some
-from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -12,7 +11,7 @@ import PyOpenColorIO
 
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.color.processors import applied
-from blender.imaging.faults import ImagingCoincidentFault, ImagingCurveFault, ImagingResult, paired
+from blender.imaging.faults import colored, ImagingCoincidentFault, ImagingResult, paired
 from blender.imaging.parameters import Knot
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -32,16 +31,12 @@ class Curves(Effect, frozen=True, kw_only=True, tag=16):
     """Maps RGB channels and their combined output on OCIO's scene-linear stop axis."""
 
     stage = Stage.CURVES
-    title = "Curves"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
     neutral: ClassVar[PyOpenColorIO.GradingRGBCurve] = PyOpenColorIO.GradingRGBCurve(PyOpenColorIO.GRADING_LIN)
-    red: Annotated[ChannelCurve, msgspec.Meta(title="Red", description="Red output against red input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.red.getControlPoints())
-    green: Annotated[ChannelCurve, msgspec.Meta(title="Green", description="Green output against green input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.green.getControlPoints())
-    blue: Annotated[ChannelCurve, msgspec.Meta(title="Blue", description="Blue output against blue input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.blue.getControlPoints())
-    master: Annotated[ChannelCurve, msgspec.Meta(title="Master", description="Every channel against its channel curve's output")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.master.getControlPoints()
-    )
+    red: Annotated[ChannelCurve, msgspec.Meta(description="Red output against red input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.red.getControlPoints())
+    green: Annotated[ChannelCurve, msgspec.Meta(description="Green output against green input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.green.getControlPoints())
+    blue: Annotated[ChannelCurve, msgspec.Meta(description="Blue output against blue input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.blue.getControlPoints())
+    master: Annotated[ChannelCurve, msgspec.Meta(description="Every channel against its channel curve's output")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.master.getControlPoints())
 
     def curves(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
         """Builds native channel splines in declaration order."""
@@ -60,9 +55,7 @@ class HueCurves(Effect, frozen=True, kw_only=True, tag=17):
     """Maps hue, saturation, and luma through OCIO's scene-linear HSY grade."""
 
     stage = Stage.HUE_CURVES
-    title = "Hue Curves"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
     neutral: ClassVar[PyOpenColorIO.GradingHueCurve] = PyOpenColorIO.GradingHueCurve(PyOpenColorIO.GRADING_LIN)  # type: ignore[name-defined, attr-defined]  # ty: ignore[unresolved-attribute]
     hue_hue: Annotated[HueCurve[Hue, MappedHue], msgspec.Meta(title="Hue vs Hue", description="Output hue against input hue")] = tuple(
         Knot(x=point.x, y=point.y) for point in neutral.hue_hue.getControlPoints()
@@ -108,10 +101,10 @@ class HueCurves(Effect, frozen=True, kw_only=True, tag=17):
 def admitted[R: (Curves, HueCurves)](record: R) -> ImagingResult[R]:
     """Admits raw knots against native spline ordering and coincident native inputs."""
     curves = record.curves()
-    native: ImagingResult[object] = catch(
+    native: ImagingResult[object] = colored(
+        record,
         lambda: PyOpenColorIO.GradingRGBCurve(*curves).validate() if isinstance(record, Curves) else PyOpenColorIO.GradingHueCurve(*curves, HueCurves.neutral.hue_fx),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        exception=PyOpenColorIO.Exception,
-    )().map_error(lambda error: (ImagingCurveFault(request=record, error=error),))
+    )
     coincident: ImagingResult[None] = (
         Error((ImagingCoincidentFault(curve=record),)) if any(len({point.x for point in curve.getControlPoints()}) != len(curve.getControlPoints()) for curve in curves) else Ok(None)
     )

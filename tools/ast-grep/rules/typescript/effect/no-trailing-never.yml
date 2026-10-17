@@ -5,11 +5,10 @@ severity: error
 utils:
     never:
         any:
-            - matches: effect-effect-member
-              has: {field: property, regex: '^never$'}
+            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^never$'}}}
             - kind: call_expression
               all:
-                - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^sleep$'}}}}
                 - has:
                     field: arguments
                     has:
@@ -35,7 +34,7 @@ rule:
                 - inside: {kind: return_statement, matches: last-statement}
         - kind: call_expression
           all:
-            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^(andThen|flatMap)$'}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
             - has:
                 field: arguments
                 has:
@@ -48,7 +47,7 @@ rule:
                             - has: {field: body, matches: never}
         - kind: call_expression
           all:
-            - has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^forever$'}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^forever$'}}}}
             - has:
                 field: arguments
                 all:
@@ -56,6 +55,6 @@ rule:
                     - has:
                         nthChild: 1
                         kind: call_expression
-                        has: {field: function, matches: effect-effect-member, has: {field: property, regex: '^sleep$'}}
+                        has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^sleep$'}}}}
 message: '`$NEVER` holds the program open after its last step'
 note: '`Layer.launch(Layer.effectDiscard(<program>))` builds `<program>` as a layer open until interruption, its scope closing with the runtime'

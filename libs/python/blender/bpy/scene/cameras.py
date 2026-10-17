@@ -9,20 +9,21 @@ from typing import Annotated, ClassVar
 from bl_ui.properties_data_camera import CAMERA_PT_presets
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.extra.result import catch
+from expression import Error, Nothing, Ok, Option, Some
+from mathutils import Vector
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
+from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.snapshots import Applied, NativeValue, Snapshot
+from blender.bpy.data.rna.snapshots import Endpoints, NativeValue, Persisted, Snapshot
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
-from blender.bpy.settings.attachments import Attachment, reconciling, Stored
+from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderReadFault, BlenderResult
+from blender.bpy.settings.attachments import Attachment, endpoints, reconciling, Stored
 from blender.bpy.ui.layout.rows import Caption, Member, Popover, Property
 from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
 from blender.bpy.ui.surfaces.appends import Append
@@ -42,7 +43,7 @@ class View(msgspec.Struct, frozen=True, kw_only=True):
     """Named render view and suffix of its camera and image files."""
 
     name: Annotated[str, msgspec.Meta(min_length=1, title="View", description="Render view name")]
-    suffix: Annotated[str, msgspec.Meta(title="Suffix", description="Suffix of the camera name and image files")]
+    suffix: Annotated[str, msgspec.Meta(description="Suffix of the camera name and image files")]
     use: Annotated[bool, msgspec.Meta(title="Render", description="Render this view")] = True
 
 
@@ -56,13 +57,13 @@ class Multiview(Case, frozen=True, kw_only=True, tag=2):
     """Named views reading cameras by their suffixes."""
 
     title = "Multi-View"
-    views: Annotated[tuple[View, ...], msgspec.Meta(title="Views", description="Views rendered beside left and right")] = ()
+    views: Annotated[tuple[View, ...], msgspec.Meta(description="Views rendered beside left and right")] = ()
 
 
 class RenderViews(msgspec.Struct, frozen=True, kw_only=True):
     """Scene's retained render views, rendering one view while disabled."""
 
-    views: Annotated[Gated[ViewSet], msgspec.Meta(title="Views", description="Views each frame renders")] = Gated(enabled=False, value=Stereo())
+    views: Annotated[Gated[ViewSet], msgspec.Meta(description="Views each frame renders")] = Gated(enabled=False, value=Stereo())
 
 
 class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
@@ -166,18 +167,18 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
                 points = msgspec.convert(coordinates.tolist(), Annotated[tuple[tuple[Finite, Finite, Finite], ...], msgspec.Meta(min_length=2)])
             except msgspec.ValidationError as error:
                 return Error((BlenderReadFault(request=repr(coordinates), error=error),))
-            try:
-                location, scale = item.camera_fit_coords(depsgraph, tuple(chain.from_iterable(points)))
-            except RuntimeError as error:
-                return Error((BlenderEditFault(request=repr(item), error=error),))
-            matrix = item.matrix_world.copy()
-            matrix.translation = location
-            try:
-                item.matrix_world = matrix
-                placement = Result[None, BlenderFaults](tag="ok", ok=None)
-            except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-                placement = Result[None, BlenderFaults](tag="error", error=(BlenderEditFault(request=f"{item!r}.matrix_world", error=error),))
-            return paired(placement, written(camera, "ortho_scale", scale) if camera.type == "ORTHO" else Ok(None)).map(lambda _: None)
+
+            def fitted(fit: tuple[Vector, float]) -> BlenderResult[None]:
+                location, scale = fit
+
+                def placed() -> None:
+                    matrix = item.matrix_world.copy()
+                    matrix.translation = location
+                    item.matrix_world = matrix
+
+                return paired(BlenderEditFault.attempted(f"{item!r}.matrix_world", placed), written(camera, "ortho_scale", scale) if camera.type == "ORTHO" else Ok(None)).map(lambda _: None)
+
+            return BlenderEditFault.attempted(repr(item), lambda: item.camera_fit_coords(depsgraph, tuple(chain.from_iterable(points)))).bind(fitted)
         case _:
             return Error((BlenderAbsentFault(owner=repr(item), key=bpy.types.Camera.__name__),))
 
@@ -190,79 +191,57 @@ def camera_type(*accepted: str) -> Setting:
     return Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="camera.data", prop=bpy.types.Camera.bl_rna.properties["type"]), accepted=accepted)
 
 
-def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> BlenderResult[tuple[Applied, ...]]:
+def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
     """Applies requirements with persistent earliest and actual final native values."""
 
-    def applied(key: str) -> BlenderResult[tuple[Applied, ...]]:
-        stored = Stored(name=key, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
+    def applied(stored: Stored[Endpoints]) -> BlenderResult[None]:
+        def prepared(camera: bpy.types.Camera) -> BlenderResult[tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]]:
+            def rebased(
+                current: Tree[NativeValue], prior: Option[tuple[Tree[NativeValue], Tree[NativeValue]]]
+            ) -> BlenderResult[tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]]:
+                earliest = prior.map(lambda ends: Snapshot.capture(camera, prior=Some(ends[0]), native=True)).default_value(Ok(current))
+                return earliest.bind(Snapshot.persisted).map(lambda before: (camera, before, current, prior.map(lambda ends: ends[1])))
 
-        def prepared(camera: bpy.types.Camera) -> BlenderResult[tuple[bpy.types.Camera, Tree[tuple[tuple[object, str], object]], Tree[NativeValue], Option[Tree[NativeValue]]]]:
-            prior = stored.read(camera).bind(
-                lambda held: held.map(
-                    lambda pair: (
-                        Result[Tree[tuple[tuple[object, str], object]], BlenderFaults]
-                        .bind(
-                            Option.of_optional(pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=repr(camera), key=f"{key}.after"),)),
-                            lambda after: paired(Snapshot.decoded(pair[0]), Snapshot.decoded(after)),
-                        )
-                        .map(lambda endpoints: (Some(endpoints[0]), Some(endpoints[1])))
-                    )
-                ).default_value(Ok((Nothing, Nothing)))
-            )
-            return paired(Snapshot.capture(camera, native=True), prior).bind(
-                lambda pair: (
-                    pair[1][0]
-                    .map(lambda before: Snapshot.capture(camera, prior=Some(before), native=True))
-                    .default_value(Ok(pair[0]))
-                    .bind(Snapshot.persisted)
-                    .map(lambda before: (camera, before, pair[0], pair[1][1]))
-                )
-            )
+            held = stored.read(camera).bind(lambda found: found.map(lambda ends: ends.decoded(camera, stored.name).map(Some)).default_value(Ok(Nothing)))
+            return paired(Snapshot.capture(camera, native=True), held).bind(lambda pair: rebased(*pair))
 
-        def changed(row: tuple[bpy.types.Camera, Tree[tuple[tuple[object, str], object]], Tree[NativeValue], Option[Tree[NativeValue]]]) -> BlenderResult[Applied]:
+        def changed(row: tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]) -> BlenderResult[None]:
             camera, before, current, previous = row
-            outcome = values.apply(camera)
             endpoint = (
                 Snapshot
                 .capture(camera, native=True)
                 .map(lambda after: previous.map(lambda held: merge(merge(current, transfer(current, held)), transfer(current, after))).default_value(after))
                 .bind(Snapshot.persisted)
-                .bind(lambda after: stored.write(camera, (before, after)))
+                .bind(lambda after: stored.write(camera, Endpoints(before=before, after=after)))
             )
-            return paired(outcome.outcome, endpoint).map(lambda _: outcome)
+            return paired(values.apply(camera).outcome, endpoint).map(lambda _: None)
 
         return accumulated(prepared(camera) for camera in dict.fromkeys(render_cameras(scene).values())).bind(
-            lambda rows: accumulated(stored.write(camera, (before, None)) for camera, before, _, _ in rows).bind(lambda _: accumulated(changed(row) for row in rows))
+            lambda rows: accumulated(stored.write(camera, Endpoints(before=before)) for camera, before, _, _ in rows).bind(lambda _: accumulated(changed(row) for row in rows)).map(lambda _: None)
         )
 
-    return identity.name(Name.ATTACHMENT, "camera_prior").bind(applied)
+    return _priors(identity).bind(applied)
 
 
-def released(identity: Identity) -> BlenderResult[tuple[Applied, ...]]:
+def released(identity: Identity) -> BlenderResult[None]:
     """Restores requirements still equal to their actual final values, preserving edits."""
 
-    def restored(key: str) -> BlenderResult[tuple[Applied, ...]]:
-        stored = Stored(name=key, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
-
-        def camera_back(camera: bpy.types.Camera) -> BlenderResult[tuple[Applied, ...]]:
+    def restored(stored: Stored[Endpoints]) -> BlenderResult[None]:
+        def camera_back(camera: bpy.types.Camera) -> BlenderResult[None]:
             return stored.read(camera).bind(
                 lambda held: held.map(
-                    lambda pair: (
-                        paired(
-                            Snapshot.decoded(pair[0]),
-                            Result[Tree[tuple[tuple[object, str], object]], BlenderFaults].bind(
-                                Option.of_optional(pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=repr(camera), key=f"{key}.after"),)), Snapshot.decoded
-                            ),
-                        )
-                        .map(lambda endpoints: Snapshot.restore(*endpoints))
-                        .bind(lambda applied: applied.outcome.bind(lambda _: stored.removed(camera)).map(lambda _: (applied,)))
-                    )
-                ).default_value(Ok(()))
+                    lambda ends: ends.decoded(camera, stored.name).bind(lambda trees: Snapshot.restore(*trees).outcome).bind(lambda _: stored.removed(camera)).map(lambda _: None)
+                ).default_value(Ok(None))
             )
 
-        return accumulated(camera_back(camera) for camera in bpy.data.cameras).map(lambda rows: tuple(chain.from_iterable(rows)))
+        return accumulated(camera_back(camera) for camera in bpy.data.cameras).map(lambda _: None)
 
-    return identity.name(Name.ATTACHMENT, "camera_prior").bind(restored)
+    return _priors(identity).bind(restored)
+
+
+def _priors(identity: Identity) -> BlenderResult[Stored[Endpoints]]:
+    """Camera storage of the requirements endpoints under the extension name."""
+    return identity.name(Name.ATTACHMENT, "camera_prior").map(endpoints)
 
 
 # --- [VIEWS]
@@ -281,23 +260,26 @@ def reconciled(views: RenderViews, scene: bpy.types.Scene) -> BlenderResult[None
     collisions = tuple(BlenderCollisionFault(request=repr(render.views), error=name) for name, count in Counter(view.name for view in named).items() if count > 1)
 
     def placed(view: View) -> BlenderResult[None]:
-        if (item := render.views.get(view.name)) is None:
-            try:
-                item = render.views.new(view.name)
-            except RuntimeError as error:
-                return Error((BlenderEditFault(request=repr(render.views), error=error),))
+        def made() -> bpy.types.SceneRenderView:
+            item = render.views.new(view.name)
             rollback.callback(render.views.remove, item)
-        return paired(written(item, "file_suffix", view.suffix), written(item, "use", view.use)).map(lambda _: None)
+            return item
+
+        return (
+            Option
+            .of_optional(render.views.get(view.name))
+            .map(Ok)
+            .default_with(lambda: BlenderEditFault.attempted(repr(render.views), made))
+            .bind(lambda item: paired(written(item, "file_suffix", view.suffix), written(item, "use", view.use)))
+            .map(lambda _: None)
+        )
 
     def removed(view: bpy.types.SceneRenderView) -> BlenderResult[None]:
-        return catch(lambda: render.views.remove(view), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(render.views), error=error),))
-
-    def published(_: object) -> None:
-        rollback.pop_all()
+        return BlenderEditFault.attempted(repr(render.views), lambda: render.views.remove(view))
 
     missing = tuple(view for view in stock if render.views.get(view.name) is None)
     with ExitStack() as rollback:
-        return (
+        return committed(
             paired(
                 accumulated(Error((fault,)) for fault in collisions),
                 Descriptor.resolve(bpy.types.SceneRenderView, "name", bpy.types.StringProperty).bind(
@@ -306,9 +288,9 @@ def reconciled(views: RenderViews, scene: bpy.types.Scene) -> BlenderResult[None
             )
             .bind(lambda _: paired(written(render, "use_multiview", views.views.enabled), written(render, "views_format", form)))
             .bind(lambda _: accumulated(map(placed, (*missing, *named))))
-            .bind(lambda _: accumulated(map(removed, tuple(view for view in render.views if view.name not in kept))))
-            .map(published)
-        )
+            .bind(lambda _: accumulated(map(removed, tuple(view for view in render.views if view.name not in kept)))),
+            rollback,
+        ).map(lambda _: None)
 
 
 # --- [DISPLAY]

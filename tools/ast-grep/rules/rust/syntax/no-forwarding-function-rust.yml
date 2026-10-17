@@ -3,8 +3,6 @@ id: no-forwarding-function-rust
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     named-callee:
         any:
             - {kind: identifier, not: {regex: '^Self$'}}
@@ -29,8 +27,8 @@ utils:
     forwarding-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {matches: comment}}}, matches: forwarding-statement}
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: comment}}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: forwarding-statement}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     parameter-name:
         kind: parameter
         has: {field: pattern, kind: identifier, pattern: $X}
@@ -56,7 +54,7 @@ utils:
                             precedes: {stopBy: {kind: 'parameter, self_parameter'}, kind: parameter, has: {field: pattern, pattern: $Y}}
     misplaced-leading-argument:
         kind: identifier
-        nthChild: {position: 1, ofRule: {not: {matches: comment}}}
+        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
         pattern: $X
         not:
             any:
@@ -89,6 +87,6 @@ rule:
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: type, any: [{pattern: $F}, {has: {field: type, pattern: $F}}]}}}
         - not: {inside: {kind: declaration_list, inside: {kind: trait_item}}}
         - not: {matches: rust-fixed-signature}
-        - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, not: {matches: plain-attribute}}}
+        - not: {matches: {rust-attributed: {attribute: {not: {matches: plain-attribute}}}}}
 message: 'Function forwards its parameters unchanged to `$F`'
 note: 'Call `<callee>` at each call site, and give the callee the visibility the forwarder exposed, Clippy `pub_use` rejects a re-export'

@@ -6,24 +6,7 @@
 #:property PublishAot=false
 #:property TargetFramework=$(RepoTargetFramework)
 
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Globalization;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using Grasshopper;
-using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol;
-using Rhino;
-using Rhino.PlugIns;
-
 namespace Rasm.Skills.UseRhino;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum Codes {
-    Refused = 1,
-}
 
 // --- [MODELS] --------------------------------------------------------------------------
 [AttributeUsage(AttributeTargets.Property)]
@@ -98,7 +81,7 @@ internal sealed partial class Wire : JsonSerializerContext {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-internal sealed record Refused(string Text) : Expected(Text, (int)Codes.Refused);
+internal sealed record Refused(string Text) : Expected(Text, 0);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {

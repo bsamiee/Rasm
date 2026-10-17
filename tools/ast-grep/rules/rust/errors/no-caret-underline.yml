@@ -4,8 +4,7 @@ language: rust
 severity: error
 utils:
     format-macro:
-        kind: macro_invocation
-        has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+        matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
     space-literal:
         kind: 'string_literal, char_literal'
         regex: '^(" +"|'' '')$'

@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Globalization;
 using LanguageExt.ClassInstances;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
 using Rhino;
@@ -15,95 +16,77 @@ namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct LightIntensity : System.Numerics.IMinMaxValue<LightIntensity> {
     public static LightIntensity MinValue { get; } = new(0d);
     public static LightIntensity MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Default", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct LightPower : System.Numerics.IMinMaxValue<LightPower> {
     public static LightPower MinValue { get; } = new(0d);
     public static LightPower MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ShadowIntensity : System.Numerics.IMinMaxValue<ShadowIntensity> {
     public static ShadowIntensity MinValue { get; } = new(0d);
     public static ShadowIntensity MaxValue { get; } = new(1d);
     public static ShadowIntensity Default { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct EmitterRadius : System.Numerics.IMinMaxValue<EmitterRadius> {
     public static EmitterRadius MinValue { get; } = new(0d);
     public static EmitterRadius MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SpotAngle : System.Numerics.IMinMaxValue<SpotAngle> {
     public static SpotAngle MinValue { get; } = new(0d);
     public static SpotAngle MaxValue { get; } = new(Math.PI / 2d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct HotSpot : System.Numerics.IMinMaxValue<HotSpot> {
     public static HotSpot MinValue { get; } = new(0d);
     public static HotSpot MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SunAngle : System.Numerics.IMinMaxValue<SunAngle> {
     public static SunAngle MinValue { get; } = new(0d);
     public static SunAngle MaxValue { get; } = new(Math.PI);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class ColorFilter {
     public double Red { get; }
     public double Green { get; }
     public double Blue { get; }
 
-    public Unicolour Unicolour => Math.Max(Red, Math.Max(Green, Blue)) switch {
-        var peak => new(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, Red / peak, Green / peak, Blue / peak),
-    };
+    public Unicolour Unicolour => Adaptation.Peaked(new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, Red, Green, Blue));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double red, ref double green, ref double blue) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
             ? null
-            : new InvalidRhinoValue();
+            : new ValidationError("light color needs non-negative finite channels with one above zero");
 }
 
 [SmartEnum<string>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightKey {
@@ -217,32 +200,30 @@ internal static partial class LightMapper {
 public static class Lights {
     // --- [EMISSION]
     public static IO<Transfer> Gamma(RhinoDoc doc) =>
-        (from settings in use(() => doc.RenderSettings)
-         from flow in use(() => settings.LinearWorkflow)
-         from transfer in IO.lift(() => flow.PreProcessColors
-             ? Conversions.Validated<GammaExponent, float, InvalidColor>(flow.PreProcessGamma).Map(static exponent => (Transfer)exponent)
-             : (Transfer)TransferCurve.Linear)
-         select transfer).Bracket();
+        DisposalOps.Within(() => doc.RenderSettings, static settings => DisposalOps.Within(() => settings.LinearWorkflow, static flow =>
+            IO.lift(() => flow.PreProcessColors
+                ? PositiveMagnitude.Validated(flow.PreProcessGamma).Map(static exponent => (Transfer)exponent)
+                : (Transfer)TransferCurve.Linear)));
 
     private static (Color Diffuse, double Gain) Emitted(Unicolour color, Transfer transfer) {
-        double peak = Math.Max(color.RgbLinear.R, Math.Max(color.RgbLinear.G, color.RgbLinear.B));
-        Span<System.Numerics.Vector4> light = [new((float)(color.RgbLinear.R / peak), (float)(color.RgbLinear.G / peak), (float)(color.RgbLinear.B / peak), 1f)];
+        Unicolour peaked = Adaptation.Peaked(color);
+        Span<System.Numerics.Vector4> light = [new((float)peaked.RgbLinear.R, (float)peaked.RgbLinear.G, (float)peaked.RgbLinear.B, 1f)];
         transfer.Encode(light, Nits.ReferenceWhite);
-        return (Color.FromArgb(Lane(light[0].X), Lane(light[0].Y), Lane(light[0].Z)), peak / color.Xyz.Y);
+        return (Color.FromArgb(Lane(light[0].X), Lane(light[0].Y), Lane(light[0].Z)), 1d / peaked.Xyz.Y);
 
         static int Lane(float encoded) => (int)MathF.Round(byte.MaxValue * encoded, MidpointRounding.ToEven);
     }
 
     private static Validation<Error, (LightColor Color, LightIntensity Intensity)> Emission(Light light, Transfer transfer) =>
         Conversions.Present(light.GetUserString(LightKey.Kelvin.Key))
-            .Bind(static text => Callbacks.Found(double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double kelvin), kelvin))
-            .Bind(static kelvin => Conversions.Validated<ColorTemperature, double, InvalidColor>(kelvin).ToOption())
+            .Bind(static text => Invariant.Number<double>(text))
+            .Bind(static kelvin => ColorTemperature.Validated(kelvin).ToOption())
             .Map(kelvin => (Kelvin: kelvin, Emitted: Emitted(Adaptation.Blackbody(Gamut.StandardRgb, kelvin), transfer)))
             .Filter(held => Conversions.Same(held.Emitted.Diffuse, light.Diffuse))
             .Match(
                 Some: static held => ((LightColor)held.Kelvin, held.Emitted.Gain),
                 None: () => ((LightColor)light.Diffuse, 1d)) switch {
-                    var (color, gain) => Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(light.Intensity / gain).ToValidation().Map(intensity => (color, intensity)),
+                    var (color, gain) => LightIntensity.Validated(light.Intensity / gain).ToValidation().Map(intensity => (color, intensity)),
                 };
 
     // --- [ADDRESSES]
@@ -251,8 +232,8 @@ public static class Lights {
                 (doc.Lights, Deleted: includeDeleted),
                 byId: static (state, byId) => Conversions.Present(state.Lights.Find(byId.Id, ignoreDeleted: !state.Deleted)).Map(index => state.Lights[index]),
                 byIndex: static (state, byIndex) => Conversions.Rows(state.Lights).Find(row => row.Index == byIndex.Index && (state.Deleted || !row.IsDeleted)),
-                byName: static (state, _) => new NonUniqueName(state.Lights.ComponentType)))
-        from row in IO.lift(found.ToFin(new MissingComponent<LightObject>(address)))
+                byName: static (state, _) => Error.New($"{state.Lights.ComponentType} names do not identify one row")))
+        from row in IO.lift(found.ToFin(new NotFound(nameof(LightObject), $"{address}")))
         select row;
 
     // --- [READS]
@@ -268,72 +249,76 @@ public static class Lights {
         select rows.Map(row => State(row.LightGeometry, transfer)).Partition();
 
     public static IO<(Seq<Error> Fails, Seq<ManagedLight> Succs)> Managed(RhinoDoc doc) =>
-        (from transfer in Gamma(doc)
-         from client in use(() => new LightManagerSupportClient(doc.RuntimeSerialNumber))
-         from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
-         select lights.Map(light => State(light, transfer).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
+        from transfer in Gamma(doc)
+        from managed in DisposalOps.Within(() => new LightManagerSupportClient(doc.RuntimeSerialNumber), client =>
+            from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
+            select lights.Map(light => State(light, transfer).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition())
+        select managed;
 
     public static Fin<LightState> State(Light light, Transfer transfer) =>
         (Shape(light), Emission(light, transfer),
-         Conversions.Validated<LightPower, double, InvalidRhinoValue>(light.PowerWatts).ToValidation(),
-         Conversions.Validated<ShadowIntensity, double, InvalidRhinoValue>(light.ShadowIntensity).ToValidation())
+         LightPower.Validated(light.PowerWatts).ToValidation(),
+         ShadowIntensity.Validated(light.ShadowIntensity).ToValidation())
             .Apply((shape, emission, watts, shadow) => new LightState(light.Id, new LightSpec(
                 Conversions.Present(light.Name), light.IsEnabled, shape, emission.Color, emission.Intensity, watts, shadow, light.AttenuationVector)))
             .As()
             .ToFin()
-            .MapFail(error => new InvalidLight(light.Id, error));
+            .MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"light {light.Id} holds a value outside its type", error));
 
     private static Validation<Error, LightShape> Shape(Light light) =>
         light.LightStyle switch {
             LightStyle.CameraPoint or LightStyle.WorldPoint =>
-                Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(light.Radius).ToValidation()
+                EmitterRadius.Validated(light.Radius).ToValidation()
                     .Map(radius => (LightShape)new LightShape.PointLight(light.Location, radius, light.LightStyle is LightStyle.CameraPoint)),
             LightStyle.CameraSpot or LightStyle.WorldSpot =>
-                (Conversions.Validated<SpotAngle, double, InvalidRhinoValue>(light.SpotAngleRadians).ToValidation(),
-                 Conversions.Validated<HotSpot, double, InvalidRhinoValue>(light.HotSpot).ToValidation(),
-                 Conversions.Validated<EmitterRadius, double, InvalidRhinoValue>(light.Radius).ToValidation())
+                (SpotAngle.Validated(light.SpotAngleRadians).ToValidation(),
+                 HotSpot.Validated(light.HotSpot).ToValidation(),
+                 EmitterRadius.Validated(light.Radius).ToValidation())
                     .Apply((angle, hotSpot, radius) => (LightShape)new LightShape.SpotLight(light.Location, light.Direction, angle, hotSpot, radius, light.LightStyle is LightStyle.CameraSpot))
                     .As(),
             LightStyle.CameraDirectional or LightStyle.WorldDirectional =>
-                Conversions.Validated<SunAngle, double, InvalidRhinoValue>(RhinoMath.ToRadians(light.Radius)).ToValidation()
+                SunAngle.Validated(RhinoMath.ToRadians(light.Radius)).ToValidation()
                     .Map(angle => (LightShape)new LightShape.DirectionalLight(light.Location, light.Direction, angle, light.LightStyle is LightStyle.CameraDirectional)),
             LightStyle.WorldLinear => new LightShape.LinearLight(light.Location, light.Length, light.Width),
             LightStyle.WorldRectangular => new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),
             LightStyle.Ambient => new LightShape.AmbientLight(),
-            LightStyle.None => new InvalidAnswer(nameof(Light.LightStyle)),
+            LightStyle.None => new Refused(nameof(Light.LightStyle), Refused.Invalid),
         };
 
     // --- [WRITES]
     public static IO<Seq<Guid>> Apply(RhinoDoc doc, LightOp op) =>
         op.Switch(
             doc,
-            add: static (document, add) => (from transfer in Gamma(document)
-                                            from staged in use(static () => new Light())
-                                            from written in Written(staged, add.Spec, transfer)
-                                            from index in IO.lift(() => Conversions.Required(document.Lights.Add(staged, add.Attributes.ValueUnsafe()), nameof(LightTable.Add)))
-                                            select Seq(document.Lights[index].Id)).Bracket(),
-            modify: static (document, modify) => (from row in Find(document, modify.Address, includeDeleted: false)
-                                                  from transfer in Gamma(document)
-                                                  from staged in use(row.DuplicateLightGeometry)
-                                                  from written in Written(staged, modify.Spec, transfer)
-                                                  from accepted in IO.lift(() => Refused.Unless(document.Lights.Modify(row.Index, staged), nameof(LightTable.Modify)))
-                                                  select Seq(row.Id)).Bracket(),
+            add: static (document, add) => from transfer in Gamma(document)
+                                           from added in DisposalOps.Within(static () => new Light(), staged =>
+                                               from written in Written(staged, add.Spec, transfer)
+                                               from index in IO.lift(() => Conversions.Required(document.Lights.Add(staged, add.Attributes.ValueUnsafe()), nameof(LightTable.Add)))
+                                               select Seq(document.Lights[index].Id))
+                                           select added,
+            modify: static (document, modify) => from row in Find(document, modify.Address, includeDeleted: false)
+                                                 from transfer in Gamma(document)
+                                                 from modified in DisposalOps.Within(row.DuplicateLightGeometry, staged =>
+                                                     from written in Written(staged, modify.Spec, transfer)
+                                                     from accepted in IO.lift(() => Refused.Unless(document.Lights.Modify(row.Index, staged), nameof(LightTable.Modify)))
+                                                     select Seq(row.Id))
+                                                 select modified,
             delete: static (document, delete) => from row in Find(document, delete.Address, includeDeleted: false)
                                                  from deleted in IO.lift(() => Refused.Unless(document.Lights.Delete(row.Index, delete.Quiet), Seq(row.Id), nameof(LightTable.Delete)))
                                                  select deleted,
             undelete: static (document, undelete) => from row in Find(document, undelete.Address, includeDeleted: true)
                                                      from restored in IO.lift(() => Refused.Unless(document.Lights.Undelete(row.Index), Seq(row.Id), nameof(LightTable.Undelete)))
                                                      select restored,
-            solo: static (document, solo) => (from rows in solo.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                                              from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
-                                              from each in IO.lift(() => Callbacks.Each(rows, row => client.SetLightSolo(row.LightGeometry, solo.On), nameof(LightManagerSupportClient.SetLightSolo)))
-                                              select rows.Map(static row => row.Id).Strict()).Bracket(),
-            grouping: static (document, grouping) => (from rows in grouping.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                                                      from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
-                                                      from lights in use(static () => new LightArray())
-                                                      from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
-                                                      from joined in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
-                                                      select rows.Map(static row => row.Id).Strict()).Bracket());
+            solo: static (document, solo) => from rows in solo.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
+                                             from each in DisposalOps.Within(() => new LightManagerSupportClient(document.RuntimeSerialNumber), client =>
+                                                 IO.lift(() => Callbacks.Each(rows, row => client.SetLightSolo(row.LightGeometry, solo.On), nameof(LightManagerSupportClient.SetLightSolo))))
+                                             select rows.Map(static row => row.Id).Strict(),
+            grouping: static (document, grouping) => from rows in grouping.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
+                                                     from joined in DisposalOps.Within(() => new LightManagerSupportClient(document.RuntimeSerialNumber), client =>
+                                                         DisposalOps.Within(static () => new LightArray(), lights =>
+                                                             from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
+                                                             from joined in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
+                                                             select joined))
+                                                     select rows.Map(static row => row.Id).Strict());
 
     public static IO<Unit> Written(Light staged, LightSpec spec, Transfer transfer) =>
         from emitted in IO.lift(() => spec.Color.Switch<Transfer, (Color Diffuse, double Gain, Option<string> Kelvin)>(
@@ -345,7 +330,7 @@ public static class Lights {
             linear: static (curve, linear) => Emitted(linear.Filter.Unicolour, curve) switch {
                 var (diffuse, gain) => (diffuse, gain, None),
             }))
-        from intensity in IO.lift(Conversions.Validated<LightIntensity, double, InvalidRhinoValue>(spec.Intensity * emitted.Gain))
+        from intensity in IO.lift(LightIntensity.Validated(spec.Intensity * emitted.Gain))
         from members in IO.lift(() => LightMapper.Update(spec with { Intensity = intensity }, staged, emitted.Diffuse))
         from shaped in IO.lift(() => spec.Shape.Switch(
             staged,

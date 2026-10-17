@@ -51,23 +51,23 @@ public static class Viewports {
         Copies.Owned(
             () => target.Switch(
                 doc,
-                active: static (document, _) => Missing.Unless(document.Views.ActiveView, nameof(ViewTable.ActiveView))
+                active: static (document, _) => Refused.UnlessFound(document.Views.ActiveView, nameof(ViewTable.ActiveView))
                     .Map(static view => new ViewportRef(view, Optional((view as RhinoPageView)?.ActiveDetail))),
-                named: static (document, named) => Missing.Unless(document.Views.Find(named.Name, compareCase: false), nameof(ViewTable.Find))
+                named: static (document, named) => Refused.UnlessFound(document.Views.Find(named.Name, compareCase: false), nameof(ViewTable.Find))
                     .Map(static view => new ViewportRef(view, None)),
                 id: static (document, id) => (Optional(document.Views.Find(id.ViewportId)).Map(static view => new ViewportRef(view, None))
                     || Pages(toSeq(document.Views.GetPageViews()), details: true).Filter(static row => row.Detail.IsSome).Find(row => {
                         using ViewInfo view = new(row.Viewport);
                         return view.Viewport.Id == id.ViewportId;
-                    })).ToFin(new Missing(nameof(ViewTable.Find))),
+                    })).ToFin(new Refused(nameof(ViewTable.Find), Refused.Absent)),
                 serial: static (document, serial) => Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
                     .Filter(view => view.Document?.RuntimeSerialNumber == document.RuntimeSerialNumber)
                     .Map(static view => new ViewportRef(view, None))
-                    .ToFin(new Missing(nameof(RhinoView.FromRuntimeSerialNumber))),
+                    .ToFin(new Refused(nameof(RhinoView.FromRuntimeSerialNumber), Refused.Absent)),
                 detail: static (document, detail) =>
-                    from found in Missing.Unless(document.Objects.FindId(detail.DetailId), nameof(ObjectTable.FindId))
-                    from detailView in WrongType.Unless<DetailViewObject>(found)
-                    from page in Missing.Unless(detailView.ParentPageView, nameof(DetailViewObject.ParentPageView))
+                    from found in Refused.UnlessFound(document.Objects.FindId(detail.DetailId), nameof(ObjectTable.FindId))
+                    from detailView in Conversions.Cast<DetailViewObject>(found)
+                    from page in Refused.UnlessFound(detailView.ParentPageView, nameof(DetailViewObject.ParentPageView))
                     select new ViewportRef(page, Some(detailView))),
             static answer => answer,
             static answer => IO.lift(() => { _ = answer.IfSucc(static row => row.Dispose()); }),
@@ -90,12 +90,12 @@ public static class Viewports {
                     static rows => Conversions.NonEmpty(rows, nameof(PageViewGroup.GetMembers)), DisposalOps.Release, state.Retain)));
 
     public static IO<RhinoPageView> ResolvePage(RhinoDoc doc, Guid pageViewId) =>
-        IO.lift(() => Missing.Unless(doc.Views.Find(pageViewId), nameof(ViewTable.Find))
-            .Bind(static view => WrongType.Unless<RhinoPageView>(view)));
+        IO.lift(() => Refused.UnlessFound(doc.Views.Find(pageViewId), nameof(ViewTable.Find))
+            .Bind(static view => Conversions.Cast<RhinoPageView>(view)));
 
     public static IO<DetailViewObject> ResolveDetail(RhinoDoc doc, Guid detailId) =>
-        IO.lift(() => Missing.Unless(doc.Objects.FindId(detailId), nameof(ObjectTable.FindId))
-            .Bind(static found => WrongType.Unless<DetailViewObject>(found)));
+        IO.lift(() => Refused.UnlessFound(doc.Objects.FindId(detailId), nameof(ObjectTable.FindId))
+            .Bind(static found => Conversions.Cast<DetailViewObject>(found)));
 
     private static Seq<ViewportRef> Pages(Seq<RhinoPageView> pages, bool details) =>
         toSeq(pages.OrderBy(static page => page.PageNumber))
@@ -104,13 +104,11 @@ public static class Viewports {
 
     // --- [SCOPES]
     public static IO<TValue> WithMode<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
-        DisposalOps.Within(() => DisplayModeDescription.GetDisplayMode(id),
-            mode => IO.lift(() => Missing.Unless(mode, nameof(DisplayModeDescription.GetDisplayMode))).Bind(body),
-            static mode => Optional(mode).Traverse(static held => IO.lift(held.Dispose)).As().Map(unit));
+        DisposalOps.Found(() => DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode), body);
 
     public static IO<TValue> WithActiveView<TValue>(RhinoDoc doc, RhinoView view, IO<TValue> body) =>
         DisposalOps.Within((Action<IDisposable> retain) =>
-            from prior in IO.lift(() => Missing.Unless(doc.Views.ActiveView, nameof(ViewTable.ActiveView)))
+            from prior in IO.lift(() => Refused.UnlessFound(doc.Views.ActiveView, nameof(ViewTable.ActiveView)))
             from activated in DisposalOps.Change(() => prior, held => doc.Views.ActiveView = held, view, retain)
             from value in body
             select value,

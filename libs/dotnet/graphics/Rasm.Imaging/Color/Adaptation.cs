@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using UnitsNet.Units;
 using Wacton.Unicolour;
@@ -6,7 +7,6 @@ namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidColor>]
 public readonly partial struct ColorTemperature : IMinMaxValue<ColorTemperature> {
     public static ColorTemperature MinValue { get; } = new(800d);
     public static ColorTemperature MaxValue { get; } = new(100_000d);
@@ -14,19 +14,16 @@ public readonly partial struct ColorTemperature : IMinMaxValue<ColorTemperature>
     public static ColorTemperature Flame { get; } = new(2000d);
     public static UnitsNet.UnitInfo Unit { get; } = UnitsNet.Quantity.GetUnitInfo(TemperatureUnit.Kelvin);
 
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidColor>]
 public readonly partial struct Tint : IMinMaxValue<Tint> {
     public static Tint MinValue { get; } = new(-0.05d);
     public static Tint MaxValue { get; } = new(0.05d);
     public static Tint ViewDefault { get; } = new(0.003333d);
 
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum]
@@ -75,22 +72,21 @@ public static class Adaptation {
             var (x, y) => new WhitePoint(x, y),
         };
 
-    public static Unicolour Blackbody(Gamut gamut, ColorTemperature temperature) =>
-        new Unicolour(gamut.Configuration, temperature).RgbLinear switch {
-            var planck => double.Max(planck.R, double.Max(planck.G, planck.B)) switch {
-                var peak => new Unicolour(
-                    gamut.Configuration,
-                    new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, planck.R / peak, planck.G / peak, planck.B / peak).MapToRgbGamut().Chromaticity),
+    public static Unicolour Peaked(Unicolour color) =>
+        color.RgbLinear switch {
+            var rgb => double.Max(double.Abs(rgb.R), double.Max(double.Abs(rgb.G), double.Abs(rgb.B))) switch {
+                var peak => new Unicolour(color.Configuration, ColourSpace.RgbLinear, rgb.R / peak, rgb.G / peak, rgb.B / peak),
             },
         };
 
+    public static Unicolour Blackbody(Gamut gamut, ColorTemperature temperature) =>
+        new(gamut.Configuration, Peaked(new Unicolour(gamut.Configuration, temperature)).MapToRgbGamut().Chromaticity);
+
     public static Fin<(ColorTemperature Temperature, Tint Tint)> Correlate(Gamut gamut, Vector3 color) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z) switch {
-            { Xyz.Y: <= 0d and var luminance } => new WhiteWithoutLuminance(luminance),
+            { Xyz.Y: <= 0d and var luminance } => Error.New(string.Create(CultureInfo.InvariantCulture, $"picked white of luminance {luminance} has no luminance to correlate")),
             { Temperature: { IsValid: true } correlated } =>
-                from temperature in ColorTemperature.Validate(correlated.Cct, provider: null, out ColorTemperature kelvin) is { } refused ? refused : (Fin<ColorTemperature>)kelvin
-                from tint in Tint.Validate(correlated.Duv, provider: null, out Tint duv) is { } offLocus ? offLocus : (Fin<Tint>)duv
-                select (temperature, tint),
-            var unresolved => new WhiteUnresolved(unresolved.Chromaticity),
+                (ColorTemperature.Validated(correlated.Cct), Tint.Validated(correlated.Duv)).Apply(static (temperature, tint) => (temperature, tint)).As(),
+            var unresolved => Error.New(string.Create(CultureInfo.InvariantCulture, $"picked white at ({unresolved.Chromaticity.X}, {unresolved.Chromaticity.Y}) has no temperature and tint")),
         };
 }

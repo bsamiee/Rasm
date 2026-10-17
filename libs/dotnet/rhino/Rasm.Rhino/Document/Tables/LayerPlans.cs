@@ -41,7 +41,7 @@ public static class LayerPlans {
     private static Validation<Error, LayerPlan> Checked(LayerPlan plan) =>
         (Callbacks.Unique(plan.Layers, static layer => layer.Path, nameof(PlannedLayer.Path)),
          Callbacks.Unique(plan.Layers.Map(static layer => layer.Id).Somes(), static id => id, nameof(PlannedLayer.Id)),
-         Missing.Unless(plan.Current.ForAll(current => Paths(plan).Exists(path => path == current)), nameof(LayerPlan.Current)).ToValidation())
+         Refused.UnlessFound(plan.Current.ForAll(current => Paths(plan).Exists(path => path == current)), nameof(LayerPlan.Current)).ToValidation())
         .Apply((_, _, _) => plan)
         .As();
 
@@ -82,7 +82,7 @@ public static class LayerPlans {
 
     private static Validation<Error, Unit> Conflicts(Seq<Placement> rows) =>
         rows.Traverse(static row => row.Occupant.Filter(occupant => occupant != row.Id).Match(
-                Some: occupant => Validation.Fail<Error, Unit>(new LayerPathTaken(row.Path.Text, occupant)),
+                Some: occupant => Validation.Fail<Error, Unit>(Error.New($"layer path {row.Path.Text} is held by layer {occupant}")),
                 None: static () => Validation.Success<Error, Unit>(unit)))
             .As()
             .Map(static _ => unit);

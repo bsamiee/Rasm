@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -33,14 +34,21 @@ internal readonly record struct ImageSample(OutputDepth Depth, Func<PixelFrame, 
 internal readonly record struct TiffSample(OutputDepth Depth, SampleFormat Format, Option<Predictor> Predictor);
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidFileValue>]
 public readonly partial struct Quality : IMinMaxValue<Quality> {
     public static Quality MinValue { get; } = new(0);
     public static Quality MaxValue { get; } = new(100);
-    public static Quality Default { get; } = new(90);
 
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref int value) =>
-        validationError = value >= MinValue._value && value <= MaxValue._value ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+}
+
+[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct JpegQuality : IMinMaxValue<JpegQuality> {
+    public static JpegQuality MinValue { get; } = new(1);
+    public static JpegQuality MaxValue { get; } = new(100);
+    public static JpegQuality Standard { get; } = new(75);
+    public static JpegQuality Export { get; } = new(90);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -53,11 +61,11 @@ public abstract partial record StillFormat {
         public bool Alpha { get; }
         internal ImageSample Sample { get; }
 
-        public static Seq<string> Extensions => Seq(".png");
-        public static Seq<OutputDepth> Depths => toSeq(OutputDepth.Items).Filter(static depth => Table(depth).IsSome);
+        public static IterableNE<string> Extensions => IterableNE.create(".png");
+        public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
 
         public static Fin<StillFormat> From(PixelFrame frame, OutputDepth depth, Option<ColorEncoding> encoding, bool alpha) =>
-            Table(depth).Map(sample => (StillFormat)new PngRaster(frame, sample, encoding, alpha)).ToFin(new DepthRefused(depth, Depths));
+            OutputDepth.Sampled("PNG", depth, Table).Map(sample => (StillFormat)new PngRaster(frame, sample, encoding, alpha));
 
         internal static Option<ImageSample> Table(OutputDepth depth) =>
             depth.Map<Option<ImageSample>>(
@@ -77,24 +85,22 @@ public abstract partial record StillFormat {
         public Option<ColorEncoding> Encoding { get; }
         internal JpegEncoder Encoder { get; }
 
-        public static Seq<string> Extensions => Seq(".jpg", ".jpeg");
+        public static IterableNE<string> Extensions => IterableNE.create(".jpg", ".jpeg");
 
-        public static Fin<StillFormat> From(PixelFrame frame, Option<ColorEncoding> encoding, Quality quality) =>
-            Try.lift(() => new JpegEncoder { Quality = quality }).Run()
-                .MapFail(static error => error.HasException<ArgumentException>() ? new InvalidFileValue() : error)
-                .Map(encoder => (StillFormat)new JpegRaster(frame, encoding, encoder));
+        public static StillFormat From(PixelFrame frame, Option<ColorEncoding> encoding, JpegQuality quality) =>
+            new JpegRaster(frame, encoding, new JpegEncoder { Quality = quality });
     }
 
     public sealed record WebpRaster(PixelFrame Frame, ColorEncoding Encoding, bool Alpha, WebpFileFormatType Format, Quality Quality) : StillFormat {
-        public static Seq<string> Extensions => Seq(".webp");
+        public static IterableNE<string> Extensions => IterableNE.create(".webp");
     }
 
     public sealed record BmpRaster(PixelFrame Frame, bool Alpha) : StillFormat {
-        public static Seq<string> Extensions => Seq(".bmp");
+        public static IterableNE<string> Extensions => IterableNE.create(".bmp");
     }
 
     public sealed record TgaRaster(PixelFrame Frame, bool Alpha) : StillFormat {
-        public static Seq<string> Extensions => Seq(".tga");
+        public static IterableNE<string> Extensions => IterableNE.create(".tga");
     }
 
     public sealed record TiffRaster : StillFormat {
@@ -105,15 +111,13 @@ public abstract partial record StillFormat {
         public bool Alpha { get; }
         internal TiffSample Sample { get; }
 
-        public static Seq<string> Extensions => Seq(".tif", ".tiff");
-        public static Seq<OutputDepth> Depths => toSeq(OutputDepth.Items).Filter(static depth => Table(depth).IsSome);
+        public static IterableNE<string> Extensions => IterableNE.create(".tif", ".tiff");
+        public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
 
         public static Fin<StillFormat> From(PixelFrame frame, OutputDepth depth, Option<ColorEncoding> encoding, bool alpha) =>
-            Table(depth).ToFin(new DepthRefused(depth, Depths)).Bind(sample =>
-                sample.Depth.RowBytes(frame.Size.Width, alpha) switch {
-                    var bytes when bytes <= System.Array.MaxLength => Fin.Succ<StillFormat>(new TiffRaster(frame, sample, encoding, alpha)),
-                    var bytes => Fin.Fail<StillFormat>(new BufferBytesRefused(bytes)),
-                });
+            from sample in OutputDepth.Sampled("TIFF", depth, Table)
+            from _ in sample.Depth.Buffered("TIFF", frame.Size.Width, alpha)
+            select (StillFormat)new TiffRaster(frame, sample, encoding, alpha);
 
         internal static Option<TiffSample> Table(OutputDepth depth) =>
             depth.Map<Option<TiffSample>>(
@@ -134,7 +138,7 @@ public abstract partial record StillFormat {
         public bool Alpha { get; }
         public Option<PassSet> Passes { get; }
 
-        public static Seq<string> Extensions => Seq(".exr");
+        public static IterableNE<string> Extensions => IterableNE.create(".exr");
 
         public static Validation<Error, StillFormat> From(PixelFrame beauty, ExrLayout layout, bool alpha, Option<PassSet> passes) =>
             passes.Traverse(set => set.Fits(beauty)).As().Map(_ => (StillFormat)new ExrRaster(beauty, layout, alpha, passes));
@@ -150,13 +154,13 @@ public abstract partial record StillFormat {
         public Option<float> FocalMillimeters { get; }
         public Option<float> Aperture { get; }
 
-        public static Seq<string> Extensions => Seq(".dng");
+        public static IterableNE<string> Extensions => IterableNE.create(".dng");
 
-        public static Validation<Error, StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<FocalLength> focalLength, Option<FNumber> aperture) {
+        public static Validation<Error, StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<LensDistance> focalLength, Option<PositiveMagnitude> aperture) {
             static Validation<Error, float> Rational(TiffTag tag, float value, int minimum) =>
                 value >= minimum && value < (double)int.MaxValue
                     ? Validation.Success<Error, float>(value)
-                    : Validation.Fail<Error, float>(new TiffRefused(new TiffCall.Field(tag)));
+                    : Error.New(string.Create(CultureInfo.InvariantCulture, $"DNG field {tag} value {value} lies outside [{minimum}, {int.MaxValue})"));
             return (
                     DngWriter.Bounded(frame.Size),
                     toSeq(gamut.FromXyz.ToRowMajorArray()).Traverse(static value => Rational(TiffTag.COLORMATRIX1, (float)value, int.MinValue)).As(),
@@ -258,22 +262,22 @@ public static class StillWriter {
             tiff.MergeFieldInfo([.. custom], custom.Count);
             foreach ((TiffTag tag, object[] values) in fields(tiff))
                 if (!tiff.SetField(tag, values))
-                    return Fin.Fail<Unit>(new TiffRefused(new TiffCall.Field(tag)));
+                    return Error.New($"TIFF writer refused field {tag}");
             using MemoryOwner<byte> line = MemoryOwner<byte>.Allocate(tiff.ScanlineSize());
             ArraySegment<byte> segment = line.DangerousGetArray();
             for (int y = 0; y < height; y++) {
                 token.ThrowIfCancellationRequested();
                 row(y, line.Span);
                 if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
-                    return Fin.Fail<Unit>(new TiffRefused(new TiffCall.Scanline(y)));
+                    return Error.New(string.Create(CultureInfo.InvariantCulture, $"TIFF writer refused scanline {y}"));
             }
             return Fin.Succ(unit);
         }
-        return IO.lift(environment => Optional(Tiff.ClientOpen(stream.Name, mode, stream, new BorrowedTiffStream())).ToFin(new TiffRefused(new TiffCall.Open())).Bind(tiff => {
+        return IO.lift(environment => Optional(Tiff.ClientOpen(stream.Name, mode, stream, new BorrowedTiffStream())).ToFin(Error.New($"TIFF writer refused to open {stream.Name}")).Bind(tiff => {
             Fin<Unit> encoded = Try.lift(() => Encode(tiff, environment.Token)).Run();
-            Fin<Unit> flushed = Try.lift(Fin<Unit> () => tiff.Flush() ? unit : new TiffRefused(new TiffCall.Flush())).Run();
+            Fin<Unit> flushed = Try.lift(Fin<Unit> () => tiff.Flush() ? unit : Error.New($"TIFF writer refused to flush {stream.Name}")).Run();
             Fin<Unit> closed = Try.lift(() => { tiff.Dispose(); return unit; }).Run();
-            return (encoded.ToValidation(), flushed.ToValidation(), closed.ToValidation()).Apply(static (_, _, _) => unit).As().ToFin();
+            return (encoded, flushed, closed).Apply(static (_, _, _) => unit).As();
         }));
     }
 

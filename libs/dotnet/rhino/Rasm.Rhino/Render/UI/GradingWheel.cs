@@ -5,9 +5,9 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Rhino.Render.UI;
 
@@ -66,16 +66,16 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
         };
 
     // --- [TRANSITIONS]
-    private static WheelOffset Placed(WheelOffset held, float hue, WheelStrength strength) =>
+    private static WheelOffset Placed(WheelOffset held, float hue, AxisFraction strength) =>
         new(WheelHue.Create(float.Min(HueAxis.Value(HueAxis.Unit(hue)), WheelHue.MaxValue)), strength, held.Luma);
 
     private static float Shifted(NumberText<float> text, float value, double steps, Keys modifiers) =>
-        Snaps(modifiers) ? text.Snapped(text.Moved(value, steps)) : text.Moved(value, steps * Scale(modifiers));
+        Snaps(modifiers) ? text.Snapped(value, steps) : text.Moved(value, steps * Scale(modifiers));
 
     private static WheelOffset Reached(WheelOffset held, Vector2 target, bool snaps, float least) =>
         MathF.Atan2(target.Y, target.X) switch {
             var angle => Placed(held, target == Vector2.Zero ? (float)held.Hue : snaps ? HueAxis.Snap(angle, 0, least) : angle,
-                WheelStrength.Create(float.Min(target.Length(), StrengthAxis.Range.High))),
+                AxisFraction.Create(float.Min(target.Length(), StrengthAxis.Range.High))),
         };
 
     private static Transition<GradingWheelState, WheelOffset> Moved(GradingWheelState state, WheelOffset held, Vector2 target, Keys modifiers, SizeF size) =>
@@ -86,7 +86,7 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
     private static Option<Transition<GradingWheelState, WheelOffset>> Nudged(GradingWheelState state, WheelPart part, double steps, Keys modifiers) =>
         state.Offset.Bind(held => part.Switch((State: state, Held: held, Steps: steps, Modifiers: modifiers),
                 disc: static nudge => Some(Placed(nudge.Held, Shifted(nudge.State.Shown.Hue, nudge.Held.Hue, nudge.Steps, nudge.Modifiers), nudge.Held.Strength)),
-                puck: static nudge => Conversions.Validated<WheelStrength, float, InvalidGrade>(Shifted(nudge.State.Shown.Strength, nudge.Held.Strength, nudge.Steps, nudge.Modifiers))
+                puck: static nudge => AxisFraction.Validated(Shifted(nudge.State.Shown.Strength, nudge.Held.Strength, nudge.Steps, nudge.Modifiers))
                     .ToOption()
                     .Map(strength => Placed(nudge.Held, nudge.Held.Hue, strength))))
             .Map(next => new Transition<GradingWheelState, WheelOffset>(state with { Offset = Some(next) }, Some<Edit<WheelOffset>>(new Edit<WheelOffset>.Step(next))));
@@ -108,7 +108,7 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
         new(state with { Target = None }, None);
 
     protected override Option<Transition<GradingWheelState, WheelOffset>> DoubleClicked(GradingWheelState state, SizeF size, float scale, Option<WheelPart> part, MouseEventArgs e) =>
-        state.Offset.Map(static held => held with { Hue = WheelHue.Origin, Strength = WheelStrength.Neutral })
+        state.Offset.Map(static held => held with { Hue = WheelHue.Origin, Strength = AxisFraction.MinValue })
             .Map(next => new Transition<GradingWheelState, WheelOffset>(state with { Offset = Some(next), Target = None }, Some<Edit<WheelOffset>>(new Edit<WheelOffset>.Commit(next))));
 
     protected override Option<Transition<GradingWheelState, WheelOffset>> KeyPressed(GradingWheelState state, SizeF size, float scale, Option<WheelPart> part, KeyEventArgs e) =>
@@ -136,7 +136,7 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
         Plane(bounds.Size) switch {
             var plane =>
                 from well in Plots.Well(canvas, bounds)
-                from disc in Plots.Device(plane, canvas.Scale).Match(Succ: extent => Tinted(canvas, plane.Plot, extent), Fail: static _ => IO.pure(unit))
+                from disc in ImagePlots.Device(plane, canvas.Scale).Match(Succ: extent => Tinted(canvas, plane.Plot, extent), Fail: static _ => IO.pure(unit))
                 from painted in Plots.Paint(canvas, marks.Map(mark => Cue(mark, interaction)) + (canvas.Focused ? Seq(Focus(bounds)) : Seq<PlotMark<WheelPart>>()))
                 select unit,
         };
@@ -144,16 +144,14 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
     private IO<Unit> Tinted(PlotCanvas canvas, RectangleF plot, PixelExtent extent) =>
         from image in IO.lift(() => Held(extent))
         from drawn in Plots.Raster(canvas, plot, image)
-        from veil in IO.lift(() => HostTheme.Veil(canvas.Slots, canvas.Slots[PaintSlot.ControlBackground])
-            .Filter(_ => !canvas.Enabled)
-            .Iter(alpha => canvas.Graphics.FillEllipse(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), plot)))
+        from veil in Plots.Veiled(canvas, new MarkShape.Disc(plot.Center, plot.Width))
         select unit;
 
     private Bitmap Held(PixelExtent extent) =>
         raster.Filter(held => held.Diameter == extent.Width).IfNone(() => Rebuilt(extent)).Raster;
 
     private (int Diameter, Bitmap Raster) Rebuilt(PixelExtent extent) {
-        (int Diameter, Bitmap Raster) built = (extent.Width, Plots.Pixels(extent, Tints(extent.Width)));
+        (int Diameter, Bitmap Raster) built = (extent.Width, ImagePlots.Pixels(extent, Tints(extent.Width)));
         Option<(int Diameter, Bitmap Raster)> prior = raster;
         raster = built;
         _ = prior.Iter(static held => held.Raster.Dispose());

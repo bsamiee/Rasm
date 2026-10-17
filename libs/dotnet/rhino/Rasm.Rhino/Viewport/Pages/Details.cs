@@ -57,18 +57,18 @@ public static class Details {
 
     private static Fin<DetailSnapshot> Snapshot(RhinoDoc doc, DetailViewObject detail, DetailView geometry) =>
         Callbacks.Found(detail.TryGetModelLength(1d, out double length), length).Filter(_ => geometry.IsParallelProjection)
-            .Traverse(found => Conversions.Validated<DrawingScale, QuantityValue, InvalidDrafting>(Quantities.From(1d, doc.PageUnits) / Quantities.From(found, doc.ModelUnits))).As()
+            .Traverse(found => DrawingScale.Validated(Quantities.From(1d, doc.PageUnits) / Quantities.From(found, doc.ModelUnits))).As()
             .Map(scale => new DetailSnapshot(detail.Id, Conversions.Present(detail.DescriptiveTitle), geometry.GetBoundingBox(accurate: true),
                 (Conversions.Present(detail.WorldToPageTransform), Conversions.Present(detail.PageToWorldTransform)).Apply(ValueTuple.Create).As(),
                 new DetailState(Conversions.Present(detail.Attributes.Name), scale, geometry.IsProjectionLocked, detail.IsActive)));
 
     private static Fin<DetailView> Geometry(DetailViewObject detail) =>
-        Missing.Unless(detail.DetailGeometry, nameof(DetailViewObject.DetailGeometry));
+        Refused.UnlessFound(detail.DetailGeometry, nameof(DetailViewObject.DetailGeometry));
 
     // --- [WRITES]
     public static IO<Guid> Add(RhinoDoc doc, RhinoPageView page, string title, BoundingBox frame, DefinedViewportProjection projection) =>
         Viewports.WithActiveView(doc, page, IO.lift(() =>
-            Missing.Unless(page.AddDetailView(title, new Point2d(frame.Min), new Point2d(frame.Max), projection), nameof(RhinoPageView.AddDetailView)).Map(static detail => detail.Id)));
+            Refused.UnlessFound(page.AddDetailView(title, new Point2d(frame.Min), new Point2d(frame.Max), projection), nameof(RhinoPageView.AddDetailView)).Map(static detail => detail.Id)));
 
     public static IO<Unit> Write(RhinoDoc doc, Guid detailId, DetailState wanted) =>
         from detail in Viewports.ResolveDetail(doc, detailId)

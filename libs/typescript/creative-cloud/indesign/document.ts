@@ -6,8 +6,8 @@ import { Temporary } from '@rasm/uxp/runtime';
 import { Array, Effect, Match, Number, Option, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import { JPG } from 'image-size/types/jpg';
-import { type Box, InDesignError, Inspect, type Render, Shot } from './contract.ts';
-import { active, type Host, host, missing, read, resolve, scope } from './dom.ts';
+import { type Box, InDesignError, Inspect, missing, type Render, Shot } from './contract.ts';
+import { active, type Host, host, read, resolve } from './dom.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -86,11 +86,11 @@ const geometry = Effect.fnUntraced(function* (found: Rpc.Success<typeof Inspect>
             Struct.get('geometry'),
         );
     return yield* Match.valueTags(found, {
-        Object: (object) => Effect.map(Effect.flatMap(Effect.andThen(scope, resolve(object.specifier)), placed), (shown) => ({ ...object, geometry: shown })),
+        Object: (object) => Effect.map(Effect.flatMap(resolve(object.specifier), placed), (shown) => ({ ...object, geometry: shown })),
         Items: (listed) =>
             Array.some(listed.items, ({ type }) => kinds.includes(type))
                 ? Effect.map(
-                      Effect.flatMap(Effect.andThen(scope, resolve(listed.specifier)), (members) => Effect.forEach(Array.ensure(members), placed)),
+                      Effect.flatMap(resolve(listed.specifier), (members) => Effect.forEach(Array.ensure(members), placed)),
                       (measures) => ({ ...listed, items: Array.zipWith(listed.items, measures, (item, shown) => ({ ...item, geometry: shown })) }),
                   )
                 : Effect.succeed(listed),
@@ -98,12 +98,11 @@ const geometry = Effect.fnUntraced(function* (found: Rpc.Success<typeof Inspect>
         Class: Effect.succeed,
         Enumeration: Effect.succeed,
     });
-}, Effect.scoped);
+});
 const planned = Effect.fnUntraced(function* ({ target, tokens }: Rpc.Payload<typeof Render>) {
     const inch = 72;
     const [side, name] = [1, 'render.jpg'];
     const [native, local] = [`${yield* Temporary}${name}`, `plugin-temp:/${name}`];
-    yield* scope;
     const indexed = <T>(items: Pick<BaseCollection<T>, 'length' | 'item'>, index: number, kind: string): Effect.Effect<T, InDesignError> =>
         index < items.length ? Effect.succeed(items.item(index)) : Effect.fail(InDesignError.make({ reason: { _tag: 'Missing', subject: `${kind} ${index}`, query: `${index}`, candidates: [], range: Option.some({ first: 0, last: items.length - 1 }) } }));
     const placed = (item: PageItem): Option.Option<readonly [Spread | MasterSpread, PageItem]> => (item.parent.constructorName === 'Spread' || item.parent.constructorName === 'MasterSpread' ? Option.some([item.parent, item]) : Option.flatMap(holder(item), placed));
@@ -116,8 +115,7 @@ const planned = Effect.fnUntraced(function* ({ target, tokens }: Rpc.Payload<typ
     const sized = (box: typeof Box.Type): typeof Box.Type => ({ ...box, bottom: Math.max(box.bottom, box.top + side), right: Math.max(box.right, box.left + side) });
     const resolution = (region: typeof Box.Type, ...caps: readonly number[]): number => {
         const sides = [region.right - region.left, region.bottom - region.top] as const;
-        const fit = fitted(tokens, ...sides);
-        return Number.clamp(Math.min((Math.max(fit.width, fit.height) * inch) / Math.max(...sides), ...caps), { minimum: 1, maximum: 2400 });
+        return Number.clamp(Math.min((fitted(tokens, ...sides) * inch) / Math.max(...sides), ...caps), { minimum: 1, maximum: 2400 });
     };
     const { subject, source, dpi, range, spreading, composed, ...described } = yield* Match.valueTags(target, {
         Page: ({ index, region: part }) =>
@@ -164,11 +162,10 @@ const planned = Effect.fnUntraced(function* ({ target, tokens }: Rpc.Payload<typ
     yield* Effect.sync(() => fs.writeFileSync(local, ''));
     return {
         program: 'Render' as const,
-        args: [native, source.toSpecifier(), dpi, range, spreading, Option.getOrNull(composed)],
+        args: { file: native, source: source.toSpecifier(), resolution: dpi, range, spreading, region: Option.getOrNull(composed) },
         refusals: [],
         notes: [],
-        settle: Effect.fnUntraced(function* (result: unknown) {
-            const omitted = yield* Effect.orDie(Schema.decodeUnknownEffect(Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String, Schema.String, Schema.String])))(result));
+        settle: Effect.fnUntraced(function* (omitted: unknown) {
             const image = yield* Effect.filterOrFail(
                 Effect.sync(() => new Uint8Array(fs.readFileSync(local))),
                 (bytes) => bytes.length > 0,
@@ -179,12 +176,12 @@ const planned = Effect.fnUntraced(function* ({ target, tokens }: Rpc.Payload<typ
                 ...described,
                 width,
                 height,
-                omitted: Array.match(omitted, { onEmpty: () => undefined, onNonEmpty: Array.map(([specifier, type, named, error, message]) => ({ type, specifier, name: named, cause: { name: error, message } })) }),
+                omitted,
             }));
             return { image, ...shown };
         }),
     };
-}, Effect.scoped);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

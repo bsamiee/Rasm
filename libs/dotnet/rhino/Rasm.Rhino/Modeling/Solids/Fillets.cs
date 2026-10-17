@@ -99,7 +99,7 @@ public static class Fillets {
                 (int degree, double tanSlider, double innerSlider) = arc.Map(static value => value.Arguments).IfNone((2, 0d, 0d));
                 return curve.FilletSurfaceToCurve(face, t, uv.X, uv.Y, radius, alignToCurve, railDegree, degree, [tanSlider, innerSlider], bezierSurfaces, tolerances.Absolute, fillets, out double[] fitResults)
                     ? Measurements.Valid([.. fillets], nameof(Curve.FilletSurfaceToCurve)).Map(products => (Fillets: products, FitResults: toSeq(fitResults)))
-                    : new Refused(nameof(Curve.FilletSurfaceToCurve));
+                    : new Refused(nameof(Curve.FilletSurfaceToCurve), Refused.Declined);
             }),
             static fillets => DisposalOps.Release(Conversions.Rows(fillets)), retain);
 
@@ -135,5 +135,5 @@ public static class Fillets {
         made.Accepted
             ? (Measurements.Valid(made.Fillets, made.Member).ToValidation(), Measurements.Valid(made.Trimmed0, made.Member).ToValidation(), Measurements.Valid(made.Trimmed1, made.Member).ToValidation())
                 .Apply(static (fillets, trimmed0, trimmed1) => new FilletResult(fillets, trimmed0, trimmed1)).As().ToFin()
-            : new Refused(made.Member);
+            : new Refused(made.Member, Refused.Declined);
 }

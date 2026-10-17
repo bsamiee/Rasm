@@ -4,17 +4,21 @@ import { HIGH_RESOLUTION } from '@rasm/mcp/vision';
 import type { Temporary } from '@rasm/uxp/runtime';
 import { type AnyNode, getLineInfo, parse } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
-import { Array, Cache, Deferred, Effect, flow, Match, MutableRef, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cache, Deferred, Effect, flow, identity, Match, MutableRef, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import MagicString from 'magic-string';
-import { type Execute, InDesignError, type Refusal, Specifier, Target } from './contract.ts';
+import { type Execute, InDesignError, missing, Refusal, type Specifier, Target, thrown } from './contract.ts';
 import { planned } from './document.ts';
-import { Callable, collection, encoded, exported, host, LAST_STEP, Model, missing, plurals, prepared, read, record, resolve, scope, thrown, unwired, wired, write } from './dom.ts';
+import { addable, collection, encoded, exported, host, LAST_STEP, Model, noted, plurals, prepared, read, record, resolve, write } from './dom.ts';
 import { grep } from './find.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LINE_BREAK = /\r\n?|[\n\p{Zl}\p{Zp}]/u;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Reply = Schema.Struct({ failure: Schema.NullOr(InDesignError.fields.reason), refused: Schema.Array(Refusal), noted: Schema.Array(Schema.Struct(Struct.Record(['name', 'given', 'accepted'], Schema.String))), ...Struct.Record(['out', 'image'], Schema.optionalKey(Schema.Unknown)) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -23,6 +27,11 @@ const phase = MutableRef.make<typeof Phase.Type>('Idle');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const unwired = (value: unknown): unknown =>
+    Match.value(value).pipe(
+        Match.when(Schema.is(Schema.Array(Schema.Unknown)), ([tag, ...items]) => (tag === '[' ? Array.map(items, unwired) : Object.fromEntries(Array.map(Array.chunksOf(items, 2), ([field, held]) => [String(field), unwired(held)])))),
+        Match.orElse(identity),
+    );
 const enter = Effect.sync((): typeof Phase.Type =>
     Option.match(MutableRef.getAndSet(entry, Option.none()), {
         onNone: () => MutableRef.get(phase),
@@ -65,35 +74,30 @@ const ready = Effect.filterOrFail(
     (modal) => !modal,
     () => InDesignError.make({ reason: { _tag: 'Blocked' } }),
 );
-const rendering = Effect.fnUntraced(function* (preview: Rpc.Payload<typeof Execute>['preview']) {
-    return yield* Effect.transposeOption(Option.map(Option.filter(preview, Schema.is(Target)), (target) => planned({ target, tokens: HIGH_RESOLUTION.tokens })));
-});
-const scripted = Effect.fn('scripted')(function* <A, R>(
+const rendering = (preview: Rpc.Payload<typeof Execute>['preview']): Option.Option<ReturnType<typeof planned>> => Option.map(Option.filter(preview, Schema.is(Target)), (target) => planned({ target, tokens: HIGH_RESOLUTION.tokens }));
+const scripted = Effect.fn('scripted')(function* <A, R, R2>(
     { description, preview }: Pick<Rpc.Payload<typeof Execute>, 'description' | 'preview'>,
-    job: { readonly program: 'Set' | 'Find' | 'Queries' | 'Render'; readonly args: readonly unknown[]; readonly refusals: readonly (typeof Refusal.Type)[]; readonly notes: readonly string[]; readonly settle: (result: unknown) => Effect.Effect<A, InDesignError, R> },
+    planning: Effect.Effect<
+        { readonly program: 'Set' | 'Find' | 'Queries' | 'Render'; readonly args: Record.ReadonlyRecord<string, unknown>; readonly refusals: readonly (typeof Refusal.Type)[]; readonly notes: readonly string[]; readonly settle: (result: unknown) => Effect.Effect<A, InDesignError, R> },
+        InDesignError,
+        R2
+    >,
 ) {
-    const { app, ScriptLanguage, UndoModes } = indesign;
-    const source = `(function (given) {
-    var name = given[0], preview = given[1], rollback = given[2], jobs = decoded(given[3]), opened = {}, failure = null, refused = [], noted = [], outs = [], done = false, settings = app.scriptPreferences, kept = [settings.userInteractionLevel, settings.enableRedraw, settings.measurementUnit], at;
+    const source = `(function (wire) {
+    var batch = eval('(' + wire + ')'), opened = {}, failure = null, refused = [], noted = [], out = null, image = null, reply = null, settings = app.scriptPreferences, wanted = { userInteractionLevel: UserInteractionLevels.NEVER_INTERACT, enableRedraw: false, measurementUnit: MeasurementUnits.POINTS }, kept = {}, at;
     function record(value) { return value !== null && typeof value === 'object' && value.constructor === Object; }
     function host(value) { return value !== null && typeof value === 'object' && typeof value.toSpecifier === 'function' && typeof value.everyItem !== 'function'; }
-    function decoded(value) {
-        var made, index;
-        if (!(value instanceof Array)) return value;
-        made = value[0] === '[' ? [] : {};
-        for (index = 1; index < value.length; index++) if (value[0] === '[') made.push(decoded(value[index])); else { made[value[index]] = decoded(value[index + 1]); index++; }
-        return made;
-    }
+    function mapped(list, made) { var out = [], index; for (index = 0; index < list.length; index++) out.push(made(list[index])); return out; }
     function wired(value) {
-        var made, field, index;
-        if (value instanceof Array) { made = ['[']; for (index = 0; index < value.length; index++) made.push(wired(value[index])); return made; }
+        var made = ['{'], field;
+        if (value instanceof Array) return ['['].concat(mapped(value, wired));
         if (!record(value)) return host(value) ? value.toSpecifier() : value;
-        made = ['{']; for (field in value) made.push(field, wired(value[field]));
+        for (field in value) if (value[field] !== undefined) made.push(field, wired(value[field]));
         return made;
     }
     function key(value) {
-        var parts = [], field, index;
-        if (value instanceof Array) { for (index = 0; index < value.length; index++) parts.push(key(value[index])); return '[' + parts.join(',') + ']'; }
+        var parts = [], field;
+        if (value instanceof Array) return '[' + mapped(value, key).join(',') + ']';
         if (record(value)) { for (field in value) parts.push(field + '=' + key(value[field])); return '{' + parts.join(',') + '}'; }
         return host(value) ? value.toSpecifier() : typeof value + ':' + String(value);
     }
@@ -101,24 +105,25 @@ const scripted = Effect.fn('scripted')(function* <A, R>(
         if (typeof value !== 'string') return [];
         try { return [resolve(value)]; } catch (missed) { return []; }
     }
-    function put(owner, field, value, path, target, candidates) {
+    function put(owner, field, value, name, target, candidates) {
         var order = located(value), raw = order.length, failed = null, index;
         order.push(value);
-        for (index = 0; index < candidates.length; index++) order.push($.global[candidates[index][0]][candidates[index][1]]);
+        for (index = 0; index < candidates.length; index++) order.push($.global[candidates[index].enumeration][candidates[index].member]);
         for (index = 0; index < order.length; index++) {
-            try { owner[field] = order[index]; if (index > raw) noted.push([path, value, String(order[index])]); return; } catch (error) { if (index === raw) failed = error; }
+            try { owner[field] = order[index]; if (index > raw) noted.push({ name: name, given: value, accepted: String(order[index]) }); return; } catch (error) { if (index === raw) failed = error; }
         }
-        refused.push([host(target) ? target.toSpecifier() : null, path, failed.name, failed.message]);
+        refused.push({ _tag: 'Refused', target: host(target) ? target.toSpecifier() : undefined, field: name, cause: { name: failed.name, message: failed.message } });
     }
     function owned(root, path) { for (var index = 0; index < path.length; index++) root = root[path[index]]; return root; }
-    function written(rows, root) { for (var index = 0; index < rows.length; index++) put(owned(root, rows[index][0]), rows[index][1], rows[index][3], rows[index][2], root, rows[index][4]); }
+    function written(rows, root) { for (var index = 0; index < rows.length; index++) put(owned(root, rows[index].path), rows[index].field, rows[index].value, rows[index].name, root, rows[index].candidates); }
     function shaped(owner, fields) {
         var made = {}, field, held;
         for (field in fields) { held = owner[field]; made[field] = record(fields[field]) && host(held) ? shaped(held, fields[field]) : held; }
         return made;
     }
-    function properties(roles) { return [roles[0].properties, roles[1].properties, roles[2].properties]; }
-    function clear(names) { for (var index = 0; index < 3; index++) app[names[index]] = NothingEnum.NOTHING; }
+    function roles(names) { return mapped(names, function (name) { return app[name]; }); }
+    function properties(held) { return mapped(held, function (role) { return role.properties; }); }
+    function clear(names) { for (var index = 0; index < names.length; index++) app[names[index]] = NothingEnum.NOTHING; }
     function differing(current, base) {
         var made = {}, field;
         for (field in current) if (key(current[field]) !== key(base[field])) made[field] = current[field];
@@ -141,76 +146,77 @@ const scripted = Effect.fn('scripted')(function* <A, R>(
         return false;
     }
     var programs = {
-        Set: function (members, owner, field, rows, properties) {
-            var fields = properties, adding = owner !== null, list = [], made = [], given = {}, index, each, row, member, before, after;
-            for (index = 0; adding && index < rows[0].length; index++) { row = rows[0][index]; given[row[1]] = located(row[3]).concat([row[3]])[0]; }
-            if (adding) list = [resolve(owner)[field].add(given)];
-            for (index = 0; !adding && index < members.length; index++) list.push(resolve(members[index]));
-            for (index = 0; index < list.length; index++) {
-                member = list[index];
-                before = shaped(member, fields);
-                for (each = 0; each < rows[index].length; each++) {
-                    row = rows[index][each];
-                    if (!adding || key(before[row[1]]) !== key(given[row[1]])) put(owned(member, row[0]), row[1], row[3], row[2], member, row[4]);
+        Set: function (job) {
+            var made = [], index, each, entry, row, member, before, after, given;
+            for (index = 0; index < job.targets.length; index++) {
+                entry = job.targets[index];
+                given = {};
+                for (each = 0; entry.owner !== undefined && each < entry.rows.length; each++) { row = entry.rows[each]; if (row.candidates.length === 0) given[row.field] = located(row.value).concat([row.value])[0]; }
+                member = entry.owner === undefined ? resolve(entry.specifier) : resolve(entry.owner)[entry.field].add(given);
+                before = shaped(member, job.properties);
+                for (each = 0; each < entry.rows.length; each++) {
+                    row = entry.rows[each];
+                    if (entry.owner === undefined || key(before[row.field]) !== key(given[row.field])) put(owned(member, row.path), row.field, row.value, row.name, member, row.candidates);
                 }
-                after = shaped(member, fields);
-                for (each in fields) made.push([member.toSpecifier(), each, adding ? null : wired(before[each]), wired(after[each])]);
+                after = shaped(member, job.properties);
+                for (each in job.properties) made.push({ target: member.toSpecifier(), field: each, before: entry.owner === undefined ? before[each] : null, after: after[each] });
             }
             return made;
         },
-        Find: function (names, search, methods, targets, query, rows, changing, style, save, limit, reach) {
-            var roles = [app[names[0]], app[names[1]], app[names[2]]], saved = properties(roles), cleared, held = [], hits, matches = [], paragraphs = [], seen = {}, altered = 0, index, field, hit, story, frames, page, first, expression, rule;
-            clear(names);
-            cleared = properties(roles);
-            for (index = 0; index < 3; index++) held.push(differing(saved[index], cleared[index]));
+        Find: function (job) {
+            var held = roles(job.names), saved = properties(held), cleared, prior = [], hits, matches = [], changes = [], seen = {}, altered = 0, index, field, hit, story, frames, page, first, expression, rule;
+            clear(job.names);
+            cleared = properties(held);
+            for (index = 0; index < held.length; index++) prior.push(differing(saved[index], cleared[index]));
             try {
-                if (query !== null) app.loadFindChangeQuery(query, SearchModes[search]);
-                for (index = 0; index < 3; index++) written(rows[index], roles[index]);
-                if (style !== null) {
-                    expression = roles[0].findWhat;
-                    if (typeof expression !== 'string') { failure = ['Missing', 'findWhat of ' + names[0], 'findWhat']; return null; }
-                    put(roles[0], 'appliedParagraphStyle', style[0], 'appliedParagraphStyle', roles[0], []);
-                    for (index = 0; index < style[2].length; index++) {
-                        rule = resolve(style[2][index]).nestedGrepStyles.add();
+                if (job.query !== null) app.loadFindChangeQuery(job.query, SearchModes[job.search]);
+                for (index = 0; index < held.length; index++) written(job.rows[index], held[index]);
+                if (job.style !== null) {
+                    expression = held[0].findWhat;
+                    if (typeof expression !== 'string') { failure = { _tag: 'Missing', subject: 'findWhat of ' + job.names[0], query: 'findWhat', candidates: [] }; return null; }
+                    put(held[0], 'appliedParagraphStyle', job.style.paragraph, 'appliedParagraphStyle', held[0], []);
+                    for (index = 0; index < job.style.owners.length; index++) {
+                        rule = resolve(job.style.owners[index]).nestedGrepStyles.add();
                         put(rule, 'grepExpression', expression, 'grepExpression', rule, []);
-                        put(rule, 'appliedCharacterStyle', style[1], 'appliedCharacterStyle', rule, []);
+                        put(rule, 'appliedCharacterStyle', job.style.character, 'appliedCharacterStyle', rule, []);
                     }
                 }
                 if (refused.length > 0) return null;
-                hits = searched(targets, methods[0]);
-                for (index = 0; index < hits.length && (limit === null || index < limit); index++) {
+                hits = searched(job.targets, job.methods[0]);
+                for (index = 0; index < hits.length && (job.limit === null || index < job.limit); index++) {
                     hit = hits[index];
-                    story = 'parentStory' in hit ? hit.parentStory : null;
+                    story = 'parentStory' in hit && 'length' in hit ? hit.parentStory : null;
                     frames = 'parentTextFrames' in hit ? hit.parentTextFrames : [hit];
                     page = frames.length > 0 && 'parentPage' in frames[0] ? frames[0].parentPage : null;
-                    matches.push([hit.toSpecifier(), 'contents' in hit ? hit.contents : null, story === null ? null : story.characters.itemByRange(Math.max(0, hit.index - reach), Math.min(story.characters.length - 1, hit.index + hit.length + reach - 1)).contents, page === null ? null : page.name, 'appliedParagraphStyle' in hit ? wired(hit.appliedParagraphStyle) : null]);
-                    if (changing && 'paragraphs' in hit) {
+                    matches.push({ specifier: hit.toSpecifier(), text: 'contents' in hit ? hit.contents : undefined, context: story === null ? undefined : story.characters.itemByRange(Math.max(0, hit.index - job.reach), Math.min(story.characters.length - 1, hit.index + hit.length + job.reach - 1)).contents, page: page === null ? undefined : page.name, paragraphStyle: 'appliedParagraphStyle' in hit ? hit.appliedParagraphStyle : undefined });
+                    if (job.changing && 'paragraphs' in hit) {
                         first = hit.paragraphs.item(0);
-                        if (!seen[first.toSpecifier()]) { seen[first.toSpecifier()] = true; paragraphs.push([first.toSpecifier(), first.contents, first]); }
+                        if (!seen[first.toSpecifier()]) { seen[first.toSpecifier()] = true; changes.push({ specifier: first.toSpecifier(), before: first.contents, after: first }); }
                     }
                 }
-                if (changing) altered = searched(targets, methods[1]).length;
-                for (index = 0; index < paragraphs.length; index++) paragraphs[index][2] = paragraphs[index][2].contents;
-                if (!preview && save !== null) app.saveFindChangeQuery(save, SearchModes[search]);
-                return [wired(differing(roles[0].properties, cleared[0])), changing ? wired(differing(roles[1].properties, cleared[1])) : null, hits.length, altered, matches, paragraphs];
+                if (job.changing) altered = searched(job.targets, job.methods[1]).length;
+                for (index = 0; index < changes.length; index++) changes[index].after = changes[index].after.contents;
+                if (!batch.rollback && job.save !== null) app.saveFindChangeQuery(job.save, SearchModes[job.search]);
+                return { find: differing(held[0].properties, cleared[0]), change: job.changing ? differing(held[1].properties, cleared[1]) : undefined, count: { matches: hits.length, changes: altered }, matches: matches, changes: changes };
             } finally {
-                clear(names);
-                for (index = 0; index < 3; index++) for (field in held[index]) roles[index][field] = held[index][field];
+                clear(job.names);
+                for (index = 0; index < held.length; index++) for (field in prior[index]) held[index][field] = prior[index][field];
             }
         },
-        Queries: function (rows) {
-            var made = [], index, roles, cleared;
-            for (index = 0; index < rows.length; index++) {
-                roles = [app[rows[index][0]], app[rows[index][1]], app[rows[index][2]]];
-                clear(rows[index]);
-                cleared = properties(roles);
-                app.loadFindChangeQuery(rows[index][4], SearchModes[rows[index][3]]);
-                made.push([wired(differing(roles[0].properties, cleared[0])), wired(differing(roles[1].properties, cleared[1])), wired(differing(roles[2].properties, cleared[2]))]);
+        Queries: function (job) {
+            var made = [], index, query, held, cleared;
+            for (index = 0; index < job.queries.length; index++) {
+                query = job.queries[index];
+                held = roles(query.names);
+                clear(query.names);
+                cleared = properties(held);
+                app.loadFindChangeQuery(query.name, SearchModes[query.search]);
+                made.push({ name: query.name, mode: query.mode, origin: query.origin, find: differing(held[0].properties, cleared[0]), change: differing(held[1].properties, cleared[1]), options: differing(held[2].properties, cleared[2]) });
             }
             return made;
         },
-        Render: function (file, specifier, resolution, range, spreading, region) {
-            var source = resolve(specifier), omitted = [], chosen = [], seen = {}, pages, page, master, own, from, frame, corner, leading, list, index, each, item;
+        Render: function (job) {
+            var source = resolve(job.source), region = job.region, omitted = [], chosen = [], seen = {}, pages, page, master, own, from, frame, corner, leading, list, index, each, item;
             function spine(collection) { var sides = collection.everyItem().side, count = 0, index; for (index = 0; index < sides.length; index++) if (sides[index] == leading) count++; return count; }
             if (region !== null) {
                 pages = source.pages.everyItem().getElements();
@@ -223,74 +229,70 @@ const scripted = Effect.fn('scripted')(function* <A, R>(
                     from = box(master.pages.item(Math.max(0, Math.min(page.index - spine(source.pages) + spine(master.pages), master.pages.length - 1))));
                     frame = { top: region.top + from.top - own.top, left: region.left + from.left - own.left, bottom: region.bottom + from.top - own.top, right: region.right + from.left - own.left };
                     list = page.masterPageItems;
-                    for (each = list.length - 1; each >= 0; each--) if (list[each].constructor.name !== 'Guide') chosen.push([list[each], frame]);
+                    for (each = list.length - 1; each >= 0; each--) if (list[each].constructor.name !== 'Guide') chosen.push({ item: list[each], frame: frame });
                 }
                 list = source.pageItems.everyItem().getElements();
-                for (each = list.length - 1; each >= 0; each--) chosen.push([list[each], region]);
+                for (each = list.length - 1; each >= 0; each--) chosen.push({ item: list[each], frame: region });
                 own = source.parent;
                 source = app.documents.add(false);
                 source.documentPreferences.properties = { facingPages: false, pageWidth: region.right - region.left, pageHeight: region.bottom - region.top };
                 for (index = 1; index < own.layers.length; index++) source.layers.add();
                 corner = box(source.pages.item(0));
                 for (index = 0; index < chosen.length; index++) {
-                    item = chosen[index][0];
-                    frame = chosen[index][1];
+                    item = chosen[index].item;
+                    frame = chosen[index].frame;
                     if (seen[item.id] || !(item.itemLayer.visible && item.itemLayer.printable && item.visible && !item.nonprinting) || !touches(frame, item)) continue;
                     seen[item.id] = true;
-                    try { item.duplicate(source.layers.item(item.itemLayer.index), [corner.left - frame.left, corner.top - frame.top]); } catch (error) { omitted.push([item.toSpecifier(), item.constructor.name, item.name, error.name, error.message]); }
+                    try { item.duplicate(source.layers.item(item.itemLayer.index), [corner.left - frame.left, corner.top - frame.top]); } catch (error) { omitted.push({ type: item.constructor.name, specifier: item.toSpecifier(), name: item.name, cause: { name: error.name, message: error.message } }); }
                 }
-                range = '+1';
             }
-            app.jpegExportPreferences.properties = { jpegQuality: JPEGOptionsQuality.HIGH, jpegColorSpace: JpegColorSpaceEnum.RGB, antiAlias: true, useDocumentBleeds: false, jpegExportRange: ExportRangeOrAllPages.EXPORT_RANGE, pageString: range, exportingSpread: spreading, exportResolution: resolution };
-            source.exportFile(ExportFormat.JPG, new File(file));
-            return omitted;
+            app.jpegExportPreferences.properties = { jpegQuality: JPEGOptionsQuality.HIGH, jpegColorSpace: JpegColorSpaceEnum.RGB, antiAlias: true, useDocumentBleeds: false, jpegExportRange: ExportRangeOrAllPages.EXPORT_RANGE, pageString: region === null ? job.range : '+1', exportingSpread: job.spreading, exportResolution: job.resolution };
+            source.exportFile(ExportFormat.JPG, new File(job.file));
+            return omitted.length > 0 ? omitted : undefined;
         }
     };
     for (at = 0; at < app.documents.length; at++) opened[app.documents[at].id] = true;
-    settings.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
-    settings.enableRedraw = false;
-    settings.measurementUnit = MeasurementUnits.POINTS;
+    for (at in wanted) { kept[at] = settings[at]; settings[at] = wanted[at]; }
     try {
         app.doScript(function () {
-            try { for (var step = 0; step < jobs.length && failure === null && refused.length === 0; step++) outs.push(programs[jobs[step][0]].apply(null, jobs[step][1])); } catch (error) { failure = ['Thrown', error.name, error.message]; }
-            done = true;
-            if (rollback || failure !== null || refused.length > 0) throw 0;
-        }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT, name);
+            try {
+                out = programs[batch.job.program](batch.job.args);
+                if (failure === null && refused.length === 0 && batch.render !== null) image = programs.Render(batch.render);
+            } catch (error) { failure = { _tag: 'Script', cause: { name: error.name, message: error.message }, kept: false }; }
+            reply = wired({ failure: failure, refused: refused, noted: noted, out: out, image: image });
+            if (batch.rollback || failure !== null || refused.length > 0) throw 0;
+        }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT, batch.name);
     } catch (error) {
-        if (!done) throw error;
+        if (reply === null) throw error;
         for (at = app.documents.length - 1; at >= 0; at--) if (!opened[app.documents[at].id]) app.documents[at].close(SaveOptions.NO);
     } finally {
-        settings.userInteractionLevel = kept[0];
-        settings.enableRedraw = kept[1];
-        settings.measurementUnit = kept[2];
+        for (at in kept) settings[at] = kept[at];
     }
-    return [failure, refused, noted, outs];
-})(arguments)`;
-    const Reply = Schema.Tuple([
-        Schema.NullOr(Schema.Union([Schema.Tuple([Schema.Literal('Thrown'), Schema.String, Schema.String]), Schema.Tuple([Schema.Literal('Missing'), Schema.String, Schema.String])])),
-        Schema.Array(Schema.Tuple([Schema.NullOr(Specifier), Schema.String, Schema.String, Schema.String])),
-        Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])),
-        Schema.Array(Schema.Unknown),
-    ]);
-    const error = (name: string, message: string): Error => Object.assign(new Error(message), { name });
-    const shot = yield* rendering(preview);
-    const jobs = [job, ...Option.toArray(shot)];
+    return reply;
+})(arguments[0])`;
+    const [job, shot] = yield* Effect.all([planning, Effect.transposeOption(rendering(preview))]);
     yield* ready;
-    const reply = yield* Effect.try({ try: (): unknown => app.doScript(source, ScriptLanguage.JAVASCRIPT, [description, Option.isSome(preview), Option.isSome(preview) || job.refusals.length > 0, wired(Array.map(jobs, ({ program, args }) => [program, args]))], UndoModes.ENTIRE_SCRIPT, description), catch: thrown });
-    const [failure, refused, noted, [out, image]] = yield* Effect.orDie(Schema.decodeUnknownEffect(Reply)(reply));
-    return yield* Array.match([...job.refusals, ...Array.map(refused, ([at, field, name, message]): typeof Refusal.Type => ({ _tag: 'Refused', target: Option.fromNullishOr(at), field, cause: error(name, message) }))], {
+    const wire = yield* Effect.orDie(Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))({ name: description, rollback: Option.isSome(preview) || job.refusals.length > 0, job: Struct.pick(job, ['program', 'args']), render: Option.getOrNull(Option.map(shot, Struct.get('args'))) }));
+    const reply = yield* Effect.try({
+        try: (): unknown => indesign.app.doScript(source, indesign.ScriptLanguage.JAVASCRIPT, [wire.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')], indesign.UndoModes.ENTIRE_SCRIPT, description),
+        catch: thrown,
+    });
+    const { failure, refused, noted: assigned, out, image } = yield* Effect.orDie(Schema.decodeUnknownEffect(Reply)(unwired(reply)));
+    return yield* Array.match([...job.refusals, ...refused], {
         onNonEmpty: (fields) => Effect.fail(InDesignError.make({ reason: { _tag: 'Rejected', fields } })),
         onEmpty: () =>
             failure === null
-                ? Effect.map(Effect.all([job.settle(out), Effect.transposeOption(Option.map(shot, (render) => render.settle(image)))]), ([value, seen]) => [value, [...job.notes, ...Array.map(noted, ([path, given, accepted]) => `${path} = ${JSON.stringify(given)} assigned ${accepted}`)], seen] as const)
-                : Effect.fail(failure[0] === 'Thrown' ? thrown(error(failure[1], failure[2])) : missing(failure[1], failure[2], [])),
+                ? Effect.map(Effect.all({ result: job.settle(out), preview: Effect.transposeOption(Option.map(shot, (render) => render.settle(image))) }), (settled) => ({
+                      ...settled,
+                      corrections: Option.liftPredicate([...job.notes, ...Array.map(assigned, ({ name, given, accepted }) => noted(name, given, accepted))], Array.isArrayNonEmpty),
+                  }))
+                : Effect.fail(InDesignError.make({ reason: failure })),
     });
 });
 const transact = Effect.fn('transact')(function* <A, R>({ description, preview }: Pick<Rpc.Payload<typeof Execute>, 'description' | 'preview'>, body: Effect.Effect<A, InDesignError, R>) {
     const { app, SaveOptions, ScriptLanguage, UndoModes } = indesign;
     yield* ready;
-    yield* scope;
-    const work = Effect.all([body, Effect.flatMap(rendering(preview), (shot) => Effect.transposeOption(Option.map(shot, (job) => Effect.map(scripted({ description, preview: Option.some(true) }, job), ([image]) => image))))]);
+    const work = Effect.all([body, Effect.transposeOption(Option.map(rendering(preview), (job) => Effect.map(scripted({ description, preview: Option.some(true) }, job), Struct.get('result'))))]);
     const [services, settled, opened] = [yield* Effect.context<R | Model | Temporary>(), yield* Deferred.make<Effect.Success<typeof work>, InDesignError>(), app.documents.everyItem().id];
     yield* Effect.catch(
         nested(() =>
@@ -323,7 +325,7 @@ const execute = ({ body, ...transaction }: Rpc.Payload<typeof Execute>): Effect.
         Script: Effect.fnUntraced(function* ({ code }) {
             const [notes, runSync] = [new Set<string>(), Effect.runSyncWith(yield* Effect.context<Model>())];
             const applied = (): Rpc.Success<typeof Execute>['corrections'] => Option.liftPredicate(Array.fromIterable(notes), Array.isArrayNonEmpty);
-            const failed = (cause: unknown, line: Option.Option<number>, kept: boolean): InDesignError => InDesignError.make({ reason: { _tag: 'Thrown', cause, line, source: Option.flatMap(line, (at) => Array.get(code.split(LINE_BREAK), at - 1)), corrections: applied(), kept } });
+            const failed = (cause: unknown, line: Option.Option<number>, kept: boolean): InDesignError => InDesignError.make({ reason: { _tag: 'Script', cause, line, source: Option.flatMap(line, (at) => Array.get(code.split(LINE_BREAK), at - 1)), corrections: applied(), kept } });
             const corrected = (at: string, target: object, values: Record.ReadonlyRecord<string, unknown>): void => Array.forEach(runSync(write(target, values, grep(Option.liftPredicate(indesign.app.findGrepPreferences.findWhat, Predicate.isString)))), (text) => notes.add(`${at}.${text}`));
             const bound = {
                 __item: (at: string, target: { readonly [name: PropertyKey]: unknown }, key: PropertyKey): unknown => {
@@ -456,38 +458,44 @@ const execute = ({ body, ...transaction }: Rpc.Payload<typeof Execute>): Effect.
         Set: Effect.fnUntraced(function* ({ target, properties, add }) {
             const model = yield* Model;
             const checks = grep(Option.liftPredicate(indesign.app.findGrepPreferences.findWhat, Predicate.isString));
-            const into = yield* Effect.when(
-                Effect.gen(function* () {
-                    const owners = Array.ensure(yield* resolve(target.replace(LAST_STEP, '') || '/'));
-                    const held = yield* Effect.forEach(owners, (parent) =>
-                        Effect.map(Effect.option(Cache.get(model, parent.constructorName)), (shape) =>
-                            Array.flatMap(Option.toArray(shape), ({ fields }) => Array.flatMap(Record.toEntries(fields), ([accessor, { type }]) => (type !== undefined && plurals.has(type) ? [{ owner: parent, name: accessor, items: parent[accessor] }] : []))),
-                        ),
-                    );
-                    const found = yield* Effect.fromOption(
-                        Array.findFirst(Array.flatten(held), (each) => (collection(each.items) && Schema.is(Schema.Struct({ add: Callable }))(each.items) && each.items.everyItem()?.toSpecifier() === target ? Option.some({ ...each, items: each.items }) : Option.none())),
-                        () => missing(target, target, []),
-                    );
-                    const element = Option.flatMap(yield* Effect.option(Cache.get(model, found.items.constructorName)), ({ methods }) => Option.flatMapNullishOr(Record.get(methods, 'item'), ({ returns }) => returns?.type));
-                    return { owner: found.owner, name: found.name, type: Option.getOrElse(element, () => '') };
-                }),
-                Effect.succeed(add),
-            );
-            const members = Option.isSome(into) ? [] : Array.ensure(yield* resolve(target));
-            const screened = yield* Option.match(into, { onSome: ({ type }) => Effect.map(prepared(type, properties, checks), Array.of), onNone: () => Effect.forEach(members, (member) => prepared(member, properties, checks)) });
-            const [rows, corrections, preview] = yield* scripted(transaction, {
-                program: 'Set',
-                args: [Array.map(members, (member) => member.toSpecifier()), ...Option.match(into, { onNone: () => [null, null], onSome: ({ owner, name }) => [owner.toSpecifier(), name] }), Array.map(screened, Struct.get('rows')), properties],
-                refusals: Array.flatMap(screened, Struct.get('refusals')),
-                notes: Array.flatMap(screened, Struct.get('notes')),
-                settle: (result) =>
-                    Effect.flatMap(Effect.orDie(Schema.decodeUnknownEffect(Schema.Array(Schema.Tuple([Schema.Unknown, Schema.String, Schema.Unknown, Schema.Unknown])))(result)), (written) =>
-                        read(Schema.Array(Schema.Json), () => Array.map(written, ([member, field, before, after]) => ({ target: member, field, before: unwired(before), after: unwired(after) }))),
+            const owned = Effect.gen(function* () {
+                const owners = Array.ensure(yield* resolve(target.replace(LAST_STEP, '') || '/'));
+                const held = yield* Effect.forEach(owners, (parent) =>
+                    Effect.map(Effect.option(Cache.get(model, parent.constructorName)), (shape) =>
+                        Array.flatMap(Option.toArray(shape), ({ fields }) => Array.flatMap(Record.toEntries(fields), ([accessor, { type }]) => (type !== undefined && plurals.has(type) ? [{ owner: parent, name: accessor, items: parent[accessor] }] : []))),
                     ),
+                );
+                const found = yield* Effect.fromOption(
+                    Array.findFirst(Array.flatten(held), (each) => (addable(each.items) && each.items.everyItem()?.toSpecifier() === target ? Option.some({ ...each, items: each.items }) : Option.none())),
+                    () => missing(target, target, []),
+                );
+                const element = Option.flatMap(yield* Effect.option(Cache.get(model, found.items.constructorName)), ({ methods }) => Option.flatMapNullishOr(Record.get(methods, 'item'), ({ returns }) => returns?.type));
+                return [
+                    {
+                        owner: found.owner.toSpecifier(),
+                        field: found.name,
+                        ...(yield* prepared(
+                            Option.getOrElse(element, () => ''),
+                            properties,
+                            checks,
+                        )),
+                    },
+                ];
             });
-            return { result: Option.some(rows), corrections: Option.liftPredicate(corrections, Array.isReadonlyArrayNonEmpty), preview };
+            const listed = Effect.flatMap(resolve(target), (found) => Effect.forEach(Array.ensure(found), (member) => Effect.map(prepared(member, properties, checks), (fields) => ({ specifier: member.toSpecifier(), ...fields }))));
+            const screened: readonly (Effect.Success<ReturnType<typeof prepared>> & ({ readonly specifier: typeof Specifier.Type } | { readonly owner: typeof Specifier.Type; readonly field: string }))[] = yield* add ? owned : listed;
+            return yield* scripted(
+                transaction,
+                Effect.succeed({
+                    program: 'Set' as const,
+                    args: { targets: Array.map(screened, Struct.omit(['refusals', 'notes'])), properties },
+                    refusals: Array.flatMap(screened, Struct.get('refusals')),
+                    notes: Array.flatMap(screened, Struct.get('notes')),
+                    settle: (result) => Effect.asSome(read(Schema.Array(Schema.Json), () => result)),
+                }),
+            );
         }),
-    }).pipe(Effect.scoped);
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

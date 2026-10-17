@@ -36,19 +36,23 @@ public enum ProcessFailure: DeadlineFailure, LocalizedError {
 
 public enum ProcessRun {
     public static func withDeadline<Value: Sendable, Failure: DeadlineFailure>(
-        _ deadline: Duration,
+        _ deadline: Duration?,
         _ work: @escaping @Sendable () async -> Result<Value, Failure>,
     ) async -> Result<Value, Failure> {
-        await withTaskGroup { group in
-            group.addTask(name: "work") { await work() }
-            group.addTask(name: "deadline") {
-                await Result { try await Task.sleep(for: deadline) }
-                    .mapError { _ in Failure.cancelled }
-                    .flatMap { _ in .failure(.timedOut) }
+        if let deadline {
+            await withTaskGroup { group in
+                group.addTask(name: "work") { await work() }
+                group.addTask(name: "deadline") {
+                    await Result { try await Task.sleep(for: deadline) }
+                        .mapError { _ in Failure.cancelled }
+                        .flatMap { _ in .failure(.timedOut) }
+                }
+                let first: Result<Value, Failure> = await group.next() ?? .failure(.cancelled)
+                group.cancelAll()
+                return first
             }
-            let first: Result<Value, Failure> = await group.next() ?? .failure(.cancelled)
-            group.cancelAll()
-            return first
+        } else {
+            await work()
         }
     }
 
@@ -59,28 +63,10 @@ public enum ProcessRun {
             @escaping @Sendable (Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>)
             async -> Result<Value, ProcessFailure>,
     ) async -> Result<(Value, TerminationStatus), ProcessFailure> {
-        let work: @Sendable () async -> Result<(Value, TerminationStatus), ProcessFailure> = {
-            guard !Task.isCancelled else { return .failure(.cancelled) }
-            let outcome:
-                Result<
-                    ExecutionResult<Result<Value, ProcessFailure>, SequenceOutput, DiscardedOutput>, any Error
-                > = await Result {
-                    try await Subprocess.run(
-                        invocation,
-                        input: .inputWriter,
-                        output: .sequence,
-                        error: .discarded,
-                        body: body,
-                    )
-                }
-            return outcome.mapError(failure).flatMap { result in
-                result.closureResult.map { value in (value, result.terminationStatus) }
-            }
+        await launched(deadline) {
+            try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded, body: body)
         }
-        return switch deadline {
-            case .some(let deadline): await withDeadline(deadline, work)
-            case .none: await work()
-        }
+        .flatMap { result in result.closureResult.map { value in (value, result.terminationStatus) } }
     }
 
     public static func collect(
@@ -88,20 +74,17 @@ public enum ProcessRun {
         deadline: Duration,
         input: some InputProtocol = .none,
     ) async -> Result<ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>, ProcessFailure> {
+        await launched(deadline) {
+            try await Subprocess.run(invocation, input: input, output: .string(limit: 1 << 20), error: .string(limit: 1 << 20))
+        }
+    }
+
+    private static func launched<Value: Sendable>(
+        _ deadline: Duration?,
+        _ run: @escaping @Sendable () async throws -> Value,
+    ) async -> Result<Value, ProcessFailure> {
         await withDeadline(deadline) {
-            guard !Task.isCancelled else { return .failure(.cancelled) }
-            let outcome:
-                Result<
-                    ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>, any Error
-                > = await Result {
-                    try await Subprocess.run(
-                        invocation,
-                        input: input,
-                        output: .string(limit: 1 << 20),
-                        error: .string(limit: 1 << 20),
-                    )
-                }
-            return outcome.mapError(failure)
+            await !Task.isCancelled ? Result { try await run() }.mapError(failure) : .failure(.cancelled)
         }
     }
 

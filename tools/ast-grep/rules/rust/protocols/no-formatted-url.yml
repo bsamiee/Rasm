@@ -20,7 +20,7 @@ rule:
     any:
         - kind: macro_invocation
           all:
-            - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(format|format_args|write|writeln|print|println|eprint|eprintln)$'}
+            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
             - has: {kind: token_tree, has: {matches: url-text, regex: '://[^"/?]*[/?][^"]*[^{]\{[A-Za-z0-9_:}]'}}
         - kind: binary_expression
           all:

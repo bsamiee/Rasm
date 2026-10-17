@@ -13,7 +13,6 @@ namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class ClockFormat {
     public static readonly ClockFormat HourMinute12 = new(0, "h:mm tt");
     public static readonly ClockFormat HourMinuteSecond12 = new(1, "h:mm:ss tt");
@@ -40,7 +39,7 @@ public sealed partial class ClockZone {
 
     public ValueStore<ClockFormat> Format =>
         ValueStore.Of(
-            IO.lift(() => Conversions.Validated<ClockFormat, int, InvalidRhinoValue>(_read()).Map(static held => Some(held).Filter(static format => format != ClockFormat.Default))),
+            IO.lift(() => ClockFormat.Validated(_read()).Map(static held => Some(held).Filter(static format => format != ClockFormat.Default))),
             held => IO.lift(() => _write(held.IfNone(ClockFormat.Default).Key)),
             Applied.Live,
             None);
@@ -52,10 +51,9 @@ public sealed partial class ClockZone {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MomentRows {
     // --- [PICKERS]
-    public static ControlRow Picker<TValue, TError>(RowSource<Option<TValue>> source, RowField<Option<TValue>> field, DateTimePickerMode part, RowRules rules)
-        where TValue : IObjectFactory<TValue, LocalDateTime, TError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue>
-        where TError : Error, IValidationError<TError> =>
-        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Picked<TValue, TError>(source, field, part, scope, retain), rules);
+    public static ControlRow Picker<TValue>(RowSource<Option<TValue>> source, RowField<Option<TValue>> field, DateTimePickerMode part, RowRules rules)
+        where TValue : IObjectFactory<TValue, LocalDateTime, ValidationError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue> =>
+        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Picked(source, field, part, scope, retain), rules);
 
     // --- [RANGES]
     public static ControlRow DateSpan<TRecord, TBound>(
@@ -75,20 +73,19 @@ public static class MomentRows {
             from live in TextRows.Live(moment, (_, keep) => ButtonRows.Push(command, keep), (held, at) => Shown(held, zone, at), scope, owned)
             from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
                 Callbacks.Handler<EventArgs>(_ => Cycled(zone.Format), new CallbackSite(scope.Sink, typeof(Command), nameof(Command.Executed))), owned)
-            select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None), (_, lease) => retain(lease)),
+            select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None), retain),
             caption, help, rules);
 
     // --- [REALIZE]
-    private static IO<RowCells> Picked<TValue, TError>(RowSource<Option<TValue>> source, RowField<Option<TValue>> field, DateTimePickerMode part, RowScope scope, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, LocalDateTime, TError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue>
-        where TError : Error, IValidationError<TError> =>
+    private static IO<RowCells> Picked<TValue>(RowSource<Option<TValue>> source, RowField<Option<TValue>> field, DateTimePickerMode part, RowScope scope, Action<IDisposable> retain)
+        where TValue : IObjectFactory<TValue, LocalDateTime, ValidationError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue> =>
         DisposalOps.Acquire(owned =>
-        from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), static held => IO.lift(held.Dispose), owned)
+        from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
         from ranged in IO.lift(() => { (picker.Mode, picker.MinDate, picker.MaxDate) = (part, TValue.MinValue.ToValue().ToDateTimeUnspecified(), TValue.MaxValue.ToValue().ToDateTimeUnspecified()); })
         let site = new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged))
         let pattern = LocalDateTimePattern.Create("G", RowText.Culture)
         let merged = fun((Option<TValue> held, LocalDateTime wall) =>
-            Conversions.Validated<TValue, LocalDateTime, TError>(held.Map(value => part switch {
+            Admission.Validated<TValue, LocalDateTime>(held.Map(value => part switch {
                 DateTimePickerMode.Date => wall.Date.At(value.ToValue().TimeOfDay),
                 DateTimePickerMode.Time => value.ToValue().Date.At(wall.TimeOfDay),
                 DateTimePickerMode.DateTime => wall,
@@ -103,7 +100,7 @@ public static class MomentRows {
             scope, site, owned)
         select new RowCells(
             picker, None, None, None, [], [], new RowHelp(Some((pattern.Format(TValue.MinValue.ToValue()), pattern.Format(TValue.MaxValue.ToValue()))), None),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(picker, [], [], scope.Sink))), (_, lease) => retain(lease));
+            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(picker, [], [], scope.Sink))), retain);
 
     private static IO<Unit> Answered<TValue>(
         RowEdit<Option<TValue>> edit, RowSource<Option<TValue>> source, DateTimePicker picker, Func<Option<TValue>, LocalDateTime, Fin<Option<TValue>>> merged, RowScope scope) =>
@@ -118,10 +115,10 @@ public static class MomentRows {
         (LocalDate Min, LocalDate Max) limits, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
         DisposalOps.Acquire(owned =>
-        from start in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), static held => IO.lift(held.Dispose), owned)
-        from end in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), static held => IO.lift(held.Dispose), owned)
+        from start in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
+        from end in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
         from moded in IO.lift(() => { (start.Mode, end.Mode) = (DateTimePickerMode.Date, DateTimePickerMode.Date); })
-        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), static held => IO.lift(held.Dispose), owned)
+        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), owned)
         from placed in IO.lift(() => {
             table.Rows.Add(new TableRow(new TableCell(start, scaleWidth: true), new TableCell(end, scaleWidth: true)));
             table.Spacing = new Size(RhinoLayout.StackedSpacing(Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);
@@ -140,7 +137,7 @@ public static class MomentRows {
             new RowHelp(
                 Some((pattern.Format(limits.Min), pattern.Format(limits.Max))),
                 Some(read(source.Default)).Map(dates => RowText.Localize("{0} – {1}", arguments: [pattern.Format(dates.Start), pattern.Format(dates.End)]).Local)),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Labelled([], [], scope.Sink))), (_, lease) => retain(lease));
+            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Labelled([], [], scope.Sink))), retain);
 
     private static IO<Unit> Routed<TRecord>(
         RowEdit<TRecord> edit, RowSource<TRecord> source, Func<TRecord, DateInterval, Fin<TRecord>> write, DateTimePicker start, DateTimePicker end,

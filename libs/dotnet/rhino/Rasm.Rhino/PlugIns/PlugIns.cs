@@ -15,7 +15,7 @@ internal static class FileFormats {
         from added in IO.lift(() => Callbacks.Each(
             formats,
             format => list.AddFileType(
-                RowText.Localize(format.Description, table: Some<object>(sink)).Local,
+                RowText.Localize(format.Description, sink).Local,
                 format.Extensions.Map(static extension => (string)extension),
                 format.Options.IsSome) >= 0,
             nameof(FileTypeList.AddFileType)))
@@ -23,7 +23,7 @@ internal static class FileFormats {
 
     // --- [RUN]
     public static IO<A> Run<TOptions, A>(Seq<FileFormat<TOptions>> formats, int index, string path, RhinoDoc doc, TOptions options, A done, A cancelled, string member) where TOptions : class =>
-        (from format in IO.lift(formats.At(index).ToFin(new IndexOutOfRange(member, index, formats.Count)))
+        (from format in IO.lift(Conversions.Within(index, formats.Count, member).Map(_ => formats[index]))
          from ran in format.Run(path, doc, options)
          select done)
             .Catch(static error => error.Is(Errors.Cancelled), _ => IO.pure(cancelled));
@@ -32,10 +32,10 @@ internal static class FileFormats {
     public static IO<Unit> DisplayOptionsDialog<TOptions>(IPlugInViews plugIn, Seq<FileFormat<TOptions>> formats, string description, string extension) where TOptions : class =>
         (from dialog in IO.lift(() => formats
              .Find(format =>
-                 string.Equals(RowText.Localize(format.Description, table: Some<object>(plugIn)).Local, description, StringComparison.Ordinal)
+                 string.Equals(RowText.Localize(format.Description, plugIn).Local, description, StringComparison.Ordinal)
                  && string.Equals(((string)format.Extensions.Head)[1..], extension, StringComparison.Ordinal))
              .Bind(static format => format.Options)
-             .ToFin(new UnmatchedFormat(description, extension)))
+             .ToFin(new NotFound("file format", $"{description} {extension}")))
          from shown in Documents.WithDocument(new DocumentSource.Active(), document => Showing.ShowSemiModal(plugIn, dialog, document))
          select unit)
             .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit));
@@ -60,15 +60,9 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IDefi
         lifetime.Register(RegisterCommand, CallbackSite.Of(this));
     }
 
-    protected sealed override void OnShutdown() {
-        base.OnShutdown();
-        lifetime.Shutdown(CallbackSite.Of(this));
-    }
+    protected sealed override void OnShutdown() => lifetime.Shutdown(CallbackSite.Of(this));
 
-    protected sealed override void ResetMessageBoxes() {
-        base.ResetMessageBoxes();
-        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
-    }
+    protected sealed override void ResetMessageBoxes() => Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
 
     // --- [IDENTITY]
     public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
@@ -79,33 +73,18 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IDefi
     public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
-        base.OptionsDialogPages(pages);
-        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
-        base.DocumentPropertiesDialogPages(doc, pages);
-        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
-        base.ObjectPropertiesPages(collection);
-        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
-    }
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
 
     // --- [ARCHIVE]
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options, CallbackSite.Of(this));
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
-        base.WriteDocument(doc, archive, options);
-        DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
-    }
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
-        base.ReadDocument(doc, archive, options);
-        DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
-    }
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
 }
 
 public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileReadOptions>> formats) : FileImportPlugIn, IDefinedPlugIn {
@@ -127,15 +106,9 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
         lifetime.Register(RegisterCommand, CallbackSite.Of(this));
     }
 
-    protected sealed override void OnShutdown() {
-        base.OnShutdown();
-        lifetime.Shutdown(CallbackSite.Of(this));
-    }
+    protected sealed override void OnShutdown() => lifetime.Shutdown(CallbackSite.Of(this));
 
-    protected sealed override void ResetMessageBoxes() {
-        base.ResetMessageBoxes();
-        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
-    }
+    protected sealed override void ResetMessageBoxes() => Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
 
     // --- [IDENTITY]
     public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
@@ -146,33 +119,18 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
     public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
-        base.OptionsDialogPages(pages);
-        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
-        base.DocumentPropertiesDialogPages(doc, pages);
-        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
-        base.ObjectPropertiesPages(collection);
-        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
-    }
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
 
     // --- [ARCHIVE]
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options, CallbackSite.Of(this));
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
-        base.WriteDocument(doc, archive, options);
-        DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
-    }
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
-        base.ReadDocument(doc, archive, options);
-        DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
-    }
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
 
     // --- [FILES]
     protected sealed override FileTypeList AddFileTypes(FileReadOptions options) =>
@@ -180,15 +138,12 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override bool ReadFile(string filename, int index, RhinoDoc? doc, FileReadOptions options) =>
         Callbacks.Answer(
-            IO.lift(Missing.Unless(doc, nameof(RhinoDoc.FromRuntimeSerialNumber)))
+            IO.lift(Refused.UnlessFound(doc, nameof(RhinoDoc.FromRuntimeSerialNumber)))
                 .Bind(document => FileFormats.Run(formats, index, filename, document, options, done: true, cancelled: false, nameof(ReadFile))),
             static () => false,
             CallbackSite.Of(this));
 
-    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) {
-        base.DisplayOptionsDialog(parent, description, extension);
-        Callbacks.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension), CallbackSite.Of(this));
-    }
+    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => Callbacks.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension), CallbackSite.Of(this));
 }
 
 public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileWriteOptions>> formats) : FileExportPlugIn, IDefinedPlugIn {
@@ -210,15 +165,9 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
         lifetime.Register(RegisterCommand, CallbackSite.Of(this));
     }
 
-    protected sealed override void OnShutdown() {
-        base.OnShutdown();
-        lifetime.Shutdown(CallbackSite.Of(this));
-    }
+    protected sealed override void OnShutdown() => lifetime.Shutdown(CallbackSite.Of(this));
 
-    protected sealed override void ResetMessageBoxes() {
-        base.ResetMessageBoxes();
-        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
-    }
+    protected sealed override void ResetMessageBoxes() => Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
 
     // --- [IDENTITY]
     public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
@@ -229,33 +178,18 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
     public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
-        base.OptionsDialogPages(pages);
-        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
-        base.DocumentPropertiesDialogPages(doc, pages);
-        Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
-        base.ObjectPropertiesPages(collection);
-        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
-    }
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
 
     // --- [ARCHIVE]
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options, CallbackSite.Of(this));
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
-        base.WriteDocument(doc, archive, options);
-        DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
-    }
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
-        base.ReadDocument(doc, archive, options);
-        DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
-    }
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options, CallbackSite.Of(this));
 
     // --- [FILES]
     protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) =>
@@ -263,13 +197,10 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc? doc, FileWriteOptions options) =>
         Callbacks.Answer(
-            IO.lift(Missing.Unless(doc, nameof(RhinoDoc.FromRuntimeSerialNumber)))
+            IO.lift(Refused.UnlessFound(doc, nameof(RhinoDoc.FromRuntimeSerialNumber)))
                 .Bind(document => FileFormats.Run(formats, index, filename, document, options, WriteFileResult.Success, WriteFileResult.Cancel, nameof(WriteFile))),
             static () => WriteFileResult.Failure,
             CallbackSite.Of(this));
 
-    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) {
-        base.DisplayOptionsDialog(parent, description, extension);
-        Callbacks.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension), CallbackSite.Of(this));
-    }
+    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => Callbacks.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension), CallbackSite.Of(this));
 }

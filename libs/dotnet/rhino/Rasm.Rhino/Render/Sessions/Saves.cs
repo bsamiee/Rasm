@@ -28,10 +28,10 @@ namespace Rasm.Rhino.Render.Sessions;
 public sealed record SaveSource(RhinoDoc Document, RenderWindow Window, Option<RenderRun> Framing);
 
 public sealed record FileOrigin(SoftwareName Software, ZonedClock Clock, Map<FieldName, FieldText> Fields) {
-    public static IO<FileOrigin> At(IPlugInSink sink) =>
+    internal static IO<FileOrigin> At(IPlugInSink sink) =>
         IO.lift(() => (PlugIn)sink switch {
             var plugIn => (
-                    Conversions.Validated<SoftwareName, string, InvalidFileValue>(plugIn.Name).ToValidation(),
+                    SoftwareName.Validated(plugIn.Name).ToValidation(),
                     Field("Version", plugIn.Version),
                     Field("SettingsKey", plugIn.Id.ToString("D", CultureInfo.InvariantCulture)))
                 .Apply((software, version, settings) => new FileOrigin(software, ((IPlugInViews)sink).Clock.ToZonedClock(), Map(version, settings)))
@@ -40,15 +40,14 @@ public sealed record FileOrigin(SoftwareName Software, ZonedClock Clock, Map<Fie
         });
 
     internal static Validation<Error, (FieldName Name, FieldText Text)> Field(string name, string text) =>
-        (Conversions.Validated<FieldName, string, InvalidFileValue>(name).ToValidation(), Conversions.Validated<FieldText, string, InvalidFileValue>(text).ToValidation())
+        (FieldName.Validated(name).ToValidation(), FieldText.Validated(text).ToValidation())
             .Apply(static (field, value) => (field, value))
             .As();
 }
 
 public sealed record IdentitySource(ushort Id, Option<string> Name, Color Colour);
 
-[SmartEnum<RenderWindow.StandardChannels>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
+[SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SavedChannel {
     private const ushort IdMask = 0x7FFF;
 
@@ -79,19 +78,14 @@ public sealed partial class SavedChannel {
 
     [UseDelegateFromConstructor]
     internal partial ExrPass Part(PassName name, PixelFrame frame);
-
-    public static bool operator <(SavedChannel left, SavedChannel right) => Comparer<SavedChannel>.Default.Compare(left, right) < 0;
-    public static bool operator <=(SavedChannel left, SavedChannel right) => Comparer<SavedChannel>.Default.Compare(left, right) <= 0;
-    public static bool operator >(SavedChannel left, SavedChannel right) => Comparer<SavedChannel>.Default.Compare(left, right) > 0;
-    public static bool operator >=(SavedChannel left, SavedChannel right) => Comparer<SavedChannel>.Default.Compare(left, right) >= 0;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Saves {
     // --- [WRITES]
-    public static IO<Unit> Write(SaveSource source, FileOrigin origin,
+    public static IO<Unit> Write(SaveSource source, IPlugInSink sink,
         Seq<(OutputTarget Target, OutputPath Path, Option<RenderRegion> Region, OverscanFrame Overscan)> outputs) =>
-        from metadata in Metadata(source.Document, origin)
+        from metadata in Metadata(source.Document, sink)
         from written in Callbacks.Each(outputs.Map(output => Write(source, metadata, output.Target, output.Path, output.Region, output.Overscan)))
         select unit;
 
@@ -115,18 +109,17 @@ public static class Saves {
 
     public static IO<Unit> Write(IPlugInSink sink, OutputTarget target, string fileName, RenderWindow window) =>
         Documents.WithDocument(new DocumentSource.Active(), document =>
-            from path in IO.lift(Conversions.Validated<OutputPath, string, InvalidFileValue>(fileName))
-            from origin in FileOrigin.At(sink)
+            from path in IO.lift(OutputPath.Validated(fileName))
             from whole in Whole(window)
-            from written in Write(new SaveSource(document, window, None), origin, Seq((target, path, Option<RenderRegion>.None, whole)))
+            from written in Write(new SaveSource(document, window, None), sink, Seq((target, path, Option<RenderRegion>.None, whole)))
             select unit);
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> Write(
-        SaveSource source, FileOrigin origin, Destination destination, Seq<(OutputTarget Target, Seq<NamePart> Scope, OutputVersioning Version, Seq<NamePart> Parts)> outputs) =>
+        SaveSource source, IPlugInSink sink, Destination destination, Seq<(OutputTarget Target, Seq<NamePart> Scope, OutputVersioning Version, Seq<NamePart> Parts)> outputs) =>
         from names in IO.lift(Named(outputs))
         from placed in Destinations.Resolve(source.Document, destination, names)
         from whole in Whole(source.Window)
-        from written in Write(source, origin, outputs.Zip(placed)
+        from written in Write(source, sink, outputs.Zip(placed)
             .Map(pair => (pair.First.Target, pair.Second.Path, Option<RenderRegion>.None, whole)))
         select placed;
 
@@ -137,26 +130,26 @@ public static class Saves {
         book.Named.Map(static named => (named.Target, Seq<NamePart>(), (OutputVersioning)new OutputVersioning.NextFree(), named.Parts));
 
     private static Fin<Seq<OutputName>> Named(Seq<(OutputTarget Target, Seq<NamePart> Scope, OutputVersioning Version, Seq<NamePart> Parts)> outputs) =>
-        Callbacks.Each(outputs, static (output, _) => Conversions.Validated<FileExtension, string, InvalidRhinoValue>(output.Target.FileFormat.Extension)
+        Callbacks.Each(outputs, static (output, _) => FileExtension.Validated(output.Target.FileFormat.Extension)
             .Map(extension => new OutputName(output.Scope, output.Version, output.Parts, None, extension)));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> Write(
-        RhinoDoc document, FileOrigin origin, OutputBook book,
-        Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source) =>
+        RhinoDoc document, IPlugInSink sink, Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source) =>
+        from book in TargetRows.Book(document)
         from names in IO.lift(Named(Fresh(book)))
         from placed in Destinations.Resolve(document, book.Destination, names)
-        from metadata in Metadata(document, origin)
+        from metadata in Metadata(document, sink)
         from channels in book.Targets.Exists(static target => (target.FileFormat == TargetFile.Exr && target.Reader.IsSome)
                 || (target.FileFormat == TargetFile.Layered && target.ColorDepth.Levels.IsNone))
             ? source.Match(
-                Left: static captured => IO.lift(captured.Run.Channels.ToFin(new Missing(nameof(RenderRun.Channels)))),
+                Left: static captured => IO.lift(captured.Run.Channels.ToFin(new Refused(nameof(RenderRun.Channels), Refused.Absent))),
                 Right: static recorded => recorded.Request.Rendering.Channels)
             : IO.pure(HashMap<RenderWindow.StandardChannels, PixelFrame>())
         from written in DisposalOps.Within(static () => new Derivations(), derivations =>
             Callbacks.Each(book.Targets.Zip(placed).Map(output =>
                 from built in Built(source, output.First, derivations, channels)
                 from saved in StillWriter.Write(built, metadata, output.Second.Path)
-                select unit)), static derivations => IO.lift(derivations.Dispose))
+                select unit)))
         select placed;
 
     private static IO<StillFormat> Built(
@@ -174,7 +167,7 @@ public static class Saves {
 
     private static IO<StillFormat> RawStill(Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source, TargetWrite.Raw raw) =>
         source.Match(
-            Left: captured => IO.lift(captured.Run.Scene.ToFin(new SceneUntapped(captured.Rendering)))
+            Left: captured => IO.lift(captured.Run.Scene.ToFin(new NotFound("scene-linear frame", $"{captured.Rendering}")))
                 .Bind(scene => IO.lift(() => raw.Still(scene, Some(captured.Run)))),
             Right: recorded => IO.lift(() => raw.Still(recorded.Scene, None)));
 
@@ -182,7 +175,7 @@ public static class Saves {
         Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
         OutputTarget target, HashMap<RenderWindow.StandardChannels, PixelFrame> channels, TargetWrite.Layers layers) =>
         source.Match(
-            Left: captured => IO.lift(captured.Run.Scene.ToFin(new SceneUntapped(captured.Rendering)))
+            Left: captured => IO.lift(captured.Run.Scene.ToFin(new NotFound("scene-linear frame", $"{captured.Rendering}")))
                 .Bind(scene => Passes(None, scene, channels, Some(captured.Run), layers, target)),
             Right: recorded => Passes(None, recorded.Scene, channels, None, layers, target));
 
@@ -190,19 +183,20 @@ public static class Saves {
         Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
         OutputTarget target, Derivations derivations, HashMap<RenderWindow.StandardChannels, PixelFrame> channels) =>
         from frame in Displayed(source, target, target.ColorDepth, derivations)
-        from name in IO.lift(Conversions.Validated<PassName, string, InvalidFileValue>(nameof(RenderWindow.StandardChannels.RGBA)))
+        from name in IO.lift(PassName.Validated(nameof(RenderWindow.StandardChannels.RGBA)))
         from auxiliary in toSeq(SavedChannel.Items).Filter(channel => target.ColorDepth.Levels.IsNone && channels.ContainsKey(channel.Key))
             .TraverseM(channel => Layer(None, channel, channels[channel.Key], Some(target.DisplayDevice.Encoding))).As()
         from layeredDocument in IO.lift(LayeredDocument.From(target.ColorDepth, Some(target.DisplayDevice.Encoding),
-            new DocumentLayer.Raster(name, frame, BlendingMode.Mix, Mix.Full, Visible: true, Mask: None).Cons(auxiliary)).ToFin())
+            new DocumentLayer.Raster(name, frame, BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, Mask: None).Cons(auxiliary)).ToFin())
         select (StillFormat)new StillFormat.Document(layeredDocument);
 
     private static IO<PixelFrame> Displayed(
         Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
         OutputTarget target, OutputDepth depth, Derivations derivations) =>
-        from quantizer in unless(depth.Levels.IsSome || target.Dithering == Dither.Off, IO.fail<Unit>(new NoDitherLevels(target.Dithering))).As()
+        from dithered in when(TargetVerdict.Dithered(depth, target.Dithering) is TargetVerdict.NoLevels,
+            IO.fail<Unit>(Error.New($"{target.Dithering} holds no levels to dither at a float depth"))).As()
         from extent in IO.lift(source.Match(
-            Left: static captured => (captured.Run.Scene || captured.Run.Formed).Map(static frame => frame.Extent).ToFin(new FrameUnformed(captured.Rendering)),
+            Left: static captured => (captured.Run.Scene || captured.Run.Formed).Map(static frame => frame.Extent).ToFin(new NotFound("formed frame", $"{captured.Rendering}")),
             Right: static recorded => Fin.Succ(recorded.Scene.Extent)))
         let context = EffectPipeline.Detached(extent, derivations) with {
             Display = target.DisplayDevice,
@@ -231,10 +225,10 @@ public static class Saves {
             Some: static held => IO.pure(held),
             None: () => captured.Run.NativeLate.IsEmpty || target.DisplayDevice == EffectPipeline.Display
                 ? Formed(captured, context)
-                : IO.fail<(PixelFrame Frame, Seq<PixelPass> Passes)>(new NativeOutputUnavailable(captured.Rendering, captured.Run.NativeLate)));
+                : IO.fail<(PixelFrame Frame, Seq<PixelPass> Passes)>(RenderRuns.NativeOutput(captured.Rendering, captured.Run.NativeLate)));
 
     private static IO<(PixelFrame Frame, Seq<PixelPass> Passes)> Formed((Guid Rendering, RenderRun Run) captured, PassContext context) =>
-        IO.lift(captured.Run.Output.ToFin(new FrameUnformed(captured.Rendering)))
+        IO.lift(captured.Run.Output.ToFin(new NotFound("formed frame", $"{captured.Rendering}")))
             .Bind(output => IO.lift(output.Frame.Map(held => (Frame: held.Frame.Copy(),
                 Passes: held.Encoding.To(context.Display.Encoding).Map<PixelPass>(static step => new PixelPass.Color(step))
                     + output.Prefix.ToSeq().Bind(prefix => captured.Run.Late.Skip(prefix).Choose(pass => pass(context)))))));
@@ -285,12 +279,12 @@ public static class Saves {
         Option<RenderRun> framing, TargetWrite.Layers layers, OutputTarget target) =>
         from layout in IO.lift(layers.Layout)
         from position in IO.lift(target.Position
-            ? (channels.Find(SavedChannel.Distance.Key).ToFin(new Missing(nameof(RenderWindow.StandardChannels.DistanceFromCamera))),
-                framing.Bind(static run => run.Metres).ToFin(new Missing(nameof(RenderRun.Metres))))
+            ? (channels.Find(SavedChannel.Distance.Key).ToFin(new Refused(nameof(RenderWindow.StandardChannels.DistanceFromCamera), Refused.Absent)),
+                framing.Bind(static run => run.Metres).ToFin(new Refused(nameof(RenderRun.Metres), Refused.Absent)))
                 .Apply(static (distance, metres) => Some(EffectPipeline.Metric(distance, metres))).As()
             : Fin.Succ(Option<PixelFrame>.None))
         from named in toSeq(SavedChannel.Items).Filter(channel => channels.ContainsKey(channel.Key)).TraverseM(channel =>
-            from name in IO.lift(Conversions.Validated<PassName, string, InvalidFileValue>(channel.Layer))
+            from name in IO.lift(PassName.Validated(channel.Layer))
             let frame = channels[channel.Key]
             from entries in IO.lift((from sources in channel.Sources from doc in document select sources(doc))
                 .Traverse(sources => Identified(frame, sources, TargetWrite.SceneLinear)).As())
@@ -312,9 +306,9 @@ public static class Saves {
                 let encoding = Callbacks.Found(!formed, TargetWrite.SceneLinear)
                 from channels in Saved(source.Window)
                 from layers in channels.Filter(channel => !formed || channel.Sources.IsSome).TraverseM(channel => Layer(source, channel, encoding, place)).As()
-                from beautyName in IO.lift(Conversions.Validated<PassName, string, InvalidFileValue>(nameof(RenderWindow.StandardChannels.RGBA)))
+                from beautyName in IO.lift(PassName.Validated(nameof(RenderWindow.StandardChannels.RGBA)))
                 from document in IO.lift(LayeredDocument.From(
-                    target.ColorDepth, encoding, new DocumentLayer.Raster(beautyName, beauty, BlendingMode.Mix, Mix.Full, Visible: true, Mask: None).Cons(layers)).ToFin())
+                    target.ColorDepth, encoding, new DocumentLayer.Raster(beautyName, beauty, BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, Mask: None).Cons(layers)).ToFin())
                 select (StillFormat)new StillFormat.Document(document),
         };
 
@@ -324,10 +318,10 @@ public static class Saves {
         select layer;
 
     private static IO<DocumentLayer> Layer(Option<RhinoDoc> document, SavedChannel channel, PixelFrame frame, Option<ColorEncoding> encoding) =>
-        from name in IO.lift(Conversions.Validated<PassName, string, InvalidFileValue>(channel.Layer))
+        from name in IO.lift(PassName.Validated(channel.Layer))
         from layer in IO.lift(() => (from sources in channel.Sources from doc in document select sources(doc)).Match(
             Some: sources => Identified(frame, sources, encoding).Map(entries => DocumentLayer.Identities(name, frame, entries)),
-            None: () => Fin.Succ<DocumentLayer>(new DocumentLayer.Raster(name, frame, BlendingMode.Mix, Mix.Full, Visible: false, Mask: None))))
+            None: () => Fin.Succ<DocumentLayer>(new DocumentLayer.Raster(name, frame, BlendingMode.Mix, AxisFraction.MaxValue, Visible: false, Mask: None))))
         select layer;
 
     private static Fin<Seq<IdentityLayer>> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
@@ -341,7 +335,7 @@ public static class Saves {
                     .Fold(Map<ushort, (Color Colour, Seq<string> Names)>(), static (held, source) =>
                         held.AddOrUpdate(source.Id, same => (same.Colour, same.Names + source.Name.ToSeq()), (source.Colour, source.Name.ToSeq())))
                     .AsIterable()),
-                (entry, _) => Conversions.Validated<PassName, string, InvalidFileValue>(
+                (entry, _) => PassName.Validated(
                         entry.Value.Names.IsEmpty ? entry.Key.ToString(CultureInfo.InvariantCulture) : string.Join(", ", entry.Value.Names))
                     .Map(layer => new IdentityLayer(entry.Key, layer, Encoded(entry.Value.Colour))));
 
@@ -353,7 +347,8 @@ public static class Saves {
     }
 
     // --- [METADATA]
-    internal static IO<FileMetadata> Metadata(RhinoDoc document, FileOrigin origin) =>
+    internal static IO<FileMetadata> Metadata(RhinoDoc document, IPlugInSink sink) =>
+        from origin in FileOrigin.At(sink)
         from created in IO.lift(() => origin.Clock.GetCurrentZonedDateTime().ToDateTimeOffset())
         from density in RenderSettingsSources.Store<ImageOutputState>(document).Read.Map(static held => held.IfNone(ImageOutputState.Default).ImageDpi)
         from active in RenderSets.Book(document).Map(static book => book.Active)
@@ -367,11 +362,11 @@ public static class Saves {
 
     internal static IO<OutputPath> Prompted(RhinoDoc document, RunMode mode, string title, string extension) =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
-        from typed in IO.lift(Conversions.Validated<FileExtension, string, InvalidRhinoValue>(extension))
+        from typed in IO.lift(FileExtension.Validated(extension))
         from suggested in IO.lift(saved.Traverse(file => Destinations.StemOf(new Stem.DocumentName(), file)
             .Map(stem => Naming.Compose(stem, new OutputName(Seq<NamePart>(), new OutputVersioning.Unversioned(), Seq<NamePart>(), None, typed), None))).As())
         from picked in Modals.GetFileName(mode, GetFileNameMode.Export, Conversions.Unset(suggested), title, None)
-        from path in IO.lift(Conversions.Validated<OutputPath, string, InvalidFileValue>(picked))
+        from path in IO.lift(OutputPath.Validated(picked))
         select path;
 }
 
@@ -381,10 +376,8 @@ public sealed class FrameExportCommand(IPlugInSink sink, Guid id, string english
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
         Saves.Measured(doc, (settings, extent) =>
             from coordinates in frame(settings, extent)
-            from extension in IO.lift(StillFormat.ExrRaster.Extensions.Head.ToFin(new Missing(nameof(StillFormat.ExrRaster.Extensions))))
-            from path in Saves.Prompted(doc, mode, LocalName, extension)
-            from origin in FileOrigin.At(site.Sink)
-            from metadata in Saves.Metadata(doc, origin)
+            from path in Saves.Prompted(doc, mode, LocalName, StillFormat.ExrRaster.Extensions.Head)
+            from metadata in Saves.Metadata(doc, site.Sink)
             from still in IO.lift(StillFormat.ExrRaster.From(coordinates, ExrLayout.Coordinates, alpha: true, None).ToFin())
             from _ in StillWriter.Write(still, metadata, path)
             select unit);
@@ -395,10 +388,10 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
         Saves.Measured(doc, (settings, extent) =>
             DisposalOps.Within(static () => new Derivations(), derivations =>
             from entries in EffectRegistry.Read(settings)
-            from history in IO.lift(() => RenderHistory.Current.Of(site.Sink))
-            from grading in IO.lift(history.Grading(doc))
+            from history in RenderHistory.Current.Of(site.Sink)
+            from grading in history.Grading(doc)
             from set in grading.Capture
-            from kinds in IO.lift(() => EffectRegistry.Kinds.Of(site.Sink))
+            from kinds in EffectRegistry.Kinds.Of(site.Sink)
             let ordered = EffectPipeline.Ordered(entries, kinds)
             let context = EffectPipeline.Detached(extent, derivations) with { Lights = Some(SceneLights.Empty) }
             from chain in EffectPipeline.Chain(set, ordered, context)
@@ -408,12 +401,11 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
             }))
             from path in Saves.Prompted(doc, mode, LocalName, chosen.Format.Extension)
             from table in Getters.Await(doc, LocalName, None, _ => IO.lift(Bakes.Bake(chosen.Bake, EffectPipeline.Baked(chain), EffectPipeline.Working)))
-            from origin in FileOrigin.At(site.Sink)
-            from metadata in Saves.Metadata(doc, origin)
+            from metadata in Saves.Metadata(doc, site.Sink)
             from _ in toSeq(LookupLayout.Items).Find(layout => Equals(layout.Format, chosen.Format)).Match(
                 Some: layout => LutFile.WriteLookup(table, layout, metadata, path),
                 None: () => LutFile.Write(table, chosen.Format, path))
-            select unit, static derivations => IO.lift(derivations.Dispose)));
+            select unit));
 
     private sealed record LutChoice(LatticeSize Size, AllocationStop Low, AllocationSpan Span, Gamut Gamut, Transfer Transfer, LutFormat Format) {
         public static LutChoice Default { get; } =
@@ -423,21 +415,12 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
 
         public Seq<OptionSpec<StageStep<LutChoice, LutChoice>>> Options =>
             Seq(
-                OptionSpec.Of("Size", OptionType.Integer<LatticeSize, int, InvalidColor>, Size, size => Next(this with { Size = size })),
-                OptionSpec.Of("Low", OptionType.Number<AllocationStop, float, InvalidColor>, Low, low => Next(this with { Low = low })),
-                OptionSpec.Of("Span", OptionType.Number<AllocationSpan, float, InvalidColor>, Span, span => Next(this with { Span = span })),
-                OptionSpec.Of("Gamut", static (getter, name, plugIn, initial, retain) => OptionType.List(toSeq(Gamut.Items), static gamut => gamut.Map(
-                    standardRgb: "Rec.709", displayP3: "Display P3", rec2020: "Rec.2020", acescg: "ACEScg", aces20651: "ACES2065-1", proPhoto: "ProPhoto", eGamut: "E-Gamut",
-                    arriWideGamut3: "ARRI Wide Gamut 3", arriWideGamut4: "ARRI Wide Gamut 4", sGamut3: "S-Gamut3", sGamut3Cine: "S-Gamut3.Cine", veniceSGamut3: "Venice S-Gamut3",
-                    veniceSGamut3Cine: "Venice S-Gamut3.Cine", cinemaGamut: "Cinema Gamut", redWideGamutRgb: "REDWideGamutRGB", vGamut: "V-Gamut", dGamut: "D-Gamut",
-                    protuneNative: "Protune Native", blackmagicWideGamut: "Blackmagic Wide Gamut", daVinciWideGamut: "DaVinci Wide Gamut", appleWideGamut: "Apple Wide Gamut"),
-                    getter, name, plugIn, initial, retain),
-                    Gamut, gamut => Next(this with { Gamut = gamut })),
-                OptionSpec.Of("Transfer", static (getter, name, sink, initial, retain) => OptionType.Text<Transfer, InvalidColor>(allowEmptyString: false, getter, name, sink, initial, retain), Transfer, transfer => Next(this with { Transfer = transfer })),
-                OptionSpec.Of("Format", static (getter, name, plugIn, initial, retain) => OptionType.List(toSeq(LutFormat.Items), static format => format.Map(
-                    cube: "Cube", spi1d: "SPI 1D", spi3d: "SPI 3D", spiMatrix: "SPI Matrix", autodesk: "Autodesk", clf: "CLF", ctf: "CTF", hald: "Hald", keyShotLookup: "KeyShot LookUp"),
-                    getter, name, plugIn, initial, retain),
-                    Format, format => Next(this with { Format = format })));
+                OptionSpec.Of("Size", OptionType.Integer<LatticeSize, int>, Size, size => Next(this with { Size = size })),
+                OptionSpec.Of("Low", OptionType.Number<AllocationStop, float>, Low, low => Next(this with { Low = low })),
+                OptionSpec.Of("Span", OptionType.Number<AllocationSpan, float>, Span, span => Next(this with { Span = span })),
+                OptionSpec.Of("Gamut", OptionType.List(toSeq(Gamut.Items), static gamut => gamut.Caption), Gamut, gamut => Next(this with { Gamut = gamut })),
+                OptionSpec.Of("Transfer", OptionType.Text<Transfer>(allowEmptyString: false), Transfer, transfer => Next(this with { Transfer = transfer })),
+                OptionSpec.Of("Format", OptionType.List(toSeq(LutFormat.Items), static format => format.Caption), Format, format => Next(this with { Format = format })));
 
         private static IO<StageStep<LutChoice, LutChoice>> Next(LutChoice choice) => IO.pure<StageStep<LutChoice, LutChoice>>(new StageStep<LutChoice, LutChoice>.Advance(choice));
     }

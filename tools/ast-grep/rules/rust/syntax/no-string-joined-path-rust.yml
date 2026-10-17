@@ -34,7 +34,7 @@ utils:
             - has: {field: arguments, has: {nthChild: 1, matches: slash}, not: {has: {nthChild: 2}}}
 rule:
     pattern: $JOINED
-    not: {matches: rust-owned-span}
+    not: {has: {stopBy: end, any: [{matches: rust-machine-path}, {matches: rust-procfs-path}]}}
     any:
         - matches: joined
           any:

@@ -1,8 +1,8 @@
 using System.Globalization;
 using Eto.Forms;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Inputs;
+using Rasm.Rhino.UI.Styling;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.UI;
@@ -30,7 +30,7 @@ internal static partial class BannerMapper {
 public static class Notifications {
     // --- [DOCK]
     public static IO<Disposal<Application>> Acquire(Action<Disposal<Application>> retain) =>
-        DisposalOps.Acquire(IO.lift(static () => new Disposal<Application>(Application.Instance, Cleared)), static held => IO.lift(held.Dispose), retain);
+        DisposalOps.Acquire(IO.lift(static () => new Disposal<Application>(Application.Instance, Cleared)), retain);
 
     public static IO<Unit> SetProgress(Disposal<Application> hold, WorkState work, Option<TaskbarProgressState> state = default) =>
         IO.lift(() => hold.Held.Iter(_ => Taskbar.SetProgress(
@@ -46,15 +46,13 @@ public static class Notifications {
     // --- [TRAY]
     public static IO<Unit> Tray(TrayRow row, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(acquired =>
-            from tray in DisposalOps.Acquire(IO.lift(static () => new TrayIndicator()), static held => IO.lift(held.Dispose), acquired)
+            from tray in DisposalOps.Acquire(IO.lift(static () => new TrayIndicator()), acquired)
             from themed in Icons.Themed(sink, row.Glyph, IconSlot.MenuItem, HostTheme.Changed, icon => tray.Image = icon, acquired)
             from menu in ChoiceRows.Menu(row.Menu, Seq<IO<Unit>>(), None, sink, acquired)
             from assigned in IO.lift(() => tray.Menu = menu)
             from shown in IO.lift(tray.Show)
-            from titled in IO.lift(() => Callbacks.Thrown<ArgumentOutOfRangeException, string>(
-                () => tray.Title = RowText.Localize(row.Caption, table: Some<object>(sink)).Local,
-                nameof(TrayIndicator.Title)))
-            select unit, (_, held) => retain(held));
+            from titled in IO.lift(() => tray.Title = RowText.Localize(row.Caption, sink).Local)
+            select unit, retain);
 
     // --- [BANNERS]
     public static IO<Unit> Show(Notice notice) =>
@@ -66,7 +64,7 @@ public static class Notifications {
             from mapped in IO.lift(() => BannerMapper.Update(notice, banner))
             from assigned in IO.lift(() => banner.ContentImage = image.ValueUnsafe())
             from delivered in IO.lift(() => banner.Show())
-            select delivered, static banner => IO.lift(banner.Dispose))
+            select delivered)
         select shown;
 
     // --- [ACTIVATION]

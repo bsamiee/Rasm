@@ -47,8 +47,8 @@ utils:
     reader:
         pattern: $READER
         all:
-            - matches: syntax-function-boundary
-            - not: {inside: {stopBy: end, matches: syntax-function-boundary}}
+            - matches: typescript-function-boundary
+            - not: {inside: {stopBy: end, matches: typescript-function-boundary}}
             - matches: declared
             - has: {stopBy: end, matches: reference}
     holds-reader:
@@ -58,7 +58,7 @@ utils:
     constant-reader:
         kind: variable_declarator
         all:
-            - inside: {matches: syntax-module-constant}
+            - inside: {matches: typescript-module-constant}
             - has: {field: name, kind: identifier, pattern: $HOLDER}
             - has: {field: value, has: {stopBy: end, matches: reference}}
     holds-reference:

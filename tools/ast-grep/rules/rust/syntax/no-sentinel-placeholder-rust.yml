@@ -67,7 +67,7 @@ utils:
         any:
             - matches: absent-sentinel
             - kind: block
-              has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: absent-sentinel}, {kind: return_expression, has: {matches: absent-sentinel}}]}
+              has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}, any: [{matches: absent-sentinel}, {kind: return_expression, has: {matches: absent-sentinel}}]}
     substitute:
         kind: field_expression
         all:
@@ -172,7 +172,7 @@ rule:
         - kind: let_declaration
           all:
             - has: {field: pattern, kind: tuple_struct_pattern, has: {field: type, regex: '^Some$'}}
-            - has: {field: alternative, kind: block, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: return_expression, has: {matches: absent-sentinel}}}
+            - has: {field: alternative, kind: block, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}, kind: return_expression, has: {matches: absent-sentinel}}}
         - kind: let_declaration
           all:
             - has: {field: pattern, kind: identifier, pattern: $NAME}

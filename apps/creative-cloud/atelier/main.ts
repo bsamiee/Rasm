@@ -15,7 +15,7 @@ const extensions = [extension('Galley')];
 main(
     {
         ...Struct.pick(manifest, ['name', 'version', 'description']),
-        instructions: Array.join(Array.map([Atelier, ...extensions], Struct.get('instructions')), '\n'),
+        instructions: Array.join(Array.flatMap([Atelier, ...extensions], Struct.get('instructions')), '\n'),
         protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26, McpProtocol.v2024_11_05],
         allowSessionTermination: true,
     },

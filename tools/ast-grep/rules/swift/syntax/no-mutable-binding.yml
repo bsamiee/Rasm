@@ -23,6 +23,11 @@ utils:
             all:
                 - has: {field: target, pattern: $NAME}
                 - has: {field: suffix, regex: '^\.(append|insert|remove|removeAll|removeFirst|removeLast|removeSubrange|replaceSubrange|sort|reverse|shuffle|merge|formUnion|formIntersection|formSymmetricDifference|subtract|toggle)$'}
+    expressionless-loop:
+        kind: for_statement
+        any:
+            - has: {pattern: $$_AWAIT, regex: '^await$'}
+            - has: {field: collection, any: [{kind: value_pack_expansion}, {has: {stopBy: end, kind: value_pack_expansion}}]}
 rule:
     kind: value_binding_pattern
     all:
@@ -72,14 +77,12 @@ rule:
                                     stopBy: end
                                     any:
                                         - all:
-                                            - {kind: for_statement, has: {pattern: $$_AWAIT, regex: '^await$'}}
+                                            - matches: expressionless-loop
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
                                         - has:
                                             stopBy: end
-                                            kind: for_statement
-                                            all:
-                                                - has: {pattern: $$_AWAIT, regex: '^await$'}
-                                                - has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
+                                            matches: expressionless-loop
+                                            has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
                                 - not:
                                     precedes:
                                         stopBy: end
@@ -89,6 +92,6 @@ rule:
                                                 stopBy: end
                                                 kind: assignment
                                                 has: {field: target, has: {matches: head}}
-                                                not: {inside: {stopBy: end, kind: for_statement, has: {pattern: $$_AWAIT, regex: '^await$'}}}
+                                                not: {inside: {stopBy: end, matches: expressionless-loop}}
 message: '`var $NAME` binds a value an expression computes'
 note: 'Bind `let` to the expression yielding its final value (`map`, `reduce`, `merging`, a memberwise init, a `switch` or `if` expression)'

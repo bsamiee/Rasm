@@ -1,6 +1,5 @@
 """Light and shadow linking sets of an emitter, their members, and each member's link state."""
 
-from contextlib import ExitStack
 from functools import partial
 from itertools import product
 from typing import Annotated, ClassVar
@@ -10,7 +9,7 @@ from expression import Nothing, Ok, Option, Some
 import msgspec
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome, Unchanged
-from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, root_in, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -36,7 +35,7 @@ states = Choices(lambda *_: enumerated(link_state))
 class Linking(msgspec.Struct, frozen=True, kw_only=True):
     """Link state a link operator writes on each joining member."""
 
-    state: Annotated[str, msgspec.Meta(title="State", description="Whether each member is lit and shadowed by the emitter or left out"), states] = link_state.default
+    state: Annotated[str, msgspec.Meta(description="Whether each member is lit and shadowed by the emitter or left out"), states] = link_state.default
 
 
 class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
@@ -103,7 +102,7 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
                 templated(
                     Member(root=bpy.types.ObjectLightLinking, path=descriptor.prop.identifier, reach=reach),
                     (bpy.types.Collection,),
-                    (bpy.types.Collection,),
+                    (),
                     lambda layout, owner, key, _context: layout.template_light_linking_collection(layout, owner, key),
                 ),
                 rows.placed((OperatorButton(target=link), OperatorButton(target=unlink)), identity),
@@ -127,33 +126,16 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
     Returns:
         `Ok` of the slot's collection; `collision` for a taken name and `edit` for a refused slot write.
     """
-    row = LightLinks.sets[link]
-    mark = Mark(key=row.key, of=Some(owner))
-
-    def retained(held: bpy.types.Collection) -> bpy.types.Collection:
-        rollback.callback(bpy.data.batch_remove, ids=(held,))
-        return held
-
-    def published(held: bpy.types.Collection) -> bpy.types.Collection:
-        rollback.pop_all()
-        return held
-
-    with ExitStack() as rollback:
-        return (
-            Option
-            .of_optional(getattr(emitter.light_linking, link.prop.identifier))
-            .map(Ok)
-            .default_with(
-                lambda: (
-                    Option
-                    .of_optional(earliest(row.held(identity)).get(mark))
-                    .map(Ok)
-                    .default_with(lambda: founded(Nothing, f"{owner.name} {link.prop.name}").bind(lambda held: row.owned(identity, held, mark)).map(retained))
-                    .bind(lambda held: link.write(emitter.light_linking, held).map(lambda _: held))
-                )
+    return (
+        Option
+        .of_optional(getattr(emitter.light_linking, link.prop.identifier))
+        .map(Ok)
+        .default_with(
+            lambda: LightLinks.sets[link].made(
+                identity, lambda: founded(Nothing, f"{owner.name} {link.prop.name}"), of=Some(owner), filled=lambda held: link.write(emitter.light_linking, held).map(lambda _: held)
             )
-            .map(published)
         )
+    )
 
 
 def linked(

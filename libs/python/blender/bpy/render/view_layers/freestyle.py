@@ -11,11 +11,11 @@ import msgspec
 
 from blender.bpy.commands.operators import Empty, Operator, Outcome, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import joined, Line, OperatorButton, placed, Row, RowDraw
 from blender.bpy.ui.layout.sections import Listing, Single
@@ -135,17 +135,9 @@ class FreestyleSection(Line, frozen=True):
 
             listing = Listing(
                 preset=self.preset,
-                current=lambda context: Result[bpy.types.ViewLayer, BlenderFaults].bind(
-                    Option.of_optional(context.view_layer).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),)), lambda layer: captured(layer, members)
-                ),
-                matches=lambda context, values: (
-                    Result[bpy.types.ViewLayer, BlenderFaults]
-                    .bind(Option.of_optional(context.view_layer).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),)), lambda layer: captured(layer, members))
-                    .map(lambda held: tuple(held == value for value in values))
-                ),
-                applied=lambda context, value: Result[bpy.types.Scene, BlenderFaults].bind(
-                    Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), lambda scene: onto(value, used(scene))
-                ),
+                current=lambda context: rooted(bpy.types.ViewLayer, context).bind(lambda layer: captured(layer, members)),
+                matches=lambda context, values: rooted(bpy.types.ViewLayer, context).bind(lambda layer: captured(layer, members)).map(lambda held: tuple(held == value for value in values)),
+                applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: onto(value, used(scene))),
             )
             copy = Operator(
                 key="freestyle_copy",

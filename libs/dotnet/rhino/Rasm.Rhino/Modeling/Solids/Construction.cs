@@ -16,10 +16,8 @@ public sealed record SurfaceEdges(Curve First, Curve Second, Option<(Curve Third
 public static class SolidConstruction {
     // --- [BREPS]
     public static IO<Seq<Grouped<Brep>>> CreatePlanarBrepsWithIndexMap(Seq<Curve> inputLoops, Tolerances tolerances, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => Copies.Acquire(() => (Brep.CreatePlanarBrepsWithIndexMap(inputLoops, tolerances.Absolute, out int[][] indexMap), indexMap), nameof(Brep.CreatePlanarBrepsWithIndexMap), output)
-                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
-            (_, release) => retain(release));
+        Copies.Acquire(() => (Brep.CreatePlanarBrepsWithIndexMap(inputLoops, tolerances.Absolute, out int[][] indexMap), indexMap), nameof(Brep.CreatePlanarBrepsWithIndexMap), retain)
+            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
 
     // --- [EXTRUSIONS]
     public static IO<Extrusion> ProfiledExtrusion(Line path, Vector3d up, Curve outerProfile, Seq<Curve> innerProfiles, bool cap, Action<IDisposable> retain) =>
@@ -34,5 +32,5 @@ public static class SolidConstruction {
             retain);
 
     public static IO<Mesh> GetMesh(Extrusion extrusion, MeshType meshType, Action<IDisposable> retain) =>
-        IO.lift(() => Missing.Unless(extrusion.GetMesh(meshType), nameof(Extrusion.GetMesh))).Bind(mesh => Copies.Duplicate(mesh, retain));
+        IO.lift(() => Refused.UnlessFound(extrusion.GetMesh(meshType), nameof(Extrusion.GetMesh))).Bind(mesh => Copies.Duplicate(mesh, retain));
 }

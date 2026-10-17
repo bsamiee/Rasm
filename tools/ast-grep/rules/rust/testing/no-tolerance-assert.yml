@@ -14,7 +14,7 @@ rule:
     kind: macro_invocation
     pattern: $ASSERT
     all:
-        - has: {field: macro, regex: '^((::)?(std|core)::)?(debug_)?assert$'}
+        - matches: {rust-std-macro: {name: {regex: '^(debug_)?assert$'}}}
         - has:
             kind: token_tree
             any:

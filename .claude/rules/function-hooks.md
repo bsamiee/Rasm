@@ -15,7 +15,7 @@ Hooks fix a wrong call and let it run, so the model keeps working:
 - ALWAYS rewrite a call when its repository form follows from the call, and refuse only when no form follows
 - ALWAYS write each command policy as a pure function in `policies/` over the parsed call, folded into `commandDecision`
 - ALWAYS declare a program's options, bodies, input, and inner command as its `invocation.ts` row, an undeclared option's value parses as an operand
-- ALWAYS read files, processes, paths, and repository root through the `Host` that `register.ts` and `.codex/hooks/rewrite.ts` build
+- ALWAYS read files, processes, paths, and repository root through the `Host` that `host.ts` builds from the `System` `register.ts` and `.codex/hooks/rewrite.ts` supply
 - Settings `PreToolUse` hooks run inside `next` on the rewritten command and return a refusal as an `isError` result
 - Registrations on one event nest in order, first outermost, and a repeated registration fails module load
 - Calls the hook cannot parse or judge are refused

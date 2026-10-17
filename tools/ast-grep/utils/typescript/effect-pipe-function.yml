@@ -2,4 +2,4 @@
 id: effect-pipe-function
 language: tsx
 rule:
-    matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}
+    matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}

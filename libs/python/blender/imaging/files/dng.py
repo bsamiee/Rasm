@@ -12,7 +12,7 @@ import PyOpenColorIO
 import tifffile
 
 from blender.imaging.color.processors import applied, processor, xyz
-from blender.imaging.faults import ImagingMatrixFault, ImagingResult
+from blender.imaging.faults import ImagingNumericFault, ImagingResult
 from blender.imaging.files.images import published, streamed
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
             config: Config whose scene-linear space the frame holds.
 
         Returns:
-            The path; a `processor` or `lut` fault for a failed scene-referred XYZ path, a `matrix` fault for a singular color matrix, or a `write` fault holding the native file or TIFF representation error.
+            The path; a `color` fault for a failed scene-referred XYZ path, a `numeric` fault for a singular color matrix, or a `write` fault holding the native file or TIFF representation error.
         """
 
         def signed(*values: float) -> tuple[tuple[int, int], ...]:
@@ -91,7 +91,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
 
         def inverted(primaries: npt.NDArray[np.float32]) -> ImagingResult[npt.NDArray[np.float64]]:
             matrix = primaries.T.astype(np.float64)
-            return catch(lambda: np.linalg.inv(matrix), exception=np.linalg.LinAlgError)().map_error(lambda error: (ImagingMatrixFault(request=matrix, error=error),))
+            return catch(lambda: np.linalg.inv(matrix), exception=np.linalg.LinAlgError)().map_error(lambda error: (ImagingNumericFault(request=matrix, error=error),))
 
         return (
             processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR))

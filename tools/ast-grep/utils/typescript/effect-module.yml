@@ -4,5 +4,5 @@ language: tsx
 arguments: [name]
 rule:
     any:
-        - matches: {syntax-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?$'}, exported: {matches: name}}}
-        - matches: {syntax-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?/[A-Z]\w*$', matches: name}, exported: {regex: '^\*$'}}}
+        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?$'}, exported: {matches: name}}}
+        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?/[A-Z]\w*$', matches: name}, exported: {regex: '^\*$'}}}

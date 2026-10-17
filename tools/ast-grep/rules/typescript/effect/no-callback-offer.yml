@@ -29,7 +29,7 @@ utils:
                     field: function
                     kind: member_expression
                     all:
-                        - has: {field: object, matches: effect-effect-module}
+                        - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                         - has: {field: property, regex: '^(runFork|runSync|runPromise|runCallback)$'}
                 - has: {field: arguments, has: {nthChild: 1, matches: queue-offer}}
 rule:
@@ -43,7 +43,7 @@ rule:
                 kind: statement_block
                 has:
                     stopBy: end
-                    matches: syntax-function-boundary
+                    matches: typescript-function-boundary
                     has: {stopBy: end, matches: offer-call}
 message: 'Callback feeds `$QUEUE` outside the effect that built it'
 note: '`Stream.callback((queue) => <registration>)` builds its queue and runs `<registration>` in the stream `Scope`, one release closes both'

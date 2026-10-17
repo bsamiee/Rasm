@@ -29,7 +29,7 @@ futures          = "0.3.34"                                                     
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
 tokio            = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
 tokio-util       = { version = "0.7.20", features = ["rt"] }                                                                                     # Cancellation tokens, task trackers, and drop guards that scope service lifetimes
-tokio-stream     = { version = "0.1.19", features = ["sync"] }                                                                                   # Stream adapters over tokio channels, watches, and intervals
+tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util"] }                                                              # Stream adapters over tokio channels, watches, intervals, and line readers
 
 # --- [CONCURRENCY]
 arc-swap = "1.9.2"                                           # Read-mostly snapshots replaced whole while readers keep their copy
@@ -99,13 +99,14 @@ plist               = "1.10.1"                                                  
 rmp-serde           = "1.3.1"                                                                        # MessagePack codec
 serde_json          = { version = "1.0.154", features = ["raw_value", "float_roundtrip"] }           # JSON codec with values and raw passthrough
 serde_path_to_error = "0.1.20"                                                                       # Boundary decode errors that name failing field path
+serde_urlencoded    = "0.7.1"                                                                        # Typed decode of form-encoded fields, numbers and booleans parsed from their text
 apache-avro         = { version = "0.22.0", features = ["derive", "zstandard", "snappy"] }           # Avro schemas, binary encoding, and container files
 jsonptr             = "0.8.2"                                                                        # JSON Pointer resolution with typed failures
 serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0_2", "schemars_1"] } # Field codecs declared on records that schema derivation reads
 json-patch          = "4.2.0"                                                                        # JSON Patch apply and diff over JSON values
 
 # --- [SCHEMA]
-jsonschema = { version = "0.58.6", features = ["resolve-async"] }                                            # Runtime validation of documents against JSON Schema
+jsonschema = { version = "0.58.6", default-features = false, features = ["resolve-file", "idna"] }           # Runtime validation of documents against JSON Schema, without `resolve-http` and `tls-aws-lc-rs` since sync `validator_for` panics fetching a remote `$ref` inside a tokio runtime
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1"] } # JSON Schema derived from record types
 
 # --- [NEWTYPES]
@@ -118,9 +119,9 @@ jiff   = { version = "0.2.38", features = ["serde"] }                         # 
 croner = { version = "4.0.1", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
 
 # --- [IDENTIFIERS]
-semver       = { version = "1.0.28", features = ["serde"] }       # Semantic version and requirement parsing
-uuid         = { version = "1.28.0", features = ["v7", "serde"] } # Creation-ordered identifiers
-newtype-uuid = { version = "1.4.0", features = ["v7", "serde"] }  # Identifiers typed by entity kind they name
+semver       = { version = "1.0.28", features = ["serde"] }             # Semantic version and requirement parsing
+uuid         = { version = "1.28.0", features = ["v4", "v7", "serde"] } # Random and creation-ordered identifiers
+newtype-uuid = { version = "1.4.0", features = ["v4", "v7", "serde"] }  # Identifiers typed by entity kind they name
 
 # --- [HASHING]
 blake3      = "1.8.7"                                                     # Content-addressed keys
@@ -205,13 +206,12 @@ rcgen                    = { version = "0.14.10", default-features = false, feat
 rustls-platform-verifier = "0.7.1"                                                                             # Certificate verification through OS trust store
 
 # --- [AUTHENTICATION]
-httpsig                      = { version = "0.0.26", features = ["rsa-signature"] }                                           # HTTP message signatures
-jsonwebtoken                 = { version = "11.1.0", features = ["aws_lc_rs"] }                                               # JWT signing and validation
-openidconnect                = { version = "4.0.1", default-features = false, features = ["timing-resistant-secret-traits"] } # OpenID Connect discovery, PKCE flows, and ID token validation, default `reqwest` and `rustls-tls` add reqwest 0.12 on ring beside aws-lc-rs
-tower-oauth2-resource-server = { version = "0.12.5", default-features = false, features = ["default-tls", "jwt-aws-lc-rs"] }  # Bearer JWT validation against OAuth 2.1 issuers as a tower layer, default `jwt-rust-crypto` beside the catalog `aws_lc_rs` leaves jsonwebtoken two crypto providers and no default
-totp-rs                      = { version = "6.0.0", features = ["otpauth", "gen_secret", "zeroize"] }                         # One-time passwords and otpauth URLs
-webauthn-rs                  = { version = "0.6.1-dev", features = ["conditional-ui", "resident-key-support"] }               # Passkey registration and authentication ceremonies
-webbrowser                   = "1.2.4"                                                                                        # Authorization URLs opened in user's browser
+httpsig       = { version = "0.0.26", features = ["rsa-signature"] }                                           # HTTP message signatures
+jsonwebtoken  = { version = "11.1.0", features = ["aws_lc_rs"] }                                               # JWT signing and validation
+openidconnect = { version = "4.0.1", default-features = false, features = ["timing-resistant-secret-traits"] } # OpenID Connect discovery, PKCE flows, and ID token validation, default `reqwest` and `rustls-tls` add reqwest 0.12 on ring beside aws-lc-rs
+totp-rs       = { version = "6.0.0", features = ["otpauth", "gen_secret", "zeroize"] }                         # One-time passwords and otpauth URLs
+webauthn-rs   = { version = "0.6.1-dev", features = ["conditional-ui", "resident-key-support"] }               # Passkey registration and authentication ceremonies
+webbrowser    = "1.2.4"                                                                                        # Authorization URLs opened in user's browser
 
 # --- [SECRETS]
 aws-config                      = { version = "1.12.0", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
@@ -235,6 +235,7 @@ tower              = { version = "0.5.3", features = ["util", "timeout", "limit"
 tower-http         = { version = "0.7.1", features = ["trace"] }                                                                                                                                                # Request tracing layers on served routes
 url                = { version = "2.5.8", features = ["serde"] }                                                                                                                                                # WHATWG URLs parsed at boundaries
 percent-encoding   = "2.3.2"                                                                                                                                                                                    # RFC 3986 percent-decoding of URI template variables
+form_urlencoded    = "1.2.2"                                                                                                                                                                                    # application/x-www-form-urlencoded encoding of name and value pairs
 axum               = "0.8.9"                                                                                                                                                                                    # Server that mounts tower services on bound sockets
 matchit            = "0.9.2"                                                                                                                                                                                    # URI and URI-template routes matched to readers, static before template, parameter suffixes and slashless routes
 reqwest            = { version = "0.13.5", features = ["json", "stream", "gzip", "zstd", "brotli"] }                                                                                                            # HTTP client with pooling, streaming, and decompression
@@ -270,7 +271,7 @@ tracing                            = "0.1.44"                                   
 opentelemetry-http                 = "0.33.1"                                                           # W3C trace context injected into and extracted from HTTP headers
 opentelemetry_sdk                  = "0.33.1"                                                           # Tracer, meter, and logger providers with processors and samplers
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                  # Subscriber registry and directive filters under the JSON layer
-json-subscriber                    = "0.3.1"                                                            # JSON lines with flattened span fields and static service fields
+json-subscriber                    = { version = "0.3.1", features = ["tracing-opentelemetry-0-34"] }   # JSON lines with flattened span fields, static service fields, and the request trace and span ids
 opentelemetry-appender-tracing     = "0.33.1"                                                           # Tracing events exported as log records
 opentelemetry-otlp                 = "0.33.1"                                                           # OTLP export over HTTP
 opentelemetry-resource-detectors   = "0.13.0"                                                           # Host, OS, and process resource attributes
@@ -660,10 +661,8 @@ redundant_type_annotations           = "warn" # Annotations restating initialize
 semicolon_outside_block              = "warn" # `{ f(); }` block statements, `{ f() };` is the direct form
 
 # --- [PATTERNS]
-ref_patterns                  = "warn" # `ref` bindings, matching on borrowed scrutinee is the direct form
-rest_pattern_accessible_field = "warn" # `..` over accessible fields, fields added later go unhandled
-unnecessary_rest_pattern      = "warn" # `..` capturing no field, patterns state exactly fields they bind
-wildcard_enum_match_arm       = "warn" # `_` arms in enum matches, every variant gets its own arm
+ref_patterns             = "warn" # `ref` bindings, matching on borrowed scrutinee is the direct form
+unnecessary_rest_pattern = "warn" # `..` capturing no field, patterns state exactly fields they bind
 
 # --- [NUMERICS]
 arithmetic_side_effects    = "warn" # Integer `+`, `-`, `*`, `/`, and `%` that can overflow or divide by zero, `checked_*` returns absence and `strict_*` names the panic

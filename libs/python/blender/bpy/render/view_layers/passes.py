@@ -15,9 +15,9 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.operators import Call, Done, Empty, InvokePopup, Operator, Outcome, tallied, Unchanged
-from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import AllOf, AnyOf, Condition, holds, Not, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, root_in, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
@@ -67,11 +67,10 @@ class Family(Choice):
     indirect: tuple[str, ...]
     color: tuple[str, ...]
 
-    def __new__(cls, value: int, label: str, prefix: str, direct: tuple[str, ...], indirect: tuple[str, ...], color: tuple[str, ...]) -> Self:
-        """Creates a member from its persistent number, label, socket prefix, and flag identifiers."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.prefix, member.direct, member.indirect, member.color = value, label, prefix, direct, indirect, color
-        return member
+    def __init__(self, value: int, label: str, prefix: str, direct: tuple[str, ...], indirect: tuple[str, ...], color: tuple[str, ...]) -> None:
+        """Sets the member label, socket prefix, and flag identifiers."""
+        super().__init__(value, label)
+        self.prefix, self.direct, self.indirect, self.color = prefix, direct, indirect, color
 
     def socket(self, slot: Key) -> str:
         """Answers the Render Layers socket name of one of the family's passes.
@@ -96,11 +95,10 @@ class Derived(Choice):
     kind: ItemKind
     output: Output
 
-    def __new__(cls, value: int, label: str, kind: ItemKind, output: Output) -> Self:
-        """Creates a member from its persistent number, label, item kind, and output class."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.kind, member.output = value, label, kind, output
-        return member
+    def __init__(self, value: int, label: str, kind: ItemKind, output: Output) -> None:
+        """Sets the member label, item kind, and output class."""
+        super().__init__(value, label)
+        self.kind, self.output = kind, output
 
     DIRECT = 1, "Direct Light", "RGBA", Output.BEAUTY
     INDIRECT = 2, "Indirect Light", "RGBA", Output.BEAUTY
@@ -357,7 +355,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
     def held(self, scene: bpy.types.Scene) -> Option[bpy.types.NodeTree]:
         """Answers the routing tree the identity holds for a scene."""
-        return Option.of_optional(earliest(PassSet.ownership.held(self.identity)).get(Mark(key=PassSet.ownership.key, of=Some(scene))))
+        return PassSet.ownership.found(self.identity, of=Some(scene))
 
     def framed(self, scene: bpy.types.Scene, held: dict[Key, bpy.types.Node], path: OutputPath, index: int, layer: bpy.types.ViewLayer) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
         """Plans one used layer: its frame, Render Layers node, sources, and File Output nodes.
@@ -612,7 +610,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             return not transfer(current.flags.tree, value.flags.tree) and current.routing == value.routing
 
         def captured(context: bpy.types.Context) -> BlenderResult[PassPreset]:
-            return Result[bpy.types.ViewLayer, BlenderFaults].bind(root_in(bpy.types.ViewLayer, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="view_layer"),)), held)
+            return rooted(bpy.types.ViewLayer, context).bind(held)
 
         def matches(context: bpy.types.Context, values: tuple[PassPreset, ...]) -> BlenderResult[tuple[bool, ...]]:
             return captured(context).map(lambda current: tuple(same(current, value) for value in values))
@@ -628,7 +626,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
                 return accumulated(map(held, layers)).bind(chosen)
 
-            return Result[bpy.types.Scene, BlenderFaults].bind(root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), wrote)
+            return rooted(bpy.types.Scene, context).bind(wrote)
 
         return Listing(preset=msgspec.structs.replace(PassSet.presets, stock={name: stock(enabled, routing) for name, enabled, routing in recipes}), current=captured, matches=matches, applied=applied)
 

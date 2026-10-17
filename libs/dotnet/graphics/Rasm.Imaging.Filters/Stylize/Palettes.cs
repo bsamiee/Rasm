@@ -13,28 +13,23 @@ namespace Rasm.Imaging.Filters.Stylize;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
 public readonly partial struct LevelCount : IMinMaxValue<LevelCount> {
     public static LevelCount MinValue { get; } = new(2);
     public static LevelCount MaxValue { get; } = new(int.MaxValue);
     public static LevelCount Eighths { get; } = new(8 + 1);
 
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
 public readonly partial struct ColorCount : IMinMaxValue<ColorCount> {
     public static ColorCount MinValue { get; } = new(QuantizerConstants.MinColors);
     public static ColorCount MaxValue { get; } = new(QuantizerConstants.MaxColors);
 
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidStylize>]
 [ObjectFactory<string>]
 [ObjectFactory<Seq<Swatch>>]
 public sealed partial class Palette : IConvertible<string>, IConvertible<Seq<Swatch>> {
@@ -48,47 +43,47 @@ public sealed partial class Palette : IConvertible<string>, IConvertible<Seq<Swa
 
     Seq<Swatch> IConvertible<Seq<Swatch>>.ToValue() => Colors;
 
-    static InvalidStylize? IObjectFactory<Palette, string, InvalidStylize>.Validate(string? value, IFormatProvider? provider, out Palette? item) {
+    static ValidationError? IObjectFactory<Palette, string, ValidationError>.Validate(string? value, IFormatProvider? provider, out Palette? item) {
         item = null;
         return value is null ? null
             : toSeq(value.Split(';')).Traverse(static field =>
-                int.TryParse(field, NumberStyles.None, CultureInfo.InvariantCulture, out int key) && Swatch.Validate(key, provider: null, out Swatch swatch) is null ? Some(swatch) : None).As().Case is Seq<Swatch> colors
+                Invariant.Number<int>(field, NumberStyles.None).Bind(static key => Swatch.Validated(key).ToOption())).As().Case is Seq<Swatch> colors
                 ? Validate(colors, out item)
-                : new InvalidStylize();
+                : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"palette '{value}' must be ';'-separated RGB integers in [{Swatch.MinValue}, {Swatch.MaxValue}]"));
     }
 
-    static InvalidStylize? IObjectFactory<Palette, Seq<Swatch>, InvalidStylize>.Validate(Seq<Swatch> value, IFormatProvider? provider, out Palette? item) => Validate(value, out item);
+    static ValidationError? IObjectFactory<Palette, Seq<Swatch>, ValidationError>.Validate(Seq<Swatch> value, IFormatProvider? provider, out Palette? item) => Validate(value, out item);
 
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref Seq<Swatch> colors) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Swatch> colors) =>
         validationError = ColorCount.Validate(colors.Count, provider: null, out _);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PaletteDither {
-    public static readonly PaletteDither Bayer2 = new("bayer-2", KnownDitherings.Bayer2x2);
-    public static readonly PaletteDither Ordered3 = new("ordered-3", KnownDitherings.Ordered3x3);
-    public static readonly PaletteDither Bayer4 = new("bayer-4", KnownDitherings.Bayer4x4);
-    public static readonly PaletteDither Bayer8 = new("bayer-8", KnownDitherings.Bayer8x8);
-    public static readonly PaletteDither Bayer16 = new("bayer-16", KnownDitherings.Bayer16x16);
-    public static readonly PaletteDither FloydSteinberg = new("floyd-steinberg", KnownDitherings.FloydSteinberg);
-    public static readonly PaletteDither Atkinson = new("atkinson", KnownDitherings.Atkinson);
-    public static readonly PaletteDither Burkes = new("burkes", KnownDitherings.Burks);
-    public static readonly PaletteDither JarvisJudiceNinke = new("jarvis-judice-ninke", KnownDitherings.JarvisJudiceNinke);
-    public static readonly PaletteDither Stucki = new("stucki", KnownDitherings.Stucki);
-    public static readonly PaletteDither Sierra2 = new("sierra-2", KnownDitherings.Sierra2);
-    public static readonly PaletteDither Sierra3 = new("sierra-3", KnownDitherings.Sierra3);
-    public static readonly PaletteDither SierraLite = new("sierra-lite", KnownDitherings.SierraLite);
-    public static readonly PaletteDither StevensonArce = new("stevenson-arce", KnownDitherings.StevensonArce);
+public sealed partial class PaletteDither : ICaptioned {
+    public static readonly PaletteDither Bayer2 = new("bayer-2", KnownDitherings.Bayer2x2, "Bayer 2 × 2");
+    public static readonly PaletteDither Ordered3 = new("ordered-3", KnownDitherings.Ordered3x3, "Ordered 3 × 3");
+    public static readonly PaletteDither Bayer4 = new("bayer-4", KnownDitherings.Bayer4x4, "Bayer 4 × 4");
+    public static readonly PaletteDither Bayer8 = new("bayer-8", KnownDitherings.Bayer8x8, "Bayer 8 × 8");
+    public static readonly PaletteDither Bayer16 = new("bayer-16", KnownDitherings.Bayer16x16, "Bayer 16 × 16");
+    public static readonly PaletteDither FloydSteinberg = new("floyd-steinberg", KnownDitherings.FloydSteinberg, "Floyd-Steinberg");
+    public static readonly PaletteDither Atkinson = new("atkinson", KnownDitherings.Atkinson, "Atkinson");
+    public static readonly PaletteDither Burkes = new("burkes", KnownDitherings.Burks, "Burkes");
+    public static readonly PaletteDither JarvisJudiceNinke = new("jarvis-judice-ninke", KnownDitherings.JarvisJudiceNinke, "Jarvis-Judice-Ninke");
+    public static readonly PaletteDither Stucki = new("stucki", KnownDitherings.Stucki, "Stucki");
+    public static readonly PaletteDither Sierra2 = new("sierra-2", KnownDitherings.Sierra2, "Sierra 2");
+    public static readonly PaletteDither Sierra3 = new("sierra-3", KnownDitherings.Sierra3, "Sierra 3");
+    public static readonly PaletteDither SierraLite = new("sierra-lite", KnownDitherings.SierraLite, "Sierra Lite");
+    public static readonly PaletteDither StevensonArce = new("stevenson-arce", KnownDitherings.StevensonArce, "Stevenson-Arce");
 
     internal IDither Kernel { get; }
+    public string Caption { get; }
 }
 
-public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStrength, Gated<ShortSideExtent> DitherCell)
-    : IStateRecord<Posterize, PosterizeParameter, InvalidStylize>, IPixelStage<Posterize> {
-    public static Posterize Default { get; } = new(LevelCount.Eighths, Mix.MinValue, Mix.MinValue, new(Enabled: false, ShortSideExtent.MinValue));
+public sealed record Posterize(LevelCount Levels, AxisFraction RetainHue, AxisFraction DitherStrength, Gated<ShortSideExtent> DitherCell)
+    : IStateRecord<Posterize, PosterizeParameter>, IPixelStage<Posterize> {
+    public static Posterize Default { get; } = new(LevelCount.Eighths, AxisFraction.MinValue, AxisFraction.MinValue, new(Enabled: false, ShortSideExtent.MinValue));
 
     public static Option<PixelPass> Pass(Posterize state, PassContext context) => Some<PixelPass>(new PixelPass.Pointwise(Rows(state, context.Extent)));
 
@@ -113,51 +108,48 @@ public sealed record Posterize(LevelCount Levels, Mix RetainHue, Mix DitherStren
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PosterizeParameter : IStateParameter<Posterize> {
-    public static readonly PosterizeParameter Levels = new(
-        "levels", StateParameter.Bounded<Posterize, LevelCount, int, InvalidStylize>(Lens<Posterize, LevelCount>.New(static posterize => posterize.Levels, static levels => posterize => posterize with { Levels = levels }), new() { Soft = (2, 256) }));
-    public static readonly PosterizeParameter RetainHue = new(
-        "retain-hue", StateParameter.Bounded<Posterize, Mix, float, InvalidGrade>(Lens<Posterize, Mix>.New(static posterize => posterize.RetainHue, static retain => posterize => posterize with { RetainHue = retain }), new()));
-    public static readonly PosterizeParameter DitherStrength = new(
-        "dither-strength", StateParameter.Bounded<Posterize, Mix, float, InvalidGrade>(Lens<Posterize, Mix>.New(static posterize => posterize.DitherStrength, static strength => posterize => posterize with { DitherStrength = strength }), new()));
-    public static readonly PosterizeParameter DitherCell = new(
-        "dither-cell", StateParameter.OptionalBounded<Posterize, ShortSideExtent, float, InvalidPixelValue>(Lens<Posterize, Gated<ShortSideExtent>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }),
-        ShortSideExtent.Presentation with { Soft = (0.001f, 0.25f) }));
+    public static readonly PosterizeParameter Levels = new("levels", StateParameter.Bounded(Lens<Posterize, LevelCount>.New(static posterize => posterize.Levels, static levels => posterize => posterize with { Levels = levels }), new Presentation<int> { Soft = (2, 256) }),
+        new("Levels", "Output levels per channel, evenly spaced from black to white"));
+    public static readonly PosterizeParameter RetainHue = new("retain-hue", StateParameter.Bounded(Lens<Posterize, AxisFraction>.New(static posterize => posterize.RetainHue, static retain => posterize => posterize with { RetainHue = retain })),
+        new("Retain hue", "Share of the input's hue kept at the rounded saturation and luma"));
+    public static readonly PosterizeParameter DitherStrength = new("dither-strength", StateParameter.Bounded(Lens<Posterize, AxisFraction>.New(static posterize => posterize.DitherStrength, static strength => posterize => posterize with { DitherStrength = strength })),
+        new("Dither amount", "Share of the dither offset, 0% rounding each pixel to its nearest level or color"));
+    public static readonly PosterizeParameter DitherCell = new("dither-cell", StateParameter.OptionalBounded(Lens<Posterize, Gated<ShortSideExtent>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }), ShortSideExtent.Presentation with { Soft = (0.001f, 0.25f) }),
+        new("Dither cell", "Ordered dither cell as a share of the frame's short side, off drawing one cell per pixel"));
 
     public StateParameter<Posterize> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed record PaletteReduction(ColorCount Colors, PaletteDither Dithering, Mix DitherStrength)
-    : IStateRecord<PaletteReduction, PaletteReductionParameter, InvalidStylize>, IPixelStage<PaletteReduction> {
-    public static PaletteReduction Default { get; } = new(ColorCount.MaxValue, PaletteDither.FloydSteinberg, Mix.Full);
+public sealed record PaletteReduction(ColorCount Colors, PaletteDither Dithering, AxisFraction DitherStrength)
+    : IStateRecord<PaletteReduction, PaletteReductionParameter>, IPixelStage<PaletteReduction> {
+    public static PaletteReduction Default { get; } = new(ColorCount.MaxValue, PaletteDither.FloydSteinberg, AxisFraction.MaxValue);
 
     public static Option<PixelPass> Pass(PaletteReduction state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame(Reduction.Kernel(new WuQuantizer(Reduction.Options(state.Colors, state.Dithering, state.DitherStrength)))));
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaletteReductionParameter : IStateParameter<PaletteReduction> {
-    public static readonly PaletteReductionParameter Colors = new(
-        "colors", StateParameter.Bounded<PaletteReduction, ColorCount, int, InvalidStylize>(Lens<PaletteReduction, ColorCount>.New(static reduction => reduction.Colors, static colors => reduction => reduction with { Colors = colors }),
-        new() { Scale = TrackScale.Log }));
-    public static readonly PaletteReductionParameter Dithering = new(
-        "dithering", new StateParameter<PaletteReduction>.Choice<PaletteDither, InvalidStylize>(
-            Lens<PaletteReduction, PaletteDither>.New(static reduction => reduction.Dithering, static dithering => reduction => reduction with { Dithering = dithering })));
-    public static readonly PaletteReductionParameter DitherStrength = new(
-        "dither-strength", StateParameter.Bounded<PaletteReduction, Mix, float, InvalidGrade>(Lens<PaletteReduction, Mix>.New(static reduction => reduction.DitherStrength, static strength => reduction => reduction with { DitherStrength = strength }), new()));
+    public static readonly PaletteReductionParameter Colors = new("colors", StateParameter.Bounded(Lens<PaletteReduction, ColorCount>.New(static reduction => reduction.Colors, static colors => reduction => reduction with { Colors = colors }), new Presentation<int> { Scale = TrackScale.Log }),
+        new("Colors", "Palette size the frame's colors split into by variance"));
+    public static readonly PaletteReductionParameter Dithering = new("dithering", new StateParameter<PaletteReduction>.Choice<PaletteDither>(Lens<PaletteReduction, PaletteDither>.New(static reduction => reduction.Dithering, static dithering => reduction => reduction with { Dithering = dithering })),
+        new("Dither", "Ordered matrix or error diffusion kernel spreading each pixel's rounding error"));
+    public static readonly PaletteReductionParameter DitherStrength = new("dither-strength", StateParameter.Bounded(Lens<PaletteReduction, AxisFraction>.New(static reduction => reduction.DitherStrength, static strength => reduction => reduction with { DitherStrength = strength })),
+        new("Dither amount", "Share of the dither offset, 0% rounding each pixel to its nearest level or color"));
 
     public StateParameter<PaletteReduction> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed record PaletteMapping(Palette Palette, PaletteDither Dithering, Mix DitherStrength)
-    : IStateRecord<PaletteMapping, PaletteMappingParameter, InvalidStylize>, IPixelStage<PaletteMapping> {
-    public static PaletteMapping Default { get; } = new(Palette.CubeCorners, PaletteDither.FloydSteinberg, Mix.Full);
+public sealed record PaletteMapping(Palette Palette, PaletteDither Dithering, AxisFraction DitherStrength)
+    : IStateRecord<PaletteMapping, PaletteMappingParameter>, IPixelStage<PaletteMapping> {
+    public static PaletteMapping Default { get; } = new(Palette.CubeCorners, PaletteDither.FloydSteinberg, AxisFraction.MaxValue);
 
     public static Option<PixelPass> Pass(PaletteMapping state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame(Reduction.Kernel(new PaletteQuantizer(
@@ -166,28 +158,26 @@ public sealed record PaletteMapping(Palette Palette, PaletteDither Dithering, Mi
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaletteMappingParameter : IStateParameter<PaletteMapping> {
-    public static readonly PaletteMappingParameter Palette = new(
-        "palette", new StateParameter<PaletteMapping>.Swatches<Palette, InvalidStylize>(
-            Lens<PaletteMapping, Palette>.New(static mapping => mapping.Palette, static palette => mapping => mapping with { Palette = palette })));
-    public static readonly PaletteMappingParameter Dithering = new(
-        "dithering", new StateParameter<PaletteMapping>.Choice<PaletteDither, InvalidStylize>(
-            Lens<PaletteMapping, PaletteDither>.New(static mapping => mapping.Dithering, static dithering => mapping => mapping with { Dithering = dithering })));
-    public static readonly PaletteMappingParameter DitherStrength = new(
-        "dither-strength", StateParameter.Bounded<PaletteMapping, Mix, float, InvalidGrade>(Lens<PaletteMapping, Mix>.New(static mapping => mapping.DitherStrength, static strength => mapping => mapping with { DitherStrength = strength }), new()));
+    public static readonly PaletteMappingParameter Palette = new("palette", new StateParameter<PaletteMapping>.Swatches<Palette>(Lens<PaletteMapping, Palette>.New(static mapping => mapping.Palette, static palette => mapping => mapping with { Palette = palette })),
+        new("Palette", "Display colors each pixel maps to the nearest of"));
+    public static readonly PaletteMappingParameter Dithering = new("dithering", new StateParameter<PaletteMapping>.Choice<PaletteDither>(Lens<PaletteMapping, PaletteDither>.New(static mapping => mapping.Dithering, static dithering => mapping => mapping with { Dithering = dithering })),
+        new("Dither", "Ordered matrix or error diffusion kernel spreading each pixel's rounding error"));
+    public static readonly PaletteMappingParameter DitherStrength = new("dither-strength", StateParameter.Bounded(Lens<PaletteMapping, AxisFraction>.New(static mapping => mapping.DitherStrength, static strength => mapping => mapping with { DitherStrength = strength })),
+        new("Dither amount", "Share of the dither offset, 0% rounding each pixel to its nearest level or color"));
 
     public StateParameter<PaletteMapping> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Reduction {
-    public static QuantizerOptions Options(ColorCount colors, PaletteDither dithering, Mix strength) =>
+    public static QuantizerOptions Options(ColorCount colors, PaletteDither dithering, AxisFraction strength) =>
         new() {
             MaxColors = colors,
-            Dither = strength == Mix.MinValue ? null : dithering.Kernel,
+            Dither = strength == AxisFraction.MinValue ? null : dithering.Kernel,
             DitherScale = strength,
             ColorMatchingMode = ColorMatchingMode.Exact,
         };

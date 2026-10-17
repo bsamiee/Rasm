@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -15,12 +16,12 @@ namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
-[ValidationError<InvalidFileValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LutPath {
-    static partial void ValidateFactoryArguments(ref InvalidFileValue? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && LutFile.Readers.ContainsKey(Path.GetExtension(value)) ? null : new InvalidFileValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = Path.IsPathFullyQualified(value) && LutFile.Readers.ContainsKey(Path.GetExtension(value)) ? null
+            : new ValidationError($"LUT path '{value}' must be fully qualified with one of {string.Join(", ", LutFile.Readers.Keys)}");
 }
 
 public sealed record LutFile {
@@ -48,7 +49,7 @@ public sealed record LutFile {
             .Map(table => new LutFile(path, table))
             .Catch(
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() || error.HasException<ImageFormatException>(),
-                error => IO.fail<LutFile>(new LutUnreadable(path, error)));
+                error => IO.fail<LutFile>(Error.New($"LUT file {path} is unreadable", error)));
 
     public static IO<Unit> Write(LutTable table, LutFormat format, OutputPath path) =>
         from text in IO.lift(LutFiles.Render(table, format, System.IO.Path.GetFileNameWithoutExtension(path)))
@@ -68,7 +69,7 @@ public sealed record LutFile {
     private static Fin<LutTable> Lattice(Image<Rgb48> image) =>
         toSeq(LookupLayout.Items)
             .Choose(layout => from edge in layout.Edge(image.Width, image.Height) from extent in layout.Image(edge) select (Layout: layout, Edge: edge, Extent: extent))
-            .Head.ToFin(new LookupShapeRefused(image.Width, image.Height))
+            .Head.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"lookup image of {image.Width}x{image.Height} holds no lattice layout")))
             .Bind(found => {
                 using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * found.Edge * found.Edge * found.Edge);
                 image.ProcessPixelRows(rows => {
@@ -81,13 +82,13 @@ public sealed record LutFile {
 }
 
 public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
-    : IStateRecord<LutLook, LutLookParameter, InvalidFileValue>, IPixelStage<LutLook> {
+    : IStateRecord<LutLook, LutLookParameter>, IPixelStage<LutLook> {
     public static LutLook Default { get; } = new(None, LutSpace.Encoded.Default);
 
     public static Option<PixelPass> Pass(LutLook state, PassContext context) =>
         state.Lut.Map(file => (new ColorEncoding(context.Working, context.Signal, Nits.ReferenceWhite), state.Space.Bracket) switch {
             var (input, (space, into, back)) when input.Transfer == TransferCurve.Linear && space.Transfer == TransferCurve.Linear =>
-                (PixelPass)new PixelPass.Color(new LutTable.Sequence([.. LutTables.Between(input.Gamut, space.Gamut), .. into, file.Table, .. back, .. LutTables.Between(space.Gamut, input.Gamut)])),
+                (PixelPass)new PixelPass.Color(LutTables.Bracketed(input.Gamut, space.Gamut, into, file.Table, back)),
             var (input, (space, into, back)) => (input.To(space) + Seq(new LutTable.Sequence([.. into, file.Table, .. back]).Apply) + space.To(input)) switch {
                 var steps => new PixelPass.Color(row => {
                     foreach (Action<Span<Vector4>> step in steps) step(row);
@@ -97,16 +98,14 @@ public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidFileValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LutLookParameter : IStateParameter<LutLook> {
-    public static readonly LutLookParameter Lut = new("lut", new StateParameter<LutLook>.Loaded<LutFile, LutPath, string, InvalidFileValue>(
-        Lens<LutLook, Option<LutFile>>.New(static look => look.Lut, static lut => look => look with { Lut = lut }),
-        LutFile.Read,
-        static file => file.Path));
-    public static readonly LutLookParameter Space = new("space", new StateParameter<LutLook>.Variant<LutSpace>(
-        Lens<LutLook, LutSpace>.New(static look => look.Space, static space => look => look with { Space = space })));
+    public static readonly LutLookParameter Lut = new("lut", new StateParameter<LutLook>.Loaded<LutFile, LutPath, string>(Lens<LutLook, Option<LutFile>>.New(static look => look.Lut, static lut => look => look with { Lut = lut }), LutFile.Read, static file => file.Path),
+        new("LUT", "Table file the look applies"));
+    public static readonly LutLookParameter Space = new("space", new StateParameter<LutLook>.Variant<LutSpace>(Lens<LutLook, LutSpace>.New(static look => look.Space, static space => look => look with { Space = space })),
+        new("Space", "Color space the table expects"));
 
     public StateParameter<LutLook> Kind { get; }
+    public ParameterText Text { get; }
 }

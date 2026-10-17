@@ -12,13 +12,11 @@ namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SkylightIntensity : System.Numerics.IMinMaxValue<SkylightIntensity> {
     public static SkylightIntensity MinValue { get; } = new(0d);
     public static SkylightIntensity MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record BackgroundState(
@@ -68,38 +66,37 @@ public sealed record BackgroundState(
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class BackgroundParameter : IRowParameter<BackgroundState> {
+public sealed partial class BackgroundParameter : IStateParameter<BackgroundState> {
     public static readonly BackgroundParameter Style = new("background-style", new StateParameter<BackgroundState>.Enumerated<BackgroundStyle>(
-        Lens<BackgroundState, BackgroundStyle>.New(static state => state.BackgroundStyle, static style => state => state with { BackgroundStyle = style })),
-        ParameterText.Enumeration<BackgroundStyle>("Background", "What the rendering shows behind the scene",
-            static style => style switch {
-                BackgroundStyle.SolidColor => "Solid color",
-                BackgroundStyle.WallpaperImage => "Wallpaper",
-                BackgroundStyle.Gradient => "Gradient",
-                BackgroundStyle.Environment => "360˚ Environment",
-                _ => throw new UnreachableException(),
-            }));
+        Lens<BackgroundState, BackgroundStyle>.New(static state => state.BackgroundStyle, static style => state => state with { BackgroundStyle = style }),
+        static style => style switch {
+            BackgroundStyle.SolidColor => "Solid color",
+            BackgroundStyle.WallpaperImage => "Wallpaper",
+            BackgroundStyle.Gradient => "Gradient",
+            BackgroundStyle.Environment => "360˚ environment",
+            _ => throw new UnreachableException(),
+        }),
+        new("Background", "What the rendering shows behind the scene"));
     public static readonly BackgroundParameter BackgroundColorTop = new("background-color-top", new StateParameter<BackgroundState>.Color(
         Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color })),
-        ParameterText.Of("Solid color", "Background color, the top of a gradient"));
+        new("Solid color", "Background color, the top of a gradient"));
     public static readonly BackgroundParameter BackgroundColorBottom = new("background-color-bottom", new StateParameter<BackgroundState>.Color(
         Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color })),
-        ParameterText.Of("Gradient", "Bottom color of a gradient background"));
+        new("Gradient", "Bottom color of a gradient background"));
     public static readonly BackgroundParameter BackdropEnvironment = new("backdrop-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
         Lens<BackgroundState, Option<Guid>>.New(static state => state.BackdropEnvironment, static environment => state => state with { BackdropEnvironment = environment })),
-        ParameterText.Of("Background environment", "Environment used by an environment background") with { Absent = Some("None") });
+        new("Background environment", "Environment used by an environment background"));
     public static readonly BackgroundParameter ScaleBackgroundToFit = new("scale-background-to-fit", new StateParameter<BackgroundState>.Toggle(
         Lens<BackgroundState, bool>.New(static state => state.ScaleBackgroundToFit, static on => state => state with { ScaleBackgroundToFit = on })),
-        ParameterText.Of("Stretch to fit", "Stretches the viewport's wallpaper to the rendering"));
+        new("Stretch to fit", "Stretches the viewport's wallpaper to the rendering"));
     public static readonly BackgroundParameter ReflectionOverride = new("custom-env-for-refl-and-refr-on", new StateParameter<BackgroundState>.Toggle(
         Lens<BackgroundState, bool>.New(static state => state.ReflectionOverride, static on => state => state with { ReflectionOverride = on })),
-        ParameterText.Of("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"));
+        new("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"));
     public static readonly BackgroundParameter ReflectionEnvironment = new("reflection-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
         Lens<BackgroundState, Option<Guid>>.New(static state => state.ReflectionEnvironment, static environment => state => state with { ReflectionEnvironment = environment })),
-        ParameterText.Of("Reflection environment", "Environment selected for custom reflections") with { Absent = Some("None") });
+        new("Reflection environment", "Environment selected for custom reflections"));
 
     public StateParameter<BackgroundState> Kind { get; }
 
@@ -138,19 +135,18 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LightingParameter : IRowParameter<LightingState> {
+public sealed partial class LightingParameter : IStateParameter<LightingState> {
     public static readonly LightingParameter SkylightEnabled = new("skylight-on", new StateParameter<LightingState>.Toggle(
         Lens<LightingState, bool>.New(static state => state.SkylightEnabled, static on => state => state with { SkylightEnabled = on })),
-        ParameterText.Of("Skylight", "Lights the scene with the skylighting environment"));
+        new("Skylight", "Lights the scene with the skylighting environment"));
     public static readonly LightingParameter SkylightingOverride = new("skylight-custom-environment-on", new StateParameter<LightingState>.Toggle(
         Lens<LightingState, bool>.New(static state => state.SkylightingOverride, static on => state => state with { SkylightingOverride = on })),
-        ParameterText.Of("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"));
+        new("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"));
     public static readonly LightingParameter SkylightingEnvironment = new("skylighting-environment", new StateParameter<LightingState>.OptionalRaw<Guid>(
         Lens<LightingState, Option<Guid>>.New(static state => state.SkylightingEnvironment, static environment => state => state with { SkylightingEnvironment = environment })),
-        ParameterText.Of("Skylighting environment", "Environment selected for custom skylighting") with { Absent = Some("None") });
+        new("Skylighting environment", "Environment selected for custom skylighting"));
 
     public StateParameter<LightingState> Kind { get; }
 
@@ -158,7 +154,6 @@ public sealed partial class LightingParameter : IRowParameter<LightingState> {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IntensityParameter {
@@ -187,22 +182,22 @@ public static class Environments {
     public static IO<Option<SkylightIntensity>> Intensity(RenderEnvironment lighting) =>
         IO.lift(() => Optional(lighting.FirstChild))
             .Bind(static child => child.Match(Some: Held, None: static () => IO.pure(Option<(IntensityParameter Parameter, double Gain)>.None)))
-            .Bind(static held => IO.lift(held.Traverse(static found => Conversions.Validated<SkylightIntensity, double, InvalidRhinoValue>(found.Gain)).As()));
+            .Bind(static held => IO.lift(held.Traverse(static found => SkylightIntensity.Validated(found.Gain)).As()));
 
     public static IO<Unit> SetIntensity(RenderEnvironment lighting, SkylightIntensity intensity) =>
-        from texture in IO.lift(() => Missing.Unless(lighting.FirstChild, nameof(RenderContent.FirstChild)))
+        from texture in IO.lift(() => Refused.UnlessFound(lighting.FirstChild, nameof(RenderContent.FirstChild)))
         from written in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program, Gain(texture, intensity))
         select written;
 
     private static IO<Option<(IntensityParameter Parameter, double Gain)>> Held(RenderContent texture) =>
         toSeq(IntensityParameter.Items)
-            .TraverseM(parameter => ContentFields.GetParameter(texture, parameter.Key, value => TypeMismatch.Unless<double>(value, parameter.Key))
+            .TraverseM(parameter => ContentFields.GetParameter(texture, parameter.Key, value => Conversions.Typed<double>(value, parameter.Key))
                 .Map(gain => gain.Map(held => (Parameter: parameter, Gain: held))))
             .As()
             .Map(static found => found.Somes().Head);
 
     private static IO<Unit> Gain(RenderContent texture, SkylightIntensity intensity) =>
-        from held in Held(texture).Bind(static found => IO.lift(found.ToFin(new Missing(nameof(RenderContent.GetParameter)))))
+        from held in Held(texture).Bind(static found => IO.lift(found.ToFin(new Refused(nameof(RenderContent.GetParameter), Refused.Absent))))
         from written in ContentFields.SetParameter(texture, held.Parameter.Key, (double)intensity)
         select written;
 
@@ -210,12 +205,12 @@ public static class Environments {
     public static IO<Guid> AddPhysicalSky(RhinoDoc doc, PhysicalSky sky) =>
         DisposalOps.Within<IDisposable, Guid>(retain =>
             from created in Contents.FreeFloating(doc, ContentUuids.BasicEnvironmentType, retain)
-            from environment in IO.lift(WrongType.Unless<RenderEnvironment>(created.Content))
+            from environment in IO.lift(Conversions.Cast<RenderEnvironment>(created.Content))
             from slot in IO.lift(() => environment.TextureChildSlotName)
             from applied in Contents.Apply(doc, environment, RenderContent.ChangeContexts.Program, Seq<ContentEdit>(
                 new ContentEdit.SetName(sky.Name, RenameEvents: false, EnsureNameUnique: false),
                 new ContentEdit.SetChild(ContentUuids.PhysicalSkyTextureType, slot)))
-            from texture in IO.lift(() => EmptySlot.Unless(environment.FindChild(slot), environment.Id, slot))
+            from texture in IO.lift(() => Optional(environment.FindChild(slot)).ToFin(new NotFound("child content", $"slot {slot} of {environment.Id}")))
             from configured in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program,
                 ContentFields.SetParameter(texture, "use-document-sun", sky.UseDocumentSun).Bind(_ => Gain(texture, sky.Intensity)))
             from attached in Contents.Attach(doc, created)

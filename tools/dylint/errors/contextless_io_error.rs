@@ -1,10 +1,9 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, res::MaybeDef as _, sym};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, res::MaybeDef as _, sym};
 use rustc_hir::{Expr, ExprKind, Item, ItemKind, def::DefKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, TyCtxt, print::with_forced_trimmed_paths};
 
-use super::io_error;
-use crate::{delivered, is_error, is_text, result_parts};
+use crate::{delivered, impl_owner, is_error, is_text, path, result_parts};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,7 +22,7 @@ pub(crate) struct ContextlessIoError {
 impl_lint_pass!(ContextlessIoError => [CONTEXTLESS_IO_ERROR]);
 
 impl ContextlessIoError {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { io_error: io_error(tcx) } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { io_error: path(tcx, PathNS::Type, "std::io::Error") } }
 }
 
 impl<'tcx> LateLintPass<'tcx> for ContextlessIoError {
@@ -53,7 +52,7 @@ impl<'tcx> LateLintPass<'tcx> for ContextlessIoError {
                 cx.tcx.def_span(holder),
                 with_forced_trimmed_paths!(format!("`{implementor}` takes every `io::Error` through `From` and keeps no operation or subject")),
                 |diag| {
-                    diag.help("declare a variant per operation holding its subject beside the `io::Error` source and map at the call");
+                    diag.help("declare one variant holding a fieldless operation enum and its subject beside the `io::Error` source and map at the call");
                 },
             );
         }
@@ -64,7 +63,7 @@ impl<'tcx> LateLintPass<'tcx> for ContextlessIoError {
             && let Some(io_error) = self.io_error
             && !expr.span.from_expansion()
             && let Some(callee) = fn_def_id(cx, expr)
-            && callee.assoc_fn_parent(cx).opt_impl_ty(cx).is_some_and(|implemented| implemented.opt_def_id() == Some(io_error))
+            && impl_owner(cx.tcx, callee).is_some_and(|implemented| implemented.opt_def_id() == Some(io_error))
             && arguments.iter().any(|argument| is_text(cx, cx.typeck_results().expr_ty(argument)))
         {
             let enclosing = cx.tcx.typeck_root_def_id(cx.tcx.hir_enclosing_body_owner(expr.hir_id).to_def_id());

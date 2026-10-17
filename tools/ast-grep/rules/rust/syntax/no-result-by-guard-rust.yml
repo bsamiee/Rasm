@@ -3,8 +3,6 @@ id: no-result-by-guard-rust
 language: rust
 severity: error
 utils:
-    comment:
-        kind: 'line_comment, block_comment'
     primary:
         kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
     valued-return:
@@ -18,7 +16,7 @@ utils:
     guard:
         kind: if_expression
         all:
-            - not: {has: {stopBy: end, matches: comment}}
+            - not: {matches: rust-commented}
             - not: {has: {field: alternative, pattern: $_}}
             - has: {field: consequence, matches: early-return}
     plain-condition:
@@ -102,7 +100,7 @@ utils:
     mapping-match:
         kind: match_expression
         all:
-            - not: {has: {stopBy: end, matches: comment}}
+            - not: {matches: rust-commented}
             - not: {matches: rust-const-context}
             - has: {field: value, pattern: $R, matches: subject}
             - has: {field: body, matches: two-arms}
@@ -114,10 +112,10 @@ utils:
             - has:
                 kind: if_expression
                 all:
-                    - not: {has: {stopBy: end, matches: comment}}
+                    - not: {matches: rust-commented}
                     - not: {has: {field: alternative, pattern: $_}}
                     - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, matches: err-binding}}, {has: {field: value, pattern: $R, matches: subject}}]}
-                    - has: {field: consequence, kind: block, all: [{has: {nthChild: 1, any: [{matches: returned-error}, {kind: expression_statement, has: {matches: returned-error}}]}}, {not: {has: {nthChild: 2}}}]}
+                    - has: {field: consequence, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: returned-error}, {kind: expression_statement, has: {matches: returned-error}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]}
 rule:
     all:
         - any:
@@ -179,7 +177,7 @@ rule:
                         - has: {matches: value-early}
                         - precedes: {matches: tail, pattern: $LAST, not: {regex: '\n'}}
                         - has: {kind: if_expression, has: {field: condition, not: {regex: '\n'}, pattern: $COND}}
-        - not: {matches: rust-owned-span}
+        - not: {has: {stopBy: end, any: [{matches: rust-binary-header-read}, {matches: rust-calendar-rule}, {matches: rust-html-tag-scan}, {matches: rust-markdown-fence-scan}, {matches: rust-obj-face}, {matches: rust-stl-text}]}}
 transform:
     THEN_COMPOUND_WRAPPED: {replace: {source: $THEN_COMPOUND, replace: '^([\s\S]+)$', by: '($1)'}}
     UNLESS_PRIMARY_WRAPPED: {replace: {source: $UNLESS_PRIMARY, replace: '^([\s\S]+)$', by: '(!$1)'}}

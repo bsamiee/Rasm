@@ -13,14 +13,12 @@ namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct Albedo : System.Numerics.IMinMaxValue<Albedo> {
     public static Albedo MinValue { get; } = new(0f);
     public static Albedo MaxValue { get; } = new(1f);
     public static Albedo Clay { get; } = new(0.522522f);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record RenderOverride(string Name, ValueSet Values, Option<Albedo> Clay);
@@ -45,7 +43,7 @@ public static class RenderOverrides {
             var claim => Captures.Swap(held => held.Active.ContainsKey(claim.Serial) || held.Retiring.ContainsKey(claim.Serial) ? held : (held.Active.Add(claim.Serial, claim.Capture), held.Retiring))
                 .Active.Find(claim.Serial).Exists(found => ReferenceEquals(found, claim.Capture))
                     ? Fin.Succ(claim)
-                    : Fin.Fail<(uint Serial, Capture Capture)>(new OverrideHeld(claim.Serial)),
+                    : Error.New($"Document {claim.Serial} already holds a render override"),
         }, answer =>
             from held in IO.lift(answer)
             from before in scope.Group.Capture
@@ -60,9 +58,7 @@ public static class RenderOverrides {
         CyclesSetting.Bindings.Map(cycles => new BindingGroup(scene.Bindings + cycles.Bindings));
 
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register =>
-        static (sink, retain) => DisposalOps.Acquire(
-            IO.lift(() => new Disposal<IPlugInSink>(sink, static held => Released(held).Run())),
-            static lease => IO.lift(lease.Dispose), retain).Map(unit);
+        static (sink, retain) => DisposalOps.Acquire(IO.lift(() => new Disposal<IPlugInSink>(sink, static held => Released(held).Run())), retain).Map(unit);
 
     // --- [CAPTURE]
     private static readonly Atom<(HashMap<uint, Capture> Active, HashMap<uint, Capture> Retiring)> Captures = Atom((HashMap<uint, Capture>(), HashMap<uint, Capture>()));
@@ -104,19 +100,15 @@ public static class RenderOverrides {
         DisposalOps.Acquire(owned =>
             from material in DisposalOps.Acquire(
                 IO.lift(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, scope.Document)),
-                static content => DisposalOps.Release(Optional(content).ToSeq()),
+                static content => DisposalOps.Release(content),
                 content => Optional(content).Iter(owned))
-                .Bind(static content => IO.lift(() => Missing.Unless(content, nameof(RenderContentType.NewContentFromTypeId)).Bind(WrongType.Unless<RenderMaterial>)))
+                .Bind(static content => IO.lift(() => Refused.UnlessFound(content, nameof(RenderContentType.NewContentFromTypeId)).Bind(Conversions.Cast<RenderMaterial>)))
             from written in Written(material, albedo, scope.Document)
             from provider in DefinedMeshProvider.Register(sink => new ClayMeshProvider(sink, scope.Document.RuntimeSerialNumber, material))(scope.Sink, owned)
-            select unit, (_, lease) => retain(lease));
+            select unit, retain);
 
     private static IO<Unit> Written(RenderMaterial material, Albedo albedo, RhinoDoc document) =>
-        from encoded in DisposalOps.Within(() => document.RenderSettings,
-            settings => DisposalOps.Within(() => settings.LinearWorkflow,
-                workflow => IO.lift(() => MathF.Pow(albedo, workflow.PreProcessColors || workflow.PreProcessTextures ? 1f / workflow.PreProcessGamma : 1f)),
-                static workflow => IO.lift(workflow.Dispose)),
-            static settings => IO.lift(settings.Dispose))
+        from encoded in DisposalOps.Within(() => document.RenderSettings, settings => DisposalOps.Within(() => settings.LinearWorkflow, workflow => IO.lift(() => MathF.Pow(albedo, workflow.PreProcessColors || workflow.PreProcessTextures ? 1f / workflow.PreProcessGamma : 1f))))
         from written in DisposalOps.Within(
             () => { material.BeginChange(RenderContent.ChangeContexts.Program); return material; },
             held => IO.lift(() => Callbacks.Each(

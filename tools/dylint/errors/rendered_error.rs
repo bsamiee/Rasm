@@ -3,9 +3,9 @@ use core::ops::ControlFlow;
 use clippy_utils::{
     ExprUseNode,
     diagnostics::span_lint_and_help,
-    fn_def_id, get_expr_use_site, get_parent_expr, get_parent_expr_for_hir,
+    fn_def_id, get_expr_use_site, get_parent_expr_for_hir,
     macros::first_node_macro_backtrace,
-    res::{MaybeDef as _, MaybeQPath as _, MaybeResPath as _},
+    res::{MaybeDef as _, MaybeResPath as _},
     sym,
     visitors::{for_each_expr_without_closures, for_each_local_use_after_expr},
 };
@@ -15,7 +15,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, declare_lint_pass};
 use rustc_middle::ty::{self, GenericArg, Ty};
 
 use super::{classify, output};
-use crate::{is_error, is_text, pointee, result_parts};
+use crate::{fn_value, impl_owner, is_error, is_text, pointee, result_parts, signature};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -41,30 +41,23 @@ declare_lint_pass!(#[derive(Default)] RenderedError => [RENDERED_ERROR]);
 impl<'tcx> LateLintPass<'tcx> for RenderedError {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let typeck = cx.typeck_results();
-        let rendered = if let ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]) = expr.kind
-            && !expr.span.from_expansion()
-            && fn_def_id(cx, expr).is_diag_item(cx, sym::to_string_method)
-        {
-            Some((expr.span, typeck.expr_ty(operand)))
-        } else if let ExprKind::Path(_) = expr.kind
-            && !expr.span.from_expansion()
-            && expr.res(cx).opt_def_id().is_diag_item(cx, sym::to_string_method)
-            && !get_parent_expr(cx, expr).is_some_and(|call| matches!(call.kind, ExprKind::Call(callee, _) if callee.hir_id == expr.hir_id))
-        {
-            Some((expr.span, typeck.node_args(expr.hir_id).type_at(0)))
-        } else if let Some(call) = first_node_macro_backtrace(cx, expr).find(|call| cx.tcx.is_diagnostic_item(sym::format_macro, call.def_id)).filter(|call| !call.span.from_expansion()) {
-            let mut operands = Vec::new();
-            let _: Option<()> = for_each_expr_without_closures(expr, |argument| {
-                if let ExprKind::AddrOf(_, _, operand) = argument.kind
-                    && argument.span.from_expansion()
-                {
-                    operands.push(typeck.expr_ty(operand));
-                }
-                ControlFlow::Continue(())
-            });
-            operands.iter().find(|&&operand| is_error(cx, operand)).or_else(|| operands.iter().find(|&&operand| !is_text(cx, operand))).map(|&operand| (call.span, operand))
-        } else {
-            None
+        let rendered = match (expr.kind, expr.span.from_expansion()) {
+            (ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]), false) if fn_def_id(cx, expr).is_diag_item(cx, sym::to_string_method) =>
+                Some((expr.span, typeck.expr_ty(operand))),
+            (ExprKind::Path(_), false) if fn_value(cx, expr).is_diag_item(cx, sym::to_string_method) => Some((expr.span, typeck.node_args(expr.hir_id).type_at(0))),
+            _ if let Some(call) = first_node_macro_backtrace(cx, expr).find(|call| cx.tcx.is_diagnostic_item(sym::format_macro, call.def_id)).filter(|call| !call.span.from_expansion()) => {
+                let mut operands = Vec::new();
+                let _: Option<()> = for_each_expr_without_closures(expr, |part| {
+                    if let ExprKind::Tup(arguments) = part.kind
+                        && part.span.from_expansion()
+                    {
+                        operands.extend(arguments.iter().filter_map(|argument| typeck.expr_ty(argument).builtin_deref(true)));
+                    }
+                    ControlFlow::Continue(())
+                });
+                operands.iter().find(|&&operand| is_error(cx, operand)).or_else(|| operands.iter().find(|&&operand| !is_text(cx, operand))).map(|&operand| (call.span, operand))
+            }
+            _ => None,
         };
         if let Some((span, operand)) = rendered.filter(|&(_, operand)| !is_text(cx, operand))
             && let Some(sink) = sink(cx, expr)
@@ -119,13 +112,13 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, text: &'tcx Expr<'tcx>) -> Option<Sink> {
         } else if let ExprKind::MethodCall(_, receiver, ..) = call.kind
             && receiver.hir_id != text.hir_id
             && !cx.typeck_results().expr_ty(text).is_ref()
-            && cx.tcx.fn_sig(callee).instantiate_identity().skip_normalization().skip_binder().inputs().first().is_some_and(|holder| matches!(holder.kind(), ty::Ref(_, _, Mutability::Mut)))
+            && signature(cx.tcx, callee).inputs().first().is_some_and(|holder| matches!(holder.kind(), ty::Ref(_, _, Mutability::Mut)))
         {
             Some(Sink::Stored)
-        } else if produced.is_bool() && cx.tcx.fn_sig(callee).instantiate_identity().skip_normalization().skip_binder().inputs().len() > 1 {
+        } else if produced.is_bool() && signature(cx.tcx, callee).inputs().len() > 1 {
             Some(Sink::Compared)
         } else {
-            let owned = produced.ty_adt_def().is_some_and(|adt| callee.assoc_fn_parent(cx).opt_impl_ty(cx).is_some_and(|owner| owner.skip_binder().ty_adt_def() == Some(adt)));
+            let owned = produced.ty_adt_def().is_some_and(|adt| impl_owner(cx.tcx, callee).is_some_and(|owner| owner.ty_adt_def() == Some(adt)));
             ((constructed.is_some() || callee.is_local() && (owned || is_error(cx, produced))) && !handed_off(cx, produced)).then_some(Sink::Stored)
         }
     }

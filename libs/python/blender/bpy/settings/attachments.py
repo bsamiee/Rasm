@@ -13,6 +13,7 @@ from idprop.types import IDPropertyGroup
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, holder
+from blender.bpy.data.rna.snapshots import Endpoints
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -20,7 +21,6 @@ from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
 from blender.bpy.settings.properties import Changed, Choices, RecordGroup
 from blender.imaging.faults import accumulated, paired
-from blender.rendering.edits import Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -326,9 +326,9 @@ def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: 
     )
 
 
-def endpoints(name: str) -> Stored[tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]]:
+def endpoints(name: str) -> Stored[Endpoints]:
     """Stores an operation's persisted before and after trees under one native key."""
-    return Stored(name=name, decoder=msgspec.msgpack.Decoder(tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]))
+    return Stored(name=name, decoder=msgspec.msgpack.Decoder(Endpoints))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

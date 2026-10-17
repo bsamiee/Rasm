@@ -2,24 +2,22 @@
 
 from collections import deque
 from collections.abc import Callable
-from contextlib import ExitStack
-import sys
 from typing import Annotated, ClassVar
 
 from bl_ui.space_view3d import VIEW3D_MT_light_add
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 
 from blender.bpy.commands.operators import Done, Operator
-from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, written
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes import changes
 from blender.bpy.nodes.graphs import End, Graph, Link, Node
 from blender.bpy.nodes.trees import emptied, socket_at, tree_of
@@ -29,7 +27,7 @@ from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
 from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
 from blender.bpy.ui.surfaces.appends import Append
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Finite, Gated, Presentation, Quantity, Rgb
+from blender.imaging.parameters import Finite, Gated, NonNegative, Presentation, Quantity, Rgb
 from blender.rendering.history import Retention
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -38,21 +36,17 @@ from blender.rendering.history import Retention
 class MeshLight(msgspec.Struct, frozen=True, kw_only=True):
     """Emissive square a person edits as one light."""
 
-    size: Annotated[
-        float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Size", description="Edge length of the emitting square"), Presentation(soft=Some((0.0254, 3.048)), quantity=Some(Quantity.LENGTH))
-    ] = 0.9144
-    strength: Annotated[
-        float, msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Strength", description="Emission strength of the front face"), Presentation(soft=Some((0.0, 100.0)), decimals=Some(2))
-    ] = 1.0
-    color: Annotated[Rgb[Finite], msgspec.Meta(title="Color", description="Filter on the emission")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    size: Annotated[NonNegative, msgspec.Meta(description="Edge length of the emitting square"), Presentation(soft=Some((0.0254, 3.048)), quantity=Some(Quantity.LENGTH))] = 0.9144
+    strength: Annotated[NonNegative, msgspec.Meta(description="Emission strength of the front face"), Presentation(soft=Some((0.0, 100.0)), decimals=Some(2))] = 1.0
+    color: Annotated[Rgb[Finite], msgspec.Meta(description="Filter on the emission")] = Rgb(red=1.0, green=1.0, blue=1.0)
     temperature: Annotated[
         Gated[Annotated[float, msgspec.Meta(ge=800.0, le=20000.0)]],
-        msgspec.Meta(title="Temperature", description="Blackbody color the color filters"),
+        msgspec.Meta(description="Blackbody color the color filters"),
         Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
     ] = Gated(enabled=True, value=5500.0)
-    single_sided: Annotated[bool, msgspec.Meta(title="Single Sided", description="Emit from the front face alone")] = True
+    single_sided: Annotated[bool, msgspec.Meta(description="Emit from the front face alone")] = True
     constant: Annotated[bool, msgspec.Meta(title="Constant Falloff", description="Strength equal at every distance")] = False
-    camera: Annotated[bool, msgspec.Meta(title="Camera", description="Show the emitting face to the camera")] = False
+    camera: Annotated[bool, msgspec.Meta(description="Show the emitting face to the camera")] = False
 
 
 class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
@@ -279,49 +273,30 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
     """
     half = record.size / 2.0
     visibility = Snapshot.of(bpy.types.Object, {"visible_camera": record.camera, "visible_shadow": False, "show_wire": True, "show_all_edges": True})
-    if not isinstance(mesh := item.data, bpy.types.Mesh):
-        return Error((BlenderChoiceFault(path=f"{item!r}.data", identifier=type(mesh).__name__, accepted=(bpy.types.Mesh.__name__,)),))
-
     vertices = Descriptor.resolve(bpy.types.MeshVertex, "co", bpy.types.FloatProperty).bind(
         lambda co: Descriptor.quantized(co.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
     )
 
-    with ExitStack() as rollback:
-        mark = Mark(key=MeshLights.material.key, of=Some(item))
+    def built() -> BlenderResult[bpy.types.Material]:
+        return kept(BlenderEditFault.attempted("Mesh Light material", lambda: bpy.data.materials.new("Mesh Light")), emptied)
 
-        def retained(material: bpy.types.Material) -> BlenderResult[bpy.types.Material]:
-            rollback.callback(bpy.data.batch_remove, ids=(material,))
-            return emptied(material)
-
-        def built() -> BlenderResult[bpy.types.Material]:
-            try:
-                material = bpy.data.materials.new("Mesh Light")
-            except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request="Mesh Light material", error=error),))
-            return MeshLights.material.owned(identity, material, mark).bind(retained)
-
-        def published(_: object) -> None:
-            rollback.pop_all()
-
-        return (
-            paired(emission_graph(record), vertices)
-            .bind(lambda prepared: shaped(mesh, prepared[1], np.arange(4).reshape(1, 4)).map(lambda _: prepared[0]))
-            .bind(
-                lambda wanted: (
-                    Option
-                    .of_optional(earliest(MeshLights.material.held(identity)).get(mark))
-                    .map(Ok)
-                    .default_with(built)
-                    .bind(
-                        lambda material: paired(
-                            tree_of(material).bind(lambda tree: changes.reconciled(wanted, tree, identity)),
-                            written(material.cycles, "emission_sampling", "FRONT" if record.single_sided else "AUTO"),  # type: ignore[arg-type]
-                        ).bind(lambda _: reconciled(ObjectState(material_slots=Some((Snapshot.of(bpy.types.MaterialSlot, {"material": IdName.of(material)}),)), values=Some(visibility)), item, ()))
-                    )
-                )
+    return (
+        typed(item.data, bpy.types.Mesh, f"{item!r}.data")
+        .bind(lambda mesh: paired(emission_graph(record), vertices).bind(lambda prepared: shaped(mesh, prepared[1], np.arange(4).reshape(1, 4)).map(lambda _: prepared[0])))
+        .bind(
+            lambda wanted: MeshLights.material.made(
+                identity,
+                built,
+                of=Some(item),
+                filled=lambda material: (
+                    paired(tree_of(material).bind(lambda tree: changes.reconciled(wanted, tree, identity)), written(material, "cycles.emission_sampling", "FRONT" if record.single_sided else "AUTO"))
+                    .bind(lambda _: reconciled(ObjectState(material_slots=Some((Snapshot.of(bpy.types.MaterialSlot, {"material": IdName.of(material)}),)), values=Some(visibility)), item, ()))
+                    .map(lambda _: material)
+                ),
             )
-            .map(published)
         )
+        .map(lambda _: None)
+    )
 
 
 def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collection, identity: Identity) -> BlenderResult[bpy.types.Object]:
@@ -336,29 +311,21 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
     Returns:
         `Ok` of the mesh light; `register`, `edit`, and the faults of `lit`.
     """
-    with ExitStack() as rollback:
 
-        def published(item: bpy.types.Object) -> bpy.types.Object:
-            rollback.pop_all()
-            return item
+    def configured(item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
+        return (
+            MeshLights.attachment
+            .bound(identity)
+            .bind(lambda attached: attached.write(item, record))
+            .bind(lambda _: reconciled(ObjectState(placement=Some(scene.cursor.matrix)), item, ()))
+            .bind(lambda _: lit(record, item, identity))
+            .map(lambda _: item)
+        )
 
-        def configured(item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
-            rollback.callback(bpy.data.objects.remove, item, do_unlink=True)
-            return (
-                MeshLights.attachment
-                .bound(identity)
-                .bind(lambda attached: attached.write(item, record))
-                .bind(lambda _: reconciled(ObjectState(placement=Some(scene.cursor.matrix)), item, ()))
-                .bind(lambda _: lit(record, item, identity))
-                .map(lambda _: item)
-            )
-
-        try:
-            mesh = bpy.data.meshes.new("Mesh Light")
-            rollback.callback(bpy.data.meshes.remove, mesh)
-        except RuntimeError as error:
-            return Error((BlenderEditFault(request="Mesh Light mesh", error=error),))
-        return MeshLights.light.made(identity, lambda: spawned("Mesh Light", Some(mesh), collection)).bind(configured).map(published)
+    return kept(
+        BlenderEditFault.attempted("Mesh Light mesh", lambda: bpy.data.meshes.new("Mesh Light")),
+        lambda mesh: MeshLights.light.made(identity, lambda: spawned("Mesh Light", Some(mesh), collection), filled=configured),
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,18 +1,16 @@
-use core::{mem, ops::ControlFlow};
+use core::mem;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, get_parent_expr, peel_blocks, visitors::for_each_expr};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks};
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_hir::{
     AmbigArg, Body, Expr, ExprKind, FnDecl, FnRetTy, MatchSource, TraitItem, TraitItemKind, TyKind,
-    def::{DefKind, Res},
     def_id::{DefId, LocalDefId},
     intravisit::FnKind,
 };
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
-use rustc_middle::ty::Ty;
 use rustc_span::Span;
 
-use crate::boxed_future;
+use crate::{any_expr, boxed_future, fn_value, signature};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,18 +41,18 @@ impl<'tcx> LateLintPass<'tcx> for BoxedFutureReturn {
         } && !span.from_expansion()
             && let FnRetTy::Return(output) = declaration.output
             && !cx.effective_visibilities.is_exported(item)
-            && boxed_future(cx, returned(cx, item)).is_some()
+            && boxed_future(cx, signature(cx.tcx, item.to_def_id()).output()).is_some()
         {
             self.returns.insert(item, output.span);
         }
     }
 
     fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx TraitItem<'tcx>) {
-        if let TraitItemKind::Fn(signature, _) = item.kind
+        if let TraitItemKind::Fn(declared, _) = item.kind
             && !item.span.from_expansion()
-            && let FnRetTy::Return(output) = signature.decl.output
+            && let FnRetTy::Return(output) = declared.decl.output
             && !cx.effective_visibilities.is_exported(item.owner_id.def_id)
-            && boxed_future(cx, returned(cx, item.owner_id.def_id)).is_some()
+            && boxed_future(cx, signature(cx.tcx, item.owner_id.to_def_id()).output()).is_some()
         {
             self.declared.insert(item.owner_id.def_id, output.span);
         }
@@ -67,11 +65,7 @@ impl<'tcx> LateLintPass<'tcx> for BoxedFutureReturn {
     }
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if let ExprKind::Path(path) = &expr.kind
-            && let Res::Def(DefKind::Fn | DefKind::AssocFn, function) = cx.qpath_res(path, expr.hir_id)
-            && let Some(function) = function.as_local()
-            && !get_parent_expr(cx, expr).is_some_and(|call| matches!(call.kind, ExprKind::Call(callee, _) if callee.hir_id == expr.hir_id))
-        {
+        if let Some(function) = fn_value(cx, expr).and_then(DefId::as_local) {
             self.pointers.insert(function);
         }
     }
@@ -86,7 +80,7 @@ impl<'tcx> LateLintPass<'tcx> for BoxedFutureReturn {
                 output,
                 format!("`{}` of trait `{}` returns a boxed `dyn Future`", cx.tcx.item_name(method), cx.tcx.item_name(declared)),
                 |diag| {
-                    diag.help(if boxed_future(cx, returned(cx, method)) == Some(true) {
+                    diag.help(if boxed_future(cx, signature(cx.tcx, method.to_def_id()).output()) == Some(true) {
                         format!("declare `async fn` and bound `Send` callers with `T: {}<{}(..): Send>`", cx.tcx.item_name(declared), cx.tcx.item_name(method))
                     } else {
                         "declare the method `async fn`, no `dyn` use of the trait needs a boxed future".to_owned()
@@ -97,11 +91,10 @@ impl<'tcx> LateLintPass<'tcx> for BoxedFutureReturn {
         for (function, output) in mem::take(&mut self.returns).into_iter().filter(|(function, _)| !self.pointers.contains(function)) {
             let body = cx.tcx.hir_body_owned_by(function).value;
             let typeck = cx.tcx.typeck(function);
-            let recursive = for_each_expr(cx.tcx, body, |called| {
+            let recursive = any_expr(cx.tcx, body, |called| {
                 let callee = if let ExprKind::Path(qpath) = &called.kind { typeck.qpath_res(qpath, called.hir_id).opt_def_id() } else { typeck.type_dependent_def_id(called.hir_id) };
-                if callee == Some(function.to_def_id()) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
-            })
-            .is_some();
+                callee == Some(function.to_def_id())
+            });
             let help = if recursive {
                 "declare `async fn` and box the recursive call"
             } else if matches!(peel_blocks(body).kind, ExprKind::If(..) | ExprKind::Match(_, _, MatchSource::Normal)) {
@@ -114,10 +107,4 @@ impl<'tcx> LateLintPass<'tcx> for BoxedFutureReturn {
             });
         }
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn returned<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId) -> Ty<'tcx> {
-    cx.tcx.normalize_erasing_regions(cx.typing_env(), cx.tcx.fn_sig(function).instantiate_identity().map(|signature| cx.tcx.instantiate_bound_regions_with_erased(signature).output()))
 }

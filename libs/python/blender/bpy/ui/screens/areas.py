@@ -11,11 +11,11 @@ import msgspec
 
 from blender.bpy.commands.calls import called, Operation
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import written
+from blender.bpy.data.rna.descriptors import rooted, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.ui.screens.editors import EditorState
-from blender.imaging.faults import accumulated
+from blender.imaging.faults import accumulated, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -82,6 +82,11 @@ class Located(msgspec.Struct, frozen=True, kw_only=True):
 
     window: bpy.types.Window
     area: bpy.types.Area
+
+    @classmethod
+    def current(cls, context: bpy.types.Context) -> BlenderResult[Self]:
+        """Returns the context window and area, accumulating the absence of either."""
+        return paired(rooted(bpy.types.Window, context), rooted(bpy.types.Area, context)).map(lambda pair: cls(window=pair[0], area=pair[1]))
 
     @classmethod
     def found(cls, window: bpy.types.Window, pointer: int) -> Option[Self]:

@@ -43,9 +43,9 @@ class NodeSize(msgspec.Struct, frozen=True, kw_only=True):
 class NodeSpacing(msgspec.Struct, frozen=True, kw_only=True):
     """Node-space gaps between columns, rows, and frame bands."""
 
-    across: Annotated[float, msgspec.Meta(ge=0.0, title="Across", description="Node-space gap between columns")] = 80.0
-    down: Annotated[float, msgspec.Meta(ge=0.0, title="Down", description="Node-space gap between rows")] = 20.0
-    band: Annotated[float, msgspec.Meta(ge=0.0, title="Band", description="Node-space gap between frames")] = 60.0
+    across: Annotated[float, msgspec.Meta(ge=0.0, description="Node-space gap between columns")] = 80.0
+    down: Annotated[float, msgspec.Meta(ge=0.0, description="Node-space gap between rows")] = 20.0
+    band: Annotated[float, msgspec.Meta(ge=0.0, description="Node-space gap between frames")] = 60.0
 
     def arranged[K: Hashable](
         self, sizes: Mapping[K, NodeSize], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]

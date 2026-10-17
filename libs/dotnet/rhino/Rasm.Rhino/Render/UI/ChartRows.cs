@@ -7,10 +7,10 @@ using Rasm.Imaging.Tone;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.Render.UI;
@@ -18,34 +18,42 @@ namespace Rasm.Rhino.Render.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ScopeSource(string Caption, Func<RowScope, IO<Option<ScopeFrames>>> Frames);
 
-public sealed record ScopeState(ScopeOptions Options, PlotAspect Aspect, SampleSquare Sample) : IStateRecord<ScopeState, ScopeParameter, InvalidRhinoValue> {
+public sealed record ScopeState(ScopeOptions Options, PlotAspect Aspect, SampleSquare Sample) : IStateRecord<ScopeState, ScopeParameter> {
     public static ScopeState Default { get; } = new(ScopeOptions.Default, PlotAspect.Proportional, SampleSquare.One);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ScopeParameter : IStateParameter<ScopeState> {
     private static readonly Lens<ScopeState, ScopeOptions> Options =
         Lens<ScopeState, ScopeOptions>.New(static state => state.Options, static options => state => state with { Options = options });
 
-    public static readonly ScopeParameter Chart = new("kind", new StateParameter<ScopeState>.Choice<ScopeKind, InvalidRhinoValue>(
-        lens(Options, Lens<ScopeOptions, ScopeKind>.New(static options => options.Kind, static kind => options => options with { Kind = kind }))));
-    public static readonly ScopeParameter Counts = new("counts", new StateParameter<ScopeState>.Choice<CountScale, InvalidRhinoValue>(
-        lens(Options, Lens<ScopeOptions, CountScale>.New(static options => options.Counts, static counts => options => options with { Counts = counts }))));
-    public static readonly ScopeParameter Range = new("range", new StateParameter<ScopeState>.Choice<HistogramRange, InvalidRhinoValue>(
-        lens(Options, Lens<ScopeOptions, HistogramRange>.New(static options => options.Range, static range => options => options with { Range = range }))));
-    public static readonly ScopeParameter Channels = new("channels", new StateParameter<ScopeState>.Choice<TraceMix, InvalidRhinoValue>(
-        lens(Options, Lens<ScopeOptions, TraceMix>.New(static options => options.Channels, static channels => options => options with { Channels = channels }))));
-    public static readonly ScopeParameter Brightness = new("brightness", new StateParameter<ScopeState>.Choice<TraceBrightness, InvalidRhinoValue>(
-        lens(Options, Lens<ScopeOptions, TraceBrightness>.New(static options => options.Brightness, static brightness => options => options with { Brightness = brightness }))));
-    public static readonly ScopeParameter Aspect = new("aspect", new StateParameter<ScopeState>.Keyed<PlotAspect, float, InvalidRhinoValue>(
-        Lens<ScopeState, PlotAspect>.New(static state => state.Aspect, static aspect => state => state with { Aspect = aspect })));
-    public static readonly ScopeParameter Sample = new("sample", new StateParameter<ScopeState>.Keyed<SampleSquare, int, InvalidPixelValue>(
-        Lens<ScopeState, SampleSquare>.New(static state => state.Sample, static sample => state => state with { Sample = sample })));
+    public static readonly ScopeParameter Chart = new("kind", new StateParameter<ScopeState>.Choice<ScopeKind>(
+            lens(Options, Lens<ScopeOptions, ScopeKind>.New(static options => options.Kind, static kind => options => options with { Kind = kind }))),
+        new("Scope", "Chart the scope draws"));
+    public static readonly ScopeParameter Counts = new("counts", new StateParameter<ScopeState>.Choice<CountScale>(
+            lens(Options, Lens<ScopeOptions, CountScale>.New(static options => options.Counts, static counts => options => options with { Counts = counts }))),
+        new("Counts", "Scale of the histogram bin counts"));
+    public static readonly ScopeParameter Range = new("range", new StateParameter<ScopeState>.Choice<HistogramRange>(
+            lens(Options, Lens<ScopeOptions, HistogramRange>.New(static options => options.Range, static range => options => options with { Range = range }))),
+        new("Range", "Code range the histogram bins span"));
+    public static readonly ScopeParameter Channels = new("channels", new StateParameter<ScopeState>.Choice<TraceMix>(
+            lens(Options, Lens<ScopeOptions, TraceMix>.New(static options => options.Channels, static channels => options => options with { Channels = channels }))),
+        new("Channels", "Channels the histogram traces"));
+    public static readonly ScopeParameter Brightness = new("brightness", new StateParameter<ScopeState>.Choice<TraceBrightness>(
+            lens(Options, Lens<ScopeOptions, TraceBrightness>.New(static options => options.Brightness, static brightness => options => options with { Brightness = brightness }))),
+        new("Brightness", "Trace brightness of the waveform, parade, and vectorscope"));
+    public static readonly ScopeParameter Aspect = new("aspect", new StateParameter<ScopeState>.Keyed<PlotAspect, float>(
+            Lens<ScopeState, PlotAspect>.New(static state => state.Aspect, static aspect => state => state with { Aspect = aspect })),
+        new("Aspect", "Height of the chart against its width"));
+    public static readonly ScopeParameter Sample = new("sample", new StateParameter<ScopeState>.Keyed<SampleSquare, int>(
+            Lens<ScopeState, SampleSquare>.New(static state => state.Sample, static sample => state => state with { Sample = sample })),
+        new("Sample", "Side in pixels of the square each pointer reading averages"));
 
     public StateParameter<ScopeState> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -60,8 +68,8 @@ public static class ChartRows {
     public static (ControlRow Row, RowSource<ScopeState> Source) Scope(
         string caption, string help, IterableNE<ScopeSource> sources, string owner, Func<RowScope, ValueStore<ScopeState>> store, Option<FrameLink> link, RowRules rules,
         Option<ScopeState> factory = default) =>
-        IterableNE.create(ScopeParameter.Items[0], ScopeParameter.Items.Skip(1)).Map(item => new RowField<ScopeState>(item, caption, help)) switch {
-            var fields => RowSource.Fields(owner, toSeq(fields).Map(static field => (field.Parameter, field.Caption)), scope => IO.pure(Seq(store(scope))), factory) switch {
+        IterableNE.create(ScopeParameter.Items[0], ScopeParameter.Items.Skip(1)).Map(static item => new RowField<ScopeState>(item)) switch {
+            var fields => RowSource.Fields(owner, [.. ScopeParameter.Items], scope => IO.pure(Seq(store(scope))), factory) switch {
                 var source => (ControlRow.Of(source, fields, caption, help, RowShape.Block, (scope, retain) => Realized(caption, sources, source, fields, link, scope, retain), rules), source),
             },
         };
@@ -72,10 +80,10 @@ public static class ChartRows {
         string caption, IterableNE<ScopeSource> sources, RowSource<ScopeState> source, IterableNE<RowField<ScopeState>> fields, Option<FrameLink> link, RowScope scope, Action<IDisposable> retain) =>
         from held in atomIO(new ScopeHeld(sources.Head, None, None))
         from view in DisposalOps.Acquire(IO.lift(() => new ScopeView(
-            scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(shown => shown.Source.Frames(scope)))), static control => IO.lift(control.Dispose), retain)
-        from label in DisposalOps.Acquire(IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) }), static control => IO.lift(control.Dispose), retain)
+            scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(shown => shown.Source.Frames(scope)))), retain)
+        from label in DisposalOps.Acquire(IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) }), retain)
         from popup in ChoiceRows.Popup(
-            toSeq(ScopeKind.Items).Map(static kind => new ChoiceItem<ScopeKind>(kind, ScopeView.Caption(kind), None)), kind => Chosen(view, options => options with { Kind = kind }), scope.Sink, retain)
+            ChoiceRows.Items<ScopeKind>(None, scope.Sink), kind => Chosen(view, options => options with { Kind = kind }), scope.Sink, retain)
         let site = new CallbackSite(scope.Sink, typeof(ScopeView), nameof(ScopeView.Edited))
         from bound in RowEdit.Bind(
                 source, fields, h => view.Edited += h, h => view.Edited -= h,
@@ -104,19 +112,12 @@ public static class ChartRows {
         Seq<ScopeSource> sources, RowSource<ScopeState> source, RowEdit<ScopeState> edit, ScopeView view, Atom<ScopeHeld> held, RowScope scope) =>
         from state in scope.Read(source)
         from shown in held.ValueIO
-        let brightness = Picks(
-            toSeq(TraceBrightness.Items), static level => RowText.Localize(level.Map(bright: "Bright", normal: "Normal", dimmed: "Dimmed")).Local,
-            state.Options.Brightness, level => Chosen(view, options => options with { Brightness = level }))
-        let histogram = Picks(
-                toSeq(CountScale.Items), static scale => RowText.Localize(scale.Map(linear: "Linear Count", logarithmic: "Logarithmic Count")).Local,
-                state.Options.Counts, scale => Chosen(view, options => options with { Counts = scale }))
+        let brightness = Picks(state.Options.Brightness, level => Chosen(view, options => options with { Brightness = level }))
+        let histogram = Picks(state.Options.Counts, scale => Chosen(view, options => options with { Counts = scale }))
             .Add(new MenuPick.Item(
-                RowText.Localize("SDR Only").Local, state.Options.Range == HistogramRange.Sdr,
+                RowText.Localize(HistogramRange.Sdr.Caption).Local, state.Options.Range == HistogramRange.Sdr,
                 Chosen(view, static options => options with { Range = options.Range.Map(full: HistogramRange.Sdr, sdr: HistogramRange.Full) })))
-            .Add(new MenuPick.Group(RowText.Localize("Channels").Local, Picks(
-                toSeq(TraceMix.Items),
-                static mix => RowText.Localize(mix.Map(rgbLuma: "RGB and Luma", rgb: "RGB", luma: "Luma", red: "Red", green: "Green", blue: "Blue")).Local,
-                state.Options.Channels, mix => Chosen(view, options => options with { Channels = mix }))))
+            .Add(new MenuPick.Group(RowText.Localize(ScopeParameter.Channels.Text.Caption).Local, Picks(state.Options.Channels, mix => Chosen(view, options => options with { Channels = mix }))))
         select state.Options.Kind.Map(histogram: histogram, waveformLuma: brightness, waveformRgb: brightness, parade: brightness, vectorscope: brightness, chromaticity: Seq<MenuPick>())
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Source").Local, Picks(
                     sources, entry => Wording.English.Shown(entry.Caption, scope.Sink), shown.Source,
@@ -125,6 +126,9 @@ public static class ChartRows {
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Sample").Local, Picks(
                 toSeq(SampleSquare.Items), static square => RowText.Localize("{0} × {0}", arguments: [square.Key]).Local,
                 state.Sample, square => edit.Take(new Edit<SampleSquare>.Commit(square), static (picked, record) => record with { Sample = picked }).Map(unit))));
+
+    private static Seq<MenuPick> Picks<TValue>(TValue marked, Func<TValue, IO<Unit>> run) where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
+        Picks(toSeq(TValue.Items), static item => RowText.Localize(item.Caption).Local, marked, run);
 
     private static Seq<MenuPick> Picks<TValue>(Seq<TValue> items, Func<TValue, string> caption, TValue marked, Func<TValue, IO<Unit>> run) =>
         items.Map(item => (MenuPick)new MenuPick.Item(caption(item), EqualityComparer<TValue>.Default.Equals(item, marked), run(item)));
@@ -201,13 +205,13 @@ public static class ChartRows {
                 from levels in frames.Clipping.ToSeq()
                 from clip in Seq((Shown: end.Below, End: ClipEnd.Low, Channel: TraceChannel.Blue), (Shown: end.Above, End: ClipEnd.High, Channel: TraceChannel.Red))
                 where clip.Shown
-                select new FrameMask(new Coverage.Clipped(levels, clip.End), new MarkStyle.Fill(new MarkColor.Trace(clip.Channel), 1f)));
+                select new FrameMask(new Coverage.Clipped(levels, clip.End), new MarkStyle.Fill(clip.Channel.Mark, 1f)));
 
     // --- [RAMP_KEY]
     public static ControlRow RampKey(string caption, string help, Func<RowScope, IO<Option<AgXLook>>> look, RowRules rules) =>
         new ControlRow.Readout(RowShape.Block, (scope, retain) =>
             from shown in look(scope)
-            from ramp in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown))), static ramp => IO.lift(ramp.Dispose), retain)
+            from ramp in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown))), retain)
             select new RowCells(
                 ramp, None, None, None, [], [], new RowHelp(None, None),
                 look(scope).Bind(current => ramp.Advance(_ => new(new GradientRampState.Key(current), None))),

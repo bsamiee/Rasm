@@ -1,5 +1,5 @@
+using System.Globalization;
 using Rasm.Rhino.Document.Units;
-using Rhino.Geometry.Intersect;
 
 namespace Rasm.Rhino.Modeling.Curves;
 
@@ -21,7 +21,7 @@ public sealed record ArchSpan {
     public static Fin<ArchSpan> Of(Line baseline, Vector3d normal) =>
         new Plane(baseline.From, baseline.Direction, Vector3d.CrossProduct(normal, baseline.Direction)) switch {
             { IsValid: true } frame => new ArchSpan(baseline, frame),
-            _ => new InvalidRhinoValue(),
+            _ => Error.New(ErrorCodes.ValidationFailed, "arch baseline and normal span no valid plane"),
         };
 
     public double Height(Point3d point) => (point - Midpoint) * Frame.YAxis;
@@ -55,15 +55,6 @@ public sealed partial class RaisedArch {
     public static readonly RaisedArch Elliptical = new(new Interval(0, 0.5));
 
     public Interval Ratios { get; }
-
-    public Fin<double> Rise(ArchSpan span, double height) =>
-        (double.Abs(height) / span.Baseline.Length) switch {
-            > 0 and var ratio when Ratios.IncludesParameter(ratio) => height,
-            _ => new InvalidRhinoValue(),
-        };
-
-    public double Nearest(ArchSpan span, double height, Tolerances tolerances) =>
-        double.CopySign(double.Min(double.Max(double.Abs(height), double.Max(Ratios.T0 * span.Baseline.Length, tolerances.Absolute)), Ratios.T1 * span.Baseline.Length), height);
 }
 
 [SmartEnum(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -73,19 +64,33 @@ public sealed partial class FoiledArch {
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct FoilCount : System.Numerics.IMinMaxValue<FoilCount> {
     public static FoilCount MinValue { get; } = new(1);
     public static FoilCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ArchForm {
     public sealed record Spanned(SpannedArch Kind) : ArchForm;
-    public sealed record Raised(RaisedArch Kind, double Rise) : ArchForm;
+    public sealed record Raised : ArchForm {
+        private Raised(RaisedArch kind, double ratio) => (Kind, Ratio) = (kind, ratio);
+
+        public RaisedArch Kind { get; }
+        public double Ratio { get; }
+
+        public static Fin<Raised> Of(RaisedArch kind, double ratio) =>
+            double.Abs(ratio) is > 0 and var magnitude && kind.Ratios.IncludesParameter(magnitude)
+                ? new Raised(kind, ratio)
+                : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"arch rise ratio {ratio} lies outside ratios {kind.Ratios}"));
+
+        public static Raised Nearest(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
+            new(kind, double.CopySign(double.Clamp(double.Abs(height) / span.Baseline.Length, double.Min(double.Max(kind.Ratios.T0, tolerances.Absolute / span.Baseline.Length), kind.Ratios.T1), kind.Ratios.T1), height));
+
+        public Point3d Apex(ArchSpan span) => span.Apex(Ratio * span.Baseline.Length);
+    }
+
     public sealed record Foiled(FoiledArch Kind, bool Pointed) : ArchForm;
     public sealed record Multifoil(FoilCount Count, bool Pointed) : ArchForm;
 }
@@ -108,14 +113,11 @@ public static class CurveConstruction {
             static answer => DisposalOps.Release(Conversions.Rows(answer.Curves)), retain);
 
     public static IO<Seq<Grouped<Seq<Curve>>>> CreateBooleanRegions(Seq<Curve> curves, Plane plane, Seq<Point3d> points, bool combineRegions, Tolerances tolerances, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned => DisposalOps.Within(
-            () => Curve.CreateBooleanRegions(curves, plane, points, combineRegions, tolerances.Absolute),
-            made =>
-                from regions in IO.lift(() => Missing.Unless(made, nameof(Curve.CreateBooleanRegions)))
-                from boundaries in toSeq(Range(0, regions.RegionCount))
-                    .TraverseM(index => Copies.AcquireNonEmpty(() => regions.RegionCurves(index), nameof(CurveBooleanRegions.RegionCurves), owned)).As()
-                select Group(boundaries, toSeq(Range(0, regions.PointCount)).Map(regions.RegionPointIndex)),
-            static made => DisposalOps.Release(Optional(made).ToSeq())), (_, release) => retain(release));
+        DisposalOps.Acquire(owned => DisposalOps.Found(
+            () => Curve.CreateBooleanRegions(curves, plane, points, combineRegions, tolerances.Absolute), nameof(Curve.CreateBooleanRegions),
+            regions => toSeq(Range(0, regions.RegionCount))
+                .TraverseM(index => Copies.AcquireNonEmpty(() => regions.RegionCurves(index), nameof(CurveBooleanRegions.RegionCurves), owned)).As()
+                .Map(boundaries => Group(boundaries, toSeq(Range(0, regions.PointCount)).Map(regions.RegionPointIndex)))), retain);
 
     private static Seq<Grouped<T>> Group<T>(Seq<T> outputs, Seq<int> key) =>
         key.Map(static (owner, input) => (owner, input)).ToLookup(static entry => entry.owner, static entry => entry.input) switch {
@@ -129,10 +131,10 @@ public static class CurveConstruction {
     public static IO<NurbsCurve> EllipticalArc(Ellipse ellipse, Interval angles, Action<IDisposable> retain) =>
         Copies.Owned(
             () => NurbsCurve.CreateFromArc(new Arc(new Circle(ellipse.Plane, 1.0), angles)),
-            made => Missing.Unless(made, nameof(NurbsCurve.CreateFromArc))
+            made => Refused.UnlessFound(made, nameof(NurbsCurve.CreateFromArc))
                 .Bind(arc => Refused.Unless(arc.Transform(Transform.Scale(ellipse.Plane, ellipse.Radius1, ellipse.Radius2, 1.0)), arc, nameof(GeometryBase.Transform)))
                 .Bind(static scaled => Measurements.Valid(scaled, nameof(GeometryBase.Transform))),
-            static made => DisposalOps.Release(Optional(made).ToSeq()), retain);
+            static made => DisposalOps.Release(made), retain);
 
     // --- [CATENARIES]
     public static IO<CatenaryCurve> CreateCatenaryCurve(Point3d start, Point3d end, Vector3d axis, CatenaryForm form, bool smooth, int pointCount, Action<IDisposable> retain) =>
@@ -151,13 +153,8 @@ public static class CurveConstruction {
                 fromApex: static (state, apex) => (
                     Curve: Curve.CreateCatenaryCurveFromApex(state.Start, state.End, state.Axis, apex, state.Smooth, state.Count, out Point3d computedApex, out double parameter, out double length, out double deviation),
                     Apex: computedApex, Parameter: parameter, Length: length, Deviation: deviation, Member: nameof(Curve.CreateCatenaryCurveFromApex))),
-            static made => made switch {
-                var (curve, apex, parameter, length, deviation, member) =>
-                    from present in Missing.Unless(curve, member)
-                    from valid in Measurements.Valid(present, member)
-                    select new CatenaryCurve(valid, apex, parameter, length, deviation),
-            },
-            static made => DisposalOps.Release(Optional(made.Curve).ToSeq()), retain);
+            static made => Measurements.Valid(made.Curve, made.Member).Map(valid => new CatenaryCurve(valid, made.Apex, made.Parameter, made.Length, made.Deviation)),
+            static made => DisposalOps.Release(made.Curve), retain);
 
     // --- [ARCHES]
     public static IO<Seq<Curve>> CreateArch(ArchSpan span, ArchForm form, Tolerances tolerances, Action<IDisposable> retain) =>
@@ -168,13 +165,13 @@ public static class CurveConstruction {
                 semicircular: static arch => Arcs(Seq(new Arc(arch.Span.Baseline.From, arch.Span.Frame.YAxis, arch.Span.Baseline.To)), arch.Retain),
                 equilateral: static arch => Symmetric(arch.Span, Seq(new Arc(arch.Span.Frame, arch.Span.Baseline.Length, double.Pi / 3)), arch.Retain),
                 basketHandle: static arch => BasketHandle(arch.Span, arch.Retain),
-                persian: static arch => Persian(arch.Span, arch.Retain),
-                tudor: static arch => FourCentered(arch.Span, arch.Span.Baseline.PointAt(0.25) - (arch.Span.Frame.YAxis * (arch.Span.Baseline.Length / 2)), arch.Retain),
+                persian: static arch => FourCentered(arch.Span, arch.Span.Baseline.Length * double.Sqrt(3) / 2, arch.Retain),
+                tudor: static arch => FourCentered(arch.Span, arch.Span.Baseline.Length / 2, arch.Retain),
                 keel: static arch => Keel(arch.Span, arch.Retain),
                 reverseOgee: static arch => ReverseOgee(arch.Span, arch.Retain),
                 tentedOgee: static arch => TentedOgee(arch.Span, arch.Retain)),
-            raised: static (state, raised) => IO.lift(raised.Kind.Rise(state.Span, raised.Rise)).Bind(rise => raised.Kind.Switch(
-                (state.Span, state.Tolerances, state.Retain, Apex: state.Span.Apex(rise)),
+            raised: static (state, raised) => raised.Kind.Switch(
+                (state.Span, state.Tolerances, state.Retain, Apex: raised.Apex(state.Span)),
                 segmental: static arch => Circular(arch.Span, arch.Apex, arch.Retain),
                 horseshoe: static arch => Circular(arch.Span, arch.Apex, arch.Retain),
                 lancet: static arch => Gothic(arch.Span, arch.Apex, arch.Retain),
@@ -182,11 +179,11 @@ public static class CurveConstruction {
                 pointedHorseshoe: static arch => PointedHorseshoe(arch.Span, arch.Apex, arch.Retain),
                 depressedThreeCentered: static arch => DepressedThreeCentered(arch.Span, arch.Apex, arch.Retain),
                 threeCenteredOgee: static arch => ThreeCenteredOgee(arch.Span, arch.Apex, arch.Tolerances, arch.Retain),
-                fourCenteredOgee: static arch => Ogee(arch.Span, arch.Apex, new Circle(new Plane(arch.Span.Baseline.PointAt(2.0 / 3), arch.Span.Frame.XAxis, arch.Apex - arch.Span.Midpoint), arch.Span.Baseline.Length / 3), arch.Retain),
+                fourCenteredOgee: static arch => Ogee(arch.Span, arch.Apex, arch.Span.Baseline.Length / 3, arch.Retain),
                 parabolic: static arch => Copies.Acquire(() => NurbsCurve.CreateParabolaFromVertex(arch.Apex, arch.Span.Baseline.From, arch.Span.Baseline.To), nameof(NurbsCurve.CreateParabolaFromVertex), arch.Retain)
                     .Map(static curve => Seq<Curve>(curve)),
                 elliptical: static arch => EllipticalArc(new Ellipse(new Plane(arch.Span.Midpoint, -arch.Span.Frame.XAxis, arch.Apex - arch.Span.Midpoint), arch.Span.Baseline.Length / 2, arch.Span.Midpoint.DistanceTo(arch.Apex)), new Interval(0, double.Pi), arch.Retain)
-                    .Map(static curve => Seq<Curve>(curve)))),
+                    .Map(static curve => Seq<Curve>(curve))),
             foiled: static (state, foiled) => foiled.Kind.Switch(
                 (state.Span, state.Retain, foiled.Pointed),
                 trefoil: static arch => Trefoil(arch.Span, arch.Pointed, arch.Retain),
@@ -243,15 +240,6 @@ public static class CurveConstruction {
             new Arc(new Circle(frame, crown, crown.DistanceTo(apex)), new Interval(double.Pi / 2, angle))), retain);
     }
 
-    private static IO<Seq<Curve>> Persian(ArchSpan span, Action<IDisposable> retain) {
-        Point3d triangle = span.Midpoint - (span.Frame.YAxis * (span.Baseline.Length * double.Sqrt(3) / 4));
-        Line perpendicular = new(span.Baseline.PointAt(0.25), span.Frame.YAxis);
-        return
-            from crossing in IO.lift(Intersections.LineLine(new Line(span.Baseline.PointAt(0.75), triangle), perpendicular).ToFin(new Missing(nameof(Intersection.LineLine))))
-            from curves in FourCentered(span, perpendicular.PointAt(crossing.B), retain)
-            select curves;
-    }
-
     private static IO<Seq<Curve>> Keel(ArchSpan span, Action<IDisposable> retain) {
         double quarter = span.Baseline.Length / 4;
         Point3d crown = span.Baseline.PointAt(0.25) + (span.Frame.YAxis * quarter);
@@ -261,17 +249,13 @@ public static class CurveConstruction {
             new Arc(span.Frame, crown, span.Baseline.Length / 2, double.Pi / 3)), retain);
     }
 
-    private static IO<Seq<Curve>> FourCentered(ArchSpan span, Point3d crown, Action<IDisposable> retain) {
+    private static IO<Seq<Curve>> FourCentered(ArchSpan span, double depth, Action<IDisposable> retain) {
         double quarter = span.Baseline.Length / 4;
         Point3d haunch = span.Baseline.PointAt(0.75);
+        Point3d crown = span.Baseline.PointAt(0.25) - (span.Frame.YAxis * depth);
         double angle = Vector3d.VectorAngle(span.Frame.XAxis, haunch - crown);
         Circle circle = new(span.Frame, crown, crown.DistanceTo(haunch) + quarter);
-        return
-            from points in IO.lift(Intersections.LineCircle(new Line(span.Midpoint, span.Frame.YAxis), circle).Secant.ToFin(new Missing(nameof(Intersection.LineCircle))))
-            from curves in Symmetric(span, Seq(
-                new Arc(span.Frame, haunch, quarter, angle),
-                new Arc(circle, new Interval(angle, Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - crown)))), retain)
-            select curves;
+        return Symmetric(span, Seq(new Arc(span.Frame, haunch, quarter, angle), new Arc(circle, new Interval(angle, double.Acos(quarter / circle.Radius)))), retain);
     }
 
     // --- [FOILED_ARCHES]
@@ -338,45 +322,33 @@ public static class CurveConstruction {
         new(new Circle(frame, top, top.DistanceTo(previous)), new Interval(-Vector3d.VectorAngle(frame.XAxis, previous - top), double.Pi / 2));
 
     // --- [OGEE_ARCHES]
-    private static IO<Seq<Curve>> ThreeCenteredOgee(ArchSpan span, Point3d apex, Tolerances tolerances, Action<IDisposable> retain) {
-        Vector3d rise = apex - span.Midpoint;
-        Circle springing = new(new Plane(span.Midpoint, span.Frame.XAxis, rise), span.Baseline.Length / 2);
-        return rise.Length - springing.Radius <= tolerances.Absolute
-            ? Symmetric(span, Seq(new Arc(springing, double.Pi / 2)), retain)
-            : Ogee(span, apex, springing, retain);
-    }
+    private static IO<Seq<Curve>> ThreeCenteredOgee(ArchSpan span, Point3d apex, Tolerances tolerances, Action<IDisposable> retain) =>
+        apex.DistanceTo(span.Midpoint) - (span.Baseline.Length / 2) <= tolerances.Absolute
+            ? Symmetric(span, Seq(new Arc(new Circle(new Plane(span.Midpoint, span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2), double.Pi / 2)), retain)
+            : Ogee(span, apex, span.Baseline.Length / 2, retain);
 
-    private static IO<Seq<Curve>> Ogee(ArchSpan span, Point3d apex, Circle springing, Action<IDisposable> retain) {
-        Line parallel = new(apex, span.Frame.XAxis);
-        return
-            from points in IO.lift(Intersections.LineCircle(new Line(span.Baseline.To, apex), springing).Secant.ToFin(new Missing(nameof(Intersection.LineCircle))))
-            from crossing in IO.lift(Intersections.LineLine(new Line(springing.Center, points.Second.Point), parallel).ToFin(new Missing(nameof(Intersection.LineLine))))
-            let crown = parallel.PointAt(crossing.B)
-            from curves in Symmetric(span, Seq(
-                new Arc(springing, Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - springing.Center)),
-                new Arc(new Circle(new Plane(crown, springing.Plane.XAxis, -springing.Plane.YAxis), crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(span.Frame.XAxis, points.Second.Point - crown), double.Pi))), retain)
-            select curves;
+    private static IO<Seq<Curve>> Ogee(ArchSpan span, Point3d apex, double radius, Action<IDisposable> retain) {
+        Circle springing = new(new Plane(span.Baseline.To - (span.Frame.XAxis * radius), span.Frame.XAxis, apex - span.Midpoint), radius);
+        Vector3d diagonal = apex - span.Baseline.To;
+        double reach = radius * span.Baseline.Length / diagonal.SquareLength;
+        Point3d tangent = span.Baseline.To + (diagonal * reach);
+        Point3d crown = springing.Center + ((tangent - springing.Center) / reach);
+        return Symmetric(span, Seq(
+            new Arc(springing, Vector3d.VectorAngle(span.Frame.XAxis, tangent - springing.Center)),
+            new Arc(new Circle(new Plane(crown, springing.Plane.XAxis, -springing.Plane.YAxis), crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(span.Frame.XAxis, tangent - crown), double.Pi))), retain);
     }
 
     private static IO<Seq<Curve>> ReverseOgee(ArchSpan span, Action<IDisposable> retain) {
         const double riseRatio = 19.0 / 61;
+        const double haunchRatio = (riseRatio / 4) + (1 / (16 * riseRatio));
+        const double crownRatio = (3 * riseRatio / 4) - (1 / (16 * riseRatio));
         Point3d apex = span.Apex(span.Baseline.Length * riseRatio);
-        Line diagonal = new(span.Baseline.To, apex);
-        Line endNormal = new(span.Baseline.To, span.Frame.YAxis);
-        Line centerLine = new(span.Midpoint, span.Frame.YAxis);
-        Vector3d perpendicular = Vector3d.CrossProduct(span.Frame.ZAxis, diagonal.Direction);
-        return
-            from crossings in IO.lift((
-                Intersections.LineLine(endNormal, new Line(diagonal.PointAt(0.25), perpendicular)).ToValidation<Error>(new Missing(nameof(Intersection.LineLine))),
-                Intersections.LineLine(centerLine, new Line(diagonal.PointAt(0.75), perpendicular)).ToValidation<Error>(new Missing(nameof(Intersection.LineLine))))
-                .Apply(static (haunch, crown) => (Haunch: haunch, Crown: crown)).As().ToFin())
-            let haunch = endNormal.PointAt(crossings.Haunch.A)
-            let crown = centerLine.PointAt(crossings.Crown.A)
-            let diagonalMidpoint = diagonal.PointAt(0.5)
-            from curves in Symmetric(span, Seq(
-                new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), haunch.DistanceTo(span.Baseline.To)), new Interval(double.Pi / 2, double.Pi - Vector3d.VectorAngle(-span.Frame.XAxis, diagonalMidpoint - haunch))),
-                new Arc(new Circle(span.Frame, crown, crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(span.Frame.XAxis, diagonalMidpoint - crown), double.Pi / 2))), retain)
-            select curves;
+        Point3d haunch = span.Baseline.To + (span.Frame.YAxis * (span.Baseline.Length * haunchRatio));
+        Point3d crown = span.Apex(span.Baseline.Length * crownRatio);
+        Point3d diagonalMidpoint = new Line(span.Baseline.To, apex).PointAt(0.5);
+        return Symmetric(span, Seq(
+            new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), haunch.DistanceTo(span.Baseline.To)), new Interval(double.Pi / 2, double.Pi - Vector3d.VectorAngle(-span.Frame.XAxis, diagonalMidpoint - haunch))),
+            new Arc(new Circle(span.Frame, crown, crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(span.Frame.XAxis, diagonalMidpoint - crown), double.Pi / 2))), retain);
     }
 
     private static IO<Seq<Curve>> TentedOgee(ArchSpan span, Action<IDisposable> retain) {

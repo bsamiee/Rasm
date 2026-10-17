@@ -3,8 +3,6 @@ id: no-pointer-forwarding-impl
 language: rust
 severity: error
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment'}
     forwarded-call:
         kind: call_expression
         all:
@@ -25,8 +23,8 @@ utils:
             - has:
                 field: body
                 all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: slot}}, matches: forwarding-statement}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: forwarding-statement}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     pointer:
         any:
             - kind: reference_type

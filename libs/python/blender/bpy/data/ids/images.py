@@ -10,14 +10,13 @@ from typing import Annotated, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.data.ids.ownership import Ownership
+from blender.bpy.data.ids.ownership import kept, Ownership
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
@@ -26,8 +25,7 @@ from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisition, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
 from blender.imaging.color.processors import applied, DisplayView, processor, unassociated
-from blender.imaging.effects.quantization import codes
-from blender.imaging.faults import accumulated, Faults, ImagingBufferFault, ImagingResult, ImagingWriteFault, paired
+from blender.imaging.faults import accumulated, Faults, ImagingBufferFault, ImagingResult, ImagingWriteFault, scoped
 from blender.imaging.files.images import Depth, Format, ImageFile, published, read_file, Storage
 from blender.imaging.hashing import content_hash, ContentHash
 from blender.imaging.parameters import Case
@@ -88,8 +86,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
 class Scaled(Case, frozen=True, kw_only=True, tag=1):
     """Proxy at a fraction of each source side."""
 
-    title = "Scaled"
-    factor: Annotated[float, msgspec.Meta(gt=0.0, lt=1.0, title="Factor", description="Proxy side over source side")] = 0.5
+    factor: Annotated[float, msgspec.Meta(gt=0.0, lt=1.0, description="Proxy side over source side")] = 0.5
 
     def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
         """Returns each scaled side rounded up to a whole pixel."""
@@ -100,7 +97,7 @@ class Bounded(Case, frozen=True, kw_only=True, tag=2):
     """Proxy bounded by its longest side."""
 
     title = "Longest Side"
-    pixels: Annotated[int, msgspec.Meta(ge=1, le=2**31 - 1, title="Pixels", description="Longest proxy side")] = 2048
+    pixels: Annotated[int, msgspec.Meta(ge=1, le=2**31 - 1, description="Longest proxy side")] = 2048
 
     def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
         """Returns exact upward-rounded sides, or absence for a source within the bound."""
@@ -188,11 +185,7 @@ def production(image: bpy.types.Image) -> BlenderResult[Production]:
 
 def loaded(path: str, tag: Tag) -> BlenderResult[bpy.types.Image]:
     """Loads or reuses the native file image, then applies its requested reading."""
-    try:
-        image = bpy.data.images.load(path, check_existing=True)
-    except RuntimeError as error:
-        return Error((BlenderEditFault(request=repr(bpy.data.images), error=error),))
-    return tag.applied(image).map(lambda _: image)
+    return BlenderEditFault.attempted(path, lambda: bpy.data.images.load(path, check_existing=True)).bind(lambda image: tag.applied(image).map(lambda _: image))
 
 
 # --- [PIXELS]
@@ -245,7 +238,8 @@ def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[
 
 def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
     """Writes associated pixels, scalar RGB, or XY data into the native image's components."""
-    try:
+
+    def write() -> None:
         straight = unassociated(plane) if _associated(image) else plane
         color = np.repeat(straight, 3, axis=-1) if straight.shape[2] == 1 else straight
         pixels = np.pad(color, ((0, 0), (0, 0), (0, image.channels - color.shape[2])))
@@ -253,9 +247,8 @@ def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> BlenderRes
             pixels[..., 3] = 1.0
         image.pixels.foreach_set(pixels[::-1].reshape(-1))  # type: ignore[arg-type]
         image.update()
-    except (MemoryError, RuntimeError) as error:
-        return Error((BlenderEditFault(request=repr(image), error=error),))
-    return Ok(None)
+
+    return BlenderEditFault.attempted(repr(image), write)
 
 
 def generated(
@@ -272,22 +265,11 @@ def generated(
 
     def built(values: npt.NDArray[np.float32]) -> BlenderResult[bpy.types.Image]:
         height, width, channels = values.shape
-        try:
-            image = bpy.data.images.new(name, width, height, alpha=channels == 4, float_buffer=True)
-        except (MemoryError, RuntimeError, ValueError) as error:
-            return Error((BlenderEditFault(request=name, error=error),))
-        with ExitStack() as rollback:
-            rollback.callback(bpy.data.batch_remove, ids=(image,))
 
-            def packed(_: None) -> BlenderResult[bpy.types.Image]:
-                try:
-                    image.pack()
-                except (MemoryError, RuntimeError) as error:
-                    return Error((BlenderEditFault(request=repr(image), error=error),))
-                rollback.pop_all()
-                return Ok(image)
-
-            return tag.applied(image).bind(lambda _: filled(image, values)).bind(packed)
+        return kept(
+            BlenderEditFault.attempted(name, lambda: bpy.data.images.new(name, width, height, alpha=channels == 4, float_buffer=True)),
+            lambda image: tag.applied(image).bind(lambda _: filled(image, values)).bind(lambda _: BlenderEditFault.attempted(repr(image), image.pack)).map(lambda _: image),
+        )
 
     return ownership.made(identity, lambda: plane().bind(lambda values: values.map(lambda values: built(values).map(Some)).default_value(Ok(Nothing))), of=of, content=Some(content), optional=True)
 
@@ -309,38 +291,34 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
             return processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values)) if values.shape[2] in {3, 4} else Ok(values)
 
         def fitted(values: npt.NDArray[np.float32]) -> ImagingResult[npt.NDArray[np.float32]]:
-            if (source := OpenImageIO.ImageBuf(values)).has_error:
-                return Error((ImagingBufferFault(request=source, error=source.geterror()),))
-            fit = OpenImageIO.ImageBufAlgo.fit(source, filtername="", filterwidth=0.0, fillmode="letterbox", exact=True, roi=OpenImageIO.ROI(0, width, 0, height))
             return (
-                Error((ImagingBufferFault(request=source, error=fit.geterror()),))
-                if fit.has_error
-                else Option.of_optional(fit.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=fit, error=fit.geterror()),))
+                ImagingBufferFault
+                .checked(OpenImageIO.ImageBuf(values))
+                .map(lambda source: OpenImageIO.ImageBufAlgo.fit(source, filtername="", filterwidth=0.0, fillmode="letterbox", exact=True, roi=OpenImageIO.ROI(0, width, 0, height)))
+                .bind(ImagingBufferFault.checked)
+                .bind(ImagingBufferFault.pixels)
             )
 
         return linear(file.pixels, PyOpenColorIO.TRANSFORM_DIR_FORWARD).bind(fitted).bind(lambda values: linear(values, PyOpenColorIO.TRANSFORM_DIR_INVERSE))
 
-    def kept(key: str, source: str, row: Format, file: ImageFile[np.float32], width: int, height: int) -> BlenderResult[str]:
+    def proxy(key: str, source: str, row: Format, file: ImageFile[np.float32], width: int, height: int) -> BlenderResult[str]:
         origin = Path(source)
         path, depth = str(origin.with_stem(f"{origin.stem}.{width}x{height}")), row.depths[-1] if image.is_float else Depth.UINT8
 
         def stored(values: npt.NDArray[np.float32]) -> ImagingResult[str]:
             match depth:
-                case Depth.UINT8:
-                    return ImageFile(pixels=codes(unassociated(values), 8), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
-                case Depth.UINT16:
-                    return ImageFile(pixels=codes(unassociated(values), 16), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
+                case Depth.UINT8 | Depth.UINT16:
+                    return ImageFile(pixels=depth.coded(unassociated(values)), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
                 case Depth.HALF | Depth.FLOAT as floated:
                     return ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).write(path, Storage(depth=16 if floated is Depth.HALF else 32), {}, config)
 
-        def marked() -> BlenderResult[str]:
-            try:
-                image[key] = source
-            except (AttributeError, KeyError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request=key, error=error),))
-            return Ok(path)
-
-        return resampled(file, width, height).bind(stored).map_error(BlenderImagingFault.lifted).bind(lambda _: marked()).bind(lambda _: written(image, "filepath", path).map(lambda _: path))
+        return (
+            resampled(file, width, height)
+            .bind(stored)
+            .map_error(BlenderImagingFault.lifted)
+            .bind(lambda _: BlenderEditFault.attempted(key, lambda: image.__setitem__(key, source)))
+            .bind(lambda _: written(image, "filepath", path).map(lambda _: path))
+        )
 
     def sourced(key: str) -> BlenderResult[Option[str]]:
         match image.get(key):
@@ -356,7 +334,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
                 lambda row: (
                     read_file(source, config)
                     .map_error(BlenderImagingFault.lifted)
-                    .bind(lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: kept(key, source, row, file, *size).map(Some)).default_value(Ok(Nothing)))
+                    .bind(lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(key, source, row, file, *size).map(Some)).default_value(Ok(Nothing)))
                 )
             )
             .default_with(lambda: Error((BlenderAbsentFault(owner="output_format_list", key=suffix),)))
@@ -369,16 +347,9 @@ def restored(image: bpy.types.Image, identity: Identity) -> BlenderResult[None]:
     """Restores a stored source path and removes its proxy property after the switch."""
 
     def back(key: str) -> BlenderResult[None]:
-        def cleared() -> BlenderResult[None]:
-            try:
-                del image[key]
-            except (AttributeError, KeyError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request=key, error=error),))
-            return Ok(None)
-
         match image.get(key):
             case str(source):
-                return written(image, "filepath", source).bind(lambda _: cleared())
+                return written(image, "filepath", source).bind(lambda _: BlenderEditFault.attempted(key, lambda: image.pop(key)))
             case _:
                 return Ok(None)
 
@@ -396,33 +367,22 @@ def built(kind: Literal["RENDER_RESULT", "COMPOSITING"]) -> BlenderResult[bpy.ty
 def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
     """Exports the scene's displayed result and all passes, restoring every direct member of its format, the members the export writes."""
     settings, path = scene.render.image_settings, str(Path(bpy.app.tempdir, f"{scene.session_uid}.exr"))
-    form: tuple[tuple[str, Value], ...] = (
-        ("media_type", "MULTI_LAYER_IMAGE"),
-        ("color_depth", "32"),
-        ("exr_codec", "ZIP"),
-        ("use_exr_interleave", False),
-        ("views_format", "MULTIVIEW"),
-        ("color_management", "FOLLOW_SCENE"),
-    )
+    form: dict[str, Value] = {"media_type": "MULTI_LAYER_IMAGE", "color_depth": "32", "exr_codec": "ZIP", "use_exr_interleave": False, "views_format": "MULTIVIEW", "color_management": "FOLLOW_SCENE"}
 
-    def exported(image: bpy.types.Image, capture: Snapshot) -> BlenderResult[str]:
+    def exported(image: bpy.types.Image) -> BlenderResult[str]:
         def encode(stage: str) -> BlenderResult[None]:
-            return catch(lambda: image.save_render(stage, scene=scene), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(image), error=error),))
+            return BlenderEditFault.attempted(repr(image), lambda: image.save_render(stage, scene=scene))
 
         def refused(faults: Faults[BlenderFault | ImagingWriteFault]) -> BlenderFaults:
             first, *rest = (BlenderImagingFault(faults=(fault,)) if isinstance(fault, ImagingWriteFault) else fault for fault in faults)
             return (first, *rest)
 
-        try:
-            save = reduce(lambda state, member: state.bind(lambda _: written(settings, *member).map(lambda _: None)), form, Result[None, BlenderFaults].Ok(None)).bind(
-                lambda _: published(path, encode).map_error(refused)
-            )
-        finally:
-            restore = capture.apply(settings).outcome
-        return paired(save, restore).map(lambda pair: pair[0])
+        return reduce(lambda state, member: state.bind(lambda _: written(settings, *member).map(lambda _: None)), form.items(), Result[None, BlenderFaults].Ok(None)).bind(
+            lambda _: published(path, encode).map_error(refused)
+        )
 
     direct = tuple(Descriptor(root=bpy.types.ImageFormatSettings, owner="", prop=prop) for prop in Snapshot.members(settings.bl_rna) if not isinstance(prop, bpy.types.PointerProperty))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    return built("RENDER_RESULT").bind(lambda image: Snapshot.capture(settings, Some(direct)).bind(lambda capture: exported(image, capture)))
+    return built("RENDER_RESULT").bind(lambda image: scoped(Snapshot.capture(settings, Some(direct)), lambda _: exported(image), lambda capture: capture.apply(settings).outcome))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

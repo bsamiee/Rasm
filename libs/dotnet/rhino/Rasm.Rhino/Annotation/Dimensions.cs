@@ -63,11 +63,9 @@ public static partial class Dimensions {
     public static IO<T> Create<T>(
         RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, T?> create, string member,
         Action<T, IDisposable> retain)
-        where T : Dimension =>
+        where T : AnnotationBase =>
         DisposalOps.Acquire(held =>
-            from parent in style.Match(
-                Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
-                None: () => IO.lift(() => doc.DimStyles.Current))
+            from parent in DimensionStyles.Resolve(doc, style)
             from dimension in Copies.Acquire(() => create(parent), member, held)
             from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, dimension, edit)).As()
             select dimension, retain);
@@ -110,43 +108,41 @@ public static partial class Dimensions {
             AngularDimension angular => angular.GetAngleDisplayText(style),
             RadialDimension radial => radial.GetDistanceDisplayText(units, style),
             OrdinateDimension ordinate => ordinate.GetDistanceDisplayText(units, style),
-            Centermark => new MissingMember(typeof(Centermark), nameof(LinearDimension.GetDistanceDisplayText)),
+            Centermark => new NotFound($"{nameof(Centermark)} member", nameof(LinearDimension.GetDistanceDisplayText)),
             _ => throw new UnreachableException(),
         });
 
     public static IO<Transform> GetTextTransform(Dimension dimension, DimensionStyle style, RhinoViewport viewport, double textScale) =>
-        DisposalOps.Within(() => new ViewportInfo(viewport),
-            info => IO.lift(() => dimension.GetTextTransform(info, style, textScale, drawForward: false)),
-            static info => IO.lift(info.Dispose));
+        DisposalOps.Within(() => new ViewportInfo(viewport), info => IO.lift(() => dimension.GetTextTransform(info, style, textScale, drawForward: false)));
 
     // --- [DISPLAY]
     public static IO<DimensionDisplayGeometry> DisplayGeometry(Dimension dimension, DimensionStyle style, double scale) =>
         IO.lift(Fin<DimensionDisplayGeometry> () => dimension switch {
             LinearDimension linear =>
                 !linear.Get3dPoints(out Point3d extension1, out Point3d extension2, out Point3d arrow1, out Point3d arrow2, out Point3d dimensionLine, out Point3d text)
-                    ? new Refused(nameof(LinearDimension.Get3dPoints))
-                : !linear.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(LinearDimension.GetTextRectangle))
-                : !linear.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(LinearDimension.GetDisplayLines))
+                    ? new Refused(nameof(LinearDimension.Get3dPoints), Refused.Declined)
+                : !linear.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(LinearDimension.GetTextRectangle), Refused.Declined)
+                : !linear.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(LinearDimension.GetDisplayLines), Refused.Declined)
                 : new DimensionDisplayGeometry.Linear(extension1, extension2, arrow1, arrow2, dimensionLine, text, toSeq(lines), toSeq(corners)),
             AngularDimension angular =>
                 !angular.Get3dPoints(out Point3d center, out Point3d definition1, out Point3d definition2, out Point3d arrow1, out Point3d arrow2, out Point3d dimensionLine, out Point3d text)
-                    ? new Refused(nameof(AngularDimension.Get3dPoints))
-                : !angular.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(AngularDimension.GetTextRectangle))
-                : !angular.GetDisplayLines(style, scale, out Line[] lines, out Arc[] arcs) ? new Refused(nameof(AngularDimension.GetDisplayLines))
+                    ? new Refused(nameof(AngularDimension.Get3dPoints), Refused.Declined)
+                : !angular.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(AngularDimension.GetTextRectangle), Refused.Declined)
+                : !angular.GetDisplayLines(style, scale, out Line[] lines, out Arc[] arcs) ? new Refused(nameof(AngularDimension.GetDisplayLines), Refused.Declined)
                 : new DimensionDisplayGeometry.Angular(
                     center, definition1, definition2, arrow1, arrow2, dimensionLine, text,
                     toSeq(arcs).Filter(static arc => arc.IsValid).Strict(), toSeq(lines).Filter(static line => line.IsValid).Strict(), toSeq(corners)),
             RadialDimension radial =>
-                !radial.Get3dPoints(out Point3d center, out Point3d radiusPoint, out Point3d dimensionLine, out Point3d knee) ? new Refused(nameof(RadialDimension.Get3dPoints))
-                : !radial.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(RadialDimension.GetTextRectangle))
-                : !radial.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(RadialDimension.GetDisplayLines))
+                !radial.Get3dPoints(out Point3d center, out Point3d radiusPoint, out Point3d dimensionLine, out Point3d knee) ? new Refused(nameof(RadialDimension.Get3dPoints), Refused.Declined)
+                : !radial.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(RadialDimension.GetTextRectangle), Refused.Declined)
+                : !radial.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(RadialDimension.GetDisplayLines), Refused.Declined)
                 : new DimensionDisplayGeometry.Radial(center, radiusPoint, dimensionLine, knee, toSeq(lines), toSeq(corners)),
             OrdinateDimension ordinate =>
-                !ordinate.Get3dPoints(out Point3d basePoint, out Point3d definition, out Point3d leader, out Point3d kink1, out Point3d kink2) ? new Refused(nameof(OrdinateDimension.Get3dPoints))
-                : !ordinate.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(OrdinateDimension.GetTextRectangle))
-                : !ordinate.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(OrdinateDimension.GetDisplayLines))
+                !ordinate.Get3dPoints(out Point3d basePoint, out Point3d definition, out Point3d leader, out Point3d kink1, out Point3d kink2) ? new Refused(nameof(OrdinateDimension.Get3dPoints), Refused.Declined)
+                : !ordinate.GetTextRectangle(out Point3d[] corners) ? new Refused(nameof(OrdinateDimension.GetTextRectangle), Refused.Declined)
+                : !ordinate.GetDisplayLines(style, scale, out IEnumerable<Line> lines) ? new Refused(nameof(OrdinateDimension.GetDisplayLines), Refused.Declined)
                 : new DimensionDisplayGeometry.Ordinate(basePoint, definition, leader, kink1, kink2, toSeq(lines), toSeq(corners)),
-            Centermark => new MissingMember(typeof(Centermark), nameof(LinearDimension.GetDisplayLines)),
+            Centermark => new NotFound($"{nameof(Centermark)} member", nameof(LinearDimension.GetDisplayLines)),
             _ => throw new UnreachableException(),
         });
 

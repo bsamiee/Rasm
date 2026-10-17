@@ -7,11 +7,11 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) : IStateRecord<WhiteBalanceState, WhiteBalanceParameter, InvalidGrade>, IPixelStage<WhiteBalanceState> {
+public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) : IStateRecord<WhiteBalanceState, WhiteBalanceParameter>, IPixelStage<WhiteBalanceState> {
     public static WhiteBalanceState Default { get; } = new(ColorTemperature.ViewDefault, Tint.ViewDefault);
 
     public LutTable.Affine Table(Gamut working) =>
-        new(working.Adapting(Adaptation.White(Temperature, Tint), working.Configuration.Xyz.WhitePoint), (0d, 0d, 0d));
+        new(working.Adapting(Adaptation.White(Temperature, Tint), working.Configuration.Xyz.WhitePoint));
 
     public static Option<PixelPass> Pass(WhiteBalanceState state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Color(state.Table(context.Working)));
@@ -27,25 +27,24 @@ public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) 
                 sum += pixel.W > 0f && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(pixel.AsVector3())) ? Vector256.Create(pixel.X, pixel.Y, pixel.Z, 1d) : Vector256<double>.Zero;
         }
         return sum[3] is 0d
-            ? new EmptyRegion(bounds)
+            ? Error.New($"white balance region {bounds} holds no covered pixel of finite value")
             : Adaptation.Correlate(working, Vector256.Narrow(sum / sum[3], Vector256<double>.Zero).GetLower().AsVector3())
                 .Map(static white => new WhiteBalanceState(white.Temperature, white.Tint));
     }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WhiteBalanceParameter : IStateParameter<WhiteBalanceState> {
     public static readonly WhiteBalanceParameter Temperature = new(
         "temperature",
-        StateParameter.Bounded<WhiteBalanceState, ColorTemperature, double, InvalidColor>(Lens<WhiteBalanceState, ColorTemperature>.New(static state => state.Temperature, static temperature => state => state with { Temperature = temperature }),
-        new() { Unit = ColorTemperature.Unit, Soft = (2000d, 11000d), Step = 1d, Decimals = 0 }));
-    public static readonly WhiteBalanceParameter Tint = new(
-        "tint",
-        StateParameter.Bounded<WhiteBalanceState, Tint, double, InvalidColor>(Lens<WhiteBalanceState, Tint>.New(static state => state.Tint, static tint => state => state with { Tint = tint }),
-        new() { Origin = (double)Color.Tint.Neutral }));
+        StateParameter.Bounded(Lens<WhiteBalanceState, ColorTemperature>.New(static state => state.Temperature, static temperature => state => state with { Temperature = temperature }),
+        new Presentation<double> { Unit = ColorTemperature.Unit, Soft = (2000d, 11000d), Step = 1d, Decimals = 0 }),
+        new("Temperature", "Kelvin of the light the image renders neutral"));
+    public static readonly WhiteBalanceParameter Tint = new("tint", StateParameter.Bounded(Lens<WhiteBalanceState, Tint>.New(static state => state.Tint, static tint => state => state with { Tint = tint }), new Presentation<double> { Origin = (double)Color.Tint.Neutral }),
+        new("Tint", "Offset of that white off the blackbody locus, positive toward green"));
 
     public StateParameter<WhiteBalanceState> Kind { get; }
+    public ParameterText Text { get; }
 }

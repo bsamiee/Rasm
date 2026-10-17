@@ -90,10 +90,10 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         (sink, this.policy, this.wake) = (IPlugInSink.Of(plugIn), policy, wake);
 
     public static IO<DefinedChangeFeed> Of(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(plugIn, document, view, attributes, policy, wake)), static held => IO.lift(held.Dispose), retain);
+        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(plugIn, document, view, attributes, policy, wake)), retain);
 
     public static IO<DefinedChangeFeed> Of(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(plugIn, preview, policy, wake)), static held => IO.lift(held.Dispose), retain);
+        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(plugIn, preview, policy, wake)), retain);
 
     // --- [FEED]
     private readonly Ref<Option<SceneFeed>> feed = Ref(Some(SceneFeed.Empty));
@@ -114,10 +114,8 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
     private IO<Unit> Drain =>
         from flushed in IO.lift(Flush)
         from environments in IO.lift(() => Collect(owned =>
-            DisposalOps.Within(GetQueueRenderSettings,
-                settings => toSeq(Enum.GetValues<RenderSettings.EnvironmentUsage>()).TraverseM(usage => Copied(settings, usage, owned)).As()
-                    .Map(static rows => new SceneBatch { Environments = new(rows, tryAdd: false) }),
-                static settings => IO.lift(settings.Dispose))))
+            DisposalOps.Within(GetQueueRenderSettings, settings => toSeq(Enum.GetValues<RenderSettings.EnvironmentUsage>()).TraverseM(usage => Copied(settings, usage, owned)).As()
+                .Map(static rows => new SceneBatch { Environments = new(rows, tryAdd: false) }))))
         from published in atomicIO(() => feed.Swap(static held => held.Map(static current => current.Publish())))
         from woken in Signal
         select unit;
@@ -125,8 +123,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
     private IO<(RenderSettings.EnvironmentUsage Usage, Option<RenderEnvironment> Copy)> Copied(RenderSettings settings, RenderSettings.EnvironmentUsage usage, Action<IDisposable> owned) =>
         from environment in IO.lift(() => Optional(EnvironmentFromOriginalInstanceId(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.ForRendering))))
         from copy in environment.TraverseM(source =>
-            DisposalOps.Acquire(IO.lift(() => Missing.Unless((RenderEnvironment?)source.MakeCopy(), nameof(RenderContent.MakeCopy))),
-                static copied => IO.lift(copied.Dispose), owned)).As()
+            DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound((RenderEnvironment?)source.MakeCopy(), nameof(RenderContent.MakeCopy))), owned)).As()
         select (usage, copy);
 
     private IO<Unit> Signal => wake.TraverseM(static signal => signal).As().Map(unit);
@@ -153,11 +150,11 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     // --- [CHANGES]
     protected override void ApplyViewChange(ViewInfo viewInfo) =>
-        Collect(owned => DisposalOps.Acquire(IO.lift(() => new ViewportInfo(viewInfo.Viewport)), static view => IO.lift(view.Dispose), owned)
+        Collect(owned => DisposalOps.Acquire(IO.lift(() => new ViewportInfo(viewInfo.Viewport)), owned)
             .Map(static view => new SceneBatch { View = Some(view) }));
 
     protected override void ApplyLinearWorkflowChanges(LinearWorkflow lw) =>
-        Collect(owned => DisposalOps.Acquire(IO.lift(() => new LinearWorkflow(lw)), static workflow => IO.lift(workflow.Dispose), owned)
+        Collect(owned => DisposalOps.Acquire(IO.lift(() => new LinearWorkflow(lw)), owned)
             .Map(static workflow => new SceneBatch { Workflow = Some(workflow) }));
 
     protected override void ApplyDynamicObjectTransforms(List<NativeQueue.DynamicObjectTransform> dynamicObjectTransforms) =>
@@ -168,7 +165,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
             .Map(static copies => new SceneBatch { DynamicLights = new(copies.Map(static copy => (copy.Id, copy)), tryAdd: false) }));
 
     protected override void ApplyRenderSettingsChanges(RenderSettings rs) =>
-        Collect(owned => DisposalOps.Acquire(IO.lift(() => new RenderSettings(rs)), static settings => IO.lift(settings.Dispose), owned)
+        Collect(owned => DisposalOps.Acquire(IO.lift(() => new RenderSettings(rs)), owned)
             .Map(static settings => new SceneBatch { Settings = Some(settings) }));
 
     protected override void ApplySkylightChanges(NativeQueue.Skylight skylight) =>
@@ -181,13 +178,11 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         Collect(owned => DisposalOps.Within(() => Optional(GetQueueView()),
             view => toSeq(lightChanges).TraverseM(light => light.ChangeType is NativeQueue.Light.Event.Deleted
                 ? IO.pure((light.Id, Option<SceneLight>.None))
-                : DisposalOps.Within(() => light.Data,
-                    data =>
-                        from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem is CoordinateSystem.Camera)
-                            .Iter(held => ConvertCameraBasedLightToWorld(this, light, held)))
-                        from copy in Copies.Duplicate(data, owned)
-                        select (light.Id, Some(SceneMapper.ToLight(light, copy))),
-                    static data => IO.lift(data.Dispose))).As()
+                : DisposalOps.Within(() => light.Data, data =>
+                    from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem is CoordinateSystem.Camera)
+                        .Iter(held => ConvertCameraBasedLightToWorld(this, light, held)))
+                    from copy in Copies.Duplicate(data, owned)
+                    select (light.Id, Some(SceneMapper.ToLight(light, copy))))).As()
                 .Map(static rows => new SceneBatch { Lights = new(rows, tryAdd: false) }),
             static view => DisposalOps.Release(view.ToSeq())));
 
@@ -222,7 +217,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     // --- [COPIES]
     private static IO<SceneMesh> Mesh(NativeQueue.Mesh source, Action<IDisposable> retain) =>
-        from mesh in DisposalOps.Within(() => source.SingleMesh, borrowed => Copies.Duplicate(borrowed, retain), static borrowed => IO.lift(borrowed.Dispose))
+        from mesh in DisposalOps.Within(() => source.SingleMesh, borrowed => Copies.Duplicate(borrowed, retain))
         from mappings in IO.lift(() => Conversions.Rows(source.Mappings)).Bind(channels => channels.TraverseM(channel =>
             DisposalOps.Acquire(IO.lift(() => Optional(channel.Mapping)), static mapping => DisposalOps.Release(mapping.ToSeq()), mapping => mapping.Iter(retain))
                 .Map(mapping => SceneMapper.ToMapping(channel, mapping))).As())
@@ -244,7 +239,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     private static IO<Option<ObjectAttributes>> Attributes(Func<ObjectAttributes?> read, Action<IDisposable> retain) =>
         DisposalOps.Within(() => Optional(read()),
-            borrowed => borrowed.TraverseM(attributes => DisposalOps.Acquire(IO.lift(attributes.Duplicate), static copy => IO.lift(copy.Dispose), retain)).As(),
+            borrowed => borrowed.TraverseM(attributes => DisposalOps.Acquire(IO.lift(attributes.Duplicate), retain)).As(),
             static borrowed => DisposalOps.Release(borrowed.ToSeq()));
 
     // --- [NOTICES]

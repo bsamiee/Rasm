@@ -21,7 +21,7 @@ public static class ConstructionPlanes {
 
     // --- [VIEWPORTS]
     public static IO<ConstructionPlane> Read(RhinoViewport viewport) =>
-        use(() => new ViewInfo(viewport)).Bind(Read).Bracket();
+        DisposalOps.Within(() => new ViewInfo(viewport), Read);
 
     public static Fin<Unit> Write(RhinoViewport viewport, ConstructionPlane plane) {
         viewport.PushConstructionPlane(plane);

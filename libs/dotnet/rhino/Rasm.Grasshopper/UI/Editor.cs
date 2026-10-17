@@ -20,7 +20,7 @@ public static class Editors {
     public static IO<Unit> Attach(IPlugInSink sink, Func<Editor, Action<IDisposable>, IO<Unit>> attach, Action<IDisposable> retain) =>
         IO.lift(static () => Optional(Editor.Instance))
             .Bind(found => found.Match(
-                Some: editor => DisposalOps.Acquire(keep => attach(editor, keep), (_, release) => retain(release)),
+                Some: editor => DisposalOps.Acquire(keep => attach(editor, keep), retain),
                 None: () => Pending(sink, attach, retain)));
 
     private static IO<Unit> Pending(IPlugInSink sink, Func<Editor, Action<IDisposable>, IO<Unit>> attach, Action<IDisposable> retain) =>
@@ -28,35 +28,34 @@ public static class Editors {
         from state in IO.lift(static () => Ref<Attachment>(new Attachment.Waiting()))
         from cell in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Attachment>>(
                     state,
-                    static cell => atomic(() => {
-                        Attachment held = cell.Value;
-                        cell.Value = new Attachment.Closed();
-                        return held;
-                    }).Switch(
-                        waiting: static _ => { },
-                        attaching: static _ => { },
-                        attached: static held => held.Held.Dispose(),
-                        closed: static _ => { }))), static lease => IO.lift(lease.Dispose), keep)
+                    static cell => {
+                        if (atomic(() => {
+                            Attachment held = cell.Value;
+                            cell.Value = new Attachment.Closed();
+                            return held;
+                        }) is Attachment.Attached attached)
+                            attached.Held.Dispose();
+                    })), keep)
         from waiting in EventKind.EndCommand.Inline(_ => Built(state, attach), sink, keep)
-        select unit, (_, release) => retain(release));
+        select unit, retain);
 
     private static IO<Unit> Built(Ref<Attachment> state, Func<Editor, Action<IDisposable>, IO<Unit>> attach) =>
-        IO.lift(static environment => environment).Bind(environment =>
-        (from available in IO.lift(static () => Optional(Editor.Instance))
-         from editor in atomicIO(() => {
-             Option<Editor> claimed = available.Filter(_ => state.Value is Attachment.Waiting);
-             _ = claimed.Iter(_ => state.Value = new Attachment.Attaching());
-             return claimed;
-         })
-         from attached in editor.TraverseM(found => DisposalOps.OnFailure(
-             DisposalOps.Acquire(keep => IO.liftVAsync(() => attach(found, keep).RunAsync(environment)), (_, release) =>
-                 atomic(() => {
-                     if (state.Value is not Attachment.Attaching) return Fin.Fail<Unit>(Errors.Cancelled);
-                     state.Value = new Attachment.Attached(release);
-                     return Fin.Succ(unit);
-                 }).ThrowIfFail()),
-             atomicIO(() => state.Swap(static _ => new Attachment.Closed())).Map(static _ => unit))).As()
-         select unit).Uninterruptible());
+        DisposalOps.Transacted(
+            from available in IO.lift(static () => Optional(Editor.Instance))
+            from editor in atomicIO(() => {
+                Option<Editor> claimed = available.Filter(_ => state.Value is Attachment.Waiting);
+                _ = claimed.Iter(_ => state.Value = new Attachment.Attaching());
+                return claimed;
+            })
+            select editor,
+            editor => editor.TraverseM(found => DisposalOps.Acquire(keep => attach(found, keep), (_, release) =>
+                atomic(() => {
+                    if (state.Value is not Attachment.Attaching) return Fin.Fail<Unit>(Errors.Cancelled);
+                    state.Value = new Attachment.Attached(release);
+                    return Fin.Succ(unit);
+                }).ThrowIfFail())).As(),
+            _ => atomicIO(() => state.Swap(static _ => new Attachment.Closed())).Map(static _ => unit),
+            static (_, _) => unitIO);
 
     public static IO<Editor> Show(RhinoDoc document) =>
         IO.lift(static () => Optional(Editor.Instance)).Bind(found => found.Match(
@@ -64,7 +63,7 @@ public static class Editors {
             None: () => Launched(document)));
 
     private static IO<Editor> Launched(RhinoDoc document) =>
-        Macros.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Missing.Unless(Editor.Instance, nameof(Editor.Instance))));
+        Macros.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance))));
 
     // --- [GETTERS]
     public static IO<T> RhinoGetter<T>(RhinoDoc document, IO<T> get) =>

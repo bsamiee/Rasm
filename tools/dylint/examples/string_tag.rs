@@ -1,7 +1,10 @@
 #![feature(deref_patterns)]
 
 use core::hint::black_box;
-use std::io::{self, BufRead};
+use std::{
+    collections::BTreeMap,
+    io::{self, BufRead},
+};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -141,6 +144,20 @@ fn answered(input: &mut dyn BufRead) -> bool {
     answer.trim() == "y"
 }
 
+fn tallied(words: &[&str]) -> usize {
+    let mut tally = BTreeMap::new();
+    tally.insert("ok", words.len());
+    tally.insert("err", 0);
+    tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
+}
+
+fn counted<'word>(words: &[&'word str]) -> BTreeMap<&'word str, usize> {
+    words.iter().fold(BTreeMap::new(), |mut counts, &word| {
+        counts.entry(word).and_modify(|count| *count = count.strict_add(1)).or_insert(1);
+        counts
+    })
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -163,5 +180,6 @@ fn main() {
         (job.weight("warn"), job.weight("info"), steps()[0].weight("warn")),
         answered(&mut io::stdin().lock()),
         (PAUSE, build(&job), test(&job)),
+        (tallied(&[&input]), counted(&[&input]).len()),
     ));
 }

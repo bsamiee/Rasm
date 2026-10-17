@@ -1,19 +1,15 @@
+using System.Globalization;
 using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Grade;
-using Rasm.Imaging.Grade.Curves;
-using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Tone;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using Wacton.Unicolour;
 
 namespace Rasm.Rhino.UI.Drawing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct AxisRange {
     public float Low { get; }
     public float High { get; }
@@ -23,10 +19,8 @@ public readonly partial struct AxisRange {
 
     public float Span => High - Low;
 
-    public static AxisRange Of(CurveAxis axis) => new(float.CreateSaturating(axis.Span.Low), float.CreateSaturating(axis.Span.High));
-
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float low, ref float high) =>
-        validationError = low < high && float.IsFinite(high - low) ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float low, ref float high) =>
+        validationError = low < high && float.IsFinite(high - low) ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"axis range [{low}, {high}] is empty or unbounded"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -107,30 +101,7 @@ public abstract partial record PlotPlane {
 public abstract partial record MarkColor {
     public sealed record Themed(PaintSlot Slot) : MarkColor;
     public sealed record Fixed(Color Value) : MarkColor;
-    public sealed record Trace(TraceChannel Channel) : MarkColor;
-}
-
-[SmartEnum]
-public sealed partial class TraceChannel {
-    public static readonly TraceChannel Luma = new(
-        PaintSlot.ControlText, DashStyles.DashDot, CurveChannel.Master, Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
-    public static readonly TraceChannel Red = new(
-        Color.FromArgb(0xFF, 0x00, 0x00), DashStyles.Solid, CurveChannel.Red,
-        Some(Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x })), static traces => traces.Red);
-    public static readonly TraceChannel Green = new(
-        Color.FromArgb(0x00, 0xFF, 0x00), DashStyles.Dash, CurveChannel.Green,
-        Some(Lens<Vector3, float>.New(static rgb => rgb.Y, static y => rgb => rgb with { Y = y })), static traces => traces.Green);
-    public static readonly TraceChannel Blue = new(
-        Color.FromArgb(0x26, 0x63, 0xFF), DashStyles.Dot, CurveChannel.Blue,
-        Some(Lens<Vector3, float>.New(static rgb => rgb.Z, static z => rgb => rgb with { Z = z })), static traces => traces.Blue);
-
-    public MarkColor Paint { get; }
-    public DashStyle Dash { get; }
-    public CurveChannel Curve { get; }
-    public Option<Lens<Vector3, float>> Lane { get; }
-
-    [UseDelegateFromConstructor]
-    public partial BinGrid Bins(Traces traces);
+    public sealed record Series(MarkColor Paint, DashStyle Dash) : MarkColor;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -283,8 +254,6 @@ public static class Plots {
 
     public static RectangleF Plot(RectangleF well) => RectangleF.Inset(well, new PaddingF(Inset));
 
-    public static Fin<PixelExtent> Device(PlotPlane plane, float scale) => Extent(plane.Plot.Size * scale);
-
     public static Option<float> Nice(float least) =>
         float.IsFinite(least) && least > 0f
             ? float.Exp10(MathF.Floor(MathF.Log10(least))) switch {
@@ -309,11 +278,6 @@ public static class Plots {
             .Map(column => plane.X.Value((column + 0.5f) / (plane.Plot.Width * scale)))
             .Map(input => plane.Point(input, function(input)));
 
-    private static Fin<PixelExtent> Extent(SizeF device) =>
-        Size.Ceiling(device) switch {
-            var whole => PixelExtent.Validate(whole.Width, whole.Height, out PixelExtent extent) is { } error ? error : extent,
-        };
-
     // --- [COLOR]
     public static Color Encoded(Gamut gamut, Vector3 linear) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, linear.X, linear.Y, linear.Z)
@@ -322,8 +286,6 @@ public static class Plots {
             .Rgb switch {
                 var rgb => new Color((float)rgb.R, (float)rgb.G, (float)rgb.B),
             };
-
-    public static Vector4 HueRamp(float hue) => new Hsy(hue, 1f, Exposure.MiddleGrey).ToRgb(1f);
 
     // --- [PAINT]
     public static Color Resolve(PlotCanvas canvas, MarkStyle style) =>
@@ -336,6 +298,12 @@ public static class Plots {
     public static IO<Unit> Well(PlotCanvas canvas, RectangleF well) =>
         IO.lift(() => canvas.Graphics.FillRectangle(canvas.Slots[PaintSlot.ControlBackground], well));
 
+    public static IO<Unit> Veiled(PlotCanvas canvas, MarkShape area) =>
+        IO.lift(() => HostTheme.Veil(canvas.Slots).Filter(_ => !canvas.Enabled).Iter(alpha => {
+            using IGraphicsPath path = area.Figure();
+            canvas.Graphics.FillPath(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), path);
+        }));
+
     public static IO<Unit> Paint<T>(PlotCanvas canvas, Seq<PlotMark<T>> marks) where T : notnull =>
         IO.lift(() => marks.Iter(mark => mark.Style.Iter(style => Draw(canvas, mark.Shape, style))));
 
@@ -345,13 +313,14 @@ public static class Plots {
             canvas.Graphics.DrawImage(image, target);
         });
 
-    public static IO<Unit> Strip(PlotCanvas canvas, PlotPlane.Cartesian plane, Func<float, Color> color) =>
-        IO.lift(Extent(new SizeF(plane.Plot.Width * canvas.Scale, 1f))).Bind(extent =>
-            use(() => Pixels(extent, toSeq(Range(0, extent.Width)).Map(column => color(plane.X.Value((column + 0.5f) / extent.Width)).ToArgb())))
-                .Bind(bitmap => Raster(canvas, plane.Plot, bitmap))
-                .Bracket());
+    public static IO<Unit> Strip(PlotCanvas canvas, PlotPlane.Cartesian plane, Func<float, Color> color) {
+        Size device = Size.Ceiling(new SizeF(plane.Plot.Width * canvas.Scale, 1f));
+        return when(device.Width > 0,
+            DisposalOps.Within(() => Pixels(device, toSeq(Range(0, device.Width)).Map(column => color(plane.X.Value((column + 0.5f) / device.Width)).ToArgb())),
+                bitmap => Raster(canvas, plane.Plot, bitmap))).As();
+    }
 
-    public static Bitmap Pixels(PixelExtent extent, IEnumerable<int> argb) => new(extent.Width, extent.Height, PixelFormat.Format32bppRgba, argb);
+    public static Bitmap Pixels(Size size, IEnumerable<int> argb) => new(size.Width, size.Height, PixelFormat.Format32bppRgba, argb);
 
     public static IO<Unit> Labels(PlotCanvas canvas, PlotPlane.Cartesian plane, LabelSide side, Seq<AxisLabel> labels) =>
         IO.lift(() => Shown(side, labels.Map(label => (Tick: side.Tick(plane, label.Value), Size: canvas.Graphics.MeasureString(canvas.Font, label.Text), label.Text)))
@@ -362,7 +331,7 @@ public static class Plots {
             canvas,
             themed: static (held, themed) => held.Slots[themed.Slot],
             @fixed: static (_, value) => value.Value,
-            trace: static (held, trace) => Ink(held, trace.Channel.Paint));
+            series: static (held, series) => Ink(held, series.Paint));
 
     private static void Draw(PlotCanvas canvas, MarkShape shape, MarkStyle style) =>
         style.Switch(
@@ -382,7 +351,7 @@ public static class Plots {
                 canvas,
                 themed: static (_, _) => DashStyles.Solid,
                 @fixed: static (_, _) => DashStyles.Solid,
-                trace: static (held, trace) => held.Accessibility.DifferentiateWithoutColor ? trace.Channel.Dash : DashStyles.Solid),
+                series: static (held, series) => held.Accessibility.DifferentiateWithoutColor ? series.Dash : DashStyles.Solid),
         };
         canvas.Graphics.DrawPath(pen, path);
     }

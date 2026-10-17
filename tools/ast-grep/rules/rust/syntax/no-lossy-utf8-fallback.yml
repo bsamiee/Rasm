@@ -19,8 +19,8 @@ utils:
             - matches: lossy-text
             - kind: block
               all:
-                - has: {nthChild: 1, matches: lossy-text}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: lossy-text}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     lossy-closure:
         kind: closure_expression
         all:
@@ -39,7 +39,7 @@ utils:
 rule:
     kind: 'call_expression, match_expression'
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - pattern: String::from_utf8($V).unwrap_or_else($F)
               has: {field: arguments, has: {any: [{matches: lossy-closure}, {matches: lossy-path}]}}

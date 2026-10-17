@@ -39,10 +39,7 @@ def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bp
     with ExitStack() as rollback:
         made: bpy.types.Collection = bpy.data.collections.new(name)
         rollback.callback(bpy.data.batch_remove, ids=(made,))
-        linked: BlenderResult[bpy.types.Collection] = named(made, name).bind(lambda block: parent.map(lambda held: joined(held, block)).default_value(Ok(None)).map(lambda _: block))
-        for _ in linked.to_option().to_list():
-            rollback.pop_all()
-        return linked
+        return committed(named(made, name).bind(lambda block: parent.map(lambda held: joined(held, block)).default_value(Ok(None)).map(lambda _: block)), rollback)
 ```
 
 `joined` stands for the `(Collection, Collection) -> BlenderResult[None]` parent link step.

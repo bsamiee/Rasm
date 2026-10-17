@@ -1,5 +1,6 @@
 """Process runs to their exit and detached launches."""
 
+from collections.abc import Callable
 from pathlib import Path
 import subprocess
 import sys
@@ -7,18 +8,24 @@ import sys
 from expression import Error, Ok
 from expression.extra.result import catch
 
-from blender.rendering.faults import RenderingResult, RenderingRunFault
+from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingRunFault
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def refused(argv: tuple[str, ...]) -> Callable[[OSError | int], RenderingFaults]:
+    """Maps a launch error or exit code of a process to its run fault."""
+    return lambda error: (RenderingRunFault(request=argv, error=error),)
+
+
 def ran(argv: tuple[str, ...]) -> RenderingResult[None]:
     """Runs a process to its exit."""
-    return (
-        catch(lambda: subprocess.run(argv, check=False).returncode, exception=OSError)()
-        .map_error(lambda error: (RenderingRunFault(request=argv, error=error),))
-        .bind(lambda code: Ok(None) if code == 0 else Error((RenderingRunFault(request=argv, error=code),)))
-    )
+    return catch(lambda: subprocess.run(argv, check=False).returncode, exception=OSError)().map_error(refused(argv)).bind(lambda code: Ok(None) if code == 0 else Error(refused(argv)(code)))
+
+
+def spawned(argv: tuple[str, ...], stream: int | None = None) -> RenderingResult[subprocess.Popen[bytes]]:
+    """Starts a process, its input and output on a stream when given."""
+    return catch(lambda: subprocess.Popen(argv, stdin=stream, stdout=stream), exception=OSError)().map_error(refused(argv))
 
 
 def detached(argv: tuple[str, ...], log: Path) -> RenderingResult[Path]:
@@ -33,9 +40,9 @@ def detached(argv: tuple[str, ...], log: Path) -> RenderingResult[Path]:
                 subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
         return log
 
-    return catch(launched, exception=OSError)().map_error(lambda error: (RenderingRunFault(request=argv, error=error),))
+    return catch(launched, exception=OSError)().map_error(refused(argv))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["detached", "ran"]
+__all__ = ["detached", "ran", "refused", "spawned"]

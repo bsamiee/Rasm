@@ -5,30 +5,31 @@ use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     fn_def_id, get_parent_expr, is_in_test,
     macros::root_macro_call,
+    paths::PathNS,
     peel_blocks, peel_hir_expr_while,
     res::MaybeDef as _,
     sym,
 };
 use itertools::Itertools as _;
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_data_structures::fx::{FxIndexMap, FxIndexSet};
+use rustc_data_structures::fx::{FxHashSet, FxIndexMap, FxIndexSet};
 use rustc_hir::{
-    BinOpKind, Expr, ExprKind, LetStmt, MatchSource, Pat, PatKind,
+    BinOpKind, Expr, ExprKind, LetStmt, MatchSource, Pat, PatKind, UnOp,
     def::{DefKind, Res},
     def_id::DefId,
 };
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
-use rustc_middle::ty::AdtDef;
+use rustc_middle::ty::{self, AdtDef, TyCtxt};
 use rustc_span::{Span, Symbol};
 
-use crate::{Access, Place, access, constructed, is_text, place};
+use crate::{Access, Place, access, constructed, fn_value, is_text, paths, place};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 declare_lint! {
     STRING_TAG,
     Warn,
-    "text fields, statics, parameters, and locals branched on by string literal, where an enum states the closed set of tags"
+    "text fields, statics, parameters, and locals branched on by string literal, and text-keyed maps and sets addressed by string literal keys, where an enum or a struct states the closed set"
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,15 +42,29 @@ struct Domain {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-#[derive(Default)]
 pub(crate) struct StringTag {
+    collections: FxHashSet<DefId>,
     branches: FxIndexMap<Place, Vec<(Span, FxIndexSet<Symbol>)>>,
     written: FxIndexMap<Place, Domain>,
+    keyed: FxIndexMap<Place, Vec<(Span, Symbol)>>,
 }
 
 impl_lint_pass!(StringTag => [STRING_TAG]);
 
 impl StringTag {
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self {
+            collections: paths(
+                tcx,
+                PathNS::Type,
+                &["std::collections::HashMap", "std::collections::BTreeMap", "std::collections::HashSet", "std::collections::BTreeSet", "indexmap::IndexMap", "indexmap::IndexSet"],
+            ),
+            branches: FxIndexMap::default(),
+            written: FxIndexMap::default(),
+            keyed: FxIndexMap::default(),
+        }
+    }
+
     fn write<'tcx>(&mut self, cx: &LateContext<'tcx>, written: Place, value: &'tcx Expr<'tcx>) {
         let domain = self.written.entry(written).or_default();
         match tag(cx, value) {
@@ -66,16 +81,10 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
         fn decoded<'tcx>(cx: &LateContext<'tcx>, body: &'tcx Expr<'tcx>) -> bool {
             let typeck = cx.typeck_results();
             let wrappers = [LangItem::OptionSome, LangItem::ResultOk].map(|wrapper| cx.tcx.lang_items().get(wrapper));
-            let value = peel_hir_expr_while(peel_blocks(body), |inner| {
-                if let ExprKind::Ret(Some(returned)) | ExprKind::Break(_, Some(returned)) = inner.kind {
-                    Some(peel_blocks(returned))
-                } else if let ExprKind::Call(_, [argument]) = inner.kind
-                    && fn_def_id(cx, inner).is_some_and(|ctor| wrappers.contains(&Some(cx.tcx.parent(ctor))))
-                {
-                    Some(argument)
-                } else {
-                    None
-                }
+            let value = peel_hir_expr_while(peel_blocks(body), |inner| match inner.kind {
+                ExprKind::Ret(Some(returned)) | ExprKind::Break(_, Some(returned)) => Some(peel_blocks(returned)),
+                ExprKind::Call(_, [argument]) if fn_def_id(cx, inner).is_some_and(|ctor| wrappers.contains(&Some(cx.tcx.parent(ctor)))) => Some(argument),
+                _ => None,
             });
             matches!(value.kind, ExprKind::Lit(_))
                 || constructed(typeck, value).is_some() && typeck.expr_ty(value).ty_adt_def().is_some_and(AdtDef::is_enum)
@@ -83,19 +92,14 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
         }
 
         fn tags(cx: &LateContext<'_>, pat: &Pat<'_>) -> Option<FxIndexSet<Symbol>> {
-            if let PatKind::Expr(expr) = pat.kind
-                && let Some(Constant::Str(text)) = ConstEvalCtxt::new(cx).eval_pat_expr(expr)
-            {
-                Some(FxIndexSet::from_iter([Symbol::intern(&text)]))
-            } else if let PatKind::Or(alternatives) = pat.kind {
-                alternatives.iter().map(|alternative| tags(cx, alternative)).try_fold(FxIndexSet::default(), |mut all, listed| {
+            match pat.kind {
+                PatKind::Expr(expr) if let Some(Constant::Str(text)) = ConstEvalCtxt::new(cx).eval_pat_expr(expr) => Some(FxIndexSet::from_iter([Symbol::intern(&text)])),
+                PatKind::Or(alternatives) => alternatives.iter().map(|alternative| tags(cx, alternative)).try_fold(FxIndexSet::default(), |mut all, listed| {
                     all.extend(listed?);
                     Some(all)
-                })
-            } else if let PatKind::Ref(inner, ..) | PatKind::Deref(inner) = pat.kind {
-                tags(cx, inner)
-            } else {
-                None
+                }),
+                PatKind::Ref(inner, ..) | PatKind::Deref(inner) => tags(cx, inner),
+                _ => None,
             }
         }
 
@@ -134,6 +138,16 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
             {
                 branch(subject, site, listed);
             }
+            if let ExprKind::MethodCall(_, collection, [key, ..], _) | ExprKind::Index(collection, key, _) = expr.kind
+                && let ty::Adt(keyed, args) = typeck.expr_ty_adjusted(collection).peel_refs().kind()
+                && self.collections.contains(&keyed.did())
+                && is_text(cx, args.type_at(0))
+                && let Some(literal) = tag(cx, key)
+                && let Some(held) =
+                    place(cx, peel_hir_expr_while(collection, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }))
+            {
+                self.keyed.entry(held).or_default().push((key.span, literal));
+            }
         }
         if let Some((_, fields)) = constructed(typeck, expr) {
             let written = fields
@@ -158,11 +172,7 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
                 self.write(cx, Place::Parameter(parameter.pat.hir_id), argument);
             }
         }
-        if let ExprKind::Path(path) = &expr.kind
-            && let Res::Def(DefKind::Fn | DefKind::AssocFn, function) = typeck.qpath_res(path, expr.hir_id)
-            && let Some(body) = function.as_local().and_then(|function| cx.tcx.hir_maybe_body_owned_by(function))
-            && !get_parent_expr(cx, expr).is_some_and(|call| matches!(call.kind, ExprKind::Call(callee, _) if callee.hir_id == expr.hir_id))
-        {
+        if let Some(body) = fn_value(cx, expr).and_then(DefId::as_local).and_then(|function| cx.tcx.hir_maybe_body_owned_by(function)) {
             for parameter in body.params {
                 self.written.entry(Place::Parameter(parameter.pat.hir_id)).or_default().open = true;
             }
@@ -209,6 +219,16 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
                 });
             }
         }
+        for (held, keys) in mem::take(&mut self.keyed) {
+            let literals = keys.iter().map(|&(_, literal)| literal).collect::<FxIndexSet<_>>();
+            if literals.len() > 1 {
+                let listed = literals.iter().format_with(", ", |literal, write| write(&format_args!("`\"{literal}\"`")));
+                span_lint_hir_and_then(cx, STRING_TAG, held.hir_id(cx), held.span(cx), format!("`{}` is keyed by text and addressed by the fixed keys {listed}", held.name(cx)), |diag| {
+                    diag.span_note(keys.iter().map(|&(site, _)| site).collect::<Vec<_>>(), "addressed by a string literal here");
+                    diag.help("key the collection by an enum with a variant per key, or hold a struct with a field per key");
+                });
+            }
+        }
     }
 }
 
@@ -216,20 +236,16 @@ impl<'tcx> LateLintPass<'tcx> for StringTag {
 
 fn text_view<'tcx>(cx: &LateContext<'tcx>, inner: &'tcx Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
     let typeck = cx.typeck_results();
-    if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(_, operand) = inner.kind {
-        Some(operand)
-    } else if let ExprKind::MethodCall(_, receiver, [], _) = inner.kind
-        && is_text(cx, typeck.expr_ty(receiver))
-        && is_text(cx, typeck.expr_ty(inner))
-    {
-        Some(receiver)
-    } else if let ExprKind::Call(_, [argument]) = inner.kind
-        && is_text(cx, typeck.expr_ty(argument))
-        && fn_def_id(cx, inner).and_then(|conversion| cx.tcx.trait_of_assoc(conversion)).is_some_and(|conversion| [sym::From, sym::Into].into_iter().any(|owner| conversion.is_diag_item(cx, owner)))
-    {
-        Some(argument)
-    } else {
-        None
+    match inner.kind {
+        ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(_, operand) => Some(operand),
+        ExprKind::MethodCall(_, receiver, [], _) if is_text(cx, typeck.expr_ty(receiver)) && is_text(cx, typeck.expr_ty(inner)) => Some(receiver),
+        ExprKind::Call(_, [argument])
+            if is_text(cx, typeck.expr_ty(argument))
+                && fn_def_id(cx, inner)
+                    .and_then(|conversion| cx.tcx.trait_of_assoc(conversion))
+                    .is_some_and(|conversion| [sym::From, sym::Into].into_iter().any(|owner| conversion.is_diag_item(cx, owner))) =>
+            Some(argument),
+        _ => None,
     }
 }
 

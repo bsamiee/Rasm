@@ -10,7 +10,7 @@ utils:
                 - has: {field: operator, regex: '^\|\|$'}
                 - has: {field: right, kind: 'string, number, template_string, array, object'}
     parameter-named:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         any:
             - has: {field: parameter, kind: identifier, pattern: $P}
             - has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, kind: identifier, pattern: $P}}}
@@ -36,7 +36,7 @@ utils:
                                     - has: {field: alias, pattern: $U}
                                     - all: [{not: {has: {field: alias, kind: identifier}}}, {has: {field: name, pattern: $U}}]
     source-typed-parameter:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         has:
             field: parameters
             has:
@@ -57,7 +57,7 @@ utils:
                                     stopBy: end
                                     has: {stopBy: end, kind: type_alias_declaration, all: [{has: {field: name, pattern: $T}}, {has: {field: value, any: [{matches: source-declared-type}, {has: {stopBy: end, matches: source-declared-type}}]}}]}
     host-typed-parameter:
-        matches: syntax-function-boundary
+        matches: typescript-function-boundary
         has:
             field: parameters
             has:

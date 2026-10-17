@@ -15,7 +15,7 @@ public record HostEvent<TArgs>(Type Owner, string Member, Func<Func<TArgs, IO<Un
             from site in IO.pure(Site(sink))
             from post in mailbox(site, owned)
             from attached in Attach(post, site, owned)
-            select unit, (_, lease) => retain(lease));
+            select unit, retain);
 
     public HostEvent<TValue> Choose<TValue>(Func<TArgs, Option<TValue>> choose) =>
         new(Owner, Member, (deliver, site, retain) => Attach(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit))), site, retain));
@@ -83,7 +83,7 @@ public sealed class EventJournal<TKey, TValue> : IDisposable {
     public IO<JournalSnapshot<TKey, TValue>> Close() =>
         IO.lift(() => channel.Writer.TryComplete()).Bind(_ => worker.Await).Bind(_ => state.ValueIO).Uninterruptible();
 
-    public void Dispose() => _ = Close().Run();
+    public void Dispose() => _ = Callbacks.Settled(Close(), CancellationToken.None).ThrowIfFail();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -91,17 +91,13 @@ public static class Subscriptions {
     // --- [ATTACH]
     public static IO<Unit> Attach<THandler>(Action<THandler> add, Action<THandler> remove, THandler handler, Action<IDisposable> retain) where THandler : Delegate =>
         DisposalOps.Acquire(owned =>
-            DisposalOps.Acquire(IO.lift(() => new Disposal<THandler>(handler, remove)), static lease => IO.lift(lease.Dispose), lease => {
+            DisposalOps.Acquire(IO.lift(() => new Disposal<THandler>(handler, remove)), lease => {
                 add(handler);
                 owned(lease);
             }).Map(unit), retain);
 
     public static IO<TResult> Detached<THandler, TResult>(Action<THandler> add, Action<THandler> remove, THandler handler, IO<TResult> effect) where THandler : Delegate =>
-        envIO.Bind(environment =>
-            (from removed in IO.lift(() => remove(handler))
-             from result in DisposalOps.OnFailure(IO.liftVAsync(() => effect.RunAsync(environment)), IO.lift(() => add(handler)))
-             from restored in IO.lift(() => add(handler))
-             select result).Uninterruptible());
+        DisposalOps.Within(fun(() => remove(handler)), _ => effect, _ => IO.lift(() => add(handler)));
 
     // --- [ROWS]
     public static HostEvent<TArgs> Host<THandler, TArgs>(Type owner, Action<THandler> add, Action<THandler> remove, Func<EventHandler<TArgs>, THandler> adapt, [CallerMemberName] string member = "")
@@ -117,12 +113,12 @@ public static class Subscriptions {
     public static HostEvent<TArgs> Host<TArgs>(Type owner, Func<Seq<HostEvent<TArgs>>> sources, [CallerMemberName] string member = "") =>
         new(owner, member, (deliver, site, retain) =>
             DisposalOps.Acquire(owned => IO.lift(sources)
-                .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(unit), (_, lease) => retain(lease)));
+                .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(unit), retain));
 
     public static DocumentEvent<TArgs> Watched<TArgs>(Action<EventWatcher, EventHandler<TArgs>> add, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
         new(typeof(EventWatcher), member, (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
-                DisposalOps.Acquire(IO.lift(static () => new EventWatcher(includeHeadlessDocuments: true)), static watcher => IO.lift(watcher.Dispose), watcher => {
+                DisposalOps.Acquire(IO.lift(static () => new EventWatcher(includeHeadlessDocuments: true)), watcher => {
                     add(watcher, Callbacks.Handler(deliver, site));
                     owned(watcher);
                 }).Map(unit), retain), documentSerial);
@@ -141,5 +137,5 @@ public static class Subscriptions {
             from forked in conduit.Reduce(unit, (_, item) => IO.pure(item).Bind(consume).Catch(failed).As().Map(Reduced.Continue))
                 .Finally(conduit.Complete()).As().Fork()
             select fun((TItem item) => conduit.Post(item) | @catch(Errors.SinkFull, IO.pure(unit))),
-            (_, lease) => retain(lease)).Uninterruptible();
+            retain).Uninterruptible();
 }

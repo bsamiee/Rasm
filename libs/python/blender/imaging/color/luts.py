@@ -14,7 +14,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.imaging.color.processors import applied, processor
-from blender.imaging.faults import accumulated, ImagingLutFault, ImagingLutShapeFault, ImagingResult, ImagingWriteFault
+from blender.imaging.faults import accumulated, colored, ImagingLutShapeFault, ImagingResult, ImagingWriteFault
 from blender.imaging.files.images import emitted, ImageFile, published, read_file, Subimage
 from blender.imaging.parameters import Case, Choice
 
@@ -24,7 +24,7 @@ from blender.imaging.parameters import Case, Choice
 class LutLayout(Choice):
     """Arrangement of uniform cube nodes in an image."""
 
-    HALD = 1, "Hald"
+    HALD = 1
     KEYSHOT = 2, "KeyShot"
 
 
@@ -66,7 +66,6 @@ class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
 class Uniform(Case, frozen=True, kw_only=True, tag=1):
     """Nodes evenly spaced between native allocation endpoints."""
 
-    title = "Uniform"
     limit: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
     low: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at the first uniform node")] = 0.0
     high: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at the last uniform node")] = 1.0
@@ -75,15 +74,12 @@ class Uniform(Case, frozen=True, kw_only=True, tag=1):
 class Logarithmic(Case, frozen=True, kw_only=True, tag=2):
     """Nodes evenly spaced in stops with scene zero on the first node."""
 
-    title = "Logarithmic"
     low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0, description="Stops from 1.0 to the first node above zero")] = -10.0
     span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0, description="Stops from the low allocation to the high allocation")] = 20.0
 
 
 class Rational(Case, frozen=True, tag=3):
     """Nodes encoded by x / (x + 1) over the nonnegative half-float domain."""
-
-    title = "Rational"
 
 
 type Spacing = Uniform | Logarithmic | Rational
@@ -137,7 +133,6 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
 class Bake(Case, frozen=True, kw_only=True, tag=1):
     """Source resampled into native format tables at encoded lattice nodes."""
 
-    title = "Bake"
     format: LutFormat
     lattice: Lattice = Lattice()
 
@@ -145,7 +140,6 @@ class Bake(Case, frozen=True, kw_only=True, tag=1):
 class Exact(Case, frozen=True, kw_only=True, tag=2):
     """Source's operators written without resampling."""
 
-    title = "Exact"
     format: LutFormat
 
 
@@ -183,10 +177,7 @@ def image_read(path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenC
                 plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
             case _:
                 return Error((ImagingLutShapeFault(path=path, shape=pixels.shape),))
-        try:
-            return Ok(Lattice(size=size).transform(plane))
-        except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-            return Error((ImagingLutFault(request=path, error=error),))
+        return colored(path, lambda: Lattice(size=size).transform(plane))
 
     options = OpenImageIO.ImageSpec()
     options.attribute("oiio:UnassociatedAlpha", 1)
@@ -226,20 +217,19 @@ def written(output: LutOutput, sources: Mapping[str, PyOpenColorIO.GroupTransfor
 
     def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, str]]:
         path, source = item
-        request: PyOpenColorIO.Transform | PyOpenColorIO.Baker | str = output.format.name
-        try:
-            match output:
-                case Exact():
-                    request = source
-                    text = source.write(formatName=output.format.name, config=PyOpenColorIO.Config())
-                case Bake():
+        match output:
+            case Exact():
+                text = colored(source, lambda: source.write(formatName=output.format.name, config=PyOpenColorIO.Config()))
+            case Bake():
+
+                def baker() -> PyOpenColorIO.Baker:
                     config = PyOpenColorIO.Config()
                     entry = PyOpenColorIO.ColorSpace(name="source")
                     target = PyOpenColorIO.ColorSpace(name="target", fromReference=source)
                     shapers = [PyOpenColorIO.ColorSpace(name="shaper", fromReference=head) for head in output.lattice.head.to_list()]
                     for space in (entry, target, *shapers):
                         config.addColorSpace(space)
-                    request = PyOpenColorIO.Baker(
+                    return PyOpenColorIO.Baker(
                         config=config,
                         format=output.format.name,
                         inputSpace=entry.getName(),
@@ -248,10 +238,9 @@ def written(output: LutOutput, sources: Mapping[str, PyOpenColorIO.GroupTransfor
                         shaperSize=65536,
                         shaperSpace=shapers[0].getName() if shapers else "",
                     )
-                    text = request.bake()
-        except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-            return Error((ImagingLutFault(request=request, error=error),))
-        return Ok((path, text))
+
+                text = colored(output.format.name, baker).bind(lambda built: colored(built, built.bake))
+        return text.map(lambda written: (path, written))
 
     def installed(item: tuple[str, str]) -> ImagingResult[str]:
         path, text = item

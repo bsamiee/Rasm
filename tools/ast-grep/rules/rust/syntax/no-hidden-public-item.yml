@@ -23,7 +23,7 @@ utils:
             - kind: 'function_signature_item, function_item, associated_type, const_item, type_item'
               inside: {kind: declaration_list, inside: {kind: trait_item, has: {matches: exported}}}
             - kind: macro_definition
-              follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*macro_export\b'}
+              matches: {rust-attributed: {attribute: {regex: '^#\[\s*macro_export\b'}}}
 rule:
     kind: attribute_item
     pattern: $ATTRIBUTE

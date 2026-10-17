@@ -17,17 +17,15 @@ public abstract record PlugInSetting {
     internal abstract IO<Unit> Register(PersistentSettings settings);
 }
 
-public sealed record PlugInSetting<TValue, TRaw>(
-    ValueKey<TValue, TRaw> Value,
-    SettingType<TRaw> Kind,
-    Applied Applied,
-    Seq<string> LegacyNames,
-    bool Hidden) : PlugInSetting
-    where TRaw : notnull {
+public sealed record PlugInSetting<TValue, TRaw>(ValueKey<TValue, TRaw> Value, SettingType<TRaw> Kind) : PlugInSetting where TRaw : notnull {
+    public Applied Applied { get; init; } = Applied.Live;
+    public Seq<string> LegacyNames { get; init; }
+    public bool Hidden { get; init; }
+
     internal override IO<Unit> Register(PersistentSettings settings) =>
         from registered in IO.lift(() => Kind.Register(settings, Value.Name, Value.ToRaw(Value.Default), LegacyNames))
             | @catch(static error => error.HasException<NotSupportedException>(), error => IO.lift(() => Fin.Fail<TRaw>(SettingType.String.TryGet(settings, Value.Name).Match(
-                Some: text => new UnreadText(text, typeof(TRaw), Some(error)),
+                Some: text => Error.New(ErrorCodes.ParseError, $"{text} reads as no {typeof(TRaw).Name}", error),
                 None: () => error))))
         from admitted in IO.lift(() => Value.From(registered))
         from hidden in when(Hidden, IO.lift(() => settings.HideSettingFromUserInterface(Value.Name))).As()
@@ -70,7 +68,7 @@ public static class PlugInSettings {
                               from text in SettingType.String.TryGet(settings, leaf.Key)
                               select (leaf.Field.Path, text))
             let stored = toHashMap(texts.Somes())
-            from record in FieldTexts.Recalled(typeof(TRecord).Name, toSeq(TRecord.Parameters), path => IO.pure(stored.Find(path)), TRecord.Default)
+            from record in FieldTexts.Recalled(typeof(TRecord).Name, TRecord.Parameters, path => IO.pure(stored.Find(path)), TRecord.Default)
             select Some(record).Filter(static held => !EqualityComparer<TRecord>.Default.Equals(held, TRecord.Default)),
             value =>
                 from targets in Callbacks.Each(
@@ -93,11 +91,11 @@ public static class PlugInSettings {
     private static Seq<(FieldText<TRecord> Field, SettingsNode Parent, string Key)> Leaves<TRecord>(SettingsNode node) where TRecord : IStateRecord<TRecord> =>
         FieldTexts.Items<TRecord>().Choose(field => field.Path.Last.Map(key => (field, node with { Path = node.Path + field.Path.Init }, key)));
     internal static Fin<Unit> Writable(PersistentSettings settings, string key) =>
-        ReadOnlyKey.Unless(!(settings.TryGetSettingIsReadOnly(key, out bool readOnly) && readOnly), key);
+        settings.TryGetSettingIsReadOnly(key, out bool readOnly) && readOnly ? Error.New($"key {key} is read-only") : unit;
 
     // --- [SAVES]
     public static IO<Unit> SavePluginSettings(Guid id) =>
-        from loaded in IO.lift(() => Unloaded.Unless(id == RhinoApp.CurrentRhinoId || (PlugIn.PlugInExists(id, out bool isLoaded, out _) && isLoaded), id))
+        from loaded in IO.lift(() => id == RhinoApp.CurrentRhinoId || (PlugIn.PlugInExists(id, out bool isLoaded, out _) && isLoaded) ? Fin.Succ(unit) : Error.New($"plug-in {id} is not loaded"))
         from saved in IO.lift(() => PlugIn.SavePluginSettings(id))
         select saved;
 }

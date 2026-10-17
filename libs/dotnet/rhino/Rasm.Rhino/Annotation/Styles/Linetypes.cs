@@ -13,22 +13,20 @@ namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class LinetypePattern {
     public Seq<Length> Segments { get; }
 
     public Length PatternLength => Segments.Fold(Length.Zero, static (sum, segment) => sum + (segment < Length.Zero ? -segment : segment));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref Seq<Length> segments) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Length> segments) =>
         validationError = segments.ForAll(static segment => UnitsNet.QuantityValue.IsFinite(segment.Value)) && segments switch {
             [] => false,
             [var only] => only > Length.Zero,
             _ => segments.Zip(segments.Tail).ForAll(static pair => (pair.First >= Length.Zero) != (pair.Second >= Length.Zero)),
-        } ? null : new InvalidRhinoValue();
+        } ? null : new ValidationError("pattern holds a non-finite segment, a lone segment that is no dash, or two neighbors of one sign");
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class LinetypeTaper<TWidth> where TWidth : struct, IComparable<TWidth> {
     public TWidth Start { get; }
     public Option<(double Position, TWidth Width)> Waist { get; }
@@ -37,9 +35,9 @@ public sealed partial class LinetypeTaper<TWidth> where TWidth : struct, ICompar
     public (double Start, Option<Point2d> Waist, double End) Lowered(Func<TWidth, double> scalar) =>
         (scalar(Start), Waist.Map(point => new Point2d(point.Position, scalar(point.Width))), scalar(End));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref TWidth start, ref Option<(double Position, TWidth Width)> waist, ref TWidth end) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref TWidth start, ref Option<(double Position, TWidth Width)> waist, ref TWidth end) =>
         validationError = start.CompareTo(default) >= 0 && end.CompareTo(default) >= 0
-            && waist.ForAll(static point => point.Position is >= 0.0 and <= 1.0 && point.Width.CompareTo(default) >= 0) ? null : new InvalidRhinoValue();
+            && waist.ForAll(static point => point.Position is >= 0.0 and <= 1.0 && point.Width.CompareTo(default) >= 0) ? null : new ValidationError("taper holds a negative width or a waist position outside [0, 1]");
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -70,11 +68,9 @@ public sealed record LinetypeSettings(
 
 public sealed record LinetypeDefinition(LinetypeSettings Settings, Option<LinetypeShapes> Shapes) {
     public static Fin<LinetypeDefinition> Of(LineType type, LineWidth width) =>
-        LinetypePattern.Validate(toSeq(type.Pattern(width)), out LinetypePattern? pattern) is { } error
-            ? error
-            : new LinetypeDefinition(
-                new LinetypeSettings(pattern!, new LinetypeWidth.Distance(width.Width, None), LineCapStyle.Flat, LineJoinStyle.Round, AlwaysModelDistances: false, HashMap<EqStringOrdinalIgnoreCase, string, string>()),
-                None);
+        Admission.Admitted(LinetypePattern.Validate(toSeq(type.Pattern(width)), out LinetypePattern? pattern), pattern).Map(held => new LinetypeDefinition(
+            new LinetypeSettings(held, new LinetypeWidth.Distance(width.Width, None), LineCapStyle.Flat, LineJoinStyle.Round, AlwaysModelDistances: false, HashMap<EqStringOrdinalIgnoreCase, string, string>()),
+            None));
 }
 
 public sealed record LinetypeTableState(LinetypeRef Current, ObjectLinetypeSource CurrentLinetypeSource, double LinetypeScale);
@@ -84,11 +80,12 @@ public sealed record LinetypeTableState(LinetypeRef Current, ObjectLinetypeSourc
 public static partial class Linetypes {
     // --- [READS]
     public static IO<LinetypeDefinition> Definition(Linetype linetype) =>
-        IO.lift(Fin<LinetypeDefinition> () => LinetypePattern.Validate(Segments(linetype), out LinetypePattern? pattern) is { } error
-            ? error
-            : Width(linetype, toSeq(linetype.GetTaperPoints())).Map(width => new LinetypeDefinition(
-                new LinetypeSettings(pattern!, width, linetype.LineCapStyle, linetype.LineJoinStyle, linetype.AlwaysModelDistances, UserStrings.Held(linetype.GetUserStrings())),
-                None)));
+        IO.lift(() =>
+            from pattern in Admission.Admitted(LinetypePattern.Validate(Segments(linetype), out LinetypePattern? held), held)
+            from width in Width(linetype, toSeq(linetype.GetTaperPoints()))
+            select new LinetypeDefinition(
+                new LinetypeSettings(pattern, width, linetype.LineCapStyle, linetype.LineJoinStyle, linetype.AlwaysModelDistances, UserStrings.Held(linetype.GetUserStrings())),
+                None));
 
     public static IO<Option<LinetypeShapeLayout>> Layout(Linetype linetype) =>
         IO.lift(() => Callbacks.Found(
@@ -122,9 +119,7 @@ public static partial class Linetypes {
          from end in points.Last
          select (Start: start, End: end))
             .Traverse(K<Fin, LinetypeTaper<TWidth>> (ends) =>
-                LinetypeTaper<TWidth>.Validate(width(ends.Start.Y), points.Tail.Init.Head.Map(point => (point.X, width(point.Y))), width(ends.End.Y), out LinetypeTaper<TWidth>? taper) is { } error
-                    ? Fin.Fail<LinetypeTaper<TWidth>>(error)
-                    : Fin.Succ(taper!))
+                Admission.Admitted(LinetypeTaper<TWidth>.Validate(width(ends.Start.Y), points.Tail.Init.Head.Map(point => (point.X, width(point.Y))), width(ends.End.Y), out LinetypeTaper<TWidth>? taper), taper))
             .As();
 
     // --- [WRITES]
@@ -146,7 +141,7 @@ public static partial class Linetypes {
                             fromCurve: static (row, curve) => row.AddShape(curve.Curve, Millimeters(curve.Offset)),
                             fromText: static (row, text) => row.AddShape(text.Text, Millimeters(text.Offset))))
         from added in Callbacks.Each(additions.Map(static (effect, index) => effect
-            .Map(answer => RefusedElement.Unless(answer, nameof(Linetype.AddShape), index)).Bind(IO.lift)))
+            .Map(answer => Refused.Unless(answer, nameof(Linetype.AddShape), index)).Bind(IO.lift)))
         from laid in IO.lift(() => definition.Shapes.Iter(shapes => Write((shapes.Layout.ShapeSpacing, shapes.Layout.ShapeGap,
             new Vector2d(Millimeters(shapes.Layout.ShapeLocalOffset.X), Millimeters(shapes.Layout.ShapeLocalOffset.Y))), staged)))
         from strings in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
@@ -158,12 +153,12 @@ public static partial class Linetypes {
          from named in TableOps.Named(staged, Some(name))
          from written in Written(staged, definition)
          from index in IO.lift(() => Conversions.Required(doc.Linetypes.AddReferenceLinetype(staged), nameof(LinetypeTable.AddReferenceLinetype)))
-         select index, static staged => IO.lift(staged.Dispose));
+         select index);
 
     // --- [TABLE]
     public static IO<LinetypeTableState> ReadTable(RhinoDoc doc) =>
         IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.CurrentLinetypeIndex)
-            .ToFin(new InvalidAnswer(nameof(LinetypeTable.CurrentLinetypeIndex)))
+            .ToFin(new Refused(nameof(LinetypeTable.CurrentLinetypeIndex), Refused.Invalid))
             .Map(current => new LinetypeTableState(current, doc.Linetypes.CurrentLinetypeSource, doc.Linetypes.LinetypeScale)));
 
     public static IO<Unit> WriteTable(RhinoDoc doc, LinetypeTableState state) =>
@@ -174,7 +169,7 @@ public static partial class Linetypes {
         select source;
 
     public static IO<LinetypeRef> Effective(RhinoDoc doc, RhinoObject target) =>
-        IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.LinetypeIndexForObject(target)).ToFin(new InvalidAnswer(nameof(LinetypeTable.LinetypeIndexForObject))));
+        IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.LinetypeIndexForObject(target)).ToFin(new Refused(nameof(LinetypeTable.LinetypeIndexForObject), Refused.Invalid)));
 
     public static IO<Unit> UndoModify(RhinoDoc doc, ComponentRef<Linetype> address) =>
         from row in TableOps.Find(doc.Linetypes, address, includeDeleted: false)
@@ -189,15 +184,15 @@ public static partial class Linetypes {
     // --- [TEXT]
     public static IO<LinetypePattern> Parse(string text, bool millimeters) =>
         DisposalOps.Within(() => Linetype.CreateFromPatternString(text, millimeters), native =>
-         from parsed in IO.lift(() => Optional(native).ToFin(new UnparsedText(typeof(Linetype), nameof(Linetype.CreateFromPatternString), text)))
-         from pattern in IO.lift(Fin<LinetypePattern> () => LinetypePattern.Validate(Segments(parsed), out LinetypePattern? value) is { } error ? error : value!)
-         select pattern, static native => DisposalOps.Release(Optional(native).ToSeq()));
+         from parsed in IO.lift(() => Optional(native).ToFin(Errors.ParseError($"{nameof(Linetype)}.{nameof(Linetype.CreateFromPatternString)} parsed no whole value from {text}")))
+         from pattern in IO.lift(() => Admission.Admitted(LinetypePattern.Validate(Segments(parsed), out LinetypePattern? value), value))
+         select pattern, static native => DisposalOps.Release(native));
 
     public static IO<string> Text(LinetypePattern pattern, bool millimeters) =>
         DisposalOps.Within(static () => new Linetype(), scratch =>
          from written in IO.lift(() => Refused.Unless(scratch.SetSegments(pattern.Segments.Map(Millimeters)), nameof(Linetype.SetSegments)))
          from text in IO.lift(() => scratch.PatternString(millimeters))
-         select text, static scratch => IO.lift(scratch.Dispose));
+         select text);
 
     // --- [FILES]
     public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(string path) =>

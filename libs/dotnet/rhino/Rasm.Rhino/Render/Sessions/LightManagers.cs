@@ -45,18 +45,17 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 
     public sealed override string LightDescription(RhinoDoc doc, ref Light light) =>
         Callbacks.Answer(
-            Held(doc, light).Map(held => Conversions.Unset(held.Map(engine => RowText.Localize(Describe(engine.Light.Spec.Shape), table: Some<object>(IPlugInSink.Of(this))).Local))),
+            Held(doc, light).Map(held => Conversions.Unset(held.Map(engine => RowText.Localize(Describe(engine.Light.Spec.Shape), IPlugInSink.Of(this)).Local))),
             static () => "",
             CallbackSite.Of(this));
 
     private IO<Unit> Appended(RhinoDoc doc, LightArray lights) =>
         from transfer in Lights.Gamma(doc)
         from held in Read(doc)
-        from appended in Callbacks.Each(held.Map(engine =>
-            (from staged in use(static () => new Light())
-             from written in Staged(staged, engine.Light, transfer)
-             from added in IO.lift(() => lights.Append(staged))
-             select added).Bracket()))
+        from appended in Callbacks.Each(held.Map(engine => DisposalOps.Within(static () => new Light(), staged =>
+            from written in Staged(staged, engine.Light, transfer)
+            from added in IO.lift(() => lights.Append(staged))
+            select added)))
         select unit;
 
     private IO<bool> Filled(RhinoDoc doc, Guid id, Light target) =>
@@ -123,6 +122,6 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 public static class LightManagers {
     public static IO<Unit> Changed<TManager>(RhinoDoc doc, LightMangerSupportCustomEvent change)
         where TManager : DefinedLightManager<TManager>, new() =>
-        IO.lift(static () => DefinedLightManager<TManager>.Registered.Value.ToFin(new Missing(nameof(LightManagerSupport.RegisterLightManager))))
+        IO.lift(static () => DefinedLightManager<TManager>.Registered.Value.ToFin(new Refused(nameof(LightManagerSupport.RegisterLightManager), Refused.Absent)))
             .Bind(manager => manager.Notified(doc, change));
 }

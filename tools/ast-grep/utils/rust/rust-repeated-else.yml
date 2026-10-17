@@ -3,20 +3,18 @@ id: rust-repeated-else
 language: rust
 arguments: [outer, inner, then, fallback]
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment, empty_statement, label'}
 rule:
     kind: if_expression
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - has: {field: condition, matches: outer}
         - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE, matches: fallback}}
         - has:
             field: consequence
             all:
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
                 - has:
-                    nthChild: {position: 1, ofRule: {matches: slot}}
+                    nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
                     any:
                         - kind: if_expression
                           all:

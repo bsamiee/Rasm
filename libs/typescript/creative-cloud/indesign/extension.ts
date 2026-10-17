@@ -1,15 +1,14 @@
 import { stripTypeScriptTypes } from 'node:module';
-import { type Extension, LinkError, listen, make, READING, ranked, WRITING, watched } from '@rasm/mcp/extension';
+import { type Extension, type LinkError, listen, make, READING, ranked, WRITING, watched } from '@rasm/mcp/extension';
 import { Array, Effect, FileSystem, Function, flow, Option, Schema, Struct } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import type { HttpRouter } from 'effect/http';
 import type { RpcClient, RpcClientError } from 'effect/rpc';
-import { Body, Execute, Face, Find, InDesignError, Inspect, Menu, PATH, Panel, Peer, Preflight, Render, Shot, Target } from './contract.ts';
+import { Body, Execute, Face, Find, InDesignError, Inspect, Menu, PATH, Panel, Peer, Preflight, Render, Shot, Target, thrown } from './contract.ts';
 import { grep } from './grep.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Failure = Schema.Union([InDesignError, LinkError]);
 const Facts = Shot.mapFields(Struct.omit(['image']));
 const Seen = Schema.OptionFromOptionalKey(Facts);
 const Served = Schema.Struct({ identifier: Schema.Literal('com.adobe.InDesign'), version: Schema.Option(Schema.String), running: Schema.Boolean });
@@ -18,18 +17,15 @@ const extension = (product: string): Extension<never, FileSystem.FileSystem | Ht
         {
             name: product,
             serves: Served,
-            instructions: Array.join(
-                [
-                    `${product} serves InDesign through its panel, which links when InDesign starts. Measurements are numbers in points.`,
-                    '- inspect: no target for application state, read first and after each change; a specifier from any result for that object, with fields to read only those; the document field viewPreferences holds its units, a collection field gives the collection specifier, and a collection specifier with fields gives those fields of every member.',
-                    '- execute: Set writes fields, those a dialog would set included; Script runs UXP JavaScript for the rest.',
-                    '- render: a page, page region, spread, or page item as an image.',
-                    '- find_change: read indesign://grep/reference before writing GREP, or start from the grep prompt.',
-                    "- font: also takes InDesign's face name, family and style joined by a tab, and adds the face's status (missing or substituted included), its document uses, and faces only InDesign activates, read through a subset at their default instance. InDesign lays out with these metrics: Auto underline (underlineOffset and underlineWeight -9999) is the face underline, else 0.15 em below the baseline at 0.05 em; Auto strikethrough sits 1/3 em above the baseline at the underline weight. Text takes a feature through opentypeFeatures as [tag, 1] pairs and axis values through designAxes in axis order; opsz follows the point size.",
-                    '- indesign://menu, indesign://menu/{area}, indesign://preflight/{profile}, indesign://grep/queries, indesign://grep/query/{name}: menu actions, preflight results, saved queries.',
-                ],
-                '\n',
-            ),
+            instructions: [
+                `${product} serves InDesign through its panel, which links when InDesign starts. Measurements are numbers in points.`,
+                '- inspect: no target for application state, read first and after each change; a specifier from any result for that object, with fields to read only those; the document field viewPreferences holds its units, a collection field gives the collection specifier, and a collection specifier with fields gives those fields of every member.',
+                '- execute: Set writes fields, those a dialog would set included; Script runs UXP JavaScript for the rest.',
+                '- render: a page, page region, spread, or page item as an image.',
+                '- find_change: read indesign://grep/reference before writing GREP, or start from the grep prompt.',
+                "- font: also takes InDesign's face name, family and style joined by a tab, and adds the face's status (missing or substituted included), its document uses, and faces only InDesign activates, read through a subset at their default instance. InDesign lays out with these metrics: Auto underline (underlineOffset and underlineWeight -9999) is the face underline, else 0.15 em below the baseline at 0.05 em; Auto strikethrough sits 1/3 em above the baseline at the underline weight. Text takes a feature through opentypeFeatures as [tag, 1] pairs and axis values through designAxes in axis order; opsz follows the point size.",
+                '- indesign://menu, indesign://menu/{area}, indesign://preflight/{profile}, indesign://grep/queries, indesign://grep/query/{name}: menu actions, preflight results, saved queries.',
+            ],
             preview: Target,
             runs: {
                 Script: Tool.make('Script', {
@@ -45,13 +41,11 @@ const extension = (product: string): Extension<never, FileSystem.FileSystem | Ht
                     ),
                     parameters: Body.cases.Script.mapFields(Struct.omit(['_tag'])),
                     success: Execute.successSchema.pipe(Schema.fieldsAssign({ preview: Seen })),
-                    failure: Failure,
                 }),
                 Set: Tool.make('Set', {
                     description: "Writes fields of an object, of every member of a collection, or of a member add creates, as one undo step. Each refused field fails with InDesign's message and undoes the call. Returns each field before and after",
                     parameters: Body.cases.Set.mapFields(Struct.omit(['_tag'])),
                     success: Execute.successSchema.pipe(Schema.fieldsAssign({ preview: Seen })),
-                    failure: Failure,
                 }),
             },
             tools: {
@@ -60,25 +54,22 @@ const extension = (product: string): Extension<never, FileSystem.FileSystem | Ht
                         "Reads InDesign. No target: application state with documents, windows, selection, overset stories, preflight problem count, and undo history. A specifier: the object's fields with value, type, valid values, settable flag, the collection holding valid objects, and the value without the object's overrides where they change it; then its collections, and the geometry of a page or spread. A collection specifier: its members. A class name: its fields and methods from InDesign's object model. An enumeration name: its members",
                     parameters: Inspect.payloadSchema,
                     success: Inspect.successSchema,
-                    failure: Failure,
                 }).annotateMerge(READING),
                 render: Tool.make('render', {
                     description:
                         "Renders a page, page region, spread, or page item of the active document through InDesign's JPEG export. Pixel (x, y) lies at bounds.left + x * (bounds.right - bounds.left) / width and bounds.top + y * (bounds.bottom - bounds.top) / height in points. An item renders with what overlaps it unless isolate",
                     parameters: Render.payloadSchema,
                     success: Facts,
-                    failure: Failure,
                 }).annotateMerge(READING),
                 find_change: Tool.make('find_change', {
                     description:
                         "Finds, and with action changes, text, GREP, glyph, or objects through InDesign's Find/Change. A JavaScript regular expression is translated to InDesign's GREP with each rewrite listed in corrections, and a construct InDesign rejects fails naming its alternative. action Style adds the pattern to a paragraph style as a GREP style; save stores the query for the Find/Change dialog",
                     parameters: Find.payloadSchema,
                     success: Find.successSchema.pipe(Schema.fieldsAssign({ preview: Seen })),
-                    failure: Failure,
                 }).annotateMerge(WRITING),
             },
             activity: { find_change: Struct.get('description') },
-            face: { success: Face.successSchema, failure: Failure },
+            face: Face.successSchema,
         },
         Effect.gen(function* () {
             const linked = `InDesign with the ${product} panel`;
@@ -98,7 +89,7 @@ const extension = (product: string): Extension<never, FileSystem.FileSystem | Ht
                 const [open, close] = ['async function body() {\n', '\n}'];
                 return Effect.try({
                     try: () => stripTypeScriptTypes(`${open}${code}${close}`, { mode: 'strip' }).slice(open.length, -close.length),
-                    catch: (cause) => InDesignError.make({ reason: { _tag: 'Thrown', cause, line: Option.none(), source: Option.none(), corrections: Option.none(), kept: false } }),
+                    catch: thrown,
                 });
             };
             const menu = (area: Option.Option<string>): Effect.Effect<string, InDesignError | LinkError> => call(Option.none())((client) => client.Menu({ area })).pipe(Effect.flatMap((actions) => Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Menu.successSchema))(actions))));

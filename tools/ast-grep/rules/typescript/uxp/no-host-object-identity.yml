@@ -7,7 +7,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^[A-Z][A-Z0-9_]*$'}
-            - has: {field: object, matches: uxp-enumeration-reference}
+            - has: {field: object, matches: indesign-enumeration-reference}
     rendered:
         kind: call_expression
         any:

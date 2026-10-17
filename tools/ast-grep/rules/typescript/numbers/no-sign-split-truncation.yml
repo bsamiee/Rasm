@@ -25,12 +25,12 @@ utils:
     math-ceil:
         kind: member_expression
         regex: '^((globalThis|window|self)\.)?Math\.ceil$'
-        matches: syntax-global-reference
+        matches: typescript-global-reference
         has: {field: object, pattern: $MATH}
     math-floor:
         kind: member_expression
         regex: '^((globalThis|window|self)\.)?Math\.floor$'
-        matches: syntax-global-reference
+        matches: typescript-global-reference
         has: {field: object, pattern: $MATH}
     negated:
         kind: unary_expression
@@ -72,7 +72,7 @@ utils:
     sign:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.sign$', matches: syntax-global-reference, has: {field: object, pattern: $MATH}}
+            - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.sign$', matches: typescript-global-reference, has: {field: object, pattern: $MATH}}
             - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $N}}, {not: {has: {nthChild: 2}}}]}
     floored-magnitude:
         kind: call_expression
@@ -86,7 +86,7 @@ utils:
                         nthChild: 1
                         kind: call_expression
                         all:
-                            - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.abs$', matches: syntax-global-reference, has: {field: object, pattern: $MATH}}
+                            - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.abs$', matches: typescript-global-reference, has: {field: object, pattern: $MATH}}
                             - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $N}}, {not: {has: {nthChild: 2}}}]}
 rule:
     any:

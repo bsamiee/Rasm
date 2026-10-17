@@ -16,13 +16,11 @@ namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct MetresPerUnit : System.Numerics.IMinMaxValue<MetresPerUnit> {
     public static MetresPerUnit MinValue { get; } = new(double.BitIncrement(0d));
     public static MetresPerUnit MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record SkylightReference(Guid Environment, uint RenderHash, Option<SkylightIntensity> Gain);
@@ -89,7 +87,7 @@ public sealed record LightScene(
     // --- [CAPTURE]
     public static IO<LightScene> Capture(RhinoDoc doc, TimeProvider clock) =>
         from captured in IO.lift(clock.GetCurrentInstant)
-        from scale in IO.lift(() => Conversions.Validated<MetresPerUnit, double, InvalidRhinoValue>(Quantities.From(1d, doc.ModelUnits).Meters.ToDouble()))
+        from scale in IO.lift(() => MetresPerUnit.Validated(Quantities.From(1d, doc.ModelUnits).Meters.ToDouble()))
         from transfer in Lights.Gamma(doc)
         from read in Lights.States(doc)
         from _ in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()

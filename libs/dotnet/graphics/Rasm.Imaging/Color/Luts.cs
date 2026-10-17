@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
@@ -10,25 +11,21 @@ namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidColor>]
 public readonly partial struct LatticeSize : IMinMaxValue<LatticeSize> {
     public static LatticeSize MinValue { get; } = new(2);
     public static LatticeSize MaxValue { get; } = new(256);
     public static LatticeSize Default { get; } = new(33);
 
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidColor>]
 public readonly partial struct CurveLength : IMinMaxValue<CurveLength> {
     public static CurveLength MinValue { get; } = new(2);
     public static CurveLength MaxValue { get; } = new(300_000);
     public static CurveLength ResolveShaper { get; } = new(65_536);
 
-    static partial void ValidateFactoryArguments(ref InvalidColor? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidColor();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed class Lut1D {
@@ -73,7 +70,7 @@ public sealed class InverseLut1D {
     public Lut1D Forward { get; }
 
     public static Fin<InverseLut1D> From(Lut1D forward) =>
-        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToValidation<Error>(new LutNotInvertible(channel))).As().ToFin()
+        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT channel {channel} is not monotonic and has no exact inverse")))).As()
             .Map(ranges => new InverseLut1D(forward, ranges));
 
     public void Apply(Span<Vector4> row) {
@@ -162,7 +159,6 @@ public readonly record struct LogCurve(float Base, Vector3 LogSlope, Vector3 Log
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
 public sealed partial class ExponentStyle {
     public static readonly ExponentStyle BasicFwd = new("basicFwd", None, static (x, power, _) => float.Pow(float.Max(x, 0f), power));
     public static readonly ExponentStyle BasicRev = new("basicRev", None, static (x, power, _) => float.Pow(float.Max(x, 0f), 1f / power));
@@ -200,7 +196,6 @@ public sealed partial class ExponentStyle {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
 public sealed partial class CdlStyle {
     public static readonly CdlStyle Fwd = new("Fwd", "v1.2_Fwd", static (color, slope, offset, power, saturation) =>
         Clamped(Saturated(Raised(Clamped((color * slope) + offset), power), new Vector3(saturation))));
@@ -244,7 +239,7 @@ public abstract partial record LutTable {
             Span<float> lanes = MemoryMarshal.Cast<Vector4, float>(row);
             Lattice.Apply(lanes, lanes, 4, Interpolation);
         }
-        public override Fin<LutTable> Inverse() => new StepNotInvertible(this);
+        public override Fin<LutTable> Inverse() => Error.New("3D lattice step has no exact inverse");
     }
 
     public sealed record ChannelCurve(Lut1D Table) : LutTable {
@@ -257,7 +252,7 @@ public abstract partial record LutTable {
         public override Fin<LutTable> Inverse() => new ChannelCurve(Table.Forward);
     }
 
-    public sealed record Affine(Matrix<double> Matrix, (double X, double Y, double Z) Offset) : LutTable {
+    public sealed record Affine(Matrix<double> Matrix, (double X, double Y, double Z) Offset = default) : LutTable {
         public override void Apply(Span<Vector4> row) {
             DenseVector source = new(3);
             DenseVector mapped = new(3);
@@ -269,7 +264,7 @@ public abstract partial record LutTable {
         }
         public override Fin<LutTable> Inverse() =>
             Matrix.LU() switch {
-                var factorization when factorization.U.Diagonal().Contains(0d) => new StepNotInvertible(this),
+                var factorization when factorization.U.Diagonal().Contains(0d) => Error.New("singular affine step has no exact inverse"),
                 var factorization => factorization.Inverse() switch {
                     var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])) switch {
                         var offset => new Affine(inverse, (-offset[0], -offset[1], -offset[2])),
@@ -282,7 +277,7 @@ public abstract partial record LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Bounds.Apply(pixel.AsVector3()), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new StepNotInvertible(this));
+        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(Error.New($"remap step {Bounds} has no exact inverse"));
     }
 
     public sealed record Log(LogCurve Curve) : LutTable {
@@ -319,27 +314,27 @@ public abstract partial record LutTable {
             foreach (LutTable step in Steps) step.Apply(row);
         }
         public override Fin<LutTable> Inverse() =>
-            Steps.Rev().Traverse(static step => step.Inverse().ToValidation()).As().ToFin().Map(static steps => (LutTable)new Sequence(steps));
+            Steps.Rev().Traverse(static step => step.Inverse()).As().Map(static steps => (LutTable)new Sequence(steps));
     }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LogSpace {
-    public static readonly LogSpace AgXLog = new("agx-log", Gamut.EGamut, LogCurve.Allocation(-12.47393f, 12.5260688117f, 0f));
-    public static readonly LogSpace FilmicLog = new("filmic-log", Gamut.StandardRgb, LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f));
+public sealed partial class LogSpace : ICaptioned {
+    public static readonly LogSpace AgXLog = new("agx-log", Gamut.EGamut, LogCurve.Allocation(-12.47393f, 12.5260688117f, 0f), "AgX Log");
+    public static readonly LogSpace FilmicLog = new("filmic-log", Gamut.StandardRgb, LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f), "Filmic Log");
 
     private static readonly LutTable Inset = new LutTable.Affine(Matrix<double>.Build.DenseOfRowMajor(3, 3, [
         0.856627153315983d, 0.0951212405381588d, 0.0482516061458583d,
         0.137318972929847d, 0.761241990602591d, 0.101439036467562d,
         0.11189821299995d, 0.0767994186031903d, 0.811302368396859d,
-    ]), (0d, 0d, 0d));
+    ]));
     private static readonly LutTable Outset = Inset.Inverse().ThrowIfFail();
 
     public Gamut Gamut { get; }
     public LogCurve Allocation { get; }
+    public string Caption { get; }
 
     public Seq<LutTable> Into => Switch(
         agXLog: static () => [
@@ -356,41 +351,43 @@ public sealed partial class LogSpace {
 public abstract partial record LutSpace {
     public abstract (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket { get; }
 
-    public sealed record Encoded(Gamut Gamut, Transfer Transfer) : LutSpace, IStateRecord<Encoded, EncodedLutParameter, InvalidColor> {
+    public sealed record Encoded(Gamut Gamut, Transfer Transfer) : LutSpace, IStateRecord<Encoded, EncodedLutParameter> {
         public static Encoded Default { get; } = new(Gamut.StandardRgb, Transfer.Standard.Default);
+        public static string Caption => "RGB encoding";
 
         public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Gamut, Transfer, Nits.ReferenceWhite), [], []);
     }
 
-    public sealed record Log(LogSpace Space) : LutSpace, IStateRecord<Log, LogLutParameter, InvalidColor> {
+    public sealed record Log(LogSpace Space) : LutSpace, IStateRecord<Log, LogLutParameter> {
         public static Log Default { get; } = new(LogSpace.AgXLog);
+        public static string Caption => "Grading log";
 
         public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Space.Gamut, TransferCurve.Linear, Nits.ReferenceWhite), Space.Into, Space.Back);
     }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EncodedLutParameter : IStateParameter<LutSpace.Encoded> {
-    public static readonly EncodedLutParameter Gamut = new("gamut", new StateParameter<LutSpace.Encoded>.Choice<Gamut, InvalidColor>(
-        Lens<LutSpace.Encoded, Gamut>.New(static space => space.Gamut, static gamut => space => space with { Gamut = gamut })));
-    public static readonly EncodedLutParameter Transfer = new("transfer", new StateParameter<LutSpace.Encoded>.Variant<Transfer>(
-        Lens<LutSpace.Encoded, Transfer>.New(static space => space.Transfer, static transfer => space => space with { Transfer = transfer })));
+    public static readonly EncodedLutParameter Gamut = new("gamut", new StateParameter<LutSpace.Encoded>.Choice<Gamut>(Lens<LutSpace.Encoded, Gamut>.New(static space => space.Gamut, static gamut => space => space with { Gamut = gamut })),
+        new("Gamut", "Primaries of the table's input and output"));
+    public static readonly EncodedLutParameter Transfer = new("transfer", new StateParameter<LutSpace.Encoded>.Variant<Transfer>(Lens<LutSpace.Encoded, Transfer>.New(static space => space.Transfer, static transfer => space => space with { Transfer = transfer })),
+        new("Transfer", "Encoding of the table's input and output"));
 
     public StateParameter<LutSpace.Encoded> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LogLutParameter : IStateParameter<LutSpace.Log> {
-    public static readonly LogLutParameter Space = new("space", new StateParameter<LutSpace.Log>.Choice<LogSpace, InvalidColor>(
-        Lens<LutSpace.Log, LogSpace>.New(static space => space.Space, static log => space => space with { Space = log })));
+    public static readonly LogLutParameter Space = new("space", new StateParameter<LutSpace.Log>.Choice<LogSpace>(Lens<LutSpace.Log, LogSpace>.New(static space => space.Space, static log => space => space with { Space = log })),
+        new("Grading log", "Log space and its gamut bracket applied around the table"));
 
     public StateParameter<LutSpace.Log> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -401,13 +398,18 @@ public static class LutTables {
     }
 
     internal static Fin<Unit> Accepts(int size, int count, ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        (guard<Error>(samples.Length == count, new LutShapeRefused(size, samples.Length)).ToFin().ToValidation(),
-         guard<Error>(TensorPrimitives.IsFiniteAll(samples), new LutSamplesNotFinite()).ToFin().ToValidation(),
-         guard<Error>(
-             Vector3.LessThanAll(domainMinimum, domainMaximum) && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum)),
-             new LutDomainRefused(domainMinimum, domainMaximum)).ToFin().ToValidation())
-            .Apply(static (_, _, _) => unit).As().ToFin();
+        (samples.Length == count
+                ? Fin.Succ(unit)
+                : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT of size {size} needs {count} samples, not {samples.Length}")),
+         TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : Error.New("LUT holds a non-finite sample"),
+         Vector3.LessThanAll(domainMinimum, domainMaximum) && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
+                ? Fin.Succ(unit)
+                : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must be finite and ascending")))
+            .Apply(static (_, _, _) => unit).As();
 
     public static Seq<LutTable> Between(Gamut source, Gamut target) =>
-        source == target ? [] : [new LutTable.Affine(source.MatrixTo(target), (0d, 0d, 0d))];
+        source == target ? [] : [new LutTable.Affine(source.MatrixTo(target))];
+
+    public static LutTable.Sequence Bracketed(Gamut working, Gamut space, Seq<LutTable> into, LutTable step, Seq<LutTable> back) =>
+        new([.. Between(working, space), .. into, step, .. back, .. Between(space, working)]);
 }

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -11,7 +12,6 @@ namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<InvalidPixelValue>]
 public readonly partial struct PixelExtent {
     public static PixelExtent Analysis { get; } = new(256, 256);
 
@@ -25,8 +25,12 @@ public readonly partial struct PixelExtent {
             ? bound.Width < Width ? new(bound.Width, (int)((((long)Height * bound.Width) + Width - 1) / Width)) : this
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
-    static partial void ValidateFactoryArguments(ref InvalidPixelValue? validationError, ref int width, ref int height) =>
-        validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null : new InvalidPixelValue();
+    public static Fin<PixelExtent> Validated(int width, int height) =>
+        Admission.Admitted(Validate(width, height, out PixelExtent extent), extent);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) =>
+        validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
 }
 
 public sealed class PixelFrame {
@@ -65,32 +69,32 @@ public sealed class PixelFrame {
 
     public static IO<(PixelFrame Frame, Option<Gamut> Gamut)> Read(FileInfo file, string layer) =>
         from result in IO.liftVAsync(env => ExrFile.LoadFromFileAsync(file.FullName, cancellationToken: env.Token))
-        from image in IO.lift(CodecRefused.Unless(result))
+        from image in IO.lift(Optional(result.Value).ToFin(new Expected($"EXR codec refused reading {file.FullName} with {result.Status}", 0, Optional(result.Error).Map(Error.New))))
         from read in IO.lift(() => Layer(toSeq(image.Parts), layer))
         select read;
 
-    private static Fin<PixelExtent> ExtentOf(int width, int height) =>
-        PixelExtent.Validate(width, height, out PixelExtent extent) is { } error ? error : extent;
-
     private static Fin<(PixelFrame Frame, Option<Gamut> Gamut)> Layer(Seq<Part> parts, string layer) =>
-        from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0)).ToFin(new LayerAbsent(layer))
-        from _ in guard<Error>(!part.Header.IsDeep, new CodecRefused(ExrResult.Unsupported, None))
-        let samples = layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part)
+        from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
+            .ToFin(Error.New($"EXR file holds no part for layer '{layer}'"))
         from header in (
-                Optional(part.Header.Chromaticities).Traverse(static stated => Gamut.Of(stated).ToFin(new GamutUnmatched(stated))).As().ToValidation(),
-                ExtentOf(int.CreateSaturating(part.Width), int.CreateSaturating(part.Height)).ToValidation(),
-                ExtentOf(int.CreateSaturating(part.Header.DisplayWindow.Width), int.CreateSaturating(part.Header.DisplayWindow.Height)).ToValidation(),
-                Components(samples.ChannelNames, layer).ToValidation())
-            .Apply(static (gamut, size, extent, layout) => (Gamut: gamut, Size: size, Extent: extent, Layout: layout))
+                from samples in part.Header.IsDeep
+                     ? Fin.Fail<InterleavedFloatImage>(Error.New($"EXR part '{part.Header.Name}' holds deep samples"))
+                     : Fin.Succ(layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part))
+                from layout in Components(samples.ChannelNames, layer)
+                select (Samples: samples, Layout: layout),
+                Optional(part.Header.Chromaticities).Traverse(static stated => Gamut.Of(stated).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture,
+                    $"EXR primaries R({stated.RedX}, {stated.RedY}) G({stated.GreenX}, {stated.GreenY}) B({stated.BlueX}, {stated.BlueY}) W({stated.WhiteX}, {stated.WhiteY}) match no gamut")))).As(),
+                PixelExtent.Validated(int.CreateSaturating(part.Width), int.CreateSaturating(part.Height)),
+                PixelExtent.Validated(int.CreateSaturating(part.Header.DisplayWindow.Width), int.CreateSaturating(part.Header.DisplayWindow.Height)))
+            .Apply(static (decoded, gamut, size, extent) => (decoded.Samples, decoded.Layout, Gamut: gamut, Size: size, Extent: extent))
             .As()
-            .ToFin()
         select (new PixelFrame(
             new Point(part.Header.DataWindow.MinX - part.Header.DisplayWindow.MinX, part.Header.DataWindow.MinY - part.Header.DisplayWindow.MinY),
             header.Size,
             header.Extent,
             block => {
                 Span<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
-                ReadOnlySpan2D<float> source = samples.Data.AsSpan2D(pixels.Length, samples.Channels);
+                ReadOnlySpan2D<float> source = header.Samples.Data.AsSpan2D(pixels.Length, header.Samples.Channels);
                 for (int index = 0; index < pixels.Length; index++) {
                     ReadOnlySpan<float> channels = source.GetRowSpan(index);
                     Vector4 pixel = Vector4.UnitW;
@@ -112,7 +116,7 @@ public sealed class PixelFrame {
              let component = family.IndexOf(entry.Name[^1], StringComparison.OrdinalIgnoreCase)
              where component >= 0
              select (Component: component, entry.Channel, Letter: entry.Name[^1])).DistinctBy(static row => row.Component)) switch {
-                 [] => new LayerAbsent(layer),
+                 [] => Error.New($"EXR part holds no channel of layer '{layer}'"),
                  var filled => (
                      (filled.Filter(static row => row.Component < 3) is [var lone]
                          ? filled + Seq(0, 1, 2).Filter(component => component != lone.Component).Map(component => (Component: component, lone.Channel, lone.Letter))
@@ -123,14 +127,13 @@ public sealed class PixelFrame {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PixelSampling {
-    public static Fin<TCount> GaussianTaps<TCount>(double sigma) where TCount : IBinaryInteger<TCount> => KernelTaps<TCount>(ERational.FromDouble(sigma).Multiply(3));
+    public static Fin<TCount> GaussianTaps<TCount>(double sigma) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> => KernelTaps<TCount>(ERational.FromDouble(sigma).Multiply(3));
 
-    public static Fin<TCount> KernelTaps<TCount>(ERational radius) where TCount : IBinaryInteger<TCount> =>
-        radius.CompareTo(0) >= 0
-            ? Try.lift(() => radius.Numerator.DivRem(radius.Denominator) switch {
-                var division => TCount.CreateChecked(new BigInteger(division[0].Add(division[1].IsZero ? 0 : 1).Multiply(2).Add(1).ToBytes(littleEndian: true))),
-            }).Run().MapFail(_ => new KernelSizeUnsupported(radius))
-            : new KernelSizeUnsupported(radius);
+    public static Fin<TCount> KernelTaps<TCount>(ERational radius) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> =>
+        radius.IsFinite && radius.CompareTo(0) >= 0 && radius.Numerator.DivRem(radius.Denominator) is [var whole, var rest]
+        && new BigInteger(whole.Add(rest.IsZero ? 0 : 1).Multiply(2).Add(1).ToBytes(littleEndian: true)) is var taps && taps <= BigInteger.CreateTruncating(TCount.MaxValue)
+            ? TCount.CreateTruncating(taps)
+            : Error.New($"kernel radius {radius} has no native tap count");
 
     extension(ReadOnlySpan2D<Vector4> plane) {
         public Vector4 Sample((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap) =>

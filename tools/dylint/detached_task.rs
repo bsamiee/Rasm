@@ -17,7 +17,7 @@ use rustc_middle::ty::{
 };
 use rustc_span::{Span, sym};
 
-use crate::{enclosing_trait_impl, item_path, resolve};
+use crate::{Polling, enclosing_trait_impl, item_path, resolve};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -69,6 +69,7 @@ enum Role {
 pub(crate) struct DetachedTask {
     roles: FxHashMap<DefId, Role>,
     releases: FxHashMap<DefId, Release>,
+    polling: Polling,
 }
 
 impl_lint_pass!(DetachedTask => [DETACHED_TASK]);
@@ -95,6 +96,7 @@ impl DetachedTask {
                     ("tokio_util::sync::CancellationToken::cancel", Release::DropGuard),
                 ],
             ),
+            polling: Polling::new(tcx),
         }
     }
 
@@ -111,14 +113,24 @@ impl DetachedTask {
         (!owned).then_some((dropped, spawned))
     }
 
-    fn report(cx: &LateContext<'_>, (dropped, spawned): (DefId, Spawned), node: HirId, span: Span, loss: Loss) {
+    fn site(&self, cx: &LateContext<'_>, node: HirId) -> Site {
+        if enclosing_trait_impl(cx, node).is_some_and(|implementation| cx.tcx.impl_trait_id(implementation).is_lang_item(cx, LangItem::Drop)) {
+            Site::Drop
+        } else if self.polling.polled(cx, cx.tcx.hir_enclosing_body_owner(node)) {
+            Site::Async
+        } else {
+            Site::Body
+        }
+    }
+
+    fn report(&self, cx: &LateContext<'_>, (dropped, spawned): (DefId, Spawned), node: HirId, span: Span, loss: Loss) {
         let name = cx.tcx.def_path_str(dropped);
         let message = match loss {
             Loss::Dropped => format!("dropping `{name}` detaches its work"),
             Loss::Replaced => format!("assigning over `{name}` drops the previous handle and detaches its work"),
         };
         span_lint_hir_and_then(cx, DETACHED_TASK, node, span, message, |diag| {
-            diag.help(match (spawned, site(cx, node)) {
+            diag.help(match (spawned, self.site(cx, node)) {
                 (Spawned::Task, Site::Body | Site::Async) => "spawn on the `TaskTracker` or `JoinSet` its owner waits on at shutdown",
                 (Spawned::Task, Site::Drop) => "spawn the release through `TaskTracker::spawn_on` with a `Handle` captured at construction, or hold a `DropGuard` whose token the release task awaits",
                 (Spawned::Thread, Site::Async) => "run the work through `tokio::task::spawn_blocking` and await its handle",
@@ -134,7 +146,7 @@ impl<'tcx> LateLintPass<'tcx> for DetachedTask {
             && !statement.span.from_expansion()
             && let Some(handle) = self.detached(cx, expr)
         {
-            Self::report(cx, handle, expr.hir_id, expr.span.source_callsite(), Loss::Dropped);
+            self.report(cx, handle, expr.hir_id, expr.span.source_callsite(), Loss::Dropped);
         }
     }
 
@@ -145,7 +157,7 @@ impl<'tcx> LateLintPass<'tcx> for DetachedTask {
             && let Some(handle) = self.detached(cx, init)
             && get_enclosing_block(cx, local.hir_id).is_some_and(|block| !is_local_used(cx, block, binding))
         {
-            Self::report(cx, handle, local.hir_id, local.span, Loss::Dropped);
+            self.report(cx, handle, local.hir_id, local.span, Loss::Dropped);
         }
     }
 
@@ -157,25 +169,25 @@ impl<'tcx> LateLintPass<'tcx> for DetachedTask {
             && fn_def_id(cx, expr).is_some_and(|callee| callee.is_diag_item(cx, sym::mem_drop))
             && let Some(handle) = self.detached(cx, argument)
         {
-            Self::report(cx, handle, expr.hir_id, expr.span, Loss::Dropped);
+            self.report(cx, handle, expr.hir_id, expr.span, Loss::Dropped);
         }
         if let ExprKind::MethodCall(_, receiver, ..) = expr.kind
-            && matches!(cx.typeck_results().expr_adjustments(receiver), [.., Adjustment { kind: Adjust::Borrow(_), target: _ }])
+            && matches!(cx.typeck_results().expr_adjustments(receiver), [.., Adjustment { kind: Adjust::Borrow(_), .. }])
             && let Some(handle) = self.detached(cx, receiver)
             && is_expr_temporary_value(cx, receiver)
         {
-            Self::report(cx, handle, receiver.hir_id, receiver.span.source_callsite(), Loss::Dropped);
+            self.report(cx, handle, receiver.hir_id, receiver.span.source_callsite(), Loss::Dropped);
         }
         if let ExprKind::Assign(place, ..) = expr.kind
             && let Some(handle) = self.detached(cx, place)
             && place.res_local_id().is_none_or(|local| local_is_initialized(cx, local))
         {
-            Self::report(cx, handle, expr.hir_id, expr.span, Loss::Replaced);
+            self.report(cx, handle, expr.hir_id, expr.span, Loss::Replaced);
         }
         if let ExprKind::MethodCall(_, receiver, [], _) | ExprKind::Call(_, [receiver]) = expr.kind
             && let Some(method) = fn_def_id(cx, expr)
             && let Some(release) = self.releases.get(&method).copied()
-            && site(cx, expr.hir_id) == Site::Drop
+            && self.site(cx, expr.hir_id) == Site::Drop
             && let place = receiver.peel_borrows()
             && matches!(place.kind, ExprKind::Field(..))
             && let Some(this) = cx.tcx.hir_body_owned_by(cx.tcx.typeck_root_def_id_local(cx.tcx.hir_enclosing_body_owner(place.hir_id))).params.first()
@@ -189,17 +201,5 @@ impl<'tcx> LateLintPass<'tcx> for DetachedTask {
                 });
             });
         }
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn site(cx: &LateContext<'_>, node: HirId) -> Site {
-    if enclosing_trait_impl(cx, node).is_some_and(|implementation| cx.tcx.impl_trait_id(implementation).is_lang_item(cx, LangItem::Drop)) {
-        Site::Drop
-    } else if cx.tcx.coroutine_is_async(cx.tcx.hir_enclosing_body_owner(node).to_def_id()) {
-        Site::Async
-    } else {
-        Site::Body
     }
 }

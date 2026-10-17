@@ -1,5 +1,7 @@
+using System.Globalization;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
+using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Color.Calibration;
 
@@ -30,7 +32,7 @@ public sealed record ChartFit {
     public Fin<double> Gain =>
         neutrals switch {
             ( > 0d, > 0d) and var (source, target) => target / source,
-            var (source, target) => new NeutralUnlit(source, target),
+            var (source, target) => Error.New(string.Create(CultureInfo.InvariantCulture, $"neutral patch luminance {source} to {target} holds no positive pair")),
         };
 
     public ChartTransform Transform(FitDirection direction) => direction.Of(this, 1d);
@@ -45,13 +47,15 @@ public sealed record ChartFit {
                         source.Chart,
                         reference: static (chart, reference) => Operand(reference.Gamut, chart.References(reference.Gamut)),
                         sampled: static (chart, sampled) =>
-                            sampled.Samples.Chart == chart ? Operand(sampled.Samples.Gamut, sampled.Samples.Colors) : new ChartsDiffer(chart, sampled.Samples.Chart)),
-                    guard<Error>(fitted.Rank is 3, new SamplesRankDeficient(fitted.Rank)).ToFin())
+                            sampled.Samples.Chart == chart ? Operand(sampled.Samples.Gamut, sampled.Samples.Colors) : Error.New($"source chart {chart} differs from target chart {sampled.Samples.Chart}")),
+                    fitted.Rank is 3
+                        ? Fin.Succ(unit)
+                        : Error.New(string.Create(CultureInfo.InvariantCulture, $"chart samples span {fitted.Rank} of three color directions")))
                 .Apply(static (operand, _) => operand)
                 .As()
             let transform = fitted.Solve(targets.Rows)
             let decomposed = transform.Svd()
-            from _ in guard<Error>(decomposed.Rank is 3, new TransformRankDeficient(decomposed.Rank))
+            from _ in guard(decomposed.Rank is 3, Error.New(string.Create(CultureInfo.InvariantCulture, $"fitted transform is singular at rank {decomposed.Rank}")))
             select new ChartFit(
                 transform.Transpose(), decomposed.Solve(Matrix<double>.Build.DenseIdentity(3)).Transpose(),
                 new FitQuality((fitted.S[0], fitted.S[1], fitted.S[2]), (decomposed.S[0], decomposed.S[1], decomposed.S[2])),
@@ -60,13 +64,12 @@ public sealed record ChartFit {
 
     private static (Matrix<double> Rows, double Neutral) Operand(Gamut gamut, HashMap<ChartPatch, (double R, double G, double B)> colors) =>
         (Matrix<double>.Build.DenseOfRowArrays(toSeq(ChartPatch.Items).Map(patch => colors[patch] switch { var (r, g, b) => new[] { r, g, b } })),
-         (gamut.Luminance, colors[ChartPatch.Neutral5]) switch {
-             var (weights, (r, g, b)) => (weights.X * r) + (weights.Y * g) + (weights.Z * b),
+         colors[ChartPatch.Neutral5] switch {
+             var (r, g, b) => LuminanceSamples.Luminance(r, g, b, gamut.Luminance),
          });
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidColor>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FitDirection {

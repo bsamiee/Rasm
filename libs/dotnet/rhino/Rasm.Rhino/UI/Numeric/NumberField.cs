@@ -6,46 +6,98 @@ using Eto.Forms;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Input;
 using UnitsNet;
 
 namespace Rasm.Rhino.UI.Numeric;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+internal delegate float PointerTravel();
+
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record NumberText<TKey>(
-    Func<Option<TKey>, string> Shown, Func<TKey, string> Entry, Func<string, IO<TKey>> Read,
-    Func<TKey, double, TKey> Moved, Func<TKey, TKey> Snapped, (TKey Low, TKey High) Ends) where TKey : notnull {
+public abstract class NumberText<TKey> where TKey : notnull {
+    public abstract (TKey Low, TKey High) Ends { get; }
+
+    public abstract string Shown(Option<TKey> key);
+
+    public abstract string Entry(TKey key);
+
+    public abstract IO<TKey> Read(string entry);
+
+    public abstract TKey Moved(TKey key, double steps);
+
+    public abstract TKey Snapped(TKey key, double steps);
+
     public float TextWidth(Font font) =>
         Seq(Shown(Some(Ends.Low)), Shown(Some(Ends.High)), Shown(None)).Fold(0f, (widest, shown) => float.Max(widest, font.MeasureString(shown).Width));
 }
 
-public static class NumberText {
-    public static NumberText<TKey> Scalar<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds, string varies)
-        where TKey : struct, INumber<TKey> {
-        ScalarDisplay display = Quantities.Scalar(presentation, bounds);
-        (Func<TKey, string> number, Func<TKey, string> typed) = FieldTexts.Number(presentation, bounds);
-        return new(
-            key => key.Match(Some: number, None: () => varies),
-            typed,
-            entry => UnitText.ParseNumber(entry, StringParserSettings.DefaultParseSettings).Map(shown => NumericRows.Narrowed<TKey>(display.Key(shown))),
-            (key, steps) => NumericRows.Narrowed<TKey>(double.CreateChecked(key) + (steps * display.Step)),
-            key => NumericRows.Narrowed<TKey>(double.Round(double.CreateChecked(key) / display.Step, MidpointRounding.ToEven) * display.Step),
-            presentation.Soft.IfNone(bounds));
+public sealed class ScalarText<TValue, TKey> : NumberText<TKey> where TValue : notnull where TKey : struct, INumber<TKey> {
+    private readonly (Func<TKey, string> Shown, Func<TKey, string> Entry) number;
+    private readonly double stride;
+    private readonly string varies;
+
+    public ScalarText(NumericDomain<TValue, TKey> domain, string varies) {
+        (Domain, Display, Ends, this.varies) = (domain, Quantities.Scalar(domain.Presentation, domain.Bounds), domain.Presentation.Soft.IfNone(domain.Bounds), varies);
+        number = FieldTexts.Number(Display, domain.Presentation, domain.Bounds);
+        stride = Display.Step / (double.CreateChecked(Ends.High) - double.CreateChecked(Ends.Low));
     }
 
-    public static NumberText<Length> Distance(LengthUnit spaceUnit, DistanceDisplay display, (Length Low, Length High) ends, string varies) {
-        Length step = display.Resolution(spaceUnit);
-        return new(
-            length => length.Match(Some: held => display.Format(held, spaceUnit, appendUnitSystemName: true), None: () => varies),
-            length => display.Format(length, spaceUnit, appendUnitSystemName: true),
-            entry => UnitText.ParseLength(entry, StringParserSettings.DefaultParseSettings, spaceUnit),
-            (length, steps) => length + (step * steps),
-            length => step * QuantityValue.Round(length / step, MidpointRounding.ToEven),
-            ends);
-    }
+    public NumericDomain<TValue, TKey> Domain { get; }
+    public ScalarDisplay Display { get; }
+    public override (TKey Low, TKey High) Ends { get; }
+
+    public override string Shown(Option<TKey> key) => key.Match(Some: number.Shown, None: () => varies);
+
+    public override string Entry(TKey key) => number.Entry(key);
+
+    public override IO<TKey> Read(string entry) =>
+        UnitText.ParseNumber(entry, StringParserSettings.DefaultParseSettings).Map(shown => NumericRows.Narrowed<TKey>(Display.Key(shown)));
+
+    public override TKey Moved(TKey key, double steps) =>
+        Domain.Presentation.Scale == TrackScale.Linear || TKey.IsInteger(TKey.CreateSaturating(0.5))
+            ? NumericRows.Narrowed<TKey>(double.CreateChecked(key) + (steps * Display.Step))
+            : Key(Domain.Presentation.Position(key, Ends) + (steps * stride), Ends);
+
+    public override TKey Snapped(TKey key, double steps) => Snap(key, steps, Track(key));
+
+    public TKey Snap(TKey key, double steps, (TKey Low, TKey High) track) =>
+        Domain.Presentation.Scale == TrackScale.Linear
+            ? NumericRows.Narrowed<TKey>(double.Round((double.CreateChecked(key) + (steps * Display.Step)) / Display.Step, MidpointRounding.ToEven) * Display.Step)
+            : Key(double.Clamp((double.Round(Domain.Presentation.Position(key, track) * NumberText.TickIntervals, MidpointRounding.ToEven) + steps) / NumberText.TickIntervals, 0d, 1d), track);
+
+    public (TKey Low, TKey High) Track(TKey key) => Domain.Presentation.Track(key, Domain.Bounds);
+
+    public TKey Key(double position, (TKey Low, TKey High) track) => NumericRows.Narrowed<TKey>(Domain.Presentation.Key(position, track, Domain.Bounds));
+}
+
+public sealed class DistanceText(LengthUnit spaceUnit, DistanceDisplay display, (Length Low, Length High) ends, string varies) : NumberText<Length> {
+    private readonly Length step = display.Resolution(spaceUnit);
+
+    public override (Length Low, Length High) Ends => ends;
+
+    public override string Shown(Option<Length> key) => key.Match(Some: Entry, None: () => varies);
+
+    public override string Entry(Length key) => display.Format(key, spaceUnit, appendUnitSystemName: true);
+
+    public override IO<Length> Read(string entry) => UnitText.ParseLength(entry, StringParserSettings.DefaultParseSettings, spaceUnit);
+
+    public override Length Moved(Length key, double steps) => key + (step * steps);
+
+    public override Length Snapped(Length key, double steps) => step * QuantityValue.Round((key + (step * steps)) / step, MidpointRounding.ToEven);
+}
+
+public static class NumberText {
+    public const int TickIntervals = 10;
+
+    public static ScalarText<TValue, TKey> Scalar<TValue, TKey>(NumericDomain<TValue, TKey> domain, string varies)
+        where TValue : notnull
+        where TKey : struct, INumber<TKey> =>
+        new(domain, varies);
 }
 
 [Union]
@@ -74,15 +126,16 @@ public abstract class NumberField : TextBox {
 
     protected IO<Unit> Ended => IO.lift(() => ScrubEnded?.Invoke(this, EventArgs.Empty));
 
-    protected float Travel(MouseEventArgs move, PointF last) =>
-        Optional(Platform.Instance.Find<Func<IPlugInSink, MouseEventArgs, PointF, float>>()).Match(Some: create => create()(Sink, move, last), None: () => move.Location.X - last.X);
+    protected static float Travel(MouseEventArgs move, PointF last) =>
+        Optional(Platform.Instance.Find<PointerTravel>()).Match(Some: static create => create()(), None: () => move.Location.X - last.X);
 }
 
 public sealed class NumberField<TValue, TKey> : NumberField
     where TValue : notnull
     where TKey : notnull, IComparable<TKey> {
     // --- [STATE]
-    private readonly NumberText<TKey> text;
+    private const float Inset = 5f;
+    private NumberText<TKey> text;
     private readonly Func<TKey, Fin<TValue>> create;
     private readonly Func<TValue, TKey> key;
     private readonly (TKey Low, TKey High) bounds;
@@ -92,6 +145,8 @@ public sealed class NumberField<TValue, TKey> : NumberField
         (this.text, this.create, this.key, this.bounds, PlaceholderText, TextAlignment, Cursor) = (text, create, key, bounds, text.Shown(None), TextAlignment.Right, Cursors.VerticalSplit);
 
     public event EventHandler<EditEventArgs<TValue>>? Edited;
+
+    public FieldFit Fit => new(this, text.TextWidth(Font) + (2f * Inset));
 
     public IO<Unit> Receive(Option<TValue> value) =>
         Current.Bind(held => held.Switch(
@@ -104,6 +159,14 @@ public sealed class NumberField<TValue, TKey> : NumberField
                 Some: shown => s.Field.Become(scrubbing with { Shown = shown }, Some(s.Field.Showing(scrubbing.Moved | s.Value))),
                 None: () => s.Field.Unscrubbed(None, s.Field.Raised(new Edit<TValue>.Cancel()))),
             editing: static (s, _) => s.Field.Entered(s.Value)));
+
+    public IO<Unit> Retext(NumberText<TKey> next) =>
+        from written in IO.lift(() => { (text, PlaceholderText) = (next, next.Shown(None)); })
+        from held in Current
+        from shown in Receive(held.Switch(
+            resting: static resting => resting.Shown, pressed: static pressed => Some(pressed.Shown),
+            scrubbing: static scrubbing => Some(scrubbing.Shown), editing: static editing => editing.Shown))
+        select shown;
 
     public override bool Adjust(int steps) =>
         Callbacks.Succeeded(Stepping(state, steps, Keys.None), static () => false, new CallbackSite(Sink, GetType(), nameof(Adjust)));
@@ -164,11 +227,11 @@ public sealed class NumberField<TValue, TKey> : NumberField
     private IO<Unit> Typed(FieldState<TValue>.Editing editing, string entry) =>
         text.Read(entry)
             .Bind(raw => create(raw).Match(Succ: value => Accepted(editing, value), Fail: _ => Marked(PaintSlot.InvalidText)))
-            .Catch(static error => error.IsType<UnparsedText>(), _ => Marked(PaintSlot.InvalidText));
+            .Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => Marked(PaintSlot.InvalidText));
 
     private Fin<TValue> Stepped(TValue shown, double steps, Keys modifiers) =>
         create(Clamped(ComponentControl.Snaps(modifiers)
-            ? text.Snapped(text.Moved(key(shown), steps))
+            ? text.Snapped(key(shown), steps)
             : text.Moved(key(shown), steps * ComponentControl.Scale(modifiers))));
 
     private TKey Clamped(TKey key) =>
@@ -207,9 +270,9 @@ public sealed class NumberField<TValue, TKey> : NumberField
             resting: static (_, _) => IO.pure(unit),
             pressed: static (s, pressed) => when(
                 PointF.Distance(pressed.At, s.Args.Location) > ComponentControl.DragThreshold,
-                s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, s.Field.Travel(s.Args, pressed.At), s.Args.Location, None), None).Bind(_ => s.Field.Started)).As(),
+                s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, Travel(s.Args, pressed.At), s.Args.Location, None), None).Bind(_ => s.Field.Started)).As(),
             scrubbing: static (s, scrubbing) =>
-                from travel in IO.pure(scrubbing.Travel + s.Field.Travel(s.Args, scrubbing.Last))
+                from travel in IO.pure(scrubbing.Travel + Travel(s.Args, scrubbing.Last))
                 let moved = s.Field.Stepped(scrubbing.Shown, float.Truncate(travel), s.Args.Modifiers).ToOption().Filter(value => scrubbing.Moved != Some(value))
                 from shown in s.Field.Become(scrubbing with { Travel = travel, Last = s.Args.Location, Moved = moved | scrubbing.Moved }, moved.Map(value => s.Field.Showing(Some(value))))
                 from raised in s.Field.Raised(moved.Map<Edit<TValue>>(static value => new Edit<TValue>.Preview(value)))

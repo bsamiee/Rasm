@@ -2,6 +2,7 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Objects;
 using Rasm.Rhino.Render.Settings;
+using Rasm.Rhino.UI;
 using Rhino.Render;
 
 namespace Rasm.Rhino.Render.Queue;
@@ -32,6 +33,8 @@ public sealed record QueueEstimate(long Landed, long Total, Option<Duration> Rem
 
     public static QueueEstimate Sampled(RenderBatch queue, QueueProgress record, Instant now) =>
         Of(queue, record, None, now, static times => times.At(1) | times.Head);
+
+    public WorkState Work => Total == 0 ? new WorkState.Inactive() : new WorkState.Counted(Landed, Total);
 
     public string Description(DateTimeZone zone) =>
         (Remaining, Finish)

@@ -27,11 +27,10 @@ public static class Policies {
         });
 
     // --- [EDITING]
-    public static IO<Unit> ShowInlineEditor<T, TKey, TError>(
+    public static IO<Unit> ShowInlineEditor<T, TKey>(
         Canvas canvas, RectangleF frame, T current, ITypeAssistant<TKey> assistant, Func<T, IO<Unit>> assign, IPlugInSink sink)
-        where T : IObjectFactory<T, TKey, TError>, IConvertible<TKey>
-        where TKey : notnull
-        where TError : Error, IValidationError<TError> {
+        where T : IObjectFactory<T, TKey, ValidationError>, IConvertible<TKey>
+        where TKey : notnull {
         CallbackSite site = new(sink, typeof(Canvas), nameof(Canvas.ShowInlineEditor));
         return IO.lift(() => {
             Pear<TKey> existing = Garden.Pear(current.ToValue());
@@ -44,7 +43,7 @@ public static class Policies {
             IO<IResult> Entered(string text) =>
                 from parsed in IO.lift(() => assistant.Parse(constructor: null, text, existing))
                 from answer in parsed.Success
-                    ? Conversions.Validated<T, TKey, TError>(parsed.Value).Match(
+                    ? Admission.Validated<T, TKey>(parsed.Value).Match(
                         Succ: value => assign(value).Map((IResult)parsed),
                         Fail: error => IO.pure<IResult>(Result<TKey>.Fail(ErrorOps.Localize(error), text)))
                     : IO.pure<IResult>(parsed)

@@ -1,11 +1,13 @@
 """Blender failures and the result shared by Blender operations."""
 
+from collections.abc import Callable
 from importlib.resources.abc import Traversable
 from pathlib import Path
+import typing
 from typing import Protocol, TYPE_CHECKING
 import zoneinfo
 
-from expression import Result
+from expression import Error, Ok, Result
 import msgspec
 
 from blender.imaging.faults import Faults, ImagingFaults, Refusal
@@ -26,6 +28,7 @@ class Requirement(Protocol):
         ...
 
 
+type EditRefusal = AttributeError | ReferenceError | RuntimeError | KeyError | TypeError | ValueError | SystemError | msgspec.EncodeError | OverflowError | MemoryError
 type BlenderFault = (
     BlenderRegisterFault
     | BlenderEditFault
@@ -50,8 +53,16 @@ class BlenderRegisterFault(Refusal[tuple[str, ...], ValueError | RuntimeError | 
     """Class ordering, registration, or generated name refused."""
 
 
-class BlenderEditFault(Refusal[str, AttributeError | ReferenceError | RuntimeError | KeyError | TypeError | ValueError | SystemError | msgspec.EncodeError | OverflowError | MemoryError], frozen=True):
+class BlenderEditFault(Refusal[str, EditRefusal], frozen=True):
     """Host property or function that refused an edit."""
+
+    @classmethod
+    def attempted[T](cls, request: str, call: Callable[[], T]) -> "BlenderResult[T]":
+        """Answers a host call, or the edit fault naming its request when the host refuses it."""
+        try:
+            return Ok(call())
+        except typing.get_args(EditRefusal.__value__) as error:
+            return Error((cls(request=request, error=error),))
 
 
 class BlenderChoiceFault(msgspec.Struct, frozen=True, kw_only=True):

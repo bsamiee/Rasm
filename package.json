@@ -365,7 +365,7 @@
                 "inputs": [ "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml", { "externalDependencies": [] }, { "runtime": "ruff --version" } ],
                 "options": { "commands": [ "ruff check", "ruff format --check" ], "parallel": false }
             },
-            "lint:refurb": { "command": "refurb --quiet", "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "refurb --version" } ] },
+            "lint:refurb": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "refurb --version" } ] },
             "lint:deptry": { "command": "deptry libs/python apps", "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "deptry --version" } ] },
             "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "cache": true, "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamllint --version" } ] },
             "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint", "cache": true, "inputs": [ "yamlFiles", "{workspaceRoot}/.yamlfmt", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
@@ -422,7 +422,7 @@
             "typecheck:tsc": {
                 "command": "tsc --pretty false",
                 "cache": true,
-                "inputs": [ "typescript", "{workspaceRoot}/**/*.{ts,json}", { "externalDependencies": [ "typescript" ] } ]
+                "inputs": [ "typescript", "{workspaceRoot}/**/*.{ts,json}", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ]
             },
             "typecheck:ty": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "ty --version" } ] },
             "typecheck:mypy": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "mypy --version" } ] },

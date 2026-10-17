@@ -10,7 +10,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.data.ids.images import generated, loaded
-from blender.bpy.data.ids.ownership import earliest, Mark
+from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, holds, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
@@ -148,7 +148,7 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
             return {key: (address, entry[0].kind if isinstance(entry := entries[key], tuple) else bpy.types.NodeSocketBool) for key, address in addresses(group, name).items() if key in items}
 
         nested = {
-            key: Option.of_optional(earliest(group.ownership.held(identity)).get(Mark(key=group.key))).map(lambda found: surviving(found, group.interface)).default_value({}) if group.single else {}
+            key: group.ownership.found(identity).map(lambda found: surviving(found, group.interface)).default_value({}) if group.single else {}
             for change in (change for option in rows for change in option.to_list())
             if change.key in held
             for content in change.content.to_list()

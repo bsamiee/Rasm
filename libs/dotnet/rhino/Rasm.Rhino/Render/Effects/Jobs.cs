@@ -1,7 +1,6 @@
 using System.Drawing;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Rows;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
@@ -9,21 +8,13 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public abstract class JobEffect<TEffect, TState, TParameter, TError, TResource> : DefinedEffect<TEffect, TState, TParameter, TError>, IEffectDefinition
-    where TEffect : JobEffect<TEffect, TState, TParameter, TError, TResource>, IEffectDefinition<TState, TParameter>
-    where TState : IStateRecord<TState, TParameter, TError>
-    where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, TError>
-    where TError : Error, IValidationError<TError>
+public abstract class JobEffect<TEffect, TState, TParameter, TResource> : DefinedEffect<TEffect, TState, TParameter>, IEffectDefinition<TState, TParameter>
+    where TEffect : JobEffect<TEffect, TState, TParameter, TResource>, IEffectDefinition<TState, TParameter>
+    where TState : IStateRecord<TState, TParameter>
+    where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, ValidationError>
     where TResource : notnull, IFrameJob<TResource, TState> {
     // --- [DEFINITION]
-    static EffectKind IEffectDefinition.Kind { get; } =
-        new(
-            typeof(TEffect).GUID,
-            EffectKind.Staged(typeof(TEffect)),
-            TEffect.Row.Default,
-            TEffect.Row.Amount,
-            None,
-            static doc => EffectStates.Binding<TEffect, TState, TParameter, TError>(doc, TEffect.Row));
+    static EffectKind IEffectDefinition.Kind { get; } = Defined(None);
 
     // --- [RESOURCE]
     private readonly Ref<Option<Option<Disposal<TResource>>>> opened = Ref(Some(Option<Disposal<TResource>>.None));
@@ -53,7 +44,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TError, TResource> 
     }
 
     // --- [PIPELINE]
-    private protected sealed override Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section => SectionRows.Job(this, Held, ParameterText.Join<TState, TParameter, TError>(TEffect.Row.Text), TEffect.Row.Looks, work);
+    private protected sealed override Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section => SectionRows.Job(this, Held, TEffect.Row.Looks, work);
 
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TResource.Channels(Held.Current));
 
@@ -71,24 +62,20 @@ public abstract class JobEffect<TEffect, TState, TParameter, TError, TResource> 
         };
 
     private IO<Unit> Queued(PostEffectPipeline pipeline, Rectangle rect, TState state, PixelExtent extent, Option<float> metres, CallbackSite site) =>
-        use(() => new Job(Rewrite(state, extent, metres, site)))
-            .Bind(job => use(IO.lift(() => Missing.Unless(pipeline.ThreadEngine(), nameof(PostEffectPipeline.ThreadEngine))))
-                .Bind(engine => IO.lift(() => Refused.Unless(
-                    engine.RunPostEffect(job, pipeline, this, rect, EffectPipeline.Ids(TResource.Channels(state))), nameof(PostEffectThreadEngine.RunPostEffect))))
-                .Bracket())
-            .Bracket();
+        DisposalOps.Within(() => new Job(Rewrite(state, extent, metres, site)), job =>
+            DisposalOps.Found(pipeline.ThreadEngine, nameof(PostEffectPipeline.ThreadEngine), engine => IO.lift(() => Refused.Unless(
+                engine.RunPostEffect(job, pipeline, this, rect, EffectPipeline.Ids(TResource.Channels(state))), nameof(PostEffectThreadEngine.RunPostEffect)))));
 
     // --- [JOBS]
     private Func<Rectangle, PostEffectJobChannels, bool> Rewrite(TState state, PixelExtent extent, Option<float> metres, CallbackSite site) =>
         (rect, access) => Callbacks.Succeeded(
-            opened.Value.Bind(static held => held).Bind(static cell => cell.Held).Map(resource => (
-                from rows in use(() => new WorkProgress(work, rect.Height))
-                from _ in work.SwapIO(static _ => new WorkState.Indeterminate())
+            opened.Value.Bind(static held => held).Bind(static cell => cell.Held).Map(resource => DisposalOps.Within(() => new WorkProgress(work, rect.Height), rows =>
+                from started in work.SwapIO(static _ => new WorkState.Indeterminate())
                 from color in EffectPipeline.Read(access.GetChannel, extent, RenderWindow.StandardChannels.RGBA, rect)
                 from guides in EffectPipeline.Guides(access.GetChannel, extent, rect, TResource.Channels(state), metres)
                 from result in resource.Run(state, color, guides, rows)
                 from written in EffectPipeline.Opened(access.GetChannel, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (_, cpu) => EffectPipeline.Put(cpu, result))
-                select unit).Bracket()),
+                select unit)),
             static () => false,
             site);
 

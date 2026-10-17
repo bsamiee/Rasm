@@ -26,7 +26,7 @@ utils:
 rule:
     kind: 'while_expression, expression_statement'
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - all:
                 - any:

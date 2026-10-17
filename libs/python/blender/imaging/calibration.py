@@ -17,7 +17,7 @@ import PyOpenColorIO
 
 from blender.imaging.color.processors import applied, matrix, processor, xyz
 from blender.imaging.color.white import adaptation
-from blender.imaging.faults import ImagingCalibrationFault, ImagingMatrixFault, ImagingResult, paired
+from blender.imaging.faults import ImagingCalibrationFault, ImagingNumericFault, ImagingResult, paired
 from blender.imaging.geometry.homography import Homography, Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import Extension, StMap
@@ -110,7 +110,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     matrix(adaptation(white, applied(working.getDefaultCPUProcessor(), np.ones(3, dtype=np.float32)).astype(np.float64))),
                     PyOpenColorIO.GroupTransform([xyz(config, colorspace)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE),
                 ]),
-            ).map(lambda built: tuple(Rgb(red=float(row[0]), green=float(row[1]), blue=float(row[2])) for row in np.unstack(applied(built.getDefaultCPUProcessor(), patches.astype(np.float32)))))
+            ).map(lambda built: msgspec.convert(applied(built.getDefaultCPUProcessor(), patches.astype(np.float32)).tolist(), tuple[Rgb, ...]))
         )
 
 
@@ -238,7 +238,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
                 .warp(plane)
                 .map(lambda warped: warped.reshape(shape[1], side, shape[0], side, channels).sum(axis=(1, 3), dtype=np.float64).reshape(-1, channels))
                 .map(lambda sums: np.divide(sums[:, :3], sums[:, 3:], out=np.zeros_like(sums[:, :3]), where=sums[:, 3:] > 0.0))
-                .map(lambda means: tuple(Rgb(red=float(row[0]), green=float(row[1]), blue=float(row[2])) for row in np.unstack(means)))
+                .map(lambda means: msgspec.convert(means.tolist(), tuple[Rgb, ...]))
             )
 
         return self.aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing))
@@ -279,11 +279,11 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def fit(cls, samples: tuple[tuple[Rgb[float], Rgb[float]], ...]) -> ImagingResult[CalibrationFit[Self]]:
         """Returns forward and inverse fits with native diagnostics, or rank and solver refusals."""
-        source, target = np.unstack(np.array([(msgspec.structs.astuple(a), msgspec.structs.astuple(b)) for a, b in samples], dtype=np.float64).reshape(-1, 2, 3), axis=1)
+        source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
         try:
             solution, _, rank, source_values = np.linalg.lstsq(source, target)
         except np.linalg.LinAlgError as error:
-            return Error((ImagingMatrixFault(request=source, error=error),))
+            return Error((ImagingNumericFault(request=source, error=error),))
         epsilon = float(np.finfo(np.float64).eps)
         if rank < source.shape[1]:
             return Error((ImagingCalibrationFault(singular_values=tuple(float(value) for value in source_values), tolerance=1.0 / (max(source.shape) * epsilon)),))
@@ -291,20 +291,12 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         try:
             left, values, right = np.linalg.svd(fitted)
         except np.linalg.LinAlgError as error:
-            return Error((ImagingMatrixFault(request=fitted, error=error),))
+            return Error((ImagingNumericFault(request=fitted, error=error),))
         cutoff = len(values) * epsilon
         if values[-1] <= values[0] * cutoff:
             return Error((ImagingCalibrationFault(singular_values=tuple(float(value) for value in values), tolerance=1.0 / cutoff),))
-        maps = tuple(tuple(Rgb(red=float(row[0]), green=float(row[1]), blue=float(row[2])) for row in np.unstack(rows)) for rows in (fitted, (right.T / values) @ left.T))
-        return Ok(
-            CalibrationFit(
-                forward=cls(gained=(maps[0][0], maps[0][1], maps[0][2])),
-                inverse=cls(gained=(maps[1][0], maps[1][1], maps[1][2])),
-                rank=int(rank),
-                singular_values=source_values,
-                matrix_singular_values=values,
-            )
-        )
+        forward, inverse = (msgspec.convert({"gained": rows.tolist()}, cls) for rows in (fitted, (right.T / values) @ left.T))
+        return Ok(CalibrationFit(forward=forward, inverse=inverse, rank=int(rank), singular_values=source_values, matrix_singular_values=values))
 
     def normalized(
         self, source: Rgb[float], target: Rgb[float], config: PyOpenColorIO.Config, *, source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR, target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR
@@ -312,9 +304,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         """Factors each neutral's configured luminance ratio into exposure, or returns absence or OCIO refusals."""
 
         def factored(built: tuple[PyOpenColorIO.Processor, PyOpenColorIO.Processor]) -> Option[Self]:
-            source_luma, target_luma = (
-                float(applied(op.getDefaultCPUProcessor(), np.array(msgspec.structs.astuple(sample), dtype=np.float32))[1]) for op, sample in zip(built, (source, target), strict=False)
-            )
+            source_luma, target_luma = (float(applied(op.getDefaultCPUProcessor(), np.array(sample, dtype=np.float32))[1]) for op, sample in zip(built, (source, target), strict=False))
             return Some(msgspec.structs.replace(self, exposure=math.log2(target_luma) - math.log2(source_luma))) if source_luma > 0.0 and target_luma > 0.0 else Nothing
 
         return paired(processor(config, xyz(config, source_space)), processor(config, xyz(config, target_space))).map(factored)
@@ -329,7 +319,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:
         """Exact OCIO matrix transform of the complete map."""
-        return matrix(np.array([msgspec.structs.astuple(row) for row in self.gained], dtype=np.float64))
+        return matrix(np.array(self.gained, dtype=np.float64))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

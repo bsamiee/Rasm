@@ -1,12 +1,15 @@
 use clippy_utils::{
     desugar_await,
     diagnostics::{span_lint_and_sugg, span_lint_hir_and_then},
-    fn_def_id, is_from_proc_macro, peel_blocks,
-    res::{MaybeDef as _, MaybeResPath as _},
+    fn_def_id, is_from_proc_macro,
+    paths::PathNS,
+    peel_blocks,
+    res::MaybeDef as _,
     source::walk_span_to_context,
     sym,
     ty::{implements_trait, same_type_modulo_regions},
 };
+use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
 use rustc_hir::{
     ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, Item, ItemKind, MatchSource, Node,
@@ -16,8 +19,7 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, FieldDef, TyCtxt, TypeVisitableExt as _, VariantDef, print::with_forced_trimmed_paths};
 
-use super::io_error;
-use crate::{constructed, delivered, result_parts};
+use crate::{constructed, delivered, derives, parameter, path, result_parts};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -36,7 +38,7 @@ pub(crate) struct RedundantErrorConversion {
 impl_lint_pass!(RedundantErrorConversion => [REDUNDANT_ERROR_CONVERSION]);
 
 impl RedundantErrorConversion {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { io_error: io_error(tcx) } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { io_error: path(tcx, PathNS::Type, "std::io::Error") } }
 }
 
 impl<'tcx> LateLintPass<'tcx> for RedundantErrorConversion {
@@ -60,6 +62,7 @@ impl<'tcx> LateLintPass<'tcx> for RedundantErrorConversion {
             && let ty::FnDef(conversion_fn, _) = typeck.expr_ty(conversion).kind()
             && let Some((_, source_error)) = result_parts(cx, typeck.expr_ty(source))
             && let Some(returned) = arms.iter().find_map(|arm| if let ExprKind::Ret(Some(returned)) | ExprKind::Break(_, Some(returned)) = arm.body.kind { Some(returned) } else { None })
+            && fn_def_id(cx, returned).is_lang_item(cx, LangItem::TryTraitFromResidual)
             && let Some((_, target_error)) = result_parts(cx, typeck.expr_ty(returned))
             && !same_type_modulo_regions(source_error, target_error)
             && result_parts(cx, typeck.expr_ty(converted)).is_some_and(|(_, converted_error)| same_type_modulo_regions(converted_error, target_error))
@@ -96,9 +99,8 @@ impl<'tcx> LateLintPass<'tcx> for RedundantErrorConversion {
             && let (target, source) = (conversion.self_ty(), conversion.args.type_at(1))
             && !source.has_param()
             && source.opt_def_id().is_none_or(|adt| Some(adt) != self.io_error)
-            && let Some(error) = cx.tcx.get_diagnostic_item(sym::Error)
-            && implements_trait(cx, source, error, &[])
-            && cx.tcx.non_blanket_impls_for_ty(error, target).any(|implementation| cx.tcx.is_automatically_derived(implementation))
+            && cx.tcx.get_diagnostic_item(sym::Error).is_some_and(|error| implements_trait(cx, source, error, &[]))
+            && derives(cx, target, sym::Error)
             && let Some((variant, field)) = wrapped_variant(cx, declared)
         {
             span_lint_hir_and_then(
@@ -122,11 +124,10 @@ fn wrapped_variant<'tcx>(cx: &LateContext<'tcx>, implementation: DefId) -> Optio
     if let [from_fn] = cx.tcx.associated_item_def_ids(implementation)
         && let Some(from_fn) = from_fn.as_local()
         && let body = cx.tcx.hir_body_owned_by(from_fn)
-        && let [parameter] = body.params
         && let Some((variant, fields)) = constructed(cx.tcx.typeck(from_fn), peel_blocks(body.value))
         && variant.fields.len() == 1
         && let [(field, value)] = *fields.as_slice()
-        && value.res_local_id() == Some(parameter.pat.hir_id)
+        && parameter(body, value) == Some(0)
     {
         Some((variant, field))
     } else {

@@ -22,10 +22,10 @@ public readonly record struct EntryKey(string Owner, Seq<string> Path) : ICompar
             ? owner
             : Path.Zip(other.Path, string.CompareOrdinal).Find(static order => order is not 0).IfNone(Path.Count.CompareTo(other.Path.Count));
 
-    public Fin<TValue> Read<TValue>(string text, Func<string, Fin<TValue>> read) =>
-        this switch {
-            var key => read(text).MapFail(cause => new RefusedEntry(key, text, cause)),
-        };
+    public Fin<TValue> Read<TValue>(string text, Func<string, Fin<TValue>> read) {
+        string entry = $"{Owner}{Separator}{Name(Path)}";
+        return read(text).MapFail(cause => Error.New($"entry {entry} refuses text {text}", cause));
+    }
 
     public static bool operator <(EntryKey left, EntryKey right) => left.CompareTo(right) < 0;
 
@@ -36,20 +36,28 @@ public readonly record struct EntryKey(string Owner, Seq<string> Path) : ICompar
     public static bool operator >=(EntryKey left, EntryKey right) => left.CompareTo(right) >= 0;
 }
 
+[JsonConverter(typeof(ValueSetConverter))]
 public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
     public static ValueSet Empty { get; } = new(HashMap<EntryKey, string>());
 
-    public static DictionaryCodec<ValueSet> Codec { get; } = new("ValueSet", 1, Encoded, Decoded);
+    public static DictionaryCodec<ValueSet> Codec { get; } = DictionaryCodec.Json<ValueSet>(nameof(ValueSet), 2, new RecordUpgrade<ValueSet>(nameof(ValueSet), ArchiveV1));
 
     public static ValueSet Fields<TRecord>(string owner, TRecord record, Seq<IStateParameter<TRecord>> parameters) where TRecord : notnull =>
         new(toHashMap(parameters.Bind(FieldTexts.Of).Choose(field => field.Capture(record).Map(text => (new EntryKey(owner, field.Path), text)))));
+
+    public static ValueSet Fields<TRecord>(string owner, TRecord record) where TRecord : IStateRecord<TRecord> => Fields(owner, record, TRecord.Parameters);
+
+    public Func<Seq<string>, IO<Option<string>>> Texts(string owner) => path => IO.pure(Entries.Find(new EntryKey(owner, path)));
+
+    public IO<TRecord> Recalled<TRecord>(string owner, TRecord factory) where TRecord : IStateRecord<TRecord> =>
+        FieldTexts.Recalled(owner, TRecord.Parameters, Texts(owner), factory);
 
     public string Text() => JsonSerializer.Serialize(this, ValueSetContext.Default.ValueSet);
 
     public static Fin<ValueSet> Read(string text) =>
         Try.lift(() => JsonSerializer.Deserialize(text, ValueSetContext.Default.ValueSet)).Run()
-            .BindFail(error => error.HasException<JsonException>() ? new UnreadText(text, typeof(ValueSet), Some(error)) : error)
-            .Bind(read => Optional(read).ToFin(new UnreadText(text, typeof(ValueSet))));
+            .BindFail(error => error.HasException<JsonException>() ? Error.New(ErrorCodes.ParseError, $"{text} reads as no {nameof(ValueSet)}", error) : error)
+            .Bind(read => Optional(read).ToFin(Errors.ParseError($"{text} reads as no {nameof(ValueSet)}")));
 
     public ValueSet Scoped(Option<IterableNE<EntryKey>> keys) =>
         keys.Match(Some: held => new ValueSet(Entries.Intersect(held)), None: () => this);
@@ -68,33 +76,21 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
         toSeq(Entries.AsIterable().OrderBy(static entry => entry.Key).GroupBy(static entry => entry.Key.Owner, StringComparer.Ordinal))
             .Map(owner => (owner.Key, Grown(toSeq(owner).Map(static entry => (entry.Key.Path, entry.Value)), leaf, branch)));
 
+    internal static Fin<ValueSet> ArchiveV1(ArchivableDictionary source) =>
+        from owners in ArchivableDictionaries.Children(source)
+        from parts in Callbacks.Each(owners, static (owner, _) => Leaves(owner.Key, owner.Value, []))
+        select new ValueSet(toHashMap(parts.Flatten()));
+
     private static TNode Grown<TNode>(Seq<(Seq<string> Path, string Text)> rows, Func<string, TNode> leaf, Func<Seq<(string Name, TNode Node)>, TNode> branch) =>
         rows.Find(static row => row.Path.IsEmpty).Match(
             Some: row => leaf(row.Text),
             None: () => branch(toSeq(rows.GroupBy(static row => row.Path[0], StringComparer.Ordinal))
                 .Map(group => (group.Key, Grown(toSeq(group).Map(static row => (row.Path.Tail, row.Text)), leaf, branch)))));
 
-    private static Fin<ArchivableDictionary> Encoded(ValueSet set) =>
-        Filled(set.Tree(static text => Fin.Succ(Left<string, ArchivableDictionary>(text)), static children => Filled(children).Map(static held => Right<string, ArchivableDictionary>(held))));
-
-    private static Fin<ArchivableDictionary> Filled(Seq<(string Name, Fin<Either<string, ArchivableDictionary>> Node)> children) =>
-        from target in Fin.Succ(new ArchivableDictionary())
-        from written in Callbacks.Each(children, (child, _) => child.Node.Bind(node => node.Match(
-            Left: text => ArchivableDictionaries.Set(target, child.Name, text),
-            Right: held => ArchivableDictionaries.Set(target, child.Name, held))))
-        select target;
-
-    private static Fin<ValueSet> Decoded(ArchivableDictionary source) =>
-        from owners in ArchivableDictionaries.Children(source)
-        from parts in Callbacks.Each(owners, static (owner, _) => Leaves(owner.Key, owner.Value, []))
-        select new ValueSet(toHashMap(parts.Flatten()));
-
     private static Fin<Seq<(EntryKey Key, string Text)>> Leaves(string owner, ArchivableDictionary source, Seq<string> path) =>
-        Callbacks.Each(toSeq(source), (entry, _) => entry.Value switch {
-            string text => Fin.Succ(Seq((new EntryKey(owner, path.Add(entry.Key)), text))),
-            ArchivableDictionary child => Leaves(owner, child, path.Add(entry.Key)),
-            var held => new TypeMismatch(entry.Key, held.GetType(), typeof(string)),
-        }).Map(static parts => parts.Flatten());
+        Callbacks.Each(toSeq(source), (entry, _) => entry.Value is ArchivableDictionary child
+            ? Leaves(owner, child, path.Add(entry.Key))
+            : Conversions.Typed<string>(entry.Value, entry.Key).Map(text => Seq((new EntryKey(owner, path.Add(entry.Key)), text)))).Map(static parts => parts.Flatten());
 }
 
 public sealed record ValueDiff(HashMap<EntryKey, Change<string>> Changes) {
@@ -147,16 +143,16 @@ public sealed record ValueBinding(
                     None: static () => IO.pure(IO.pure(ValueDiff.Empty)))),
         };
 
-    public static ValueBinding Fields<TValue>(string owner, ValueStore<TValue> store, TValue @default, Seq<(IStateParameter<TValue> Parameter, string Caption)> fields)
+    public static ValueBinding Fields<TValue>(string owner, ValueStore<TValue> store, TValue @default, Seq<IStateParameter<TValue>> fields)
         where TValue : notnull =>
-        (from field in fields from text in FieldTexts.Of(field.Parameter) select (Name: new NameText(text.Path, field.Caption, text.Shown), Text: text)).Strict() switch {
+        (from field in fields from text in FieldTexts.Of(field) select (Name: new NameText(text.Path, field.Text.Caption, text.Shown), Text: text)).Strict() switch {
             var items => fun((TValue value) => toHashMap(items.Choose(item => item.Text.Capture(value).Map(text => (item.Text.Path, text))))) switch {
                 var capture => new(owner, items.Map(static item => item.Name),
                     () => capture(@default),
                     store.Read.Map(held => held.IfNone(@default)).Map(capture),
                     entries =>
                         from held in store.Read
-                        from next in FieldTexts.Recalled(owner, fields.Map(static field => field.Parameter), path => IO.pure(entries.Find(path)), held.IfNone(@default))
+                        from next in FieldTexts.Recalled(owner, fields, path => IO.pure(entries.Find(path)), held.IfNone(@default))
                         select store.Write(Some(next)).Map(change => ValueDiff.Of(change, @default,
                             value => new ValueSet(toHashMap(capture(value).AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value))))))),
             },
@@ -183,14 +179,12 @@ public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
 
     public IO<ValueDiff> Apply(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
         from entries in IO.pure(incoming.Entries.Except(locks))
-        from prepared in Bindings
+        from prepared in Callbacks.Each(Bindings
             .Map(binding => (Binding: binding, Entries: toHashMap(binding.Paths()
                 .Choose(path => entries.Find(new EntryKey(binding.Owner, path)).Map(text => (path, text))))))
             .Filter(static held => !held.Entries.IsEmpty)
-            .Map<K<IO, IO<ValueDiff>>>(static held => held.Binding.Prepare(held.Entries))
-            .PartitionFallible().As()
-        from accepted in unless(prepared.Fails.IsEmpty, IO.fail<Unit>(Error.Many(prepared.Fails))).As()
-        from written in Callbacks.Each(prepared.Succs)
+            .Map(static held => held.Binding.Prepare(held.Entries)))
+        from written in Callbacks.Each(prepared)
         select ValueDiff.Together(written);
 }
 
@@ -218,7 +212,7 @@ public sealed class ValueSetConverter : JsonConverter<ValueSet> {
         select leaf;
 }
 
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true, Converters = [typeof(ValueSetConverter)])]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true)]
 [JsonSerializable(typeof(ValueSet))]
 [JsonSerializable(typeof(JsonObject))]
 public sealed partial class ValueSetContext : JsonSerializerContext;

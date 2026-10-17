@@ -1,5 +1,7 @@
 use core::hint::black_box;
 
+use serde::{Serialize, Serializer};
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LIMIT: usize = 8;
@@ -38,6 +40,16 @@ impl From<usize> for Window {
     fn from(width: usize) -> Self { Self { width } }
 }
 
+#[derive(Serialize)]
+struct Report {
+    #[serde(serialize_with = "Report::rendered")]
+    ports: usize,
+}
+
+impl Report {
+    fn rendered<S: Serializer>(ports: &usize, serializer: S) -> Result<S::Ok, S::Error> { serializer.collect_str(&format_args!("{ports} ports")) }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
@@ -68,6 +80,16 @@ macro_rules! measured {
 
 fn measuring(text: &str) -> usize { measured!(text) }
 
+fn scaled(width: usize) -> usize { width.strict_add(1) }
+
+macro_rules! reader {
+    ($name:ident, $read:expr) => {
+        fn $name(width: usize) -> usize { $read(width) }
+    };
+}
+
+reader!(widened, scaled);
+
 pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) }
 
 fn relayed(text: &str) -> usize { exported(text).strict_mul(2) }
@@ -88,10 +110,14 @@ fn outer(text: &str) -> usize {
 
 fn sided(side: usize) -> usize { geometry::Square::new(side).side() }
 
+fn halved(width: usize) -> usize { width.strict_div(2) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    fn narrowed(width: usize) -> usize { halved(width) }
     let window = Window { width: 3 };
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
-    black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4)));
+    black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8)));
 }

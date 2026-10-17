@@ -21,9 +21,9 @@ public interface IRenderSettingsRecord<TSelf> : IStateRecord<TSelf> where TSelf 
     public static abstract IO<TSelf> Write(RenderSettingsScope scope, TSelf record);
 }
 
-public interface IRenderSettingsRecord<TSelf, TParameter> : IRenderSettingsRecord<TSelf>, IStateRecord<TSelf, TParameter, InvalidRhinoValue>
+public interface IRenderSettingsRecord<TSelf, TParameter> : IRenderSettingsRecord<TSelf>, IStateRecord<TSelf, TParameter>
     where TSelf : IRenderSettingsRecord<TSelf, TParameter>
-    where TParameter : class, IRowParameter<TSelf>, ISmartEnum<string, TParameter, InvalidRhinoValue> {
+    where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, ValidationError> {
     public static abstract RowRules Rules(RowSource<TSelf> source, TParameter parameter);
 }
 
@@ -56,29 +56,24 @@ public static class RenderSettingsSources {
         source.Switch(
             edit,
             live: static (body, held) => Opened(held.Doc, live =>
-                DisposalOps.Within(live.Settings.Duplicate,
-                    staged =>
-                        from edited in body(live with { Settings = staged })
-                        from committed in IO.lift(() => { held.Doc.RenderSettings = staged; })
-                        select edited,
-                    static staged => IO.lift(staged.Dispose))),
+                DisposalOps.Within(live.Settings.Duplicate, staged =>
+                    from edited in body(live with { Settings = staged })
+                    from committed in IO.lift(() => { held.Doc.RenderSettings = staged; })
+                    select edited)),
             section: static (body, held) => SectionModels.Write(held.Host, Provider.RhinoSettings, data =>
-                DisposalOps.Within(data.GetRenderSettings,
-                    settings =>
-                        from lent in IO.lift(() => Missing.Unless(settings, nameof(RhinoSettings.GetRenderSettings)))
-                        from edited in body(new RenderSettingsScope(lent, held.Doc.ModelUnits))
-                        from committed in IO.lift(() => data.SetRenderSettings(lent))
-                        select edited,
-                    static settings => IO.lift(() => Optional(settings).Iter(static lent => lent.Dispose())))),
+                DisposalOps.Found(data.GetRenderSettings, nameof(RhinoSettings.GetRenderSettings), lent =>
+                    from edited in body(new RenderSettingsScope(lent, held.Doc.ModelUnits))
+                    from committed in IO.lift(() => data.SetRenderSettings(lent))
+                    select edited)),
             archive: static (body, held) => Read(held, body),
             detached: static (body, held) => Read(held, body));
 
     private static IO<T> Opened<T>(RhinoDoc doc, Func<RenderSettingsScope, IO<T>> body) =>
-        DisposalOps.Within(() => doc.RenderSettings, settings => body(new RenderSettingsScope(settings, doc.ModelUnits)), static settings => IO.lift(settings.Dispose));
+        DisposalOps.Within(() => doc.RenderSettings, settings => body(new RenderSettingsScope(settings, doc.ModelUnits)));
 
     // --- [SUB_OWNERS]
     public static IO<T> SubOwner<THost, T>(RenderSettingsScope scope, Func<RenderSettings, THost> select, Func<THost, IO<T>> body) where THost : IDisposable =>
-        DisposalOps.Within(() => select(scope.Settings), body, static held => IO.lift(held.Dispose));
+        DisposalOps.Within(() => select(scope.Settings), body);
 
     // --- [STORES]
     public static ValueStore<TRecord> Store<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
@@ -105,7 +100,13 @@ public static class RenderSettingsSources {
 
     public static DictionaryOwner Dictionary(RenderSettingsSource source) =>
         new(Read(source, static scope => ArchivableDictionaries.UserDictionary(scope.Settings).Map(static held => held.Clone())),
-            edit => Edit(source, scope => ArchivableDictionaries.UserDictionary(scope.Settings).Bind(target => IO.lift(() => edit(target)))));
+            edit => Edit(source, scope => ArchivableDictionaries.UserDictionary(scope.Settings).Bind(target => IO.lift(() => edit(target))))) {
+            Document = source.Switch(
+                live: static held => Some(held.Doc),
+                section: static _ => Option<RhinoDoc>.None,
+                archive: static _ => Option<RhinoDoc>.None,
+                detached: static _ => Option<RhinoDoc>.None),
+        };
 
     // --- [ARRIVALS]
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register<TRecord>(Func<TRecord, TRecord> next) where TRecord : IRenderSettingsRecord<TRecord> =>
@@ -132,31 +133,24 @@ public static class RenderSettingsSources {
         Edit(source, static staged => Callbacks.Each(Rows(staged).Map(static row => row.Reset)).Map(unit));
 
     private static Seq<(ValueBinding Binding, IO<Unit> Reset)> Rows(RenderSettingsSource source) =>
-        Seq(Row<ImageOutputState, ImageOutputParameter>(source), Row<RenderSourceState, RenderSourceParameter>(source), Row<FrameState, FrameParameter>(source),
-                Row<LinearWorkflowState, LinearWorkflowParameter>(source), Row<DitheringState, DitheringParameter>(source), Row<RenderChannelsState, RenderChannelsParameter>(source),
-                Row<BackgroundState, BackgroundParameter>(source), Row<LightingState, LightingParameter>(source), Row<SafeFrameState, SafeFrameParameter>(source),
-                Row<GroundPlaneState, GroundPlaneParameter>(source), Row<SunState, SunParameter>(source))
+        Seq(Row<ImageOutputState>(source), Row<RenderSourceState>(source), Row<FrameState>(source),
+                Row<LinearWorkflowState>(source), Row<DitheringState>(source), Row<RenderChannelsState>(source),
+                Row<BackgroundState>(source), Row<LightingState>(source), Row<SafeFrameState>(source),
+                Row<GroundPlaneState>(source), Row<SunState>(source))
             .Concat(Dictionary(source) switch {
                 var dictionary => toSeq(CyclesKey.Items).Map(item => item.Entry(dictionary)),
             });
 
-    private static (ValueBinding Binding, IO<Unit> Reset) Row<TRecord, TParameter>(RenderSettingsSource source)
-        where TRecord : IRenderSettingsRecord<TRecord, TParameter>
-        where TParameter : class, IRowParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
+    private static (ValueBinding Binding, IO<Unit> Reset) Row<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
         Store<TRecord>(source) switch {
-            var store => (
-                ValueBinding.Fields(TRecord.Owner, store, TRecord.Default, toSeq(TParameter.Items)
-                    .Map<(IStateParameter<TRecord> Parameter, string Caption)>(static parameter => (parameter, parameter.Text.Caption))),
-                store.Write(None).Map(unit)),
+            var store => (ValueBinding.Fields(TRecord.Owner, store, TRecord.Default, TRecord.Parameters), store.Write(None).Map(unit)),
         };
 
     // --- [ROWS]
     public static Seq<ControlRow> Fields<TRecord, TParameter>(Seq<TParameter> items)
         where TRecord : IRenderSettingsRecord<TRecord, TParameter>
-        where TParameter : class, IRowParameter<TRecord>, ISmartEnum<string, TParameter, InvalidRhinoValue> =>
-        items.Map(static item => (Parameter: item, item.Text)).Strict() switch {
-            var texts => SectionRows.Source(TRecord.Owner, texts, static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord>(doc)))) switch {
-                var source => SectionRows.Of(source, texts, None, item => TRecord.Rules(source, item)),
-            },
+        where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, ValidationError> =>
+        RowSource.Fields(TRecord.Owner, [.. items], static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord>(doc)))) switch {
+            var source => SectionRows.Of(source, items, None, item => TRecord.Rules(source, item)),
         };
 }

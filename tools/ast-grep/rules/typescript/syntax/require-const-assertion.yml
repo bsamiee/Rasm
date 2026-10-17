@@ -17,7 +17,7 @@ utils:
 rule:
     kind: satisfies_expression
     pattern: $VALUE satisfies $TYPE
-    inside: {kind: variable_declarator, field: value, stopBy: {not: {kind: parenthesized_expression}}, inside: {matches: syntax-module-constant}}
+    inside: {kind: variable_declarator, field: value, stopBy: {not: {kind: parenthesized_expression}}, inside: {matches: typescript-module-constant}}
     not: {has: {nthChild: 2, has: {stopBy: end, matches: mutable-sequence-type}}}
 constraints:
     VALUE: {matches: literal-value}

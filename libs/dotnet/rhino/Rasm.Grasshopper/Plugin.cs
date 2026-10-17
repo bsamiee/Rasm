@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Grasshopper2;
@@ -11,14 +10,9 @@ using Rasm.Rhino;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Grasshopper;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum Codes {
-    PluginRefused = 1,
-}
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GrasshopperPluginDefinition {
@@ -28,23 +22,13 @@ public sealed record GrasshopperPluginDefinition {
     public Seq<Func<DefinedGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record PluginRefused : Expected {
-    public PluginRefused(string location, FailureKind reason, Option<Error> cause) : base("{Location} failed to load with {Reason}", (int)Codes.PluginRefused, cause) =>
-        (Location, Reason) = (location, reason);
-
-    public string Location { get; }
-    public FailureKind Reason { get; }
-
-    public static Fin<Unit> Unless(bool loaded, FailureInfo failure) =>
-        loaded ? unit : new PluginRefused(failure.Location, failure.Kind, Optional(failure.Exception).Map(static exception => New(exception)));
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GrasshopperPlugins {
     public static IO<Unit> Load(string location) =>
         from scoped in IO.lift(() => PluginServer.ScopePlugin(location))
-        from loaded in IO.lift(() => PluginRefused.Unless(PluginServer.LoadPlugin(location, out FailureInfo failure), failure))
+        from loaded in IO.lift(Fin<Unit> () => PluginServer.LoadPlugin(location, out FailureInfo failure)
+            ? unit
+            : new Expected($"{failure.Location} failed to load with {failure.Kind}: {failure.Reason}", 0, Optional(failure.Exception).Map(static exception => Error.New(exception))))
         select loaded;
 }
 
@@ -83,8 +67,8 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
                 from contract in type.GetInterfaces()
                 where contract.IsConstructedGenericType && contract.GetGenericTypeDefinition() == typeof(IComponentDefinition<>)
                 from getter in type.GetInterfaceMap(contract).TargetMethods
-                from row in Expression.Lambda<Func<Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)>>>(
-                    Expression.Call(derive.MakeGenericMethod(getter.ReturnType.GenericTypeArguments), Expression.Call(getter))).Compile()()
+                from row in (Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)>)derive.MakeGenericMethod(getter.ReturnType.GenericTypeArguments).Invoke(
+                    null, BindingFlags.DoNotWrapExceptions, binder: null, [getter.Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, parameters: null, culture: null)], culture: null)!
                 select row).DistinctBy(static row => row.Type)).Strict();
         })
                       from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(this).Bind(row)))
@@ -93,15 +77,16 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
 
     // --- [LOAD]
     public sealed override void OnLoaded() =>
-        _ = (from initialized in IO.lift(static () => AssemblyLoading.Initialized)
-             from opened in Session.Open(this, [
-                 static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain),
-                 static (owner, retain) => PreviewTiles.Open(owner, owner.definition.Clock, IO.pure(TileLimits.Default), None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
-                 .. definition.Acquisitions])
-             select unit)
-            .Catch(error => IO.lift(() => Report(error, GetType(), nameof(OnLoaded))).Bind(_ => IO.fail<Unit>(error)))
-            .As()
-            .Run();
+        _ = Callbacks.Settled(
+                (from initialized in IO.lift(static () => AssemblyLoading.Initialized)
+                 from opened in Session.Open(this, [
+                     static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain),
+                     static (owner, retain) => PreviewTiles.Open(owner, owner.definition.Clock, None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
+                     .. definition.Acquisitions])
+                 select unit)
+                .Catch(error => IO.lift(() => Report(error, GetType(), nameof(OnLoaded))).Bind(_ => IO.fail<Unit>(error)))
+                .As(), CancellationToken.None)
+            .ThrowIfFail();
 
     // --- [SINK]
     public void Report(Error error, Type owner, string member) => Session.Report(error, owner, member);

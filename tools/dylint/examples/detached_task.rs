@@ -121,6 +121,13 @@ fn tracked_path(tracker: &TaskTracker) { TaskTracker::spawn(tracker, async {}); 
 
 async fn threaded() { let _worker = thread::spawn(|| 1_i32); }
 
+async fn closured() {
+    let detach = || {
+        thread::spawn(|| 1_i32);
+    };
+    detach();
+}
+
 fn named() -> io::Result<()> {
     thread::Builder::new().spawn(|| 1_i32)?;
     Ok(())
@@ -145,6 +152,7 @@ async fn main() {
     on_handle(&Handle::current());
     unread();
     threaded().await;
+    closured().await;
     through_wrapper();
     dropped();
     bound_then_dropped();

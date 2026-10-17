@@ -1,6 +1,7 @@
 """Render queues submitted to a Flamenco Manager, each blend file placed in its storage."""
 
 import base64
+from collections.abc import Callable
 from enum import StrEnum
 from http import HTTPMethod
 from itertools import batched, starmap
@@ -8,9 +9,9 @@ from pathlib import Path, PurePath
 import platform
 import shutil
 import sys
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Final
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import httpx2
 import msgspec
@@ -18,9 +19,9 @@ from scipy.cluster.hierarchy import DisjointSet
 
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case, Gated, Presentation
-from blender.rendering.batch.exchange import Endpoint, exchange, requested, sent
+from blender.rendering.batch.exchange import Endpoint, exchange, sent
 from blender.rendering.batch.queue import Job, RenderFrames, RenderQueue
-from blender.rendering.faults import Cause, RenderingReadFault, RenderingResult, RenderingSendFault, RenderingWriteFault
+from blender.rendering.faults import Cause, RenderingFaults, RenderingReadFault, RenderingResult, RenderingSendFault, RenderingWriteFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -40,13 +41,16 @@ class JobStatus(StrEnum):
     PAUSED = "paused"
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+PLATFORM: Final = platform.system().lower()
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Flamenco(Case, frozen=True, kw_only=True, tag=3):
     """Jobs submitted to a Flamenco Manager, each blend file placed in its storage."""
 
-    title = "Flamenco"
     script: ClassVar[str] = "rasm_render.js"
     kind: ClassVar[str] = PurePath(script).stem.replace("_", "-")
     server: Annotated[Endpoint, msgspec.Meta(title="Manager", description="Flamenco Manager address")] = Endpoint(url="http://localhost:8080")
@@ -198,10 +202,9 @@ def queried(client: httpx2.Client) -> RenderingResult[Manager]:
 
     return paired(
         paired(
-            exchange(client, requested(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{platform.system().lower()}"), SharedStorageLocation),
-            exchange(client, requested(client, HTTPMethod.GET, "/api/v3/jobs/types"), AvailableJobTypes),
+            exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{PLATFORM}", SharedStorageLocation), exchange(client, HTTPMethod.GET, "/api/v3/jobs/types", AvailableJobTypes)
         ),
-        exchange(client, requested(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags"), WorkerTagList),
+        exchange(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags", WorkerTagList),
     ).map(built)
 
 
@@ -222,33 +225,31 @@ def placed(client: httpx2.Client, manager: Manager, queue: RenderQueue) -> Rende
 
         return catch(copy, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=target, error=error),))
 
-    def specified(name: str, job: Job) -> RenderingResult[ShamanFileSpec]:
-        return (
-            catch(lambda: Path(job.file).stat().st_size, exception=OSError)()
-            .map_error(lambda error: (RenderingSendFault(request=job.file, error=424) if isinstance(error, FileNotFoundError) else RenderingReadFault(request=job.file, error=error),))
-            .map(lambda size: ShamanFileSpec(sha=job.digest.hex(), size=size, path=name))
+    def read[T](source: str, reader: Callable[[Path], T]) -> RenderingResult[T]:
+        return catch(lambda: reader(Path(source)), exception=OSError)().map_error(
+            lambda error: (RenderingSendFault(request=source, error=424) if isinstance(error, FileNotFoundError) else RenderingReadFault(request=source, error=error),)
         )
 
-    def checked(specs: tuple[ShamanFileSpec, ...]) -> RenderingResult[ManagerFiles]:
-        requirements = requested(client, HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", Some(ShamanRequirementsRequest(files=specs)))
+    def specified(name: str, job: Job) -> RenderingResult[ShamanFileSpec]:
+        return read(job.file, lambda path: path.stat().st_size).map(lambda size: ShamanFileSpec(sha=job.digest.hex(), size=size, path=name))
 
-        def uploaded(spec: ShamanFileSpecWithStatus) -> RenderingResult[bytes]:
-            try:
-                source = Path(local[spec.path].file)
-            except KeyError:
-                return Error((RenderingSendFault(request=requirements.url, error=Cause.UNREADABLE),))
-            try:
-                data = source.read_bytes()
-            except FileNotFoundError:
-                return Error((RenderingSendFault(request=source, error=424),))
-            except OSError as error:
-                return Error((RenderingReadFault(request=source, error=error),))
-            return sent(client, requested(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
+    def checked(specs: tuple[ShamanFileSpec, ...]) -> RenderingResult[ManagerFiles]:
+        def uploaded(spec: ShamanFileSpecWithStatus) -> RenderingResult[httpx2.Response]:
+            def unlisted() -> RenderingFaults:
+                return (RenderingSendFault(request=spec.path, error=Cause.UNREADABLE),)
+
+            return (
+                Option
+                .of_optional(local.get(spec.path))
+                .to_result_with(unlisted)
+                .bind(lambda job: read(job.file, Path.read_bytes))
+                .bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
+            )
 
         return (
-            exchange(client, requirements, ShamanRequirementsResponse)
+            exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", ShamanRequirementsResponse, Some(ShamanRequirementsRequest(files=specs)))
             .bind(lambda wanted: accumulated(uploaded(spec) for spec in wanted.files))
-            .bind(lambda _: exchange(client, requested(client, HTTPMethod.POST, "/api/v3/shaman/checkout/create", Some(ShamanCheckout(files=specs, checkout_path=folder))), ShamanCheckoutResult))
+            .bind(lambda _: exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/create", ShamanCheckoutResult, Some(ShamanCheckout(files=specs, checkout_path=folder))))
             .map(
                 lambda created: ManagerFiles(
                     files={job.file: f"{{jobs}}/{created.checkout_path}/{name}" for name, job in files}, storage=Some(JobStorageInfo(shaman_checkout_id=created.checkout_path))
@@ -292,25 +293,22 @@ def submitted(client: httpx2.Client, target: Flamenco, queue: RenderQueue, rende
             )
             return exchange(
                 client,
-                requested(
-                    client,
-                    HTTPMethod.POST,
-                    "/api/v3/jobs",
-                    Some(
-                        SubmittedJob(
-                            name="; ".join(job.title for _, job in jobs),
-                            type=Flamenco.kind,
-                            type_etag=job_type.map(lambda kind: kind.etag).to_optional(),
-                            priority=target.priority,
-                            submitter_platform=platform.system().lower(),
-                            settings={"jobs": tuple(task for _, task in tasks), "render_command": render_command, **{task.output_root: root for root, task in tasks}},
-                            initial_status=JobStatus.PAUSED if target.paused else JobStatus.QUEUED,
-                            worker_tag=target.tag.value if target.tag.enabled else None,
-                            storage=stored.storage.to_optional(),
-                        )
-                    ),
-                ),
+                HTTPMethod.POST,
+                "/api/v3/jobs",
                 ManagerJob,
+                Some(
+                    SubmittedJob(
+                        name="; ".join(job.title for _, job in jobs),
+                        type=Flamenco.kind,
+                        type_etag=job_type.map(lambda kind: kind.etag).to_optional(),
+                        priority=target.priority,
+                        submitter_platform=PLATFORM,
+                        settings={"jobs": tuple(task for _, task in tasks), "render_command": render_command, **{task.output_root: root for root, task in tasks}},
+                        initial_status=JobStatus.PAUSED if target.paused else JobStatus.QUEUED,
+                        worker_tag=target.tag.value if target.tag.enabled else None,
+                        storage=stored.storage.to_optional(),
+                    )
+                ),
             ).map(lambda reply: reply.id)
 
         return Ok(tuple(map(component, components.subsets())))

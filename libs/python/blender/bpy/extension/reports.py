@@ -9,6 +9,7 @@ from typing import Self, TYPE_CHECKING
 
 import bpy
 from expression import identity, Nothing, Ok, Option
+import msgspec
 
 from blender.bpy.faults import (
     BlenderAbsentFault,
@@ -32,22 +33,15 @@ from blender.imaging.faults import (
     ImagingBufferFault,
     ImagingCalibrationFault,
     ImagingCoincidentFault,
+    ImagingColorFault,
     ImagingComparisonFault,
-    ImagingConfigFault,
     ImagingContrastFault,
-    ImagingCurveFault,
-    ImagingDiffractionFault,
     ImagingFault,
-    ImagingGeneratorFault,
     ImagingJpegFault,
-    ImagingLutFault,
     ImagingLutShapeFault,
-    ImagingMatrixFault,
     ImagingMismatchFault,
-    ImagingProcessorFault,
+    ImagingNumericFault,
     ImagingReadFault,
-    ImagingRepresentationFault,
-    ImagingSpecksFault,
     ImagingSpectralFault,
     ImagingUnresolvedFault,
     ImagingWhiteFault,
@@ -223,26 +217,16 @@ def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", st
     def imaging(fault: ImagingFault) -> str:
         """Renders one imaging failure from its native payload."""
         match fault:
-            case ImagingConfigFault(request=request, error=error):
-                return f"Color configuration {request} failed: {error}" if isinstance(request, str) else f"Color configuration failed: {error}"
+            case ImagingColorFault(request=request, error=error):
+                return f"Color operation on {request if isinstance(request, str) else type(request).__name__} failed: {error}"
             case ImagingUnresolvedFault(error=names):
                 return f"Color configuration resolves no colorspace for {', '.join(names)}"
-            case ImagingProcessorFault(error=error):
-                return f"Color processor failed: {error}"
-            case ImagingCurveFault(request=curve, error=error):
-                return f"{type(curve).__name__} curves failed validation: {error}"
             case ImagingCoincidentFault(curve=curve):
                 return f"{type(curve).__name__} holds two knots of one curve at one input"
             case ImagingBaseFault(space=space, transform=transform):
                 return f"Color space {space} has unsupported linear RGB geometry: {transform}"
             case ImagingSpectralFault(space=space, values=values):
                 return f"Spectral matching for {space} cannot normalize RGB channels: {values}"
-            case ImagingDiffractionFault(request=pupil, size=size, frame=frame, pixel_aspect=pixel_aspect, error=error):
-                return f"Diffraction for {pupil} at size {size}, frame {frame}, and pixel aspect {pixel_aspect} failed ({type(error).__name__}): {error}"
-            case ImagingSpecksFault(request=specks, size=size, error=error):
-                return f"Lens dirt for {specks} at size {size} failed ({type(error).__name__}): {error}"
-            case ImagingLutFault(request=request, error=error):
-                return f"LUT {request} failed: {error}" if isinstance(request, str) else f"LUT failed: {error}"
             case ImagingReadFault(request=path, error=error):
                 return f"{path} is unreadable: {error}"
             case ImagingWriteFault(request=path, error=error):
@@ -255,8 +239,8 @@ def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", st
                 return f"Image comparison failed: {error}"
             case ImagingCalibrationFault(singular_values=values, tolerance=tolerance):
                 return f"Calibration matrix has singular values {values}, outside tolerance {tolerance:.3g}"
-            case ImagingMatrixFault(request=matrix, error=error):
-                return f"Matrix operation for {matrix} failed: {error}"
+            case ImagingNumericFault(request=request, error=error):
+                return f"Numeric operation for {request} failed ({type(error).__name__}): {error}"
             case ImagingContrastFault(request=request, black=black, white=white):
                 return f"{request} has zero normalization contrast between endpoints {black} and {white}"
             case ImagingLutShapeFault(path=path, shape=shape):
@@ -265,10 +249,6 @@ def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", st
                 return white.map(lambda value: f"Measured scene white {value} lies outside the tone operator's exposure domain").default_value("White metering has no covered finite luminance samples")
             case ImagingJpegFault(request=request, error=error):
                 return f"JPEG compression for {request} failed: {error}"
-            case ImagingGeneratorFault(request=request, error=error):
-                return f"Procedural field for {request} failed ({type(error).__name__}): {error}"
-            case ImagingRepresentationFault(request=request, error=error):
-                return f"Image representation for {request} failed ({type(error).__name__}): {error}"
 
     def rendering(fault: RenderingFault) -> tuple[str, ...]:
         """Renders rendering failures, preserving complete nested imaging tuples."""
@@ -300,14 +280,11 @@ def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", st
                 return (f"{call.name.lower().replace('_', ' ')} of {argument} failed: {error}",)
             case RenderingTimeFault(request=request, error=error):
                 return (f"Calendar calculation for {request} failed: {error}",)
-            case RenderingSizeFault(request=size, error=error):
-                return (
-                    error.map(lambda bounds: f"Pixel dimensions {size} lie outside full-scale overscan bounds {bounds}").default_value(f"Pixel dimensions {size} are empty")
-                    if isinstance(error, Option)
-                    else f"Dimensions {size} could not be materialized ({type(error).__name__}): {error}",
-                )
+            case RenderingSizeFault(request=size, error=bounds):
+                return (bounds.map(lambda limit: f"Pixel dimensions {size} lie outside full-scale overscan bounds {limit}").default_value(f"Pixel dimensions {size} are empty"),)
             case RenderingArithmeticFault(request=operands, error=error):
-                return (f"Numeric calculation for {operands} failed: {error}",)
+                named = ", ".join(type(operand).__name__ if isinstance(operand, msgspec.Struct) else f"{operand:g}" for operand in (operands if isinstance(operands, tuple) else (operands,)))
+                return (f"Numeric calculation for {named} failed ({type(error).__name__}): {error}",)
             case RenderingImagingFault(faults=inner):
                 return tuple(map(imaging, inner))
 

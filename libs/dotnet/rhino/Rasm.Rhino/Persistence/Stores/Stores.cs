@@ -13,7 +13,6 @@ public sealed partial class Applied {
 
     public static readonly Applied Live = new(Option<IO<Unit>>.None);
     public static readonly Applied IdleSave = new(Some(Flush));
-    public static readonly Applied Relaunch = new(Some(Flush));
 
     public Option<IO<Unit>> Drain { get; }
 }
@@ -59,6 +58,9 @@ public static class ValueStore {
                 from written in when(change.HasChanged, put(target)).As()
                 select change,
             same, applied, changed);
+
+    public static ValueStore<T> Readout<T>(IO<T> read, Option<HostEvent<Unit>> changed) where T : notnull =>
+        new(read.Map(static value => Some(value)), static _ => IO.pure(Change<T>.None), EqualityComparer<T>.Default.Equals, Applied.Live, changed);
 
     public static Change<T> Between<T>(Option<T> before, Option<T> after, Option<Func<T, T, bool>> same = default) =>
         (before.Case, after.Case) switch {

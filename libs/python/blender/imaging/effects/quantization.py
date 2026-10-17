@@ -23,8 +23,6 @@ type IntegerDepth = Literal[8, 16]
 class BlueNoise(Case, frozen=True, kw_only=True, tag=1):
     """Triangular blue-noise dither at one LSB with exact black and white endpoints."""
 
-    title = "Blue Noise"
-
     @staticmethod
     @functools.cache
     def tile() -> ImagingResult[npt.NDArray[np.float32]]:
@@ -71,9 +69,8 @@ class Dither(Effect, frozen=True, kw_only=True, tag=45):
     """Blue-noise dither or whole-frame error diffusion before integer output."""
 
     stage = Stage.QUANTIZATION
-    title = "Dither"
     pointwise = False
-    method: Annotated[BlueNoise | Diffusion, msgspec.Meta(title="Method", description="Blue-noise dither or whole-frame error diffusion")] = BlueNoise()
+    method: Annotated[BlueNoise | Diffusion, msgspec.Meta(description="Blue-noise dither or whole-frame error diffusion")] = BlueNoise()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

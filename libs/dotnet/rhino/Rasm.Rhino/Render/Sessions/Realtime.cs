@@ -19,13 +19,11 @@ public enum HudGesture { LeftClick, RightClick, DoubleClick }
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct PassCount : System.Numerics.IMinMaxValue<PassCount> {
     public static PassCount MinValue { get; } = new(0);
     public static PassCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record RealtimeTarget(PixelExtent Extent, bool ForCapture, RenderWindow Window);
@@ -41,7 +39,7 @@ public sealed record RealtimeSession(
     public bool Completed => !Locked && Frame.IsSome && (Target.ForCapture || Limit.Exists(limit => Pass >= limit));
 
     public Option<Fin<ProgressFraction>> Progress =>
-        Limit.Map(limit => Pass >= limit ? ProgressFraction.MaxValue : Conversions.Validated<ProgressFraction, float, InvalidRhinoValue>((float)Pass / limit));
+        Limit.Map(limit => Pass >= limit ? ProgressFraction.MaxValue : ProgressFraction.Validated((float)Pass / limit));
 
     public RealtimeSession Restarted(Instant now) => this with { Started = now, Pass = PassCount.Zero, Frame = None };
 
@@ -156,7 +154,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         Callbacks.Succeeded(
             from session in Session
             from resize in Resize
-            select IO.lift(RenderWindows.Extent(width, height)).Bind(extent => Resized(session.Target with { Extent = extent }, resize)),
+            select IO.lift(PixelExtent.Validated(width, height)).Bind(extent => Resized(session.Target with { Extent = extent }, resize)),
             () => base.OnRenderSizeChanged(width, height),
             CallbackSite.Of(this));
 
@@ -177,8 +175,8 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     private IO<Unit> Started(int width, int height, RhinoDoc doc, ViewInfo view, ViewportInfo viewport, bool forCapture, RenderWindow window) =>
         DisposalOps.OnFailure(
             from opened in DisposalOps.Replace(owned =>
-                from framing in DisposalOps.Acquire(IO.pure(viewport), static held => IO.lift(held.Dispose), owned)
-                from extent in IO.lift(RenderWindows.Extent(width, height))
+                from framing in DisposalOps.Acquire(IO.pure(viewport), owned)
+                from extent in IO.lift(PixelExtent.Validated(width, height))
                 let target = new RealtimeTarget(extent, forCapture, window)
                 from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
                 from added in RenderWindows.AddRequested(target.Window)
@@ -229,7 +227,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             CallbackSite.Of(this));
 
     // --- [HUD]
-    public sealed override string HudProductName() => RowText.Localize(TEngine.Product, table: Some<object>(views)).Local;
+    public sealed override string HudProductName() => RowText.Localize(TEngine.Product, views).Local;
 
     public sealed override string HudCustomStatusText() => Conversions.Unset(Session.Bind(static session => session.Status));
 
@@ -269,7 +267,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             CallbackSite.Of(this, nameof(Hud))).Invoke;
 
     private IO<Unit> Edited(int maxPasses) =>
-        from limit in IO.lift(Conversions.Validated<PassCount, int, InvalidRhinoValue>(maxPasses))
+        from limit in IO.lift(PassCount.Validated(maxPasses))
         from limited in Swapped((session, _) => session with { Limit = Some(limit) })
         from delivered in Delivered(new HudEvent.MaxPassesEdited(limit))
         select unit;
@@ -299,7 +297,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
 public abstract class DefinedRealtimeEngineInfo<TEngine> : RealtimeDisplayModeClassInfo
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
-    public sealed override string Name => RowText.Localize(TEngine.Product, table: Some<object>(IPlugInSink.Of(this))).Local;
+    public sealed override string Name => RowText.Localize(TEngine.Product, IPlugInSink.Of(this)).Local;
     public sealed override Guid GUID => RealtimeDisplayModeType.GUID;
     public sealed override bool DrawOpenGl => IRealtimeProduct.DrawsOpenGl;
     public sealed override Type RealtimeDisplayModeType => typeof(TEngine);

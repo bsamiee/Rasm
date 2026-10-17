@@ -57,7 +57,7 @@ class Tab(Case, frozen=True, kw_only=True, tag=1):
     """Stock Properties editor tab the panels join."""
 
     title: ClassVar[str] = "Properties Tab"
-    tab: Annotated[str, msgspec.Meta(title="Tab", description="Properties editor tab the panels join"), tabs]
+    tab: Annotated[str, msgspec.Meta(description="Properties editor tab the panels join"), tabs]
 
 
 class Sidebar(Case, frozen=True, kw_only=True, tag=2):

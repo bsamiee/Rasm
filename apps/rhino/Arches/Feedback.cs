@@ -1,5 +1,7 @@
 using Rasm.Rhino;
 using Rasm.Rhino.Display;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Curves;
 using Rhino.Display;
 
 namespace Arches;
@@ -10,16 +12,14 @@ internal static class ArchFeedback {
 
     public static IO<Unit> DrawEnds(DisplayPipeline display, Line baseline) => Marks.Draw(display, Ends(baseline));
 
-    public static IO<Unit> Draw(DisplayPipeline display, Line baseline, Plane frame, Func<Action<IDisposable>, IO<Option<Seq<Curve>>>> candidate) =>
-        (Midpoint: baseline.PointAt(0.5), Reach: frame.YAxis * baseline.Length) switch {
-            var span => envIO.Bind(environment =>
-                DisposalOps.Within((Action<IDisposable> retain) =>
-                 from curves in IO.liftVAsync(() => candidate(retain).RunAsync(environment))
-                 from drawn in Marks.Draw(display, Figure(baseline, span, curves))
-                 select drawn, DisposalOps.Release).Uninterruptible()),
-        };
+    public static IO<Unit> Draw(DisplayPipeline display, ArchSpan span, Option<ArchForm> form, Tolerances tolerances) =>
+        DisposalOps.Within((Action<IDisposable> retain) =>
+            form.Match(
+                    Some: held => CurveConstruction.CreateArch(span, held, tolerances, retain).Map(static curves => Some(curves)).Catch(ArchPrompts.Rejected, static _ => IO.pure(Option<Seq<Curve>>.None)),
+                    None: static () => IO.pure(Option<Seq<Curve>>.None))
+                .Bind(curves => Marks.Draw(display, Figure(span, curves))), DisposalOps.Release);
 
-    private static Seq<WorldMark> Figure(Line baseline, (Point3d Midpoint, Vector3d Reach) span, Option<Seq<Curve>> curves) =>
+    private static Seq<WorldMark> Figure(ArchSpan span, Option<Seq<Curve>> curves) =>
         curves.Match(
             Some: held => held.Bind(static curve => curve is ArcCurve { Arc: var arc }
                     ? Seq<WorldMark>(
@@ -28,10 +28,10 @@ internal static class ArchFeedback {
                         + Ends(new Line(arc.StartPoint, arc.EndPoint))
                     : Seq<WorldMark>(new RetainedMark.CurveMark(curve, Appearance.Curve, Appearance.CurveThickness)))
                 + Seq<WorldMark>(
-                    new RetainedMark.LineMark(new Line(span.Midpoint - span.Reach, span.Midpoint + span.Reach), Appearance.Construction, Appearance.ConstructionThickness),
+                    new RetainedMark.LineMark(new Line(span.Apex(-span.Baseline.Length), span.Apex(span.Baseline.Length)), Appearance.Construction, Appearance.ConstructionThickness),
                     new RetainedMark.Points(Seq(span.Midpoint), Appearance.ActivePoint, Appearance.PointStyle))
-                + Ends(baseline),
-            None: () => Ends(baseline));
+                + Ends(span.Baseline),
+            None: () => Ends(span.Baseline));
 
     private static Seq<WorldMark> Ends(Line baseline) =>
         Seq<WorldMark>(

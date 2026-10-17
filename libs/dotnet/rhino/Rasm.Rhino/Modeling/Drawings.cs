@@ -46,7 +46,7 @@ public static partial class Drawings {
         bool multipleThreads, bool rejoin, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         DisposalOps.Acquire(outputs =>
         from unique in IO.lift(() => Callbacks.Unique(clips, identity, nameof(HiddenLineDrawingParameters.AddClippingPlane)).ToFin())
-        let parameters = Parameters(tolerances.Absolute)
+        let parameters = new HiddenLineDrawingParameters { AbsoluteTolerance = tolerances.Absolute }
         from configured in IO.lift(() => {
             _ = unique.Iter(parameters.AddClippingPlane);
             return subjects(parameters);
@@ -56,30 +56,23 @@ public static partial class Drawings {
             temporary => Computed(parameters, multipleThreads, progress, temporary).Bind(drawing => Drawn(drawing, rejoin, outputs)),
             DisposalOps.Release)
         select drawn,
-        (_, lease) => retain(lease));
+        retain);
 
     private static IO<Unit> Projected(ProjectionFrame frame, BoundingBox bounds, HiddenLineDrawingParameters parameters, Action<IDisposable> temporary) =>
         frame.Switch(
             (Bounds: bounds, Retain: temporary),
-            rhinoViewport: static (state, live) => DisposalOps.Acquire(
-                    IO.lift(() => new ViewportInfo(live)), static camera => IO.lift(camera.Dispose), state.Retain)
+            rhinoViewport: static (state, live) => DisposalOps.Acquire(IO.lift(() => new ViewportInfo(live)), state.Retain)
                 .OnUiThread()
                 .Bind(camera => IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(state.Bounds), camera, nameof(ViewportInfo.SetFrustumNearFar)))),
             cameraPose: static (state, pose) => Cameras.ToViewportInfo(pose, state.Bounds, state.Retain))
             .Bind(viewport => IO.lift(() => parameters.SetViewport(viewport)));
 
-    [MapPropertyFromSource(nameof(HiddenLineDrawingParameters.AbsoluteTolerance))]
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    private static partial HiddenLineDrawingParameters Parameters(double tolerance);
-
     private static IO<HiddenLineDrawing> Computed(HiddenLineDrawingParameters parameters, bool multipleThreads, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         from token in cancelToken
         from drawing in Copies.Owned(
-            () => Callbacks.Thrown<ArgumentException, HiddenLineDrawing?>(
-                () => HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token),
-                nameof(HiddenLineDrawing.Compute)),
-            answer => answer.Bind(computed => Optional(computed).ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Missing(nameof(HiddenLineDrawing.Compute)))),
-            static answer => answer.Match(Succ: static drawing => DisposalOps.Release(Conversions.Rows([drawing])), Fail: static _ => IO.pure(unit)), retain)
+            () => HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token),
+            answer => Optional(answer).ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Refused(nameof(HiddenLineDrawing.Compute), Refused.Absent)),
+            static answer => DisposalOps.Release(answer), retain)
         select drawing;
 
     private static IO<LineDrawing> Drawn(HiddenLineDrawing drawing, bool rejoin, Action<IDisposable> retain) =>

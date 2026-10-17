@@ -6,7 +6,7 @@ utils:
     gen-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M, matches: effect-effect-module}}, {has: {field: property, regex: '^gen$'}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}, {has: {field: property, regex: '^gen$'}}]}
             - has:
                 field: arguments
                 all:
@@ -21,7 +21,7 @@ utils:
                 - has: {field: arguments, pattern: $STEPLIST}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-effect-module}}, {has: {field: property, regex: '^withSpan$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}, {has: {field: property, regex: '^withSpan$'}}]}
                 - has: {field: arguments, has: {nthChild: 1, matches: gen-call}}
     returned-gen:
         any:

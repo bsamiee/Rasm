@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -143,27 +144,43 @@ public static class Conversions {
     public static Fin<int> Whole(Duration span, Duration step) =>
         Int128.DivRem(span.ToInt128Nanoseconds(), step.ToInt128Nanoseconds()) is var (count, remainder) && remainder == 0 && count >= 0 && count <= int.MaxValue
             ? (int)count
-            : new UnrepresentableSpan(span, step);
+            : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{span} is no whole count of {step}"));
+
+    // --- [BOUNDS]
+    public static Fin<Unit> Within(int index, int itemCount, string member) =>
+        index >= 0 && index < itemCount ? unit : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} index {index} is outside {itemCount} items"));
+
+    public static Fin<double> Within(Interval domain, double parameter, string member) =>
+        domain.IncludesParameter(parameter) ? parameter : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} parameter {parameter} is outside {domain}"));
+
+    // --- [TYPES]
+    public static Fin<T> Cast<T>(object value) where T : notnull =>
+        value is T typed ? typed : Error.New($"{value.GetType().Name} is given where {typeof(T).Name} is required");
+
+    public static Fin<T> Typed<T>(object value, string key) where T : notnull =>
+        value is T typed ? typed : Errors.ParseError($"key {key} holds a {value.GetType().Name} where a {typeof(T).Name} is read");
 
     // --- [ANSWERS]
-    public static Fin<Guid> Required(Guid id, string member) => Present(id).ToFin(new Refused(member));
+    public static Fin<Guid> Required(Guid id, string member) => Present(id).ToFin(new Refused(member, Refused.Declined));
 
-    public static Fin<int> Required(int index, string member) => Present(index).ToFin(new Refused(member));
+    public static Fin<int> Required(int index, string member) => Present(index).ToFin(new Refused(member, Refused.Declined));
 
-    public static Fin<uint> Required(uint serial, string member) => Present(serial).ToFin(new Refused(member));
+    public static Fin<uint> Required(uint serial, string member) => Present(serial).ToFin(new Refused(member, Refused.Declined));
 
-    public static Fin<Seq<TRow>> NonEmpty<TRow>(Seq<TRow> rows, string member) => rows.IsEmpty ? new Missing(member) : rows;
+    public static Fin<Seq<TRow>> NonEmpty<TRow>(Seq<TRow> rows, string member) => rows.IsEmpty ? new Refused(member, Refused.Absent) : rows;
 
     public static Fin<Unit> FromResult(Result result, string member) =>
         result switch {
             Result.Success => unit,
             Result.Cancel or Result.CancelModelessDialog => Errors.Cancelled,
             Result.Nothing or Result.ExitRhino or Result.UnknownCommand => new Ended(member, result),
-            Result.Failure => new Refused(member),
+            Result.Failure => new Refused(member, Refused.Declined),
         };
 
-    public static Fin<Result> ToResult(IO<Unit> effect) =>
-        Try.lift(effect.Run).Run().Map(static _ => Result.Success).BindFail(static error =>
+    public static Fin<Result> ToResult(IO<Unit> effect) => ToResult(Callbacks.Settled(effect, CancellationToken.None));
+
+    public static Fin<Result> ToResult(Fin<Unit> settled) =>
+        settled.Map(static _ => Result.Success).BindFail(static error =>
             Seq(Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand).Find(error.FoldM(static cause =>
                 cause is Ended ended ? Seq(ended.Result) : cause.Is(Errors.Cancelled) ? Seq(Result.Cancel) : Seq<Result>()).Contains).ToFin(error));
 
@@ -180,12 +197,6 @@ public static class Conversions {
         ByKind(content, static _ => RenderContentKind.Material, static _ => RenderContentKind.Environment, static _ => RenderContentKind.Texture);
 
     // --- [VALUES]
-    public static Fin<T> Validated<T, TRaw, TError>(TRaw raw)
-        where T : IObjectFactory<T, TRaw, TError>
-        where TRaw : notnull
-        where TError : Error, IValidationError<TError> =>
-        T.Validate(raw, provider: null, out T? item) is { } error ? error : item!;
-
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
 
     public static Swatch Rgb(Color color) => (Swatch)Color.FromArgb(byte.MinValue, color).ToArgb();

@@ -14,7 +14,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator, Properties
-from blender.bpy.data.rna.descriptors import written
+from blender.bpy.data.rna.descriptors import rooted, written
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key, Manifest
@@ -172,7 +172,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
         def ticked() -> BlenderResult[Option[float]]:
             for kind in (pending.popleft(),) if pending else ():
-                scene = Option.of_optional(bpy.context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="scene"),))
+                scene = rooted(bpy.types.Scene, bpy.context)
                 for faults in Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda scene: self.published(identity, scene, rows[kind])).swap().to_option().to_list():
                     identity.reports.hold(faults)
             return Ok(Some(0.0 if pending else 1.0))

@@ -39,7 +39,7 @@ rule:
               not: {inside: {matches: negated-chain}}
         - has: {field: right, pattern: $LAST}
         - not: {has: {stopBy: end, kind: macro_invocation, has: {kind: token_tree, has: {regex: '^if$'}}}}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
 rewriters:
     - id: field-subject
       rule: {pattern: 'matches!($_X.$_F, $$$P)'}

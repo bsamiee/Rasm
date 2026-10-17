@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Globalization;
 using NodaTime.Text;
 using NodaTime.TimeZones;
+using Rasm.Imaging.Pixels;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
@@ -10,7 +11,6 @@ namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct NorthAngle : System.Numerics.IMinMaxValue<NorthAngle> {
     private const double Turn = 360d;
 
@@ -18,94 +18,85 @@ public readonly partial struct NorthAngle : System.Numerics.IMinMaxValue<NorthAn
     public static NorthAngle MaxValue { get; } = new(double.BitDecrement(Turn));
     public static NorthAngle Default { get; } = new(90d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        (validationError, value) = double.IsFinite(value) ? (null, ((value % Turn) + Turn) % Turn) : (new InvalidRhinoValue(), value);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        (validationError, value) = double.IsFinite(value) ? (null, ((value % Turn) + Turn) % Turn) : (new ValidationError("north angle is not finite"), value);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [ObjectFactory<Offset>]
 public readonly partial struct StandardOffset : System.Numerics.IMinMaxValue<StandardOffset>, IConvertible<Offset> {
     public static StandardOffset MinValue { get; } = new(-12d);
     public static StandardOffset MaxValue { get; } = new(13d);
     public static StandardOffset Default { get; } = new(0d);
 
-    public static InvalidRhinoValue? Validate(Offset value, IFormatProvider? provider, out StandardOffset item) =>
+    public static ValidationError? Validate(Offset value, IFormatProvider? provider, out StandardOffset item) =>
         Validate(value.Seconds / (double)NodaConstants.SecondsPerHour, provider, out item);
 
     public Offset ToValue() => Offset.FromSeconds((int)Math.Round(_value * NodaConstants.SecondsPerHour, MidpointRounding.ToEven));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        (validationError, value) = (Math.Round(value * NodaConstants.SecondsPerHour, MidpointRounding.ToEven) / NodaConstants.SecondsPerHour) switch {
-            var whole => (whole.CompareTo(MinValue._value) >= 0 && whole.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue(), whole),
-        };
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
+        value = Math.Round(value * NodaConstants.SecondsPerHour, MidpointRounding.ToEven) / NodaConstants.SecondsPerHour;
+        validationError = Admission.Refusal(value, MinValue, MaxValue);
+    }
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct DaylightSaving : System.Numerics.IMinMaxValue<DaylightSaving>, IConvertible<Offset> {
     public static DaylightSaving MinValue { get; } = new(0);
     public static DaylightSaving MaxValue { get; } = new(120);
 
     public Offset ToValue() => Offset.FromSeconds(_value * NodaConstants.SecondsPerMinute);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SunIntensity : System.Numerics.IMinMaxValue<SunIntensity> {
     public static SunIntensity MinValue { get; } = new(0d);
     public static SunIntensity MaxValue { get; } = new(double.MaxValue);
     public static SunIntensity Default { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Horizon", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct SunAltitude : System.Numerics.IMinMaxValue<SunAltitude> {
     public static SunAltitude MinValue { get; } = new(-90d);
     public static SunAltitude MaxValue { get; } = new(90d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<LocalDateTime>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 [ObjectFactory<string>]
 public sealed partial class SunMoment : System.Numerics.IMinMaxValue<SunMoment>, IConvertible<string> {
     public static SunMoment MinValue { get; } = new(new LocalDate(1971, 1, 1).AtMidnight());
     public static SunMoment MaxValue { get; } = new(Instant.FromUnixTimeSeconds(uint.MaxValue).WithOffset(StandardOffset.MinValue.ToValue()).LocalDateTime);
 
     public static Fin<SunMoment> Read(Sun sun) =>
-        Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)));
+        Admission.Validated<SunMoment, LocalDateTime>(LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)));
 
     public static IO<SunMoment> Now(SunSite site, TimeProvider clock) =>
-        IO.lift(() => Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(clock.GetCurrentInstant().WithOffset(site.Wall).LocalDateTime));
+        IO.lift(() => Admission.Validated<SunMoment, LocalDateTime>(clock.GetCurrentInstant().WithOffset(site.Wall).LocalDateTime));
 
-    public static InvalidRhinoValue? Validate(string? value, IFormatProvider? provider, out SunMoment? item) {
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out SunMoment? item) {
         item = null;
         return value is null ? null
             : LocalDateTimePattern.ExtendedIso.Parse(value) is { Success: true } parsed ? Validate(parsed.Value, provider, out item)
-            : new InvalidRhinoValue();
+            : new ValidationError($"{value} is no extended ISO local date and time");
     }
 
     public string ToValue() => LocalDateTimePattern.ExtendedIso.Format(_value);
 
     public Fin<Unit> Write(Sun sun, TimeProvider clock) =>
-        _value.ToDateTimeUnspecified() switch {
-            var wall when clock.LocalTimeZone.IsInvalidTime(wall) => new SkippedLocalTime(_value),
-            var wall => fun<DateTime, DateTimeKind>(sun.SetDateTime)(wall, DateTimeKind.Local),
-        };
+        clock.LocalTimeZone.IsInvalidTime(_value.ToDateTimeUnspecified())
+            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"{_value} falls in a skipped hour of the computer's time zone"))
+            : fun<DateTime, DateTimeKind>(sun.SetDateTime)(_value.ToDateTimeUnspecified(), DateTimeKind.Local);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref LocalDateTime value) =>
-        (validationError, value) = value.With(TimeAdjusters.TruncateToSecond) switch {
-            var whole => (whole.CompareTo(MinValue._value) >= 0 && whole.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue(), whole),
-        };
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref LocalDateTime value) {
+        value = value.With(TimeAdjusters.TruncateToSecond);
+        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+    }
 }
 
 public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffset Standard, Option<DaylightSaving> Saving) {
@@ -117,9 +108,9 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     public static Fin<SunSite> Read(Sun sun) =>
         (GeoCoordinate.From(sun.Latitude, sun.Longitude).ToValidation(),
-         Conversions.Validated<NorthAngle, double, InvalidRhinoValue>(sun.North).ToValidation(),
-         Conversions.Validated<StandardOffset, double, InvalidRhinoValue>(sun.TimeZone).ToValidation(),
-         Callbacks.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Traverse(static minutes => Conversions.Validated<DaylightSaving, int, InvalidRhinoValue>(minutes)).As().ToValidation())
+         NorthAngle.Validated(sun.North).ToValidation(),
+         Admission.Validated<StandardOffset, double>(sun.TimeZone).ToValidation(),
+         Callbacks.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Traverse(static minutes => DaylightSaving.Validated(minutes)).As().ToValidation())
             .Apply(static (place, north, standard, saving) => new SunSite(place, north, standard, saving))
             .As()
             .ToFin();
@@ -127,8 +118,8 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
     public static Fin<SunSite> Placed(GeoCoordinate place, NorthAngle north, SunMoment moment) =>
         from interval in Zone(place).Map(zone => zone.MapLocal((LocalDateTime)moment).EarlyInterval)
         let positive = Some(interval.Savings).Filter(static offset => offset > Offset.Zero)
-        from site in (Conversions.Validated<StandardOffset, Offset, InvalidRhinoValue>(interval.WallOffset - positive.IfNone(Offset.Zero)).ToValidation(),
-                      positive.Traverse(static offset => Conversions.Whole(Duration.FromSeconds(offset.Seconds), Duration.FromMinutes(1)).Bind(static minutes => Conversions.Validated<DaylightSaving, int, InvalidRhinoValue>(minutes))).As().ToValidation())
+        from site in (Admission.Validated<StandardOffset, Offset>(interval.WallOffset - positive.IfNone(Offset.Zero)).ToValidation(),
+                      positive.Traverse(static offset => Conversions.Whole(Duration.FromSeconds(offset.Seconds), Duration.FromMinutes(1)).Bind(static minutes => DaylightSaving.Validated(minutes))).As().ToValidation())
             .Apply((standard, saving) => new SunSite(place, north, standard, saving))
             .As()
             .ToFin()
@@ -136,7 +127,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     public static Fin<SunSite> FromAnchor(EarthAnchor anchor, SunMoment moment) =>
         from located in anchor.Located
-        from north in Conversions.Validated<NorthAngle, double, InvalidRhinoValue>(double.RadiansToDegrees(Math.Atan2(located.Compass.YAxis.Y, located.Compass.YAxis.X)))
+        from north in NorthAngle.Validated(double.RadiansToDegrees(Math.Atan2(located.Compass.YAxis.Y, located.Compass.YAxis.X)))
         from site in Placed(located.Earth.Place, north, moment)
         select site;
 
@@ -189,12 +180,12 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
             Meshed(sky, Band(sky, hours.Count, solstices.MaxBy(static day => day.Declination).Row, solstices.MinBy(static day => day.Declination).Row), placed));
 
     private static IO<TResult> Observed<TResult>(TimeProvider clock, Func<Sun, DateTimeZone, Fin<TResult>> read) =>
-        use(static () => new Sun { Accuracy = Sun.Accuracies.Maximum }).Bind(sun => IO.lift(() => read(sun, BclDateTimeZone.FromTimeZoneInfo(clock.LocalTimeZone)))).Bracket();
+        DisposalOps.Within(static () => new Sun { Accuracy = Sun.Accuracies.Maximum }, sun => IO.lift(() => read(sun, BclDateTimeZone.FromTimeZoneInfo(clock.LocalTimeZone))));
 
     private Fin<Vector3d> Direction(Sun sun, DateTimeZone computer, Instant at) =>
         at.InZone(computer) switch {
-            var held => (Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(held.LocalDateTime).ToValidation(),
-                         Conversions.Validated<StandardOffset, Offset, InvalidRhinoValue>(held.Offset).ToValidation())
+            var held => (Admission.Validated<SunMoment, LocalDateTime>(held.LocalDateTime).ToValidation(),
+                         Admission.Validated<StandardOffset, Offset>(held.Offset).ToValidation())
                 .Apply((_, offset) => {
                     SunMapper.Update(this with { Standard = offset, Saving = None }, sun);
                     sun.SetDateTime(at.ToDateTimeUtc(), DateTimeKind.Local);
@@ -213,7 +204,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
                        * Math.Pow(Math.Sin(double.DegreesToRadians(location.Longitude - place.Longitude) / 2d), 2d)))
                 .ThenBy(static location => location.ZoneId, StringComparer.Ordinal)).Head)
             .Map(static location => DateTimeZoneProviders.Tzdb[location.ZoneId])
-            .ToFin(new Missing(nameof(TzdbDateTimeZoneSource.ZoneLocations)));
+            .ToFin(new Refused(nameof(TzdbDateTimeZoneSource.ZoneLocations), Refused.Absent));
 
     private double Horizon(double declination, double zenith) =>
         Math.SinCos(double.DegreesToRadians(Place.Latitude)) switch {
@@ -346,7 +337,8 @@ public sealed record SunPaths(Map<LocalTime, Seq<Seq<Point3d>>> Analemmas, SunCo
 public sealed record SunAngles(double Azimuth, double Altitude);
 
 [Union]
-public abstract partial record SunWindow {
+[ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
+public abstract partial record SunWindow : IConvertible<string> {
     private SunWindow(LocalDateTime start, LocalDateTime end) => (Start, End) = (start, end);
 
     public LocalDateTime Start { get; }
@@ -366,17 +358,51 @@ public abstract partial record SunWindow {
             _ => Option<SunWindow>.None,
         };
 
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out SunWindow? item) =>
+        (item = Optional(value).Bind(static text => Parsed(text.Split('/'))).ValueUnsafe()) is null && value is not null
+            ? new ValidationError($"{value} is no day/<date>/<from>/<until>/<minutes> or season/<from>/<until>/<at>/<days> sun window")
+            : null;
+
+    public string ToValue() =>
+        Switch(
+            day: static day => string.Join('/', "day", LocalDatePattern.Iso.Format(day.Start.Date), LocalTimePattern.ExtendedIso.Format(day.Start.TimeOfDay),
+                LocalTimePattern.ExtendedIso.Format(day.End.TimeOfDay), day.MinutesBetweenFrames.ToString(CultureInfo.InvariantCulture)),
+            season: static season => string.Join('/', "season", LocalDatePattern.Iso.Format(season.Start.Date), LocalDatePattern.Iso.Format(season.End.Date),
+                LocalTimePattern.ExtendedIso.Format(season.Start.TimeOfDay), season.DaysBetweenFrames.ToString(CultureInfo.InvariantCulture)));
+
     private static Fin<Option<SunWindow>> Studied(AnimationProperties properties, Func<LocalDateTime, LocalDateTime, AnimationProperties, Fin<SunWindow>> window) =>
         window(
             new LocalDateTime(properties.StartYear, properties.StartMonth, properties.StartDay, properties.StartHour, properties.StartMinutes, properties.StartSeconds),
             new LocalDateTime(properties.EndYear, properties.EndMonth, properties.EndDay, properties.EndHour, properties.EndMinutes, properties.EndSeconds),
             properties).Map(static held => Some(held));
 
+    private static Option<SunWindow> Parsed(string[] parts) =>
+        parts switch {
+            ["day", var date, var first, var last, var minutes] =>
+                from day in Succeeded(LocalDatePattern.Iso.Parse(date))
+                from start in Succeeded(LocalTimePattern.ExtendedIso.Parse(first))
+                from end in Succeeded(LocalTimePattern.ExtendedIso.Parse(last))
+                from count in Invariant.Number<int>(minutes, NumberStyles.None)
+                from held in Day.Create(day, start, end, Period.FromMinutes(count)).ToOption()
+                select (SunWindow)held,
+            ["season", var first, var last, var at, var days] =>
+                from start in Succeeded(LocalDatePattern.Iso.Parse(first))
+                from end in Succeeded(LocalDatePattern.Iso.Parse(last))
+                from time in Succeeded(LocalTimePattern.ExtendedIso.Parse(at))
+                from count in Invariant.Number<int>(days, NumberStyles.None)
+                from held in Season.Create(start, end, time, Period.FromDays(count)).ToOption()
+                select (SunWindow)held,
+            _ => None,
+        };
+
+    private static Option<T> Succeeded<T>(ParseResult<T> result) where T : struct => Callbacks.Found(result.TryGetValue(default, out T value), value);
+
     private static Fin<TWindow> Bounded<TWindow>(LocalDateTime start, LocalDateTime end, Period step, Duration grain, Func<LocalDateTime, LocalDateTime, int, TWindow> window) =>
-        (Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(start).ToValidation(),
-         Conversions.Validated<SunMoment, LocalDateTime, InvalidRhinoValue>(end).ToValidation(),
-         (start <= end ? Fin.Succ(unit) : new ReversedWindow(start, end)).ToValidation(),
-         Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain).ToFin(new InvalidStudyStep(step))
+        (Admission.Validated<SunMoment, LocalDateTime>(start).ToValidation(),
+         Admission.Validated<SunMoment, LocalDateTime>(end).ToValidation(),
+         (start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study starts at {start} after its end {end}"))).ToValidation(),
+         Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain)
+             .ToFin(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study step {step} is no positive count of {grain}")))
              .Bind(held => Conversions.Whole(held.ToDuration(), grain))
              .ToValidation())
             .Apply((_, _, _, count) => window(start, end, count))
@@ -392,27 +418,13 @@ public abstract partial record SunWindow {
             Bounded(date.At(from), date.At(until), step, Duration.FromMinutes(1), static (start, end, minutes) => new Day(start, end, minutes));
     }
 
-    [ValidationError<InvalidRhinoValue>]
-    [ObjectFactory<string>]
-    public sealed partial record Season : SunWindow, IConvertible<string> {
+    public sealed record Season : SunWindow {
         private Season(LocalDateTime start, LocalDateTime end, int daysBetweenFrames) : base(start, end) => DaysBetweenFrames = daysBetweenFrames;
 
         public int DaysBetweenFrames { get; }
 
         public static Fin<Season> Create(LocalDate from, LocalDate until, LocalTime at, Period step) =>
             Bounded(from.At(at), until.At(at), step, Duration.FromDays(1), static (start, end, days) => new Season(start, end, days));
-
-        public static InvalidRhinoValue? Validate(string? value, IFormatProvider? provider, out Season? item) =>
-            (item = value?.Split('/') is [var from, var until, var at, var days]
-                && LocalDatePattern.Iso.Parse(from) is { Success: true } start
-                && LocalDatePattern.Iso.Parse(until) is { Success: true } end
-                && LocalTimePattern.ExtendedIso.Parse(at) is { Success: true } time
-                && int.TryParse(days, NumberStyles.None, CultureInfo.InvariantCulture, out int count)
-                    ? Create(start.Value, end.Value, time.Value, Period.FromDays(count)).Match<Season?>(Succ: static season => season, Fail: static _ => null)
-                    : null) is null && value is not null ? new InvalidRhinoValue() : null;
-
-        public string ToValue() =>
-            string.Join('/', LocalDatePattern.Iso.Format(Start.Date), LocalDatePattern.Iso.Format(End.Date), LocalTimePattern.ExtendedIso.Format(Start.TimeOfDay), DaysBetweenFrames.ToString(CultureInfo.InvariantCulture));
     }
 }
 

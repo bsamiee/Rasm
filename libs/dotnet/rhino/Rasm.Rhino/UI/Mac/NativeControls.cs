@@ -8,9 +8,9 @@ using Eto.Mac.Forms.Controls;
 using Foundation;
 using ObjCRuntime;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Mac;
@@ -26,7 +26,7 @@ public static class NativeControls {
 
     public static IO<Unit> Events(Control control, Func<NSView, NSEvent, IO<bool>> receive, IPlugInSink sink, Action<IDisposable> retain) =>
         Lifetime(control, owned =>
-            from handler in IO.lift(() => Missing.Unless(control.GetMacControl(), nameof(MacControlExtensions.GetMacControl)))
+            from handler in IO.lift(() => Refused.UnlessFound(control.GetMacControl(), nameof(MacControlExtensions.GetMacControl)))
             let view = handler.EventControl
             let site = new CallbackSite(sink, typeof(NativeControls), nameof(Events))
             from responder in IO.lift(() => EventViews.TryGetValue(view, out EventResponder? existing)
@@ -41,10 +41,10 @@ public static class NativeControls {
 
     public static IO<Unit> Gestures(Control control, Seq<NSGestureRecognizer> recognizers, IPlugInSink sink, Action<IDisposable> retain) =>
         Lifetime(control, owned =>
-            from handler in IO.lift(() => Missing.Unless(control.GetMacControl(), nameof(MacControlExtensions.GetMacControl)))
+            from handler in IO.lift(() => Refused.UnlessFound(control.GetMacControl(), nameof(MacControlExtensions.GetMacControl)))
             let view = handler.EventControl
             from attached in recognizers.TraverseM(recognizer =>
-                DisposalOps.Acquire(IO.lift(() => new Disposal<NSGestureRecognizer>(recognizer, view.RemoveGestureRecognizer)), static lease => IO.lift(lease.Dispose), lease => {
+                DisposalOps.Acquire(IO.lift(() => new Disposal<NSGestureRecognizer>(recognizer, view.RemoveGestureRecognizer)), lease => {
                     view.AddGestureRecognizer(recognizer);
                     owned(lease);
                 })).As()
@@ -76,8 +76,8 @@ public static class NativeControls {
         private void Dispatch(nint view, nint selector, nint current) {
             bool handled = Receivers.Value.Exists(receiver => Callbacks.Answer(
                 from input in IO.lift(() => (
-                    Missing.Unless(Runtime.GetNSObject<NSView>(view), nameof(Runtime.GetNSObject)),
-                    Missing.Unless(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
+                    Refused.UnlessFound(Runtime.GetNSObject<NSView>(view), nameof(Runtime.GetNSObject)),
+                    Refused.UnlessFound(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
                     .Apply(static (host, native) => (Host: host, Native: native)).As())
                 from consumed in receiver.Receive(input.Host, input.Native)
                 select consumed, static () => false, receiver.Site));
@@ -156,18 +156,17 @@ public static class NativeControls {
             new CallbackSite(field.Sink, typeof(TextBoxHandler), nameof(Field)));
 
     private static IO<Unit> Held(TextBoxHandler handler, Ref<Option<IDisposable>> held, CallbackSite site) {
-        Action<NSObject> release = static token => DisposalOps.Release(
-            Seq<IDisposable>(token, new Disposal<NSObject>(token, NSEvent.RemoveMonitor))).Run();
+        Action<NSObject> release = static token => DisposalOps.Release<IDisposable>(token, new Disposal<NSObject>(token, NSEvent.RemoveMonitor)).Run();
         return DisposalOps.Acquire(owned =>
             from monitor in DisposalOps.Acquire(IO.lift(() => Monitor(key => Escaped(handler, key, site))), token => IO.lift(() => Optional(token).Iter(release)), token => Optional(token).Iter(value => owned(new Disposal<NSObject>(value, release))))
-            from present in IO.lift(() => Missing.Unless(monitor, nameof(Monitor)))
-            from hidden in DisposalOps.Acquire(IO.lift(static () => new Disposal<Unit>(unit, static _ => NSCursor.Unhide())), static lease => IO.lift(lease.Dispose), lease => {
+            from present in IO.lift(() => Refused.UnlessFound(monitor, nameof(Monitor)))
+            from hidden in DisposalOps.Acquire(IO.lift(static () => new Disposal<Unit>(unit, static _ => NSCursor.Unhide())), lease => {
                 NSCursor.Hide();
                 owned(lease);
             })
             from pointer in DisposalOps.Acquire(IO.lift(static () => new Disposal<Unit>(unit, static _ => IO.lift(static () =>
                 Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: true) is 0,
-                    nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition))).Run())), static lease => IO.lift(lease.Dispose), lease => {
+                    nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition))).Run())), lease => {
                         _ = Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: false) is 0,
                             nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)).ThrowIfFail();
                         owned(lease);
@@ -187,7 +186,7 @@ public static class NativeControls {
 
     private static NativeHandle Escaped(TextBoxHandler handler, NativeHandle current, CallbackSite site) =>
         Callbacks.Answer(
-            from key in IO.lift(() => Missing.Unless(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
+            from key in IO.lift(() => Refused.UnlessFound(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
             from result in IO.lift(() => {
                 KeyEventArgs escape = key.ToEtoKeyEventArgs();
                 bool escaped = escape.Key is Keys.Escape;

@@ -4,9 +4,9 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -36,16 +36,15 @@ public abstract partial record ListColumn<TItem> where TItem : notnull {
 }
 
 public static class ListColumn {
-    public static ListColumn<TItem> Named<TItem, TValue, TRaw, TError>(Option<string> caption, Lens<TItem, TValue> name, Option<Func<TItem, (IGlyph Glyph, int Master)>> icon)
+    public static ListColumn<TItem> Named<TItem, TValue, TRaw>(Option<string> caption, Lens<TItem, TValue> name, Option<Func<TItem, (IGlyph Glyph, int Master)>> icon)
         where TItem : notnull
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw>
-        where TError : Error, IValidationError<TError> =>
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
+        where TRaw : notnull, ISpanParsable<TRaw> =>
         new ListColumn<TItem>.Label(
             caption,
             item => StoredText.Capture<TValue, TRaw>(name.Get(item)),
             icon,
-            Some<Func<TItem, string, Fin<TItem>>>((item, text) => StoredText.Recall<TValue, TRaw, TError>(text).Map(value => name.Set(value, item))));
+            Some<Func<TItem, string, Fin<TItem>>>((item, text) => StoredText.Recall<TValue, TRaw>(text).Map(value => name.Set(value, item))));
 
     public static ListColumn<TItem> Fraction<TItem, TValue, TKey>(Option<string> caption, Func<TItem, Option<TValue>> read)
         where TItem : notnull
@@ -83,21 +82,24 @@ public sealed record ListRow<TItem, TKey>(
     public Wording Wording { get; init; } = Wording.English;
 }
 
-public sealed record BrowserLayout(Option<TileSize> Size, Option<BrowserMode> Mode) : IStateRecord<BrowserLayout, BrowserLayoutParameter, InvalidRhinoValue> {
+public sealed record BrowserLayout(Option<TileSize> Size, Option<BrowserMode> Mode) : IStateRecord<BrowserLayout, BrowserLayoutParameter> {
     public static BrowserLayout Default { get; } = new(None, None);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BrowserLayoutParameter : IStateParameter<BrowserLayout> {
-    public static readonly BrowserLayoutParameter Size = new("tile-size", new StateParameter<BrowserLayout>.OptionalKeyed<TileSize, float, InvalidRhinoValue>(
-        Lens<BrowserLayout, Option<TileSize>>.New(static layout => layout.Size, static size => layout => layout with { Size = size })));
-    public static readonly BrowserLayoutParameter Mode = new("mode", new StateParameter<BrowserLayout>.OptionalChoice<BrowserMode, InvalidRhinoValue>(
-        Lens<BrowserLayout, Option<BrowserMode>>.New(static layout => layout.Mode, static mode => layout => layout with { Mode = mode })));
+    public static readonly BrowserLayoutParameter Size = new("tile-size", new StateParameter<BrowserLayout>.OptionalKeyed<TileSize, float>(
+            Lens<BrowserLayout, Option<TileSize>>.New(static layout => layout.Size, static size => layout => layout with { Size = size })),
+        new("Tile size", "Width of each thumbnail, the fitted width when unset"));
+    public static readonly BrowserLayoutParameter Mode = new("mode", new StateParameter<BrowserLayout>.OptionalChoice<BrowserMode>(
+            Lens<BrowserLayout, Option<BrowserMode>>.New(static layout => layout.Mode, static mode => layout => layout with { Mode = mode }), "Default"),
+        new("View", "Arrangement of the thumbnails, the browser's own when unset"));
 
     public StateParameter<BrowserLayout> Kind { get; }
+
+    public ParameterText Text { get; }
 }
 
 public sealed record BrowserRow<TItem, TKey>(
@@ -108,12 +110,12 @@ public sealed record BrowserRow<TItem, TKey>(
     Func<RowScope, IO<Option<TKey>>> Current,
     Func<RowScope, TKey, IO<Unit>> Choose,
     BrowserMode Mode,
-    ReadoutSource<PixelExtent> Extent,
+    ReadoutSource<Size> Extent,
     string Empty)
     where TItem : notnull
     where TKey : notnull {
     public bool Numbered { get; init; }
-    public Option<Func<TItem, string>> Ordered { get; init; }
+    public bool Reorders { get; init; }
     public Option<ListSearch<TItem>> Search { get; init; }
     public Option<Func<TItem, string, Fin<TItem>>> Rename { get; init; }
     public Option<Lens<TItem, bool>> Favourite { get; init; }
@@ -141,7 +143,7 @@ public static class ListRows {
         where TItem : notnull
         where TKey : notnull =>
         new ControlRow.Readout(RowShape.Filled, (scope, retain) => DisposalOps.Acquire(owned =>
-            from grid in DisposalOps.Acquire(IO.lift(static () => new TreeGridView()), static held => IO.lift(held.Dispose), owned)
+            from grid in DisposalOps.Acquire(IO.lift(static () => new TreeGridView()), owned)
             from faced in IO.lift(() => {
                 (grid.ShowHeader, grid.GridLines, grid.Border, grid.RowHeight, grid.AllowMultipleSelection, grid.AllowEmptySelection) =
                     (toSeq(row.Columns).Exists(static column => column.Caption.IsSome), GridLines.None, BorderType.None, 20, row.AllowMultipleSelection, true);
@@ -164,7 +166,7 @@ public static class ListRows {
             from listened in Listened(brackets + content.Brackets, scope, owned)
             select new RowCells(content.Control, None, None, None, [], [], new RowHelp(None, None),
                 Callbacks.Each((brackets + content.Brackets).Map(static bracket => bracket.Shown)).Bind(_ => commands.Refresh),
-                None, Some(ChoiceRows.Context(grid, commands.Menu, Seq(commands.Refresh), scope.Sink))), (_, lease) => retain(lease)),
+                None, Some(ChoiceRows.Context(grid, commands.Menu, Seq(commands.Refresh), scope.Sink))), retain),
             caption, help, rules) { Wording = row.Wording };
 
     // --- [BROWSERS]
@@ -172,13 +174,13 @@ public static class ListRows {
         where TItem : notnull
         where TKey : notnull =>
         (Items: RowSource.Opaque(caption, nameof(BrowserRow<,>.Items), Seq<TItem>(), row.Items),
-         Layout: RowSource.Fields(caption, toSeq(BrowserLayoutParameter.Items).Map(item => ((IStateParameter<BrowserLayout>)item, caption)),
+         Layout: RowSource.Fields(caption, [.. BrowserLayoutParameter.Items],
              static scope => IO.pure(scope.Settings.Map(static node => PlugInSettings.Record<BrowserLayout>(node.Child(Layouts), Applied.Live)).ToSeq()))) switch {
                  var sources => new ControlRow.Readout(RowShape.Filled, (scope, retain) => DisposalOps.Acquire(owned =>
-                     from scroll in DisposalOps.Acquire(IO.lift(static () => new Scrollable()), static held => IO.lift(held.Dispose), owned)
+                     from scroll in DisposalOps.Acquire(IO.lift(static () => new Scrollable()), owned)
                      from bordered in IO.lift(() => scroll.Border = BorderType.None)
                      from browser in TextRows.Live(row.Extent,
-                         (extent, keep) => DisposalOps.Acquire(IO.lift(() => new ThumbnailBrowser<TItem, TKey>(scope.Sink, Source(row, scope), new BrowserState<TItem, TKey>(Seq<TItem>(), None, None, row.Mode, extent))), static held => IO.lift(held.Dispose), keep),
+                         (extent, keep) => DisposalOps.Acquire(IO.lift(() => new ThumbnailBrowser<TItem, TKey>(scope.Sink, Source(row, scope), new BrowserState<TItem, TKey>(Seq<TItem>(), None, None, row.Mode, extent))), keep),
                          static (built, extent) => built.Extent(extent), scope, owned)
                      from placed in IO.lift(() => scroll.Content = browser)
                      from visibility in scope.OnVisibility(browser.Visibility, owned)
@@ -198,7 +200,7 @@ public static class ListRows {
                          Callbacks.Each((brackets + content.Brackets).Map(static bracket => bracket.Shown)).Bind(_ => current).Bind(_ => commands.Refresh),
                          None, Some(ChoiceRows.Context(browser, commands.Menu, Seq(browser.TargetPointer, commands.Refresh), scope.Sink))) {
                          Availability = Some(browser.Available),
-                     }, (_, lease) => retain(lease)),
+                     }, retain),
                      caption, help, rules) { Wording = row.Wording },
              };
 
@@ -323,7 +325,7 @@ public static class ListRows {
         where TKey : notnull =>
         toSeq(row.Columns).Map(static (column, index) => (Column: column, Index: index)).TraverseM(entry =>
             from cell in CellFor(entry.Column, sink, retain)
-            from column in DisposalOps.Acquire(IO.lift(static () => new GridColumn()), static held => IO.lift(held.Dispose), retain)
+            from column in DisposalOps.Acquire(IO.lift(static () => new GridColumn()), retain)
             from added in IO.lift(() => {
                 (column.HeaderText, column.DataCell, column.Editable, column.Resizable, column.Expand) =
                     (Conversions.Unset(entry.Column.Caption.Map(caption => row.Wording.Shown(caption, sink))), cell, entry.Column.Edits, false,
@@ -344,23 +346,23 @@ public static class ListRows {
         IconSlot.ListCell.Size().Bind(size => column.Switch((Sink: sink, Retain: retain, Size: new System.Drawing.Size(size, size)),
             label: static (held, label) => label.Icon.Match(
                 Some: icon =>
-                    from cell in DisposalOps.Acquire(IO.lift(static () => new ImageTextCell()), static made => IO.lift(made.Dispose), held.Retain)
+                    from cell in DisposalOps.Acquire(IO.lift(static () => new ImageTextCell()), held.Retain)
                     from bound in IO.lift(() => { (cell.ImageBinding, cell.TextBinding) = (Pictured(icon, held.Size), Written(label)); })
                     select (Cell)cell,
                 None: () =>
-                    from cell in DisposalOps.Acquire(IO.lift(static () => new TextBoxCell()), static made => IO.lift(made.Dispose), held.Retain)
+                    from cell in DisposalOps.Acquire(IO.lift(static () => new TextBoxCell()), held.Retain)
                     from bound in IO.lift(() => cell.Binding = Written(label))
                     select (Cell)cell),
             check: static (held, check) =>
-                from cell in DisposalOps.Acquire(IO.lift(static () => new CheckBoxCell()), static made => IO.lift(made.Dispose), held.Retain)
+                from cell in DisposalOps.Acquire(IO.lift(static () => new CheckBoxCell()), held.Retain)
                 from bound in IO.lift(() => cell.Binding = Binding.Delegate<RowItem<TItem>, bool?>(node => check.Value.Get(node.Row), (node, value) => node.Row = check.Value.Set(value is true, node.Row)))
                 select (Cell)cell,
             glyph: static (held, glyph) =>
-                from cell in DisposalOps.Acquire(IO.lift(static () => new ImageViewCell()), static made => IO.lift(made.Dispose), held.Retain)
+                from cell in DisposalOps.Acquire(IO.lift(static () => new ImageViewCell()), held.Retain)
                 from bound in IO.lift(() => cell.Binding = Pictured(glyph.Icon, held.Size))
                 select (Cell)cell,
             progress: static (held, progress) =>
-                from cell in DisposalOps.Acquire(IO.lift(static () => new ProgressCell()), static made => IO.lift(made.Dispose), held.Retain)
+                from cell in DisposalOps.Acquire(IO.lift(static () => new ProgressCell()), held.Retain)
                 from bound in IO.lift(() => cell.Binding = Binding.Delegate<RowItem<TItem>, float?>(node => progress.Read(node.Row).ToNullable()))
                 select (Cell)cell));
 
@@ -477,33 +479,32 @@ public static class ListRows {
             select (Control: (Control)placed,
                 Keys: Seq((Command: add.Commands, Run: add.Commands.Execute), (Command: remove.Commands, Run: (Action)remove.Commands.Execute)),
                 Refresh: Callbacks.Each(Seq(add.Refresh, remove.Refresh)).Map(unit))).As()
-        from realized in commands.TraverseM(command => Projected(command, scope, retain)).As()
-        let menu = CommandRow.Menu(Seq(realized.Map(static command => command.Realized)))
+        from realized in commands.TraverseM(command => command.Commands(scope, retain)).As()
+        let menu = CommandRow.Menu(Seq(realized))
         select (paired.Map(static held => held.Control),
             (paired.Map(static held => held.Keys.Map(static key => key.Command)).ToSeq() + menu.Groups).Map(static cluster => cluster.Map<MenuEntry>(static command => new MenuEntry.Item(command))),
-            paired.ToSeq().Bind(static held => held.Keys) + realized.Bind(static command => command.Keys),
-            Callbacks.Each(paired.Map(static held => held.Refresh).ToSeq().Add(menu.Joined.Refresh)).Map(unit));
+            paired.ToSeq().Bind(static held => held.Keys) + realized.Bind(static held => held.Commands).Map(static member => (member.Command, Run: Invoked(member.Command))),
+            Callbacks.Each(paired.Map(static held => held.Refresh).ToSeq().Add(menu.Refresh)).Map(unit));
 
-    private static IO<(Realized<Seq<Command>> Realized, Seq<(Command Command, Action Run)> Keys)> Projected(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
-        command.Switch((Scope: scope, Retain: retain),
-            run: static (held, run) => run.Realize(held.Scope, held.Retain).Map(static done => (
-                new Realized<Seq<Command>>(Seq(done.Commands), done.Refresh), Seq((Command: done.Commands, Run: (Action)done.Commands.Execute)))),
-            check: static (held, check) => check.Realize(held.Scope, held.Retain).Map(static done => (
-                new Realized<Seq<Command>>(Seq<Command>(done.Commands), done.Refresh), Seq((Command: (Command)done.Commands, Run: (Action)(() => {
-                    done.Commands.Checked = !done.Commands.Checked;
-                    done.Commands.Execute();
-                }))))),
-            radio: static (held, radio) => radio.Realize(held.Scope, held.Retain).Map(static done => (
-                new Realized<Seq<Command>>(done.Commands.Map(static member => (Command)member.Command), done.Refresh),
-                toSeq(from member in done.Commands select (Command: (Command)member.Command, Run: (Action)(() => {
-                    member.Command.Checked = true;
-                    member.Command.Execute();
-                }))))));
+    private static Action Invoked(Command command) =>
+        command switch {
+            RadioCommand radio => () => {
+                radio.Checked = true;
+                radio.Execute();
+            }
+            ,
+            CheckCommand check => () => {
+                check.Checked = !check.Checked;
+                check.Execute();
+            }
+            ,
+            _ => command.Execute,
+        };
 
     // --- [PLACEMENT]
     private static IO<Control> Paired(Control content, Option<Control> pair, Action<IDisposable> retain) =>
         pair.Match(Some: buttons =>
-            from stack in DisposalOps.Acquire(IO.lift(static () => new StackLayout()), static held => IO.lift(held.Dispose), retain)
+            from stack in DisposalOps.Acquire(IO.lift(static () => new StackLayout()), retain)
             from added in IO.lift(() => {
                 (stack.HorizontalContentAlignment, stack.Spacing) = (HorizontalAlignment.Stretch, RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Panel));
                 stack.Items.Add(new StackLayoutItem(content, expand: true));
@@ -518,7 +519,7 @@ public static class ListRows {
             from field in ChoiceRows.Search(wording.Shown(held.Placeholder, scope.Sink), matches => keep(item => matches(held.Text(scope, item))), scope.Sink, retain)
             from shown in held.Shown.Traverse(source => Watched(source, Named(source, scope), visible => IO.lift(() => { field.Visible = visible; }), scope,
                 new CallbackSite(scope.Sink, typeof(SearchBox), nameof(SearchBox.Visible)), retain)).As()
-            from stack in DisposalOps.Acquire(IO.lift(static () => new StackLayout()), static made => IO.lift(made.Dispose), retain)
+            from stack in DisposalOps.Acquire(IO.lift(static () => new StackLayout()), retain)
             from placed in IO.lift(() => {
                 (stack.HorizontalContentAlignment, stack.Spacing) = (HorizontalAlignment.Stretch, RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Panel));
                 stack.Items.Add(field);
@@ -547,7 +548,7 @@ public static class ListRows {
         RowSource<BrowserLayout> layout, BrowserMode mode, ThumbnailBrowser<TItem, TKey> browser, RowScope scope, Action<IDisposable> retain)
         where TItem : notnull
         where TKey : notnull =>
-        from slider in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.Slider()), static held => IO.lift(held.Dispose), retain)
+        from slider in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.Slider()), retain)
         from ranged in IO.lift(() => { (slider.MinValue, slider.MaxValue, slider.TickFrequency) = ((int)(float)TileSize.MinValue, (int)(float)TileSize.MaxValue, 0); })
         let keys = Named(layout, scope)
         let written = (Func<Func<BrowserLayout, BrowserLayout>, IO<Unit>>)(next =>
@@ -555,11 +556,11 @@ public static class ListRows {
             from stored in scope.Store(layout).Write(Some(next(held)))
             from changed in scope.Changed(keys)
             select unit)
-        from modes in ChoiceRows.Strip(toSeq(BrowserMode.Items).Map(static item => new ChoiceItem<BrowserMode>(item, item.Caption, Some<(IGlyph Glyph, int Master)>((item.Glyph, IconSlot.PanelButton.Master)))),
+        from modes in ChoiceRows.Strip(ChoiceRows.Items(Some<Func<BrowserMode, (IGlyph Glyph, int Master)>>(static item => (item.Glyph, IconSlot.PanelButton.Master)), scope.Sink),
             picked => written(held => held with { Mode = Some(picked) }), scope.Sink, retain)
         let add = (Action<EventHandler<EventArgs>>)(h => slider.ValueChanged += h)
         let remove = (Action<EventHandler<EventArgs>>)(h => slider.ValueChanged -= h)
-        let moved = Callbacks.Handler<EventArgs>(_ => IO.lift(() => Conversions.Validated<TileSize, float, InvalidRhinoValue>(slider.Value))
+        let moved = Callbacks.Handler<EventArgs>(_ => IO.lift(() => TileSize.Validated(slider.Value))
             .Bind(size => written(held => held with { Size = Some(size) })), new CallbackSite(scope.Sink, typeof(Eto.Forms.Slider), nameof(Eto.Forms.Slider.ValueChanged)))
         let widths = IO.lift(() => browser.ImageWidth).Bind(width => Subscriptions.Detached(add, remove, moved, IO.lift(() => { slider.Value = (int)MathF.Round(width, MidpointRounding.ToEven); })))
         from watched in Watched(layout, keys, held =>
@@ -572,7 +573,7 @@ public static class ListRows {
         from movedRoute in Subscriptions.Attach(add, remove, moved, retain)
         from sizedRoute in Subscriptions.Attach(h => browser.SizeChanged += h, h => browser.SizeChanged -= h,
             Callbacks.Handler<EventArgs>(_ => widths, new CallbackSite(scope.Sink, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Control.SizeChanged))), retain)
-        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), static held => IO.lift(held.Dispose), retain)
+        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), retain)
         from placed in IO.lift(() => {
             table.Rows.Add(new TableRow(new TableCell(slider, scaleWidth: true), modes.Control));
             table.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table);
@@ -590,7 +591,7 @@ public static class ListRows {
             Export = row.File.Map(static file => (Func<Control, Seq<TItem>, Option<Thumbnail>, IO<Unit>>)(
                 (view, items, thumbnail) => Transfer.Drag(view, items.Choose(file), thumbnail.Bind(static held => held.Drag)))),
             Renames = row.Rename.IsSome,
-            Reorders = row.Ordered.IsNone,
+            Reorders = row.Reorders,
         };
 
     private static IO<(Seq<EntryKey> Keys, IO<Unit> Shown)> Items<TItem, TKey>(
@@ -600,7 +601,7 @@ public static class ListRows {
         RowEdit.Bind(items.Source, IterableNE.create(items.Field),
                 h => browser.Edited += h, h => browser.Edited -= h,
                 edit => Callbacks.Handler<EditEventArgs<BrowserEdit<TItem, TKey>>>(args => ToItems(row, args.Edit, edit), site),
-                shown => browser.Items(Ordered(row.Ordered, shown.ToSeq().Flatten())), scope, site, retain)
+                shown => browser.Items(shown.ToSeq().Flatten()), scope, site, retain)
             .Map(static bound => (bound.Keys, bound.Shown));
 
     private static IO<IO<Unit>> Current<TItem, TKey>(
@@ -608,7 +609,7 @@ public static class ListRows {
         where TItem : notnull
         where TKey : notnull =>
         from pending in IO.lift(static () => Ref(Option<TKey>.None))
-        from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), static held => IO.lift(held.Dispose), retain)
+        from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), retain)
         let shown = row.Current(scope).Bind(value => browser.Receive(value.Map<BrowserEdit<TItem, TKey>>(static key => new BrowserEdit<TItem, TKey>.Applied(key))))
         let settled = Settled(row, scope, timer, pending).Bind(_ => shown)
         let applied = (Func<BrowserEdit<TItem, TKey>, Option<TKey>>)(static value => value.Switch(
@@ -620,7 +621,7 @@ public static class ListRows {
                 from started in IO.lift(() => { timer.Interval = delay; timer.Start(); })
                 select unit,
             None: static () => IO.pure(unit)))
-        from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<Unit>(unit, _ => settled.Run())), static held => IO.lift(held.Dispose), retain)
+        from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<Unit>(unit, _ => settled.Run())), retain)
         from elapsed in Subscriptions.Attach(h => timer.Elapsed += h, h => timer.Elapsed -= h, Callbacks.Handler<EventArgs>(_ => settled, site), retain)
         from edited in Subscriptions.Attach(h => browser.Edited += h, h => browser.Edited -= h,
             Callbacks.Handler<EditEventArgs<BrowserEdit<TItem, TKey>>>(args => args.Edit.Switch(
@@ -636,16 +637,11 @@ public static class ListRows {
     private static IO<Unit> Settled<TItem, TKey>(BrowserRow<TItem, TKey> row, RowScope scope, UITimer timer, Ref<Option<TKey>> pending)
         where TItem : notnull
         where TKey : notnull =>
-        envIO.Bind(environment => (
-            from stopped in IO.lift(timer.Stop)
-            from held in pending.ValueIO
-            from chosen in held.Traverse(key => Chosen(row, scope, pending, key, environment)).As()
-            select unit).Uninterruptible());
-
-    private static IO<Option<TKey>> Chosen<TItem, TKey>(BrowserRow<TItem, TKey> row, RowScope scope, Ref<Option<TKey>> pending, TKey key, EnvIO environment)
-        where TItem : notnull
-        where TKey : notnull =>
-        IO.liftVAsync(() => row.Choose(scope, key).RunAsync(environment)).Bind(_ => atomicIO(() => pending.Value = None));
+        DisposalOps.Transacted(
+            IO.lift(timer.Stop).Bind(_ => pending.ValueIO),
+            held => held.Traverse(key => row.Choose(scope, key)).As(),
+            static _ => unitIO,
+            (held, _) => when(held.IsSome, atomicIO(() => pending.Value = None).Map(unit)).As());
 
     private static Option<Edit<TOut>> Mapped<TIn, TOut>(Edit<TIn> change, Func<TIn, Option<TOut>> map)
         where TIn : notnull

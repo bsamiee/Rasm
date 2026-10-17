@@ -11,7 +11,7 @@ import msgspec
 
 from blender.bpy.data.ids import images
 from blender.bpy.data.ids.store import embedded
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, written
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, member_path, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.imaging.faults import accumulated, paired
@@ -173,7 +173,7 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[O
                 for at, held in snapshot.tree.owners.items()
                 for name, value in held.values.items()
                 if isinstance(value, IdName)
-                for block in (struct.path_resolve(f"{at}.{name}".removeprefix(".")),)
+                for block in (struct.path_resolve(member_path(at, name)),)
                 if isinstance(block, bpy.types.NodeTree | bpy.types.Image)
             )
             return accumulated(fingerprinted(block) if isinstance(block, bpy.types.NodeTree) else images.fingerprinted(block) for block in blocks).map(lambda hashes: (snapshot, hashes))

@@ -6,6 +6,7 @@
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="Mono.Unix" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
@@ -26,6 +27,10 @@
         <PackageReference Include="BitMiracle.LibTiff.NET" />
         <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TinyEXR.NET" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../Admission.cs" />
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">

@@ -4,8 +4,7 @@ from contextlib import ExitStack
 import math
 from pathlib import PurePath
 import re
-import sys
-from typing import Annotated, ClassVar, get_args, Literal, Self
+from typing import Annotated, ClassVar, get_args, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -15,7 +14,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator
 from blender.bpy.data.ids.images import Tag
-from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import committed, kept, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Present
 from blender.bpy.data.rna.descriptors import Descriptor, Value
@@ -33,7 +32,7 @@ from blender.bpy.settings.properties import Definition
 from blender.imaging.calibration import Calibration
 from blender.imaging.color.config import admitted
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Choice, Finite, Gated, Presentation, Quantity, Rgb, Unit
+from blender.imaging.parameters import Case, Choice, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -48,24 +47,23 @@ class MapKind(Choice):
     space: Option[str]
     socket: Option[str]
 
-    def __new__(cls, value: int, label: str, words: tuple[str, ...], space: Option[str], socket: Option[str] = Nothing) -> Self:
-        """Constructs one persistent map purpose and its classification and routing facts."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.words, member.space, member.socket = value, label, words, space, socket
-        return member
+    def __init__(self, value: int, words: tuple[str, ...], space: Option[str], socket: Option[str] = Nothing, label: str | None = None) -> None:
+        """Sets the classification and routing facts of one persistent map purpose."""
+        super().__init__(value, label)
+        self.words, self.space, self.socket = words, space, socket
 
-    BASE_COLOR = 1, "Base Color", ("basecolor", "base_color", "albedo", "diffuse", "diff", "colour", "color", "col"), Nothing, Some("Base Color")
-    METALLIC = 2, "Metallic", ("metallic", "metalness", "metal"), Some(PyOpenColorIO.ROLE_DATA), Some("Metallic")
-    SPECULAR = 3, "Specular", ("specular", "spec"), Some(PyOpenColorIO.ROLE_DATA), Some("Specular IOR Level")
-    GLOSS = 4, "Gloss", ("glossiness", "gloss", "smoothness"), Some(PyOpenColorIO.ROLE_DATA)
-    ROUGHNESS = 5, "Roughness", ("roughness", "rough"), Some(PyOpenColorIO.ROLE_DATA), Some("Roughness")
-    NORMAL_DX = 6, "Normal (DirectX)", ("normal_dx", "normaldx", "nor_dx", "nrm_dx"), Some(PyOpenColorIO.ROLE_DATA)
-    NORMAL = 7, "Normal", ("normal_gl", "normal", "nor", "nrm", "norm"), Some(PyOpenColorIO.ROLE_DATA)
-    BUMP = 8, "Bump", ("bump",), Some(PyOpenColorIO.ROLE_DATA)
-    DISPLACEMENT = 9, "Displacement", ("displacement", "disp", "height"), Some(PyOpenColorIO.ROLE_DATA)
-    TRANSMISSION = 10, "Transmission", ("transmission", "transmissive"), Some(PyOpenColorIO.ROLE_DATA), Some("Transmission Weight")
-    EMISSION = 11, "Emission", ("emission", "emissive", "emit"), Nothing, Some("Emission Color")
-    ALPHA = 12, "Alpha", ("alpha", "opacity"), Some(PyOpenColorIO.ROLE_DATA), Some("Alpha")
+    BASE_COLOR = 1, ("basecolor", "base_color", "albedo", "diffuse", "diff", "colour", "color", "col"), Nothing, Some("Base Color")
+    METALLIC = 2, ("metallic", "metalness", "metal"), Some(PyOpenColorIO.ROLE_DATA), Some("Metallic")
+    SPECULAR = 3, ("specular", "spec"), Some(PyOpenColorIO.ROLE_DATA), Some("Specular IOR Level")
+    GLOSS = 4, ("glossiness", "gloss", "smoothness"), Some(PyOpenColorIO.ROLE_DATA)
+    ROUGHNESS = 5, ("roughness", "rough"), Some(PyOpenColorIO.ROLE_DATA), Some("Roughness")
+    NORMAL_DX = 6, ("normal_dx", "normaldx", "nor_dx", "nrm_dx"), Some(PyOpenColorIO.ROLE_DATA), Nothing, "Normal (DirectX)"
+    NORMAL = 7, ("normal_gl", "normal", "nor", "nrm", "norm"), Some(PyOpenColorIO.ROLE_DATA)
+    BUMP = 8, ("bump",), Some(PyOpenColorIO.ROLE_DATA)
+    DISPLACEMENT = 9, ("displacement", "disp", "height"), Some(PyOpenColorIO.ROLE_DATA)
+    TRANSMISSION = 10, ("transmission", "transmissive"), Some(PyOpenColorIO.ROLE_DATA), Some("Transmission Weight")
+    EMISSION = 11, ("emission", "emissive", "emit"), Nothing, Some("Emission Color")
+    ALPHA = 12, ("alpha", "opacity"), Some(PyOpenColorIO.ROLE_DATA), Some("Alpha")
 
 
 class TextureProjection(Choice):
@@ -73,14 +71,13 @@ class TextureProjection(Choice):
 
     coordinates: str
 
-    def __new__(cls, value: int, label: str, coordinates: str) -> Self:
-        """Constructs a persistent mapping choice with its native coordinate source."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.coordinates = value, label, coordinates
-        return member
+    def __init__(self, value: int, coordinates: str, label: str | None = None) -> None:
+        """Sets the native coordinate source of a persistent mapping choice."""
+        super().__init__(value, label)
+        self.coordinates = coordinates
 
     FLAT = 1, "UV", "UV"
-    BOX = 2, "Box", "Object"
+    BOX = 2, "Object"
 
 
 class DataPass(Choice):
@@ -91,15 +88,14 @@ class DataPass(Choice):
     output: str
     attribute: Option[str]
 
-    def __new__(cls, value: int, label: str, kind: AovKind, source: type[bpy.types.Node], output: str, attribute: Option[str] = Nothing) -> Self:
-        """Constructs one persistent pass and its native graph source."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.kind, member.source, member.output, member.attribute = value, label, kind, source, output, attribute
-        return member
+    def __init__(self, value: int, kind: AovKind, source: type[bpy.types.Node], output: str, attribute: Option[str] = Nothing, label: str | None = None) -> None:
+        """Sets the native graph source of one persistent pass."""
+        super().__init__(value, label)
+        self.kind, self.source, self.output, self.attribute = kind, source, output, attribute
 
-    DEPTH = 1, "Depth", "VALUE", bpy.types.ShaderNodeCameraData, "View Z Depth"
-    POSITION = 2, "Position", "COLOR", bpy.types.ShaderNodeNewGeometry, "Position"
-    REFERENCE = 3, "Reference Position", "COLOR", bpy.types.ShaderNodeAttribute, "Vector", Some("rest_position")
+    DEPTH = 1, "VALUE", bpy.types.ShaderNodeCameraData, "View Z Depth"
+    POSITION = 2, "COLOR", bpy.types.ShaderNodeNewGeometry, "Position"
+    REFERENCE = 3, "COLOR", bpy.types.ShaderNodeAttribute, "Vector", Some("rest_position"), "Reference Position"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -119,7 +115,7 @@ class Textured(Case, frozen=True, kw_only=True, tag=1):
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="textured", saved=Saved.USED, single=False)
     maps: dict[MapKind, Annotated[str, msgspec.Meta(title="File"), Definition(text="FILE_PATH")]] = msgspec.field(default_factory=dict)
     projection: TextureProjection = TextureProjection.FLAT
-    projection_blend: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Blend")] = 0.0
+    projection_blend: Annotated[Unit, msgspec.Meta(title="Blend")] = 0.0
     repeat: tuple[Finite, Finite] = (1.0, 1.0)
     displacement: Gated[DisplacementMap] = Gated(enabled=False, value=DisplacementMap())
 
@@ -127,7 +123,6 @@ class Textured(Case, frozen=True, kw_only=True, tag=1):
 class Clay(Case, frozen=True, kw_only=True, tag=2):
     """Plain Principled surface shared by layer overrides."""
 
-    title = "Clay"
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="clay", saved=Saved.USED)
     color: Rgb[Unit] = Rgb(red=0.8, green=0.8, blue=0.8)
     roughness: Unit = 0.5
@@ -139,7 +134,7 @@ class Emissive(Case, frozen=True, kw_only=True, tag=3):
     title = "Emission"
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="emissive", saved=Saved.USED, single=False)
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
-    strength: Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max), Presentation(soft=Some((0.0, 100.0)))] = 1.0
+    strength: Annotated[NonNegative, Presentation(soft=Some((0.0, 100.0)))] = 1.0
     image: Annotated[Gated[str], Definition(text="FILE_PATH")] = Gated(enabled=False, value="")
 
 
@@ -165,7 +160,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def reshaded(held: Handle[bpy.types.Material], identity: Identity) -> BlenderResult[Option[str]]:
         """Reconciles the latest attached setup in a deferred write without an undo step."""
-        config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
+        config = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
         return (
             paired(held.resolve(), Materials.attachment.bound(identity))
             .bind(lambda pair: paired(tree_of(pair[0]).bind(pair[1].read), config).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity)))
@@ -182,11 +177,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
         def run(call: Call[Empty]) -> BlenderResult[Done]:
             paths = tuple(map(str, call.paths))
-            config = admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
-
-            def retained(held: bpy.types.Material) -> bpy.types.Material:
-                rollback.callback(bpy.data.batch_remove, ids=(held,))
-                return held
+            config = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
             def assigned(maps: dict[MapKind, str], config: PyOpenColorIO.Config) -> BlenderResult[dict[MapKind, str]]:
                 return (
@@ -194,17 +185,16 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
                         Option.of_optional(call.context.active_object).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="active_object"),)),
                         Descriptor.resolve(bpy.types.Object, "active_material", bpy.types.PointerProperty),
                     )
-                    .bind(lambda pair: material(Textured(maps=maps), config, call.identity).map(retained).bind(lambda held: pair[1].write(pair[0], held)))
+                    .bind(lambda pair: material(Textured(maps=maps), config, call.identity, Some(rollback)).bind(lambda held: pair[1].write(pair[0], held)))
                     .map(lambda _: maps)
                 )
 
             def published(maps: dict[MapKind, str]) -> Done:
-                rollback.pop_all()
                 matched = frozenset(maps.values())
                 return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in matched))
 
             with ExitStack() as rollback:
-                return paired(classified(paths), config).bind(lambda pair: assigned(*pair)).map(published)
+                return committed(paired(classified(paths), config).bind(lambda pair: assigned(*pair)), rollback).map(published)
 
         return Descriptor.resolve(bpy.types.ViewLayer, "objects.active", bpy.types.PointerProperty).map(
             lambda active: Operator(
@@ -335,7 +325,7 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Blender
             parts = (
                 node("surface", bpy.types.ShaderNodeEmission, {"Color": (0.0, 0.0, 0.0, 1.0), "Strength": 0.0}, {}),
                 *(node(f"{key}_source", member.source, {}, member.attribute.map(lambda name: {"attribute_name": name}).default_value({})) for key, member in selected.items()),
-                *(node(key, bpy.types.ShaderNodeOutputAOV, {member.kind.title(): End(node=f"{key}_source", socket=member.output)}, {"aov_name": key}) for key, member in selected.items()),
+                *(node(key, bpy.types.ShaderNodeOutputAOV, {heading(member.kind): End(node=f"{key}_source", socket=member.output)}, {"aov_name": key}) for key, member in selected.items()),
             )
             shader = "Emission"
     output["Surface"] = End(node="surface", socket=shader)
@@ -360,38 +350,17 @@ def shaded(held: bpy.types.Material, setup: ShadingSetup, config: PyOpenColorIO.
     )
 
 
-def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity) -> BlenderResult[bpy.types.Material]:
-    """Reuses or creates the setup's owned material, stores its record, and reconciles its tree."""
-    row = setup.ownership
-    mark = Mark(key=row.key)
-    with ExitStack() as rollback:
+def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity, scope: Option[ExitStack] = Nothing) -> BlenderResult[bpy.types.Material]:
+    """Reuses or creates the owned material of a setup, stores its record, and reconciles its tree, a built material removed on refusal or when a given scope unwinds."""
 
-        def built() -> BlenderResult[bpy.types.Material]:
-            try:
-                made = bpy.data.materials.new(setup.title)
-            except RuntimeError as error:
-                return Error((BlenderEditFault(request=setup.title, error=error),))
-            rollback.callback(bpy.data.batch_remove, ids=(made,))
-            return row.owned(identity, made, mark).bind(emptied)
+    def built() -> BlenderResult[bpy.types.Material]:
+        return kept(BlenderEditFault.attempted(setup.title, lambda: bpy.data.materials.new(setup.title)), emptied)
 
-        def published(held: bpy.types.Material) -> bpy.types.Material:
-            rollback.pop_all()
-            return held
-
-        existing = Option.of_optional(earliest(row.held(identity)).get(mark)) if row.single else Nothing
-        return (
-            Materials.attachment
-            .bound(identity)
-            .bind(
-                lambda attached: (
-                    existing
-                    .map(Ok)
-                    .default_with(built)
-                    .bind(lambda held: tree_of(held).bind(lambda tree: attached.write(tree, Shading(setup=setup))).bind(lambda _: shaded(held, setup, config, identity)))
-                )
-            )
-            .map(published)
+    return Materials.attachment.bound(identity).bind(
+        lambda attached: setup.ownership.made(
+            identity, built, filled=lambda held: tree_of(held).bind(lambda tree: attached.write(tree, Shading(setup=setup))).bind(lambda _: shaded(held, setup, config, identity)), scope=scope
         )
+    )
 
 
 def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> BlenderResult[tuple[Reconciled, ...]]:
@@ -408,7 +377,7 @@ def matrix() -> BlenderResult[NodeGroup]:
         outputs=(Socket(key="transformed", name="Color", kind=bpy.types.NodeSocketColor),),
         inputs=(
             Socket(key="color", name="Color", kind=bpy.types.NodeSocketColor),
-            *(Socket(key=row, name=row.title(), kind=bpy.types.NodeSocketVector) for row in Rgb.__struct_fields__),
+            *(Socket(key=row, name=heading(row), kind=bpy.types.NodeSocketVector) for row in Rgb.__struct_fields__),
             Socket(key="gain", name="Gain", kind=bpy.types.NodeSocketFloat),
         ),
     )

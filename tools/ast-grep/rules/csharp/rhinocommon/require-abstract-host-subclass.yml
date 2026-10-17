@@ -9,7 +9,7 @@ utils:
         pattern: $HOST
         regex: |-
             (?x)^(global::)?(Rhino\.[\w.]*\.)?
-            (Custom(Brep|Curve|Mesh|Point)Object|CustomObjectGrips|UserData|UserDictionary|SnapShotsClient|EtoCollapsibleSection3?
+            (Custom(Brep|Curve|Mesh|Point)Object|CustomObjectGrips|UserData|UserDictionary|EtoCollapsibleSection3?
             |CollapsibleSection|ObjectPropertiesPage|PostEffect|VisualAnalysisMode|ObjectManagerExtension|UICommand|FactoryBase
             |RenderContent|RenderMaterial|RenderTexture|TwoColorRenderTexture|RenderEnvironment|RenderMeshProvider
             |CustomRenderMeshProvider2?|RealtimeDisplayMode|RealtimeDisplayModeClassInfo|LightManagerSupport|Skin|PlugIn

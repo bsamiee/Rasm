@@ -3,8 +3,6 @@ id: no-filter-in-loop-body-rust
 language: rust
 severity: error
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment, empty_statement'}
     control-exit:
         kind: 'return_expression, break_expression, continue_expression, try_expression, await_expression'
     closure-safe:
@@ -13,16 +11,16 @@ utils:
         any:
             - kind: 'continue_expression, unit_expression'
             - kind: block
-              not: {has: {pattern: $_, matches: slot, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
+              not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
     continue-block:
         kind: block
         all:
             - has:
-                nthChild: {position: 1, ofRule: {matches: slot}}
+                nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
                 any:
                     - kind: continue_expression
                     - {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
     exit:
         any:
             - kind: 'return_expression, break_expression'
@@ -33,7 +31,7 @@ utils:
         all:
             - has: {field: condition, pattern: $TEST, matches: closure-safe}
             - not: {has: {field: alternative, pattern: $_}}
-            - not: {has: {field: consequence, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: slot}}, matches: exit}}}
+            - not: {has: {field: consequence, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}, matches: exit}}}
     loop-variable-flatten:
         kind: let_condition
         all:
@@ -78,18 +76,18 @@ rule:
             any:
                 - all:
                     - has:
-                        nthChild: {position: 1, ofRule: {matches: slot}}
+                        nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
                         kind: expression_statement
                         has:
                             nthChild: 1
                             matches: plain-if
                             not: {has: {field: condition, any: [{matches: loop-variable-flatten}, {kind: let_condition, has: {field: value, matches: lending-binding}}]}}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
                 - all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: slot}}, kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: slot}}}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
                 - has:
-                    nthChild: {position: 1, ofRule: {matches: slot}}
+                    nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
                     any:
                         - kind: expression_statement
                           has: {nthChild: 1, matches: plain-if, has: {field: consequence, matches: continue-block}}

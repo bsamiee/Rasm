@@ -3,8 +3,6 @@ id: no-hand-builder
 language: rust
 severity: error
 utils:
-    slot:
-        not: {kind: 'line_comment, block_comment'}
     setter:
         kind: function_item
         all:
@@ -12,9 +10,9 @@ utils:
             - has:
                 field: body
                 all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: slot}}, kind: expression_statement, has: {any: [{pattern: self.$F = Some($V)}, {pattern: self.$F = Some($V.into())}]}}
-                    - has: {nthChild: {position: 2, ofRule: {matches: slot}}, kind: self}
-                    - not: {has: {nthChild: {position: 3, ofRule: {matches: slot}}}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, kind: expression_statement, has: {any: [{pattern: self.$F = Some($V)}, {pattern: self.$F = Some($V.into())}]}}
+                    - has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}, kind: self}
+                    - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement-slot}}}}
 rule:
     kind: impl_item
     all:

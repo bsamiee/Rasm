@@ -8,39 +8,16 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(SkipIParsable = true,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct Percentile : IMinMaxValue<Percentile> {
-    public static Percentile MinValue { get; } = new(0f);
-    public static Percentile MaxValue { get; } = new(1f);
-    public static Percentile FrameWhite { get; } = new(0.99995f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
-[ValueObject<float>(SkipIParsable = true,
-    AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
-    MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidToneValue>]
-public readonly partial struct CenterWeight : IMinMaxValue<CenterWeight> {
-    public static CenterWeight MinValue { get; } = new(0f);
-    public static CenterWeight MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref InvalidToneValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidToneValue();
-}
-
 public sealed class LuminanceSamples {
     public const float Floor = 1e-5f;
+
+    private static readonly AxisFraction WhitePercentile = AxisFraction.Create(0.99995f);
 
     private readonly double[] sorted;
 
     internal LuminanceSamples(double[] sorted) => this.sorted = sorted;
 
-    public double FrameWhite => At(Percentile.FrameWhite);
+    public double FrameWhite => At(WhitePercentile);
     public double Minimum => SortedArrayStatistics.Minimum(sorted);
     public (double Mean, double Maximum, double Minimum) LogStatistics {
         get {
@@ -53,17 +30,17 @@ public sealed class LuminanceSamples {
     }
 
     public static Fin<LuminanceSamples> Gather(PixelFrame frame, (double X, double Y, double Z) luminance) =>
-        Sorted(frame, frame.Window, rgb => Luminance(rgb, luminance), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
+        Sorted(frame, frame.Window, rgb => Luminance(rgb.X, rgb.Y, rgb.Z, luminance), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
 
     public static Fin<LuminanceSamples> Greatest(PixelFrame frame) =>
         Sorted(frame, frame.Window, static rgb => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
 
-    public double At(Percentile percentile) => SortedArrayStatistics.QuantileCustom(sorted, (float)percentile, QuantileDefinition.EmpiricalInvCDF);
+    public double At(AxisFraction percentile) => SortedArrayStatistics.QuantileCustom(sorted, (float)percentile, QuantileDefinition.EmpiricalInvCDF);
 
-    internal static double Luminance(Vector3 color, (double X, double Y, double Z) weights) =>
-        (weights.X * color.X) + (weights.Y * color.Y) + (weights.Z * color.Z);
+    public static double Luminance(double red, double green, double blue, (double X, double Y, double Z) weights) =>
+        (weights.X * red) + (weights.Y * green) + (weights.Z * blue);
 
-    internal static System.Range Slice(int count, Percentile low, Percentile high) =>
+    internal static System.Range Slice(int count, AxisFraction low, AxisFraction high) =>
         (int)double.Min(double.Floor(count * (double)float.Min(low, high)), count - 1) switch {
             var start => start..int.Max((int)double.Ceiling(count * (double)float.Max(low, high)), start + 1),
         };
@@ -84,12 +61,12 @@ public sealed class LuminanceSamples {
         }
         System.Array.Resize(ref samples, count);
         samples.AsSpan().Sort();
-        return count is 0 ? new EmptyRegion(window) : samples;
+        return count is 0 ? Error.New($"region {window} holds no covered pixel of finite value") : samples;
     }
 }
 
-public sealed record Metering(Percentile Low, Percentile High, CenterWeight Center, FramePosition Start, FramePosition End) {
-    public static Metering Default { get; } = new(Percentile.MinValue, Percentile.MaxValue, CenterWeight.MinValue, FramePosition.TopLeft, FramePosition.BottomRight);
+public sealed record Metering(AxisFraction Low, AxisFraction High, AxisFraction Center, FramePosition Start, FramePosition End) {
+    public static Metering Default { get; } = new(AxisFraction.MinValue, AxisFraction.MaxValue, AxisFraction.MinValue, FramePosition.TopLeft, FramePosition.BottomRight);
 
     public Fin<float> Metered(PixelFrame frame, (double X, double Y, double Z) luminance) {
         ((double X, double Y) start, (double X, double Y) end) = (Start.Point(frame.Extent), End.Point(frame.Extent));
@@ -100,17 +77,17 @@ public sealed record Metering(Percentile Low, Percentile High, CenterWeight Cent
             long.Min((long)double.Round(end.Y, MidpointRounding.ToEven), frame.Window.Bottom));
         (double width, double height, float border) = (window.Right - window.Left, window.Bottom - window.Top, 1f - Center);
         (double middleX, double middleY) = (window.Left + (width / 2d), window.Top + (height / 2d));
-        return LuminanceSamples.Sorted(frame, window, rgb => LuminanceSamples.Luminance(rgb, luminance),
+        return LuminanceSamples.Sorted(frame, window, rgb => LuminanceSamples.Luminance(rgb.X, rgb.Y, rgb.Z, luminance),
                 (key, pixel) => (Key: key, Weight: double.Abs(pixel.X + 0.5d - middleX) < width / 4d && double.Abs(pixel.Y + 0.5d - middleY) < height / 4d ? 1f : border))
             .Bind(samples => Metered(samples, window));
     }
 
     internal Fin<float> Metered((double Key, float Weight)[] samples, (long Left, long Top, long Right, long Bottom) window) =>
-        samples.Length is 0 ? new EmptyRegion(window)
+        samples.Length is 0 ? Error.New($"metered region {window} holds no covered pixel of finite value")
         : new ArraySegment<(double Key, float Weight)>(samples)[LuminanceSamples.Slice(samples.Length, Low, High)]
             .Aggregate((Sum: 0d, Weight: 0d), static (total, sample) =>
                 (total.Sum + (sample.Weight * double.Log2(double.Max(sample.Key, LuminanceSamples.Floor))), total.Weight + sample.Weight)) switch {
                     (var sum, > 0d and var weight) => (Fin<float>)(float)(double.Log2(Exposure.MiddleGrey) - (sum / weight)),
-                    _ => new EmptyCenter(window),
+                    _ => Error.New($"metered center of {window} holds no kept sample at full center weight"),
                 };
 }

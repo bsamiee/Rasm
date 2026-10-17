@@ -1,35 +1,30 @@
 using System.Numerics;
 using System.Runtime.Intrinsics;
-using CommunityToolkit.HighPerformance;
-using Emgu.CV;
-using Emgu.CV.CvEnum;
 using MathNet.Numerics;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Filters.Warp;
-using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Filters.Optics;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidOptics>]
-public readonly partial struct Distortion : IMinMaxValue<Distortion> {
+public readonly partial struct Distortion : IPresented<Distortion, float> {
     public static Distortion MinValue { get; } = new(-0.999f);
     public static Distortion MaxValue { get; } = new(1f);
+    public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref InvalidOptics? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidOptics();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LensFraming {
-    public static readonly LensFraming Edges = new("edges", static _ => 1d);
-    public static readonly LensFraming Corners = new("corners", static extent => (double.Pow(extent.Width, 2d) + double.Pow(extent.Height, 2d)) / double.Pow(int.Max(extent.Width, extent.Height), 2d));
+public sealed partial class LensFraming : ICaptioned {
+    public static readonly LensFraming Edges = new("edges", "Edges", static _ => 1d);
+    public static readonly LensFraming Corners = new("corners", "Corners", static extent => (double.Pow(extent.Width, 2d) + double.Pow(extent.Height, 2d)) / double.Pow(int.Max(extent.Width, extent.Height), 2d));
+
+    public string Caption { get; }
 
     public double Scale(PixelExtent extent, double distortion) => 1d / (1d + ((distortion > 0d ? Reach(extent) : 1d) * distortion));
 
@@ -38,21 +33,22 @@ public sealed partial class LensFraming {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LensDirection {
-    public static readonly LensDirection Distort = new("distort", static (distortion, scale, radius) =>
+public sealed partial class LensDirection : ICaptioned {
+    public static readonly LensDirection Distort = new("distort", "Distort", static (distortion, scale, radius) =>
         (4d * distortion * scale * scale * radius) switch { var bound => (2d * scale / (1d + double.Sqrt(double.Max(0d, 1d - bound))), bound > 1d ? 0f : 1f) });
-    public static readonly LensDirection Undistort = new("undistort", static (distortion, scale, radius) =>
+    public static readonly LensDirection Undistort = new("undistort", "Undistort", static (distortion, scale, radius) =>
         (distortion * radius) switch { var bound => bound > -1d ? (1d / ((1d + bound) * scale), bound > 1d ? 0f : 1f) : (0d, 0f) });
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     internal partial (double Factor, float Weight) Radial(double distortion, double scale, double radius);
 }
 
 public sealed record LensDistortion(Distortion Distortion, AxisFraction Dispersion, LensFraming Framing, LensDirection Direction, WrapMode Wrap)
-    : IStateRecord<LensDistortion, LensDistortionParameter, InvalidOptics>, IPixelStage<LensDistortion> {
+    : IStateRecord<LensDistortion, LensDistortionParameter>, IPixelStage<LensDistortion> {
     public static LensDistortion Default { get; } = new(Distortion.Create(0.05f), AxisFraction.Create(0.05f), LensFraming.Edges, LensDirection.Distort, WrapMode.Clamp);
 
     public CoordinateMap Placed => Step(Distortion);
@@ -84,50 +80,42 @@ public sealed record LensDistortion(Distortion Distortion, AxisFraction Dispersi
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LensDistortionParameter : IStateParameter<LensDistortion> {
-    public static readonly LensDistortionParameter Distortion = new("distortion", StateParameter.Bounded<LensDistortion, Distortion, float, InvalidOptics>(Lens<LensDistortion, Distortion>.New(static lens => lens.Distortion, static distortion => lens => lens with { Distortion = distortion }), new() { Origin = (float)Optics.Distortion.Neutral }));
-    public static readonly LensDistortionParameter Dispersion = new("dispersion", StateParameter.Bounded<LensDistortion, AxisFraction, float, InvalidGrade>(Lens<LensDistortion, AxisFraction>.New(static lens => lens.Dispersion, static dispersion => lens => lens with { Dispersion = dispersion }), new()));
-    public static readonly LensDistortionParameter Framing = new("framing", new StateParameter<LensDistortion>.Choice<LensFraming, InvalidOptics>(Lens<LensDistortion, LensFraming>.New(static lens => lens.Framing, static framing => lens => lens with { Framing = framing })));
-    public static readonly LensDistortionParameter Direction = new("direction", new StateParameter<LensDistortion>.Choice<LensDirection, InvalidOptics>(Lens<LensDistortion, LensDirection>.New(static lens => lens.Direction, static direction => lens => lens with { Direction = direction })));
-    public static readonly LensDistortionParameter Wrap = new("wrap", new StateParameter<LensDistortion>.Choice<WrapMode, InvalidPixelValue>(Lens<LensDistortion, WrapMode>.New(static lens => lens.Wrap, static wrap => lens => lens with { Wrap = wrap })));
+    public static readonly LensDistortionParameter Distortion = new("distortion", StateParameter.Bounded(Lens<LensDistortion, Distortion>.New(static lens => lens.Distortion, static distortion => lens => lens with { Distortion = distortion })),
+        new("Distortion", "Bends straight lines away from or toward the frame center"));
+    public static readonly LensDistortionParameter Dispersion = new("dispersion", StateParameter.Bounded(Lens<LensDistortion, AxisFraction>.New(static lens => lens.Dispersion, static dispersion => lens => lens with { Dispersion = dispersion })),
+        new("Dispersion", "Spreads red and blue apart across each wavelength, growing toward the edges"));
+    public static readonly LensDistortionParameter Framing = new("framing", new StateParameter<LensDistortion>.Choice<LensFraming>(Lens<LensDistortion, LensFraming>.New(static lens => lens.Framing, static framing => lens => lens with { Framing = framing })),
+        new("Fit", "Scales the warped frame so its edges or its corners stay filled"));
+    public static readonly LensDistortionParameter Direction = new("direction", new StateParameter<LensDistortion>.Choice<LensDirection>(Lens<LensDistortion, LensDirection>.New(static lens => lens.Direction, static direction => lens => lens with { Direction = direction })),
+        new("Direction", "Applies the lens warp or removes it"));
+    public static readonly LensDistortionParameter Wrap = new("wrap", new StateParameter<LensDistortion>.Choice<WrapMode>(Lens<LensDistortion, WrapMode>.New(static lens => lens.Wrap, static wrap => lens => lens with { Wrap = wrap })),
+        new("Wrap", "Sampling beyond the frame boundary"));
 
     public StateParameter<LensDistortion> Kind { get; }
+    public ParameterText Text { get; }
 }
 
-public sealed unsafe record AxialAberration(ShortSideLength Radius, Iris Iris)
-    : IStateRecord<AxialAberration, AxialAberrationParameter, InvalidOptics>, IPixelStage<AxialAberration> {
+public sealed record AxialAberration(ShortSideLength Radius, Iris Iris)
+    : IStateRecord<AxialAberration, AxialAberrationParameter>, IPixelStage<AxialAberration> {
     public static AxialAberration Default { get; } = new(ShortSideLength.Create(20f / ReferenceFrame.Height), Defocus.Default.Iris);
 
     public static Option<PixelPass> Pass(AxialAberration state, PassContext context) =>
-        state.Radius == ShortSideLength.Neutral ? None : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Try.lift(() => {
-            using Mat light = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
-            PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), new Span<Vector4>((void*)light.DataPointer, frame.Block.Length / 4), PixelConversionModifiers.Premultiply);
-            double radius = state.Radius.Pixels(context.Extent);
-            return Defocus.Correlate(light, state.Iris with { Fringe = ColorFringe.Neutral }, Vector256.Create(radius / 2d, 0d, radius, 0d)).Bind(_ => new PixelPass.Pointwise((row, _, line) => {
-                ReadOnlySpan<Vector4> blurred = new((void*)light.GetDataPointer(frame.RowIndex(line)), frame.Size.Width);
-                for (int x = 0; x < row.Length; x++)
-                    row[x] = new(row[x].W > 0f ? blurred[x].AsVector3() / row[x].W : Vector3.Zero, row[x].W);
-            }).Run(frame, progress));
-        }).Run()));
+        state.Radius == ShortSideLength.Neutral ? None : Some<PixelPass>(Defocus.Gathered(state.Iris, SignedFraction.Neutral, (light, _, _) =>
+            Defocus.Correlate(light, state.Iris, SignedFraction.Neutral, Vector256.Create(0.5d, 0d, 1d, 0d) * state.Radius.Pixels(context.Extent))));
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidOptics>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AxialAberrationParameter : IStateParameter<AxialAberration> {
-    private static readonly (StateParameter<AxialAberration> Blades, StateParameter<AxialAberration> Rotation, StateParameter<AxialAberration> Roundness, StateParameter<AxialAberration> Obstruction, StateParameter<AxialAberration> Squeeze)
-        Outline = Iris.Kinds(Lens<AxialAberration, Iris>.New(static aberration => aberration.Iris, static iris => aberration => aberration with { Iris = iris }));
-
-    public static readonly AxialAberrationParameter Radius = new("radius", StateParameter.Bounded<AxialAberration, ShortSideLength, float, InvalidPixelValue>(Lens<AxialAberration, ShortSideLength>.New(static aberration => aberration.Radius, static radius => aberration => aberration with { Radius = radius }), ShortSideLength.Presentation with { Soft = (ShortSideLength.MinValue, 80f / ReferenceFrame.Height) }));
-    public static readonly AxialAberrationParameter Blades = new("blades", Outline.Blades);
-    public static readonly AxialAberrationParameter Rotation = new("rotation", Outline.Rotation);
-    public static readonly AxialAberrationParameter Roundness = new("roundness", Outline.Roundness);
-    public static readonly AxialAberrationParameter Obstruction = new("obstruction", Outline.Obstruction);
-    public static readonly AxialAberrationParameter Squeeze = new("squeeze", Outline.Squeeze);
+    public static readonly AxialAberrationParameter Radius = new("radius", StateParameter.Bounded(Lens<AxialAberration, ShortSideLength>.New(static aberration => aberration.Radius, static radius => aberration => aberration with { Radius = radius }), ShortSideLength.Presentation with { Soft = (ShortSideLength.MinValue, 80f / ReferenceFrame.Height) }),
+        new("Radius", "Blue defocus radius, red at half of it, the focus each wavelength misses against green"));
+    public static readonly AxialAberrationParameter Iris = new("iris", new StateParameter<AxialAberration>.Record<Iris>(Lens<AxialAberration, Iris>.New(static aberration => aberration.Iris, static iris => aberration => aberration with { Iris = iris })),
+        new("Aperture", "Outline of the lens opening each out-of-focus disc and diffraction spike takes"));
 
     public StateParameter<AxialAberration> Kind { get; }
+    public ParameterText Text { get; }
 }

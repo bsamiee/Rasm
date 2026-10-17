@@ -47,13 +47,11 @@ public sealed record PageText(Seq<FieldRun> Header, Seq<FieldRun> Footer);
 public sealed record FileOutput(Destination Destination, Seq<NamePart> Scope, OutputVersioning Version);
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct CopyCount : System.Numerics.IMinMaxValue<CopyCount> {
     public static CopyCount MinValue { get; } = new(1);
     public static CopyCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref int value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -86,8 +84,8 @@ public static class PageStreams {
         Copies.Owned(() => new ViewCaptureSettings(row.View, frame.Media, frame.Dpi), settings =>
             DisposalOps.Within((Action<IDisposable> temporary) =>
                 from mode in Copies.Owned(() => row.Viewport.DisplayMode,
-                    static made => Missing.Unless(made, nameof(RhinoViewport.DisplayMode)),
-                    static made => DisposalOps.Release(Conversions.Rows([made])), temporary)
+                    static made => Refused.UnlessFound(made, nameof(RhinoViewport.DisplayMode)),
+                    static made => DisposalOps.Release(made), temporary)
                 from viewport in Copies.Owned(static () => new RhinoViewport(), static made => Fin.Succ(made), temporary)
                 from restored in IO.lift(() => {
                     viewport.Size = frame.Media;
@@ -115,7 +113,7 @@ public static class PageStreams {
                 select new CapturedPage(retain => NamedViews.Read(held.Doc, named.Name, view => Projected(held.Doc, row, view.Viewport, named.Frame, retain)), None)));
 
     private static IO<TValue> Pages<TValue>(RhinoDoc doc, Seq<PageSource> sources, Func<Seq<CapturedPage>, IO<TValue>> body) =>
-        from live in IO.lift(() => HeadlessCapture.Unless(!doc.IsHeadless))
+        from live in IO.lift(() => doc.IsHeadless ? Error.New("a headless document captures no page") : Fin.Succ(unit))
         from result in DisposalOps.Within((Action<IDisposable> retain) =>
             sources.TraverseM(source => Held(doc, source, retain)).As()
                 .Bind(held => held.TraverseM(entry => Planned(doc, entry.Source, entry.Rows)).As())
@@ -133,7 +131,7 @@ public static class PageStreams {
                 Formatted(doc, text.Header, page.Parent).Bind(header => IO.lift(() => { settings.HeaderText = header; })),
                 Formatted(doc, text.Footer, page.Parent).Bind(footer => IO.lift(() => { settings.FooterText = footer; }))))
             select settings,
-            (_, lease) => retain(lease));
+            retain);
 
     // --- [DRAWING]
     private static float Dots(Length length, double dpi) => (float)(length.Inches.ToDouble() * dpi);
@@ -177,16 +175,16 @@ public static class PageStreams {
          from drawn in marks.TraverseM(mark => Drawn(doc, pdf, number, (settings.Resolution, settings.MediaSize.Height), page.Parent, mark)).As()
          select unit, DisposalOps.Release);
 
-    private static IO<Unit> Blank(RhinoDoc doc, FilePdf pdf, Sheet sheet, Seq<PageMark> marks) =>
-        (Dpi: Points(Length.FromInches(1)), Width: Points(sheet.Extent.Width), Height: Points(sheet.Extent.Height)) switch {
-            var page =>
-                from number in IO.lift(() => pdf.AddPage(page.Width, page.Height, page.Dpi))
-                from drawn in marks.TraverseM(mark => Drawn(doc, pdf, number, (page.Dpi, page.Height), None, mark)).As()
-                select unit,
-        };
+    private static IO<Unit> Blank(RhinoDoc doc, FilePdf pdf, Sheet sheet, Seq<PageMark> marks) {
+        (int Dpi, int Width, int Height) page = (Points(Length.FromInches(1)), Points(sheet.Extent.Width), Points(sheet.Extent.Height));
+        return
+            from number in IO.lift(() => pdf.AddPage(page.Width, page.Height, page.Dpi))
+            from drawn in marks.TraverseM(mark => Drawn(doc, pdf, number, (page.Dpi, page.Height), None, mark)).As()
+            select unit;
+    }
 
     private static IO<FilePdf> Composed(RhinoDoc doc, Seq<PdfSource> sources, PageText text, bool layers) =>
-        from pdf in IO.lift(static () => Missing.Unless(FilePdf.Create(), nameof(FilePdf.Create)))
+        from pdf in IO.lift(static () => Refused.UnlessFound(FilePdf.Create(), nameof(FilePdf.Create)))
         from added in sources.TraverseM(source => source.Switch(
             (Doc: doc, Pdf: pdf, Text: text, Layers: layers),
             captured: static (state, captured) => Pages(state.Doc, Seq(captured.Source), pages =>
@@ -197,23 +195,19 @@ public static class PageStreams {
     private static Seq<OutputName> Names(int count, FileExtension extension, FileOutput output) =>
         toSeq(Range(0, count)).Map(index => new OutputName(output.Scope, output.Version, Seq<NamePart>(), Callbacks.Found(count > 1, SequenceNumber.Create(index)), extension));
 
-    private static IO<Unit> Saved(OutputPath path, Action write) =>
-        IO.lift(write).Catch(
-            static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
-            error => IO.fail<Unit>(new PublishRefused(path, error)));
-
     private static IO<Seq<(OutputName Name, OutputPath Path)>> Written(
-        RhinoDoc doc, Seq<PageSource> sources, FileExtension extension, FileOutput output, Func<ViewCaptureSettings, OutputPath, IO<Unit>> write) =>
+        RhinoDoc doc, Seq<PageSource> sources, FileExtension extension, FileOutput output, Func<ViewCaptureSettings, Stream, IO<Unit>> write) =>
         Pages(doc, sources, pages =>
             from rows in Destinations.Resolve(doc, output.Destination, Names(pages.Count, extension, output))
             from written in pages.Zip(rows).TraverseM(pair => DisposalOps.Within((Action<IDisposable> retain) =>
-                pair.First.Settings(retain).Bind(settings => write(settings, pair.Second.Path)), DisposalOps.Release)).As()
+                pair.First.Settings(retain).Bind(settings => FilePublication.Write(pair.Second.Path, output.Destination.Overwrite, stream => write(settings, stream))),
+                DisposalOps.Release)).As()
             select rows);
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToPdf(RhinoDoc doc, IterableNE<PdfSource> sources, PageText text, bool layers, FileOutput output) =>
         from rows in Destinations.Resolve(doc, output.Destination, Names(1, FileExtension.Create(".pdf"), output))
         from pdf in Composed(doc, toSeq(sources), text, layers)
-        from written in rows.TraverseM(row => Saved(row.Path, () => pdf.Write(row.Path))).As()
+        from written in rows.TraverseM(row => FilePublication.Write(row.Path, output.Destination.Overwrite, stream => IO.lift(() => pdf.Write(stream)))).As()
         select rows;
 
     public static IO<Unit> ToPdf(RhinoDoc doc, IterableNE<PdfSource> sources, PageText text, bool layers, Stream target) =>
@@ -226,13 +220,11 @@ public static class PageStreams {
             DisposalOps.Release));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToRasters(RhinoDoc doc, IterableNE<PageSource> sources, RasterEncoding encoding, FileOutput output) =>
-        Written(doc, toSeq(sources), encoding.Extension, output, (settings, path) =>
-            DisposalOps.Within(() => ViewCapture.CaptureToBitmap(settings), bitmap =>
-                IO.lift(() => Missing.Unless(bitmap, nameof(ViewCapture.CaptureToBitmap))).Bind(held =>
-                    IO.lift(() => held.Save(path, encoding.Format))),
-                static bitmap => DisposalOps.Release(Conversions.Rows([bitmap]))));
+        Written(doc, toSeq(sources), encoding.Extension, output, (settings, stream) =>
+            DisposalOps.Found(() => ViewCapture.CaptureToBitmap(settings), nameof(ViewCapture.CaptureToBitmap),
+                bitmap => IO.lift(() => bitmap.Save(stream, encoding.Format))));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToSvg(RhinoDoc doc, IterableNE<PageSource> sources, FileOutput output) =>
-        Written(doc, toSeq(sources), FileExtension.Create(".svg"), output, static (settings, path) =>
-            Saved(path, () => ViewCapture.CaptureToSvg(settings).Save(path)));
+        Written(doc, toSeq(sources), FileExtension.Create(".svg"), output, static (settings, stream) =>
+            IO.lift(() => ViewCapture.CaptureToSvg(settings).Save(stream)));
 }

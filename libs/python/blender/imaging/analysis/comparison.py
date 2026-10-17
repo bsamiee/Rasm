@@ -1,11 +1,11 @@
 """Signal, structural, and perceptual comparison of written image planes."""
 
 from collections.abc import Callable, Iterable, Mapping
-from enum import auto, IntEnum
+from enum import auto
 import math
 import operator
 from types import MappingProxyType
-from typing import Annotated, ClassVar, Self
+from typing import Annotated, ClassVar
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
@@ -21,7 +21,7 @@ from blender.imaging.parameters import Choice
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Verdict(IntEnum):
+class Verdict(Choice):
     """Comparison grade in severity order."""
 
     PASS = 0
@@ -29,30 +29,24 @@ class Verdict(IntEnum):
     UNMEASURED = auto()
     REFUSE = auto()
 
-    @property
-    def label(self) -> str:
-        """Display label derived from the grade name."""
-        return self.name.title()
-
 
 class Axis(Choice):
     """Persistent measured axis and its threshold ordering."""
 
     holds: Callable[[float, float], bool]
 
-    def __new__(cls, value: int, label: str, holds: Callable[[float, float], bool]) -> Self:
-        """Constructs an axis with the comparison direction it grades."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.holds = value, label, holds
-        return member
+    def __init__(self, value: int, holds: Callable[[float, float], bool], label: str | None = None) -> None:
+        """Sets the comparison direction the axis grades and its label."""
+        super().__init__(value, label)
+        self.holds = holds
 
-    MEAN_ERROR = 1, "Mean Error", operator.le
-    RMS_ERROR = 2, "RMS Error", operator.le
-    MAX_ERROR = 3, "Max Error", operator.le
-    PSNR = 4, "PSNR", operator.ge
-    NRMSE = 5, "NRMSE", operator.le
-    FLIP = 6, "FLIP", operator.le
-    SSIM = 7, "SSIM", operator.ge
+    MEAN_ERROR = 1, operator.le
+    RMS_ERROR = 2, operator.le, "RMS Error"
+    MAX_ERROR = 3, operator.le
+    PSNR = 4, operator.ge, "PSNR"
+    NRMSE = 5, operator.le, "NRMSE"
+    FLIP = 6, operator.le, "FLIP"
+    SSIM = 7, operator.ge, "SSIM"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------

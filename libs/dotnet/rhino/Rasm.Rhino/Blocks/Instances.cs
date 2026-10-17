@@ -33,7 +33,7 @@ public static class Instances {
              return (Objects: objects, Attributes: attributes, Xforms: xforms);
          },
          answer => IO.lift(() => Callbacks.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static Fin<ExplodedPiece> (row, index) =>
-             row.First is { } piece ? new ExplodedPiece(piece, row.Second, row.Third) : new RefusedElement(nameof(InstanceObject.Explode), index))).Bind(body),
+             row.First is { } piece ? new ExplodedPiece(piece, row.Second, row.Third) : new Refused(nameof(InstanceObject.Explode), Refused.Declined, index))).Bind(body),
          static answer => DisposalOps.Release(toSeq(answer.Attributes))));
 
     // --- [WRITES]
@@ -41,14 +41,14 @@ public static class Instances {
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
         from ids in IO.lift(() => Callbacks.Each(xforms, (xform, index) =>
             Conversions.Present(doc.Objects.AddInstanceObject(definition.Index, xform, attributes.ValueUnsafe(), history.ValueUnsafe(), reference))
-                .ToFin(new RefusedElement(nameof(ObjectTable.AddInstanceObject), index))))
+                .ToFin(new Refused(nameof(ObjectTable.AddInstanceObject), Refused.Declined, index))))
         select ids;
 
     public static IO<Seq<Guid>> Replace(RhinoDoc doc, ObjectTarget target, ComponentRef<InstanceDefinition> address) =>
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
         from objects in target.Objects(doc)
         from ids in IO.lift(() => Callbacks.Each(objects, (found, index) =>
-            RefusedElement.Unless(doc.Objects.ReplaceInstanceObject(found.Id, definition.Index), found.Id, nameof(ObjectTable.ReplaceInstanceObject), index)))
+            Refused.Unless(doc.Objects.ReplaceInstanceObject(found.Id, definition.Index), found.Id, nameof(ObjectTable.ReplaceInstanceObject), index)))
         select ids;
 
     public static IO<Seq<Guid>> AddExplodedPieces(RhinoDoc doc, Guid instance, bool explodeNested, PieceVisibility visibility, bool deleteInstance) =>
@@ -59,7 +59,7 @@ public static class Instances {
 
     private static IO<Guid> Added(RhinoDoc doc, ExplodedPiece piece, int index) =>
         (piece.Piece is InstanceObject nested
-            ? from definition in IO.lift(() => Optional(nested.InstanceDefinition).ToFin(new Refused(nameof(InstanceObject.InstanceDefinition))))
+            ? from definition in IO.lift(() => Optional(nested.InstanceDefinition).ToFin(new Refused(nameof(InstanceObject.InstanceDefinition), Refused.Declined)))
               from id in IO.lift(() => Conversions.Required(doc.Objects.AddInstanceObject(definition.Index, piece.Xform * nested.InstanceXform, piece.Attributes), nameof(ObjectTable.AddInstanceObject)))
               select id
             : DisposalOps.Within<IDisposable, Guid>(retain =>
@@ -70,5 +70,5 @@ public static class Instances {
         .MapFail(error => Indexed(error, index));
 
     private static Error Indexed(Error error, int index) =>
-        Error.Many(error.FoldM(cause => Seq(cause is Refused refused ? new RefusedElement(refused.Member, index) : cause)).As());
+        Error.Many(error.FoldM(cause => Seq(cause is Refused refused ? new Refused(refused.Member, refused.Reason, index) : cause)).As());
 }

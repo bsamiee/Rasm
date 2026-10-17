@@ -1,7 +1,6 @@
 """Emitter list with solo by stored prior, bulk power and emission edits, and emissive selection."""
 
 from collections.abc import Callable
-import sys
 from typing import Annotated, ClassVar
 
 from bl_ui.space_view3d import VIEW3D_MT_select_object
@@ -23,7 +22,7 @@ from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton, Propert
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.surfaces.appends import Append
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Gated, Presentation, Quantity
+from blender.imaging.parameters import Gated, NonNegative, Presentation, Quantity
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,22 +30,18 @@ from blender.imaging.parameters import Gated, Presentation, Quantity
 class Visibility(msgspec.Struct, frozen=True, kw_only=True):
     """Render and viewport visibility of an emitter before a solo."""
 
-    render: Annotated[bool, msgspec.Meta(title="Render", description="Shown in renders before the solo")] = True
-    viewport: Annotated[bool, msgspec.Meta(title="Viewport", description="Shown in viewports before the solo")] = True
+    render: Annotated[bool, msgspec.Meta(description="Shown in renders before the solo")] = True
+    viewport: Annotated[bool, msgspec.Meta(description="Shown in viewports before the solo")] = True
 
 
 class Bulk(msgspec.Struct, frozen=True, kw_only=True):
     """One multiplier on the power and emission of a scope's emitters."""
 
-    scope: Annotated[Scope, msgspec.Meta(title="Scope", description="Owners whose emitters change")] = Scenes()
-    factor: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Factor", description="Multiplier on each light's power and each emission strength"),
-        Presentation(soft=Some((0.1, 10.0)), decimals=Some(3)),
-    ] = 1.0
+    scope: Annotated[Scope, msgspec.Meta(description="Owners whose emitters change")] = Scenes()
+    factor: Annotated[NonNegative, msgspec.Meta(description="Multiplier on each light's power and each emission strength"), Presentation(soft=Some((0.1, 10.0)), decimals=Some(3))] = 1.0
     temperature: Annotated[
         Gated[Annotated[float, msgspec.Meta(ge=800.0, le=20000.0)]],
-        msgspec.Meta(title="Temperature", description="Blackbody color every light of the scope takes"),
+        msgspec.Meta(description="Blackbody color every light of the scope takes"),
         Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
     ] = Gated(enabled=False, value=6500.0)
 
@@ -54,7 +49,7 @@ class Bulk(msgspec.Struct, frozen=True, kw_only=True):
 class Emissives(msgspec.Struct, frozen=True, kw_only=True):
     """Scope whose emissive objects select."""
 
-    scope: Annotated[Scope, msgspec.Meta(title="Scope", description="Owners whose emissive objects select")] = Scenes()
+    scope: Annotated[Scope, msgspec.Meta(description="Owners whose emissive objects select")] = Scenes()
 
 
 class LightList(msgspec.Struct, frozen=True, kw_only=True):

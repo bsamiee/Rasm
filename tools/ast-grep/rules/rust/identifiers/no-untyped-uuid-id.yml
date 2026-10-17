@@ -25,4 +25,4 @@ rule:
           regex: '\{\w*:08x\}-\{\w*:04x\}-\{\w*:04x\}-'
           inside: {kind: token_tree, inside: {kind: macro_invocation}}
 message: '`$SITE` holds or spells an identifier as an untyped UUID'
-note: 'Type each identifier `newtype_uuid::TypedUuid<<Kind>>` with one `TypedUuidKind` per entity, the typed id serializes as the same UUID string and stops one entity''s id from reaching another''s parameter. Print a UUID through `uuid::Uuid`''s `Display`'
+note: 'Type each identifier `newtype_uuid::TypedUuid<<Kind>>` with one `TypedUuidKind` per entity, the typed id serializes as the same UUID string and stops one entity''s id from reaching another''s parameter. A token a protocol carries as an opaque string and its peer echoes back names no entity, it keeps the protocol''s string type from generation to lookup. Print a UUID through `uuid::Uuid`''s `Display`'

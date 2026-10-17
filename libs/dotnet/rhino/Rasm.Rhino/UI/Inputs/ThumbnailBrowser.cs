@@ -2,15 +2,14 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Resources;
 
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct TileSize : System.Numerics.IMinMaxValue<TileSize> {
     public static TileSize MinValue { get; } = new(32f);
     public static TileSize MaxValue { get; } = new(256f);
@@ -19,8 +18,7 @@ public readonly partial struct TileSize : System.Numerics.IMinMaxValue<TileSize>
 
     public static TileSize Clamped(float width) => new(float.Clamp(width, MinValue._value, MaxValue._value));
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public readonly record struct TileFlow(int Columns, SizeF Cell) {
@@ -49,11 +47,10 @@ public readonly record struct TileFace(RectangleF Image, RectangleF Caption, Rec
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidRhinoValue>]
-public sealed partial class BrowserMode {
+public sealed partial class BrowserMode : ICaptioned {
     private const float LabelRow = 20f;
 
-    public static readonly BrowserMode Grid = new("grid", GlyphRole.Grid,
+    public static readonly BrowserMode Grid = new("grid", "Grid", GlyphRole.Grid,
         static (width, image) => new TileFlow(int.Max(1, (int)((width - TileFlow.Spacing) / (image.Width + TileFlow.Spacing))), new SizeF(image.Width, image.Height + LabelRow)),
         static (cell, image, _) => new RectangleF(cell.X, cell.Y + image.Height, image.Width, LabelRow) switch {
             var caption => new TileFace(new RectangleF(cell.Location, image), caption, caption, Option<RectangleF>.None, FormattedTextAlignment.Center, Ruled: true),
@@ -61,7 +58,7 @@ public sealed partial class BrowserMode {
         static (pointer, flow) =>
             (flow.Row(pointer.Y) * flow.Columns) + int.Clamp((int)MathF.Round((pointer.X - TileFlow.Spacing) / (flow.Cell.Width + TileFlow.Spacing), MidpointRounding.ToEven), 0, flow.Columns),
         static width => TileSize.Clamped(((width - TileFlow.Spacing) / 3f) - TileFlow.Spacing));
-    public static readonly BrowserMode List = new("list", GlyphRole.List,
+    public static readonly BrowserMode List = new("list", "List", GlyphRole.List,
         static (width, image) => new TileFlow(1, new SizeF(width - (2f * TileFlow.Spacing), image.Height + (2f * Plots.Inset))),
         static (cell, image, number) => (cell.X + Plots.Inset + image.Width + 8f) switch {
             var start => new TileFace(
@@ -75,9 +72,9 @@ public sealed partial class BrowserMode {
         static (pointer, flow) => (int)MathF.Round((pointer.Y - TileFlow.Spacing) / (flow.Cell.Height + TileFlow.Spacing), MidpointRounding.ToEven),
         static _ => TileSize.List);
 
-    public GlyphRole Glyph { get; }
+    public string Caption { get; }
 
-    public string Caption => Map(grid: RowText.Localize("Grid").Local, list: RowText.Localize("List").Local);
+    public GlyphRole Glyph { get; }
 
     [UseDelegateFromConstructor]
     public partial TileFlow Flow(float width, SizeF image);
@@ -104,7 +101,7 @@ public sealed record BrowserSource<TItem, TKey>(Func<TItem, TKey> Key, Func<TIte
 
 public sealed record DragGap<TKey>(Seq<TKey> Moved, int Before) where TKey : notnull;
 
-public sealed record BrowserState<TItem, TKey>(Seq<TItem> Items, Option<TKey> Current, Option<TileSize> Size, BrowserMode Mode, PixelExtent Extent)
+public sealed record BrowserState<TItem, TKey>(Seq<TItem> Items, Option<TKey> Current, Option<TileSize> Size, BrowserMode Mode, Size Extent)
     where TItem : notnull where TKey : notnull {
     public Func<TItem, bool> Filter { get; init; } = static _ => true;
     public Option<RectangleF> Viewport { get; init; }
@@ -170,7 +167,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     public IO<Unit> Items(Seq<TItem> items) => Advance(state => new(items == state.Items ? state : Normalized(state with { Items = items, Requested = [], Revision = new() }), None));
     public IO<Unit> TileWidth(Option<TileSize> size) => Advance(state => new(state.Size == size ? state : Normalized(state with { Size = size, Requested = [], Revision = new() }), None));
     public IO<Unit> Mode(BrowserMode mode) => Advance(state => new(state.Mode == mode ? state : Normalized(state with { Mode = mode, Requested = [], Revision = new() }), None));
-    public IO<Unit> Extent(PixelExtent extent) => Advance(state => new(state.Extent == extent ? state : Normalized(state with { Extent = extent, Requested = [], Revision = new() }), None));
+    public IO<Unit> Extent(Size extent) => Advance(state => new(state.Extent == extent ? state : Normalized(state with { Extent = extent, Requested = [], Revision = new() }), None));
     public IO<Unit> Filter(Func<TItem, bool> filter) => Advance(state => new(Normalized(state with { Filter = filter }), None));
     public IO<Unit> Reload => Advance(state => new(Normalized(state with { Requested = [], Revision = new() }), None));
     public IO<Unit> Visibility(bool visible) => IO.lift(() => {
@@ -243,15 +240,15 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
 
     private static Option<Placed> Locate(Seq<Placed> placed, TKey key) => toHashMap(placed.Map(static at => (at.Entry.Key, at))).Find(key);
 
-    private static SizeF ImageBox(BrowserState<TItem, TKey> state, float width) =>
-        (float)state.Size.IfNone(() => state.Mode.Fit(width)) switch {
-            var side => new SizeF(side, side * state.Extent.Height / state.Extent.Width),
-        };
+    private static SizeF ImageBox(BrowserState<TItem, TKey> state, float width) {
+        float side = (float)state.Size.IfNone(() => state.Mode.Fit(width));
+        return new SizeF(side, side * state.Extent.Height / state.Extent.Width);
+    }
 
-    private static (TileFlow Flow, SizeF Image) Geometry(BrowserState<TItem, TKey> state, float width) =>
-        ImageBox(state, width) switch {
-            var image => (state.Mode.Flow(width, image), image),
-        };
+    private static (TileFlow Flow, SizeF Image) Geometry(BrowserState<TItem, TKey> state, float width) {
+        SizeF image = ImageBox(state, width);
+        return (state.Mode.Flow(width, image), image);
+    }
 
     private static Option<Size> RequestBox(BrowserState<TItem, TKey> state) => state.Viewport.Map(view => Size.Ceiling(ImageBox(state, view.Width)));
 
@@ -639,8 +636,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
             Font = canvas.Font,
             ForegroundBrush = Brushes.Cached(Plots.Resolve(canvas, new MarkStyle.Fill(PaintSlot.ContentListEnabledText, 1f))),
             Trimming = FormattedTextTrimming.CharacterEllipsis,
-        }, text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))).Map(unit),
-            static text => IO.lift(text.Dispose));
+        }, text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))).Map(unit));
 
     private Seq<(string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap)> Runs(RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
         state.Items.IsEmpty
@@ -699,33 +695,31 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
     }
 
     private IO<Unit> Acquired =>
-        DisposalOps.AcquireAll(
-                scroll.ToSeq()
-                    .Bind(view => Seq<Func<Action<IDisposable>, IO<Unit>>>(
-                        retain => Subscriptions.Attach(
-                            handler => view.Scroll += handler, handler => view.Scroll -= handler, Callbacks.Handler<ScrollEventArgs>(_ => Viewing, Site(nameof(Scrollable.Scroll))), retain),
-                        retain => Subscriptions.Attach(
-                            handler => view.SizeChanged += handler, handler => view.SizeChanged -= handler, Callbacks.Handler<EventArgs>(_ => Viewing, Site(nameof(SizeChanged))), retain)))
-                    .Concat(Seq<Func<Action<IDisposable>, IO<Unit>>>(
-                        retain => Subscriptions.Attach(
-                            handler => editor.KeyDown += handler, handler => editor.KeyDown -= handler, Callbacks.Handler<KeyEventArgs>(Keyed, Site(nameof(KeyDown))), retain),
-                        retain => Subscriptions.Attach(
-                            handler => editor.LostFocus += handler, handler => editor.LostFocus -= handler, Callbacks.Handler<EventArgs>(_ => Renamed, Site(nameof(LostFocus))), retain),
-                        retain => Subscriptions.Attach(
-                            static handler => Keyboard.ModifiersChanged += handler, static handler => Keyboard.ModifiersChanged -= handler,
-                            Callbacks.Handler<EventArgs>(_ => Shifted, Site(nameof(Keyboard.ModifiersChanged))), retain),
-                        retain => Subscriptions.Attach(
-                            handler => EnabledChanged += handler, handler => EnabledChanged -= handler, Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(EnabledChanged))), retain),
-                        retain => Subscriptions.Attach(
-                            static handler => Application.Instance.IsActiveChanged += handler, static handler => Application.Instance.IsActiveChanged -= handler,
-                            Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(Application.IsActiveChanged))), retain)))
-                    .Concat(source.Preview.ToSeq().Map(_ => fun((Action<IDisposable> retain) => FrameClocks.Sample(this, Observed, Site(nameof(Observed)), retain))))
-                    .Concat(source.Favourite.ToSeq().Bind(static _ => Seq(GlyphRole.FavouriteOn, GlyphRole.FavouriteOff)).Map(role => fun((Action<IDisposable> retain) => Icons.Themed(Sink, (role, IconSlot.ListCell.Master), IconSlot.ListCell, HostTheme.In(this), icon => {
-                        stars = stars.AddOrUpdate(role, icon);
-                        Invalidate();
-                    }, retain)))),
-                DisposalOps.Release,
-                (_, lease) => Retain(lease))
+        DisposalOps.Acquire(keep => scroll.ToSeq()
+            .Bind(view => Seq(
+                Subscriptions.Attach(
+                    handler => view.Scroll += handler, handler => view.Scroll -= handler, Callbacks.Handler<ScrollEventArgs>(_ => Viewing, Site(nameof(Scrollable.Scroll))), keep),
+                Subscriptions.Attach(
+                    handler => view.SizeChanged += handler, handler => view.SizeChanged -= handler, Callbacks.Handler<EventArgs>(_ => Viewing, Site(nameof(SizeChanged))), keep)))
+            .Concat(Seq(
+                Subscriptions.Attach(
+                    handler => editor.KeyDown += handler, handler => editor.KeyDown -= handler, Callbacks.Handler<KeyEventArgs>(Keyed, Site(nameof(KeyDown))), keep),
+                Subscriptions.Attach(
+                    handler => editor.LostFocus += handler, handler => editor.LostFocus -= handler, Callbacks.Handler<EventArgs>(_ => Renamed, Site(nameof(LostFocus))), keep),
+                Subscriptions.Attach(
+                    static handler => Keyboard.ModifiersChanged += handler, static handler => Keyboard.ModifiersChanged -= handler,
+                    Callbacks.Handler<EventArgs>(_ => Shifted, Site(nameof(Keyboard.ModifiersChanged))), keep),
+                Subscriptions.Attach(
+                    handler => EnabledChanged += handler, handler => EnabledChanged -= handler, Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(EnabledChanged))), keep),
+                Subscriptions.Attach(
+                    static handler => Application.Instance.IsActiveChanged += handler, static handler => Application.Instance.IsActiveChanged -= handler,
+                    Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(Application.IsActiveChanged))), keep)))
+            .Concat(source.Preview.ToSeq().Map(_ => FrameClocks.Sample(this, Observed, Site(nameof(Observed)), keep)))
+            .Concat(source.Favourite.ToSeq().Bind(static _ => Seq(GlyphRole.FavouriteOn, GlyphRole.FavouriteOff)).Map(role => Icons.Themed(Sink, (role, IconSlot.ListCell.Master), IconSlot.ListCell, HostTheme.In(this), icon => {
+                stars = stars.AddOrUpdate(role, icon);
+                Invalidate();
+            }, keep)))
+            .TraverseM(static attach => attach).As(), Retain)
             .Map(static _ => unit);
 
     private IO<Unit> Unloaded =>

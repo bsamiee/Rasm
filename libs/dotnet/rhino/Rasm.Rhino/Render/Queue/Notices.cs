@@ -1,15 +1,15 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Runtime.Notifications;
 
 namespace Rasm.Rhino.Render.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipIParsable = true)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NoticeServer {
@@ -17,23 +17,22 @@ public sealed partial class NoticeServer {
 
     public Uri Address => new(_value);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = Uri.TryCreate(value, UriKind.Absolute, out Uri? address)
             && (string.Equals(address.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal) || string.Equals(address.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal))
             && address.Query.Length is 0 && address.Fragment.Length is 0
                 ? null
-                : new InvalidRhinoValue();
+                : new ValidationError($"{value} is no absolute http or https address without query or fragment");
 }
 
 [ValueObject<string>(SkipIParsable = true)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NoticeTopic {
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value.Length is >= 1 and <= 64 && value.All(static c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
             ? null
-            : new InvalidRhinoValue();
+            : new ValidationError($"topic {value} is no 1 to 64 ASCII letters, digits, hyphens, or underscores");
 }
 
 public sealed record NoticeSettings(NoticeServer Server, Option<NoticeTopic> Topic) {
@@ -43,7 +42,6 @@ public sealed record NoticeSettings(NoticeServer Server, Option<NoticeTopic> Top
 public sealed record NoticeOptions(IO<NoticeSettings> Settings, Option<(IGlyph Glyph, int Master)> Glyph, Option<View.Panel> Reveal);
 
 [SmartEnum<int>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public sealed partial class NoticePriority {
     public static readonly NoticePriority Default = new(3, Notification.Severity.Info);
     public static readonly NoticePriority High = new(4, Notification.Severity.Warning);
@@ -117,7 +115,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
     private readonly Ref<Option<Option<Disposal<Notification>>>> raised = Ref(Some(Option<Disposal<Notification>>.None));
 
     public static IO<NoticeSender> Acquire(NoticeOptions options, TimeProvider clock, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new NoticeSender(options, clock, sink)), static held => IO.lift(held.Dispose), retain);
+        DisposalOps.Acquire(IO.lift(() => new NoticeSender(options, clock, sink)), retain);
 
     // --- [DELIVERY]
     public IO<Unit> Notify(QueueEvent queued) =>
@@ -153,9 +151,9 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
             NtfyMessage message = new(topic, notice.Title, notice.Description, queued.Priority.Key, [.. queued.Tag.ToSeq()]);
             using JsonContent content = JsonContent.Create(message, NtfyContext.Default.NtfyMessage);
             using HttpResponseMessage response = await client.PostAsync(server.Address, content, environment.Token).ConfigureAwait(false);
-            return NoticeRefused.Unless(response.StatusCode);
+            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : Error.New($"{response.StatusCode} answered the notice post");
         }).Bind(IO.lift)
-        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(new NoticeUnreached(server, error)))
+        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(Error.New($"{server} received no notice post", error)))
         .Catch(static error => error.Is(Errors.Cancelled), static error => cancelToken.Bind(token => IO.fail<Unit>(token.IsCancellationRequested ? error : Errors.TimedOut)));
 
     // --- [RELEASE]

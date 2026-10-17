@@ -11,9 +11,9 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(try|tryPromise|fail|failSync|failCause|failCauseSync|filterOrFail|mapError|mapBoth)$'}
-                - has: {field: object, matches: effect-effect-module}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
     boolean-handler:
-        matches: {effect-constant-handler: {result: {kind: 'true, false'}}}
+        matches: {typescript-constant-function: {result: {kind: 'true, false'}}}
     boolean-pair:
         kind: pair
         all:
@@ -29,7 +29,7 @@ rule:
                 pattern: $CALL
                 all:
                     - has: {field: property, regex: '^(isSuccess|isFailure)$'}
-                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
             - has: {field: arguments, has: {nthChild: 1, matches: failure-constructor}}
         - all:
             - has:
@@ -38,7 +38,7 @@ rule:
                 pattern: $CALL
                 all:
                     - has: {field: property, regex: '^match$'}
-                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
             - has:
                 field: arguments
                 has:

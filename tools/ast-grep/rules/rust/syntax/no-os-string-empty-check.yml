@@ -19,7 +19,7 @@ rule:
     kind: call_expression
     all:
         - pattern: $P.as_os_str().is_empty()
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
 constraints:
     P: {not: {matches: component-binding}}
 fix: $P.is_empty()

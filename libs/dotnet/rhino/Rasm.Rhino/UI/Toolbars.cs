@@ -66,17 +66,17 @@ public static class Toolbars {
         IO.lift(static () => Conversions.Rows(RhinoApp.ToolbarFiles).Map(ToolbarMapper.ToState).Strict());
 
     public static IO<ToolbarFileState> Find(Guid id) =>
-        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).Map(ToolbarMapper.ToState).ToFin(new Missing(nameof(RhinoApp.ToolbarFiles))));
+        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).Map(ToolbarMapper.ToState).ToFin(new Refused(nameof(RhinoApp.ToolbarFiles), Refused.Absent)));
 
     // --- [COMMANDS]
     internal static IO<Unit> RegisterCommand(HostCommand command) =>
         command.Toolbar.TraverseM(target =>
             from file in IO.lift(() => Callbacks.Found(
                 TryGetRuiFile(GlobalInstance(owner: null), target.File.IfNone(static () => DefaultRuiId(owner: null)), out object found),
-                found).ToFin(new Missing(nameof(TryGetRuiFile))))
+                found).ToFin(new Refused(nameof(TryGetRuiFile), Refused.Absent)))
             from toolbar in IO.lift(() => Callbacks.Found(
                 TryGetToolbar(file, target.Toolbar, out object found),
-                found).ToFin(new Missing(nameof(TryGetToolbar))))
+                found).ToFin(new Refused(nameof(TryGetToolbar), Refused.Absent)))
             from existing in IO.lift(() => toSeq((IEnumerable<object>)Items(toolbar))
                 .Map(static (item, index) => (Item: item, Index: index))
                 .Find(held => Id(held.Item) == command.Id))
@@ -115,7 +115,7 @@ public static class Toolbars {
                     row.MenuItems,
                     item => RuiUpdateUi.RegisterMenuItem(row.Id, item.Menu, item.Item, Handler(item, sink, live.Token)),
                     nameof(RuiUpdateUi.RegisterMenuItem)))
-            select unit, (_, held) => retain(held));
+            select unit, retain);
 
     private static RuiUpdateUi.UpdateMenuItemEventHandler Handler(MenuItemRow item, IPlugInSink sink, CancellationToken live) =>
         Callbacks.Handler<RuiUpdateUi>(

@@ -67,4 +67,4 @@ const videoDimensions = Effect.fnUntraced(function* (file: Blob): Effect.fn.Retu
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InspectError, imageRenditions, videoDimensions };
+export { imageRenditions, videoDimensions };

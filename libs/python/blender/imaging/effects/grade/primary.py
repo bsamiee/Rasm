@@ -1,7 +1,6 @@
 """Scene-linear gain and offset wheels, contrast about grey, and working-space saturation."""
 
-import sys
-from typing import Annotated, ClassVar, override
+from typing import Annotated, override
 
 from expression import Nothing, Ok, Option, Some
 import msgspec
@@ -10,11 +9,11 @@ import PyOpenColorIO
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.color.processors import luma
 from blender.imaging.faults import ImagingResult
-from blender.imaging.parameters import Presentation, Stops
+from blender.imaging.parameters import Finite, NonNegative, Presentation, Stops
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Component = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max), Presentation(soft=Some((-1.0, 1.0)), step=Some(0.01), decimals=Some(3))]
+type Component = Annotated[Finite, Presentation(soft=Some((-1.0, 1.0)), step=Some(0.01), decimals=Some(3))]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -34,9 +33,8 @@ class Primary(Effect, frozen=True, kw_only=True, tag=13):
     stage = Stage.PRIMARY
     title = "Primary Wheels"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
-    gain: Annotated[Wheel, msgspec.Meta(title="Gain", description="Channel gain in stops")] = Wheel()
-    offset: Annotated[Wheel, msgspec.Meta(title="Offset", description="Scene-linear value added to each channel")] = Wheel()
+    gain: Annotated[Wheel, msgspec.Meta(description="Channel gain in stops")] = Wheel()
+    offset: Annotated[Wheel, msgspec.Meta(description="Scene-linear value added to each channel")] = Wheel()
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
@@ -49,11 +47,9 @@ class Contrast(Effect, frozen=True, kw_only=True, tag=14):
     """Raises scene-linear values to a power about a grey pivot, keeping each sign."""
 
     stage = Stage.CONTRAST
-    title = "Contrast"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
     slope: Annotated[float, msgspec.Meta(ge=0.01, le=2.0, title="Contrast", description="Power about the pivot, equal to a slope in stops"), Presentation(step=Some(0.01), decimals=Some(3))] = 1.0
-    pivot: Annotated[Stops, msgspec.Meta(title="Pivot", description="Grey the contrast turns about, in stops from scene-linear grey")] = 0.0
+    pivot: Annotated[Stops, msgspec.Meta(description="Grey the contrast turns about, in stops from scene-linear grey")] = 0.0
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
@@ -66,15 +62,11 @@ class Saturation(Effect, frozen=True, kw_only=True, tag=15):
     """Scales chroma about working-space luminance with saturation-dependent vibrance."""
 
     stage = Stage.SATURATION
-    title = "Saturation"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
     scale: Annotated[
-        float,
-        msgspec.Meta(ge=0.0, le=sys.float_info.max, title="Saturation", description="Chroma scale about the working space's luminance"),
-        Presentation(soft=Some((0.0, 2.0)), step=Some(0.01), decimals=Some(3)),
+        NonNegative, msgspec.Meta(title="Saturation", description="Chroma scale about the working space's luminance"), Presentation(soft=Some((0.0, 2.0)), step=Some(0.01), decimals=Some(3))
     ] = 1.0
-    vibrance: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, title="Vibrance", description="Saturation gain weighted by the pixel's saturation"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.0
+    vibrance: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Saturation gain weighted by the pixel's saturation"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.0
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:

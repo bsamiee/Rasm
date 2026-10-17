@@ -25,7 +25,7 @@ Adapters that reference both representations own the mapper, and the domain refe
 | [INDEX] | [DIRECTION]                                       | [MAPPERLY_ROLE]             | [REQUIRED_FORM]                                       |
 | :-----: | :------------------------------------------------ | :-------------------------- | :---------------------------------------------------- |
 |  [01]   | External contract to raw input model              | Structural mapping          | Validate the raw model before domain construction     |
-|  [02]   | External contract to constrained domain value     | None                        | Cross through the generic `Validated`, keep its error |
+|  [02]   | External contract to constrained domain value     | None                        | Cross through `X.Validated`, keep its error           |
 |  [03]   | Validated components to domain aggregate          | Optional construction       | Use one constructor total over the components         |
 |  [04]   | Domain value to transport or persistence          | Structural projection       | Map only after the domain result is successful        |
 |  [05]   | Domain snapshot to next domain snapshot           | None                        | Call a named transition returning the next value      |
@@ -34,11 +34,11 @@ Adapters that reference both representations own the mapper, and the domain refe
 |  [08]   | Persistence query to read model                   | Expression projection       | Materialize before domain construction or effects     |
 
 Mappings that can reject input are not plain `TSource -> TTarget` functions:
-- Validation owns the rejection and returns the typed `Expected` record its namespace declares
+- Validation owns the rejection, `X.Validated` returns it under `ErrorCodes.ValidationFailed`
 - Mapper maps the successful value inside its existing context, a nested context (`IO<Option<A>>`) at its innermost value
 
 ```csharp
-internal static Fin<ItemDto> ToDto(Fin<Item> value) => value.Map(ItemMapper.ToDto);
+Fin<ItemDto> dto = item.Map(ItemMapper.ToDto);
 ```
 
 ## [02]-[MAPPER_CONFIGURATION]
@@ -128,7 +128,7 @@ Reference handling materializes an external graph that requires cycles or shared
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
 Generated domain types cross the mapper only through their declared conversions:
-- Inbound through the one generic `Validated` conversion over the generated `Validate`, answering `Fin<T>`, with no `From` factory on the type
+- Inbound through the static extension member `X.Validated(raw)` over the generated `Validate`, answering `Fin<T>`, with no `From` factory on the type
 - Outbound through the key member or `ToValue()`, a declared `[ObjectFactory<T>]` included
 - `ToString()` defines no outbound representation
 - `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception
@@ -422,7 +422,7 @@ internal enum ExternalState { Active, Completed, Cancelled, Draft }
 - Array sources replace those names with `CreateFrom<TElement>Array` and `From<TElement>Array`
 - Keyword element types (`int[]`) add `CreateFrom<kw>Array`, `From<kw>Array`, `FromArray`, `CreateFromArray`, `CreateFrom`, and `Create`
 - Nullable targets skip the static-method step
-- Static-method list matches the generated `Create(TKey)` of a value object, the generic `Validated` crossing sits on no target type and matches no listed name
+- Static-method list matches the generated `Create(TKey)` of a value object, the `Validated` extension member sits on no target type and matches no listed name
 - `Tuple` emits a tuple expression outside a queryable projection and `ValueTuple` inside one
 - `Enumerable` and `Dictionary` bits cover arrays and every constructible collection target
 - `EnumUnderlyingType` casts inside the `EnumToEnum` step
@@ -458,7 +458,7 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 
 | [INDEX] | [WRONG_FORM]                                                         | [CORRECT_FORM]                                                    |
 | :-----: | :------------------------------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type    | Generic `Validated` crossing over the generated `Validate`        |
+|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type    | `X.Validated` over the generated `Validate`                       |
 |  [02]   | `MapDerivedType` or a partial `Switch` over a closed union           | Generated exhaustive `Switch`, one mapper call per arm            |
 |  [03]   | `EnabledConversions` on a mapper naming the one added bit            | Whole allowlist, the value replaces and never merges              |
 |  [04]   | Mapper method that returns `Fin<T>` or unwraps one                   | Mapper over the success value, `Map` keeps the context            |

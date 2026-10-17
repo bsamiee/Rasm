@@ -157,7 +157,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - Exact id patterns beat a prefix, a longer prefix beats a shorter one, `*` is the default
 - CPM reports `NU1507` with more than one HTTP source and no mapping
 - Mapping is skipped for an id present in the global packages folder
-- `globalPackagesFolder` in a repository `<config>` splits its packages from outside restores, machine `NUGET_PACKAGES` serves both from one folder
+- `globalPackagesFolder` in a repository `<config>` splits its packages from outside restores
 - Relative `globalPackagesFolder` and `repositoryPath` values resolve against the directory of the `NuGet.config` that sets them
 - `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config`
 - `NUGET_PACKAGES` overrides `globalPackagesFolder` alone, a relative value fails restore

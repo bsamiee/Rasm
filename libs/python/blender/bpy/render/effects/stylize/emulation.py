@@ -27,7 +27,7 @@ from blender.bpy.render.outputs.framing import capacity, FrameSize
 from blender.imaging.color.processors import unassociated
 from blender.imaging.effects.generators.noise import Estimate, Precision
 from blender.imaging.effects.stylize.emulation import Corruption, Display, Emulation, Ghost, Layout, Phosphors, Scanlines, Signal, Tape
-from blender.imaging.faults import accumulated, ImagingBufferFault, ImagingFaults, ImagingRepresentationFault, ImagingResult, paired
+from blender.imaging.faults import accumulated, ImagingBufferFault, ImagingNumericFault, ImagingResult, paired
 from blender.imaging.geometry.stmaps import Extension
 from blender.imaging.parameters import Gated, Motion
 
@@ -130,13 +130,6 @@ def prepared(
     if not record.compression.enabled:
         return Ok((record, {}))
 
-    def located(pixels: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
-        image = OpenImageIO.ImageBuf(pixels)
-        image.copy_metadata(source)
-        image.set_origin(source.xbegin, source.ybegin, source.zbegin)
-        image.roi_full = source.roi_full
-        return ImagingBufferFault.checked(image)
-
     def coded(image: OpenImageIO.ImageBuf) -> Option[OpenImageIO.ImageSpec]:
         if not (width := (record.compression.value.coded_width)).enabled:
             return Nothing
@@ -158,28 +151,22 @@ def prepared(
                 straight[..., :3] = rgb
                 alpha = straight[..., 3:]
                 np.multiply(straight[..., :3], alpha, out=straight[..., :3], where=alpha != 0.0)
-                return located(straight)
+                return ImagingBufferFault.located(straight, source)
 
-            return Result[npt.NDArray[np.float32], ImagingFaults].bind(
-                Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=image, error=image.geterror()),)), restored
-            )
+            return ImagingBufferFault.pixels(image).bind(restored)
 
         return (
-            located(straight)
+            ImagingBufferFault
+            .located(straight, source)
             .bind(lambda image: ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2))))
             .bind(lambda rgb: record.compression.value.applied(rgb, coded(rgb)))
             .bind(associated)
         )
 
     try:
-        return (
-            Result[npt.NDArray[np.float32], ImagingFaults]
-            .bind(Option.of_optional(source.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingBufferFault(request=source, error=source.geterror()),)), compressed)
-            .map_error(BlenderImagingFault.lifted)
-            .map(lambda image: (record, {Shell.image: image}))
-        )
+        return ImagingBufferFault.pixels(source).bind(compressed).map_error(BlenderImagingFault.lifted).map(lambda image: (record, {Shell.image: image}))
     except (TypeError, OverflowError, MemoryError) as error:
-        return Error((BlenderImagingFault(faults=(ImagingRepresentationFault(request=record.compression.value, error=error),)),))
+        return Error((BlenderImagingFault(faults=(ImagingNumericFault(request=record.compression.value, error=error),)),))
 
 
 def raster_noise(key: str, lattice: Operand, offset: Operand, pattern: Operand) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:

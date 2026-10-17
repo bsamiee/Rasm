@@ -15,11 +15,11 @@ const PlayReason = Schema.TaggedUnion({
     Busy: { message: Schema.String },
     Thrown: { cause: Schema.Defect() },
 });
-class PlayError extends Schema.TaggedError<PlayError>()('PlayError', { reason: PlayReason }) {}
+class PlayError extends Schema.TaggedError<PlayError, { readonly brand: unique symbol }>()('PlayError', { reason: PlayReason }) {}
 
 const { message, result } = PlayReason.cases.Refused.fields;
 const Failed = Schema.Struct({ _obj: Schema.Literal('error'), message, result });
-const thrown = (cause: unknown): PlayError => new PlayError({ reason: { _tag: 'Thrown', cause } });
+const thrown = (cause: unknown): PlayError => PlayError.make({ reason: { _tag: 'Thrown', cause } });
 const played = (commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], PlayError> =>
     Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: thrown }), (replies) => {
         const userCancelled = -128;
@@ -30,7 +30,7 @@ const played = (commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[],
                     : { _tag: 'Refused' as const, command, message: failed.message, result: failed.result },
             ),
         );
-        return Option.match(refused, { onNone: () => Effect.succeed(replies), onSome: (reason) => Effect.fail(new PlayError({ reason })) });
+        return Option.match(refused, { onNone: () => Effect.succeed(replies), onSome: (reason) => Effect.fail(PlayError.make({ reason })) });
     });
 const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>): Effect.Effect<A, E | PlayError, R> => {
     const busyCode = 9;
@@ -42,7 +42,7 @@ const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) =
                 catch: (cause) =>
                     Option.match(Schema.decodeUnknownOption(Busy)(cause), {
                         onNone: () => thrown(cause),
-                        onSome: (busy) => new PlayError({ reason: { _tag: 'Busy', message: busy.message } }),
+                        onSome: (busy) => PlayError.make({ reason: { _tag: 'Busy', message: busy.message } }),
                     }),
             }),
         ),

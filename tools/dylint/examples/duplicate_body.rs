@@ -1,7 +1,8 @@
 use core::{
     f64::consts::PI,
-    fmt::{Debug, Display},
+    fmt::{self, Debug, Display},
     hint::black_box,
+    ops::Neg,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -87,6 +88,12 @@ struct Counter {
     count: u32,
 }
 
+#[derive(Debug)]
+struct Labeled<T> {
+    name: &'static str,
+    value: T,
+}
+
 // --- [MACROS] --------------------------------------------------------------------------
 
 macro_rules! getter {
@@ -113,6 +120,48 @@ impl Shape for Circle {
     fn area(&self) -> f64 { PI * self.radius * self.radius }
 
     fn doubled(&self) -> f64 { self.area() * 2.0 }
+}
+
+impl Display for Square {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
+}
+
+impl Display for Circle {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
+}
+
+impl<C> Extend<C> for Square {
+    fn extend<I>(&mut self, items: I)
+    where I: IntoIterator<Item = C> {
+        items.into_iter().for_each(drop);
+    }
+}
+
+impl<C> Extend<C> for Circle {
+    fn extend<I>(&mut self, items: I)
+    where I: IntoIterator<Item = C> {
+        items.into_iter().for_each(drop);
+    }
+}
+
+impl Neg for Box<Square> {
+    type Output = f64;
+
+    fn neg(self) -> f64 { -1.0 }
+}
+
+impl Neg for Box<Circle> {
+    type Output = f64;
+
+    fn neg(self) -> f64 { -1.0 }
+}
+
+impl Display for Labeled<u8> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
+}
+
+impl Display for Labeled<u16> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
 }
 
 impl Catalog {
@@ -195,12 +244,18 @@ async fn main() {
     let catalog = Catalog { items: vec![Item { name: String::from("pen") }] };
     let (user, team) = (User { name: String::from("ada"), email: String::from("ada@example.com") }, Team { name: String::from("core"), size: 3 });
     let (fixed, spread, counter) = (Fixed { limit: 4 }, Spread { floor: 1, ceiling: 9 }, Counter { count: 2 });
+    let (mut square, mut circle) = (Square { side: 1.0 }, Circle { radius: 1.0 });
+    square.extend([1_u8]);
+    circle.extend([2_u8]);
+    let (small, large) = (Labeled { name: "small", value: 1_u8 }, Labeled { name: "large", value: 2_u16 });
     black_box((
         [Square { side: 2.0 }.doubled(), Circle { radius: 1.0 }.doubled()],
+        [Square { side: 3.0 }.to_string(), Circle { radius: 2.0 }.to_string()],
         ([user.name(), team.name(), &user.email].concat(), team.size, route.path(), route.url_path(), catalog.names(), catalog.labels()),
         [fixed.lower(), fixed.upper(), spread.lower(), spread.upper(), counter.current(), counter.latest()],
         [decimal::read("10"), hexadecimal::read("a"), decimal::parse("7"), hexadecimal::parse("b"), total(&[1, 2]), sum(&[3])],
         (shown(&1), rendered(&2), first(3).await, second(4).await, route.enter(), route.exit(), catalog.enter()),
         [fixed.weight(), spread.weight(), counter.weight()],
+        (-Box::new(square), -Box::new(circle), small.to_string(), large.to_string(), small.value, large.value),
     ));
 }

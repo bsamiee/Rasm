@@ -25,4 +25,9 @@ array-values-order.enabled = false
 [[schemas]]
 path    = "tombi://www.schemastore.org/cargo.json"
 include = ["Cargo.toml"]
-strict  = false                                    # Schema lacks the `cargo-features` profile key `trim-paths` that `[profile.dist]` sets
+
+[[schemas]]
+root    = "profile.*"
+path    = "tombi://www.schemastore.org/cargo.json#/definitions/Profile"
+include = ["Cargo.toml"]
+strict  = false                                                         # Schema lacks the `cargo-features` profile key `trim-paths` that `[profile.dist]` sets

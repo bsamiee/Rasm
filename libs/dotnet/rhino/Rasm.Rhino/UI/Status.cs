@@ -1,6 +1,6 @@
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Runtime.Notifications;
 using Rhino.UI;
@@ -49,7 +49,7 @@ public static class Status {
     public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<T>> work, IPlugInSink sink) =>
         DisposalOps.Within<IDisposable, T>(retain =>
             from reading in atomIO<WorkState>(new WorkState.Indeterminate())
-            from progress in DisposalOps.Acquire(IO.lift(() => new WorkProgress(reading, total)), static held => IO.lift(held.Dispose), retain)
+            from progress in DisposalOps.Acquire(IO.lift(() => new WorkProgress(reading, total)), retain)
             from forked in DisposalOps.Fork(work(progress), retain)
             from metered in Metered(doc, label, total, reading, sink, retain).OnUiThread()
             from attached in EventKind.EscapeKeyPressed.Inline(_ => forked.Cancel, sink, retain).OnUiThread()
@@ -57,9 +57,9 @@ public static class Status {
             select value, static held => DisposalOps.Release(held).OnUiThread());
 
     private static IO<Unit> Metered(RhinoDoc doc, string label, int total, Atom<WorkState> reading, IPlugInSink sink, Action<IDisposable> retain) =>
-        from window in IO.lift(() => Missing.Unless(RhinoEtoApp.MainWindowForDocument(doc), nameof(RhinoEtoApp.MainWindowForDocument)))
+        from window in IO.lift(() => Refused.UnlessFound(RhinoEtoApp.MainWindowForDocument(doc), nameof(RhinoEtoApp.MainWindowForDocument)))
         from answer in DisposalOps.Acquire(
-            IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, RowText.Localize(label, table: Some<object>(sink)).Local, embedLabel: true, showPercentComplete: true)),
+            IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, RowText.Localize(label, sink).Local, embedLabel: true, showPercentComplete: true)),
             answer => when(answer is 1, IO.lift(() => StatusBar.HideProgressMeter(doc.RuntimeSerialNumber))).As(),
             answer => {
                 if (answer is 1) retain(new Disposal<uint>(doc.RuntimeSerialNumber, static serial => StatusBar.HideProgressMeter(serial)));
@@ -67,7 +67,7 @@ public static class Status {
         from sampled in answer switch {
             1 => FrameClocks.Sample(window, Moved(reading, doc.RuntimeSerialNumber), new CallbackSite(sink, typeof(StatusBar), nameof(StatusBar.UpdateProgressMeter)), retain),
             -1 => IO.pure(unit),
-            _ => IO.fail<Unit>(new Refused(nameof(StatusBar.ShowProgressMeter))),
+            _ => IO.fail<Unit>(new Refused(nameof(StatusBar.ShowProgressMeter), Refused.Declined)),
         }
         select sampled;
 
@@ -80,14 +80,11 @@ public static class Status {
 
     // --- [NOTICES]
     public static IO<Disposal<Notification>> Show(Notice notice, Option<NoticeReplies> replies, IPlugInSink sink, Action<Disposal<Notification>> retain) =>
-        DisposalOps.Acquire(
-            IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => Added(notice, replies, sink))),
-            static held => IO.lift(held.Dispose),
-            held => Notification.ExecuteAssemblyProtectedCode(() => {
-                _ = held.Held.Iter(static raised => NativeNotificationCenter.Notifications.Add(raised));
-                retain(held);
-                return unit;
-            }));
+        DisposalOps.Acquire(IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => Added(notice, replies, sink))), held => Notification.ExecuteAssemblyProtectedCode(() => {
+            _ = held.Held.Iter(static raised => NativeNotificationCenter.Notifications.Add(raised));
+            retain(held);
+            return unit;
+        }));
 
     public static IO<Unit> Revise(Disposal<Notification> held, Notice notice) =>
         IO.lift(() => held.Held.Iter(raised => Notification.ExecuteAssemblyProtectedCode(() => NoticeMapper.Update(notice, raised))));
@@ -101,7 +98,7 @@ public static class Status {
 
     private static void Replied(Notification raised, NoticeReplies reply, IPlugInSink sink) {
         (raised.ConfirmButtonTitle, raised.AlternateButtonTitle) = (Conversions.Unset(reply.Confirm), Conversions.Unset(reply.Alternate));
-        raised.ButtonClicked = button => Callbacks.Run(IO.pure(button).Bind(reply.Clicked), new CallbackSite(sink, typeof(Notification), nameof(Notification.ButtonClicked)));
+        raised.ButtonClicked = button => Callbacks.Started(IO.pure(button).Bind(reply.Clicked), new CallbackSite(sink, typeof(Notification), nameof(Notification.ButtonClicked)));
         _ = reply.Cancel.Iter(title => raised.CancelButtonTitle = title);
     }
 }

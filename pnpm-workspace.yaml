@@ -377,10 +377,10 @@ allowBuilds:
     '@datadog/pprof': true
     '@modelcontextprotocol/inspector': true
     '@parcel/watcher': true
-    '@pulumi/command': true
-    '@pulumi/docker': true
-    '@pulumi/docker-build': true
-    '@pulumi/kubernetes': true
+    '@pulumi/command': false
+    '@pulumi/docker': false
+    '@pulumi/docker-build': false
+    '@pulumi/kubernetes': false
     '@swc/core': true
     '@tree-sitter-grammars/tree-sitter-xml': false
     core-js: true

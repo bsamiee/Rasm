@@ -11,25 +11,12 @@ using PeterO.Numbers;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using UnitsNet;
-using UnitsNet.Units;
+using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Filters.Stylize;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidStylize>]
-public readonly partial struct CellOffset : IMinMaxValue<CellOffset> {
-    public static CellOffset MinValue => Neutral;
-    public static CellOffset MaxValue { get; } = new(float.BitDecrement(1f));
-    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
-
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidStylize();
-}
-
 [ValueObject<string>(SkipIParsable = true)]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Glyphs {
@@ -40,48 +27,53 @@ public sealed partial class Glyphs {
     public static Glyphs Latin { get; } = new(" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
     public static Glyphs Mixed { get; } = new(" .:-=+*#%@01xX");
 
-    static partial void ValidateFactoryArguments(ref InvalidStylize? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(value).Count == value.Length ? null : new InvalidStylize();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(value).Count == value.Length ? null
+            : new ValidationError($"glyphs '{value}' must be distinct printable ASCII characters");
 }
 
-public sealed record InkScreen(SignedAngle Angle, CellOffset U, CellOffset V) : IStateRecord<InkScreen, InkScreenParameter, InvalidStylize> {
+public sealed record InkScreen(SignedAngle Angle, ProperFraction U, ProperFraction V) : IStateRecord<InkScreen, InkScreenParameter> {
     private const float ChannelScale = 4f;
 
-    public static InkScreen Default { get; } = new(SignedAngle.Diagonal, CellOffset.Neutral, CellOffset.Neutral);
+    public static InkScreen Default { get; } = new(SignedAngle.Diagonal, ProperFraction.Zero, ProperFraction.Zero);
     public static InkScreen Cyan { get; } = Shifted(0.193f, 0.052f);
     public static InkScreen Magenta { get; } = Shifted(0.052f, 0.193f);
     public static InkScreen Yellow { get; } = Shifted(0f, 0.2f);
     public static InkScreen Key { get; } = Shifted(0.1414f, 0.1414f);
 
-    private static InkScreen Shifted(float u, float v) => Default with { U = CellOffset.Create(u * ChannelScale), V = CellOffset.Create(v * ChannelScale) };
+    private static InkScreen Shifted(float u, float v) => Default with { U = ProperFraction.Create(u * ChannelScale), V = ProperFraction.Create(v * ChannelScale) };
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class InkScreenParameter : IStateParameter<InkScreen> {
-    public static readonly InkScreenParameter Angle = new("angle", StateParameter.Bounded<InkScreen, SignedAngle, float, InvalidPixelValue>(Lens<InkScreen, SignedAngle>.New(static ink => ink.Angle, static angle => ink => ink with { Angle = angle }), SignedAngle.Presentation));
-    public static readonly InkScreenParameter U = new("u", StateParameter.Bounded<InkScreen, CellOffset, float, InvalidStylize>(Lens<InkScreen, CellOffset>.New(static ink => ink.U, static u => ink => ink with { U = u }), CellOffset.Presentation));
-    public static readonly InkScreenParameter V = new("v", StateParameter.Bounded<InkScreen, CellOffset, float, InvalidStylize>(Lens<InkScreen, CellOffset>.New(static ink => ink.V, static v => ink => ink with { V = v }), CellOffset.Presentation));
+    public static readonly InkScreenParameter Angle = new("angle", StateParameter.Bounded(Lens<InkScreen, SignedAngle>.New(static ink => ink.Angle, static angle => ink => ink with { Angle = angle })),
+        new("Angle", "Turn of this ink's screen, counterclockwise"));
+    public static readonly InkScreenParameter U = new("u", StateParameter.Bounded(Lens<InkScreen, ProperFraction>.New(static ink => ink.U, static u => ink => ink with { U = u })),
+        new("Phase U", "Shift of this ink's screen along its first axis, in cells"));
+    public static readonly InkScreenParameter V = new("v", StateParameter.Bounded(Lens<InkScreen, ProperFraction>.New(static ink => ink.V, static v => ink => ink with { V = v })),
+        new("Phase V", "Shift of this ink's screen along its second axis, in cells"));
 
     public StateParameter<InkScreen> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ScreenShape {
+public sealed partial class ScreenShape : ICaptioned {
     private const double Elongation = double.Pi / 1.6d;
 
-    public static readonly ScreenShape Round = new("round", static (u, v) => (float)Quarter(double.Hypot(u, v), 1d, 1d));
-    public static readonly ScreenShape Ellipse = new("ellipse", static (u, v) => (float)(Elongation * Quarter(double.Hypot(u, v / Elongation), 1d, 1d / Elongation)));
-    public static readonly ScreenShape Diamond = new("diamond", static (u, v) => (float.Abs(u) + float.Abs(v)) switch { <= 1f and var d => d * d / 2f, var d => 1f - ((2f - d) * (2f - d) / 2f) });
-    public static readonly ScreenShape Square = new("square", static (u, v) => float.Max(float.Abs(u), float.Abs(v)) switch { var m => m * m });
-    public static readonly ScreenShape Line = new("line", static (_, v) => float.Abs(v));
-    public static readonly ScreenShape WavyLine = new("wavy-line", static (u, v) => (v - (0.5f * float.SinPi(u))) switch { var w => float.Abs(w - (2f * float.Floor((w + 1f) / 2f))) });
-    public static readonly ScreenShape Cross = new("cross", static (u, v) => float.Min(float.Abs(u), float.Abs(v)) switch { var m => 1f - ((1f - m) * (1f - m)) });
+    public static readonly ScreenShape Round = new("round", "Round", static (u, v) => (float)Quarter(double.Hypot(u, v), 1d, 1d));
+    public static readonly ScreenShape Ellipse = new("ellipse", "Ellipse", static (u, v) => (float)(Elongation * Quarter(double.Hypot(u, v / Elongation), 1d, 1d / Elongation)));
+    public static readonly ScreenShape Diamond = new("diamond", "Diamond", static (u, v) => (float.Abs(u) + float.Abs(v)) switch { <= 1f and var d => d * d / 2f, var d => 1f - ((2f - d) * (2f - d) / 2f) });
+    public static readonly ScreenShape Square = new("square", "Square", static (u, v) => float.Max(float.Abs(u), float.Abs(v)) switch { var m => m * m });
+    public static readonly ScreenShape Line = new("line", "Line", static (_, v) => float.Abs(v));
+    public static readonly ScreenShape WavyLine = new("wavy-line", "Wavy line", static (u, v) => (v - (0.5f * float.SinPi(u))) switch { var w => float.Abs(w - (2f * float.Floor((w + 1f) / 2f))) });
+    public static readonly ScreenShape Cross = new("cross", "Cross", static (u, v) => float.Min(float.Abs(u), float.Abs(v)) switch { var m => 1f - ((1f - m) * (1f - m)) });
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial float Spot(float u, float v);
@@ -98,17 +90,18 @@ public sealed partial class ScreenShape {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class Separation {
-    public static readonly Separation Mono = new("mono", static (rgb, weights) => new Vector4(Vector3.Zero, 1f - (float)double.Clamp((weights.X * rgb.X) + (weights.Y * rgb.Y) + (weights.Z * rgb.Z), 0d, 1d)));
-    public static readonly Separation Process = new("process", static (rgb, _) => Vector3.Clamp(rgb, Vector3.Zero, Vector3.One) switch {
+public sealed partial class Separation : ICaptioned {
+    public static readonly Separation Mono = new("mono", "Single ink", static (rgb, weights) => new Vector4(Vector3.Zero, 1f - (float)double.Clamp(LuminanceSamples.Luminance(rgb.X, rgb.Y, rgb.Z, weights), 0d, 1d)));
+    public static readonly Separation Process = new("process", "CMYK", static (rgb, _) => Vector3.Clamp(rgb, Vector3.Zero, Vector3.One) switch {
         var saturated => float.Max(saturated.X, float.Max(saturated.Y, saturated.Z)) switch {
             > 0f and var most => new Vector4(Vector3.One - (saturated / most), 1f - most),
             _ => Vector4.UnitW,
         },
     });
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial Vector4 Levels(Vector3 rgb, (double X, double Y, double Z) weights);
@@ -117,13 +110,13 @@ public sealed partial class Separation {
 public sealed record Halftone(
     ScreenShape Shape, ShortSideExtent Size, Separation Separation, InkScreen Cyan, InkScreen Magenta, InkScreen Yellow, InkScreen Key,
     AxisFraction CrossOnset, Swatch Ink, Gated<Swatch> Paper, BlendingMode Mode)
-    : IStateRecord<Halftone, HalftoneParameter, InvalidStylize>, IPixelStage<Halftone> {
+    : IStateRecord<Halftone, HalftoneParameter>, IPixelStage<Halftone> {
     public static Halftone Default { get; } = new(
         ScreenShape.Round, ShortSideExtent.Create(1f / (2f * 2f * 4f) * ReferenceFrame.GreaterSide), Separation.Mono, InkScreen.Cyan, InkScreen.Magenta, InkScreen.Yellow, InkScreen.Key,
         AxisFraction.MaxValue, Swatch.Black, new(Enabled: true, Swatch.White), BlendingMode.Mix);
 
     public static Option<PixelPass> Pass(Halftone state, PassContext context) =>
-        Some(Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, Mix.Full, []));
+        Some(Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, AxisFraction.MaxValue, []));
 
     private static Action<Span<Vector4>, long, long> Print(Halftone state, PassContext context) {
         (ERational pitch, int height, (double X, double Y, double Z) weights) = (ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide), context.Extent.Height, context.Working.Luminance);
@@ -174,47 +167,49 @@ public sealed record Halftone(
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HalftoneParameter : IStateParameter<Halftone> {
-    public static readonly HalftoneParameter Shape = new("shape", new StateParameter<Halftone>.Choice<ScreenShape, InvalidStylize>(
-        Lens<Halftone, ScreenShape>.New(static halftone => halftone.Shape, static shape => halftone => halftone with { Shape = shape })));
-    public static readonly HalftoneParameter Size = new("size", StateParameter.Bounded<Halftone, ShortSideExtent, float, InvalidPixelValue>(Lens<Halftone, ShortSideExtent>.New(static halftone => halftone.Size, static size => halftone => halftone with { Size = size }),
-    ShortSideExtent.Presentation with { Soft = (1f / (2f * 64f) * ReferenceFrame.GreaterSide, 0.25f) }));
-    public static readonly HalftoneParameter Separation = new("separation", new StateParameter<Halftone>.Choice<Separation, InvalidStylize>(
-        Lens<Halftone, Separation>.New(static halftone => halftone.Separation, static separation => halftone => halftone with { Separation = separation })));
-    public static readonly HalftoneParameter Cyan = new("cyan", new StateParameter<Halftone>.Record<InkScreen>(
-        Lens<Halftone, InkScreen>.New(static halftone => halftone.Cyan, static ink => halftone => halftone with { Cyan = ink })));
-    public static readonly HalftoneParameter Magenta = new("magenta", new StateParameter<Halftone>.Record<InkScreen>(
-        Lens<Halftone, InkScreen>.New(static halftone => halftone.Magenta, static ink => halftone => halftone with { Magenta = ink })));
-    public static readonly HalftoneParameter Yellow = new("yellow", new StateParameter<Halftone>.Record<InkScreen>(
-        Lens<Halftone, InkScreen>.New(static halftone => halftone.Yellow, static ink => halftone => halftone with { Yellow = ink })));
-    public static readonly HalftoneParameter KeyScreen = new("key", new StateParameter<Halftone>.Record<InkScreen>(
-        Lens<Halftone, InkScreen>.New(static halftone => halftone.Key, static ink => halftone => halftone with { Key = ink })));
-    public static readonly HalftoneParameter CrossOnset = new("cross-onset", StateParameter.Bounded<Halftone, AxisFraction, float, InvalidGrade>(Lens<Halftone, AxisFraction>.New(static halftone => halftone.CrossOnset, static onset => halftone => halftone with { CrossOnset = onset }), new()));
-    public static readonly HalftoneParameter Ink = new("ink", new StateParameter<Halftone>.Color(
-        Lens<Halftone, Swatch>.New(static halftone => halftone.Ink, static ink => halftone => halftone with { Ink = ink })));
-    public static readonly HalftoneParameter Paper = new("paper", new StateParameter<Halftone>.OptionalColor(
-        Lens<Halftone, Gated<Swatch>>.New(static halftone => halftone.Paper, static paper => halftone => halftone with { Paper = paper })));
-    public static readonly HalftoneParameter Mode = new("mode", new StateParameter<Halftone>.Choice<BlendingMode, InvalidGrade>(
-        Lens<Halftone, BlendingMode>.New(static halftone => halftone.Mode, static mode => halftone => halftone with { Mode = mode })));
+    public static readonly HalftoneParameter Shape = new("shape", new StateParameter<Halftone>.Choice<ScreenShape>(Lens<Halftone, ScreenShape>.New(static halftone => halftone.Shape, static shape => halftone => halftone with { Shape = shape })),
+        new("Shape", "Spot each screen cell inks, its inked area the cell's tone"));
+    public static readonly HalftoneParameter Size = new("size", StateParameter.Bounded(Lens<Halftone, ShortSideExtent>.New(static halftone => halftone.Size, static size => halftone => halftone with { Size = size }), ShortSideExtent.Presentation with { Soft = (1f / (2f * 64f) * ReferenceFrame.GreaterSide, 0.25f) }),
+        new("Cell size", "Screen cell height as a share of the frame's short side"));
+    public static readonly HalftoneParameter Separation = new("separation", new StateParameter<Halftone>.Choice<Separation>(Lens<Halftone, Separation>.New(static halftone => halftone.Separation, static separation => halftone => halftone with { Separation = separation })),
+        new("Separation", "One ink screened on luma, or cyan, magenta, yellow, and key screens"));
+    public static readonly HalftoneParameter Cyan = new("cyan", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Cyan, static ink => halftone => halftone with { Cyan = ink })),
+        new("Cyan", "Angle and phase of this ink's screen"));
+    public static readonly HalftoneParameter Magenta = new("magenta", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Magenta, static ink => halftone => halftone with { Magenta = ink })),
+        new("Magenta", "Angle and phase of this ink's screen"));
+    public static readonly HalftoneParameter Yellow = new("yellow", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Yellow, static ink => halftone => halftone with { Yellow = ink })),
+        new("Yellow", "Angle and phase of this ink's screen"));
+    public static readonly HalftoneParameter KeyScreen = new("key", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Key, static ink => halftone => halftone with { Key = ink })),
+        new("Key", "Angle and phase of this ink's screen"));
+    public static readonly HalftoneParameter CrossOnset = new("cross-onset", StateParameter.Bounded(Lens<Halftone, AxisFraction>.New(static halftone => halftone.CrossOnset, static onset => halftone => halftone with { CrossOnset = onset })),
+        new("Crosshatch", "Ink level where a perpendicular screen joins, 100% drawing none"));
+    public static readonly HalftoneParameter Ink = new("ink", new StateParameter<Halftone>.Color(Lens<Halftone, Swatch>.New(static halftone => halftone.Ink, static ink => halftone => halftone with { Ink = ink })),
+        new("Ink", "Color the key screen prints"));
+    public static readonly HalftoneParameter Paper = new("paper", new StateParameter<Halftone>.OptionalColor(Lens<Halftone, Gated<Swatch>>.New(static halftone => halftone.Paper, static paper => halftone => halftone with { Paper = paper })),
+        new("Paper", "Sheet color the inks print on, off printing over the image"));
+    public static readonly HalftoneParameter Mode = new("mode", new StateParameter<Halftone>.Choice<BlendingMode>(Lens<Halftone, BlendingMode>.New(static halftone => halftone.Mode, static mode => halftone => halftone with { Mode = mode })),
+        new("Blend mode", "How the drawn layer composites over the frame"));
 
     public StateParameter<Halftone> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class MosaicCell {
-    public static readonly MosaicCell Square = new("square");
-    public static readonly MosaicCell Cellular = new("cellular");
+public sealed partial class MosaicCell : ICaptioned {
+    public static readonly MosaicCell Square = new("square", "Square");
+    public static readonly MosaicCell Cellular = new("cellular", "Cellular");
+
+    public string Caption { get; }
 }
 
 public sealed record Mosaic(MosaicCell Cell, ShortSideExtent Size, Cellular Cells, Seed Seed, Timing Timing, Hold Hold)
-    : IStateRecord<Mosaic, MosaicParameter, InvalidStylize>, IPixelStage<Mosaic> {
-    public static Mosaic Default { get; } = new(MosaicCell.Square, ShortSideExtent.Create(0.1f * 0.05f * ReferenceFrame.GreaterSide), Cellular.Default, Seed.MinValue, Timing.Default with { Pace = Pace.MinValue }, Hold.MinValue);
+    : IStateRecord<Mosaic, MosaicParameter>, IPixelStage<Mosaic> {
+    public static Mosaic Default { get; } = new(MosaicCell.Square, ShortSideExtent.Create(0.1f * 0.05f * ReferenceFrame.GreaterSide), Cellular.Default, Seed.MinValue, Timing.Default with { Pace = Magnitude.Zero }, Hold.MinValue);
 
     public static Option<PixelPass> Pass(Mosaic state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame(par(state.Cell.Map(square: Blocks, cellular: Sites), state, context)));
@@ -254,44 +249,47 @@ public sealed record Mosaic(MosaicCell Cell, ShortSideExtent Size, Cellular Cell
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MosaicParameter : IStateParameter<Mosaic> {
-    public static readonly MosaicParameter Cell = new("cell", new StateParameter<Mosaic>.Choice<MosaicCell, InvalidStylize>(
-        Lens<Mosaic, MosaicCell>.New(static mosaic => mosaic.Cell, static cell => mosaic => mosaic with { Cell = cell })));
-    public static readonly MosaicParameter Size = new("size", StateParameter.Bounded<Mosaic, ShortSideExtent, float, InvalidPixelValue>(Lens<Mosaic, ShortSideExtent>.New(static mosaic => mosaic.Size, static size => mosaic => mosaic with { Size = size }),
-    ShortSideExtent.Presentation with { Soft = (0.001f, 0.1f * ReferenceFrame.GreaterSide) }));
-    public static readonly MosaicParameter Cells = new("cells", new StateParameter<Mosaic>.Record<Cellular>(
-        Lens<Mosaic, Cellular>.New(static mosaic => mosaic.Cells, static cells => mosaic => mosaic with { Cells = cells })));
-    public static readonly MosaicParameter Seed = new("seed", StateParameter.Bounded<Mosaic, Seed, int, InvalidGenerator>(Lens<Mosaic, Seed>.New(static mosaic => mosaic.Seed, static seed => mosaic => mosaic with { Seed = seed }), Generators.Seed.Presentation));
-    public static readonly MosaicParameter Timing = new("timing", new StateParameter<Mosaic>.Record<Timing>(
-        Lens<Mosaic, Timing>.New(static mosaic => mosaic.Timing, static timing => mosaic => mosaic with { Timing = timing })));
-    public static readonly MosaicParameter Hold = new("hold", StateParameter.Bounded<Mosaic, Hold, float, InvalidGenerator>(Lens<Mosaic, Hold>.New(static mosaic => mosaic.Hold, static hold => mosaic => mosaic with { Hold = hold }), Generators.Hold.Presentation));
+    public static readonly MosaicParameter Cell = new("cell", new StateParameter<Mosaic>.Choice<MosaicCell>(Lens<Mosaic, MosaicCell>.New(static mosaic => mosaic.Cell, static cell => mosaic => mosaic with { Cell = cell })),
+        new("Cells", "Square blocks holding their mean color, or irregular cells holding the color at their site"));
+    public static readonly MosaicParameter Size = new("size", StateParameter.Bounded(Lens<Mosaic, ShortSideExtent>.New(static mosaic => mosaic.Size, static size => mosaic => mosaic with { Size = size }), ShortSideExtent.Presentation with { Soft = (0.001f, 0.1f * ReferenceFrame.GreaterSide) }),
+        new("Cell size", "Cell height as a share of the frame's short side"));
+    public static readonly MosaicParameter Cells = new("cells", new StateParameter<Mosaic>.Record<Cellular>(Lens<Mosaic, Cellular>.New(static mosaic => mosaic.Cells, static cells => mosaic => mosaic with { Cells = cells })),
+        new("Cells", "Cell distance and site placement"));
+    public static readonly MosaicParameter Seed = new("seed", StateParameter.Bounded(Lens<Mosaic, Seed>.New(static mosaic => mosaic.Seed, static seed => mosaic => mosaic with { Seed = seed })),
+        new("Seed", "Number selecting the field's pattern"));
+    public static readonly MosaicParameter Timing = new("timing", new StateParameter<Mosaic>.Record<Timing>(Lens<Mosaic, Timing>.New(static mosaic => mosaic.Timing, static timing => mosaic => mosaic with { Timing = timing })),
+        new("Timing", "Stored time and rate of recorded frame time"));
+    public static readonly MosaicParameter Hold = new("hold", StateParameter.Bounded(Lens<Mosaic, Hold>.New(static mosaic => mosaic.Hold, static hold => mosaic => mosaic with { Hold = hold })),
+        new("Hold", "Seconds each drawn pattern holds before the next"));
 
     public StateParameter<Mosaic> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class GlyphColoring {
-    public static readonly GlyphColoring Input = new("input");
-    public static readonly GlyphColoring Text = new("text");
-    public static readonly GlyphColoring PerCell = new("per-cell");
+public sealed partial class GlyphColoring : ICaptioned {
+    public static readonly GlyphColoring Input = new("input", "Image");
+    public static readonly GlyphColoring Text = new("text", "Text color");
+    public static readonly GlyphColoring PerCell = new("per-cell", "Random per cell");
+
+    public string Caption { get; }
 }
 
 public sealed record GlyphCells(
-    Glyphs Glyphs, HersheyFonts Font, ShortSideExtent Size, GlyphColoring Coloring, Swatch Text, Swatch Background, Mix Saturation,
+    Glyphs Glyphs, HersheyFonts Font, ShortSideExtent Size, GlyphColoring Coloring, Swatch Text, Swatch Background, AxisFraction Saturation,
     AxisFraction Jitter, Seed Seed, Timing Timing, Hold Hold, BlendingMode Mode)
-    : IStateRecord<GlyphCells, GlyphCellsParameter, InvalidStylize>, IPixelStage<GlyphCells> {
+    : IStateRecord<GlyphCells, GlyphCellsParameter>, IPixelStage<GlyphCells> {
     public static GlyphCells Default { get; } = new(
-        Glyphs.Symbols, HersheyFonts.Simplex, ShortSideExtent.Create(1f / 24f), GlyphColoring.Input, Swatch.White, Swatch.Black, Mix.Full,
+        Glyphs.Symbols, HersheyFonts.Simplex, ShortSideExtent.Create(1f / 24f), GlyphColoring.Input, Swatch.White, Swatch.Black, AxisFraction.MaxValue,
         AxisFraction.Create(0.1f), Seed.MinValue, Timing.Default, Hold.Create(6f / 24f), BlendingMode.Mix);
 
     public static Option<PixelPass> Pass(GlyphCells state, PassContext context) =>
-        Some(Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, Mix.Full, []));
+        Some(Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, AxisFraction.MaxValue, []));
 
     private static unsafe Fin<Unit> Kernel(GlyphCells state, PassContext context, PixelFrame frame, IProgress<int> progress) => frame.Filter(header => {
         using VectorOfMat atlas = new();
@@ -303,7 +301,7 @@ public sealed record GlyphCells(
         Func<(EInteger Column, EInteger Row), (int Tile, Vector3 Color)> cells = memoUnsafe<(EInteger Column, EInteger Row), (int Tile, Vector3 Color)>(cell => {
             Vector3 color = mean(cell);
             (Vector4 u, Vector4 c) = (CoordinateHash.Uniforms(cell.Column, cell.Row, gray), CoordinateHash.Uniforms(cell.Column, cell.Row, tint));
-            float level = (float)double.Clamp(double.Clamp((weights.X * color.X) + (weights.Y * color.Y) + (weights.Z * color.Z), 0d, 1d) + (state.Jitter * (u.X - 0.5d)), 0d, 1d);
+            float level = (float)double.Clamp(double.Clamp(LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights), 0d, 1d) + (state.Jitter * (u.X - 0.5d)), 0d, 1d);
             return (ranked[int.Min(ranked.Count - 1, (int)(level * ranked.Count))], state.Coloring.Switch(
                 (Mean: color, Gray: u.Y, Tint: c.AsVector3(), State: state),
                 input: static s => s.Mean,
@@ -351,62 +349,78 @@ public sealed record GlyphCells(
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GlyphCellsParameter : IStateParameter<GlyphCells> {
-    public static readonly GlyphCellsParameter Glyphs = new("glyphs", new StateParameter<GlyphCells>.Keyed<Glyphs, string, InvalidStylize>(
-        Lens<GlyphCells, Glyphs>.New(static cells => cells.Glyphs, static glyphs => cells => cells with { Glyphs = glyphs })));
-    public static readonly GlyphCellsParameter Font = new("font", new StateParameter<GlyphCells>.Enumerated<HersheyFonts>(
-        Lens<GlyphCells, HersheyFonts>.New(static cells => cells.Font, static font => cells => cells with { Font = font })));
-    public static readonly GlyphCellsParameter Size = new("size", StateParameter.Bounded<GlyphCells, ShortSideExtent, float, InvalidPixelValue>(Lens<GlyphCells, ShortSideExtent>.New(static cells => cells.Size, static size => cells => cells with { Size = size }), ShortSideExtent.Presentation with { Soft = (1f / 128f, 0.25f) }));
-    public static readonly GlyphCellsParameter Coloring = new("coloring", new StateParameter<GlyphCells>.Choice<GlyphColoring, InvalidStylize>(
-        Lens<GlyphCells, GlyphColoring>.New(static cells => cells.Coloring, static coloring => cells => cells with { Coloring = coloring })));
-    public static readonly GlyphCellsParameter Text = new("text", new StateParameter<GlyphCells>.Color(
-        Lens<GlyphCells, Swatch>.New(static cells => cells.Text, static text => cells => cells with { Text = text })));
-    public static readonly GlyphCellsParameter Background = new("background", new StateParameter<GlyphCells>.Color(
-        Lens<GlyphCells, Swatch>.New(static cells => cells.Background, static background => cells => cells with { Background = background })));
-    public static readonly GlyphCellsParameter Saturation = new("saturation", StateParameter.Bounded<GlyphCells, Mix, float, InvalidGrade>(Lens<GlyphCells, Mix>.New(static cells => cells.Saturation, static saturation => cells => cells with { Saturation = saturation }), new()));
-    public static readonly GlyphCellsParameter Jitter = new("jitter", StateParameter.Bounded<GlyphCells, AxisFraction, float, InvalidGrade>(Lens<GlyphCells, AxisFraction>.New(static cells => cells.Jitter, static jitter => cells => cells with { Jitter = jitter }), new()));
-    public static readonly GlyphCellsParameter Seed = new("seed", StateParameter.Bounded<GlyphCells, Seed, int, InvalidGenerator>(Lens<GlyphCells, Seed>.New(static cells => cells.Seed, static seed => cells => cells with { Seed = seed }), Generators.Seed.Presentation));
-    public static readonly GlyphCellsParameter Timing = new("timing", new StateParameter<GlyphCells>.Record<Timing>(
-        Lens<GlyphCells, Timing>.New(static cells => cells.Timing, static timing => cells => cells with { Timing = timing })));
-    public static readonly GlyphCellsParameter Hold = new("hold", StateParameter.Bounded<GlyphCells, Hold, float, InvalidGenerator>(Lens<GlyphCells, Hold>.New(static cells => cells.Hold, static hold => cells => cells with { Hold = hold }), Generators.Hold.Presentation with { Soft = (Generators.Hold.MinValue, 120f / 24f) }));
-    public static readonly GlyphCellsParameter Mode = new("mode", new StateParameter<GlyphCells>.Choice<BlendingMode, InvalidGrade>(
-        Lens<GlyphCells, BlendingMode>.New(static cells => cells.Mode, static mode => cells => cells with { Mode = mode })));
+    public static readonly GlyphCellsParameter Glyphs = new("glyphs", new StateParameter<GlyphCells>.Keyed<Glyphs, string>(Lens<GlyphCells, Glyphs>.New(static cells => cells.Glyphs, static glyphs => cells => cells with { Glyphs = glyphs })),
+        new("Characters", "Characters the cells draw, ranked by the ink each covers"));
+    public static readonly GlyphCellsParameter Font = new("font", new StateParameter<GlyphCells>.Enumerated<HersheyFonts>(Lens<GlyphCells, HersheyFonts>.New(static cells => cells.Font, static font => cells => cells with { Font = font }),
+        static font => font switch {
+            HersheyFonts.Simplex => "Simplex",
+            HersheyFonts.Plain => "Plain",
+            HersheyFonts.Duplex => "Duplex",
+            HersheyFonts.Complex => "Complex",
+            HersheyFonts.Triplex => "Triplex",
+            HersheyFonts.ComplexSmall => "Complex small",
+            HersheyFonts.ScriptSimplex => "Script simplex",
+            HersheyFonts.ScriptComplex => "Script complex",
+        }),
+        new("Font", "Stroke font the characters draw in"));
+    public static readonly GlyphCellsParameter Size = new("size", StateParameter.Bounded(Lens<GlyphCells, ShortSideExtent>.New(static cells => cells.Size, static size => cells => cells with { Size = size }), ShortSideExtent.Presentation with { Soft = (1f / 128f, 0.25f) }),
+        new("Cell size", "Character cell height as a share of the frame's short side"));
+    public static readonly GlyphCellsParameter Coloring = new("coloring", new StateParameter<GlyphCells>.Choice<GlyphColoring>(Lens<GlyphCells, GlyphColoring>.New(static cells => cells.Coloring, static coloring => cells => cells with { Coloring = coloring })),
+        new("Coloring", "Color each character draws in"));
+    public static readonly GlyphCellsParameter TextColor = new("text", new StateParameter<GlyphCells>.Color(Lens<GlyphCells, Swatch>.New(static cells => cells.Text, static text => cells => cells with { Text = text })),
+        new("Text color", "Character color when coloring is Text color"));
+    public static readonly GlyphCellsParameter Background = new("background", new StateParameter<GlyphCells>.Color(Lens<GlyphCells, Swatch>.New(static cells => cells.Background, static background => cells => cells with { Background = background })),
+        new("Background", "Color behind every character"));
+    public static readonly GlyphCellsParameter Saturation = new("saturation", StateParameter.Bounded(Lens<GlyphCells, AxisFraction>.New(static cells => cells.Saturation, static saturation => cells => cells with { Saturation = saturation })),
+        new("Saturation", "Saturation of random cell colors"));
+    public static readonly GlyphCellsParameter Jitter = new("jitter", StateParameter.Bounded(Lens<GlyphCells, AxisFraction>.New(static cells => cells.Jitter, static jitter => cells => cells with { Jitter = jitter })),
+        new("Jitter", "Range of random offsets added to cell tones before choosing characters"));
+    public static readonly GlyphCellsParameter Seed = new("seed", StateParameter.Bounded(Lens<GlyphCells, Seed>.New(static cells => cells.Seed, static seed => cells => cells with { Seed = seed })),
+        new("Seed", "Number selecting the field's pattern"));
+    public static readonly GlyphCellsParameter Timing = new("timing", new StateParameter<GlyphCells>.Record<Timing>(Lens<GlyphCells, Timing>.New(static cells => cells.Timing, static timing => cells => cells with { Timing = timing })),
+        new("Timing", "Stored time and rate of recorded frame time"));
+    public static readonly GlyphCellsParameter Hold = new("hold", StateParameter.Bounded(Lens<GlyphCells, Hold>.New(static cells => cells.Hold, static hold => cells => cells with { Hold = hold }), Generators.Hold.Presentation with { Soft = (Generators.Hold.MinValue, 120f / 24f) }),
+        new("Hold", "Seconds each drawn pattern holds before the next"));
+    public static readonly GlyphCellsParameter Mode = new("mode", new StateParameter<GlyphCells>.Choice<BlendingMode>(Lens<GlyphCells, BlendingMode>.New(static cells => cells.Mode, static mode => cells => cells with { Mode = mode })),
+        new("Blend mode", "How the drawn layer composites over the frame"));
 
     public StateParameter<GlyphCells> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SortKey {
-    public static readonly SortKey Luma = new("luma", static (color, weights) => (weights.X * color.X) + (weights.Y * color.Y) + (weights.Z * color.Z));
-    public static readonly SortKey Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
-    public static readonly SortKey Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
+public sealed partial class SortKey : ICaptioned {
+    public static readonly SortKey Luma = new("luma", "Luma", static (color, weights) => LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights));
+    public static readonly SortKey Hue = new("hue", "Hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
+    public static readonly SortKey Saturation = new("saturation", "Saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial double Level(Vector4 color, (double X, double Y, double Z) weights);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SortDirection {
-    public static readonly SortDirection Right = new("right", static (key, other) => key.CompareTo(other));
-    public static readonly SortDirection Left = new("left", static (key, other) => other.CompareTo(key));
-    public static readonly SortDirection Down = new("down", static (key, other) => key.CompareTo(other));
-    public static readonly SortDirection Up = new("up", static (key, other) => other.CompareTo(key));
+public sealed partial class SortDirection : ICaptioned {
+    public static readonly SortDirection Right = new("right", order: 1, transposed: false, caption: "Right");
+    public static readonly SortDirection Left = new("left", order: -1, transposed: false, caption: "Left");
+    public static readonly SortDirection Down = new("down", order: 1, transposed: true, caption: "Down");
+    public static readonly SortDirection Up = new("up", order: -1, transposed: true, caption: "Up");
 
-    [UseDelegateFromConstructor]
-    public partial int Order(double key, double other);
+    public int Order { get; }
+    public bool Transposed { get; }
+    public string Caption { get; }
 }
 
 public sealed record PixelSort(SortKey Key, AxisFraction Low, AxisFraction High, SortDirection Direction)
-    : IStateRecord<PixelSort, PixelSortParameter, InvalidStylize>, IPixelStage<PixelSort> {
+    : IStateRecord<PixelSort, PixelSortParameter>, IPixelStage<PixelSort> {
     public static PixelSort Default { get; } = new(SortKey.Luma, AxisFraction.MinValue, AxisFraction.Create(0.3f), SortDirection.Right);
 
     public static Option<PixelPass> Pass(PixelSort state, PassContext context) {
@@ -421,7 +435,7 @@ public sealed record PixelSort(SortKey Key, AxisFraction Low, AxisFraction High,
             progress.Report(frame.Size.Height);
             return unit;
         });
-        return Some<PixelPass>(new PixelPass.Frame(state.Direction.Map(right: rows.Run, left: rows.Run, down: Columns, up: Columns)));
+        return Some<PixelPass>(new PixelPass.Frame(state.Direction.Transposed ? Columns : rows.Run));
     }
 
     private void Runs(Span<Vector4> row, (double X, double Y, double Z) weights) {
@@ -433,25 +447,27 @@ public sealed record PixelSort(SortKey Key, AxisFraction Low, AxisFraction High,
         for (int x = 0, start = 0; x <= row.Length; x++) {
             if (x < row.Length && row[x].W > 0f && Holds(keys[x]))
                 continue;
-            keys[start..x].Sort(row[start..x], Direction.Order);
+            keys[start..x].Sort(row[start..x], (key, other) => Direction.Order * key.CompareTo(other));
             start = x + 1;
         }
     }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidStylize>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PixelSortParameter : IStateParameter<PixelSort> {
-    public static readonly PixelSortParameter SortKey = new("key", new StateParameter<PixelSort>.Choice<SortKey, InvalidStylize>(
-        Lens<PixelSort, SortKey>.New(static sort => sort.Key, static key => sort => sort with { Key = key })));
-    public static readonly PixelSortParameter Low = new("low", StateParameter.Bounded<PixelSort, AxisFraction, float, InvalidGrade>(Lens<PixelSort, AxisFraction>.New(static sort => sort.Low, static low => sort => sort with { Low = low }), new()));
-    public static readonly PixelSortParameter High = new("high", StateParameter.Bounded<PixelSort, AxisFraction, float, InvalidGrade>(Lens<PixelSort, AxisFraction>.New(static sort => sort.High, static high => sort => sort with { High = high }), new()));
-    public static readonly PixelSortParameter Direction = new("direction", new StateParameter<PixelSort>.Choice<SortDirection, InvalidStylize>(
-        Lens<PixelSort, SortDirection>.New(static sort => sort.Direction, static direction => sort => sort with { Direction = direction })));
+    public static readonly PixelSortParameter SortKey = new("key", new StateParameter<PixelSort>.Choice<SortKey>(Lens<PixelSort, SortKey>.New(static sort => sort.Key, static key => sort => sort with { Key = key })),
+        new("Sort by", "Value each span sorts on"));
+    public static readonly PixelSortParameter Low = new("low", StateParameter.Bounded(Lens<PixelSort, AxisFraction>.New(static sort => sort.Low, static low => sort => sort with { Low = low })),
+        new("Lower bound", "Key value where sorted spans start, above the upper bound wrapping the band"));
+    public static readonly PixelSortParameter High = new("high", StateParameter.Bounded(Lens<PixelSort, AxisFraction>.New(static sort => sort.High, static high => sort => sort with { High = high })),
+        new("Upper bound", "Key value where sorted spans end"));
+    public static readonly PixelSortParameter Direction = new("direction", new StateParameter<PixelSort>.Choice<SortDirection>(Lens<PixelSort, SortDirection>.New(static sort => sort.Direction, static direction => sort => sort with { Direction = direction })),
+        new("Direction", "Direction sorted values rise along"));
 
     public StateParameter<PixelSort> Kind { get; }
+    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

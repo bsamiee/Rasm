@@ -30,6 +30,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
+- ALWAYS use `secrets` skill for a command or build that reads a secret
 - ALWAYS use `github` MCP for a known repository's issues, pull requests, and runs
 - ALWAYS use `blender-coding` skill for Python that runs inside Blender
 - ALWAYS use `uxp-coding` skill for code that runs in an Adobe UXP host
@@ -62,20 +63,19 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
-[TOTALITY]: Function signatures name parameter and return types directly, function bodies construct every return case explicitly
-- ALWAYS define error variants that consumers pattern match, recovery reads a variant instead of a rendered message or substring
-- ALWAYS define error types in the package that raises them, consumers map them at the package boundary instead of extending a global error list
+[TOTALITY]: Types state every outcome a function returns and exclude every input it rejects
+- ALWAYS define error types in the package that raises them, errors differing only in source, field, or message become one error carrying those as data
 - ALWAYS map every input to a value in the return type, a function that cannot produce a value returns the reason it cannot
-- ALWAYS represent absence with an option type the consumer unwraps, a host null, sentinel, or magic default becomes an option at the boundary
+- ALWAYS represent absence a consumer branches on with an option type, a host null, sentinel, or magic default becomes one at the boundary
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
-- ALWAYS reserve exceptions for defects, expected failures use the result type
+- ALWAYS reserve exceptions for defects, expected failures use the result type, a catch covers one throwing call and keeps the caught error as cause
 
 [FLOW]: Dependent operations use one result type that short-circuits on the first error
 - ALWAYS bind an operation that consumes the previous operation's value, the error case skips the remaining operations
 - ALWAYS recover through a function from an error to the same result type, raising packages classify, consumers holding an alternative recover
 - ALWAYS choose the result type at the input boundary and preserve it through domain logic
-- ALWAYS select control flow by pattern matching result cases, no status flag, out parameter, or nullable field paired with a flag selects the path
-- ALWAYS use one result type per expression, adapt a call returning a different result type at the call site
+- ALWAYS select control flow by pattern matching result and error cases, no flag, out parameter, nullable field, or message text selects the path
+- ALWAYS use one result type per expression, a conversion every caller of a function writes moves into that function's return type
 - ALWAYS compose asynchrony with the result type, asynchronous and synchronous operations chain through one result type
 
 [INDEPENDENCE]: Results that do not consume each other combine in one step that collects every error
@@ -89,22 +89,22 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS pair acquisition and release in one resource scope, release runs on the error path
 - ALWAYS pass changing context to the next domain operation as a returned value, shared mutable state does not coordinate domain operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
-- ALWAYS describe a target's desired state as data, interpreters reconcile the data into typed change rows against the live or stored target
+- ALWAYS describe a target's desired state as data and reconcile it against the live or stored target
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
 - ALWAYS emit logs, traces, and metrics from boundary and service code, domain expressions stay pure and emit none
 - ALWAYS return the language's result type from every fallible package and project API, consumers compose without unwrapping
 - ALWAYS validate host, protocol, and file input once at the boundary into domain values, domain logic receives no raw input
-- ALWAYS map external names to canonical domain names at the validating boundary, one module owns both directions
+- ALWAYS keep a host or protocol name for the concept it names, a domain name that differs maps both ways at the validating boundary in one module
 - ALWAYS translate the result at the boundary into the host's representation: exit code, status, host exception, or UI state
 
 [DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
-- ALWAYS call the owning type or package directly, a wrapper exists only to add a domain type, a boundary conversion, or a composed policy
+- ALWAYS call the owning type or package directly, a function between them stands only for a boundary conversion or steps every caller repeats
 - ALWAYS name the real type, an alias renaming a declared type exists only to resolve a name collision between referenced namespaces
 - ALWAYS define a custom operator, implicit conversion, or extension method only for a domain meaning or a composition the language lacks
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
 
-[DERIVATION]: Values a system exposes come from its API and metadata at run time, a literal or table holds a fact no API states
+[DERIVATION]: Values derive from the declaration or host API that states them, a literal or table holds a fact neither states
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
 - ALWAYS type configuration values with their owner's range
 - ALWAYS reach members through typed handles instead of member-name strings

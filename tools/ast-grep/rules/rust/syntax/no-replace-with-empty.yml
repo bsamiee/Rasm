@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: assignment_expression
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - pattern: $S = $S.replace($P, "")
             - pattern: '*$S = $S.replace($P, "")'

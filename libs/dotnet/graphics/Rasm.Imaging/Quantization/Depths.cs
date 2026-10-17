@@ -39,23 +39,35 @@ public readonly record struct Quantizer {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<InvalidQuantization>]
-public abstract partial class OutputDepth {
+public abstract partial class OutputDepth : ICaptioned {
     public static readonly OutputDepth UInt8 = new Integer<byte>(8);
     public static readonly OutputDepth UInt10 = new Integer<ushort>(10);
     public static readonly OutputDepth UInt12 = new Integer<ushort>(12);
     public static readonly OutputDepth UInt14 = new Integer<ushort>(14);
     public static readonly OutputDepth UInt16 = new Integer<ushort>(16);
-    public static readonly OutputDepth Float16 = new Floating<Half>();
-    public static readonly OutputDepth Float32 = new Floating<float>();
+    public static readonly OutputDepth Float16 = new Floating<Half>("Float (half)");
+    public static readonly OutputDepth Float32 = new Floating<float>("Float (full)");
 
     public int Bits { get; }
 
     public int SampleBytes { get; }
 
+    public string Caption { get; }
+
     public abstract Option<Quantizer> Levels { get; }
 
+    public static Seq<OutputDepth> Where<T>(Func<OutputDepth, Option<T>> table) => toSeq(Items).Filter(depth => table(depth).IsSome);
+
+    internal static Fin<T> Sampled<T>(string format, OutputDepth depth, Func<OutputDepth, Option<T>> table) =>
+        table(depth).ToFin(Error.New($"{format} holds no {depth} samples, only {Where(table)}"));
+
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
+
+    internal Fin<Unit> Buffered(string format, int width, bool alpha) =>
+        RowBytes(width, alpha) switch {
+            var bytes when bytes > System.Array.MaxLength => Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} row of {bytes} bytes exceeds one buffer of {System.Array.MaxLength} bytes")),
+            _ => unit,
+        };
 
     public void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
         int lanes = alpha ? 4 : 3;
@@ -74,7 +86,7 @@ public abstract partial class OutputDepth {
 
     private protected abstract void Store(ReadOnlySpan<float> samples, Span<byte> destination);
 
-    private sealed class Integer<T>(int bits) : OutputDepth(string.Create(CultureInfo.InvariantCulture, $"uint{bits}"), bits, Unsafe.SizeOf<T>()) where T : unmanaged, IBinaryInteger<T>, IUnsignedNumber<T> {
+    private sealed class Integer<T>(int bits) : OutputDepth(string.Create(CultureInfo.InvariantCulture, $"uint{bits}"), bits, Unsafe.SizeOf<T>(), bits.ToString(CultureInfo.InvariantCulture)) where T : unmanaged, IBinaryInteger<T>, IUnsignedNumber<T> {
         private readonly Quantizer levels = new(bits);
 
         public override Option<Quantizer> Levels => Some(levels);
@@ -100,11 +112,8 @@ public abstract partial class OutputDepth {
         }
     }
 
-    private sealed class Floating<T> : OutputDepth where T : unmanaged, IFloatingPointIeee754<T> {
-        public Floating() : this(Unsafe.SizeOf<T>()) { }
-
-        private Floating(int bytes) : base(string.Create(CultureInfo.InvariantCulture, $"float{8 * bytes}"), 8 * bytes, bytes) { }
-
+    private sealed class Floating<T>(string caption) : OutputDepth(string.Create(CultureInfo.InvariantCulture, $"float{8 * Unsafe.SizeOf<T>()}"), 8 * Unsafe.SizeOf<T>(), Unsafe.SizeOf<T>(), caption)
+        where T : unmanaged, IFloatingPointIeee754<T> {
         public override Option<Quantizer> Levels => None;
 
         private protected override Vector4 Sample(Vector4 pixel) => pixel;

@@ -9,9 +9,6 @@ public static class Copies {
     public static IO<T> DuplicateShallow<T>(T source, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(() => (T)source.DuplicateShallow(), static copy => Fin.Succ(copy), retain);
 
-    public static IO<(T Copy, TResult Result)> Edit<T, TResult>(T source, Func<T, Fin<TResult>> edit, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Edit(source, copy => IO.lift(() => edit(copy)), member, retain);
-
     public static IO<(T Copy, TResult Result)> Edit<T, TResult>(T source, Func<T, IO<TResult>> edit, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(() => (T)source.Duplicate(),
             copy =>
@@ -20,26 +17,28 @@ public static class Copies {
                 select (valid, result),
             retain);
 
-    public static IO<T> Edit<T>(T source, Func<T, Fin<Unit>> edit, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Edit<T, Unit>(source, edit, member, retain).Map(static edited => edited.Copy);
-
-    public static IO<T> Edit<T>(T source, Func<T, IO<Unit>> edit, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Edit<T, Unit>(source, edit, member, retain).Map(static edited => edited.Copy);
-
     // --- [ACQUISITION]
     public static IO<T> Acquire<T>(Func<T?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Owned(create, product => Missing.Unless(product, member).Bind(held => Measurements.Valid(held, member)),
-            static product => DisposalOps.Release(Conversions.Rows([product])), retain);
+        Owned(create, product => Measurements.Valid(product, member),
+            static product => DisposalOps.Release(product), retain);
+
+    public static IO<T> Acquire<T>(Func<CancellationToken, T?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
+        from token in cancelToken
+        from product in Owned(
+            () => create(token),
+            product => product is null && token.IsCancellationRequested ? Errors.Cancelled : Measurements.Valid(product, member),
+            static product => DisposalOps.Release(product), retain)
+        select product;
 
     public static IO<T> Acquire<T>(Func<Fin<T>> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create, answer =>
             from product in answer
             from valid in Measurements.Valid(product, member)
             select valid,
-            static answer => answer.Match(Succ: static product => DisposalOps.Release(Conversions.Rows([product])), Fail: static _ => IO.pure(unit)), retain);
+            static answer => answer.Match(Succ: static product => DisposalOps.Release(product), Fail: static _ => IO.pure(unit)), retain);
 
     public static IO<Seq<T>> Acquire<T>(Func<T?[]?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Owned(create, products => Missing.Unless(products, member).Bind(held => Measurements.Valid([.. held], member)), Released, retain);
+        Owned(create, products => Refused.UnlessFound(products, member).Bind(held => Measurements.Valid([.. held], member)), Released, retain);
 
     public static IO<Seq<T>> Acquire<T>(Func<Fin<T[]>> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create, answer =>
@@ -50,11 +49,11 @@ public static class Copies {
 
     public static IO<Seq<Seq<T>>> Acquire<T>(Func<List<T[]>?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create,
-            groups => Missing.Unless(groups, member).Bind(held => Callbacks.Each(toSeq(held), (group, _) => Measurements.Valid([.. group], member))),
+            groups => Refused.UnlessFound(groups, member).Bind(held => Callbacks.Each(toSeq(held), (group, _) => Measurements.Valid([.. group], member))),
             static groups => DisposalOps.Release(Conversions.Rows(groups).Bind(static group => Conversions.Rows(group))), retain);
 
     public static IO<Seq<T>> AcquireNonEmpty<T>(Func<T?[]?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Owned(create, products => Missing.Unless(products, member)
+        Owned(create, products => Refused.UnlessFound(products, member)
             .Bind(held => Measurements.Valid([.. held], member)).Bind(held => Conversions.NonEmpty(held, member)), Released, retain);
 
     public static IO<Seq<T>> AcquireNonEmpty<T>(Func<Fin<T[]>> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
@@ -66,18 +65,18 @@ public static class Copies {
             static answer => answer.Match(Succ: Released, Fail: static _ => IO.pure(unit)), retain);
 
     public static IO<Seq<Option<T>>> AcquireSparse<T>(Func<T?[]?> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
-        Owned(create, products => Missing.Unless(products, member)
+        Owned(create, products => Refused.UnlessFound(products, member)
             .Bind(held => Measurements.Valid(toSeq(held).Map(static product => Optional(product)), member)), Released, retain);
 
     public static IO<Seq<(T Result, TRow Row)>> Acquire<T, TRow>(Func<(T?[]? Results, IReadOnlyList<TRow>? Rows)> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create,
-            answer => (Missing.Unless(answer.Results, member).Bind(products => Measurements.Valid([.. products], member)).ToValidation(), Missing.Unless(answer.Rows, member).ToValidation())
+            answer => (Refused.UnlessFound(answer.Results, member).Bind(products => Measurements.Valid([.. products], member)).ToValidation(), Refused.UnlessFound(answer.Rows, member).ToValidation())
                 .Apply(static (kept, rows) => kept.Zip(toSeq(rows))).As().ToFin(),
             static answer => Released(answer.Results), retain);
 
     // --- [INDICES]
     public static Fin<Unit> InRange(Seq<int> indices, int itemCount, string member) =>
-        Callbacks.Each(indices, (index, _) => IndexOutOfRange.Unless(index, itemCount, member)).Map(static _ => unit);
+        Callbacks.Each(indices, (index, _) => Conversions.Within(index, itemCount, member)).Map(static _ => unit);
 
     // --- [OWNERSHIP]
     public static IO<TKept> Owned<TMade, TKept>(Func<TMade> create, Func<TMade, Fin<TKept>> accept, Func<TMade, IO<Unit>> release, Action<IDisposable> retain) =>

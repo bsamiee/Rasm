@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: 'call_expression, match_expression'
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - all: [{pattern: '$R.unwrap_or_else(|$E| match $E {})'}, {pattern: $OK}]
             - all: [{pattern: 'match $R { Ok($V) => $V, Err($E) => match $E {} }'}, {pattern: $OK}]

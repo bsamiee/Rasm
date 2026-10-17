@@ -18,8 +18,8 @@ from blender.bpy.commands.operators import Acquired, answered, Call, Confirm, Do
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import named
 from blender.bpy.data.rna.conditions import Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at, Value
-from blender.bpy.data.rna.snapshots import Applied, NativeValue, Snapshot
+from blender.bpy.data.rna.descriptors import Descriptor, Native, rooted, struct_at, Value
+from blender.bpy.data.rna.snapshots import Applied, Endpoints, NativeValue, Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -204,7 +204,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
     layers: Attached[LayerMember]
     categories: tuple[tuple[Category, tuple[Descriptor, ...]], ...]
     samples: Map[str, Descriptor[bpy.types.IntProperty]]
-    recovery: Stored[tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]]
+    recovery: Stored[Endpoints]
 
     # --- [MEMBERSHIP]
 
@@ -230,7 +230,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
 
     def copies(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
         """Returns the source followed by its marked member scenes in native order."""
-        return self.source(context).map(lambda source: (source, *(scene for scene, mark in RenderSet.ownership.held(self.identity) if mark.of == Some(source))))
+        return self.source(context).map(lambda source: (source, *RenderSet.ownership.serving(self.identity, source)))
 
     def members(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]]:
         """Returns the form's owners in native list order."""
@@ -354,8 +354,8 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     def current(self, context: bpy.types.Context) -> BlenderResult[Setup[E]]:
         """Captures the active scene without substituting a source or another render set."""
-        scene: BlenderResult[bpy.types.Scene] = Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="scene"),))
-        return Result[bpy.types.Scene, BlenderFaults].bind(scene, self.captured)
+        scene = rooted(bpy.types.Scene, context)
+        return scene.bind(self.captured)
 
     def held(self, scene: bpy.types.Scene) -> BlenderResult[tuple[SetupLocks, tuple[bpy.types.ViewLayer, ...]]]:
         """Reads parameter locks and every native view-layer member lock once."""
@@ -850,16 +850,7 @@ def written(members: Members, category: Category, context: bpy.types.Context, ta
     """Publishes native priors before sync and retains genuine normalized endpoints."""
 
     def previous(target: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[tuple[Tree[NativeValue], Tree[NativeValue]]]]:
-        return members.recovery.read(target).bind(
-            lambda held: held.map(
-                lambda pair: paired(
-                    Snapshot.decoded(pair[0]),
-                    Result[Tree[tuple[tuple[object, str], object]], BlenderFaults].bind(
-                        Option.of_optional(pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=repr(target), key="render_set_sync.after"),)), Snapshot.decoded
-                    ),
-                ).map(Some)
-            ).default_value(Ok(Nothing))
-        )
+        return members.recovery.read(target).bind(lambda held: held.map(lambda ends: ends.decoded(target, members.recovery.name).map(Some)).default_value(Ok(Nothing)))
 
     def recorded(target: bpy.types.Scene | bpy.types.ViewLayer, old: Tree[NativeValue], before: Tree[NativeValue], after: Tree[NativeValue]) -> BlenderResult[None]:
         names = {key: frozenset(owner.values) for key, owner in old.owners.items()}
@@ -868,7 +859,9 @@ def written(members: Members, category: Category, context: bpy.types.Context, ta
         owners = before.owners | {key: msgspec.structs.replace(owner, values=before.owners[key].values | owner.values) if key in before.owners else owner for key, owner in old.owners.items()}
         prior = {key: msgspec.structs.replace(owner, values={name: value for name, value in owner.values.items() if name in names[key]}) for key, owner in owners.items() if key in names}
         latest = {key: msgspec.structs.replace(owner, values={name: value for name, value in owner.values.items() if name in names[key]}) for key, owner in after.owners.items() if key in names}
-        return paired(Snapshot.persisted(Tree(roots=tuple(prior), owners=prior)), Snapshot.persisted(Tree(roots=tuple(latest), owners=latest))).bind(lambda pair: members.recovery.write(target, pair))
+        return paired(Snapshot.persisted(Tree(roots=tuple(prior), owners=prior)), Snapshot.persisted(Tree(roots=tuple(latest), owners=latest))).bind(
+            lambda pair: members.recovery.write(target, Endpoints(before=pair[0], after=pair[1]))
+        )
 
     def applied(source: Snapshot, held: tuple[Option[tuple[Tree[NativeValue], Tree[NativeValue]]], ...]) -> BlenderResult[tuple[Applied, ...]]:
         retained = dict(zip(targets, held))
@@ -877,7 +870,7 @@ def written(members: Members, category: Category, context: bpy.types.Context, ta
             old = retained[target].map(lambda pair: pair[0]).default_value(Tree(roots=(), owners={}))
             owners = before.owners | {key: msgspec.structs.replace(owner, values=before.owners[key].values | owner.values) if key in before.owners else owner for key, owner in old.owners.items()}
             return paired(Snapshot.persisted(Tree(roots=tuple(owners), owners=owners)), retained[target].map(lambda pair: Snapshot.persisted(pair[1])).default_value(Ok(None))).bind(
-                lambda pair: members.recovery.write(target, pair)
+                lambda pair: members.recovery.write(target, Endpoints(before=pair[0], after=pair[1]))
             )
 
         def completed(outcomes: tuple[Applied, ...]) -> BlenderResult[tuple[Applied, ...]]:
@@ -939,7 +932,7 @@ def toggled(members: Members, context: bpy.types.Context) -> BlenderResult[Done]
     """Changes a native member lock, first synchronizing a never-synced unlocked member."""
 
     def configured(owner: bpy.types.Scene | bpy.types.ViewLayer, record: SceneMember | LayerMember) -> BlenderResult[None]:
-        def synced_first(held: Option[tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]]) -> BlenderResult[None]:
+        def synced_first(held: Option[Endpoints]) -> BlenderResult[None]:
             return (
                 accumulated(
                     written(members, category, context, targets)
@@ -965,11 +958,9 @@ def toggled(members: Members, context: bpy.types.Context) -> BlenderResult[Done]
     def selected(form: Form) -> BlenderResult[Done]:
         match form:
             case Copies():
-                return Option.of_optional(context.scene).map(lambda scene: flipped(members.scenes, scene)).default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="scene"),)))
+                return rooted(bpy.types.Scene, context).bind(lambda scene: flipped(members.scenes, scene))
             case Layers():
-                return (
-                    Option.of_optional(context.view_layer).map(lambda layer: flipped(members.layers, layer)).default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="view_layer"),)))
-                )
+                return rooted(bpy.types.ViewLayer, context).bind(lambda layer: flipped(members.layers, layer))
 
     return members.form(context).bind(selected)
 
@@ -979,13 +970,10 @@ def unsynced(members: Members, context: bpy.types.Context) -> BlenderResult[tupl
 
     def reverted(root: type[bpy.types.Scene] | type[bpy.types.ViewLayer]) -> BlenderResult[tuple[Applied, ...]]:
         def undone(owner: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[Applied]]:
-            def restored(stored: tuple[Tree[tuple[tuple[object, str], object]], Tree[tuple[tuple[object, str], object]] | None]) -> BlenderResult[Option[Applied]]:
-                return paired(
-                    Snapshot.decoded(stored[0]),
-                    Result[Tree[tuple[tuple[object, str], object]], BlenderFaults].bind(
-                        Option.of_optional(stored[1]).to_result_with(lambda: (BlenderAbsentFault(owner=repr(owner), key="render_set_sync.after"),)), Snapshot.decoded
-                    ),
-                ).bind(lambda pair: (applied := Snapshot.restore(*pair)).outcome.bind(lambda _: members.recovery.removed(owner)).map(lambda _: Some(applied)))
+            def restored(stored: Endpoints) -> BlenderResult[Option[Applied]]:
+                return stored.decoded(owner, members.recovery.name).bind(
+                    lambda pair: (applied := Snapshot.restore(*pair)).outcome.bind(lambda _: members.recovery.removed(owner)).map(lambda _: Some(applied))
+                )
 
             return members.recovery.read(owner).bind(lambda held: held.map(restored).default_value(Ok(Nothing)))
 
@@ -1123,8 +1111,8 @@ def converted(members: Members, form: Form, context: bpy.types.Context) -> Blend
             case _:
                 return Ok(Nothing)
 
-    manager: BlenderResult[bpy.types.WindowManager] = Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
-    return Result[bpy.types.WindowManager, BlenderFaults].bind(manager, lambda manager: members.sets.read(manager).bind(lambda current: switched(manager, current)))
+    manager = rooted(bpy.types.WindowManager, context)
+    return manager.bind(lambda manager: members.sets.read(manager).bind(lambda current: switched(manager, current)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

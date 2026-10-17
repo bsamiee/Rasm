@@ -4,7 +4,6 @@ from collections.abc import Callable, Mapping
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
-from msgspec.inspect import EnumType, FloatType, Metadata, StrType, type_info
 from msgspec.structs import FieldInfo, fields
 
 from blender.bpy.commands.calls import ShelfPopup
@@ -12,10 +11,11 @@ from blender.bpy.commands.keymaps import Keymap
 from blender.bpy.data.rna.descriptors import Native
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.faults import BlenderResult
+from blender.bpy.settings import shapes
 from blender.bpy.ui.layout.rows import Binding, bound, colored, fits, gridded, iconed, Line, located, realized, refused, Resolved, RowDraw
 from blender.bpy.ui.resources.icons import Glyph
 from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Choice, Rgb
+from blender.imaging.parameters import Choice, heading, Rgb
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -27,25 +27,32 @@ class Wheel(Line, frozen=True, kw_only=True):
     luma: Option[Binding] = Nothing
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the independent color and luma bindings, accumulating their refusals."""
+        """Acquires the color and luma bindings, drawing the picker while a reached luma source is absent."""
 
-        def draw(parts: tuple[Resolved, ...]) -> RowDraw:
-            color, *light = parts
-
+        def slider(parts: tuple[Resolved, ...]) -> RowDraw:
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for owner, key in located(color, holder, context).to_list():
-                    gridded(layout, Some("")).template_color_picker(owner, key, value_slider=True, lock_luminosity=True, cubic=True)
-                    for source, member in (found for held in light for found in located(held, holder, context).to_list()):
-                        layout.prop(source, member, slider=True)
-                    components = layout.column(align=True)
-                    for index, field in enumerate(fields(Rgb)):
-                        components.prop(owner, key, index=index, text=field.name.title())
+                for source, member in located(parts[0], holder, context).to_list():
+                    layout.prop(source, member, slider=True)
 
             return shown
 
+        def draw(sliders: tuple[RowDraw, ...]) -> Callable[[tuple[Resolved, ...]], RowDraw]:
+            def place(parts: tuple[Resolved, ...]) -> RowDraw:
+                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                    for owner, key in located(parts[0], holder, context).to_list():
+                        gridded(layout, Some("")).template_color_picker(owner, key, value_slider=True, lock_luminosity=True, cubic=True)
+                        for each in sliders:
+                            each(layout, holder, context)
+                        components = layout.column(align=True)
+                        for index, field in enumerate(fields(Rgb)):
+                            components.prop(owner, key, index=index, text=heading(field.name))
+
+                return shown
+
+            return place
+
         return bound(
-            ((self.color, colored), *((binding, lambda held: fits(held, (bpy.types.FloatProperty,), (FloatType,))) for binding in self.luma.to_list())),
-            Ok(lambda held: Ok(held[0].map(lambda color: draw((color, *(value for maybe in held[1:] for value in maybe.to_list())))))),
+            ((self.color, colored),), accumulated(bound(((binding, lambda held: fits(held, (bpy.types.FloatProperty,), (shapes.Number,))),), Ok(slider)) for binding in self.luma.to_list()).map(draw)
         )
 
 
@@ -68,17 +75,18 @@ class Ranged(Line, frozen=True, kw_only=True):
 
             return shown
 
-        kind = type_info(self.chooser.type)
-        while isinstance(kind, Metadata):
-            kind = kind.type
-        match kind:
-            case EnumType(cls=choices) if issubclass(choices, Choice):
-                offered = tuple(member.name for member in choices if member in self.wheels)
-                return accumulated(
-                    realized(self.wheels[member], identity).map(lambda draw: (member, draw)) if member in self.wheels else Error(refused(self.chooser.name, member.name, offered)) for member in choices
-                ).map(lambda pairs: draw(choices, dict(pairs)))
-            case _:
-                return Error(refused(self.chooser.name, type(kind).__name__, (Choice.__name__,)))
+        def ranged(shape: shapes.Shape) -> BlenderResult[RowDraw]:
+            match shape:
+                case shapes.Enumerated(enum=choices) if issubclass(choices, Choice):
+                    offered = tuple(member.name for member in choices if member in self.wheels)
+                    return accumulated(
+                        realized(self.wheels[member], identity).map(lambda draw: (member, draw)) if member in self.wheels else Error(refused(self.chooser.name, member.name, offered))
+                        for member in choices
+                    ).map(lambda pairs: draw(choices, dict(pairs)))
+                case _:
+                    return Error(refused(self.chooser.name, type(shape).__name__, (Choice.__name__,)))
+
+        return shapes.field_shape(self.chooser.type).bind(lambda declared: ranged(declared.shape))
 
 
 class IconView(Line, frozen=True, kw_only=True):
@@ -94,7 +102,7 @@ class IconView(Line, frozen=True, kw_only=True):
         return templated(
             self.choice,
             (bpy.types.EnumProperty,),
-            (Choice, StrType),
+            (Choice, shapes.Text),
             lambda layout, owner, key, _context: gridded(layout, Some(owner.bl_rna.properties[key].name)).template_icon_view(  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                 owner, key, show_labels=self.show_labels, scale=self.scale, scale_popup=self.scale_popup
             ),
@@ -123,7 +131,7 @@ class Preview(Line, frozen=True, kw_only=True):
                 case _:
                     pass
 
-        return templated(self.block, (bpy.types.ID,), (bpy.types.ID,), place)
+        return templated(self.block, (bpy.types.ID,), (shapes.Pointer,), place)
 
 
 class ShelfPopover(Line, frozen=True, kw_only=True):
@@ -180,26 +188,18 @@ class Shortcut(Line, frozen=True, kw_only=True):
 
 
 def templated(
-    binding: Binding,
-    kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]",
-    forms: tuple[type[object], ...],
-    place: Callable[[bpy.types.UILayout, Native, str, bpy.types.Context], None],
-    *,
-    split: bool = True,
+    binding: Binding, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", forms: tuple[type[object], ...], place: Callable[[bpy.types.UILayout, Native, str, bpy.types.Context], None]
 ) -> BlenderResult[RowDraw]:
-    """Admits static or reached native metadata and preserves template alignment."""
+    """Admits static or reached native metadata and places the template at each located owner."""
 
-    def draw(held: Resolved) -> RowDraw:
+    def draw(held: tuple[Resolved, ...]) -> RowDraw:
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-            for owner, key in located(held, holder, context).to_list():
-                line = layout if split else layout.column()
-                if not split:
-                    line.use_property_split = False
-                place(line, owner, key, context)
+            for owner, key in located(held[0], holder, context).to_list():
+                place(layout, owner, key, context)
 
         return shown
 
-    return bound(((binding, lambda held: fits(held, kinds, forms)),), Ok(lambda held: Ok(held[0].map(draw))))
+    return bound(((binding, lambda held: fits(held, kinds, forms)),), Ok(draw))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

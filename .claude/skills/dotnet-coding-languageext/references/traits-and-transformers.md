@@ -152,7 +152,7 @@ internal static class Stacks {
 }
 ```
 
-`Settled` converts the `Fin` from `runFin` into an `IO` result through `IO.lift(Fin<A>)` and keeps a rejection as its typed `Expected`, and `Exit` shows the layer order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. `ValidationT<Error, IO, A>` values combine with the tuple `Apply`, and every effect runs before the errors accumulate.
+`Settled` converts the `Fin` from `runFin` into an `IO` result through `IO.lift(Fin<A>)` and keeps a rejection's `Error`, and `Exit` shows the layer order: `Run(settings)` yields `K<OptionT<IO>, int>`, the second `Run()` yields `K<IO, Option<int>>`, and `RunSafe` yields `Fin<Option<int>>`. `ValidationT<Error, IO, A>` values combine with the tuple `Apply`, and every effect runs before the errors accumulate.
 
 ## [09]-[READERS]
 
@@ -160,16 +160,15 @@ internal static class Stacks {
 
 ```csharp
 internal sealed record Session(Principal Current, Seq<Permission> Permissions);
-internal sealed record AccessDenied() : Expected("access denied", (int)Codes.AccessDenied);
 
 internal static class Access {
     public static K<M, Principal> Current<M>() where M : Readable<M, Session> =>
         Readable.asks<M, Session, Principal>(static session => session.Current);
-    public static K<M, Unit> Require<M, P>() where P : Permission where M : Readable<M, Session>, Monad<M>, Fallible<M> =>
-        Readable.ask<M, Session>().Bind(session =>
+    public static K<M, Unit> Require<M, P>() where M : Readable<M, Session>, Monad<M>, Fallible<M> where P : Permission =>
+        Readable.ask<M, Session>().Bind(static session =>
             session.Permissions.Exists(static permission => permission is P)
                 ? M.Pure(unit)
-                : M.Fail<Unit>(new AccessDenied()));
+                : M.Fail<Unit>(Error.New($"{session.Current} lacks {typeof(P).Name}")));
 }
 ```
 

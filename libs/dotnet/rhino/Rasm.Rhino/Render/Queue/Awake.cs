@@ -17,9 +17,9 @@ public static class MachinePower {
 
     [SupportedOSPlatform("windows")]
     private static IO<T> HeldAwakeOnWindows<T>(IO<T> run) =>
-        IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
+        DisposalOps.Within(IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
             var prior => Refused.Unless(prior is not ExecutionState.None, prior, nameof(SafeNativeMethods.SetThreadExecutionState)),
-        }).OnUiThread().Bracket(Use: _ => run, Fin: Restored);
+        }).OnUiThread(), _ => run, Restored);
 
     [SupportedOSPlatform("windows")]
     private static IO<Unit> Restored(ExecutionState flags) =>
@@ -44,5 +44,5 @@ public static class MachinePower {
     private static IO<Process> Started(string program, Seq<string> arguments, Action<Process> retain) =>
         DisposalOps.Acquire(IO.lift(() => Optional(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true }))),
             static process => DisposalOps.Release(process.ToSeq()), process => process.Iter(retain))
-            .Bind(static process => IO.lift(process.ToFin(new Missing(nameof(Process.Start)))));
+            .Bind(static process => IO.lift(process.ToFin(new Refused(nameof(Process.Start), Refused.Absent))));
 }

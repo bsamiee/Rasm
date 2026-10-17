@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: if_expression
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE() } else { None }'
         - any:
             - pattern: 'if $_R.as_ref().is_some_and($_P) { $_R.take() } else { None }'

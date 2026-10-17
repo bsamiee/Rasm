@@ -4,7 +4,7 @@ using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.Icon.Vector;
 using Rasm.Grasshopper.UI;
 using Rasm.Rhino;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Grasshopper;
 

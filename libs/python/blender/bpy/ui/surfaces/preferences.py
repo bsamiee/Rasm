@@ -8,14 +8,14 @@ from types import MemberDescriptorType
 from typing import Annotated
 
 import bpy
-from expression import Error, Nothing, Option, Result, Some
+from expression import Error, Nothing, Option, Some
 import msgspec
 
 from blender.bpy.commands import keymaps, operators
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions, Band, Registrable
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, preferred
 from blender.bpy.settings.properties import Changed, Choices, RecordGroup
 from blender.bpy.ui.layout.rows import OperatorButton, placed, Property, RowDraw
@@ -89,16 +89,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 layout.use_property_split, layout.use_property_decorate = True, False
                 paint(layout, holder, context)
 
-            kind = type(
-                identity.package,
-                (bpy.types.AddonPreferences,),
-                {
-                    "bl_idname": identity.package,
-                    "__annotations__": {**group.struct.__annotations__, **flags.struct.__annotations__},
-                    "__record_defaults__": {**vars(group.struct)["__record_defaults__"], **vars(flags.struct)["__record_defaults__"]},
-                    "draw": draw,
-                },
-            )
+            kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, **RecordGroup.body(group.struct, flags.struct), "draw": draw})
 
             def arranged(parts: tuple[tuple[RowDraw, ...], Nest, tuple[RowDraw, ...]]) -> None:
                 nonlocal paint
@@ -201,13 +192,7 @@ def stored[T: msgspec.Struct, F](record: type[T], replace: Callable[[T, F], T]) 
 
 def opened(call: operators.Call[operators.Empty]) -> BlenderResult[operators.Done]:
     """Opens preferences from the native window and area, retaining both absence faults."""
-    return Result[tuple[bpy.types.Window, bpy.types.Area], BlenderFaults].bind(
-        paired(
-            Option.of_optional(call.context.window).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window"),)),
-            Option.of_optional(call.context.area).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="area"),)),
-        ),
-        lambda held: windowed(NewWindow.PREFERENCES, Located(window=held[0], area=held[1]), call.identity).map(lambda _: operators.Done()),
-    )
+    return Located.current(call.context).bind(lambda located: windowed(NewWindow.PREFERENCES, located, call.identity)).map(lambda _: operators.Done())
 
 
 show = operators.Operator[operators.Empty](

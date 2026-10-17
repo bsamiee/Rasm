@@ -3,14 +3,13 @@
 import datetime
 from fractions import Fraction
 from pathlib import Path
-import sys
 from typing import Annotated, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
 from blender.imaging.hashing import ContentHash
-from blender.imaging.parameters import Choice, NonNegative, Presentation, Quantity
+from blender.imaging.parameters import Choice, NonNegative, Positive, Presentation, Quantity
 from blender.rendering.batch.queue import load, RenderQueue
 from blender.rendering.faults import RenderingReadFault, RenderingResult
 
@@ -23,15 +22,15 @@ class Liveness(Choice):
     """State of an unfinished run."""
 
     ACTIVE = 1, "Rendering"
-    STOPPED = 2, "Stopped"
+    STOPPED = 2
 
 
 class Ending(Choice):
     """State of a finished run."""
 
     SUCCEEDED = 1, "Finished"
-    FAILED = 2, "Failed"
-    CANCELLED = 3, "Cancelled"
+    FAILED = 2
+    CANCELLED = 3
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -40,11 +39,9 @@ class Ending(Choice):
 class Heartbeat(msgspec.Struct, frozen=True, kw_only=True):
     """Touch interval of a running queue and the beats missed before it reads as stopped."""
 
-    interval: Annotated[
-        float,
-        msgspec.Meta(gt=0.0, le=sys.float_info.max, title="Heartbeat", description="Seconds between touches of the progress record while a queue runs"),
-        Presentation(quantity=Some(Quantity.DURATION)),
-    ] = 3.0
+    interval: Annotated[Positive, msgspec.Meta(title="Heartbeat", description="Seconds between touches of the progress record while a queue runs"), Presentation(quantity=Some(Quantity.DURATION))] = (
+        3.0
+    )
     misses: Annotated[int, msgspec.Meta(ge=2, title="Missed Beats", description="Heartbeats missed before a run reads as stopped")] = 10
 
 

@@ -13,17 +13,17 @@ namespace Rasm.Imaging.Filters.Warp;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
-[ValidationError<InvalidWarp>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class Sampling {
-    public static readonly Sampling Nearest = new("nearest", Inter.Nearest, 0, Some<Action<Span<(double X, double Y)>>>(static points => { foreach (ref (double X, double Y) point in points) point = (Math.Floor(point.X) + 0.5d, Math.Floor(point.Y) + 0.5d); }));
-    public static readonly Sampling Linear = new("linear", Inter.Linear, 1, None);
-    public static readonly Sampling Cubic = new("cubic", Inter.Cubic, 2, None);
+public sealed partial class Sampling : ICaptioned {
+    public static readonly Sampling Nearest = new("nearest", Inter.Nearest, 0, Some<Action<Span<(double X, double Y)>>>(static points => { foreach (ref (double X, double Y) point in points) point = (Math.Floor(point.X) + 0.5d, Math.Floor(point.Y) + 0.5d); }), "Nearest");
+    public static readonly Sampling Linear = new("linear", Inter.Linear, 1, None, "Bilinear");
+    public static readonly Sampling Cubic = new("cubic", Inter.Cubic, 2, None, "Cubic");
 
     internal Inter Interpolation { get; }
     internal int Reach { get; }
     internal Option<Action<Span<(double X, double Y)>>> Snap { get; }
+    public string Caption { get; }
 
     internal double Point(ERational coordinate, WrapMode wrap, int size) =>
         (wrap.Tiles ? wrap.Fold(coordinate, size).Point : coordinate) switch {

@@ -33,11 +33,11 @@ public static class Exchange {
             .Strict());
 
     // --- [PATHS]
-    public static Fin<string> QualifiedPath(string path) => Path.IsPathFullyQualified(path) ? path : new UnqualifiedPath(path);
+    public static Fin<string> QualifiedPath(string path) => Path.IsPathFullyQualified(path) ? path : new FileRefused(path, "is not a fully qualified path");
 
-    public static Fin<string> ExistingPath(string path) => QualifiedPath(path).Bind(static qualified => File.Exists(qualified) ? Fin.Succ(qualified) : new FileMissing(qualified));
+    public static Fin<string> ExistingPath(string path) => QualifiedPath(path).Bind(static qualified => File.Exists(qualified) ? Fin.Succ(qualified) : new FileRefused(qualified, "names no file"));
 
-    public static Fin<string> ExistingFolder(string path) => QualifiedPath(path).Bind(static qualified => Directory.Exists(qualified) ? Fin.Succ(qualified) : new FolderMissing(qualified));
+    public static Fin<string> ExistingFolder(string path) => QualifiedPath(path).Bind(static qualified => Directory.Exists(qualified) ? Fin.Succ(qualified) : new FileRefused(qualified, "names no folder"));
 
     // --- [READS]
     public static IO<Committed<Unit>> Import(RhinoDoc doc, string path, RedrawPolicy redraw, Option<ArchivableDictionary> options) =>
@@ -81,8 +81,7 @@ public static class Exchange {
     public static IO<Option<string>> Save(RhinoDoc doc) =>
         IO.lift(() => doc.Modified || doc.IsHeadless
                 ? Writable(doc, doc.Path).Bind(path => Refused.Unless(doc.Save(), Some(path), nameof(RhinoDoc.Save)))
-                : Fin.Succ(Option<string>.None))
-            .Catch(static error => error.HasException<InvalidOperationException>(), static _ => IO.fail<Option<string>>(new DocumentUnsaved()));
+                : Fin.Succ(Option<string>.None));
 
     // --- [SCOPES]
     private static IO<Committed<Unit>> Recorded(RhinoDoc doc, string path, RedrawPolicy redraw, Func<string, IO<Unit>> read) =>
@@ -93,16 +92,16 @@ public static class Exchange {
             .Bind(target => Scoped(static () => new FileWriteOptions { SuppressAllInput = true, SuppressDialogBoxes = true }, carrier => write(target, carrier)));
 
     private static IO<Unit> Scoped<TCarrier>(Func<TCarrier> acquire, Func<TCarrier, Fin<Unit>> call) where TCarrier : IDisposable =>
-        use(acquire).Bind(carrier => IO.lift(() => call(carrier))).Bracket();
+        DisposalOps.Within(acquire, carrier => IO.lift(() => call(carrier)));
 
     // --- [ANSWERS]
     private static Fin<string> Writable(RhinoDoc doc, string target) =>
-        doc.IsReadOnly && string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase) ? new DocumentReadOnly(target) : target;
+        doc.IsReadOnly && string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase) ? new FileRefused(target, "is open read-only") : target;
 
     private static Fin<Unit> FromWriteFileResult(WriteFileResult result, string member) =>
         result switch {
             WriteFileResult.Success => unit,
             WriteFileResult.Cancel => Errors.Cancelled,
-            WriteFileResult.Failure => new Refused(member),
+            WriteFileResult.Failure => new Refused(member, Refused.Declined),
         };
 }

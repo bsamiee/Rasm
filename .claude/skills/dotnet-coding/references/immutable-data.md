@@ -45,7 +45,7 @@ Entity identity persists while state changes, each allowed change is a function 
 
 ## [04]-[DOMAIN_STATE]
 
-Snapshots construct through factories that set initial values, expose only transitions the domain permits, and copy a mutable input collection at the boundary out of reach of the caller's later changes:
+Snapshots construct through factories that set initial values and copy a mutable input collection at the boundary out of reach of the caller's later changes:
 
 ```csharp
 internal readonly record struct Code(string Value);
@@ -58,32 +58,25 @@ internal sealed record Snapshot(Code Code, Status Status, decimal Limit, Seq<Ent
     public static Snapshot Requested(Code code) => new(code, Status.Requested, 0m, Seq<Entry>());
     public static Snapshot Opened(Code code, IList<Entry> entries) => new(code, Status.Active, 0m, toSeq(entries));
 
-    public Snapshot With(Option<Status> status = default, Option<decimal> limit = default) =>
-        this with { Status = status.IfNone(Status), Limit = limit.IfNone(Limit) };
     public Snapshot Add(Entry entry) => this with { Entries = entry.Cons(Entries) };
 }
 
 internal static class Transitions {
-    public static Snapshot Frozen(Snapshot active) => active.With(Status.Frozen);
+    public static Snapshot Frozen(Snapshot active) => active with { Status = Status.Frozen };
 }
 ```
 
-`toSeq` in `Opened` copies the list argument into a `Seq<Entry>`. `With` updates permitted fields in one allocation, its `Option` parameters distinguish "not supplied" from a value, and `IfNone` keeps the current value for each absent one. Status and limit can change, code and entry history cannot. `Add` uses `Cons` to keep the newest entry at the front.
+`toSeq` in `Opened` copies the list argument into a `Seq<Entry>`. `Add` uses `Cons` to keep the newest entry at the front.
 
 Partial immutability leaves mutation reachable:
 - Public setters let callers replace properties, private setters let code inside the class reassign them
 - Read-only interfaces over a mutable collection leave the graph mutable
 - Immutable top-level objects holding a mutable list are mutable, a shallow copy is safe only when every shared referenced value is immutable
-- Compilers cannot enforce setters for initialization alone and copy methods for every later change
 - Getter-only properties, constructors, immutable referenced values, and copy methods make the contract visible and prevent accidental mutation
 
 ## [05]-[COPIES]
 
-Copy forms beyond a `with` expression:
-- Lenses update a nested field without a chain of `with` expressions
-- F# data with C# behavior gets immutable defaults and copy-and-update expressions at the cost of a mixed-language solution and an extra assembly
-
-Explicit copy methods stay preferred. Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.
+Lenses update a nested field without a chain of `with` expressions. Reflection can alter private and read-only fields and no C# technique prevents all mutation, immutability prevents accidental mutation and communicates the intended model.
 
 ## [06]-[COST]
 

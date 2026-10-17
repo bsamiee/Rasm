@@ -27,9 +27,7 @@ public static partial class Outlines {
 
     public static IO<Seq<Seq<T>>> Create<T>(RhinoDoc doc, OutlineText text, OutlineOptions options,
         Func<TextEntity, DimensionStyle, bool, double, double, List<T[]>> create, string member, Action<Seq<Seq<T>>, IDisposable> retain) where T : GeometryBase =>
-        from parent in text.Style.Match(
-            Some: address => TableOps.Find(doc.DimStyles, address, includeDeleted: false),
-            None: () => IO.lift(() => doc.DimStyles.Current))
+        from parent in DimensionStyles.Resolve(doc, text.Style)
         from face in text.Face.Resolve()
         from outlines in DisposalOps.Acquire(output => Typeset(doc, text, parent, face, options, create, member, output), retain)
         select outlines;

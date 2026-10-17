@@ -11,7 +11,7 @@ import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-from blender.bpy.data.rna.descriptors import Descriptor, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, member_path, struct_at, Value, written
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case
@@ -69,7 +69,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def path(self) -> str:
         """RNA data path of the channel without its array index."""
-        return f"{self.struct}.{self.member}".removeprefix(".")
+        return member_path(self.struct, self.member)
 
     def channel(self, owner: bpy.types.ID) -> BlenderResult[bpy.types.Property]:
         """Resolves the live animatable property, returning absence or an invalid index."""

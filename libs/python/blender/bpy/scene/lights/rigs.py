@@ -17,9 +17,9 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Call, Done, Empty, InvokePopup, Operator, Own
 from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.images import generated, read, Tag
-from blender.bpy.data.ids.ownership import earliest, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import IdName, root_in, Value, written
+from blender.bpy.data.rna.descriptors import IdName, root_in, rooted, typed, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity
@@ -70,20 +70,16 @@ gels = Choices(lambda identity, owner, context: ((name, name, "") for name in Re
 class Bounds(Case, frozen=True, kw_only=True, tag=1):
     """Midpoint of the evaluated bounds of the target and its descendants."""
 
-    title = "Bounds"
-
 
 class Origin(Case, frozen=True, kw_only=True, tag=2):
     """World origin of the target."""
-
-    title = "Origin"
 
 
 class BoneHead(Case, frozen=True, kw_only=True, tag=3):
     """Head of one pose bone of an armature target."""
 
     title = "Bone"
-    bone: Annotated[str, msgspec.Meta(title="Bone", description="Pose bone whose head the rig centers on")] = ""
+    bone: Annotated[str, msgspec.Meta(description="Pose bone whose head the rig centers on")] = ""
 
 
 class Cursor(Case, frozen=True, kw_only=True, tag=4):
@@ -119,11 +115,11 @@ class WorldAxes(Case, frozen=True, kw_only=True, tag=4):
 class RigSetup(msgspec.Struct, frozen=True, kw_only=True):
     """Rig, focus, axes, linking, and reference of one rig empty."""
 
-    rig: Annotated[Rig, msgspec.Meta(title="Rig", description="Lights placed about the target")] = Rig(layout=Arranged())
-    focus: Annotated[Focus, msgspec.Meta(title="Focus", description="Point the rig centers on")] = Bounds()
-    axes: Annotated[RigAxes, msgspec.Meta(title="Axes", description="Frame the rig's azimuth and elevation turn in")] = CameraAxes()
+    rig: Annotated[Rig, msgspec.Meta(description="Lights placed about the target")] = Rig(layout=Arranged())
+    focus: Annotated[Focus, msgspec.Meta(description="Point the rig centers on")] = Bounds()
+    axes: Annotated[RigAxes, msgspec.Meta(description="Frame the rig's azimuth and elevation turn in")] = CameraAxes()
     linked: Annotated[bool, msgspec.Meta(title="Target Alone", description="Rig lights reach the target and its descendants alone")] = False
-    reference: Annotated[bpy.types.Image | None, msgspec.Meta(title="Reference", description="Image a matched rig reads")] = None
+    reference: Annotated[bpy.types.Image | None, msgspec.Meta(description="Image a matched rig reads")] = None
     recipe: Annotated[ReferenceImage, msgspec.Meta(title="Reference Recipe", description="Editable scene-linear lighting reference")] = ReferenceImage()
     size: Annotated[Side, msgspec.Meta(title="Reference Size")] = 256
 
@@ -160,6 +156,14 @@ class Anchor(msgspec.Struct, frozen=True, kw_only=True):
     radius: Positive
 
 
+class Placing(msgspec.Struct, frozen=True, kw_only=True):
+    """Anchor, placed lights with their powers, and native world graph a rig publishes."""
+
+    anchor: Anchor
+    lights: tuple[tuple[Placement, float], ...]
+    background: Option[tuple[Environment, Graph]]
+
+
 class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     """Row attaching `RigSetup` to rig empties with the owned lights, collection, and world."""
 
@@ -175,60 +179,18 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             identity: Identity binding the attachment and marking owned data.
 
         Returns:
-            `Ok` of `Nothing`, a placement pushing no undo step; `absent` for an empty the file no longer holds, `register`, `read`, and the faults of `rig_placed`.
+            `Ok` of `Nothing`, a placement pushing no undo step; `absent` for an empty the file no longer holds, `register`, `read`, and the faults of `rigged`.
         """
         context = bpy.context
 
-        def restored(carried: tuple[tuple[bpy.types.Object, Attached[RigSetup]], tuple[bpy.types.Scene, bpy.types.ViewLayer]]) -> BlenderResult[Option[str]]:
-            (empty, attached), (scene, layer) = carried
-            config = PyOpenColorIO.GetCurrentConfig()
-            return (
-                paired(
-                    attached.read(empty),
-                    Result[bpy.types.ID, BlenderFaults].bind(
-                        Mark.read(identity, empty).bind(lambda mark: mark.of).to_result_with(lambda: (BlenderAbsentFault(owner=repr(empty), key=LightRig.empty.key),)),
-                        lambda block: (
-                            Ok(block)
-                            if isinstance(block, bpy.types.Object)
-                            else Error((BlenderChoiceFault(path=f"{empty!r}.target", identifier=type(block).__name__, accepted=(bpy.types.Object.__name__,)),))
-                        ),
-                    ),
-                )
-                .bind(lambda pair: paired(target(pair[1], pair[0], context, scene, layer), _reading(pair[0], config)).map(lambda measured: (*pair, *measured)))
-                .bind(lambda measured: LightRig.prepared(measured[0], config, measured[2].radius, measured[3]).map(lambda prepared: (*measured[:3], prepared)))
-                .bind(
-                    lambda prepared: _home(prepared[1], identity, scene, rollback).bind(
-                        lambda home: anchored(prepared[1], empty, prepared[2]).bind(
-                            lambda _: rig_placed(empty, prepared[1], home, prepared[3], scene, layer, identity, target_alone=prepared[0].linked)
-                        )
-                    )
-                )
-                .map(lambda _: Nothing)
+        return rig.resolve().bind(
+            lambda empty: (
+                LightRig.empty
+                .marked(identity, empty)
+                .map(lambda _: LightRig.served(identity, empty).bind(lambda holder: rigged(holder, Some(empty), context, identity)).map(lambda _: Nothing))
+                .default_value(Ok(Nothing))
             )
-
-        def published(result: Option[str]) -> Option[str]:
-            rollback.pop_all()
-            return result
-
-        with ExitStack() as rollback:
-            return (
-                rig
-                .resolve()
-                .bind(
-                    lambda empty: (
-                        paired(
-                            LightRig.attachment.bound(identity).map(lambda attached: (empty, attached)),
-                            paired(
-                                root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.Scene.__name__),)),
-                                root_in(bpy.types.ViewLayer, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.ViewLayer.__name__),)),
-                            ),
-                        ).bind(restored)
-                        if LightRig.empty.marked(identity, empty).is_some()
-                        else Ok(Nothing)
-                    )
-                )
-                .map(published)
-            )
+        )
 
     attachment: ClassVar[Attachment[RigSetup]] = Attachment(key="rig", form=RigSetup, owner=bpy.types.Object, changed=Some(reconciling(bpy.types.Object, replaced)))
     empty: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key=attachment.key, saved=Saved.USED)
@@ -236,28 +198,6 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     collection: ClassVar[Ownership[bpy.types.Collection]] = Ownership(kind=bpy.types.Collection, key=attachment.key, saved=Saved.USED)
     world: ClassVar[Ownership[bpy.types.World]] = Ownership(kind=bpy.types.World, key=attachment.key, saved=Saved.USED)
     reference: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="rig_reference", saved=Saved.USED)
-
-    @staticmethod
-    def prepared(
-        setup: RigSetup, config: PyOpenColorIO.Config, radius: Positive, reading: Option[LightingReading]
-    ) -> BlenderResult[tuple[Placements, tuple[float, ...], Option[tuple[Environment, Graph]]]]:
-        """Prepares placements, independent powers, and the native world graph before host publication."""
-        return (
-            Result[Option[Placements], BlenderFaults]
-            .bind(
-                setup.rig.placements(config, radius, reading).map_error(BlenderRenderingFault.lifted),
-                lambda placements: placements.to_result_with(lambda: (BlenderAbsentFault(owner=repr(setup), key="reference"),)),
-            )
-            .bind(
-                lambda placements: paired(
-                    accumulated(placement.power for placement in placements.lights).map_error(BlenderRenderingFault.lifted),
-                    placements.background
-                    .map(lambda background: Environment(lighting=Backdrop(mode=FlatColor(color=background.color), strength=background.strength)))
-                    .map(lambda environment: world_graph(environment).map(lambda graph: Some((environment, graph))))
-                    .default_value(Ok(Nothing)),
-                ).map(lambda pair: (placements, pair[0], pair[1]))
-            )
-        )
 
     @staticmethod
     def referenced[T: msgspec.Struct](call: Call[T], recipe: Callable[[RigSetup], ReferenceImage]) -> BlenderResult[Done]:
@@ -269,87 +209,42 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
             def imaged(setup: RigSetup) -> BlenderResult[None]:
                 chosen = recipe(setup)
-                with ExitStack() as rollback:
-                    rollback.callback(LightRig.reference.removed, call.identity)
-
-                    def published(_: None) -> None:
-                        LightRig.reference.removed(call.identity)
-                        rollback.pop_all()
-
-                    return (
-                        generated(
-                            LightRig.reference,
-                            call.identity,
-                            f"{holder.name} Reference",
-                            content_hash(LightRig, chosen, arrays=(np.asarray(setup.size, dtype=np.int64),), config=Some(config)),
-                            lambda: chosen.plane(setup.size).map_error(BlenderRenderingFault.lifted).map(Some),
-                            Tag(space=Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()), view_as_render=Some(True)),
-                            of=Some(holder),
-                        )
-                        .bind(lambda image: attached.write(holder, msgspec.structs.replace(setup, recipe=chosen, reference=image.to_optional())))
-                        .map(published)
-                    )
+                published = generated(
+                    LightRig.reference,
+                    call.identity,
+                    f"{holder.name} Reference",
+                    content_hash(LightRig, chosen, arrays=(np.asarray(setup.size, dtype=np.int64),), config=Some(config)),
+                    lambda: chosen.plane(setup.size).map_error(BlenderRenderingFault.lifted).map(Some),
+                    Tag(space=Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()), view_as_render=Some(True)),
+                    of=Some(holder),
+                ).bind(lambda image: attached.write(holder, msgspec.structs.replace(setup, recipe=chosen, reference=image.to_optional())))
+                return paired(published, LightRig.reference.removed(call.identity)).map(lambda _: None)
 
             return attached.read(holder).bind(imaged)
 
         return paired(call.root(bpy.types.ViewLayer).bind(focused), LightRig.attachment.bound(call.identity)).bind(stored).map(lambda _: Done())
 
     @staticmethod
-    def placed(call: Call[Empty], scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
-        """Admits the target, reference, placements, and powers before publishing the rig."""
-        identity, context = call.identity, call.context
-        config = PyOpenColorIO.GetCurrentConfig()
+    def served(identity: Identity, item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
+        """Answers the target a rig empty serves, or the item itself where it is no rig empty."""
+        return (
+            LightRig.empty
+            .marked(identity, item)
+            .map(lambda mark: mark.of.map(lambda target: typed(target, bpy.types.Object, f"{item!r}.target")).default_with(lambda: Error((BlenderAbsentFault(owner=repr(item), key="target"),))))
+            .default_value(Ok(item))
+        )
 
-        def retained[T: bpy.types.ID](block: T) -> T:
-            rollback.callback(bpy.data.batch_remove, ids=(block,))
-            return block
-
-        def placed(pair: tuple[bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-            holder, attached = pair
-            mark = Mark(key=LightRig.empty.key, of=Some(holder))
-            existing = Option.of_optional(earliest(LightRig.empty.held(identity)).get(mark))
-            return (
-                attached
-                .read(existing.default_value(holder))
-                .bind(lambda setup: paired(target(holder, setup, context, scene, layer), _reading(setup, config)).map(lambda pair: (setup, *pair)))
-                .bind(lambda carried: LightRig.prepared(carried[0], config, carried[1].radius, carried[2]).map(lambda prepared: (carried[0], carried[1], prepared)))
-                .bind(
-                    lambda prepared: _home(holder, identity, scene, rollback).bind(
-                        lambda home: (
-                            existing
-                            .map(Ok)
-                            .default_with(
-                                lambda: (
-                                    spawned(f"{holder.name} Rig", Nothing, home)
-                                    .bind(lambda rig: LightRig.empty.owned(identity, rig, mark))
-                                    .map(retained)
-                                    .bind(lambda rig: attached.write(rig, prepared[0]).map(lambda _: rig))
-                                )
-                            )
-                            .bind(lambda rig: anchored(holder, rig, prepared[1]).map(lambda _: rig))
-                            .bind(lambda rig: rig_placed(rig, holder, home, prepared[2], scene, layer, identity, target_alone=prepared[0].linked))
-                        )
-                    )
-                )
-            )
-
-        def published(lights: tuple[bpy.types.Object, ...]) -> Done:
-            rollback.pop_all()
-            return Done(notes=(("INFO", f"Placed {len(lights)} lights"),))
-
-        with ExitStack() as rollback:
-            holder = (
-                focused(layer)
-                .bind(
-                    lambda item: LightRig.empty.marked(identity, item).map(lambda mark: mark.of.to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="target"),))).default_value(Ok(item))
-                )
-                .bind(
-                    lambda item: (
-                        Ok(item) if isinstance(item, bpy.types.Object) else Error((BlenderChoiceFault(path="rig.target", identifier=type(item).__name__, accepted=(bpy.types.Object.__name__,)),))
-                    )
-                )
-            )
-            return paired(holder, LightRig.attachment.bound(identity)).bind(placed).map(published)
+    @staticmethod
+    def placed(call: Call[Empty]) -> BlenderResult[Done]:
+        """Places a rig about the active object, or about the target of an active rig empty."""
+        return (
+            call
+            .root(bpy.types.ViewLayer)
+            .bind(focused)
+            .bind(lambda item: LightRig.served(call.identity, item))
+            .bind(lambda holder: rigged(holder, LightRig.empty.found(call.identity, of=Some(holder)), call.context, call.identity))
+            .map(lambda lights: Done(notes=(("INFO", f"Placed {len(lights)} lights"),)))
+        )
 
     rig_pick: ClassVar[Operator[RigPick]] = Operator(
         key="rig_catalog",
@@ -388,13 +283,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     commands: ClassVar[
         tuple[Operator[Empty], Operator[RigPick], Operator[Empty], Operator[Empty], Operator[ReferencePick], Operator[ReferenceDraw], Operator[Roll], Operator[GelPick], Operator[Empty]]
     ] = (
-        Operator(
-            key="rig_place",
-            title="Place Rig",
-            description="Place a light rig about the active object",
-            form=Empty,
-            run=lambda call: paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(lambda roots: LightRig.placed(call, *roots)),
-        ),
+        Operator(key="rig_place", title="Place Rig", description="Place a light rig about the active object", form=Empty, run=placed),
         rig_pick,
         Operator(
             key="rig_arrange",
@@ -471,7 +360,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             display_key = (display, exposure, gamma, config.getCacheID())
 
             def rendered(source: ReferenceImage | tuple[DistantLight, ...], side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
-                result = source.plane(side) if isinstance(source, ReferenceImage) else sphere(source, (side, side))
+                result = source.plane(side) if isinstance(source, ReferenceImage) else sphere(source, side)
                 return result.map_error(BlenderRenderingFault.lifted).map(Some)
 
             def job(slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[npt.NDArray[np.float32]]]], rank: Rank = Rank.REST) -> tuple[Job, ...]:
@@ -495,13 +384,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
             def prepared(setup: RigSetup) -> tuple[Job, ...]:
                 origin = LightRig.empty.marked(identity, holder).bind(lambda mark: mark.of).default_value(holder)
-                anchor = (
-                    target(origin, setup, context, scene, layer)
-                    if isinstance(origin, bpy.types.Object)
-                    else Error((BlenderChoiceFault(path="rig.target", identifier=type(origin).__name__, accepted=(bpy.types.Object.__name__,)),))
-                )
-                reading = _reading(setup, config)
-                measured = paired(anchor, reading)
+                measured = paired(typed(origin, bpy.types.Object, "rig.target").bind(lambda origin: target(origin, setup, context, scene, layer)), _reading(setup, config))
                 inputs = (setup.focus, setup.axes, Handle.of(holder), Option.of_optional(setup.reference).map(Handle.of), measured.to_option())
 
                 def ball(rig: Rig, side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
@@ -670,14 +553,7 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
             case CameraAxes():
                 return Option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="camera"),))
             case ViewAxes():
-                return (
-                    Result[bpy.types.WindowManager, BlenderFaults]
-                    .bind(
-                        root_in(bpy.types.WindowManager, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.WindowManager.__name__),)),
-                        lambda manager: AreaQuery(space="VIEW_3D").first(manager.windows),
-                    )
-                    .bind(viewed)
-                )
+                return rooted(bpy.types.WindowManager, context).bind(lambda manager: AreaQuery(space="VIEW_3D").first(manager.windows)).bind(viewed)
             case TargetAxes():
                 return Ok(holder.matrix_world.to_3x3().normalized() @ world)
             case WorldAxes():
@@ -716,131 +592,130 @@ def anchored(holder: bpy.types.Object, rig: bpy.types.Object, anchor: Anchor) ->
     return reconciled(ObjectState(values=Some(display), placement=Some(anchor.matrix), constraints=Some({"Follow": StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ()).map(lambda _: None)
 
 
-def rig_placed(
-    rig: bpy.types.Object,
-    target: bpy.types.Object,
-    home: bpy.types.Collection,
-    prepared: tuple[Placements, tuple[float, ...], Option[tuple[Environment, Graph]]],
-    scene: bpy.types.Scene,
-    view_layer: bpy.types.ViewLayer,
-    identity: Identity,
-    *,
-    target_alone: bool,
-) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-    """Places a rig's lights in its empty's frame and shows or restores its background.
+def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context: bpy.types.Context, identity: Identity) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+    """Places a rig about its target in the context scene and view layer, every collection, empty, light, and world it builds and the world it swaps restored together on any refusal.
 
     Args:
-        rig: Owned rig empty.
-        target: Actual target admitted by the caller.
-        home: Owned collection acquired once by the caller after native preparation.
-        prepared: Native placements, ordered powers, and optional world graph accepted together before publication.
-        scene: Scene showing the background.
-        view_layer: View layer of the scene whose target descendants a linked rig reaches.
-        identity: Identity marking lights, collection, and world.
-        target_alone: Whether the lights reach the target and its descendants alone.
+        holder: Target object.
+        existing: Rig empty to place again, whose stored setup the placement reads, or `Nothing` to build one from the target setup.
+        context: Context whose scene supplies the camera, cursor, and background, whose view layer evaluates and links the target descendants, and whose windows the view axes read.
+        identity: Identity binding the attachment and marking owned data.
 
     Returns:
-        `Ok` of the lights in placement order, or the faults of each write.
+        `Ok` of the lights in placement order; the absent context roots, and the faults of the setup read, `target`, the reading, the preparation, and each write.
     """
-    placements, powers, background = prepared
-    receivers = next(link for link in LightLinks.sets if link.prop.identifier == "receiver_collection")
-    aim = Snapshot.of(bpy.types.TrackToConstraint, {"target": IdName.of(rig), "track_axis": "TRACK_NEGATIVE_Z", "up_axis": "UP_Y"})
+    config = PyOpenColorIO.GetCurrentConfig()
 
-    def retained[T: bpy.types.ID](block: T) -> T:
-        rollback.callback(bpy.data.batch_remove, ids=(block,))
-        return block
-
-    def emitted(placement: Placement, power: float) -> tuple["rna_enums.LightTypeItems", dict[str, Value]]:
-        light = placement.light
-        common: dict[str, Value] = {
-            "energy": power,
-            "color": (light.color.red, light.color.green, light.color.blue),
-            "use_temperature": light.temperature.enabled,
-            "temperature": light.temperature.value,
-        }
-        match light.emitter:
-            case Point():
-                return "POINT", common | {"shadow_soft_size": placement.radius}
-            case Spot(cone=cone, blend=blend):
-                return "SPOT", common | {"shadow_soft_size": placement.radius, "spot_size": cone, "spot_blend": blend}
-            case Disk():
-                return "AREA", common | {"shape": "DISK", "size": 2.0 * placement.radius}
-            case Sun():
-                return "SUN", common | {"angle": light.size}
-
-    def lamp(index: int, placement: Placement, power: float) -> BlenderResult[bpy.types.Object]:
-        kind, values = emitted(placement, power)
-        label = placement.light.role.label
-        row = Ownership(kind=bpy.types.Object, key=f"light_{index}", saved=Saved.USED)
-        mark = Mark(key=row.key, of=Some(rig))
-
-        def stated(item: bpy.types.Object) -> ObjectState:
-            return ObjectState(
-                parent=Some(Handle.of(rig)),
-                values=Some(Snapshot.of(bpy.types.Object, {"lightgroup": item.name})),
-                placement=Some(Matrix.Translation(placement.location)),
-                constraints=Some({"Aim": StackEntry(kind="TRACK_TO", values=Some(aim))}),
-            )
-
-        def built() -> BlenderResult[bpy.types.Object]:
-            try:
-                light = bpy.data.lights.new(label, kind)
-            except (RuntimeError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request=label, error=error),))
-            return (
-                LightRig.data
-                .owned(identity, light, Mark(key=LightRig.data.key, of=Some(rig)))
-                .map(retained)
-                .bind(lambda light: spawned(label, Some(light), home))
-                .bind(lambda item: row.owned(identity, item, mark))
-                .map(retained)
-            )
-
-        def configured(item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
-            light = item.data
-            return (
-                (
-                    written(light, "type", kind)
-                    .bind(lambda _: reconciled(stated(item), item, ()))
-                    .bind(lambda _: Snapshot.of(type(data := light.type_recast()), values).apply(data).outcome)
-                    .map(lambda _: item)
+    def placing(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rollback: ExitStack) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+        def measured(setup: RigSetup) -> BlenderResult[Placing]:
+            def prepared(found: tuple[Anchor, Option[LightingReading]]) -> BlenderResult[Placing]:
+                anchor, reading = found
+                return (
+                    Result[Option[Placements], BlenderFaults]
+                    .bind(
+                        setup.rig.placements(config, anchor.radius, reading).map_error(BlenderRenderingFault.lifted),
+                        lambda placements: placements.to_result_with(lambda: (BlenderAbsentFault(owner=repr(setup), key="reference"),)),
+                    )
+                    .bind(
+                        lambda placements: paired(
+                            accumulated(placement.power for placement in placements.lights).map_error(BlenderRenderingFault.lifted),
+                            placements.background
+                            .map(lambda background: Environment(lighting=Backdrop(mode=FlatColor(color=background.color), strength=background.strength)))
+                            .map(lambda environment: world_graph(environment).map(lambda graph: Some((environment, graph))))
+                            .default_value(Ok(Nothing)),
+                        ).map(lambda pair: Placing(anchor=anchor, lights=tuple(zip(placements.lights, pair[0])), background=pair[1]))
+                    )
                 )
-                if isinstance(light, bpy.types.Light)
-                else Error((BlenderChoiceFault(path=f"{item!r}.data", identifier=type(light).__name__, accepted=(bpy.types.Light.__name__,)),))
+
+            return paired(target(holder, setup, context, scene, layer), _reading(setup, config)).bind(prepared)
+
+        def lights(rig: bpy.types.Object, home: bpy.types.Collection, placing: Placing, *, alone: bool) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+            receivers = next(link for link in LightLinks.sets if link.prop.identifier == "receiver_collection")
+            aim = Snapshot.of(bpy.types.TrackToConstraint, {"target": IdName.of(rig), "track_axis": "TRACK_NEGATIVE_Z", "up_axis": "UP_Y"})
+            rows = tuple(Ownership(kind=bpy.types.Object, key=f"light_{index}", saved=Saved.USED) for index in range(len(placing.lights)))
+            keys = frozenset(row.key for row in rows)
+            stale = tuple(block for block, mark in _serving(rig, identity) if mark.key not in keys)
+
+            def emitted(placement: Placement, power: float) -> tuple["rna_enums.LightTypeItems", dict[str, Value]]:
+                light = placement.light
+                common: dict[str, Value] = {"energy": power, "color": msgspec.structs.astuple(light.color), "use_temperature": light.temperature.enabled, "temperature": light.temperature.value}
+                match light.emitter:
+                    case Point():
+                        return "POINT", common | {"shadow_soft_size": placement.radius}
+                    case Spot(cone=cone, blend=blend):
+                        return "SPOT", common | {"shadow_soft_size": placement.radius, "spot_size": cone, "spot_blend": blend}
+                    case Disk():
+                        return "AREA", common | {"shape": "DISK", "size": 2.0 * placement.radius}
+                    case Sun():
+                        return "SUN", common | {"angle": light.size}
+
+            def lamp(row: Ownership[bpy.types.Object], placement: Placement, power: float) -> BlenderResult[bpy.types.Object]:
+                kind, values = emitted(placement, power)
+                label = placement.light.role.label
+
+                def stated(item: bpy.types.Object) -> ObjectState:
+                    return ObjectState(
+                        parent=Some(Handle.of(rig)),
+                        values=Some(Snapshot.of(bpy.types.Object, {"lightgroup": item.name})),
+                        placement=Some(Matrix.Translation(placement.location)),
+                        constraints=Some({"Aim": StackEntry(kind="TRACK_TO", values=Some(aim))}),
+                    )
+
+                def built() -> BlenderResult[bpy.types.Object]:
+                    return (
+                        BlenderEditFault
+                        .attempted(label, lambda: bpy.data.lights.new(label, kind))
+                        .bind(lambda light: LightRig.data.owned(identity, light, of=Some(rig), scope=Some(rollback)))
+                        .bind(lambda light: spawned(label, Some(light), home))
+                    )
+
+                def configured(item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
+                    return typed(item.data, bpy.types.Light, f"{item!r}.data").bind(
+                        lambda light: (
+                            written(light, "type", kind)
+                            .bind(lambda _: reconciled(stated(item), item, ()))
+                            .bind(lambda _: Snapshot.of(type(data := light.type_recast()), values).apply(data).outcome)
+                            .map(lambda _: item)
+                        )
+                    )
+
+                return row.made(identity, built, of=Some(rig), scope=Some(rollback)).bind(configured)
+
+            def joined_to(prepared: tuple[tuple[bpy.types.Object, ...], None]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+                lights, _ = prepared
+                return (
+                    accumulated(linked(item, receivers, (holder, *descendants(holder, layer)), link_state.default, holder, identity) for item in lights).map(lambda _: None)
+                    if alone
+                    else accumulated(receivers.write(item.light_linking, None) for item in lights).map(lambda _: None)
+                ).map(lambda _: lights)
+
+            backed = placing.background.map(lambda prepared: swapped(LightRig.world, prepared, scene, identity, Some(rollback)).map(lambda _: None)).default_with(
+                lambda: reverted(LightRig.world, scene, identity).map(lambda _: None)
+            )
+            return (
+                paired(accumulated(lamp(row, placement, power) for row, (placement, power) in zip(rows, placing.lights)), backed)
+                .bind(joined_to)
+                .bind(lambda lit: released(stale).bind(lambda _: LightRig.data.removed(identity)).map(lambda _: lit))
             )
 
-        return Option.of_optional(earliest(row.held(identity)).get(mark)).map(Ok).default_with(built).bind(configured)
+        def placed(attached: Attached[RigSetup], setup: RigSetup, placing: Placing) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+            def empty(home: bpy.types.Collection) -> BlenderResult[bpy.types.Object]:
+                return existing.map(Ok).default_with(
+                    lambda: spawned(f"{holder.name} Rig", Nothing, home).bind(
+                        lambda rig: LightRig.empty.owned(identity, rig, of=Some(holder), filled=lambda rig: attached.write(rig, setup).map(lambda _: rig), scope=Some(rollback))
+                    )
+                )
 
-    def lit() -> BlenderResult[tuple[bpy.types.Object, ...]]:
-        keys = frozenset(f"light_{index}" for index in range(len(placements.lights)))
-        stale = tuple(block for block in bpy.data.objects for mark in Mark.read(identity, block).to_list() if mark.of == Some(rig) and mark.key not in keys)
-        try:
-            if stale:
-                bpy.data.batch_remove(ids=stale)
-            LightRig.data.removed(identity)
-        except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=repr(rig), error=error),))
-        return accumulated(lamp(index, placement, power) for index, (placement, power) in enumerate(zip(placements.lights, powers)))
+            return LightRig.collection.made(identity, lambda: founded(Some(scene.collection), f"{holder.name} Rig"), of=Some(holder), scope=Some(rollback)).bind(
+                lambda home: empty(home).bind(lambda rig: anchored(holder, rig, placing.anchor).bind(lambda _: lights(rig, home, placing, alone=setup.linked)))
+            )
 
-    def joined_to(prepared: tuple[tuple[bpy.types.Object, ...], None]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-        lights, _ = prepared
-        return (
-            accumulated(linked(item, receivers, (target, *descendants(target, view_layer)), link_state.default, target, identity) for item in lights).map(lambda _: None)
-            if target_alone
-            else accumulated(receivers.write(item.light_linking, None) for item in lights).map(lambda _: None)
-        ).map(lambda _: lights)
-
-    def backed() -> BlenderResult[None]:
-        return background.map(lambda prepared: swapped(LightRig.world, prepared, scene, identity).map(lambda _: None)).default_with(
-            lambda: reverted(LightRig.world, scene, identity).map(lambda _: None)
+        return LightRig.attachment.bound(identity).bind(
+            lambda attached: attached.read(existing.default_value(holder)).bind(lambda setup: measured(setup).bind(lambda placing: placed(attached, setup, placing)))
         )
 
-    def published(lights: tuple[bpy.types.Object, ...]) -> tuple[bpy.types.Object, ...]:
-        rollback.pop_all()
-        return lights
-
     with ExitStack() as rollback:
-        return paired(lit(), backed()).bind(joined_to).map(published)
+        return committed(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda roots: placing(*roots, rollback)), rollback)
 
 
 def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[int]:
@@ -854,21 +729,16 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
     Returns:
         `Ok` of the objects and collections removed; `edit` for a refused world write.
     """
-    holder = Mark.read(identity, rig).bind(lambda mark: mark.of)
     blocks = (
-        *(block for block in bpy.data.objects for mark in Mark.read(identity, block).to_list() if mark.of == Some(rig)),
+        *(block for block, _ in _serving(rig, identity)),
         rig,
-        *(held for held, mark in LightRig.collection.held(identity) if holder.is_some() and mark.of == holder),
+        *(held for holder in Mark.read(identity, rig).bind(lambda mark: mark.of).to_list() for held in LightRig.collection.serving(identity, holder)),
     )
-
-    def gone(_: Option[int]) -> BlenderResult[int]:
-        try:
-            bpy.data.batch_remove(ids=blocks)
-            return Ok(len(blocks) + LightRig.data.removed(identity) + LightRig.reference.removed(identity))
-        except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=repr(rig), error=error),))
-
-    return reverted(LightRig.world, scene, identity).bind(gone)
+    return (
+        reverted(LightRig.world, scene, identity)
+        .bind(lambda _: released(blocks))
+        .bind(lambda count: accumulated((LightRig.data.removed(identity), LightRig.reference.removed(identity))).map(lambda counts: count + sum(counts)))
+    )
 
 
 def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[bpy.types.Object]:
@@ -876,20 +746,9 @@ def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[b
     return focused(view_layer).bind(lambda item: Ok(item) if LightRig.empty.marked(identity, item).is_some() else Error((BlenderAbsentFault(owner=repr(item), key=LightRig.empty.key),)))
 
 
-def _home(holder: bpy.types.Object, identity: Identity, scene: bpy.types.Scene, rollback: ExitStack) -> BlenderResult[bpy.types.Collection]:
-    """Owned rig collection of a holder, or a new one under the scene collection the rollback removes."""
-    mark = Mark(key=LightRig.collection.key, of=Some(holder))
-
-    def retained(block: bpy.types.Collection) -> bpy.types.Collection:
-        rollback.callback(bpy.data.batch_remove, ids=(block,))
-        return block
-
-    return (
-        Option
-        .of_optional(earliest(LightRig.collection.held(identity)).get(mark))
-        .map(Ok)
-        .default_with(lambda: founded(Some(scene.collection), f"{holder.name} Rig").bind(lambda block: LightRig.collection.owned(identity, block, mark)).map(retained))
-    )
+def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types.Object, Mark], ...]:
+    """Objects whose mark names a rig empty, with their marks."""
+    return tuple((block, mark) for block in bpy.data.objects for mark in Mark.read(identity, block).to_list() if mark.of == Some(rig))
 
 
 def _reading(setup: RigSetup, config: PyOpenColorIO.Config) -> BlenderResult[Option[LightingReading]]:
@@ -925,8 +784,8 @@ __all__ = [
     "anchored",
     "gels",
     "references",
-    "rig_placed",
     "rig_removed",
+    "rigged",
     "rigs",
     "target",
 ]

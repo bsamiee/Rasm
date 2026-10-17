@@ -8,20 +8,21 @@ Each validator has one shape: it accepts the request, returns it on success for 
 
 ```csharp
 internal sealed record Command(string Code, LocalDate Date);
-internal sealed record InvalidCode() : Expected("code is not 8 or 11 alphanumerics", (int)Codes.InvalidCode);
-internal sealed record DateIsPast() : Expected("date is not in the future", (int)Codes.DateIsPast);
 
 internal static class Rules {
+    private static readonly Error InvalidCode = Error.New(ErrorCodes.ValidationFailed, "code is not 8 or 11 alphanumerics");
+    private static readonly Error DateIsPast = Error.New(ErrorCodes.ValidationFailed, "date is not in the future");
+
     public static Fin<Command> ValidCode(Command command) =>
-        command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit) ? command : new InvalidCode();
+        command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit) ? command : InvalidCode;
     public static Fin<Command> ValidDate(Command command, LocalDate today) =>
-        command.Date > today ? command : new DateIsPast();
+        command.Date > today ? command : DateIsPast;
     public static Fin<Command> Valid(Command command, LocalDate today) =>
         ValidCode(command).Bind(c => ValidDate(c, today));
 }
 ```
 
-`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields cross through `Conversions.Validated` and `ToValidation`, and the tuple `Apply` builds the aggregate from every result, every failed field reports:
+`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields cross through the static extension member `Validated` and `ToValidation`, and the tuple `Apply` builds the aggregate from every result, every failed field reports:
 
 ```csharp
 internal sealed record Contact(Kind Kind, Region Region, Number Number);
@@ -29,16 +30,16 @@ internal sealed record Contact(Kind Kind, Region Region, Number Number);
 internal static class Contacts {
     public static Validation<Error, Contact> Create(string kind, string region, string number) =>
         (
-            Conversions.Validated<Kind, string, UnknownKind>(kind).ToValidation(),
-            Conversions.Validated<Region, string, InvalidRegion>(region).ToValidation(),
-            Conversions.Validated<Number, string, InvalidNumber>(number).ToValidation()
+            Kind.Validated(kind).ToValidation(),
+            Region.Validated(region).ToValidation(),
+            Number.Validated(number).ToValidation()
         ).Apply(static (k, r, n) => new Contact(k, r, n)).As();
     public static int Faults(Validation<Error, Contact> result) =>
         result.Match(Fail: static errors => errors.Count, Succ: static _ => 0);
 }
 ```
 
-`UnknownKind`, `InvalidRegion`, and `InvalidNumber` are the `[ValidationError<T>]` types of each value type. Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
+Each failure carries its validation hook's message under `ErrorCodes.ValidationFailed`. Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
 
 Collections of validators of shape `T -> Validation<Error, T>` fold into one validator, and the traversal selects the behavior:
 
@@ -58,23 +59,18 @@ internal static class Validators {
 `Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`. `Where` on `Fin` fails with `Errors.None`, a predicate supplies `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
 
 ```csharp
-internal sealed record ZeroDivisor() : Expected("divisor is 0", (int)Codes.ZeroDivisor);
-internal sealed record NegativeRatio() : Expected("ratio is negative", (int)Codes.NegativeRatio);
-internal sealed record NegativeValue() : Expected("value is negative", (int)Codes.NegativeValue);
-
 internal static class Roots {
     public static Fin<double> Ratio(double x, double y) =>
-        y == 0 ? new ZeroDivisor()
-        : x != 0 && Math.Sign(x) != Math.Sign(y) ? new NegativeRatio()
+        y == 0 ? Error.New("divisor is 0")
+        : x != 0 && Math.Sign(x) != Math.Sign(y) ? Error.New("ratio is negative")
         : Math.Sqrt(x / y);
     public static Fin<string> Rendered(double x, double y) =>
         Ratio(x, y).Map(static root => root.ToString(CultureInfo.InvariantCulture));
     public static Fin<double> Nested(double x, double y) =>
         Ratio(x, y).Bind(static root => Ratio(root, 1));
     public static Fin<double> Root(double value) =>
-        from v in Pure(value).ToFin()
-        from _ in guard<Error>(v >= 0, new NegativeValue())
-        select Math.Sqrt(v);
+        from _ in guard(value >= 0, Error.New("value is negative")).ToFin()
+        select Math.Sqrt(value);
 }
 ```
 
@@ -88,13 +84,13 @@ internal sealed record Updated(string Key, decimal Balance);
 
 internal static class Pipeline {
     public static Fin<ValidRequest> Validate(Request request) =>
-        request.Amount > 0 ? new ValidRequest(request.Key, request.Amount) : new NotPositive();
+        request.Amount > 0 ? new ValidRequest(request.Key, request.Amount) : Error.New("amount is not positive");
     public static Fin<Model> Load(Func<string, Option<(string Key, decimal Balance)>> find, ValidRequest request) =>
-        find(request.Key).ToFin(new NotFound()).Map(row => new Model(row.Key, row.Balance, request.Amount));
+        find(request.Key).ToFin(Error.New($"no row has key {request.Key}")).Map(row => new Model(row.Key, row.Balance, request.Amount));
     public static Fin<Updated> Update(Model model) =>
-        model.Balance >= model.Amount ? new Updated(model.Key, model.Balance - model.Amount) : new Insufficient();
+        model.Balance >= model.Amount ? new Updated(model.Key, model.Balance - model.Amount) : Error.New("insufficient balance");
     public static Fin<Unit> Save(Updated model) =>
-        model.Balance <= Limits.Reporting ? unit : new OverLimit();
+        model.Balance <= Limits.Reporting ? unit : Error.New("balance exceeds the reporting limit");
     public static Fin<Unit> Handle(Func<string, Option<(string Key, decimal Balance)>> find, Request request) =>
         Validate(request)
             .Bind(valid => Load(find, valid))
@@ -115,15 +111,13 @@ internal static class Lifting {
 }
 ```
 
-`fun` gives an inline lambda the delegate type the overloads need, and `As()` returns the concrete type from the `K<Option, int>` the trait method returns.
+`As()` returns the concrete type from the `K<Option, int>` the trait method returns.
 
 C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Validation<Error, A>`:
 
 ```csharp
-internal sealed record NotANumber() : Expected("not a number", (int)Codes.NotANumber);
-
 internal static class Queries {
-    public static Validation<Error, int> ValidInt(string text) => parseInt(text).ToValidation<Error>(new NotANumber());
+    public static Validation<Error, int> ValidInt(string text) => parseInt(text).ToValidation(Errors.ParseError("not a number"));
     public static Option<int> Total(string first, string second) =>
         from a in parseInt(first)
         from b in parseInt(second)
@@ -163,7 +157,7 @@ IActionResult Post(Request request) =>
         Fail: static error => BadRequest(error));
 ```
 
-For an optional lookup the boundary translates `None` to not found and `Some(value)` to a successful response, and for `Fin` the boundary decides how domain failures map to the external contract. API designs differ: map `Fail` and `Succ` to protocol status codes and payloads, or always return a successful transport status with a body that is a result DTO holding `Succeeded` and either `Data` or `Error`, which unlike `Fin` exposes its values directly for serialization and client access. Mapping a business validation to an HTTP error (400) has a tradeoff, the request can be syntactically valid yet violate a business rule, and concurrent changes can invalidate it between creation and receipt, the choice is an API-design decision.
+For an optional lookup the boundary translates `None` to not found and `Some(value)` to a successful response, and for `Fin` the boundary maps `Fail` and `Succ` to protocol status codes and payloads.
 
 ## [04]-[UNIONS]
 
@@ -191,13 +185,10 @@ internal abstract partial record Input {
     internal sealed record Text(string Value) : Input;
     internal sealed record Empty : Input;
     internal sealed record Number(int Value) : Input;
-    internal sealed record ReadFailure(Error Error) : Input;
 }
 
 internal static class Inputs {
-    public static IO<Input> Read(Func<string> read) =>
-        IO.lift(() => Classify(read()))
-            .Catch(static error => error.IsExceptional, static error => IO.pure<Input>(new Input.ReadFailure(error)));
+    public static IO<Input> Read(Func<string> read) => IO.lift(() => Classify(read()));
     public static Input Classify(string text) =>
         string.IsNullOrWhiteSpace(text)
             ? new Input.Empty()
@@ -205,7 +196,7 @@ internal static class Inputs {
 }
 ```
 
-`Catch` with a predicate maps the captured error to the `ReadFailure` case at the boundary, a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
+Code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
 
 Union cases can hold the union type itself, and a union of that kind models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
 
@@ -251,7 +242,7 @@ internal static class Folds {
 }
 ```
 
-Scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape, a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
+Scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with an error naming the wanted and the found case, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
 
 ## [05]-[LAWS]
 

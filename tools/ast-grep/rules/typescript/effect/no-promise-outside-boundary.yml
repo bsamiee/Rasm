@@ -48,7 +48,7 @@ utils:
                     field: module
                     pattern: $NX_TYPE
                     not: {matches: nx-shadowed-type}
-                    matches: {syntax-import-reference: {source: {regex: '^(@nx/devkit|nx/src/project-graph/plugins)$'}, exported: {regex: '^\*$'}}}
+                    matches: {typescript-import-reference: {source: {regex: '^(@nx/devkit|nx/src/project-graph/plugins)$'}, exported: {regex: '^\*$'}}}
     nx-exported-type:
         regex: '^(CreateNodes(Function)?(V2)?|CreateDependencies|CreateMetadata|PreTasksExecution|PostTasksExecution)$'
     nx-type:
@@ -65,23 +65,23 @@ utils:
     nx-tuple-callback:
         any:
             - kind: arrow_function, function_expression
-            - matches: syntax-expression-wrapper
+            - matches: typescript-expression-wrapper
         nthChild: {position: 2, ofRule: {not: {kind: comment}}}
         inside:
             kind: array
             inside:
                 matches: nx-typed-value
-                stopBy: {not: {matches: syntax-expression-wrapper}}
+                stopBy: {not: {matches: typescript-expression-wrapper}}
     nx-boundary:
         kind: arrow_function, function_expression
         any:
             - inside:
                 matches: nx-typed-value
-                stopBy: {not: {matches: syntax-expression-wrapper}}
+                stopBy: {not: {matches: typescript-expression-wrapper}}
             - matches: nx-tuple-callback
             - inside:
                 matches: nx-tuple-callback
-                stopBy: {not: {matches: syntax-expression-wrapper}}
+                stopBy: {not: {matches: typescript-expression-wrapper}}
     host-import:
         kind: call_expression
         has: {field: function, kind: import}
@@ -90,28 +90,28 @@ utils:
         has:
             field: function
             any:
-                - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(runPromise|runPromiseExit)$'}}}
+                - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(runPromise|runPromiseExit)$'}}}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
     promise-call:
         kind: call_expression
         has:
             field: function
             any:
-                - matches: {syntax-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(promise|tryPromise)$'}}}
+                - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(promise|tryPromise)$'}}}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: effect-effect-module}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^(promise|tryPromise)$'}
     conversion-boundary:
         any:
             - kind: arrow_function, function_expression
               any:
-                - inside: {stopBy: {not: {matches: syntax-expression-wrapper}}, kind: arguments, inside: {matches: promise-call}}
+                - inside: {stopBy: {not: {matches: typescript-expression-wrapper}}, kind: arguments, inside: {matches: promise-call}}
                 - inside:
-                    stopBy: {not: {matches: syntax-expression-wrapper}}
+                    stopBy: {not: {matches: typescript-expression-wrapper}}
                     kind: pair
                     field: value
                     has: {field: key, regex: '^(try|"try"|''try'')$'}
@@ -119,16 +119,16 @@ utils:
             - kind: method_definition
               has: {field: name, regex: '^(try|"try"|''try'')$'}
               inside: {kind: object, inside: {kind: arguments, inside: {matches: promise-call}}}
-            - matches: syntax-function-boundary
-              inside: {matches: conversion-boundary, stopBy: {matches: syntax-function-boundary}}
+            - matches: typescript-function-boundary
+              inside: {matches: conversion-boundary, stopBy: {matches: typescript-function-boundary}}
     promise-boundary:
         any:
             - matches: nx-boundary
             - matches: conversion-boundary
-    global-receiver: {matches: syntax-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
+    global-receiver: {matches: typescript-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
     promise-constructor:
         any:
-            - {matches: syntax-global-reference, regex: '^Promise$'}
+            - {matches: typescript-global-reference, regex: '^Promise$'}
             - kind: member_expression
               all:
                 - has: {field: object, matches: global-receiver}
@@ -137,7 +137,7 @@ utils:
               all:
                 - has: {field: object, matches: global-receiver}
                 - has: {field: index, kind: string, regex: '^[''"]Promise[''"]$'}
-            - matches: syntax-expression-wrapper
+            - matches: typescript-expression-wrapper
               has: {matches: promise-constructor}
     promise-combinator:
         any:
@@ -149,11 +149,11 @@ utils:
               all:
                 - has: {field: object, matches: promise-constructor}
                 - has: {field: index, kind: string, regex: '^[''"](all|allSettled|any|race|resolve|reject|withResolvers|try)[''"]$'}
-            - matches: syntax-expression-wrapper
+            - matches: typescript-expression-wrapper
               has: {matches: promise-combinator}
     fetch-callee:
         any:
-            - {matches: syntax-global-reference, regex: '^fetch$'}
+            - {matches: typescript-global-reference, regex: '^fetch$'}
             - kind: member_expression
               all:
                 - has: {field: object, matches: global-receiver}
@@ -162,7 +162,7 @@ utils:
               all:
                 - has: {field: object, matches: global-receiver}
                 - has: {field: index, kind: string, regex: '^[''"]fetch[''"]$'}
-            - matches: syntax-expression-wrapper
+            - matches: typescript-expression-wrapper
               has: {matches: fetch-callee}
 rule:
     all:
@@ -177,12 +177,12 @@ rule:
                         - has: {matches: run-promise}
                         - has: {kind: call_expression, has: {field: function, any: [{matches: fetch-callee}, {matches: promise-combinator}]}}
                         - has: {kind: new_expression, has: {field: constructor, matches: promise-constructor}}
-                - not: {inside: {matches: syntax-function-boundary, stopBy: end}}
+                - not: {inside: {matches: typescript-function-boundary, stopBy: end}}
             - kind: for_in_statement
               all:
                 - has: {regex: '^await$'}
                 - has: {field: right, pattern: $PROMISE}
-                - not: {inside: {matches: syntax-function-boundary, stopBy: end}}
+                - not: {inside: {matches: typescript-function-boundary, stopBy: end}}
             - kind: call_expression
               has: {field: function, matches: fetch-callee, pattern: $PROMISE, not: {regex: '^(globalThis\.)?fetch$'}}
             - kind: call_expression
@@ -190,6 +190,6 @@ rule:
                 field: function
                 pattern: $PROMISE
                 matches: promise-combinator
-        - not: {inside: {stopBy: {matches: syntax-function-boundary}, matches: promise-boundary}}
+        - not: {inside: {stopBy: {matches: typescript-function-boundary}, matches: promise-boundary}}
 message: '`$PROMISE` runs as a promise outside a host or promise conversion callback'
 note: 'Native Nx plugin callbacks imported from their owning package return promises to Nx. `Effect.tryPromise({ try: () => <promise>, catch })` converts other awaited promises, `Effect.all` replaces `Promise.all` and with `mode: "result"` `allSettled`, `Effect.raceAll` and `Effect.race` replace `race` and `any`, `Effect.succeed`, `Effect.fail`, `Deferred.make`, and `Effect.try` replace `resolve`, `reject`, `withResolvers`, and `try`, `HttpClient` replaces `fetch`, and `Stream.fromAsyncIterable` reads an async iterable, each keeping the failure typed'

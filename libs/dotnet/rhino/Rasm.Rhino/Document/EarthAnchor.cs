@@ -5,31 +5,28 @@ namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct Latitude : System.Numerics.IMinMaxValue<Latitude> {
     public static Latitude MinValue { get; } = new(-90d);
     public static Latitude MaxValue { get; } = new(90d);
     public static Latitude Default { get; } = new(0d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct Longitude : System.Numerics.IMinMaxValue<Longitude> {
     public static Longitude MinValue { get; } = new(-180d);
     public static Longitude MaxValue { get; } = new(180d);
     public static Longitude Default { get; } = new(0d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        (validationError, value) = double.IsFinite(value) ? (null, Math.IEEERemainder(value, 360d)) : (new InvalidRhinoValue(), value);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        (validationError, value) = double.IsFinite(value) ? (null, Math.IEEERemainder(value, 360d)) : (new ValidationError("longitude is not finite"), value);
 }
 
 public sealed record GeoCoordinate(Latitude Latitude, Longitude Longitude) {
     public static Fin<GeoCoordinate> From(double latitude, double longitude) =>
-        (Conversions.Validated<Latitude, double, InvalidRhinoValue>(latitude).ToValidation(),
-         Conversions.Validated<Longitude, double, InvalidRhinoValue>(longitude).ToValidation())
+        (Latitude.Validated(latitude).ToValidation(),
+         Longitude.Validated(longitude).ToValidation())
             .Apply(static (north, east) => new GeoCoordinate(north, east))
             .As()
             .ToFin();
@@ -39,8 +36,8 @@ public sealed record EarthLocation(GeoCoordinate Place, Length Elevation);
 
 public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordinateSystem> Datum, Option<Plane> Compass, Option<string> Name, Option<string> Description) {
     public Fin<(EarthLocation Earth, Plane Compass)> Located =>
-        (Earth.ToValidation<Error>(new Missing(nameof(EarthAnchorPoint.EarthLocationIsSet))),
-         Compass.ToValidation<Error>(new Missing(nameof(EarthAnchorPoint.ModelLocationIsSet))))
+        (Earth.ToValidation<Error>(new Refused(nameof(EarthAnchorPoint.EarthLocationIsSet), Refused.Absent)),
+         Compass.ToValidation<Error>(new Refused(nameof(EarthAnchorPoint.ModelLocationIsSet), Refused.Absent)))
             .Apply(static (earth, compass) => (Earth: earth, Compass: compass))
             .As()
             .ToFin();
@@ -58,7 +55,7 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
                 Conversions.Present(point.Description)));
 
     public static IO<EarthAnchor> Read(RhinoDoc document) =>
-        use(() => document.EarthAnchorPoint).Bind(static point => IO.lift(() => Of(point))).Bracket();
+        DisposalOps.Within(() => document.EarthAnchorPoint, static point => IO.lift(() => Of(point)));
 
     public IO<Unit> Apply(EarthAnchorPoint point) =>
         IO.lift(() => {
@@ -72,10 +69,10 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
         });
 
     public IO<Unit> Write(RhinoDoc document) =>
-        (from point in use(() => document.EarthAnchorPoint)
-         from _ in Apply(point)
-         from written in IO.lift(() => { document.EarthAnchorPoint = point; })
-         select written).Bracket();
+        DisposalOps.Within(() => document.EarthAnchorPoint, point =>
+            from applied in Apply(point)
+            from written in IO.lift(() => { document.EarthAnchorPoint = point; })
+            select written);
 }
 
 public sealed record Georeference {
@@ -88,13 +85,14 @@ public sealed record Georeference {
     public static IO<Georeference> Read(RhinoDoc document) => EarthAnchor.Read(document).Bind(anchor => Of(anchor, document.ModelUnits));
 
     public static IO<Georeference> Of(EarthAnchor anchor, LengthUnit modelUnits) =>
-        (from located in IO.lift(anchor.Located)
-         from scratch in use(static () => new EarthAnchorPoint())
-         from _ in (anchor with { Earth = new EarthLocation(located.Earth.Place, Length.Zero) }).Apply(scratch)
-         from modelToEarth in IO.lift(() => Missing.Unless(scratch.ModelLocationIsSet(), nameof(EarthAnchorPoint.ModelLocationIsSet))
-             .Map(_ => Transform.Translation(0d, 0d, located.Earth.Elevation.Meters.ToDouble()) * scratch.GetModelToEarthTransform(modelUnits)))
-         from earthToModel in IO.lift(() => Refused.Unless(modelToEarth.TryGetInverse(out Transform inverse), inverse, nameof(Transform.TryGetInverse)))
-         select new Georeference(modelToEarth, earthToModel)).Bracket();
+        from located in IO.lift(anchor.Located)
+        from georeference in DisposalOps.Within(static () => new EarthAnchorPoint(), scratch =>
+            from applied in (anchor with { Earth = new EarthLocation(located.Earth.Place, Length.Zero) }).Apply(scratch)
+            from modelToEarth in IO.lift(() => Refused.UnlessFound(scratch.ModelLocationIsSet(), nameof(EarthAnchorPoint.ModelLocationIsSet))
+                .Map(_ => Transform.Translation(0d, 0d, located.Earth.Elevation.Meters.ToDouble()) * scratch.GetModelToEarthTransform(modelUnits)))
+            from earthToModel in IO.lift(() => Refused.Unless(modelToEarth.TryGetInverse(out Transform inverse), inverse, nameof(Transform.TryGetInverse)))
+            select new Georeference(modelToEarth, earthToModel))
+        select georeference;
 
     public Fin<EarthLocation> ToEarth(Point3d point) =>
         (ModelToEarth * point) switch {

@@ -63,10 +63,7 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
                 }).ToFin(Errors.Cancelled).ThrowIfFail();
                 return DisposalOps.Release(prior);
             })
-            from control in work.Ready.Traverse(ready => DisposalOps.Acquire(
-                IO.lift(() => new ExecutionControl(ready, Sink)),
-                static held => IO.lift(held.Dispose),
-                window.RegisterPostEffectExecutionControl)).As()
+            from control in work.Ready.Traverse(ready => DisposalOps.Acquire(IO.lift(() => new ExecutionControl(ready, Sink)), window.RegisterPostEffectExecutionControl)).As()
             from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
             select started,
             Callbacks.Each(Seq(IO.lift(StopRendering), Released)).Map(unit));
@@ -100,10 +97,9 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
     })).Bind(DisposalOps.Release);
 
     private void Rendered(RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
-        using EnvIO environment = EnvIO.New(token: cancellation.Token);
         CallbackSite site = new(Sink, typeof(AsyncContext), nameof(StartRenderThread));
         RenderWindow.RenderSuccessCode answer = Callbacks.Answer(
-            IO.lift(() => Try.lift(() => render.Run(environment)).Run())
+            IO.lift(() => Callbacks.Settled(render, cancellation.Token))
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
                 .Map(RenderWindow.RenderSuccessCode.Completed),
             static () => RenderWindow.RenderSuccessCode.Failed,
@@ -155,15 +151,12 @@ internal sealed class BatchPipeline : RenderPipeline {
 
     private bool Begin(Option<Size> quiet, [CallerMemberName] string member = "") =>
         Callbacks.Answer(
-            from extent in IO.lift(quiet.Traverse(static size => RenderWindows.Extent(size.Width, size.Height)).As())
+            from extent in IO.lift(quiet.Traverse(static size => PixelExtent.Validated(size.Width, size.Height)).As())
             from started in new RenderWindowSource.Rendering(RenderSessionId).Open(window => context.Start(window, owned =>
                 from world in start.Switch(
                     (Pipeline: this, Window: window, Retain: owned),
                     full: static (state, _) => state.Pipeline.FullScene(state.Window, state.Retain),
-                    region: static (state, region) => DisposalOps.Within(
-                        () => new ViewInfo(region.View.ActiveViewport),
-                        view => state.Pipeline.Scene(state.Window, view, state.Retain),
-                        static view => IO.lift(view.Dispose)))
+                    region: static (state, region) => DisposalOps.Within(() => new ViewInfo(region.View.ActiveViewport), view => state.Pipeline.Scene(state.Window, view, state.Retain)))
                 from work in engine.Open(start, extent, window, world)
                 select work, engine.Caption))
             select started,
@@ -171,17 +164,12 @@ internal sealed class BatchPipeline : RenderPipeline {
             new CallbackSite(context.Sink, GetType(), member));
 
     private IO<SceneBatch> FullScene(RenderWindow window, Action<IDisposable> retain) =>
-        DisposalOps.Within(
-            () => new RenderSourceView(document),
-            source => DisposalOps.Within(
-                () => Optional(source.GetViewInfo()),
-                view => IO.lift(view.ToFin(new Missing(nameof(RenderSourceView.GetViewInfo)))).Bind(held => Scene(window, held, retain)),
-                static view => DisposalOps.Release(view.ToSeq())),
-            static source => IO.lift(source.Dispose));
+        DisposalOps.Within(() => new RenderSourceView(document), source =>
+            DisposalOps.Found(source.GetViewInfo, nameof(RenderSourceView.GetViewInfo), view => Scene(window, view, retain)));
 
     private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view, Action<IDisposable> retain) =>
         from size in IO.lift(window.Size)
-        from extent in IO.lift(RenderWindows.Extent(size.Width, size.Height))
+        from extent in IO.lift(PixelExtent.Validated(size.Width, size.Height))
         from __ in when(engine.HostWireframe, RenderWindows.AddWireframe(
             window,
             new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(System.Drawing.Point.Empty, whole), region: static (_, region) => region.Rectangle)),
@@ -198,10 +186,8 @@ internal sealed class BatchPipeline : RenderPipeline {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Batches {
     public static IO<Unit> Render(RhinoDoc doc, RunMode mode, PlugIn plugIn, RenderEngine engine, RenderStart start) =>
-        DisposalOps.Within<BatchPipeline, Unit>(retain => DisposalOps.Acquire(
-                IO.lift(() => new AsyncContext((IPlugInSink)plugIn)).Bind(context => DisposalOps.OnFailure(
-                    IO.lift(() => new BatchPipeline(doc, mode, plugIn, engine, start, context)), IO.lift(context.Dispose))),
-                static pipeline => IO.lift(pipeline.Dispose), retain)
+        DisposalOps.Within<BatchPipeline, Unit>(retain => DisposalOps.Acquire(IO.lift(() => new AsyncContext((IPlugInSink)plugIn)).Bind(context => DisposalOps.OnFailure(
+            IO.lift(() => new BatchPipeline(doc, mode, plugIn, engine, start, context)), IO.lift(context.Dispose))), retain)
             .Bind(pipeline => IO.lift(() => start.Switch(
                 pipeline,
                 full: static (session, _) => Answered(session.Render(), nameof(RenderPipeline.Render)),
@@ -213,7 +199,7 @@ public static class Batches {
             RenderPipeline.RenderReturnCode.Ok => unit,
             RenderPipeline.RenderReturnCode.Cancel => Errors.Cancelled,
             RenderPipeline.RenderReturnCode.EmptyScene => new Ended(member, Result.Nothing),
-            RenderPipeline.RenderReturnCode.NoActiveView => new Missing(nameof(ViewTable.ActiveView)),
+            RenderPipeline.RenderReturnCode.NoActiveView => new Refused(nameof(ViewTable.ActiveView), Refused.Absent),
             RenderPipeline.RenderReturnCode.ExitRhino => new Ended(member, Result.ExitRhino),
             RenderPipeline.RenderReturnCode.OnPreCreateWindow
                 or RenderPipeline.RenderReturnCode.NoFrameWndPointer
@@ -221,6 +207,6 @@ public static class Batches {
                 or RenderPipeline.RenderReturnCode.ErrorStartingRender
                 or RenderPipeline.RenderReturnCode.EnterModalLoop
                 or RenderPipeline.RenderReturnCode.ExitModalLoop
-                or RenderPipeline.RenderReturnCode.InternalError => new RenderRefused(code),
+                or RenderPipeline.RenderReturnCode.InternalError => Error.New($"{member} returned {code}"),
         };
 }

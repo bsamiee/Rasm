@@ -8,6 +8,9 @@ using Rhino.UI;
 
 namespace Rasm.Rhino.Commands;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+public delegate IO<AddedOption<TValue>> OptionAdder<TValue>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TValue initial, Action<IDisposable> retain);
+
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LabelPair(string Off, string On) {
     public static readonly LabelPair NoYes = new("No", "Yes");
@@ -23,35 +26,32 @@ public sealed record OptionSpec<T>(string Caption, Func<GetBaseClass, LocalizeSt
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class OptionType {
     // --- [ROWS]
-    public static readonly Func<GetBaseClass, LocalizeStringPair, IPlugInSink, System.Drawing.Color, Action<IDisposable>, IO<AddedOption<System.Drawing.Color>>> Color =
+    public static readonly OptionAdder<System.Drawing.Color> Color =
         static (getter, name, _, initial, retain) => Held(() => new OptionColor(initial), holder => getter.AddOptionColor(name, ref holder), nameof(GetBaseClass.AddOptionColor), static holder => Fin.Succ(holder.CurrentValue), retain);
 
-    public static IO<AddedOption<bool>> Toggle(LabelPair labels, GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, bool initial, Action<IDisposable> retain) =>
-        from offName in Named(labels.Off, plugIn)
-        from onName in Named(labels.On, plugIn)
-        from added in Held(() => new OptionToggle(initial, offName, onName), holder => getter.AddOptionToggle(name, ref holder), nameof(GetBaseClass.AddOptionToggle), static holder => Fin.Succ(holder.CurrentValue), retain)
-        select added;
+    public static OptionAdder<bool> Toggle(LabelPair labels) =>
+        (getter, name, plugIn, initial, retain) =>
+            from offName in Named(labels.Off, plugIn)
+            from onName in Named(labels.On, plugIn)
+            from added in Held(() => new OptionToggle(initial, offName, onName), holder => getter.AddOptionToggle(name, ref holder), nameof(GetBaseClass.AddOptionToggle), static holder => Fin.Succ(holder.CurrentValue), retain)
+            select added;
 
-    public static IO<AddedOption<TValue>> Number<TValue, TRaw, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw>
-        where TError : Error, IValidationError<TError> =>
+    public static IO<AddedOption<TValue>> Number<TValue, TRaw>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
+        where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw> =>
         Held(() => new OptionDouble(double.CreateChecked(initial.ToValue()), double.CreateChecked(TValue.MinValue.ToValue()), double.CreateChecked(TValue.MaxValue.ToValue())),
             holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
-            static holder => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(holder.CurrentValue)), retain);
+            static holder => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
 
-    public static IO<AddedOption<TValue>> Integer<TValue, TRaw, TError>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, TRaw, TError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IBinaryInteger<TRaw>
-        where TError : Error, IValidationError<TError> =>
-        from value in IO.lift(() => Callbacks.Thrown<OverflowException, int>(() => int.CreateChecked(initial.ToValue()), nameof(OptionInteger)))
-        from added in Held(() => new OptionInteger(value, int.CreateSaturating(TValue.MinValue.ToValue()), int.CreateSaturating(TValue.MaxValue.ToValue())),
+    public static IO<AddedOption<TValue>> Integer<TValue, TRaw>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
+        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
+        where TRaw : struct, System.Numerics.IBinaryInteger<TRaw> =>
+        Held(() => new OptionInteger(int.CreateChecked(initial.ToValue()), int.CreateSaturating(TValue.MinValue.ToValue()), int.CreateSaturating(TValue.MaxValue.ToValue())),
             holder => getter.AddOptionInteger(name, ref holder), nameof(GetBaseClass.AddOptionInteger),
-            static holder => Conversions.Validated<TValue, TRaw, TError>(TRaw.CreateChecked(holder.CurrentValue)), retain)
-        select added;
+            static holder => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
 
-    public static IO<AddedOption<int>> Integer(Option<int> lower, Option<int> upper, GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, int initial, Action<IDisposable> retain) =>
-        Held(() => (lower.Case, upper.Case) switch {
+    public static OptionAdder<int> Integer(Option<int> lower, Option<int> upper) =>
+        (getter, name, _, initial, retain) => Held(() => (lower.Case, upper.Case) switch {
             (int minimum, int maximum) => new OptionInteger(initial, minimum, maximum),
             (int minimum, _) => new OptionInteger(initial, setLowerLimit: true, minimum),
             (_, int maximum) => new OptionInteger(initial, setLowerLimit: false, maximum),
@@ -60,28 +60,27 @@ public static class OptionType {
             holder => getter.AddOptionInteger(name, ref holder), nameof(GetBaseClass.AddOptionInteger),
             static holder => Fin.Succ(holder.CurrentValue), retain);
 
-    public static IO<AddedOption<TValue>> Distance<TValue, TError>(LengthUnit spaceUnit, GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, Length, TError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue>
-        where TError : Error, IValidationError<TError> =>
-        Held(() => new OptionDouble(Quantities.As(initial.ToValue(), spaceUnit), Quantities.As(TValue.MinValue.ToValue(), spaceUnit), Quantities.As(TValue.MaxValue.ToValue(), spaceUnit)),
+    public static OptionAdder<TValue> Distance<TValue>(LengthUnit spaceUnit)
+        where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
+        (getter, name, _, initial, retain) => Held(() => new OptionDouble(Quantities.As(initial.ToValue(), spaceUnit), Quantities.As(TValue.MinValue.ToValue(), spaceUnit), Quantities.As(TValue.MaxValue.ToValue(), spaceUnit)),
             holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
-            holder => Conversions.Validated<TValue, Length, TError>(Quantities.From(holder.CurrentValue, spaceUnit)), retain);
+            holder => Admission.Validated<TValue, Length>(Quantities.From(holder.CurrentValue, spaceUnit)), retain);
 
-    public static IO<AddedOption<TValue>> Text<TValue, TError>(bool allowEmptyString, GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, string, TError>, IConvertible<string>
-        where TError : Error, IValidationError<TError> =>
-        Held(() => new OptionString(initial.ToValue(), allowEmptyString),
+    public static OptionAdder<TValue> Text<TValue>(bool allowEmptyString)
+        where TValue : IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
+        (getter, name, _, initial, retain) => Held(() => new OptionString(initial.ToValue(), allowEmptyString),
             holder => getter.AddOptionString(name, ref holder), nameof(GetBaseClass.AddOptionString),
-            static holder => Conversions.Validated<TValue, string, TError>(holder.CurrentValue), retain);
+            static holder => Admission.Validated<TValue, string>(holder.CurrentValue), retain);
 
-    public static IO<AddedOption<TItem>> List<TItem>(Seq<TItem> items, Func<TItem, string> caption, GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TItem initial, Action<IDisposable> _) where TItem : notnull =>
-        from values in items.TraverseM(item => Named(caption(item), plugIn)).As()
-        from index in Indexed(() => getter.AddOptionList(name, values, items.TakeWhile(item => !EqualityComparer<TItem>.Default.Equals(item, initial)).Count), nameof(GetBaseClass.AddOptionList))
-        select new AddedOption<TItem>(index, option => IO.lift(() => items.At(option.CurrentListOptionIndex).ToFin(new InvalidAnswer(nameof(CommandLineOption.CurrentListOptionIndex)))));
+    public static OptionAdder<TItem> List<TItem>(Seq<TItem> items, Func<TItem, string> caption) where TItem : notnull =>
+        (getter, name, plugIn, initial, _) =>
+            from values in items.TraverseM(item => Named(caption(item), plugIn)).As()
+            from index in Indexed(() => getter.AddOptionList(name, values, items.TakeWhile(item => !EqualityComparer<TItem>.Default.Equals(item, initial)).Count), nameof(GetBaseClass.AddOptionList))
+            select new AddedOption<TItem>(index, option => IO.lift(() => items.At(option.CurrentListOptionIndex).ToFin(new Refused(nameof(CommandLineOption.CurrentListOptionIndex), Refused.Invalid))));
 
     // --- [NAMES]
     internal static IO<LocalizeStringPair> Named(string english, IPlugInSink plugIn) =>
-        IO.lift(() => Missing.Unless(RhinoGet.StringToCommandOptionName(english, RowText.Localize(english, table: Some<object>(plugIn)).Local), nameof(RhinoGet.StringToCommandOptionName)));
+        IO.lift(() => Refused.UnlessFound(RhinoGet.StringToCommandOptionName(english, RowText.Localize(english, plugIn).Local), nameof(RhinoGet.StringToCommandOptionName)));
 
     // --- [ADDERS]
     internal static IO<int> Indexed(Func<int> add, string member) =>
@@ -90,7 +89,7 @@ public static class OptionType {
         select accepted;
 
     private static IO<AddedOption<TValue>> Held<THolder, TValue>(Func<THolder> create, Func<THolder, int> add, string member, Func<THolder, Fin<TValue>> current, Action<IDisposable> retain) where THolder : class, IDisposable =>
-        from holder in DisposalOps.Acquire(IO.lift(create), static holder => IO.lift(holder.Dispose), retain)
+        from holder in DisposalOps.Acquire(IO.lift(create), retain)
         from index in Indexed(() => add(holder), member)
         select new AddedOption<TValue>(index, _ => IO.lift(() => current(holder)));
 }
@@ -100,10 +99,10 @@ public static class OptionSpec {
         new(caption, (getter, name, _, _) => OptionType.Indexed(() => getter.AddOption(name, value.Map(static text => new LocalizeStringPair(text, text)).ValueUnsafe(), hidden), nameof(GetBaseClass.AddOption))
             .Map(index => new AddedOption<T>(index, chosen)));
 
-    public static OptionSpec<T> Of<T, TValue>(string caption, Func<GetBaseClass, LocalizeStringPair, IPlugInSink, TValue, Action<IDisposable>, IO<AddedOption<TValue>>> add, TValue initial, Func<TValue, IO<T>> chosen) =>
+    public static OptionSpec<T> Of<T, TValue>(string caption, OptionAdder<TValue> add, TValue initial, Func<TValue, IO<T>> chosen) =>
         new(caption, (getter, name, plugIn, retain) => add(getter, name, plugIn, initial, retain).Map(added => new AddedOption<T>(added.Index, option => added.Read(option).Bind(chosen))));
 
-    public static IO<OptionSpec<T>> Seeded<T, TValue, TRaw>(Command command, PlugInSetting<TValue, TRaw> setting, Func<GetBaseClass, LocalizeStringPair, IPlugInSink, TValue, Action<IDisposable>, IO<AddedOption<TValue>>> add, Func<TValue, IO<T>> chosen)
+    public static IO<OptionSpec<T>> Seeded<T, TValue, TRaw>(Command command, PlugInSetting<TValue, TRaw> setting, OptionAdder<TValue> add, Func<TValue, IO<T>> chosen)
         where TValue : notnull
         where TRaw : notnull =>
         from store in IO.pure(PlugInSettings.Store(new SettingsNode(command), setting))
@@ -125,8 +124,8 @@ public static class CommandOptions {
         select added;
 
     private static IO<T> Chosen<T>(GetBaseClass getter, HashMap<int, AddedOption<T>> added) =>
-        from option in IO.lift(() => Missing.Unless(getter.Option(), nameof(GetBaseClass.Option)))
-        from row in IO.lift(added.Find(option.Index).ToFin(new InvalidAnswer(nameof(CommandLineOption.Index))))
+        from option in IO.lift(() => Refused.UnlessFound(getter.Option(), nameof(GetBaseClass.Option)))
+        from row in IO.lift(added.Find(option.Index).ToFin(new Refused(nameof(CommandLineOption.Index), Refused.Invalid)))
         from value in row.Read(option)
         select value;
 }

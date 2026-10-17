@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Modeling.Curves;
 using Rhino.Geometry.Collections;
@@ -21,13 +22,11 @@ public abstract partial record PlanarBoolean {
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct MergeRoundness : System.Numerics.IMinMaxValue<MergeRoundness> {
     public static MergeRoundness MinValue { get; } = new(0d);
     public static MergeRoundness MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -98,7 +97,7 @@ public static class SolidTopology {
             booleanUnion: static (at, union) => Copies.Acquire(
                 Fin<Brep[]> () => Brep.CreateBooleanUnion(union.Breps, at.Tolerance, union.ManifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold) is { } results
                     ? results
-                    : new BooleanUnionFailed(toSeq(naked), toSeq(bad), toSeq(nonManifold)),
+                    : new Refused(nameof(Brep.CreateBooleanUnion), string.Create(CultureInfo.InvariantCulture, $"answered nothing over {naked.Length} naked, {bad.Length} bad intersection, and {nonManifold.Length} non-manifold edge points")),
                 nameof(Brep.CreateBooleanUnion), at.Retain),
             booleanIntersection: static (at, intersection) => Copies.Acquire(() => Brep.CreateBooleanIntersection(intersection.First, intersection.Second, at.Tolerance, intersection.ManifoldOnly), nameof(Brep.CreateBooleanIntersection), at.Retain),
             booleanDifference: static (at, difference) => Copies.Acquire(() => Brep.CreateBooleanDifference(difference.First, difference.Second, at.Tolerance, difference.ManifoldOnly), nameof(Brep.CreateBooleanDifference), at.Retain),
@@ -112,27 +111,21 @@ public static class SolidTopology {
             planarDifference: static (at, pair) => Copies.Acquire(() => Brep.CreatePlanarDifference(pair.First, pair.Second, at.Plane, at.Tolerance), nameof(Brep.CreatePlanarDifference), at.Retain));
 
     public static IO<Seq<Grouped<Brep>>> CreateBooleanUnionWithIndexMap(Seq<Brep> breps, bool manifoldOnly, Tolerances tolerances, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => Copies.Acquire(() => (Brep.CreateBooleanUnionWithIndexMap(breps, tolerances.Absolute, manifoldOnly, out int[][] indexMap), indexMap), nameof(Brep.CreateBooleanUnionWithIndexMap), output)
-                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
-            (_, release) => retain(release));
+        Copies.Acquire(() => (Brep.CreateBooleanUnionWithIndexMap(breps, tolerances.Absolute, manifoldOnly, out int[][] indexMap), indexMap), nameof(Brep.CreateBooleanUnionWithIndexMap), retain)
+            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
 
     public static IO<Seq<Grouped<Brep>>> CreateBooleanDifferenceWithIndexMap(Seq<Brep> firstSet, Seq<Brep> secondSet, bool manifoldOnly, Tolerances tolerances, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => Copies.Acquire(() => (Brep.CreateBooleanDifferenceWithIndexMap(firstSet, secondSet, tolerances.Absolute, manifoldOnly, out int[] indexMap), indexMap), nameof(Brep.CreateBooleanDifferenceWithIndexMap), output)
-                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, Seq(row.Row)))),
-            (_, release) => retain(release));
+        Copies.Acquire(() => (Brep.CreateBooleanDifferenceWithIndexMap(firstSet, secondSet, tolerances.Absolute, manifoldOnly, out int[] indexMap), indexMap), nameof(Brep.CreateBooleanDifferenceWithIndexMap), retain)
+            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, Seq(row.Row))));
 
     // --- [JOINS]
     public static IO<Seq<Grouped<Brep>>> JoinBreps(Seq<Brep> brepsToJoin, Tolerances tolerances, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => Copies.Acquire(() => (Brep.JoinBreps(brepsToJoin, tolerances.Absolute, tolerances.Angle, out List<int[]> indexMap), indexMap), nameof(Brep.JoinBreps), output)
-                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
-            (_, release) => retain(release));
+        Copies.Acquire(() => (Brep.JoinBreps(brepsToJoin, tolerances.Absolute, tolerances.Angle, out List<int[]> indexMap), indexMap), nameof(Brep.JoinBreps), retain)
+            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
 
     public static IO<Brep> CreateFromJoinedEdges(Brep brep0, int edgeIndex0, Brep brep1, int edgeIndex1, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Acquire(
-            () => (IndexOutOfRange.Unless(edgeIndex0, brep0.Edges.Count, nameof(Brep.CreateFromJoinedEdges)).ToValidation(), IndexOutOfRange.Unless(edgeIndex1, brep1.Edges.Count, nameof(Brep.CreateFromJoinedEdges)).ToValidation())
+            () => (Conversions.Within(edgeIndex0, brep0.Edges.Count, nameof(Brep.CreateFromJoinedEdges)).ToValidation(), Conversions.Within(edgeIndex1, brep1.Edges.Count, nameof(Brep.CreateFromJoinedEdges)).ToValidation())
                 .Apply((_, _) => Brep.CreateFromJoinedEdges(brep0, edgeIndex0, brep1, edgeIndex1, tolerances.Absolute))
                 .As().ToFin(),
             nameof(Brep.CreateFromJoinedEdges), retain);
@@ -141,14 +134,14 @@ public static class SolidTopology {
         Copies.Owned(
             () => (Accepted: Brep.CreateFromMatch(edge, targetCurves, settings, out Brep? matched, out Brep? target), Matched: matched, Target: target),
             static made => made.Accepted ?
-                (Written(made.Matched, nameof(Brep.CreateFromMatch)), Optional(made.Target).Traverse(static target => Measurements.Valid(target, nameof(Brep.CreateFromMatch))).As().ToValidation())
+                (Measurements.Valid(made.Matched, nameof(Brep.CreateFromMatch)).ToValidation(), Optional(made.Target).Traverse(static target => Measurements.Valid(target, nameof(Brep.CreateFromMatch))).As().ToValidation())
                     .Apply(static (matched, target) => (Matched: matched, Target: target))
-                    .As().ToFin() : new Refused(nameof(Brep.CreateFromMatch)),
-            static made => DisposalOps.Release(Conversions.Rows([made.Matched, made.Target])), retain);
+                    .As().ToFin() : new Refused(nameof(Brep.CreateFromMatch), Refused.Declined),
+            static made => DisposalOps.Release(made.Matched, made.Target), retain);
 
     public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(BrepFace face0, int edgeIndex0, BrepFace face1, int edgeIndex1, Tolerances tolerances, Action<IDisposable> retain) =>
         from indices in IO.lift(() =>
-                (IndexOutOfRange.Unless(edgeIndex0, face0.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation(), IndexOutOfRange.Unless(edgeIndex1, face1.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation())
+                (Conversions.Within(edgeIndex0, face0.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation(), Conversions.Within(edgeIndex1, face1.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation())
                     .Apply(static (_, _) => unit)
                     .As().ToFin())
         from connected in Connected(() => (Brep.ExtendBrepFacesToConnect(face0, edgeIndex0, face1, edgeIndex1, tolerances.Absolute, tolerances.Angle, out Brep? first, out Brep? second), first, second), retain)
@@ -161,17 +154,15 @@ public static class SolidTopology {
         Copies.Owned(
             extend,
             static made => made.Accepted ?
-                (Written(made.First, nameof(Brep.ExtendBrepFacesToConnect)), Written(made.Second, nameof(Brep.ExtendBrepFacesToConnect)))
+                (Measurements.Valid(made.First, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation(), Measurements.Valid(made.Second, nameof(Brep.ExtendBrepFacesToConnect)).ToValidation())
                     .Apply(static (face0, face1) => (Face0: face0, Face1: face1))
-                    .As().ToFin() : new Refused(nameof(Brep.ExtendBrepFacesToConnect)),
-            static made => DisposalOps.Release(Conversions.Rows([made.First, made.Second])), retain);
+                    .As().ToFin() : new Refused(nameof(Brep.ExtendBrepFacesToConnect), Refused.Declined),
+            static made => DisposalOps.Release(made.First, made.Second), retain);
 
     // --- [SPLITS]
     public static IO<Seq<Grouped<Brep>>> SplitDisjointPieces(Brep brep, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => Copies.Acquire(() => (Brep.SplitDisjointPieces(brep, out List<int[]> indexMap), indexMap), nameof(Brep.SplitDisjointPieces), output)
-                .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row)))),
-            (_, release) => retain(release));
+        Copies.Acquire(() => (Brep.SplitDisjointPieces(brep, out List<int[]> indexMap), indexMap), nameof(Brep.SplitDisjointPieces), retain)
+            .Map(static rows => rows.Map(static row => new Grouped<Brep>(row.Result, toSeq(row.Row))));
 
     public static IO<(Seq<Brep> Pieces, bool ToleranceWasRaised)> Split(Brep brep, Brep cutter, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Owned(
@@ -214,7 +205,7 @@ public static class SolidTopology {
             static made => made.Accepted ?
                 (Measurements.Valid(toSeq<Brep?>(made.Kept), nameof(Brep.WireCut)).ToValidation(), Measurements.Valid(toSeq<Brep?>(made.CutAway), nameof(Brep.WireCut)).ToValidation())
                     .Apply(static (kept, cutAway) => (Kept: kept, CutAway: cutAway))
-                    .As().ToFin() : new Refused(nameof(Brep.WireCut)),
+                    .As().ToFin() : new Refused(nameof(Brep.WireCut), Refused.Declined),
             static made => DisposalOps.Release(Conversions.Rows(made.Kept).Concat(Conversions.Rows(made.CutAway))), retain);
 
     // --- [EDITS]
@@ -260,11 +251,11 @@ public static class SolidTopology {
                      None: () => Refused.Unless(edited.Copy.Faces.SplitKinkyFaces(edited.Tolerances.Angle), nameof(BrepFaceList.SplitKinkyFaces)))))
                     .As().Map(EditResult<int>.CreateCompleted()),
             splitKinkyEdge: static (edited, split) =>
-                (IO.lift(() => IndexOutOfRange.Unless(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitKinkyEdge)))
+                (IO.lift(() => Conversions.Within(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitKinkyEdge)))
                  >> IO.lift(() => Refused.Unless(edited.Copy.Edges.SplitKinkyEdge(split.Edge, edited.Tolerances.Angle), nameof(BrepEdgeList.SplitKinkyEdge))))
                     .As().Map(EditResult<int>.CreateCompleted()),
             splitEdgeAtParameters: static (edited, split) =>
-                (IO.lift(() => IndexOutOfRange.Unless(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitEdgeAtParameters)))
+                (IO.lift(() => Conversions.Within(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitEdgeAtParameters)))
                  >> IO.lift(() => edited.Copy.Edges.SplitEdgeAtParameters(split.Edge, split.Parameters)))
                     .As().Bind(static count => IO.lift(Refused.Unless(count > 0, count, nameof(BrepEdgeList.SplitEdgeAtParameters))))
                     .Map(EditResult<int>.CreateCount),
@@ -291,22 +282,20 @@ public static class SolidTopology {
             (Source: source, Tolerances: tolerances, Retain: retain),
             removeHoles: static (of, holes) =>
                 (IO.lift(() => Callbacks.Each(toSeq(holes.Loops), (loop, _) =>
-                    IndexOutOfRange.Unless(loop, of.Source.Loops.Count, nameof(Brep.RemoveHoles)) switch {
-                        Fin<Unit>.Succ => RefusedElement.Unless(of.Source.Loops[loop].LoopType is BrepLoopType.Inner, nameof(Brep.RemoveHoles), loop),
-                        var failed => failed,
-                    }))
+                    Conversions.Within(loop, of.Source.Loops.Count, nameof(Brep.RemoveHoles))
+                        .Bind(_ => Refused.Unless(of.Source.Loops[loop].LoopType is BrepLoopType.Inner, nameof(Brep.RemoveHoles), loop))))
                  >> Copies.Acquire(() => of.Source.RemoveHoles(toSeq(holes.Loops).Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop)), of.Tolerances.Absolute), nameof(Brep.RemoveHoles), of.Retain)).As(),
             untrimFace: static (of, untrim) =>
-                (IO.lift(() => IndexOutOfRange.Unless(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimFace)))
+                (IO.lift(() => Conversions.Within(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimFace)))
                  >> Copies.Acquire(() => of.Source.UntrimFace(untrim.Face, of.Tolerances.Absolute), nameof(Brep.UntrimFace), of.Retain)).As(),
             untrimOuterLoop: static (of, untrim) =>
-                (IO.lift(() => IndexOutOfRange.Unless(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimOuterLoop)))
+                (IO.lift(() => Conversions.Within(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimOuterLoop)))
                  >> Copies.Acquire(() => of.Source.UntrimOuterLoop(untrim.Face), nameof(Brep.UntrimOuterLoop), of.Retain)).As(),
             insetFaces: static (of, inset) =>
                 (IO.lift(() => Copies.InRange(toSeq(inset.Faces), of.Source.Faces.Count, nameof(Brep.InsetFaces)))
                  >> Copies.Acquire(() => of.Source.InsetFaces(inset.Faces, inset.Distance, inset.Loose, inset.IgnoreSeams, inset.CreaseCorners, of.Tolerances.Absolute, of.Tolerances.Angle), nameof(Brep.InsetFaces), of.Retain)).As(),
             pushPullExtend: static (of, push) =>
-                (IO.lift(() => IndexOutOfRange.Unless(push.Face, of.Source.Faces.Count, nameof(Brep.PushPullExtend)))
+                (IO.lift(() => Conversions.Within(push.Face, of.Source.Faces.Count, nameof(Brep.PushPullExtend)))
                  >> Copies.Acquire(() => of.Source.PushPullExtend(push.Face, push.Transform, of.Tolerances.Absolute), nameof(Brep.PushPullExtend), of.Retain)).As(),
             replaceEdge: static (of, replace) =>
                 (IO.lift(() => Copies.InRange(toSeq(replace.Edges), of.Source.Edges.Count, nameof(Brep.ReplaceEdge)))
@@ -321,12 +310,12 @@ public static class SolidTopology {
         geometry is Brep brep
             ? Copies.Duplicate(brep, retain)
             : Copies.Acquire(
-                Fin<Brep> () => Brep.TryConvertBrep(geometry) is { } converted ? converted : new WrongType(typeof(Brep), geometry.GetType()),
+                () => Brep.TryConvertBrep(geometry),
                 nameof(Brep.TryConvertBrep), retain);
 
     // --- [QUERIES]
     public static IO<BrepPoint> ClosestPoint(Brep brep, Point3d testPoint) =>
-        ClosestPoint(brep, testPoint, None).Bind(static found => IO.lift(found.ToFin(new Refused(nameof(Brep.ClosestPoint)))));
+        ClosestPoint(brep, testPoint, None).Bind(static found => IO.lift(found.ToFin(new Refused(nameof(Brep.ClosestPoint), Refused.Declined))));
 
     public static IO<Option<BrepPoint>> ClosestPoint(Brep brep, Point3d testPoint, Option<SearchDistance> within) =>
         IO.lift(() => Callbacks.Found(
@@ -337,20 +326,15 @@ public static class SolidTopology {
                 : new BrepPoint.OnFace(at.Closest, at.Component.Index, new Point2d(at.S, at.T), at.Normal)));
 
     public static IO<PointContainment> Containment(Brep brep, Point3d point, Tolerances tolerances) =>
-        IO.lift(() => NotSolid.Unless(brep.IsSolid, nameof(Brep.IsPointInside)).Map(_ =>
-            brep.IsPointInside(point, tolerances.Absolute, strictlyIn: true) ? PointContainment.Inside
+        IO.lift(Fin<PointContainment> () =>
+            !brep.IsSolid ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep.IsPointInside)} requires a closed oriented manifold brep")
+            : brep.IsPointInside(point, tolerances.Absolute, strictlyIn: true) ? PointContainment.Inside
             : brep.IsPointInside(point, tolerances.Absolute, strictlyIn: false) ? PointContainment.Coincident
-            : PointContainment.Outside));
+            : PointContainment.Outside);
 
     public static IO<(Seq<int> Faces, Seq<int> Edges, Seq<int> Vertices)> FindCoincidentBrepComponents(Brep brep, Point3d point, Tolerances tolerances) =>
         IO.lift(() => {
             brep.FindCoincidentBrepComponents(point, tolerances.Absolute, out int[] faces, out int[] edges, out int[] vertices);
             return (Faces: toSeq(faces), Edges: toSeq(edges), Vertices: toSeq(vertices));
         });
-
-    // --- [ACCEPTANCE]
-    private static Validation<Error, Brep> Written(Brep? product, string member) =>
-        (from made in Missing.Unless(product, member)
-         from valid in Measurements.Valid(made, member)
-         select valid).ToValidation();
 }

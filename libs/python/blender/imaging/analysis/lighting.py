@@ -5,7 +5,7 @@ import math
 from typing import Annotated, ClassVar, Self
 
 from colour.models.oklab import MATRIX_1_XYZ_TO_LMS, MATRIX_2_LMS_TO_LAB
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -101,12 +101,6 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], size: Annotated[int, msgspec.Meta(ge=1)] = 3) -> ImagingResult[Option[Self]]:
         """Fits a reference and reads its covered finite light, retaining native fit failures."""
-        if (
-            image := (OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(plane), filtername="triangle", roi=OpenImageIO.ROI(0, min(cls.grid, plane.shape[1]), 0, min(cls.grid, plane.shape[0]))))
-        ).has_error:
-            return Error((ImagingBufferFault(request=image, error=image.geterror()),))
-        if (pixels := (image.get_pixels(OpenImageIO.FLOAT))) is None:
-            return Error((ImagingBufferFault(request=image, error=image.geterror()),))
 
         def read(pair: tuple[Samples, PyOpenColorIO.Processor]) -> ImagingResult[Option[Self]]:
             samples, built = pair
@@ -131,7 +125,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 for low, high in ((0.85, 1.0), (0.35, 0.60), (0.0, 0.15), (0.78, 1.0), (0.0, 0.22), (0.55, 1.0), *((index / count, (index + 1) / count) for index in range(count)))
                 for start in (math.floor(found.size * low),)
             )
-            key, fill, ambient = (Rgb(red=float(mean[0]), green=float(mean[1]), blue=float(mean[2])) for band in bands[:3] for mean in (colors[band].mean(axis=0, dtype=np.float64),))
+            key, fill, ambient = (msgspec.convert(mean.tolist(), Rgb) for band in bands[:3] for mean in (colors[band].mean(axis=0, dtype=np.float64),))
             darkest, brightest, lower, upper = np.percentile(found, (5.0, 95.0, 10.0, 90.0), method="inverted_cdf")
             spread = math.log2(float(brightest / darkest))
             halves = tuple(found[mask] for mask in (coordinates[:, 0] > 0.0, coordinates[:, 0] < 0.0, coordinates[:, 1] > 0.0, coordinates[:, 1] < 0.0))
@@ -159,7 +153,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 Some(levels[border])
                 .filter(lambda held: held.size > 0)
                 .map(lambda held: samples.color[border & (levels >= np.percentile(held, cls.highlights, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
-                .map(lambda mean: Rgb(red=float(mean[0]), green=float(mean[1]), blue=float(mean[2])))
+                .map(lambda mean: msgspec.convert(mean.tolist(), Rgb))
             )
             center_levels, border_levels, ring_levels = levels[central], levels[border], levels[subject & ~core]
             frame_mean, subject_mean = float(levels[covered].mean(dtype=np.float64)), float(found.mean(dtype=np.float64))
@@ -191,7 +185,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 else:
                     kept.append(index)
             palette = tuple(
-                PaletteEntry(color=Rgb(red=float(mean[0]), green=float(mean[1]), blue=float(mean[2])), position=(float(mean[3]), float(mean[4])), share=float(shares[index]))
+                PaletteEntry(color=msgspec.convert(mean[:3].tolist(), Rgb), position=(float(mean[3]), float(mean[4])), share=float(shares[index]))
                 for index in kept
                 for mean in (means[ordered_clusters[index]],)
             )
@@ -217,7 +211,13 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return paired(samples_of(config, pixels), processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR))).bind(read)
+        return (
+            ImagingBufferFault
+            .checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(plane), filtername="triangle", roi=OpenImageIO.ROI(0, min(cls.grid, plane.shape[1]), 0, min(cls.grid, plane.shape[0]))))
+            .bind(ImagingBufferFault.pixels)
+            .bind(lambda pixels: paired(samples_of(config, pixels), processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR))))
+            .bind(read)
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

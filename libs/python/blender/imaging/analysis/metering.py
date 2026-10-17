@@ -12,7 +12,7 @@ import PyOpenColorIO
 from blender.imaging.chain import GREY
 from blender.imaging.color.processors import applied, luma, unassociated
 from blender.imaging.faults import ImagingResult
-from blender.imaging.parameters import Gated, Presentation, Quantity
+from blender.imaging.parameters import Gated, Presentation, Quantity, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -20,10 +20,10 @@ from blender.imaging.parameters import Gated, Presentation, Quantity
 class Region(msgspec.Struct, frozen=True, kw_only=True):
     """Frame rectangle as bottom-left shares, with y increasing upward."""
 
-    left: Annotated[float, msgspec.Meta(ge=0.0, le=1.0), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
-    bottom: Annotated[float, msgspec.Meta(ge=0.0, le=1.0), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
-    right: Annotated[float, msgspec.Meta(ge=0.0, le=1.0), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
-    top: Annotated[float, msgspec.Meta(ge=0.0, le=1.0), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
+    left: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    bottom: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
+    right: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
+    top: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
 
     def window(self, height: int, width: int) -> tuple["slice[int, int, None]", "slice[int, int, None]"]:
         """Returns row and column slices of a top-first plane."""
@@ -105,7 +105,7 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
     low: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, title="Low Trim"), Presentation(step=Some(1.0), decimals=Some(1))] = 0.0
     high: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, title="High Trim"), Presentation(step=Some(1.0), decimals=Some(1))] = 100.0
-    centre: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Centre Weight")] = 0.0
+    centre: Annotated[Unit, msgspec.Meta(title="Centre Weight")] = 0.0
     region: Gated[Region] = Gated(enabled=False, value=Region())
 
     def stops(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[float]]:

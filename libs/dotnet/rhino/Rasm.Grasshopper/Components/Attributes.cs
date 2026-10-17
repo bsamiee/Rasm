@@ -34,13 +34,12 @@ public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReadi
             .Apply((wide, high) => new PlotBody<TReading>(wide, high, paint)).As().ToFin();
 
     private static Fin<Extent> Axis((float Minimum, float Ideal, float Maximum) axis) =>
-        (Conversions.Validated<CanvasLength, float, InvalidGrasshopperValue>(axis.Minimum).ToValidation(),
-         Conversions.Validated<CanvasLength, float, InvalidGrasshopperValue>(axis.Ideal).ToValidation(),
-         Conversions.Validated<CanvasLength, float, InvalidGrasshopperValue>(axis.Maximum).ToValidation())
+        (CanvasLength.Validated(axis.Minimum).ToValidation(),
+         CanvasLength.Validated(axis.Ideal).ToValidation(),
+         CanvasLength.Validated(axis.Maximum).ToValidation())
             .Apply(static (minimum, ideal, maximum) => (Minimum: minimum, Ideal: ideal, Maximum: maximum))
             .As().ToFin()
-            .Bind(static lengths => Extent.Validate(lengths.Minimum, lengths.Ideal, lengths.Maximum, out Extent item) is { } error
-                ? Fin.Fail<Extent>(error) : item);
+            .Bind(static lengths => Admission.Admitted(Extent.Validate(lengths.Minimum, lengths.Ideal, lengths.Maximum, out Extent item), item));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -229,7 +228,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         DisposalOps.Acquire(owned =>
             from grid in RowGrid.Realize(rows, rows.Filter(row => row.Keys.Exists(key => keys.Exists(key.Equals))), scope.Hosted(Editor.Instance.Canvas), owned)
             from bound in grid.Plot(keys).Traverse(control => Bind(control, owned)).As()
-            select unit, (_, lease) => retain(lease));
+            select unit, retain);
 
     public IO<Unit> Bind(ComponentControl control, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep => {
@@ -249,7 +248,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             IO<Unit> cancel = IO.lift(() => ContentBox.Size).Bind(size => control.Cancel(size, Scale()));
             Func<ResponseMouseArgs, Response> press = Reply<ResponseMouseArgs>(args =>
                 DisposalOps.OnFailure(Mouse(args, control.Press).Bind(reply => reply is Response.Capture
-                    ? Capture(owned => DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(cancel, static effect => effect.Run())), static lease => IO.lift(lease.Dispose), owned).Map(unit))
+                    ? Capture(owned => DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(cancel, static effect => effect.Run())), owned).Map(unit))
                     : IO.pure(reply)), cancel));
             Func<ResponseMouseArgs, Response> drag = Reply<ResponseMouseArgs>(args => Mouse(args, control.Move));
             Func<ResponseMouseArgs, Response> up = Reply<ResponseMouseArgs>(args =>
@@ -260,7 +259,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             Func<ResponseMouseArgs, Response> twice = Reply<ResponseMouseArgs>(args => Mouse(args, control.DoubleClick));
             Func<ResponseMouseArgs, Response> wheel = Reply<ResponseMouseArgs>(args => Mouse(args, control.Scroll));
             Action<ResponseMouseArgs> over = Observe<ResponseMouseArgs>(args => Mouse(args, control.Move).Map(unit));
-            System.Action leave = () => Callbacks.Run(DisposalOps.OnFailure(control.Leave(ContentBox.Size, Scale()), Cancelled), Site());
+            System.Action leave = () => Callbacks.Started(DisposalOps.OnFailure(control.Leave(ContentBox.Size, Scale()), Cancelled), Site());
             Func<KeyEventArgs, Response> key = Reply<KeyEventArgs>(args => control.Key(ContentBox.Size, Scale(), args)
                 .Map(_ => control.Captured ? Response.Capture : args.Handled ? Response.Handled : Response.Ignored));
             EventHandler redraw = (_, _) => Owner.OnDisplayChanged();
@@ -281,21 +280,21 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
                        bool current = hosted.Exists(bound => ReferenceEquals(bound.Surface, surface));
                        hosted = hosted.Filter(_ => !current);
                        _ = (current ? Callbacks.Each(Seq(Cancelled, released.Leave(ContentBox.Size, Scale()))).Map(unit) : cancel).Uninterruptible().Run();
-                   })), static lease => IO.lift(lease.Dispose), keep)
+                   })), keep)
                    from arranged in DisposalOps.OnFailure(IO.lift(() => {
                        hosted = Some((control, surface));
                        InvalidateLayout();
                        Layout(Skin.Current.Shape);
                    }), IO.lift(() => { hosted = prior; InvalidateLayout(); }))
                    select unit;
-        }, (_, lease) => retain(lease));
+        }, retain);
 
     // --- [INTERACTION]
     public Func<TArgs, Response> Reply<TArgs>(Func<TArgs, IO<Response>> respond, [CallerMemberName] string member = "") =>
         args => Callbacks.Answer(args, value => DisposalOps.OnFailure(IO.pure(value).Bind(respond), Cancelled), static () => Response.Release, Site(member));
 
     public Action<TArgs> Observe<TArgs>(Func<TArgs, IO<Unit>> observe, [CallerMemberName] string member = "") =>
-        args => Callbacks.Run(DisposalOps.OnFailure(IO.pure(args).Bind(observe), Cancelled), Site(member));
+        args => Callbacks.Started(DisposalOps.OnFailure(IO.pure(args).Bind(observe), Cancelled), Site(member));
 
     public IO<Response> Capture(Func<Action<IDisposable>, IO<Unit>> begin) =>
         DisposalOps.Replace(begin, (_, release) => atomic(() => {
@@ -347,7 +346,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         .Bind(held => held.Match(
             Some: done => DisposalOps.OnFailure(
                 SnapSession.End(Editor.Instance.Canvas).Bind(_ => IO.lift(() => Optional(Owner.Document).Iter(document =>
-                    document.Undo.Do(new VerbNoun(RowText.Localize("Resize", table: Some<object>(sink)), Owner.InstanceId.ToString()), done.Undo))))
+                    document.Undo.Do(new VerbNoun(RowText.Localize("Resize", sink), Owner.InstanceId.ToString()), done.Undo))))
                     .Map(Response.Release),
                 Cleaned(Some<Either<Resizing, IDisposable>>(done))),
             None: static () => IO.pure(Response.Ignored))).Uninterruptible();

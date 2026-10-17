@@ -19,7 +19,6 @@ public enum KeyDomain {
 public sealed record NamedId(Guid Id, Option<string> Name);
 
 [ValueObject<UInt128>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ContentKey {
     public static ContentKey Of(KeyDomain domain, Func<XxHash128, XxHash128> fields) =>
         new(fields(new XxHash128().Integer((int)domain)).GetCurrentHashAsUInt128());

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
@@ -8,7 +9,6 @@ using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects;
 
@@ -32,40 +32,40 @@ public abstract partial record HistoryOutput {
 public static class Histories {
     // --- [KEYS]
     public static HistoryKey<bool> Bool(int id) =>
-        Plain(id, nameof(HistoryRecord.SetBool), static (record, slot, value) => record.SetBool(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetBool(slot, out bool value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetBool), static (record, slot, value) => record.SetBool(slot, value), static (data, slot) => Held(data.TryGetBool(slot, out bool value), value, slot));
 
     public static HistoryKey<int> Int(int id) =>
-        Plain(id, nameof(HistoryRecord.SetInt), static (record, slot, value) => record.SetInt(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetInt(slot, out int value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetInt), static (record, slot, value) => record.SetInt(slot, value), static (data, slot) => Held(data.TryGetInt(slot, out int value), value, slot));
 
     public static HistoryKey<Seq<int>> Ints(int id) =>
-        Plain(id, nameof(HistoryRecord.SetInts), static (record, slot, values) => record.SetInts(slot, values), static (data, slot) => MissingHistoryInput.Unless(data.TryGetInts(slot, out int[] values), values, slot).Map(static found => toSeq(found)));
+        Plain(id, nameof(HistoryRecord.SetInts), static (record, slot, values) => record.SetInts(slot, values), static (data, slot) => Held(data.TryGetInts(slot, out int[] values), values, slot).Map(static found => toSeq(found)));
 
     public static HistoryKey<double> Double(int id) =>
-        Plain(id, nameof(HistoryRecord.SetDouble), static (record, slot, value) => record.SetDouble(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetDouble(slot, out double value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetDouble), static (record, slot, value) => record.SetDouble(slot, value), static (data, slot) => Held(data.TryGetDouble(slot, out double value), value, slot));
 
     public static HistoryKey<Seq<double>> Doubles(int id) =>
-        Plain(id, nameof(HistoryRecord.SetDoubles), static (record, slot, values) => record.SetDoubles(slot, values), static (data, slot) => MissingHistoryInput.Unless(data.TryGetDoubles(slot, out double[] values), values, slot).Map(static found => toSeq(found)));
+        Plain(id, nameof(HistoryRecord.SetDoubles), static (record, slot, values) => record.SetDoubles(slot, values), static (data, slot) => Held(data.TryGetDoubles(slot, out double[] values), values, slot).Map(static found => toSeq(found)));
 
     public static HistoryKey<Point3d> Point3d(int id) =>
-        Plain(id, nameof(HistoryRecord.SetPoint3d), static (record, slot, value) => record.SetPoint3d(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetPoint3d(slot, out Point3d value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetPoint3d), static (record, slot, value) => record.SetPoint3d(slot, value), static (data, slot) => Held(data.TryGetPoint3d(slot, out Point3d value), value, slot));
 
     public static HistoryKey<Vector3d> Vector3d(int id) =>
-        Plain(id, nameof(HistoryRecord.SetVector3d), static (record, slot, value) => record.SetVector3d(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetVector3d(slot, out Vector3d value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetVector3d), static (record, slot, value) => record.SetVector3d(slot, value), static (data, slot) => Held(data.TryGetVector3d(slot, out Vector3d value), value, slot));
 
     public static HistoryKey<Transform> Transform(int id) =>
-        Plain(id, nameof(HistoryRecord.SetTransorm), static (record, slot, value) => record.SetTransorm(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetTransform(slot, out Transform value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetTransorm), static (record, slot, value) => record.SetTransorm(slot, value), static (data, slot) => Held(data.TryGetTransform(slot, out Transform value), value, slot));
 
     public static HistoryKey<Color> Color(int id) =>
-        Plain(id, nameof(HistoryRecord.SetColor), static (record, slot, value) => record.SetColor(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetColor(slot, out Color value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetColor), static (record, slot, value) => record.SetColor(slot, value), static (data, slot) => Held(data.TryGetColor(slot, out Color value), value, slot));
 
     public static HistoryKey<Guid> Guid(int id) =>
-        Plain(id, nameof(HistoryRecord.SetGuid), static (record, slot, value) => record.SetGuid(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetGuid(slot, out Guid value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetGuid), static (record, slot, value) => record.SetGuid(slot, value), static (data, slot) => Held(data.TryGetGuid(slot, out Guid value), value, slot));
 
     public static HistoryKey<Seq<Guid>> Guids(int id) =>
-        Plain(id, nameof(HistoryRecord.SetGuids), static (record, slot, values) => record.SetGuids(slot, values), static (data, slot) => MissingHistoryInput.Unless(data.TryGetGuids(slot, out Guid[] values), values, slot).Map(static found => toSeq(found)));
+        Plain(id, nameof(HistoryRecord.SetGuids), static (record, slot, values) => record.SetGuids(slot, values), static (data, slot) => Held(data.TryGetGuids(slot, out Guid[] values), values, slot).Map(static found => toSeq(found)));
 
     public static HistoryKey<string> String(int id) =>
-        Plain(id, nameof(HistoryRecord.SetString), static (record, slot, value) => record.SetString(slot, value), static (data, slot) => MissingHistoryInput.Unless(data.TryGetString(slot, out string value), value, slot));
+        Plain(id, nameof(HistoryRecord.SetString), static (record, slot, value) => record.SetString(slot, value), static (data, slot) => Held(data.TryGetString(slot, out string value), value, slot));
 
     public static HistoryKey<PickCapture> ObjRef(int id) =>
         new(id,
@@ -75,36 +75,40 @@ public static class Histories {
     public static HistoryKey<(PickCapture Target, Point3d Point)> Point3dOnObject(int id) =>
         new(id,
             static (doc, record, slot, value) => Referenced(doc, value.Target, slot, nameof(HistoryRecord.SetPoint3dOnObject), reference => record.SetPoint3dOnObject(slot, reference, value.Point)),
-            static (data, slot) => Captured(data, slot).Zip(IO.lift(() => MissingHistoryInput.Unless(data.TryGetPoint3dOnObject(slot, out Point3d point), point, slot))).As());
+            static (data, slot) => Captured(data, slot).Zip(IO.lift(() => Held(data.TryGetPoint3dOnObject(slot, out Point3d point), point, slot))).As());
 
     private static HistoryKey<T> Plain<T>(int id, string member, Func<HistoryRecord, int, T, bool> write, Func<ReplayHistoryData, int, Fin<T>> read) where T : notnull =>
         new(id,
-            (_, record, slot, value) => IO.lift(() => RefusedElement.Unless(write(record, slot, value), member, slot)),
+            (_, record, slot, value) => IO.lift(() => Refused.Unless(write(record, slot, value), member, slot)),
             (data, slot) => IO.lift(() => read(data, slot)));
 
     private static IO<Unit> Referenced(RhinoDoc doc, PickCapture target, int slot, string member, Func<ObjRef, bool> write) =>
-        (from reference in use(() => new ObjRef(doc, target.ObjectId, Conversions.Unset(target.GeometryComponentIndex)))
-         from written in IO.lift(() => RefusedElement.Unless(write(reference), member, slot))
-         select written).Bracket();
+        DisposalOps.Within(() => new ObjRef(doc, target.ObjectId, Conversions.Unset(target.GeometryComponentIndex)),
+            reference => IO.lift(() => Refused.Unless(write(reference), member, slot)));
 
     private static IO<PickCapture> Captured(ReplayHistoryData data, int slot) =>
-        use(IO.lift(() => Optional(data.GetRhinoObjRef(slot)).ToFin(new MissingHistoryInput(slot)))).Bind(PickCapture.Of).Bracket();
+        DisposalOps.Within(() => data.GetRhinoObjRef(slot),
+            reference => IO.lift(Optional(reference).ToFin(Absent(slot))).Bind(PickCapture.Of),
+            static reference => DisposalOps.Release(reference));
+
+    private static Fin<T> Held<T>(bool found, T value, int slot) => found ? value : Absent(slot);
+
+    private static NotFound Absent(int slot) => new("history input", slot.ToString(CultureInfo.InvariantCulture));
 
     // --- [RECORDS]
     public static IO<T> Record<T>(RhinoDoc doc, Command command, int version, bool copyOnReplace, Seq<HistoryInput> inputs, Func<HistoryRecord, IO<T>> body) =>
         from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)).ToFin())
-        from result in (from record in use(() => HistoryMapper.Create((command, version, copyOnReplace)))
-                        from written in unique.TraverseM(input => input.Write(doc, record)).As()
-                        from answer in body(record)
-                        select answer).Bracket()
+        from result in DisposalOps.Within(() => new HistoryRecord(command, version) { CopyOnReplaceObject = copyOnReplace }, record =>
+            from written in unique.TraverseM(input => input.Write(doc, record)).As()
+            from answer in body(record)
+            select answer)
         select result;
 
     // --- [REPLAY]
     public static IO<Unit> Replay(ReplayHistoryData data, int version, Func<Seq<ReplayHistoryResult>, IO<Seq<HistoryOutput>>> outputs) =>
-        from results in IO.lift(Fin<Seq<ReplayHistoryResult>> () => data.HistoryVersion switch {
-            var recorded when recorded == version => toSeq(data.Results),
-            var recorded => new StaleHistory(recorded, version),
-        })
+        from results in IO.lift(Fin<Seq<ReplayHistoryResult>> () => data.HistoryVersion == version
+            ? toSeq(data.Results)
+            : Error.New(string.Create(CultureInfo.InvariantCulture, $"history record version {data.HistoryVersion} differs from command version {version}")))
         from rows in outputs(results)
         let continued = rows.Map(static row => row.Switch(kept: static kept => kept.Existing, changed: static changed => changed.Existing.ValueUnsafe()))
         from arranged in IO.lift(() => data.UpdateResultArray(continued))
@@ -116,7 +120,7 @@ public static class Histories {
     public static IO<ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>>> Web(RhinoDoc doc, Guid id) =>
         from table in IO.lift(() => doc.Objects)
         let links = memoUnsafe((Guid vertex) => Optional(table.FindId(vertex)).Map(static found => (Parents: toSeq(found.HistoryParents()).Strict(), Children: toSeq(found.HistoryChildren()).Strict())))
-        from origin in IO.lift(() => links(id).ToFin(new Missing(nameof(ObjectTable.FindId))))
+        from origin in IO.lift(() => links(id).ToFin(new Refused(nameof(ObjectTable.FindId), Refused.Absent)))
         let joined = new Func<Guid, IEnumerable<SEquatableEdge<Guid>>>(vertex => links(vertex).ToSeq().Bind(static found => found.Parents.Concat(found.Children)).Map(next => new SEquatableEdge<Guid>(vertex, next)))
         let reach = new ImplicitDepthFirstSearchAlgorithm<Guid, SEquatableEdge<Guid>>(joined.ToDelegateIncidenceGraph())
         from visited in IO.lift(() => reach.Compute(id))
@@ -127,9 +131,4 @@ public static class Histories {
 
         public Seq<Seq<Guid>> CycleGroups => toSeq(graph.Vertices).Filter(static component => component.EdgeCount > 0).Map(static component => toSeq(component.Vertices).Strict()).Strict();
     }
-}
-
-[Mapper]
-internal static partial class HistoryMapper {
-    internal static partial HistoryRecord Create((Command Command, int Version, bool CopyOnReplaceObject) source);
 }

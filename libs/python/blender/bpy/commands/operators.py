@@ -17,7 +17,7 @@ import msgspec
 from blender.bpy.commands.calls import Operation
 from blender.bpy.commands.modal import Modal
 from blender.bpy.data.rna.conditions import check, Condition
-from blender.bpy.data.rna.descriptors import Descriptor, root_in, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, Value, written
 from blender.bpy.data.rna.snapshots import Applied
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band
@@ -88,7 +88,7 @@ class Call[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def root[K: "bpy.types.bpy_struct[object]"](self, kind: type[K]) -> BlenderResult[K]:
         """Returns a required native context root or its typed absence."""
-        return root_in(kind, self.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.context), key=kind.__name__),))
+        return rooted(kind, self.context)
 
 
 class Confirm[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
@@ -315,8 +315,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                     body(layout, context, operator.properties)
 
         members: dict[str, object] = {
-            "__record_defaults__": vars(group.struct)["__record_defaults__"],
-            "__annotations__": made,
+            **RecordGroup.body(group.struct),
             "execute": execute,
             **({"description": classmethod(described)} if made else {}),
             **({"draw": draw} if self.draw.is_some() else {}),
@@ -329,9 +328,6 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
         opening: Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.WindowManager, bpy.types.Event, T], BlenderResult[set[rna_enums.OperatorReturnItems]]] = (
             lambda operator, context, _manager, _event, _record: Ok(execute(operator, context))
         )
-
-        def managed(context: bpy.types.Context) -> BlenderResult[bpy.types.WindowManager]:
-            return Option.of_optional(context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),))
 
         match self.invoke.to_optional():
             case Pick(cursor=cursor):
@@ -456,7 +452,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                                 collisions = catch(lambda: tuple(destination for destination in paths if destination.exists()), exception=OSError)().map_error(
                                     lambda error: (BlenderReadFault(request=repr(paths), error=error),)
                                 )
-                                return managed(context).map2(
+                                return rooted(bpy.types.WindowManager, context).map2(
                                     collisions,
                                     lambda manager, existing: (
                                         manager.invoke_confirm(operator, None, title="Replace existing files?", message="\n".join(str(destination) for destination in existing), confirm_text="Replace")
@@ -560,7 +556,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                         .default_value(Ok(record))
                     )
                 )
-                .bind(lambda record: managed(context).bind(lambda manager: opening(operator, context, manager, event, record)))
+                .bind(lambda record: rooted(bpy.types.WindowManager, context).bind(lambda manager: opening(operator, context, manager, event, record)))
                 .default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
             )
 

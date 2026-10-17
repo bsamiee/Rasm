@@ -3,7 +3,7 @@ id: no-cancellation-race-by-hand
 language: rust
 severity: error
 rule:
-    matches: rust-two-arm-select
+    matches: tokio-two-arm-select
     has:
         kind: token_tree
         has:

@@ -11,7 +11,7 @@ const Tokens = defaulted(Schema.Int.annotate({ description: 'Most visual tokens 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fitted = (tokens: number, width: number, height: number): { readonly width: number; readonly height: number } => {
+const fitted = (tokens: number, width: number, height: number): number => {
     const patch = 28;
     const patches = (pixels: number): number => Math.ceil(pixels / patch);
     const across = (pixels: number): number => Math.max(Math.round((pixels * Math.min(width, height)) / Math.max(width, height)), 1);
@@ -20,8 +20,7 @@ const fitted = (tokens: number, width: number, height: number): { readonly width
         const [low, high] = patches(middle) * patches(across(middle)) <= tokens ? [middle, fails] : [fits, middle];
         return high - low > 1 ? largest(low, high) : low;
     };
-    const long = largest(1, Math.floor(HIGH_RESOLUTION.edge / patch) * patch + 1);
-    return width >= height ? { width: long, height: across(long) } : { width: across(long), height: long };
+    return largest(1, Math.floor(HIGH_RESOLUTION.edge / patch) * patch + 1);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

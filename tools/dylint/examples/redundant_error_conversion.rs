@@ -1,3 +1,5 @@
+#![feature(try_blocks, try_blocks_heterogeneous)]
+
 use core::{
     error, fmt,
     hint::black_box,
@@ -157,6 +159,10 @@ fn manual(text: &str) -> Result<u16, ManualError> {
     Ok(port)
 }
 
+fn blocked(text: &str) -> Result<u16, PortError> { try { text.trim().parse::<u16>().map_err(PortError::from)? } }
+
+fn bikeshed(text: &str) -> Result<u16, PortError> { try bikeshed Result<u16, PortError> { text.trim().parse::<u16>().map_err(PortError::from)? } }
+
 fn read(path: &str) -> Result<String, ReadError> { Ok(fs_err::read_to_string(path)?) }
 
 fn scale(text: &str) -> Result<f64, ScaleError> {
@@ -186,6 +192,8 @@ fn main() {
         collected(&["8087"])?;
         manual("8088").map_err(|error| PortError::Parse(error.0))?;
         scale("1.5").map_err(PortError::Scale)?;
+        blocked("8089")?;
+        bikeshed("8090")?;
         Ok(())
     };
     black_box((run(), read("port").map(|text| text.len()))).0.unwrap_or_default();

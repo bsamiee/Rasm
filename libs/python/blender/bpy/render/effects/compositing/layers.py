@@ -24,7 +24,7 @@ from blender.bpy.commands.operators import Call, Command, Done, Empty, InvokePop
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.rna.conditions import Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, root_in, written
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, root_in, rooted, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
@@ -478,34 +478,26 @@ class LayerStacking[E: Effect]:
 
         tree: BlenderResult[bpy.types.NodeTree] = stacked_by(self.identity, entry).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=LayerStacks.ownership.key),))
         return (
-            Result[bpy.types.Scene, BlenderFaults]
-            .bind(
-                Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)),
-                lambda scene: Result[bpy.types.NodeTree, BlenderFaults].bind(tree, lambda tree: self.reconciled(scene, tree, context, record=Some(record))),
-            )
+            rooted(bpy.types.Scene, context)
+            .bind(lambda scene: Result[bpy.types.NodeTree, BlenderFaults].bind(tree, lambda tree: self.reconciled(scene, tree, context, record=Some(record))))
             .bind(lambda _: accumulated(layer(held) for held in record.layers))
             .map(lambda _: None)
         )
 
     def selected(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.SceneCompositorEffect, LayerStack[Source, E], StackView, bpy.types.NodeTree]]:
         """Returns the editor entry, current values, workspace selection, and owned tree."""
-        screen: BlenderResult[bpy.types.Screen] = Option.of_optional(context.screen).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="screen"),))
-        scene: BlenderResult[bpy.types.Scene] = Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),))
-        return (
-            Result[bpy.types.Scene, BlenderFaults]
-            .bind(scene, self.head)
-            .bind(
-                lambda entry: paired(
-                    paired(self.read(entry), Result[bpy.types.Screen, BlenderFaults].bind(screen, self.view.read)),
-                    stacked_by(self.identity, entry).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=LayerStacks.ownership.key),)),
-                ).map(lambda pair: (entry, *pair[0], pair[1]))
-            )
+        screen = rooted(bpy.types.Screen, context)
+        scene = rooted(bpy.types.Scene, context)
+        return scene.bind(self.head).bind(
+            lambda entry: paired(
+                paired(self.read(entry), screen.bind(self.view.read)), stacked_by(self.identity, entry).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=LayerStacks.ownership.key),))
+            ).map(lambda pair: (entry, *pair[0], pair[1]))
         )
 
     def written_selection(self, context: bpy.types.Context, entry: bpy.types.SceneCompositorEffect, record: LayerStack[Source, E], active: int) -> BlenderResult[None]:
         """Writes an edited stack and its construction-selected active index."""
-        screen: BlenderResult[bpy.types.Screen] = Option.of_optional(context.screen).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="screen"),))
-        return paired(self.written(entry, record, context), Result[bpy.types.Screen, BlenderFaults].bind(screen, lambda screen: self.view.write(screen, StackView(active=active)))).map(lambda _: None)
+        screen = rooted(bpy.types.Screen, context)
+        return paired(self.written(entry, record, context), screen.bind(lambda screen: self.view.write(screen, StackView(active=active)))).map(lambda _: None)
 
     def replaced(self, context: bpy.types.Context, entry: bpy.types.SceneCompositorEffect, current: LayerStack[Source, E], desired: LayerStack[Source, E], active: int) -> BlenderResult[bool]:
         """Writes a desired stack differing from the current one with its selected index, answering whether the layers differed."""
@@ -530,7 +522,7 @@ class LayerStacking[E: Effect]:
                     .map(lambda _: None)
                 )
 
-        return Result[bpy.types.Scene, BlenderFaults].bind(Option.of_optional(context.scene).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), switched)
+        return rooted(bpy.types.Scene, context).bind(switched)
 
     def inserted(self, context: bpy.types.Context, layers: tuple[Layer[Source, E], ...], source_tree: Option[bpy.types.NodeTree] = Nothing) -> BlenderResult[bool]:
         """Copies complete source-node settings while giving inserted layers fresh keys, answering whether any layer was given."""
@@ -975,11 +967,7 @@ class LayerStacking[E: Effect]:
         source, effect = get_args(self.form)
 
         def current(context: bpy.types.Context) -> BlenderResult[LayerStack[Source, E]]:
-            return (
-                Result[bpy.types.Scene, BlenderFaults]
-                .bind(root_in(bpy.types.Scene, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="scene"),)), self.head)
-                .bind(self.read)
-            )
+            return rooted(bpy.types.Scene, context).bind(self.head).bind(self.read)
 
         def chosen(context: bpy.types.Context) -> BlenderResult[Layer[Source, E]]:
             return self.selected(context).bind(

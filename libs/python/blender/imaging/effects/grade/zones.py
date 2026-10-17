@@ -49,7 +49,6 @@ class Zones(Effect, frozen=True, kw_only=True, tag=11):
     stage = Stage.ZONES
     title = "Tonal Zones"
     pointwise = True
-    space: ClassVar[str] = PyOpenColorIO.ROLE_SCENE_LINEAR
     neutral: ClassVar[PyOpenColorIO.GradingTone] = PyOpenColorIO.GradingTone(PyOpenColorIO.GRADING_LIN)
     blacks: Zone[Adjustment] = zoned(neutral.blacks, neutral.blacks.width)
     shadows: Zone[PivotAdjustment] = zoned(neutral.shadows, neutral.shadows.start - neutral.shadows.width)

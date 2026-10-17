@@ -14,7 +14,7 @@ import rna_keymap_ui
 
 from blender.bpy.commands.calls import CalledPopup, MenuPopup, PanelPopup, resolved, ShelfPopup
 from blender.bpy.commands.operators import Placed, Stock, Writer
-from blender.bpy.data.rna.descriptors import Descriptor, Scalar
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, Scalar
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
@@ -153,11 +153,10 @@ class Keymap:
                 for native, item in held:
                     native.keymap_items.remove(item)
 
-        config = (
-            Option
-            .of_optional(bpy.context.window_manager)
-            .bind(lambda manager: Option.of_optional(manager.keyconfigs.addon).map(lambda addon: (manager, addon)))
-            .to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="addon"),))
+        config = rooted(bpy.types.WindowManager, bpy.context).bind(
+            lambda manager: (
+                Option.of_optional(manager.keyconfigs.addon).map(lambda addon: (manager, addon)).to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="addon"),))
+            )
         )
         return paired(nesting(self.keymap), config).map(lambda given: ((Band.KEYMAP_ITEMS, added(given)),))
 

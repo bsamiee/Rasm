@@ -1,5 +1,4 @@
 use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, get_parent_expr, mir::visit_local_usage, res::MaybeDef as _, source::snippet, sym, ty::is_copy, visitors::local_used_once};
-use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_errors::Applicability;
 use rustc_hir::{CaptureBy, ClosureKind, CoroutineDesugaring, CoroutineKind, CoroutineSource, Expr, ExprKind, Node, def_id::LocalDefId};
@@ -8,6 +7,8 @@ use rustc_middle::{
     mir::{self, AggregateKind, Location, Operand, Rvalue},
     ty::{self, BorrowKind, ClosureKind as Called, UpvarCapture},
 };
+
+use crate::{bounds_of, cloned, parameter_of};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,33 +25,15 @@ declare_lint_pass!(#[derive(Default)] CapturedClone => [CAPTURED_CLONE]);
 impl<'tcx> LateLintPass<'tcx> for CapturedClone {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn consumed_once(cx: &LateContext<'_>, closure: &Expr<'_>) -> bool {
-            let tcx = cx.tcx;
-            if let Some(call) = get_parent_expr(cx, closure)
-                && let ExprKind::MethodCall(_, _, arguments, _) | ExprKind::Call(_, arguments) = call.kind
-                && let Some(callee) = fn_def_id(cx, call)
-                && let Some(position) = arguments.iter().position(|argument| argument.hir_id == closure.hir_id)
-                && let Some(&parameter) =
-                    tcx.fn_sig(callee).instantiate_identity().skip_normalization().skip_binder().inputs().get(position.strict_add(usize::from(matches!(call.kind, ExprKind::MethodCall(..)))))
-                && let ty::Param(_) = parameter.kind()
-            {
-                tcx.clauses_of(callee)
-                    .instantiate_identity(tcx)
-                    .clauses
-                    .into_iter()
-                    .filter_map(|clause| clause.skip_normalization().as_trait_clause())
-                    .filter(|bound| bound.self_ty().skip_binder() == parameter)
-                    .filter_map(|bound| tcx.fn_trait_kind_from_def_id(bound.def_id()))
-                    .eq([Called::FnOnce])
-            } else {
-                false
-            }
+            get_parent_expr(cx, closure).and_then(|call| parameter_of(cx, call, closure)).is_some_and(|(callee, parameter)| {
+                matches!(parameter.kind(), ty::Param(_)) && bounds_of(cx.tcx, callee, parameter).filter_map(|bound| cx.tcx.fn_trait_kind_from_def_id(bound.def_id())).eq([Called::FnOnce])
+            })
         }
 
         fn cloning<'tcx>(cx: &LateContext<'tcx>, used: &'tcx Expr<'tcx>, held: ty::Ty<'tcx>) -> Option<(&'tcx Expr<'tcx>, String)> {
             let call = get_parent_expr(cx, used).map(|parent| if let ExprKind::AddrOf(..) = parent.kind { get_parent_expr(cx, parent).unwrap_or(parent) } else { parent })?;
             let callee = fn_def_id(cx, call)?;
-            let copies = callee.is_lang_item(cx, LangItem::CloneFn)
-                || [sym::to_owned_method, sym::to_string_method].into_iter().any(|name| callee.is_diag_item(cx, name)) && cx.typeck_results().expr_ty(call) == held;
+            let copies = cloned(cx, call).is_some() || [sym::to_owned_method, sym::to_string_method].into_iter().any(|name| callee.is_diag_item(cx, name)) && cx.typeck_results().expr_ty(call) == held;
             let direct = matches!(call.kind, ExprKind::MethodCall(_, receiver, [], _) if receiver.hir_id == used.hir_id)
                 || matches!(call.kind, ExprKind::Call(_, [argument]) if matches!(argument.kind, ExprKind::AddrOf(_, _, operand) if operand.hir_id == used.hir_id));
             (copies && direct).then(|| (call, snippet(cx, used.span, "..").into_owned()))

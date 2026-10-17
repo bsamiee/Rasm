@@ -23,7 +23,7 @@ from blender.bpy.commands.modal import Gesture, Modal, Travel
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome, Pick
 from blender.bpy.data.ids.images import ResultRead
 from blender.bpy.data.rna.conditions import AllOf, check, holds, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, root_in
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, root_in, rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderResult
@@ -426,12 +426,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
                 return (
                     held_compare(attached, context)
                     .bind(lambda found: found.filter(lambda compare: compare.mode is not Mode.SIDE).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.screen), key=self.key),)))
-                    .bind(
-                        lambda compare: paired(
-                            root_in(bpy.types.Screen, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="screen"),)),
-                            root_in(bpy.types.Region, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="region"),)),
-                        ).map(lambda pair: (pair[0], compare, framed(pair[1])))
-                    )
+                    .bind(lambda compare: paired(rooted(bpy.types.Screen, context), rooted(bpy.types.Region, context)).map(lambda pair: (pair[0], compare, framed(pair[1]))))
                 )
 
             def preview(_context: bpy.types.Context, state: tuple[bpy.types.Screen, Compare, Rect], travel: Travel) -> BlenderResult[Option[str]]:
@@ -517,8 +512,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
             def begin(context: bpy.types.Context, _travel: Travel) -> BlenderResult[tuple[Access, Rect]]:
                 return paired(
-                    self.access(context).bind(lambda found: found.to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.area), key=self.key),))),
-                    root_in(bpy.types.Region, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="region"),)),
+                    self.access(context).bind(lambda found: found.to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.area), key=self.key),))), rooted(bpy.types.Region, context)
                 ).map(lambda pair: (pair[0], framed(pair[1])))
 
             def preview(_context: bpy.types.Context, state: tuple[Access, Rect], travel: Travel) -> BlenderResult[Option[str]]:
@@ -703,11 +697,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
                     )
                 )
 
-            return (
-                Result[bpy.types.ViewLayer, BlenderFaults]
-                .bind(Option.of_optional(bpy.context.view_layer).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.context), key="view_layer"),)), read)
-                .bind(kept)
-            )
+            return Result[bpy.types.ViewLayer, BlenderFaults].bind(rooted(bpy.types.ViewLayer, bpy.context), read).bind(kept)
 
         def rows(switched: Attached[Charted], clipped: Attached[ClipEnds]) -> tuple[Registrable, ...]:
             refreshes: tuple[Refresh, ...] = (signal, *(Watch(owner=group.struct, identifier=row.name) for group in (switched.group, clipped.group) for row in msgspec.structs.fields(group.record)))
@@ -835,14 +825,13 @@ def picking[P: Picked](key: Key, title: str, description: str, cursor: "rna_enum
 
 def revealed(context: bpy.types.Context) -> BlenderResult[Option[Located]]:
     """Answers the largest editor showing the Render Result, opening the render view where none does."""
-    return Result[bpy.types.WindowManager, BlenderFaults].bind(
-        root_in(bpy.types.WindowManager, context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key="window_manager"),)),
+    return rooted(bpy.types.WindowManager, context).bind(
         lambda manager: (
             AreaQuery(space="IMAGE_EDITOR", ui_type=Some("IMAGE_EDITOR"), shows=Some(RESULT))
             .first(manager.windows)
             .map(Some)
             .or_else_with(lambda _: called(bpy.ops.render.view_show, {}, context="INVOKE_DEFAULT").map(lambda _: Nothing))
-        ),
+        )
     )
 
 

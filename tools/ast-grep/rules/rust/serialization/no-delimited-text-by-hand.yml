@@ -32,10 +32,10 @@ utils:
         all:
             - any:
                 - all:
-                    - has: {field: macro, regex: '^((::)?std::)?(writeln|println|eprintln)$'}
+                    - matches: {rust-std-macro: {name: {regex: '^(writeln|println|eprintln)$'}}}
                     - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|\\t)){2,}\{[^{}]*\}(\\r)?(\\n)?"$'}}
                 - all:
-                    - has: {field: macro, regex: '^((::)?(std|core|alloc)::)?(write|print|eprint|format)$'}
+                    - matches: {rust-std-macro: {name: {regex: '^(write|print|eprint|format)$'}}}
                     - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|\\t)){2,}\{[^{}]*\}(\\r)?\\n"$'}}
             - not: {matches: formatter-parameter}
 rule:

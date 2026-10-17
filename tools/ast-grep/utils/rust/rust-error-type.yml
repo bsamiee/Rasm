@@ -9,4 +9,4 @@ rule:
         - kind: 'struct_item, enum_item'
           all:
             - has: {field: name, matches: name}
-            - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, regex: '^#\[\s*derive\s*\([^)]*\bError\b'}
+            - matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^Error$'}}}}}}

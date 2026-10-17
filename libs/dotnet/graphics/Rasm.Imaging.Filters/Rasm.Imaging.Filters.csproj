@@ -17,12 +17,6 @@
         <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
-    <ItemGroup Label="Machine Learning">
-        <PackageReference Include="libtorch-cpu" />
-        <PackageReference Include="libtorch-cpu-win-arm64" />
-        <PackageReference Include="TorchSharp" />
-    </ItemGroup>
-
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" />
@@ -31,5 +25,9 @@
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../Rasm.Imaging/Rasm.Imaging.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../Admission.cs" />
     </ItemGroup>
 </Project>

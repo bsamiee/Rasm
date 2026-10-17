@@ -1,17 +1,18 @@
 using System.Collections.Specialized;
+using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rhino;
+using Rhino.Display;
 
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class KeyName {
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new ValidationError($"key name is empty or holds {DocumentKey.Separator}");
 }
 
 public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) {
@@ -35,6 +36,19 @@ public static class UserStrings {
         IO.lift(() => Callbacks.Each(toSeq<(string Key, Option<string> Value)>(edits),
             edit => held.Find(edit.Key) == edit.Value.Bind(Conversions.Present) || set(edit.Key, Conversions.Unset(edit.Value)), nameof(GeometryBase.SetUserString)));
 
+    // --- [VIEWPORT]
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "NonConstPointer")]
+    private static extern nint Pointer(RhinoViewport viewport);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "CRhinoViewport_VP")]
+    private static extern nint Projection([UnsafeAccessorType("UnsafeNativeMethods, RhinoCommon")] object? owner, nint viewport);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "ON_Object_SetUserString")]
+    private static extern bool Assign([UnsafeAccessorType("UnsafeNativeMethods, RhinoCommon")] object? owner, nint target, string key, string value);
+
+    public static IO<Unit> Write(RhinoViewport viewport, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
+        IO.lift(() => Held(viewport.GetUserStrings())).Bind(held => Write(held, (key, value) => Assign(owner: null, Projection(owner: null, Pointer(viewport)), key, value), edits));
+
     // --- [DOCUMENT]
     public static IO<Option<string>> Value(RhinoDoc doc, DocumentKey key) =>
         IO.lift(() => Conversions.Present(doc.Strings.GetValue(key.Text)));
@@ -44,11 +58,8 @@ public static class UserStrings {
 
     public static IO<HashMap<EqStringOrdinalIgnoreCase, string, string>> Entries(RhinoDoc doc, KeyName section) =>
         IO.lift(() => toHashMap<EqStringOrdinalIgnoreCase, string, string>(
-            from index in toSeq(Range(0, doc.Strings.Count))
-            let path = doc.Strings.GetKey(index).Split(DocumentKey.Separator, 2)
-            where path is [var name, _] && section == name
-            select (path[1], doc.Strings.GetValue(index))));
+            toSeq(doc.Strings.GetEntryNames(section)).Map(entry => (entry, doc.Strings.GetValue(section, entry)))));
 
     public static IO<Unit> Clear(RhinoDoc doc, KeyName section) =>
-        Entries(doc, section).Bind(entries => IO.lift(() => entries.Keys.Iter(entry => doc.Strings.Delete(section, entry))));
+        IO.lift(() => doc.Strings.Delete(section, entry: null));
 }

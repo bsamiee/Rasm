@@ -13,7 +13,7 @@ public sealed record SettingType<T>(
     public Fin<Option<T>> Read(PersistentSettings node, string key) =>
         TryGet(node, key).Match(
             Some: static value => Fin.Succ(Some(value)),
-            None: () => SettingType.String.TryGet(node, key).Traverse(static text => Fin.Fail<T>(new UnreadText(text, typeof(T)))).As());
+            None: () => SettingType.String.TryGet(node, key).Traverse(static text => Fin.Fail<T>(Errors.ParseError($"{text} reads as no {typeof(T).Name}"))).As());
 
     internal Unit Write(PersistentSettings node, string key, Option<T> value) =>
         value.Match(Some: held => Set(node, key, held), None: () => node.DeleteItem(key));

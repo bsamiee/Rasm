@@ -13,6 +13,8 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::{hir::nested_filter, ty::TyCtxt};
 use rustc_span::{BytePos, FileName, Ident, Pos as _, RelativeBytePos, Span, Symbol, kw, sym};
 
+use crate::generated;
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 declare_lint! {
@@ -33,12 +35,12 @@ impl_lint_pass!(SingleCaller => [SINGLE_CALLER]);
 
 impl SingleCaller {
     fn reference(&mut self, cx: &LateContext<'_>, target: Option<LocalDefId>, node: HirId, span: Span) {
-        if let Some(target) = target.filter(|&target| matches!(cx.tcx.def_kind(target), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::Static { safety: _, mutability: _, nested: false }))
-        {
-            if span.from_expansion() {
+        if let Some(target) = target.filter(|&target| matches!(cx.tcx.def_kind(target), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::Static { nested: false, .. })) {
+            let caller = cx.tcx.typeck_root_def_id_local(cx.tcx.hir_enclosing_body_owner(node));
+            if span.from_expansion() || generated(cx, node) {
                 self.expanded.insert(target);
             } else {
-                self.sites.entry(target).or_default().push((cx.tcx.typeck_root_def_id_local(cx.tcx.hir_enclosing_body_owner(node)), span));
+                self.sites.entry(target).or_default().push((caller, span));
             }
         }
     }
@@ -46,12 +48,10 @@ impl SingleCaller {
 
 impl<'tcx> LateLintPass<'tcx> for SingleCaller {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        let target = if let ExprKind::Path(qpath) = &expr.kind {
-            cx.qpath_res(qpath, expr.hir_id).opt_def_id()
-        } else if let ExprKind::MethodCall(..) = expr.kind {
-            cx.typeck_results().type_dependent_def_id(expr.hir_id)
-        } else {
-            None
+        let target = match expr.kind {
+            ExprKind::Path(qpath) => cx.qpath_res(&qpath, expr.hir_id).opt_def_id(),
+            ExprKind::MethodCall(..) => cx.typeck_results().type_dependent_def_id(expr.hir_id),
+            _ => None,
         };
         self.reference(cx, target.and_then(DefId::as_local), expr.hir_id, expr.span);
     }
@@ -86,9 +86,7 @@ impl<'tcx> LateLintPass<'tcx> for SingleCaller {
         let mut mentions = FxHashMap::<Symbol, Vec<BytePos>>::default();
         while let Some(file) = pending.pop() {
             let (Some(source), Some(path)) = (file.src.as_deref(), local(&file.name)) else { continue };
-            let tokens = tokenize_with_text(source)
-                .filter(|(kind, ..)| !matches!(kind, TokenKind::Whitespace | TokenKind::LineComment { doc_style: _ } | TokenKind::BlockComment { doc_style: _, terminated: _ }))
-                .collect::<Vec<_>>();
+            let tokens = tokenize_with_text(source).filter(|(kind, ..)| !matches!(kind, TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. })).collect::<Vec<_>>();
             let directory = path.parent().map_or_default(Path::to_path_buf);
             let nested = if file.start_pos == root.start_pos || path.file_stem().is_some_and(|stem| stem == kw::Mod.as_str()) { directory.clone() } else { path.with_extension("") };
             let mut renamed = None;
@@ -100,7 +98,7 @@ impl<'tcx> LateLintPass<'tcx> for SingleCaller {
                         (TokenKind::OpenBracket, ..),
                         (TokenKind::Ident, attribute, _),
                         (TokenKind::Eq, ..),
-                        (TokenKind::Literal { kind: _, suffix_start: _ }, literal, _),
+                        (TokenKind::Literal { .. }, literal, _),
                         (TokenKind::CloseBracket, ..),
                         ..,
                     ] if *attribute == sym::path.as_str() => renamed = Some(literal.trim_matches('"').to_owned()),

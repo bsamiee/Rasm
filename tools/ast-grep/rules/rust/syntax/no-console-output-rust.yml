@@ -26,7 +26,7 @@ utils:
     stream-macro:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((std|core)::)?write(ln)?$'}
+            - matches: {rust-std-macro: {name: {regex: '^write(ln)?$'}}}
             - has: {kind: token_tree, has: {matches: stream-token, precedes: {stopBy: end, regex: '^,$'}}}
 rule:
     pattern: $OUT

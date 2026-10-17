@@ -40,7 +40,6 @@ Use `use-ast-grep` for ast-grep forms and exits
 
 ## [04]-[NX]
 
-- `nx affected -t <target> --files=<path>[,<path>]` runs each file's project with its dependents, a plugin file of `nx.json` every project
 - `nx show project <project> --json | jq '.targets|keys'` lists targets, `jq '.targets.<target>.inputs'` the hashed inputs
 
 ## [05]-[PACKAGE_MANAGERS]

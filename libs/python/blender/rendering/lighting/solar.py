@@ -8,12 +8,12 @@ import math
 from typing import Annotated, ClassVar, Final, Self
 import zoneinfo
 
-from expression import Error, Ok, Some
+from expression import Error, Ok
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.parameters import Case, Presentation, Quantity
+from blender.imaging.parameters import Case, Elevation, Turn
 from blender.rendering.faults import RenderingResult, RenderingTimeFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -39,9 +39,9 @@ DAY_SECONDS: Final = datetime.timedelta(days=1).total_seconds()
 class Site(msgspec.Struct, frozen=True, kw_only=True):
     """Place on Earth with the time zone of its clock."""
 
-    latitude: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Angle north of the equator"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    longitude: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Angle east of Greenwich"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    north: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="True north counterclockwise from +Y"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    latitude: Annotated[Elevation, msgspec.Meta(description="Angle north of the equator")] = 0.0
+    longitude: Annotated[Turn, msgspec.Meta(description="Angle east of Greenwich")] = 0.0
+    north: Annotated[Turn, msgspec.Meta(description="True north counterclockwise from +Y")] = 0.0
     zone: Annotated[str, msgspec.Meta(title="Time Zone", description="IANA time zone of the site's clock")] = "UTC"
 
 

@@ -14,6 +14,6 @@ rule:
                 all:
                     - has: {field: left, pattern: $CURRENT}
                     - has: {field: right, pattern: $CAUSE.source()}
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
 message: '`while let` loop walks the error source chain through `$CURRENT` by hand'
 note: 'Render the chain with `Report::new(<error>).pretty(true)` (`#![feature(error_reporter)]`) and iterate it with `<error>.sources()` (`#![feature(error_iter)]`), each yields every cause in order with no cursor variable'

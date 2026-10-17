@@ -14,14 +14,15 @@ public abstract partial record ArchiveSource {
     public sealed record Located(string Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
         internal override IO<ArchiveRead> Open() =>
             from path in IO.lift(() => Exchange.ExistingPath(Path))
-            from read in IO.lift(() => ArchiveRejected.Unless(File3dm.ReadWithLog(path, Tables, Objects, out string log), nameof(File3dm.ReadWithLog), log)
-                .Map(model => new ArchiveRead(model, Conversions.Present(log))))
+            from read in IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(path, Tables, Objects, out string log) is { } model
+                ? new ArchiveRead(model, Conversions.Present(log))
+                : new FileRefused(path, $"was rejected by {nameof(File3dm.ReadWithLog)}: {log}"))
             select read;
     }
 
     public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
         internal override IO<ArchiveRead> Open() =>
-            IO.lift(() => Missing.Unless(File3dm.FromByteArray([.. Bytes]), nameof(File3dm.FromByteArray)).Map(static model => new ArchiveRead(model, None)));
+            IO.lift(() => Refused.UnlessFound(File3dm.FromByteArray([.. Bytes]), nameof(File3dm.FromByteArray)).Map(static model => new ArchiveRead(model, None)));
     }
 
     internal abstract IO<ArchiveRead> Open();
@@ -95,7 +96,7 @@ public sealed record ArchiveDiff(
 public static partial class Archives {
     // --- [SCOPES]
     public static IO<T> Read<T>(ArchiveSource source, Func<ArchiveRead, IO<T>> body) =>
-        use(source.Open(), static read => read.Model.Dispose()).Bind(body).Bracket();
+        DisposalOps.Within(source.Open(), body, static read => IO.lift(read.Model.Dispose));
 
     // --- [READS]
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
@@ -103,9 +104,7 @@ public static partial class Archives {
     public static partial ArchiveHeader Header(File3dm archive);
 
     public static IO<EarthAnchor> Anchor(File3dm archive) =>
-        (from point in use(() => archive.EarthAnchorPoint)
-         from anchor in IO.lift(() => EarthAnchor.Of(point))
-         select anchor).Bracket();
+        DisposalOps.Within(() => archive.EarthAnchorPoint, static point => IO.lift(() => EarthAnchor.Of(point)));
 
     public static IO<ArchiveGraph> Graph(File3dm archive) =>
         from read in IO.lift(() => (
@@ -137,10 +136,10 @@ public static partial class Archives {
         IO.lift(() => Conversions.Present(archive.Strings.SetString(key.Text, Conversions.Unset(value))));
 
     public static IO<Unit> Write(File3dm archive, EarthAnchor anchor) =>
-        (from point in use(() => archive.EarthAnchorPoint)
-         from applied in anchor.Apply(point)
-         from committed in IO.lift(() => { archive.EarthAnchorPoint = point; })
-         select committed).Bracket();
+        DisposalOps.Within(() => archive.EarthAnchorPoint, point =>
+            from applied in anchor.Apply(point)
+            from committed in IO.lift(() => { archive.EarthAnchorPoint = point; })
+            select committed);
 
     public static IO<Unit> Embed(File3dm archive, string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))
@@ -158,6 +157,6 @@ public static partial class Archives {
     public static IO<StepOutcome> Persist(File3dm archive, string path, File3dmWriteOptions options) =>
         from qualified in IO.lift(() => Exchange.QualifiedPath(path))
         from outcome in StepOutcome.Land(qualified, target => IO.lift(() =>
-            ArchiveRejected.Unless(archive.WriteWithLog(target, options, out string log), nameof(File3dm.WriteWithLog), log)))
+            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, $"was rejected by {nameof(File3dm.WriteWithLog)}: {log}")))
         select outcome;
 }

@@ -17,7 +17,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.imaging.effects.quantization import codes
-from blender.imaging.faults import Faults, ImagingFaults, ImagingReadFault, ImagingResult, ImagingUnresolvedFault, ImagingWriteFault, paired
+from blender.imaging.faults import Faults, ImagingFaults, ImagingReadFault, ImagingResult, ImagingUnresolvedFault, ImagingWriteFault, paired, scoped
 from blender.imaging.parameters import Case, Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -28,20 +28,19 @@ class Writable(Choice):
 
     writers: frozenset[str]
 
-    def __new__(cls, value: int, label: str, *writers: str) -> Self:
-        """Creates a member from its persistent number, label, and writers."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.writers = value, label, frozenset(writers)
-        return member
+    def __init__(self, value: int, writers: tuple[str, ...], label: str | None = None) -> None:
+        """Sets the writers that store the member and its label."""
+        super().__init__(value, label)
+        self.writers = frozenset(writers)
 
 
 class Depth(Writable):
     """Stored channel type, its lowercased name an OpenImageIO type name."""
 
-    UINT8 = 1, "8-bit Integer", "bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"
-    UINT16 = 2, "16-bit Integer", "dpx", "iff", "jpeg2000", "png", "pnm", "rla", "sgi", "tiff"
-    HALF = 3, "16-bit Float", "openexr", "tiff"
-    FLOAT = 4, "32-bit Float", "dpx", "fits", "hdr", "openexr", "pnm", "rla", "tiff"
+    UINT8 = 1, ("bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"), "8-bit Integer"
+    UINT16 = 2, ("dpx", "iff", "jpeg2000", "png", "pnm", "rla", "sgi", "tiff"), "16-bit Integer"
+    HALF = 3, ("openexr", "tiff"), "16-bit Float"
+    FLOAT = 4, ("dpx", "fits", "hdr", "openexr", "pnm", "rla", "tiff"), "32-bit Float"
 
     def coded(self, plane: npt.NDArray[np.float32]) -> npt.NDArray[np.uint8 | np.uint16 | np.float32]:
         """Stores straight display values as this depth's channel values."""
@@ -57,18 +56,18 @@ class Depth(Writable):
 class Codec(Writable):
     """Codec that takes no level."""
 
-    NONE = 1, "None", "openexr", "tiff"
-    RLE = 2, "RLE", "openexr"
-    ZIPS = 3, "ZIPS", "openexr"
-    PIZ = 4, "PIZ", "openexr"
-    PXR24 = 5, "Pxr24", "openexr"
-    B44 = 6, "B44", "openexr"
-    B44A = 7, "B44A", "openexr"
-    HTJ2K32 = 8, "HTJ2K 32 Scanlines", "openexr"
-    HTJ2K256 = 9, "HTJ2K 256 Scanlines", "openexr"
-    LZW = 10, "LZW", "tiff"
-    PACKBITS = 11, "PackBits", "tiff"
-    LOSSLESS = 12, "Lossless", "webp"
+    NONE = 1, ("openexr", "tiff")
+    RLE = 2, ("openexr",), "RLE"
+    ZIPS = 3, ("openexr",), "ZIPS"
+    PIZ = 4, ("openexr",), "PIZ"
+    PXR24 = 5, ("openexr",)
+    B44 = 6, ("openexr",)
+    B44A = 7, ("openexr",)
+    HTJ2K32 = 8, ("openexr",), "HTJ2K 32 Scanlines"
+    HTJ2K256 = 9, ("openexr",), "HTJ2K 256 Scanlines"
+    LZW = 10, ("tiff",), "LZW"
+    PACKBITS = 11, ("tiff",), "PackBits"
+    LOSSLESS = 12, ("webp",)
 
 
 class Blocks(Choice):
@@ -84,7 +83,6 @@ class Blocks(Choice):
 class Plain(Case, frozen=True, kw_only=True, tag=1):
     """Codec that takes no level."""
 
-    title = "Plain"
     writers = frozenset[str]().union(*(codec.writers for codec in Codec))
     margin = 0
     codec: Annotated[Codec, msgspec.Meta(description="Codec the writer applies")] = Codec.NONE
@@ -103,7 +101,6 @@ class Plain(Case, frozen=True, kw_only=True, tag=1):
 class Deflate(Case, frozen=True, kw_only=True, tag=2):
     """Lossless zlib deflate at a level."""
 
-    title = "Deflate"
     writers = frozenset({"openexr", "png", "tiff"})
     lossy = False
     margin = 0
@@ -138,7 +135,6 @@ class Dwa(Case, frozen=True, kw_only=True, tag=3):
 class Quality(Case, frozen=True, kw_only=True, tag=4):
     """Lossy compression at an encoder quality."""
 
-    title = "Quality"
     writers = frozenset({"jpeg", "webp"})
     lossy = True
     margin = 0
@@ -296,33 +292,29 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
     """
 
     def decoded(image: OpenImageIO.ImageInput) -> ImagingResult[ImageFile[np.float32]]:
-        try:
-            spec, requested = image.spec(), colorspace.default_with(lambda: config.getColorSpaceFromFilepath(path)[0])
-            resolved = (
-                (
-                    Option.of_optional(config.getColorSpace(requested))
-                    if colorspace.is_some()
-                    else (
-                        Option
-                        .of_optional(spec.get_string_attribute("oiio:ColorSpace"))
-                        .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
-                        .or_else_with(lambda: Nothing if config.filepathOnlyMatchesDefaultRule(path) else Option.of_optional(config.getColorSpace(requested)))
-                        .or_else_with(
-                            lambda: Option.of_optional(config.getColorSpace("default_float" if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else "default_byte"))
-                        )
-                        .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
+        spec, requested = image.spec(), colorspace.default_with(lambda: config.getColorSpaceFromFilepath(path)[0])
+        resolved = (
+            (
+                Option.of_optional(config.getColorSpace(requested))
+                if colorspace.is_some()
+                else (
+                    Option
+                    .of_optional(spec.get_string_attribute("oiio:ColorSpace"))
+                    .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
+                    .or_else_with(lambda: Nothing if config.filepathOnlyMatchesDefaultRule(path) else Option.of_optional(config.getColorSpace(requested)))
+                    .or_else_with(
+                        lambda: Option.of_optional(config.getColorSpace("default_float" if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else "default_byte"))
                     )
+                    .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
                 )
-                .map(PyOpenColorIO.ColorSpace.getName)
-                .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
             )
-            pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
-            decoded = paired(resolved, pixels).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
-        finally:
-            closed = Ok(None) if image.close() else Error((ImagingReadFault(request=path, error=image.geterror()),))
-        return paired(decoded, closed).map(lambda pair: pair[0])
+            .map(PyOpenColorIO.ColorSpace.getName)
+            .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
+        )
+        pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
+        return paired(resolved, pixels).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
 
-    return opened(path, options=options).bind(decoded)
+    return opened(path, decoded, options=options)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -330,18 +322,23 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
 # --- [IO]
 
 
-def opened(path: str, *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[OpenImageIO.ImageInput]:
-    """Opens a file for reading.
+def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[T]:
+    """Opens a file for reading, uses it, and closes it on every path.
 
     Args:
         path: File to open.
+        use: Reader of the open input.
         options: Native reader configuration; `Nothing` retains provider defaults.
 
     Returns:
-        The input, which the caller closes; the `read` case holding the path and OpenImageIO's text.
+        The reader value; the `read` case holding the path and OpenImageIO's text for the open, the read, or the close.
     """
     image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
-    return Option.of_optional(image).to_result_with(lambda: (ImagingReadFault(request=path, error=OpenImageIO.geterror()),))
+    return scoped(
+        Option.of_optional(image).to_result_with(lambda: (ImagingReadFault(request=path, error=OpenImageIO.geterror()),)),
+        use,
+        lambda held: Ok(None) if held.close() else Error((ImagingReadFault(request=path, error=held.geterror()),)),
+    )
 
 
 def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) -> Result[str, Faults[F | ImagingWriteFault]]:
@@ -352,26 +349,36 @@ def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) ->
         encode: Encoder of the supplied sibling, answering after its native resources close.
 
     Returns:
-        The final path; the encoder's faults and any publication or cleanup `write` faults.
+        The final path; the encoder faults and any publication or cleanup `write` faults.
     """
     target = pathlib.Path(path)
 
-    def refused(error: OSError) -> Faults[F | ImagingWriteFault]:
-        return (ImagingWriteFault(request=path, error=error),)
+    def committed(sibling: pathlib.Path) -> Result[str, Faults[F | ImagingWriteFault]]:
+        return (
+            Result[T, Faults[F | ImagingWriteFault]]
+            .bind(encode(str(sibling)), lambda _: catch(lambda: sibling.replace(target), exception=OSError)().map_error(lambda error: (ImagingWriteFault(request=path, error=error),)))
+            .map(lambda _: path)
+        )
 
-    def committed(stage: tempfile.TemporaryDirectory[str]) -> Result[str, Faults[F | ImagingWriteFault]]:
-        try:
-            sibling = pathlib.Path(stage.name) / target.name
-            written = Result[T, Faults[F | ImagingWriteFault]].bind(encode(str(sibling)), lambda _: catch(lambda: sibling.replace(target), exception=OSError)().map_error(refused))
-        finally:
-            cleaned = catch(stage.cleanup, exception=OSError)().map_error(refused)
-        return paired(written, cleaned).map(lambda _: path)
+    return staging(target, committed)
+
+
+def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, Faults[F | ImagingWriteFault]]]) -> Result[T, Faults[F | ImagingWriteFault]]:
+    """Runs a use over a sibling of a target inside a scratch folder beside it, the folder removed on every path and each folder refusal a `write` fault naming the target."""
+
+    def refused(error: OSError) -> Faults[F | ImagingWriteFault]:
+        return (ImagingWriteFault(request=target, error=error),)
 
     return (
         catch(lambda: target.parent.mkdir(parents=True, exist_ok=True), exception=OSError)()
         .map_error(refused)
-        .bind(lambda _: catch(lambda: tempfile.TemporaryDirectory(dir=target.parent), exception=OSError)().map_error(refused))
-        .bind(committed)
+        .bind(
+            lambda _: scoped(
+                catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=target.parent).map_error(refused),
+                lambda stage: use(pathlib.Path(stage.name) / target.name),
+                lambda stage: catch(stage.cleanup, exception=OSError)().map_error(refused),
+            )
+        )
     )
 
 
@@ -394,14 +401,10 @@ def streamed(path: str, stage: str, write: Callable[[BinaryIO], None]) -> Imagin
         try:
             write(output)
         except (OSError, ValueError, OverflowError, struct.error) as error:
-            written = Error(refused(error))
-        else:
-            written = Ok(None)
-        finally:
-            closed = catch(output.close, exception=OSError)().map_error(refused)
-        return paired(written, closed).map(lambda _: None)
+            return Error(refused(error))
+        return Ok(None)
 
-    return catch(lambda: pathlib.Path(stage).open("wb"), exception=OSError)().map_error(refused).bind(into)
+    return scoped(catch(lambda: pathlib.Path(stage).open("wb"), exception=OSError)().map_error(refused), into, lambda output: catch(output.close, exception=OSError)().map_error(refused))
 
 
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> ImagingResult[str]:
@@ -437,14 +440,14 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
                     .bind(lambda array: answered(done=output.write_image(array)))
                 )
 
-            try:
-                parts = subimages(output)
-                written = functools.reduce(step, enumerate(parts), answered(done=output.open(stage, [specified(part) for part in parts])))
-            finally:
-                closed = answered(done=output.close())
-            return paired(written, closed).map(lambda _: path)
+            parts = subimages(output)
+            return functools.reduce(step, enumerate(parts), answered(done=output.open(stage, [specified(part) for part in parts])))
 
-        return Option.of_optional(OpenImageIO.ImageOutput.create(path)).to_result_with(lambda: refused(OpenImageIO.geterror())).bind(into)
+        return scoped(
+            Option.of_optional(OpenImageIO.ImageOutput.create(path)).to_result_with(lambda: refused(OpenImageIO.geterror())),
+            into,
+            lambda output: Ok(None) if output.close() else Error(refused(output.geterror())),
+        )
 
     return published(path, encode)
 
@@ -512,5 +515,6 @@ __all__ = [
     "profile",
     "published",
     "read_file",
+    "staging",
     "streamed",
 ]

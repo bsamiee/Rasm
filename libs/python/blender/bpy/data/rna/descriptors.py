@@ -73,8 +73,12 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     @property
     def path(self) -> str:
         """RNA path from the root to the property."""
-        suffix = self.index.map(lambda index: "".join(f"[{coordinate}]" for coordinate in np.unravel_index(index, self.dimensions(self.prop)))).default_value("")
-        return f"{self.owner}.{self.prop.identifier}{suffix}".removeprefix(".")
+        return member_path(self.owner, self.member)
+
+    @property
+    def member(self) -> str:
+        """RNA path of the property under its owner, element coordinates included."""
+        return self.prop.identifier + self.index.map(lambda index: "".join(f"[{coordinate}]" for coordinate in np.unravel_index(index, self.dimensions(self.prop)))).default_value("")
 
     @staticmethod
     def resolve[K: bpy.types.Property](root: "type[bpy.types.bpy_struct[object]] | Native", path: str, kind: type[K]) -> BlenderResult["Descriptor[K]"]:
@@ -115,11 +119,11 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                     return Error((BlenderAbsentFault(owner=definition.identifier, key=path),))
 
         def kinded(prop: bpy.types.Property, last: re.Match[str]) -> BlenderResult[Descriptor[K]]:
-            if not isinstance(prop, kind):
-                return Error((BlenderChoiceFault(path=f"{definition.identifier}.{path}", identifier=type(prop).__name__, accepted=(kind.__name__,)),))
-            return indexed(prop, last[2]).map(
-                lambda index: Descriptor[K](
-                    root=type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root, owner=path[: last.start()].removesuffix("."), prop=prop, index=index
+            return typed(prop, kind, f"{definition.identifier}.{path}").bind(
+                lambda prop: indexed(prop, last[2]).map(
+                    lambda index: Descriptor[K](
+                        root=type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root, owner=path[: last.start()].removesuffix("."), prop=prop, index=index
+                    )
                 )
             )
 
@@ -321,6 +325,21 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def member_path(owner: str, member: str) -> str:
+    """RNA path of a member or element under an owner path, an empty owner path or a session-keyed root ending in a colon naming the root struct."""
+    return f"{owner}{member}" if not owner or owner.endswith(":") or member.startswith("[") else f"{owner}.{member}"
+
+
+def beneath(path: str, root: str) -> bool:
+    """Whether an RNA path names a member or element inside a root path."""
+    return path.startswith((f"{root}.", f"{root}["))
+
+
+def typed[T](value: object, kind: type[T], path: str) -> BlenderResult[T]:
+    """Answers a value of a declared class, or the choice fault naming the class the path holds."""
+    return Ok(value) if isinstance(value, kind) else Error((BlenderChoiceFault(path=path, identifier=type(value).__name__, accepted=(kind.__name__,)),))
+
+
 def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
     """Returns a context-held native root, or Nothing when that root is absent."""
     candidates = (
@@ -328,9 +347,14 @@ def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
         if root is bpy.types.Context
         else Option.of_optional(context.preferences.addons.get(root.bl_idname)).map(lambda addon: addon.preferences).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         if issubclass(root, bpy.types.AddonPreferences)
-        else (getattr(context, prop.identifier) for prop in bpy.types.Context.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and issubclass(root, type(prop.fixed_type)))
+        else (getattr(context, member) for member in _members(root))
     )
     return Option.of_optional(next((value for value in candidates if isinstance(value, root)), None))
+
+
+def rooted[K: Native](root: type[K], context: bpy.types.Context) -> BlenderResult[K]:
+    """Returns a required context-held native root or its absence named by the first context member that holds its type."""
+    return root_in(root, context).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key=next(iter(_members(root)), root.__name__)),))
 
 
 def id_path(struct: "bpy.types.bpy_struct[object]") -> Option[str]:
@@ -357,7 +381,7 @@ def struct_at(root: Native, path: str) -> Option[Native]:
             case _:
                 owner: bpy.types.bpy_struct[object] = root.data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                 identifier = next(prop.identifier for prop in owner.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) and getattr(owner, prop.identifier) == root)
-                found = owner.path_resolve(f"{identifier}{'' if path.startswith('[') else '.'}{path}")
+                found = owner.path_resolve(member_path(identifier, path))
     except (ValueError, ReferenceError):
         return Nothing
     return Some(found) if isinstance(found, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else Nothing
@@ -446,7 +470,34 @@ def assigned(members: Mapping[Descriptor, Value], root: "bpy.types.bpy_struct[ob
     )).map(lambda _: None)
 
 
+def _members[K: Native](root: type[K]) -> tuple[str, ...]:
+    """Context pointer members whose declared type can hold a root type."""
+    return tuple(prop.identifier for prop in bpy.types.Context.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and issubclass(root, type(prop.fixed_type)))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["GATED", "LEADING", "Descriptor", "IdName", "Native", "P_co", "Scalar", "Value", "assigned", "differing", "effective", "holds", "id_path", "root_in", "sequenced", "struct_at", "written"]
+__all__ = [
+    "GATED",
+    "LEADING",
+    "Descriptor",
+    "IdName",
+    "Native",
+    "P_co",
+    "Scalar",
+    "Value",
+    "assigned",
+    "beneath",
+    "differing",
+    "effective",
+    "holds",
+    "id_path",
+    "member_path",
+    "root_in",
+    "rooted",
+    "sequenced",
+    "struct_at",
+    "typed",
+    "written",
+]

@@ -5,11 +5,12 @@ from expression import Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
+from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderReadFault, BlenderResult
+from blender.bpy.faults import BlenderReadFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.imaging.faults import paired
 
@@ -58,7 +59,7 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         def session() -> BlenderResult[tuple[Attached[T], bpy.types.WindowManager]]:
             """Binds the attachment to the live window manager holding the session record."""
-            return paired(attachment.bound(identity), Option.of_optional(bpy.context.window_manager).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="window_manager"),)))
+            return paired(attachment.bound(identity), rooted(bpy.types.WindowManager, bpy.context))
 
         def loaded() -> BlenderResult[Option[float]]:
             """Recovers an unset session when Blender exposes the current file."""

@@ -9,43 +9,43 @@ namespace Rasm.Rhino.Display;
 public static class MouseCallbacks {
     // --- [HOOKS]
     private sealed class BeginMouseMoveHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseMove(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseMove(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class EndMouseMoveHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnEndMouseMove(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnEndMouseMove(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class BeginMouseDownHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseDown(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseDown(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class EndMouseDownHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnEndMouseDown(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnEndMouseDown(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class BeginMouseUpHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseUp(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseUp(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class EndMouseUpHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnEndMouseUp(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnEndMouseUp(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class BeginMouseDoubleClickHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseDoubleClick(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseDoubleClick(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class MouseEnterHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseEnter(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseEnter(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class MouseHoverHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseHover(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseHover(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private sealed class MouseLeaveHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, CallbackSite site) : MouseCallback {
-        protected override void OnMouseLeave(MouseCallbackEventArgs e) => Callbacks.Run(IO.pure(e).Bind(deliver), site);
+        protected override void OnMouseLeave(MouseCallbackEventArgs e) => Callbacks.Started(IO.pure(e).Bind(deliver), site);
     }
 
     private static DocumentEvent<MouseCallbackEventArgs> Row(Func<Func<MouseCallbackEventArgs, IO<Unit>>, CallbackSite, MouseCallback> hook, [CallerMemberName] string member = "") =>

@@ -32,7 +32,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - not: {has: {stopBy: end, kind: 'line_comment, block_comment'}}
+        - not: {matches: rust-commented}
         - any:
             - all:
                 - pattern: $S.windows(2).all(|$W| $BODY)

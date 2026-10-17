@@ -6,7 +6,7 @@ utils:
     literal-tree:
         any:
             - kind: 'object, array, string, number, true, false, null, undefined, template_string, unary_expression, regex'
-            - matches: syntax-expression-wrapper
+            - matches: typescript-expression-wrapper
         not:
             has:
                 stopBy: end

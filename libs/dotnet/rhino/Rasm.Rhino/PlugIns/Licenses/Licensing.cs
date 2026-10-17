@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
-using Rasm.Rhino.UI.Assets;
+using Rasm.Rhino.UI.Styling;
 using Rhino.PlugIns;
 using Riok.Mapperly.Abstractions;
 

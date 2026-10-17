@@ -4,7 +4,7 @@ from collections.abc import Callable
 import colorsys
 from contextlib import ExitStack
 import itertools
-from typing import Annotated, ClassVar, Self
+from typing import Annotated, ClassVar
 
 import bpy
 from expression import Ok, Option, Result, Some
@@ -15,7 +15,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import answered, Call, Done, Empty, Operator, Outcome, Own, tallied, Unchanged
 from blender.bpy.data.rna import conditions
-from blender.bpy.data.rna.descriptors import Descriptor, IdName
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted
 from blender.bpy.data.rna.snapshots import Applied, Scenes, Snapshot, ViewLayers
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -56,11 +56,10 @@ class Swatch(Choice):
 
     swatches: tuple[int, ...]
 
-    def __new__(cls, value: int, label: str, *swatches: int) -> Self:
-        """Creates a member from its persistent number, its label, and its swatches."""
-        member = int.__new__(cls, value)
-        member._value_, member.label, member.swatches = value, label, swatches
-        return member
+    def __init__(self, value: int, label: str, *swatches: int) -> None:
+        """Sets the member label and swatches."""
+        super().__init__(value, label)
+        self.swatches = swatches
 
     IBM = 1, "IBM", 0x648FFF, 0x785EF0, 0xDC267F, 0xFE6100, 0xFFB000
     WONG = 2, "Wong", 0x000000, 0xE69F00, 0x56B4E9, 0x009E73, 0xF0E442, 0x0072B2, 0xD55E00, 0xCC79A7
@@ -160,7 +159,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
         bound = paired(self.layer.bound(identity), flags())
 
         def config() -> BlenderResult[PyOpenColorIO.Config]:
-            return admitted(PyOpenColorIO.GetCurrentConfig(), (PyOpenColorIO.ROLE_DATA,)).map_error(BlenderImagingFault.lifted)
+            return admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
         def built(
             parts: tuple[
@@ -198,7 +197,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
             def scoped(call: Call[Renaming]) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
                 match call.record.within:
                     case Within.SCENE:
-                        return Option.of_optional(call.context.scene).map(lambda scene: (scene,)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="scene"),))
+                        return rooted(bpy.types.Scene, call.context).map(lambda scene: (scene,))
                     case Within.FILE:
                         return (
                             Option.of_optional(call.context.blend_data).map(lambda data: tuple(data.scenes)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="blend_data"),))
@@ -266,11 +265,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                         title="Paste View Layer",
                         description="Paste copied settings into the active view layer",
                         form=Empty,
-                        run=paste(
-                            lambda call: (
-                                Option.of_optional(call.context.view_layer).map(lambda layer: (layer,)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context), key="view_layer"),))
-                            )
-                        ),
+                        run=paste(lambda call: rooted(bpy.types.ViewLayer, call.context).map(lambda layer: (layer,))),
                     ),
                     Operator(
                         key="view_layer_paste_all",

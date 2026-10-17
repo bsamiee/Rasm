@@ -12,13 +12,11 @@ namespace Rasm.Imaging.Grade.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidGrade>]
 public readonly partial struct CurveCoordinate : IMinMaxValue<CurveCoordinate> {
     public static CurveCoordinate MinValue { get; } = new(CurveAxis.Items.Min(static axis => axis.Extent.Low));
     public static CurveCoordinate MaxValue { get; } = new(CurveAxis.Items.Max(static axis => axis.Extent.High));
 
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref double value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidGrade();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [SmartEnum]
@@ -258,7 +256,6 @@ internal sealed partial class SplineShape {
 }
 
 [ComplexValueObject]
-[ValidationError<InvalidGrade>]
 [ObjectFactory<string>]
 public sealed partial class PointCurve : IConvertible<string> {
     private static readonly Func<PointCurve, Func<double, double>> Fits = memo(static (PointCurve curve) => SplineShape.BSpline.Fit(curve.Points, CurveAxis.Stops.Unit, CurveAxis.Stops.Unit));
@@ -271,17 +268,19 @@ public sealed partial class PointCurve : IConvertible<string> {
 
     public string ToValue() => CurvePoint.Format(Points);
 
-    public static InvalidGrade? Validate(string? value, IFormatProvider? provider, out PointCurve? item) {
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out PointCurve? item) {
         item = null;
-        return value is null ? null : CurvePoint.Parse(value).Case is Seq<CurvePoint> points ? Validate(points, out item) : new InvalidGrade();
+        return value is null ? null
+            : CurvePoint.Parse(value).Case is Seq<CurvePoint> points ? Validate(points, out item)
+            : new ValidationError($"point curve '{value}' must be a list of curve points");
     }
 
-    static partial void ValidateFactoryArguments(ref InvalidGrade? validationError, ref Seq<CurvePoint> points) =>
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CurvePoint> points) =>
         validationError = points.Count >= 2
             && points.ForAll(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
             && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X && pair.First.Y <= pair.Second.Y)
                 ? null
-                : new InvalidGrade();
+                : new ValidationError("point curve must hold at least two points within the stop axis, ascending in input and non-descending in output");
 }
 
 [SmartEnum]
@@ -297,9 +296,9 @@ public sealed partial class CurveChannel {
         Map(red: PointCurveParameter.Red, green: PointCurveParameter.Green, blue: PointCurveParameter.Blue, master: PointCurveParameter.Master);
 }
 
-public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master, Factor PreserveHue)
-    : IStateRecord<PointCurves, PointCurveParameter, InvalidGrade>, IPixelStage<PointCurves> {
-    public static PointCurves Default { get; } = new(PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, Factor.MinValue);
+public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master, AxisFraction PreserveHue)
+    : IStateRecord<PointCurves, PointCurveParameter>, IPixelStage<PointCurves> {
+    public static PointCurves Default { get; } = new(PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, AxisFraction.MinValue);
 
     public double Read(CurveChannel channel, Vector4 pixel, Gamut gamut) =>
         channel.Switch(
@@ -307,12 +306,11 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
             red: static state => CurveAxis.ToStops(state.Pixel.X),
             green: static state => CurveAxis.ToStops(state.Pixel.Y),
             blue: static state => CurveAxis.ToStops(state.Pixel.Z),
-            master: static state => state.Gamut.Luminance switch {
-                var weights => CurveAxis.ToStops(
-                    (weights.X * CurveAxis.FromStops(Mapped(state.Curves.Red.Fit(), state.Pixel.X)))
-                    + (weights.Y * CurveAxis.FromStops(Mapped(state.Curves.Green.Fit(), state.Pixel.Y)))
-                    + (weights.Z * CurveAxis.FromStops(Mapped(state.Curves.Blue.Fit(), state.Pixel.Z)))),
-            });
+            master: static state => CurveAxis.ToStops(LuminanceSamples.Luminance(
+                CurveAxis.FromStops(Mapped(state.Curves.Red.Fit(), state.Pixel.X)),
+                CurveAxis.FromStops(Mapped(state.Curves.Green.Fit(), state.Pixel.Y)),
+                CurveAxis.FromStops(Mapped(state.Curves.Blue.Fit(), state.Pixel.Z)),
+                state.Gamut.Luminance)));
 
     public static Option<PixelPass> Pass(PointCurves state, PassContext context) =>
         state with { PreserveHue = Default.PreserveHue } == Default
@@ -333,18 +331,20 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidGrade>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PointCurveParameter : IStateParameter<PointCurves> {
-    public static readonly PointCurveParameter Red = new("red", new StateParameter<PointCurves>.Keyed<PointCurve, string, InvalidGrade>(CurveChannel.Red.Curve));
-    public static readonly PointCurveParameter Green = new("green", new StateParameter<PointCurves>.Keyed<PointCurve, string, InvalidGrade>(CurveChannel.Green.Curve));
-    public static readonly PointCurveParameter Blue = new("blue", new StateParameter<PointCurves>.Keyed<PointCurve, string, InvalidGrade>(CurveChannel.Blue.Curve));
-    public static readonly PointCurveParameter Master = new("master", new StateParameter<PointCurves>.Keyed<PointCurve, string, InvalidGrade>(CurveChannel.Master.Curve));
-    public static readonly PointCurveParameter PreserveHue = new(
-        "preserve-hue",
-        StateParameter.Bounded<PointCurves, Factor, float, InvalidToneValue>(Lens<PointCurves, Factor>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve }),
-        new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }));
+    public static readonly PointCurveParameter Red = new("red", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Red.Curve),
+        new("Red", "Red channel curve over stops about middle grey"));
+    public static readonly PointCurveParameter Green = new("green", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Green.Curve),
+        new("Green", "Green channel curve over stops about middle grey"));
+    public static readonly PointCurveParameter Blue = new("blue", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Blue.Curve),
+        new("Blue", "Blue channel curve over stops about middle grey"));
+    public static readonly PointCurveParameter Master = new("master", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Master.Curve),
+        new("Master", "Curve every channel takes after its own"));
+    public static readonly PointCurveParameter PreserveHue = new("preserve-hue", StateParameter.Bounded(Lens<PointCurves, AxisFraction>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve })),
+        new("Preserve hue", "Share of each pixel's hue the master curve keeps"));
 
     public StateParameter<PointCurves> Kind { get; }
+    public ParameterText Text { get; }
 }

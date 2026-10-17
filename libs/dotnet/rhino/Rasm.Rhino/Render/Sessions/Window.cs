@@ -15,18 +15,13 @@ public abstract partial record RenderWindowSource {
 
     public sealed record Detached(PixelExtent Extent, ViewInfo View) : RenderWindowSource {
         public override IO<T> Open<T>(Func<RenderWindow, IO<T>> body) =>
-            DisposalOps.Within(() => RenderWindow.Create(new Size(Extent.Width, Extent.Height)),
-                window =>
-                    from present in IO.lift(() => Missing.Unless(window, nameof(RenderWindow.Create)))
-                    from viewed in IO.lift(() => present.SetView(View))
-                    from result in body(present)
-                    select result,
-                static window => IO.lift(() => window?.Dispose()));
+            DisposalOps.Found(() => RenderWindow.Create(new Size(Extent.Width, Extent.Height)), nameof(RenderWindow.Create),
+                window => IO.lift(() => window.SetView(View)).Bind(_ => body(window)));
     }
 
     public sealed record Rendering(Guid SessionId) : RenderWindowSource {
         public override IO<T> Open<T>(Func<RenderWindow, IO<T>> body) =>
-            IO.lift(() => Missing.Unless(RenderWindow.FromSessionId(SessionId), nameof(RenderWindow.FromSessionId))).Bind(body);
+            IO.lift(() => Refused.UnlessFound(RenderWindow.FromSessionId(SessionId), nameof(RenderWindow.FromSessionId))).Bind(body);
     }
 }
 
@@ -36,7 +31,6 @@ public sealed record WindowChannels(
     Option<RenderWindow.StandardChannels> Shown);
 
 [SmartEnum<int>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 internal sealed partial class ChannelLayout {
     public static readonly ChannelLayout Scalar = new(sizeof(float), ComponentOrders.Irrelevant);
     public static readonly ChannelLayout Triple = new(3 * sizeof(float), ComponentOrders.RGB);
@@ -47,13 +41,11 @@ internal sealed partial class ChannelLayout {
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ProgressFraction : System.Numerics.IMinMaxValue<ProgressFraction> {
     public static ProgressFraction MinValue { get; } = new(0f);
     public static ProgressFraction MaxValue { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -81,12 +73,12 @@ public static class RenderWindows {
     // --- [PIXELS]
     public static IO<PixelFrame> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>
         Opened(window, channel, static opened =>
-            from extent in IO.lift(() => Extent(opened.Width, opened.Height))
+            from extent in IO.lift(() => PixelExtent.Validated(opened.Width, opened.Height))
             from frame in IO.lift(() => Frame(opened, new Rectangle(System.Drawing.Point.Empty, new Size(extent.Width, extent.Height)), extent))
             select frame);
 
     public static Fin<PixelFrame> Frame(RenderWindow.Channel opened, Rectangle rect, PixelExtent extent) =>
-        from read in (Conversions.Validated<ChannelLayout, int, InvalidRhinoValue>(opened.PixelSize()).ToValidation(), Extent(rect.Width, rect.Height).ToValidation())
+        from read in (ChannelLayout.Validated(opened.PixelSize()).ToValidation(), PixelExtent.Validated(rect.Width, rect.Height).ToValidation())
             .Apply(static (layout, size) => (Layout: layout, Size: size)).As().ToFin()
         let stride = (long)read.Size.Width * read.Layout.Key
         let bounds = (Left: (long)rect.X, Top: (long)rect.Y, Right: (long)rect.X + read.Size.Width, Bottom: (long)rect.Y + read.Size.Height)
@@ -105,24 +97,21 @@ public static class RenderWindows {
             .Bind(rect => IO.lift(() => window.InvalidateArea(rect)));
 
     public static IO<T> Snapshot<T>(RenderWindow window, Func<Bitmap, IO<T>> body) =>
-        DisposalOps.Within(window.GetBitmap,
-            bitmap => IO.lift(() => Missing.Unless(bitmap, nameof(RenderWindow.GetBitmap))).Bind(body),
-            static bitmap => IO.lift(() => bitmap?.Dispose()));
+        DisposalOps.Found(window.GetBitmap, nameof(RenderWindow.GetBitmap), body);
 
-    internal static Fin<PixelExtent> Extent(int width, int height) =>
-        PixelExtent.Validate(width, height, out PixelExtent extent) is { } error ? error : extent;
+    internal static void Widen(float[] block, int components, int stride, int pixels) {
+        for (int pixel = pixels - 1; components < 4 && pixel >= 0; pixel--) {
+            int source = pixel * stride;
+            (block[4 * pixel], block[(4 * pixel) + 1], block[(4 * pixel) + 2], block[(4 * pixel) + 3]) =
+                (block[source], block[source + int.Min(1, components - 1)], block[source + int.Min(2, components - 1)], 1f);
+        }
+    }
 
     private static IO<T> Opened<T>(RenderWindow window, RenderWindow.StandardChannels channel, Func<RenderWindow.Channel, IO<T>> body) =>
-        DisposalOps.Within(() => window.OpenChannel(channel),
-            opened => IO.lift(() => Missing.Unless(opened, nameof(RenderWindow.OpenChannel))).Bind(body),
-            static opened => IO.lift(() => opened?.Dispose()));
+        DisposalOps.Found(() => window.OpenChannel(channel), nameof(RenderWindow.OpenChannel), body);
 
     private static void Fill(RenderWindow.Channel opened, Rectangle rect, int stride, ChannelLayout layout, float[] block) {
         opened.GetValues(rect, stride, layout.Order, ref block);
-        for (int pixel = (rect.Width * rect.Height) - 1; layout.Components < 4 && pixel >= 0; pixel--) {
-            int source = pixel * layout.Components;
-            (block[4 * pixel], block[(4 * pixel) + 1], block[(4 * pixel) + 2], block[(4 * pixel) + 3]) =
-                (block[source], block[source + int.Min(1, layout.Components - 1)], block[source + int.Min(2, layout.Components - 1)], 1f);
-        }
+        Widen(block, layout.Components, layout.Components, rect.Width * rect.Height);
     }
 }

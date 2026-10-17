@@ -5,10 +5,10 @@ name                 = "rasm-mcp"
 version.workspace    = true
 categories           = ["network-programming", "web-programming::http-server"]
 edition.workspace    = true
-keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http", "oauth"]
+keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http"]
 license.workspace    = true
 repository.workspace = true
-description          = "MCP server foundation over Streamable HTTP: routers, resources, validation, telemetry, authorization"
+description          = "MCP server foundation over Streamable HTTP: routers, resources, validation, telemetry"
 
 # --- [LIB] ------------------------------------------------------------------------------
 
@@ -30,20 +30,24 @@ futures                            = { workspace = true }
 tokio                              = { workspace = true }
 tokio-util                         = { workspace = true }
 tokio-stream                       = { workspace = true }
+arc-swap                           = { workspace = true }
 nonempty-collections               = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }
+derive-where                       = { workspace = true }
+derive_more                        = { workspace = true }
 serde                              = { workspace = true }
 serde_path_to_error                = { workspace = true }
 serde_json                         = { workspace = true }
+serde_urlencoded                   = { workspace = true }
 jsonschema                         = { workspace = true }
+schemars                           = { workspace = true }
 bounded-integer                    = { workspace = true }
 percent-encoding                   = { workspace = true }
-url                                = { workspace = true }
+form_urlencoded                    = { workspace = true }
+uuid                               = { workspace = true }
 axum                               = { workspace = true }
 matchit                            = { workspace = true }
-tower                              = { workspace = true }
-tower-oauth2-resource-server       = { workspace = true }
 rmcp                               = { workspace = true }
 opentelemetry                      = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }

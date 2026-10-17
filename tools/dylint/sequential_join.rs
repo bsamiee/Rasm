@@ -4,7 +4,7 @@ use clippy_utils::{
     desugar_await,
     diagnostics::span_lint_hir_and_then,
     higher::ForLoop,
-    paths::{PathNS, lookup_path_str},
+    paths::PathNS,
     peel_hir_expr_while,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
@@ -16,7 +16,7 @@ use rustc_hir::{Expr, ExprKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::TyCtxt;
 
-use crate::result_parts;
+use crate::{path, result_parts};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ pub(crate) struct SequentialJoin {
 impl_lint_pass!(SequentialJoin => [SEQUENTIAL_JOIN]);
 
 impl SequentialJoin {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { join_error: lookup_path_str(tcx, PathNS::Type, "tokio::task::JoinError").into_iter().next() } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { join_error: path(tcx, PathNS::Type, "tokio::task::JoinError") } }
 }
 
 impl<'tcx> LateLintPass<'tcx> for SequentialJoin {

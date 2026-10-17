@@ -5,27 +5,23 @@ namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct ObjectEffectAmount : System.Numerics.IMinMaxValue<ObjectEffectAmount> {
     // --- [LIMITS]
     public static ObjectEffectAmount MinValue { get; } = new(0f);
     public static ObjectEffectAmount MaxValue { get; } = new(1f);
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct DiagonalHatchWidth : System.Numerics.IMinMaxValue<DiagonalHatchWidth> {
     // --- [LIMITS]
     public static DiagonalHatchWidth MinValue { get; } = new(0f);
     public static DiagonalHatchWidth MaxValue { get; } = new(float.MaxValue);
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record ObjectEffects(Color FadeColor, ObjectEffectAmount FadeAmount, ObjectEffectAmount DitherTransparency, ObjectEffectAmount HatchStrength, DiagonalHatchWidth HatchWidth) {
@@ -33,10 +29,10 @@ public sealed record ObjectEffects(Color FadeColor, ObjectEffectAmount FadeAmoun
         attributes.GetColorFadeEffect(out Color fadeColor, out float fadeAmount);
         attributes.GetDiagonalHatchEffect(out float hatchStrength, out float hatchWidth);
         return (
-                Conversions.Validated<ObjectEffectAmount, float, InvalidRhinoValue>(fadeAmount).ToValidation(),
-                Conversions.Validated<ObjectEffectAmount, float, InvalidRhinoValue>(attributes.GetDitherTransparencyEffect()).ToValidation(),
-                Conversions.Validated<ObjectEffectAmount, float, InvalidRhinoValue>(hatchStrength).ToValidation(),
-                Conversions.Validated<DiagonalHatchWidth, float, InvalidRhinoValue>(hatchWidth).ToValidation())
+                ObjectEffectAmount.Validated(fadeAmount).ToValidation(),
+                ObjectEffectAmount.Validated(attributes.GetDitherTransparencyEffect()).ToValidation(),
+                ObjectEffectAmount.Validated(hatchStrength).ToValidation(),
+                DiagonalHatchWidth.Validated(hatchWidth).ToValidation())
             .Apply((fade, dither, strength, width) => new ObjectEffects(fadeColor, fade, dither, strength, width))
             .As()
             .ToFin();

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-reregistered-signal-listener
+language: rust
+severity: error
+utils:
+    listener-name:
+        kind: 'identifier, scoped_identifier'
+        regex: '^((::)?tokio::)?(signal::)?((unix|windows)::)?(ctrl_c|ctrl_break|ctrl_close|ctrl_logoff|ctrl_shutdown)$'
+    registration:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: listener-name}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: 'identifier, scoped_identifier', regex: '^((::)?tokio::)?(signal::)?(unix::)?signal$'}
+                - has: {field: arguments, regex: 'SignalKind'}
+            - kind: identifier
+              regex: '^(ctrl_c|ctrl_break|ctrl_close|ctrl_logoff|ctrl_shutdown)$'
+              inside: {kind: token_tree}
+              precedes: {kind: token_tree, regex: '^\('}
+            - kind: identifier
+              regex: '^signal$'
+              inside: {kind: token_tree}
+              precedes: {kind: token_tree, regex: '^\([\s\S]*SignalKind'}
+    repeating-call:
+        kind: call_expression
+        has: {field: function, regex: '(^|::)(repeat_with|unfold|try_unfold)$'}
+rule:
+    pattern: $SITE
+    any:
+        - matches: repeating-call
+          has: {field: arguments, has: {matches: listener-name}}
+        - matches: registration
+          inside:
+            stopBy: {kind: function_item}
+            any:
+                - kind: 'loop_expression, while_expression'
+                - kind: block
+                  inside: {kind: for_expression, field: body}
+                - kind: closure_expression
+                  inside: {kind: arguments, inside: {matches: repeating-call}}
+message: '`$SITE` registers a new signal listener on each repetition'
+note: 'Register the listener once ahead of the repetition: a `tokio::signal::unix::signal(<kind>)` or `tokio::signal::windows::ctrl_c()` listener read through `recv` or a `tokio_stream::wrappers::SignalStream` or `CtrlCStream`, or one `ctrl_c()` future pinned before the loop when the first signal ends it. A `ctrl_c()` listener exists only from its first poll until it completes, a signal arriving between registrations is lost, and a registration failure surfaces at the first signal in place of startup'

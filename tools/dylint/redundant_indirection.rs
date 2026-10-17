@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks_with_stmt, peel_hir_expr_refs, res::MaybeResPath as _};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks_with_stmt, peel_hir_expr_refs};
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{
     AmbigArg, Expr, ExprKind, Ty, TyKind,
@@ -9,7 +9,7 @@ use rustc_lint::{LateContext, LateLintPass, declare_lint, impl_lint_pass};
 use rustc_middle::ty::{self, AssocKind, AssocTypeData, print::with_forced_trimmed_paths};
 use rustc_span::Span;
 
-use crate::{accessed_field, constructed};
+use crate::{accessed_field, constructed, parameter};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -51,17 +51,16 @@ impl<'tcx> LateLintPass<'tcx> for RedundantIndirection {
             let (body, typeck) = (cx.tcx.hir_body_owned_by(function), cx.tcx.typeck(function));
             let value = peel_blocks_with_stmt(body.value);
             let name = cx.tcx.item_name(function);
-            let parameter = |argument: &Expr<'_>| body.params.iter().any(|parameter| peel_hir_expr_refs(argument).0.res_local_id() == Some(parameter.pat.hir_id));
+            let passed = |argument: &Expr<'_>| parameter(body, peel_hir_expr_refs(argument).0).is_some();
             let wrapped = |read: &Expr<'_>| {
                 let read = peel_hir_expr_refs(read).0;
-                matches!(read.kind, ExprKind::Field(base, _) if body.params.first().is_some_and(|receiver| base.res_local_id() == Some(receiver.pat.hir_id)))
-                    && accessed_field(typeck, read) == Some(inner)
+                matches!(read.kind, ExprKind::Field(base, _) if parameter(body, base) == Some(0)) && accessed_field(typeck, read) == Some(inner)
             };
-            let forwards = matches!(value.kind, ExprKind::MethodCall(segment, receiver, arguments, _) if segment.ident.name == name && wrapped(receiver) && arguments.iter().all(parameter))
+            let forwards = matches!(value.kind, ExprKind::MethodCall(segment, receiver, arguments, _) if segment.ident.name == name && wrapped(receiver) && arguments.iter().all(passed))
                 || matches!(value.kind, ExprKind::Call(callee, [receiver, arguments @ ..])
                     if matches!(&callee.kind, ExprKind::Path(qpath) if typeck.qpath_res(qpath, callee.hir_id).opt_def_id().is_some_and(|called| cx.tcx.item_name(called) == name))
-                        && wrapped(receiver) && arguments.iter().all(parameter));
-            let constructs = constructed(typeck, value).is_some_and(|(_, fields)| matches!(*fields.as_slice(), [(field, argument)] if field.did == inner && parameter(argument)))
+                        && wrapped(receiver) && arguments.iter().all(passed));
+            let constructs = constructed(typeck, value).is_some_and(|(_, fields)| matches!(*fields.as_slice(), [(field, argument)] if field.did == inner && passed(argument)))
                 || matches!(value.kind, ExprKind::MethodCall(_, _, [argument], _)
                     if matches!(typeck.expr_ty(argument).kind(), ty::FnDef(ctor, _) if matches!(cx.tcx.def_kind(*ctor), DefKind::Ctor(..)) && cx.tcx.parent(*ctor) == cx.tcx.parent(inner)));
             match (forwards, constructs) {
@@ -106,7 +105,7 @@ impl<'tcx> LateLintPass<'tcx> for RedundantIndirection {
         let tcx = cx.tcx;
         let wrappers = tcx.hir_crate_items(()).free_items().fold(FxIndexMap::<LocalDefId, (DefId, Vec<DefId>)>::default(), |mut wrappers, item| {
             let implementation = item.owner_id.to_def_id();
-            if matches!(tcx.def_kind(implementation), DefKind::Impl { of_trait: _ })
+            if matches!(tcx.def_kind(implementation), DefKind::Impl { .. })
                 && !tcx.is_automatically_derived(implementation)
                 && let Some(wrapper) = tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def()
                 && wrapper.is_struct()

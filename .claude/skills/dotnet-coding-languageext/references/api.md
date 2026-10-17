@@ -214,36 +214,38 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [14]   | `ValidationExtensions.Fails()`                    | `static`   | Failure values of a collection          |
 |  [15]   | `Validation operator \|`                          | `operator` | First-success choice, left failure kept |
 |  [16]   | `ApplicativeExtensions.Apply(tuple, Func<A,B,R>)` | `static`   | Higher-kinded tuple apply, arities 2–10 |
-|  [17]   | `Error.New(int, string)`                          | `static`   | `Expected` construction                 |
-|  [18]   | `Error.New(string, Exception)`                    | `static`   | Exception-preserving construction       |
-|  [19]   | `Error.New(Exception)`                            | `static`   | `Exceptional` construction              |
-|  [20]   | `Error.Many(Seq<Error>)`                          | `static`   | `ManyErrors` construction               |
-|  [21]   | `Error.Combine(Error)`                            | `instance` | Monoidal failure join                   |
-|  [22]   | `Error operator +`                                | `operator` | Operator form of `Combine`              |
-|  [23]   | `Error.Head`                                      | `property` | First accumulated failure               |
-|  [24]   | `Error.Tail`                                      | `property` | Remaining accumulated failures          |
-|  [25]   | `Error.Count`                                     | `property` | Accumulated-failure count               |
-|  [26]   | `Error.AsIterable()`                              | `instance` | Accumulated-failure enumeration         |
-|  [27]   | `Error.Is(Error)`                                 | `instance` | Failure identity test                   |
-|  [28]   | `Error.IsType<E>()`                               | `instance` | Failure type test                       |
-|  [29]   | `Error.HasCode(int)`                              | `instance` | Failure code test                       |
-|  [30]   | `Error.Filter<E>()`                               | `instance` | Failure-subset selection                |
-|  [31]   | `Error.Exception`                                 | `property` | Optional captured exception             |
-|  [32]   | `Error.Inner`                                     | `property` | Optional cause chain                    |
-|  [33]   | `Error.ToErrorException()`                        | `instance` | Expected-error exception wrapper        |
-|  [34]   | `Error.ToException()`                             | `instance` | Conversion to `Exception`               |
-|  [35]   | `Error.Throw<R>()`                                | `instance` | Throw the error                         |
-|  [36]   | `Errors.Cancelled`                                | `static`   | Cancellation error                      |
-|  [37]   | `Errors.TimedOut`                                 | `static`   | Timeout error                           |
-|  [38]   | `Errors.SequenceEmpty`                            | `static`   | Empty-sequence error                    |
-|  [39]   | `Errors.Closed`                                   | `static`   | Closed-resource error                   |
-|  [40]   | `Errors.ValidationFailed`                         | `static`   | Validation failure                      |
-|  [41]   | `Errors.SourceClosed` / `SourceCompleted`         | `static`   | Source closed and completed errors      |
-|  [42]   | `Errors.SinkFull`                                 | `static`   | Back-pressure error                     |
-|  [43]   | `Errors.EndOfStream`                              | `static`   | End-of-stream error                     |
-|  [44]   | `Errors.Bottom`                                   | `static`   | Bottom-value error                      |
-|  [45]   | `Errors.None`                                     | `static`   | Empty `ManyErrors` value                |
-|  [46]   | `Errors.ParseError(string)`                       | `static`   | Parse failure construction              |
+|  [17]   | `Error.New(string)`                               | `static`   | `Expected` construction with code 0     |
+|  [18]   | `Error.New(int, string)`                          | `static`   | `Expected` construction under a code    |
+|  [19]   | `Error.New(string, Error)`                        | `static`   | Code-0 `Expected` holding a cause       |
+|  [20]   | `Error.New(string, Exception)`                    | `static`   | `Exceptional` with a replaced message   |
+|  [21]   | `Error.New(Exception)`                            | `static`   | Exception conversion by exception type  |
+|  [22]   | `Error.Many(Seq<Error>)`                          | `static`   | `ManyErrors` construction               |
+|  [23]   | `Error.Combine(Error)`                            | `instance` | Monoidal failure join                   |
+|  [24]   | `Error operator +`                                | `operator` | Operator form of `Combine`              |
+|  [25]   | `Error.Head`                                      | `property` | First accumulated failure               |
+|  [26]   | `Error.Tail`                                      | `property` | Remaining accumulated failures          |
+|  [27]   | `Error.Count`                                     | `property` | Accumulated-failure count               |
+|  [28]   | `Error.AsIterable()`                              | `instance` | Accumulated-failure enumeration         |
+|  [29]   | `Error.Is(Error)`                                 | `instance` | Failure identity test                   |
+|  [30]   | `Error.IsType<E>()`                               | `instance` | Failure type test                       |
+|  [31]   | `Error.HasCode(int)`                              | `instance` | Failure code test                       |
+|  [32]   | `Error.Filter<E>()`                               | `instance` | Failure-subset selection                |
+|  [33]   | `Error.Exception`                                 | `property` | Optional captured exception             |
+|  [34]   | `Error.Inner`                                     | `property` | Optional cause chain                    |
+|  [35]   | `Error.ToErrorException()`                        | `instance` | Expected-error exception wrapper        |
+|  [36]   | `Error.ToException()`                             | `instance` | Conversion to `Exception`               |
+|  [37]   | `Error.Throw<R>()`                                | `instance` | Throw the error                         |
+|  [38]   | `Errors.Cancelled`                                | `static`   | Cancellation error                      |
+|  [39]   | `Errors.TimedOut`                                 | `static`   | Timeout error                           |
+|  [40]   | `Errors.SequenceEmpty`                            | `static`   | Empty-sequence error                    |
+|  [41]   | `Errors.Closed`                                   | `static`   | Closed-resource error                   |
+|  [42]   | `Errors.ValidationFailed`                         | `static`   | Validation failure                      |
+|  [43]   | `Errors.SourceClosed` / `SourceCompleted`         | `static`   | Source closed and completed errors      |
+|  [44]   | `Errors.SinkFull`                                 | `static`   | Back-pressure error                     |
+|  [45]   | `Errors.EndOfStream`                              | `static`   | End-of-stream error                     |
+|  [46]   | `Errors.Bottom`                                   | `static`   | Bottom-value error                      |
+|  [47]   | `Errors.None`                                     | `static`   | Empty `ManyErrors` value                |
+|  [48]   | `Errors.ParseError(string)`                       | `static`   | Parse failure construction              |
 
 - `Error.New(string, Exception)` takes an argument typed as `Exception`, cast a derived or generic exception before the call
 - Derived or generic exception arguments convert implicitly to `Error` and make the call ambiguous with `Error.New(string, Error)`

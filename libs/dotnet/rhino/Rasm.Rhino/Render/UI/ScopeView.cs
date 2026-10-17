@@ -8,22 +8,20 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Styling;
 using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Render.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<InvalidRhinoValue>]
 public readonly partial struct PlotAspect : IMinMaxValue<PlotAspect> {
     public static PlotAspect MinValue { get; } = new(float.BitIncrement(0f));
     public static PlotAspect MaxValue { get; } = new(float.MaxValue);
     public static PlotAspect Proportional { get; } = new(0.4f);
 
-    static partial void ValidateFactoryArguments(ref InvalidRhinoValue? validationError, ref float value) =>
-        validationError = value.CompareTo(MinValue._value) >= 0 && value.CompareTo(MaxValue._value) <= 0 ? null : new InvalidRhinoValue();
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
 }
 
 public sealed record ScopeFrames(PixelFrame Frame, Gamut Gamut, Transfer Encoding, Option<float> MaxCode, Option<ClipLevels> Clipping, Option<(PixelFrame Frame, Gamut Gamut)> Scene);
@@ -43,7 +41,7 @@ public sealed partial class WaveformLayout {
     public partial IterableNE<(TraceChannel Channel, RectangleF Column)> Columns(RectangleF plot);
 
     public Fin<ScopePlan> Plan(ScopeFrames frames, RectangleF plot, float scale) =>
-        Plots.Device(PlotPlane.Cartesian.Unit(Columns(plot).Head.Column), scale).Map(extent =>
+        ImagePlots.Device(PlotPlane.Cartesian.Unit(Columns(plot).Head.Column), scale).Map(extent =>
             (ScopePlan)new ScopePlan.Waveform(frames.Frame, new ScopeRequest.Waveform(frames.Gamut, extent), this, frames.MaxCode));
 }
 
@@ -104,22 +102,23 @@ public sealed partial class WellShape {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ScopeKind {
-    public static readonly ScopeKind Histogram = new("histogram", WellShape.Banded, static (frames, _, _, _) =>
+public sealed partial class ScopeKind : ICaptioned {
+    public static readonly ScopeKind Histogram = new("histogram", "Histogram", WellShape.Banded, static (frames, _, _, _) =>
         new ScopePlan.Histogram(
             frames.Frame, new ScopeRequest.Histogram(frames.Gamut, frames.Clipping),
             frames.Scene.Map(static scene => (scene.Frame, new ScopeRequest.Histogram(scene.Gamut, None)))));
-    public static readonly ScopeKind WaveformLuma = new("waveform-luma", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Luma.Plan(frames, plot, scale));
-    public static readonly ScopeKind WaveformRgb = new("waveform-rgb", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Overlay.Plan(frames, plot, scale));
-    public static readonly ScopeKind Parade = new("parade", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Parade.Plan(frames, plot, scale));
-    public static readonly ScopeKind Vectorscope = new("vectorscope", WellShape.Square, static (frames, plot, scale, zoom) =>
-        Plots.Device(PlotPlane.Cartesian.Unit(plot), scale).Map(extent => (ScopePlan)new ScopePlan.Vectorscope(frames.Frame, new ScopeRequest.Vectorscope(frames.Gamut, extent, zoom))));
-    public static readonly ScopeKind Chromaticity = new("chromaticity", WellShape.Diagram, static (frames, plot, scale, _) =>
-        Plots.Device(PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot)), scale).Map(extent => (ScopePlan)new ScopePlan.Chromaticity(
+    public static readonly ScopeKind WaveformLuma = new("waveform-luma", "Waveform luma", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Luma.Plan(frames, plot, scale));
+    public static readonly ScopeKind WaveformRgb = new("waveform-rgb", "Waveform RGB", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Overlay.Plan(frames, plot, scale));
+    public static readonly ScopeKind Parade = new("parade", "Parade", WellShape.Banded, static (frames, plot, scale, _) => WaveformLayout.Parade.Plan(frames, plot, scale));
+    public static readonly ScopeKind Vectorscope = new("vectorscope", "Vectorscope", WellShape.Square, static (frames, plot, scale, zoom) =>
+        ImagePlots.Device(PlotPlane.Cartesian.Unit(plot), scale).Map(extent => (ScopePlan)new ScopePlan.Vectorscope(frames.Frame, new ScopeRequest.Vectorscope(frames.Gamut, extent, zoom))));
+    public static readonly ScopeKind Chromaticity = new("chromaticity", "Chromaticity", WellShape.Diagram, static (frames, plot, scale, _) =>
+        ImagePlots.Device(PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot)), scale).Map(extent => (ScopePlan)new ScopePlan.Chromaticity(
             frames.Frame, new ScopeRequest.Chromaticity(frames.Gamut, frames.Encoding, extent), frames.Scene.Map(static scene => scene.Gamut))));
+
+    public string Caption { get; }
 
     public WellShape Shape { get; }
 
@@ -128,51 +127,55 @@ public sealed partial class ScopeKind {
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class CountScale {
-    public static readonly CountScale Linear = new("linear", static range => new Axis.Linear(range));
-    public static readonly CountScale Logarithmic = new("logarithmic", static range => new Axis.Logarithmic(range));
+public sealed partial class CountScale : ICaptioned {
+    public static readonly CountScale Linear = new("linear", "Linear count", static range => new Axis.Linear(range));
+    public static readonly CountScale Logarithmic = new("logarithmic", "Logarithmic count", static range => new Axis.Logarithmic(range));
+
+    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial Axis Spanning(AxisRange range);
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class HistogramRange {
-    public static readonly HistogramRange Full = new("full", HistogramAxis.Bins);
-    public static readonly HistogramRange Sdr = new("sdr", HistogramAxis.Bin(1f));
+public sealed partial class HistogramRange : ICaptioned {
+    public static readonly HistogramRange Full = new("full", "Full range", HistogramAxis.Bins);
+    public static readonly HistogramRange Sdr = new("sdr", "SDR only", HistogramAxis.Bin(1f));
+
+    public string Caption { get; }
 
     public int Bins { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class TraceMix {
-    public static readonly TraceMix RgbLuma = new("rgb-luma", Seq(TraceChannel.Luma, TraceChannel.Red, TraceChannel.Green, TraceChannel.Blue));
-    public static readonly TraceMix Rgb = new("rgb", Seq(TraceChannel.Red, TraceChannel.Green, TraceChannel.Blue));
-    public static readonly TraceMix Luma = new("luma", Seq(TraceChannel.Luma));
-    public static readonly TraceMix Red = new("red", Seq(TraceChannel.Red));
-    public static readonly TraceMix Green = new("green", Seq(TraceChannel.Green));
-    public static readonly TraceMix Blue = new("blue", Seq(TraceChannel.Blue));
+public sealed partial class TraceMix : ICaptioned {
+    public static readonly TraceMix RgbLuma = new("rgb-luma", "RGB and luma", Seq(TraceChannel.Luma, TraceChannel.Red, TraceChannel.Green, TraceChannel.Blue));
+    public static readonly TraceMix Rgb = new("rgb", "RGB", Seq(TraceChannel.Red, TraceChannel.Green, TraceChannel.Blue));
+    public static readonly TraceMix Luma = new("luma", "Luma", Seq(TraceChannel.Luma));
+    public static readonly TraceMix Red = new("red", "Red", Seq(TraceChannel.Red));
+    public static readonly TraceMix Green = new("green", "Green", Seq(TraceChannel.Green));
+    public static readonly TraceMix Blue = new("blue", "Blue", Seq(TraceChannel.Blue));
+
+    public string Caption { get; }
 
     public Seq<TraceChannel> Channels { get; }
 }
 
 [SmartEnum<string>]
-[ValidationError<InvalidRhinoValue>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class TraceBrightness {
-    public static readonly TraceBrightness Bright = new("bright", 125);
-    public static readonly TraceBrightness Normal = new("normal", 100);
-    public static readonly TraceBrightness Dimmed = new("dimmed", 50);
+public sealed partial class TraceBrightness : ICaptioned {
+    public static readonly TraceBrightness Bright = new("bright", "Bright", 125);
+    public static readonly TraceBrightness Normal = new("normal", "Normal", 100);
+    public static readonly TraceBrightness Dimmed = new("dimmed", "Dimmed", 50);
+
+    public string Caption { get; }
 
     public int Step { get; }
 }
@@ -337,7 +340,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 PartRole.Image,
                 held.State.Value is ScopeEdit.Chart && HistogramOf(held.State).IsSome ? Cursors.Crosshair : Cursors.Default,
                 held.Caption,
-                Some(Caption(held.State.Value.Chosen.Kind)),
+                Some(RowText.Localize(held.State.Value.Chosen.Kind.Caption).Local),
                 None),
             clip: static (held, clip) => new PartFacet(
                 PartRole.Button,
@@ -358,8 +361,8 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 RowText.Localize(level.Handle.Map(black: "Black Level", white: "White Level")).Local,
                 held.State.Value.Pair.Map(pair => level.Handle.Map(
                     black: FieldTexts.Number(LevelsParameter.BlackPoint.Presentation,
-                        ((float)BlackLevel.MinValue, (float)BlackLevel.MaxValue)).Shown(pair.Black),
-                    white: FieldTexts.Number(LevelsParameter.WhitePoint.Presentation,
+                        ((float)SignedMagnitude.MinValue, (float)SignedMagnitude.MaxValue)).Shown(pair.Black),
+                    white: FieldTexts.Number(Exposure.Presentation,
                         ((float)Exposure.MinValue, (float)Exposure.MaxValue)).Shown(pair.White))),
                 None));
 
@@ -530,11 +533,11 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         handle.Switch(
             (Pair: pair, Level: level),
             black: static held =>
-                from black in Conversions.Validated<BlackLevel, float, InvalidGrade>(held.Level)
-                from white in Conversions.Validated<Exposure, float, InvalidToneValue>(float.Log2(Level(LevelsParameter.White, held.Pair) - held.Level))
+                from black in SignedMagnitude.Validated(held.Level)
+                from white in Exposure.Validated(float.Log2(Level(LevelsParameter.White, held.Pair) - held.Level))
                 select new Levels(black, white),
             white: static held =>
-                Conversions.Validated<Exposure, float, InvalidToneValue>(float.Log2(held.Level - held.Pair.Black)).Map(white => held.Pair with { White = white }));
+                Exposure.Validated(float.Log2(held.Level - held.Pair.Black)).Map(white => held.Pair with { White = white }));
 
     private static Transition<ScopeViewState, ScopeEdit> Moved(ScopeViewState state, LevelsParameter handle, int bin, Func<ScopeEdit, Edit<ScopeEdit>> edit) =>
         Edited(
@@ -554,23 +557,13 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         Callbacks.Found(BinRange.Validate(int.Min(first, last), int.Max(first, last), out BinRange range) is null, range);
 
     private static Option<ScopeEdit> Resized(ScopeViewState state, RectangleF well, float rise) =>
-        Conversions.Validated<PlotAspect, float, InvalidRhinoValue>(float.Max(well.Height + rise, WellShape.Floor) / well.Width)
+        PlotAspect.Validated(float.Max(well.Height + rise, WellShape.Floor) / well.Width)
             .ToOption()
             .Map(aspect => (ScopeEdit)new ScopeEdit.Chart(state.Value.Chosen, aspect));
 
     private static new Transition<ScopeViewState, ScopeEdit> Edited(ScopeViewState state, Option<ScopeEdit> value, Func<ScopeEdit, Edit<ScopeEdit>> edit) =>
         value.Map(shown => new Transition<ScopeViewState, ScopeEdit>(state with { Value = shown }, Some(edit(shown))))
             .IfNone(new Transition<ScopeViewState, ScopeEdit>(state, None));
-
-    // --- [TEXT]
-    public static string Caption(ScopeKind kind) =>
-        RowText.Localize(kind.Map(
-            histogram: "Histogram",
-            waveformLuma: "Waveform Luma",
-            waveformRgb: "Waveform RGB",
-            parade: "Parade",
-            vectorscope: "Vectorscope",
-            chromaticity: "Chromaticity")).Local;
 
     // --- [PAINT]
     private const int Divisions = 10;
@@ -619,7 +612,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             var options =>
                 from range in IO.lift(Reaching(options.Range.Bins))
                 let ground = new PlotPlane.Cartesian(plot, new Axis.Linear(range), new Axis.Linear(AxisRange.Unit))
-                from extent in IO.lift(Plots.Device(ground, canvas.Scale))
+                from extent in IO.lift(ImagePlots.Device(ground, canvas.Scale))
                 let shown = options.Channels.Channels.Map(channel => (Channel: channel, Counts: channel.Bins(traces.Shown.Bins).Counts[..options.Range.Bins]))
                 let scene = traces.Scene.Map(reading => TraceChannel.Luma.Bins(reading.Bins).Counts[..options.Range.Bins])
                 let counted = Reaching(shown.Map(static held => held.Counts).Concat(scene.ToSeq()).Map(Peak).Fold(0, int.Max) / state.Gain).ToOption().Map(options.Counts.Spanning)
@@ -627,7 +620,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                             from held in shown
                             select (
                                 held.Channel,
-                                Ink: Ink(canvas, new MarkColor.Trace(held.Channel)) * (held.Channel.Lane.IsSome ? ChannelFill : 1f - ChannelFill),
+                                Ink: Ink(canvas, held.Channel.Mark) * (held.Channel.Lane.IsSome ? ChannelFill : 1f - ChannelFill),
                                 Heights: Heights(held.Counts, extent.Width, axis))
                 let outline = from axis in counted
                               from held in scene
@@ -661,7 +654,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static Seq<PlotMark<ScopePart>> Edges(RectangleF plot, Seq<(TraceChannel Channel, Vector3 Ink, float[] Heights)> fills, Option<float[]> scene) =>
         fills.Filter(static fill => fill.Channel.Lane.IsSome)
-            .Map(fill => new PlotMark<ScopePart>(Outline(plot, fill.Heights), new MarkStyle.Stroke(new MarkColor.Trace(fill.Channel), 1f, 1f), None))
+            .Map(fill => new PlotMark<ScopePart>(Outline(plot, fill.Heights), new MarkStyle.Stroke(fill.Channel.Mark, 1f, 1f), None))
             .Concat(scene.Map(heights => new PlotMark<ScopePart>(Outline(plot, heights), Outlined, None)).ToSeq());
 
     private static MarkShape.Polyline Outline(RectangleF plot, float[] heights) =>
@@ -677,11 +670,11 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         let whole = new PlotPlane.Cartesian(plot, new Axis.Linear(AxisRange.Unit), new Axis.Linear(range))
         let columns = toSeq(traces.Layout.Columns(plot)).Map(column => (
             Plane: new PlotPlane.Cartesian(column.Column, new Axis.Linear(AxisRange.Unit), new Axis.Linear(range)),
-            Ink: Ink(canvas, new MarkColor.Trace(column.Channel)),
+            Ink: Ink(canvas, column.Channel.Mark),
             Grid: column.Channel.Bins(traces.Reading.Bins)))
         let peak = columns.Map(static column => Peak(column.Grid.Counts)).Fold(0, int.Max)
         let tenths = Tenths(range.High)
-        from extent in IO.lift(Plots.Device(whole, canvas.Scale))
+        from extent in IO.lift(ImagePlots.Device(whole, canvas.Scale))
         from rastered in Rastered(canvas, plot, extent, point => columns.Fold(Vector3.Zero, (sum, column) => column.Plane.Value(point) switch {
             var at when at.First is >= 0f and < 1f => sum + (column.Ink * Weight(Count(column.Grid, at), peak, state.Value.Chosen.Brightness)),
             _ => sum,
@@ -702,7 +695,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             var held =>
                 from radius in IO.lift(Reaching(traces.Reading.Request.Zoom.Reach))
                 let polar = new PlotPlane.Polar(plot, new Axis.Periodic(AxisRange.Radians), new Axis.Linear(radius))
-                from extent in IO.lift(Plots.Device(held.Square, canvas.Scale))
+                from extent in IO.lift(ImagePlots.Device(held.Square, canvas.Scale))
                 from rastered in Rastered(canvas, plot, extent, point => Scoped(canvas, held.Axes, traces, held.Peak, state.Value.Chosen.Brightness, held.Square.Value(point)))
                 from ringed in Plots.Paint(canvas, Rings(polar, radius.High))
                 from zoomed in traces.Reading.Request.Zoom.Switch(
@@ -777,7 +770,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         (Square: PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot)), Ink: Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText)), Peak: Peak(traces.Reading.Bins.Counts),
           ScopeTraces.Chromaticity.Fit, Roles: Roles(traces), Side: float.Clamp(plot.Width * WhiteShare, WhiteSide.Least, WhiteSide.Most)) switch {
               var held =>
-                  from extent in IO.lift(Plots.Device(held.Square, canvas.Scale))
+                  from extent in IO.lift(ImagePlots.Device(held.Square, canvas.Scale))
                   from rastered in Rastered(canvas, held.Square.Plot, extent, point => held.Ink * Weight(Count(traces.Reading.Bins, held.Square.Value(point)), held.Peak, TraceBrightness.Normal))
                   from ruled in Plots.Paint(canvas, Lattice(held.Square, held.Fit).Concat(Gamuts(held.Square, held.Side, held.Roles)))
                   from based in Plots.Labels(canvas, held.Square, LabelSide.Bottom, Evens(held.Fit.X))
@@ -846,12 +839,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static IO<Unit> Rastered(PlotCanvas canvas, RectangleF target, PixelExtent extent, Func<PointF, Vector3> trace) =>
         Rgb(canvas.Slots[PaintSlot.ControlBackground]) switch {
-            var well => DisposalOps.Within(() => Plots.Pixels(extent, Enumerable.Range(0, extent.Width * extent.Height).Select(index =>
+            var well => DisposalOps.Within(() => ImagePlots.Pixels(extent, Enumerable.Range(0, extent.Width * extent.Height).Select(index =>
                     Shade(Vector3.Min(well + trace(new PointF(
                         target.Left + (((index % extent.Width) + 0.5f) * target.Width / extent.Width),
-                        target.Top + (((index / extent.Width) + 0.5f) * target.Height / extent.Height))), Vector3.One)).ToArgb())),
-                bitmap => Plots.Raster(canvas, target, bitmap),
-                static bitmap => IO.lift(bitmap.Dispose)),
+                        target.Top + (((index / extent.Width) + 0.5f) * target.Height / extent.Height))), Vector3.One)).ToArgb())), bitmap => Plots.Raster(canvas, target, bitmap)),
         };
 
     private static Vector3 Ink(PlotCanvas canvas, MarkColor paint) => Rgb(Plots.Resolve(canvas, new MarkStyle.Fill(paint, 1f)));
@@ -867,5 +858,5 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static int Peak(ReadOnlyMemory<int> counts) => MemoryMarshal.ToEnumerable(counts).Max();
 
-    private static Fin<AxisRange> Reaching(float high) => AxisRange.Validate(0f, high, out AxisRange range) is { } error ? error : range;
+    private static Fin<AxisRange> Reaching(float high) => Admission.Admitted(AxisRange.Validate(0f, high, out AxisRange range), range);
 }

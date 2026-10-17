@@ -27,7 +27,7 @@ public static partial class Gumballs {
                  conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
                  conduit.Enabled = true;
              })
-             select enabled, static gumball => IO.lift(gumball.Dispose))
+             select enabled)
         from answer in body(conduit)
         select answer,
          static conduit => Callbacks.Each(Seq(IO.lift(() => { conduit.Enabled = false; }), IO.lift(conduit.Dispose))).Map(unit));

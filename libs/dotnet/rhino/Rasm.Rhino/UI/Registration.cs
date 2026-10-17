@@ -2,8 +2,8 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -43,7 +43,7 @@ public static class ViewRegistration {
         IO.lift(() => plugIn.Views.Listed<TCase>()).Bind(rows => Callbacks.Each(rows.Map(register))).Map(unit);
 
     private static IO<Unit> Hosted(Type view, Action register) =>
-        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new UnsupportedView(view, Some(error)) : error);
+        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? Error.New($"{view.Name} is a view its host cannot hold", error) : error);
 
     // --- [PANELS]
     public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> RegisterPanels =
@@ -57,11 +57,11 @@ public static class ViewRegistration {
                 .Bind(icon => IO.lift(() => icon.Iter(held => Panels.ChangePanelIcon(row.Identity, held)))).Map(unit));
             return DisposalOps.Acquire(owned =>
                 from registered in Each<View.Panel>(plugIn, row => image(row).Bind(icon => Hosted(row.Identity, () => Panels.RegisterPanel(
-                    plugIn.PlugIn, row.Identity, RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local,
+                    plugIn.PlugIn, row.Identity, RowText.Localize(row.Caption, plugIn).Local,
                     icon.ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc)))))
                 from subscriptions in HostTheme.Changed.Cons(Appearance.TabIconSize.Changed.ToSeq())
                     .TraverseM(signal => signal.Inline(_ => refresh, plugIn, owned)).As()
-                select unit, (_, release) => retain(release));
+                select unit, retain);
         };
 
     // --- [PAGES]
@@ -96,12 +96,12 @@ public static class ViewRegistration {
             from pixels in HostTheme.Device(new(size, size))
             from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph.Glyph, glyph.Master, pixels)).As()
             from registered in Hosted(row.Identity, () => tabs.RegisterTab(
-                plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local, icon.ValueUnsafe()))
+                plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local, icon.ValueUnsafe()))
             select registered);
 
     public static IO<Unit> RegisterRenderPanels<TPlugIn>(TPlugIn plugIn, RenderPanels panels) where TPlugIn : PlugIn, IPlugInViews =>
         Each<View.Pane>(plugIn, row => Hosted(row.Identity, () => panels.RegisterPanel(
-            plugIn, RenderPanelType.RenderWindow, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local,
+            plugIn, RenderPanelType.RenderWindow, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local,
             row.Scope.AlwaysShow, row.InitialShow, row.Position)));
 
     // --- [CUSTOM_SECTIONS]
@@ -116,8 +116,7 @@ public static class ViewRegistration {
         static (plugIn, retain) => EventKind.OnAddCustomUISections.Inline(
             args => Each<View.Section>(plugIn, row => when(
                 row.Identity.IsSubclassOf(typeof(DefinedContentSection)),
-                DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity)!),
-                    static section => IO.lift(section.Dispose), args.ExpandableContentUI.AddSection).Map(unit)).As()),
+                DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity)!), args.ExpandableContentUI.AddSection).Map(unit)).As()),
             plugIn, retain);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>
@@ -132,7 +131,7 @@ public static class ViewRegistration {
                 let site = new CallbackSite(plugIn, typeof(RenderContentMenu), row.Caption)
                 from added in IO.lift(() => RenderContentMenu.AddMenuItem(
                     plugIn.PlugIn.Id,
-                    RowText.Localize(row.Caption, table: Some<object>(plugIn)).Local,
+                    RowText.Localize(row.Caption, plugIn).Local,
                     order,
                     row.Separator,
                     row.TopLevel,

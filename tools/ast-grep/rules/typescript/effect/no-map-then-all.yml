@@ -4,8 +4,7 @@ language: tsx
 severity: error
 utils:
     all-member:
-        matches: effect-effect-member
-        has: {field: property, regex: '^all$'}
+        matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^all$'}}}
     array-map:
         kind: member_expression
         all:

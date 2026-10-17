@@ -2,8 +2,8 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Assets;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Styling;
 using Rhino.Runtime;
 using Rhino.UI.Controls;
 
@@ -54,9 +54,9 @@ public sealed class RowGrid : Drawable {
     private readonly HashMap<EntryKey, Seq<RowPlace>> index;
     private readonly Atom<RowForm> form = Atom(RowForm.Initial);
     private readonly Atom<RowMarks> marks = Atom(RowMarks.Initial);
-    private readonly Ref<Seq<IDisposable>> acquired;
+    private readonly Retained<IDisposable> acquired;
 
-    private RowGrid(RowScope scope, Seq<RowPlace> places, RowMetrics metrics, StackLayout stack, Ref<Seq<IDisposable>> acquired) {
+    private RowGrid(RowScope scope, Seq<RowPlace> places, RowMetrics metrics, StackLayout stack, Retained<IDisposable> acquired) {
         (Sink, this.scope, this.places, this.metrics, this.stack, this.acquired) = (scope.Sink, scope, places, metrics, stack, acquired);
         index = RuleIndex.Of(places.Map(static place => (place.Reads, place)));
         Content = stack;
@@ -68,29 +68,18 @@ public sealed class RowGrid : Drawable {
 
     // --- [REALIZE]
     public static IO<RowGrid> Realize(Seq<ControlRow> column, Seq<ControlRow> rows, RowScope scope, Action<IDisposable> retain) =>
-        from acquired in IO.lift(static () => Ref(Seq<IDisposable>()))
-        let keep = new Action<IDisposable>(held => atomic(() => acquired.Value = acquired.Value.Add(held)))
-        let prefix = new Disposal<IO<Unit>>(
-            atomicIO(() => {
-                Seq<IDisposable> held = acquired.Value;
-                acquired.Value = [];
-                return held;
-            }).Bind(DisposalOps.Release),
-            static release => release.Run())
+        from acquired in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
         from grid in DisposalOps.OnFailure(
-            from placed in rows.Map(static (row, at) => (Row: row, At: at)).TraverseM(row => Placed(row.At, row.Row, scope, keep)).As()
-            from metrics in Measured(column, placed, scope.Sink, keep)
+            from placed in rows.Map(static (row, at) => (Row: row, At: at)).TraverseM(row => Placed(row.At, row.Row, scope, acquired.Retain)).As()
+            from metrics in Measured(column, placed, scope.Sink, acquired.Retain)
             from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout {
                 Orientation = Orientation.Vertical,
                 Spacing = metrics.Spacing.Height,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            }), static held => IO.lift(held.Dispose), keep)
-            from created in DisposalOps.Acquire(IO.lift(() => new RowGrid(scope, placed, metrics, stack, acquired)), static owned => IO.lift(owned.Dispose), owned => {
-                prefix.Relinquish();
-                retain(owned);
-            })
+            }), acquired.Retain)
+            from created in DisposalOps.Acquire(IO.lift(() => new RowGrid(scope, placed, metrics, stack, acquired)), retain)
             select created,
-            IO.lift(prefix.Dispose))
+            IO.lift(acquired.Dispose))
         from attached in DisposalOps.OnFailure(IO.lift(() => grid.Style = HandlerStyle).Bind(_ => grid.Attached), IO.lift(grid.Dispose))
         select grid;
 
@@ -105,7 +94,6 @@ public sealed class RowGrid : Drawable {
                 (scope, retain),
                 field: static (held, field) => Some(field.Realize(held.Scope, held.Retain)),
                 readout: static (held, readout) => Some(readout.Realize(held.Scope, held.Retain)),
-                command: static (held, command) => Some(command.Realize(held.Scope, held.Retain)),
                 group: static (_, _) => None)
             .Traverse(static cells => cells).As()
             .Bind(cells => Lined(at, row, cells, scope, retain));
@@ -163,8 +151,8 @@ public sealed class RowGrid : Drawable {
         labels <= LabelShare * width && labels + spacing + values + trailing <= width;
 
     private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink, Action<IDisposable> retain) =>
-        from regular in DisposalOps.Acquire(IO.lift(static () => SystemFonts.Label()), static font => IO.lift(font.Dispose), retain)
-        from emphasis in DisposalOps.Acquire(IO.lift(() => SystemFonts.Bold(regular.Size)), static font => IO.lift(font.Dispose), retain)
+        from regular in DisposalOps.Acquire(IO.lift(static () => SystemFonts.Label()), retain)
+        from emphasis in DisposalOps.Acquire(IO.lift(() => SystemFonts.Bold(regular.Size)), retain)
         let labels = column
             .Filter(static row => row.Layout.Exists(static shape => shape.Labeled && !shape.Spans))
             .Map(row => emphasis.MeasureString(row.Wording.Shown(row.Caption, sink)).Width)
@@ -229,14 +217,14 @@ public sealed class RowGrid : Drawable {
         select unit;
 
     private Seq<IO<Unit>> Registrations =>
-        Seq(scope.Listen(Refresh, Retain),
-            HostTheme.Changed.Inline(_ => Refreshed(places), Sink, Retain),
-            Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, Retain),
-            Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, Retain),
-            Subscriptions.Attach<AtomChangedEvent<RowMarks>>(h => marks.Change += h, h => marks.Change -= h,
-                held => Callbacks.Run(Marked(held), new CallbackSite(Sink, typeof(Atom<RowMarks>), nameof(marks.Change))), Retain))
+        Seq(scope.Listen(Refresh, acquired.Retain),
+            HostTheme.Changed.Inline(_ => Refreshed(places), Sink, acquired.Retain),
+            Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, acquired.Retain),
+            Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, acquired.Retain),
+            Subscriptions.Host<AtomChangedEvent<RowMarks>, RowMarks>(typeof(Atom<RowMarks>), h => marks.Change += h, h => marks.Change -= h,
+                static handler => held => handler(sender: null, held), nameof(marks.Change)).Inline(Marked, Sink, acquired.Retain))
         + places.Choose(place => place.Cells.Bind(static cells => cells.Menu).Map(attach =>
-            attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), Retain)
+            attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), acquired.Retain)
                 .Bind(menu => marks.SwapIO(held => held with { Menus = held.Menus.AddOrUpdate(place.At, menu) })).Map(unit)))
         + places.Bind(static place => place.Sources).Distinct()
             .Filter(source => !places.Exists(place => place.Row.Bound.Exists(bound => bound == source)))
@@ -246,12 +234,10 @@ public sealed class RowGrid : Drawable {
         from signals in source.Signals(scope)
         let site = new CallbackSite(Sink, typeof(RowGrid), nameof(Watched))
         let reading = places.Filter(place => place.Sources.Exists(read => read == source))
-        from mailbox in Subscriptions.Idle<Unit, Unit>(_ => Refreshed(reading))(site, Retain)
+        from mailbox in Subscriptions.Idle<Unit, Unit>(_ => Refreshed(reading))(site, acquired.Retain)
         let post = fun((Unit raised) => mailbox((raised, raised)))
-        from held in signals.TraverseM(signal => signal.Inline(post, Sink, Retain)).As()
+        from held in signals.TraverseM(signal => signal.Inline(post, Sink, acquired.Retain)).As()
         select unit;
-
-    private void Retain(IDisposable held) => atomic(() => acquired.Value = acquired.Value.Add(held));
 
     private IO<Unit> Refreshed(Seq<RowPlace> targets) =>
         from parts in targets.Map<K<IO, (RowPlace Place, bool Shown, RowPaint Paint)>>(place => Restated(place).Map(state => (place, state.Shown, state.Paint))).PartitionFallible().As()
@@ -385,16 +371,7 @@ public sealed class RowGrid : Drawable {
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
-        if (disposing)
-            _ = IO.lift(() => { Content = null; })
-                .Bind(_ => IO.lift(() => base.Dispose(disposing)))
-                .Bind(_ => atomicIO(() => {
-                    Seq<IDisposable> held = acquired.Value;
-                    acquired.Value = [];
-                    return held;
-                })).Bind(DisposalOps.Release).Uninterruptible().Run();
-        else
-            base.Dispose(disposing);
+        try { if (disposing) acquired.Dispose(); } finally { base.Dispose(disposing); }
     }
 
     // --- [ROWS]

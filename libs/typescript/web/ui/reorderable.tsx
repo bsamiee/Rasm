@@ -1,4 +1,4 @@
-import { Array, Struct } from 'effect';
+import { Array, Filter, Struct } from 'effect';
 import { Check, GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, CheckboxButton, CheckboxField, DropIndicator, GridList, GridListItem, type ItemDropTarget, type Key, Menu, MenuItem, MenuTrigger, Popover, type Selection, useDragAndDrop } from 'react-aria-components';
@@ -13,11 +13,15 @@ const reorder =
     (keys: ReadonlySet<Key>, target: ItemDropTarget) =>
     <T extends { readonly id: string }>(items: readonly T[]): readonly T[] => {
         const end = items.findIndex((item) => item.id === target.key) + (target.dropPosition === 'after' ? 1 : 0);
+        const [moved, kept] = Array.partition(
+            items,
+            Filter.fromPredicate((item: T) => keys.has(item.id)),
+        );
         const [before, after] = Array.splitAt(
-            items.filter((item) => !keys.has(item.id)),
+            kept,
             Array.countBy(items, (item, index) => index < end && !keys.has(item.id)),
         );
-        return [...before, ...items.filter((item) => keys.has(item.id)), ...after];
+        return [...before, ...moved, ...after];
     };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

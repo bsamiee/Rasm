@@ -1,5 +1,6 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rhino;
+using Microsoft.VisualStudio.Threading;
 
 namespace Rasm.Rhino;
 
@@ -11,9 +12,19 @@ public sealed record CallbackSite(IPlugInSink Sink, Type Owner, string Member) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Callbacks {
+    // --- [SETTLING]
+    private static readonly JoinableTaskContext Threading = Eto.Forms.Application.Instance.Invoke(static () =>
+        Eto.Forms.Application.Instance.Properties.Create(typeof(JoinableTaskContext), static () => new JoinableTaskContext()));
+
+    public static Fin<T> Settled<T>(IO<T> effect, CancellationToken token) =>
+        Try.lift(() => Threading.Factory.Run(async () => {
+            using EnvIO environment = EnvIO.New(token: token, syncContext: SynchronizationContext.Current);
+            return await effect.RunAsync(environment).ConfigureAwait(false);
+        })).Run();
+
     // --- [ANSWERS]
     public static T Answer<T>(IO<T> effect, Func<T> failed, CallbackSite site) =>
-        Answer(Try.lift(effect.Run).Run(), failed, site);
+        Answer(Settled(effect, CancellationToken.None), failed, site);
 
     public static T Answer<T>(Fin<T> answer, Func<T> failed, CallbackSite site) =>
         answer.IfFail(error => {
@@ -34,7 +45,7 @@ public static class Callbacks {
         effect.Match(Some: run => Succeeded(run, site), None: absent);
 
     public static void Run<T>(IO<T> effect, CallbackSite site) =>
-        Run(Try.lift(effect.Run).Run(), site);
+        Run(Settled(effect, CancellationToken.None), site);
 
     public static void Run<T>(Fin<T> answer, CallbackSite site) =>
         answer.IfFail(error => site.Sink.Report(error, site.Owner, site.Member));
@@ -42,12 +53,17 @@ public static class Callbacks {
     public static void Run<T>(Option<IO<T>> effect, CallbackSite site) =>
         effect.Iter(run => Run(run, site));
 
+    public static void Started<T>(IO<T> effect, CallbackSite site) =>
+        _ = effect.Map(unit)
+            .IfFail(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)))
+            .RunAsync(CancellationToken.None).AsTask();
+
     public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) =>
-        (_, args) => Run(IO.pure(args).Bind(deliver), site);
+        (_, args) => Started(IO.pure(args).Bind(deliver), site);
 
     // --- [CALLS]
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, string member) =>
-        CapturedOptional(host).Bind(answer => IO.lift(() => answer.ToFin(new Missing(member))));
+        CapturedOptional(host).Bind(answer => IO.lift(() => answer.ToFin(new Refused(member, Refused.Absent))));
 
     public static IO<Option<T>> CapturedOptional<T>(Func<Action<Fin<T>>, IO<Unit>> host) =>
         from answer in atomIO(Option<Fin<T>>.None)
@@ -56,7 +72,7 @@ public static class Callbacks {
         select value;
 
     public static IO<T> Captured<TArgs, T>(Action<Action<TArgs>> host, Func<TArgs, IO<T>> body, string member) =>
-        Captured<T>(answer => IO.lift(() => host(args => answer(body(args).RunSafe()))), member);
+        Captured<T>(answer => IO.lift(() => host(args => answer(Settled(body(args), CancellationToken.None)))), member);
 
     public static Fin<Seq<T>> Each<TItem, T>(Seq<TItem> items, Func<TItem, int, Fin<T>> element) =>
         items.Map((item, index) => element(item, index).ToValidation())
@@ -66,7 +82,7 @@ public static class Callbacks {
             .ToFin();
 
     public static Fin<Unit> Each<TItem>(Seq<TItem> items, Func<TItem, bool> call, string member) =>
-        Each(items, (item, index) => RefusedElement.Unless(call(item), member, index)).Map(static _ => unit);
+        Each(items, (item, index) => Refused.Unless(call(item), member, index)).Map(static _ => unit);
 
     public static IO<Seq<T>> Each<T>(Seq<IO<T>> effects) =>
         effects.PartitionFallible().As().Bind(static parts => parts.Fails.IsEmpty ? IO.pure(parts.Succs) : IO.fail<Seq<T>>(Error.Many(parts.Fails)));
@@ -74,20 +90,20 @@ public static class Callbacks {
     public static Option<T> Found<T>(bool found, T value) =>
         found ? Some(value) : None;
 
-    public static Fin<T> Thrown<TException, T>(Func<T> call, string member) where TException : Exception =>
-        Try.lift(call).Run().BindFail(error => error.HasException<TException>() ? new Refused(member) : error);
-
     // --- [THREADS]
     extension<T>(IO<T> effect) {
         public IO<T> OnUiThread() =>
-            IO.lift(static () => RhinoApp.InvokeRequired).Bind(remote => remote ? effect.Post() : effect);
+            IO.liftVAsync(async environment => {
+                await Threading.Factory.SwitchToMainThreadAsync(environment.Token);
+                return await effect.RunAsync(environment).ConfigureAwait(false);
+            });
     }
 
     // --- [LOOKUPS]
     public static Validation<Error, Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, string member, IEqualityComparer<TKey>? comparer = null) where TKey : notnull =>
         toSeq(rows.CountBy(key, comparer))
             .Filter(static counted => counted.Value > 1)
-            .Traverse(counted => Validation.Fail<Error, Unit>(new Duplicate<TKey>(member, counted.Key, counted.Value)))
+            .Traverse(counted => Validation.Fail<Error, Unit>(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} received {counted.Key} {counted.Value} times"))))
             .As()
             .Map(_ => rows);
 }

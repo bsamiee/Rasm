@@ -37,7 +37,7 @@ public static class DisplayModes {
 
     public static IO<Guid> FindByName(string englishName) =>
         ReadModes(modes => modes.Find(mode => string.Equals(mode.EnglishName, englishName, StringComparison.OrdinalIgnoreCase))
-            .Map(static mode => mode.Id).ToFin(new Missing(nameof(DisplayModeDescription.FindByName))));
+            .Map(static mode => mode.Id).ToFin(new Refused(nameof(DisplayModeDescription.FindByName), Refused.Absent)));
 
     public static IO<Guid> AddDisplayMode(string name, Option<Guid> source = default) =>
         Saved(IO.lift(() => source.Match(
@@ -69,8 +69,7 @@ public static class DisplayModes {
         select exported;
 
     private static IO<T> ReadModes<T>(Func<Seq<DisplayModeDescription>, Fin<T>> read) =>
-        IO.lift(static () => Conversions.Rows(DisplayModeDescription.GetDisplayModes()))
-            .Bracket(Use: modes => IO.lift(() => read(modes)), Fin: DisposalOps.Release);
+        DisposalOps.Within(static () => Conversions.Rows(DisplayModeDescription.GetDisplayModes()), modes => IO.lift(() => read(modes)), DisposalOps.Release);
 
     private static IO<Unit> Removed(Guid id) =>
         IO.lift(() => Refused.Unless(DisplayModeDescription.DeleteDisplayMode(id), nameof(DisplayModeDescription.DeleteDisplayMode)));
@@ -83,7 +82,7 @@ public static class DisplayModes {
     // --- [VIEWPORT]
     public static IO<Guid> DisplayMode(RhinoDoc doc, ViewportTarget target) =>
         DisposalOps.Within<IDisposable, Guid>(retain => Viewports.ResolveViewport(doc, target, retain)
-            .Bind(static row => use(IO.lift(() => Missing.Unless(row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode)))).Map(static mode => mode.Id).Bracket()),
+            .Bind(static row => DisposalOps.Found(() => row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode), static mode => IO.pure(mode.Id))),
             DisposalOps.Release);
 
     public static IO<Seq<bool>> SetDisplayMode(RhinoDoc doc, ViewportSet viewports, Guid id, RedrawPolicy redraw) =>
@@ -93,6 +92,6 @@ public static class DisplayModes {
     public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid id, Option<Size> pixels, Func<DisplayPipelineAttributes, IO<Unit>> edit) =>
         Viewports.WithMode(id, mode => from edited in edit(mode.DisplayAttributes)
                                        let size = pixels.IfNone(() => view.ClientRectangle.Size)
-                                       from raster in IO.lift(() => Missing.Unless(view.CaptureToBitmap(size, mode.DisplayAttributes), nameof(RhinoView.CaptureToBitmap)))
+                                       from raster in IO.lift(() => Refused.UnlessFound(view.CaptureToBitmap(size, mode.DisplayAttributes), nameof(RhinoView.CaptureToBitmap)))
                                        select raster);
 }
