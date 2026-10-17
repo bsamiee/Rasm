@@ -37,7 +37,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let tabled = !expanded_externally(cx, expr.span)
                     && matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)
                     && cx.tcx.trait_item_of(owner).is_none()
-                    && peel_blocks(cx.tcx.hir_body_owned_by(owner).value).hir_id == expr.hir_id
+                    && peel_blocks(&cx.tcx.hir_body_owned_by(owner).value).hir_id == expr.hir_id
                     && !arms.iter().all(|arm| matches!(peel_blocks(arm.body).kind, ExprKind::Lit(literal) if matches!(literal.node, LitKind::Str(..))))
                     && arms.iter().all(|arm| {
                         arm.guard.is_none()

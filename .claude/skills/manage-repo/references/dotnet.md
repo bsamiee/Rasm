@@ -5,9 +5,7 @@ MSBuild directory files and central package versions own every shared .NET decla
 ## [01]-[UPGRADES]
 
 - Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, a row holding a range stays
-- `dotnet package update` moves rows a project references alone, range rows included, and takes prereleases only for a row on a prerelease
-- `dotnet package update` fails its whole preview restore on one incompatible release
-- Version edits splice the attribute text in place, `dotnet package update` and `XmlDocument` or `ProjectRootElement` saves collapse row alignment
+- Version edits splice attribute text in place; `XmlDocument` or `ProjectRootElement` saves collapse row alignment
 - Newest release is the listed, framework-compatible release ranked by numeric version, then stable, then latest publish date
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
@@ -33,7 +31,7 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 - Shared source no library owns is one internal file each consumer compiles by its own `Compile` item, a root item reaches projects never using it
 - `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET`
 - Targets declare their binlog an output
-- `dotnet test` passes `--results-directory <ArtifactsPath>/test/<project>/<pivot>`, a second `--results-directory` exits 5
+- MTP tasks pass one result root, SDK per-module layout places outputs beneath it
 
 ## [04]-[CHECKERS]
 
@@ -45,11 +43,15 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 
 ## [05]-[ANALYZERS]
 
-Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/roslyn/Rasm.Analyzers.CodeFixes`:
-- `Directory.Build.props` gives `tools/roslyn/` projects `ProjectRole` `analyzers`, targeting the `netstandard2.0` every Roslyn host loads
+Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/roslyn/Rasm.Analyzers.CodeFixes`.
+
+Run `nx run-many -t build -p 'directory:tools/roslyn/**'` in the owning checkout before opening editors or applying launchd services. After rebuilding loaded analyzers, use VS Code's `.NET: Restart Language Server` and restart CodeLens with `launchctl kickstart -k gui/$UID/dev.mise.roslyn-codelens`.
+
+- Analyzer projects target `netstandard2.0`; authoring packages must match the Roslyn API available in every consuming host
 - Analyzer projects take no workspace language packages, project usings, or transitive pinning, holding Roslyn's dependency floor for every host
 - Rules resolve package types through `Compilation.GetTypeByMetadataName` over consumer references, analyzer projects reference no checked package
-- `Directory.Build.targets` adds each `tools/roslyn/` project to every other C# project, file-based apps included, as an `Analyzer` reference
+- Shared references add analyzer outputs while retaining existing ordinary compile references
+- Semantic formatting targets schedule analyzer builds; direct `dotnet format --no-restore` callers build them first
 - Analyzer references undefine `RhinoPlugIn` and `ArtifactsPivots`, plug-in library copies share one analyzer build
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
 - Diagnostics fail builds through the `.editorconfig` severity floor, a descriptor's default severity sets no exemption

@@ -30,7 +30,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let Some(local) = named.as_local()
             && let Some(body) = cx.tcx.hir_maybe_body_owned_by(local)
             && let [parameter, ..] = body.params
-            && let tested = peel_blocks(body.value)
+            && let tested = peel_blocks(&body.value)
             && let ExprKind::MethodCall(_, receiver, [], _) = tested.kind
             && cx.tcx.typeck(local).type_dependent_def_id(tested.hir_id).is_some_and(|method| self.cases.contains(&method))
             && receiver.peel_borrows().res_local_id() == Some(parameter.pat.hir_id)

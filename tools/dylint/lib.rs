@@ -222,7 +222,7 @@ fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<Upcast> {
         && !bodies.is_empty()
         && bodies.iter().all(|&owner| {
             tcx.hir_maybe_body_owned_by(owner).is_some_and(|body| {
-                let value = peel_blocks(body.value);
+                let value = peel_blocks(&body.value);
                 parameter(body, value) == Some(0) && tcx.typeck(owner).expr_adjustments(value).iter().any(|adjustment| matches!(adjustment.kind, Adjust::Pointer(PointerCoercion::Unsize)))
             })
         }))

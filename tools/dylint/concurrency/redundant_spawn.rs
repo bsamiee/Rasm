@@ -20,7 +20,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && closure.kind == ClosureKind::Coroutine(CoroutineKind::Desugared(CoroutineDesugaring::Async, CoroutineSource::Block))
             {
                 let typeck = cx.tcx.typeck(closure.def_id);
-                let value = peel_blocks(cx.tcx.hir_body(closure.body).value);
+                let value = peel_blocks(&cx.tcx.hir_body(closure.body).value);
                 let tried = if let ExprKind::Match(branch, _, MatchSource::TryDesugar(_)) = value.kind
                     && let ExprKind::Call(_, [inner]) = branch.kind
                 {

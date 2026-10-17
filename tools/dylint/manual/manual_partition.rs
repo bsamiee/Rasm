@@ -42,7 +42,7 @@ struct Split<'tcx> {
 lint!(MANUAL_PARTITION: "two `filter` or `find` passes splitting one collection on a predicate and its negation");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
-    fn check_body(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) {
+    fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx Body<'tcx>) {
         fn split<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<Split<'tcx>> {
             let typeck = cx.typeck_results();
             if let ExprKind::MethodCall(segment, source, [predicate], _) = expr.kind
@@ -55,7 +55,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && typeck.expr_ty(root).peel_refs().is_freeze(cx.tcx, cx.typing_env())
                 && let Some((negated, predicate)) = match predicate.kind {
                     ExprKind::Closure(closure) => {
-                        let value = peel_blocks(cx.tcx.hir_body(closure.body).value);
+                        let value = peel_blocks(&cx.tcx.hir_body(closure.body).value);
                         let (negated, kept) = if let ExprKind::Unary(UnOp::Not, kept) = value.kind { (true, kept) } else { (false, value) };
                         Some((negated, Predicate::Closure(parameter_bindings(cx.tcx, closure.body), kept)))
                     }
@@ -155,7 +155,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             return;
         }
         let mut splits = Vec::new();
-        let _: Option<()> = for_each_expr(cx.tcx, body.value, |expr| {
+        let _: Option<()> = for_each_expr(cx.tcx, &body.value, |expr| {
             splits.extend(split(cx, expr));
             ControlFlow::Continue(())
         });

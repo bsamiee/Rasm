@@ -1,10 +1,11 @@
 ---
 name: playwright-test-generator
-description: Use when one scenario of a Playwright test plan needs its test file, covering config, plan, live steps, log, and file.
+description: Use when a Playwright plan needs a feature test file generated from live steps and assertions.
 skills:
   - playwright:playwright-cli
 color: blue
 tools:
+  - Bash
   - Glob
   - Grep
   - Read
@@ -31,6 +32,7 @@ tools:
   - mcp__plugin_playwright_playwright-test__generator_read_log
   - mcp__plugin_playwright_playwright-test__generator_setup_page
   - mcp__plugin_playwright_playwright-test__generator_write_test
+  - mcp__plugin_playwright_playwright-test__test_list
 ---
 
 # [PLAYWRIGHT_TEST_GENERATOR]

@@ -51,7 +51,7 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 - `<tool>` names the program implementing the command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
 - One target runs a tool's subcommands, languages, and runtimes as one cache entry, a second target stays where its own entry saves reruns
 - Runtime splits stay where the tool's source applies one version per run, a tool taking per-file versions runs once
-- Writers sharing files take `parallelism: false`, no target depends on another tool's target
+- Writers sharing files take `parallelism: false`; `dependsOn` preserves producer prerequisites, not arbitrary checker order
 - Checkers fail on each finding they print, a tool passing warnings takes its own switch (`--strict`, `--error-on-warnings`, a config deny row)
 - Inputs and cache settings checker targets share sit once in a `targetDefaults` key matching their names
 - Writers take no CI format-and-diff step, each writer's check form or a build diagnostic fails on every change it writes
@@ -60,20 +60,19 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 - Defect forms take the first owner able to report them: checker configuration, then ast-grep, then a `tools/` checker, then no check
 - Checker configuration holds levels, options, thresholds, and bans for rules a checker ships, in the checker's own file or table
 - Forms wrong whatever their types (shape, nesting, banned construct, hand loop) take ast-grep rules, with fixes and reach across languages
-- `tools/` checkers (dylint, Roslyn analyzers, refurb, typescript-go) hold rules for forms resolved names, types, expansions, or other files decide
+- Compiler extensions hold rules that resolved names, types, expansions, or other files decide
 - `tools/` checker folders take the name of the tool or compiler whose extension point they plug into
 - Forms code cannot write or no checker can see take no check
 - Sites more than one rule or parse reports take one owner, other rules of its checker exclude them through one shared predicate
-- Forms configured checkers share stay on in the checker reporting most sites, every other checker's rule goes off with a row naming the owner
+- Shared diagnostic sites take one checker by demonstrated correctness and coverage, with exclusions at other owners
 - Checker rules contradicting a required form or another checker stay off with their reason
 
 [RULES]:
 - Rules derive names, types, and contracts from host APIs and packages, a hand list of what a resolver or package states goes
 - Rules state a defect form code showed or a host contract states, a rule for a form neither shows goes
 - Tightening checker rows (ban, required form, lowered threshold) state policy and stay with no violating file
-- Rules report every spelling of their form (alias, rename, helper relay), a form a respelling evades moves to the owner resolving it
+- Rules use the owner resolving each supported spelling
 - New cases widen the rule holding their category, one category holds one rule per checker
-- Each form and exemption a rule covers holds a fixture or sample its checker's test asserts
 - Rule, checker, or file extension rows join with a tracked file they read and the tree passing them
 - Languages built into ast-grep take no `sgconfig.yml` row until a newer grammar release parses a form the bundled grammar fails
 - Grammars ast-grep lacks or bundles behind a newer release build from a catalog package through root `grammar` into a `customLanguages` row

@@ -1,10 +1,12 @@
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 node_modules/
+.pixi/
 
 # --- [TOOL_WRITES] ----------------------------------------------------------------------
 
 .cache/
+/.cargo/rustc-source
 dist/
 .cloudflare/
 .artifacts/

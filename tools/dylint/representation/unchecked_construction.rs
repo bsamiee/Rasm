@@ -103,7 +103,7 @@ fn check(cx: &LateContext<'_>, owner: DefId, field: DefId) -> Option<DefId> {
     let assoc_fns = |implementation: DefId| cx.tcx.associated_item_def_ids(implementation).iter().copied().filter(move |item| cx.tcx.def_kind(*item) == DefKind::AssocFn);
     let flows = |function: DefId| {
         function.as_local().and_then(|local| Some((cx.tcx.hir_maybe_body_owned_by(local)?, cx.tcx.typeck(local)))).is_some_and(|(body, typeck)| {
-            any_expr(cx.tcx, body.value, |expr| {
+            any_expr(cx.tcx, &body.value, |expr| {
                 constructed(typeck, expr).is_some_and(|(_, fields)| {
                     typeck.expr_ty(expr).ty_adt_def().is_some_and(|adt| adt.did() == owner) && fields.iter().any(|(declared, argument)| declared.did == field && parameter(body, argument).is_some())
                 })

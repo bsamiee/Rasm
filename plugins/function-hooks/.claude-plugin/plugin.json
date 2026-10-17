@@ -1,7 +1,7 @@
 {
     "name": "function-hooks",
     "version": "1.0.0",
-    "description": "Mod that runs Bash commands through repository Nx targets and refuses unsafe forms",
+    "description": "Shared command policies for Claude Code and Codex",
     "author": {
         "name": "Bardia Samiee"
     },
@@ -9,7 +9,7 @@
         "project": {
             "type": "string",
             "title": "Project",
-            "description": "Nx project owning the repository's clean, format, lint, and rewrite targets",
+            "description": "Nx project owning repository cleanup",
             "default": "rasm"
         }
     }

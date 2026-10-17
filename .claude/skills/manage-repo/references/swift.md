@@ -1,6 +1,6 @@
 # [SWIFT]
 
-Xcode projects build every Swift app on root `Xcode.xcconfig`, SwiftPM packages build libraries, root checker files serve both.
+Xcode projects inherit root `Xcode.xcconfig`, SwiftPM packages build libraries, root checker files serve both.
 
 ## [01]-[PROJECT_FILES]
 
@@ -17,7 +17,7 @@ Xcode projects build every Swift app on root `Xcode.xcconfig`, SwiftPM packages 
 - Apps with assets alone take a `resources` phase compiling assets and bundling resources, with `membership-exceptions` excluding non-sources
 - Each project holds one shared scheme in `xcshareddata/xcschemes`, Xcode writes a new project's schemes under ignored `xcuserdata/` alone
 - Shared schemes hold a `BuildAction` and a `LaunchAction` naming the target, Xcode autocreates a duplicate of a scheme with no `LaunchAction`
-- `LaunchAction` sets `customLLDBInitFile` to root `.lldbinit` by a `$(SRCROOT)`-relative path
+- `LaunchAction` sets `customLLDBInitFile` to `.config/.lldbinit` by a `$(SRCROOT)`-relative path
 - App icons are an `AppIcon.icon` document `actool` renders into the bundle at build, no rendered image is checked in
 - `actool` resolves `Assets.xcassets` and `AppIcon.icon` by name through the folder reference
 - `IDETemplateMacros.plist` stays out, an empty `FILEHEADER` leaves each Swift template's `//` line and no repository-wide location exists
@@ -47,7 +47,7 @@ Project and target settings override root `Xcode.xcconfig`:
 
 ## [03]-[COMPILER]
 
-Toolchain upgrades re-derive the strictest compiler policy installed Swift accepts in `Xcode.xcconfig` and each library manifest's `settings`:
+Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and each library manifest's `settings`:
 - `SWIFT_VERSION` holds the highest mode both Xcode's build system and bundled compiler accept
 - Language mode implies complete concurrency checking and features with matching or lower `enabled_in` versions
 - Every upcoming feature `xcrun swiftc -print-supported-features` lists as `enabled_in` a mode above the language mode is on by name
@@ -81,7 +81,7 @@ Remote packages join `packages` in each importing project:
 ## [05]-[SWIFT_FORMAT]
 
 swift-format comes from the selected toolchain through `xcrun`:
-- `mise.toml` holds no swift-format row, the mise registry has no swift-format entry and a mise `swift` puts a second binary on `PATH`
+- `mise.toml` holds no swift-format row, `xcrun` selects the toolchain formatter
 - `--version` prints the toolchain release, the `lint:swift-format` runtime input
 - `.editorconfig` holds no `[*.swift]` section, `.swift-format` owns Swift indentation
 - `rules` lists every enabled rule with default-valued rows from `dump-configuration`, an omitted rule is off

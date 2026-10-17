@@ -8,11 +8,28 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
-- `useDaemonProcess: false` computes graphs in the calling process
-- `NX_CACHE_PROJECT_GRAPH=false` disables graph caching
+- Keep native daemon and graph reuse; maintenance clears workspace data after toolchain changes
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
 
-## [02]-[TARGETS]
+## [02]-[DISCOVERY]
+
+Use JSON discovery from workspace root:
+
+| [INDEX] | [QUESTION]                    | [COMMAND]                                          |
+| :-----: | :---------------------------- | :------------------------------------------------- |
+|  [01]   | Projects exposing a target    | `nx show projects --with-target <target> --json`   |
+|  [02]   | Project declaration           | `nx show project <project> --json`                 |
+|  [03]   | Target and prerequisites      | `nx show target <project>:<target> --json`         |
+|  [04]   | Hash inputs                   | `nx show target inputs <project>:<target> --json`  |
+|  [05]   | Declared and existing outputs | `nx show target outputs <project>:<target> --json` |
+
+- Select configurations explicitly with `--configuration`; an omitted configuration reports its name without merging its options
+- Target options are a shallow merge, not executor-normalized arguments
+- Output discovery proves neither execution nor artifact freshness; native execution owns validity and exit status
+- `nx run` and `nx run-many` execute selected tasks; the launching process handle identifies each run
+- `nx show project` without `--json` opens a browser in a TTY
+
+## [03]-[TARGETS]
 
 - `targetDefaults.<target>` takes one configuration or an array of entries, matching entries merge in order and later values win
 - Entry `filter` keys `projects` (names, globs, `tag:<tag>`, `directory:<glob>`, `!` exclusions), `plugin`, and `executor` must all match
@@ -39,7 +56,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - `parallelism: false` runs a target writing shared files or directories with no other task of its `nx` process
 - `--output-style=static-failures-only` prints failing tasks and a single-project run in full, agent default `summary` names failing task log files
 
-## [03]-[INPUTS]
+## [04]-[INPUTS]
 
 | [INDEX] | [FORM]                                         | [HASHES]                                                     |
 | :-----: | :--------------------------------------------- | :----------------------------------------------------------- |
@@ -56,7 +73,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
 - Named inputs hold files every target naming them reads, an input one target reads inlines into it, one a plugin reads (`production`) stays
 
-## [04]-[SCOPE]
+## [05]-[SCOPE]
 
 - `affected` selects changed projects and dependents from `--files`, `--uncommitted`, `--untracked`, or `--base` with `--head`
 - Base resolves from `--base`, `NX_BASE`, `nx.json` `defaultBase`, then `main`, and head from `--head` or `NX_HEAD`

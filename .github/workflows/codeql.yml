@@ -42,10 +42,15 @@ jobs:
                 build-mode: ${{ matrix.build-mode }}
             - run: nx run-many -t build -p tag:language:dotnet --exclude='tag:host:rhino'
               if: matrix.language == 'csharp'
-              env:
-                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
             - run: nx run-many -t build -p tag:host:macos --configuration ci
               if: matrix.language == 'swift'
             - uses: github/codeql-action/analyze@v4
               with:
                 category: /language:${{ matrix.language }}
+            - uses: actions/upload-artifact@v7
+              if: ${{ !cancelled() && matrix.language == 'csharp' }}
+              with:
+                name: diagnostics-${{ github.job }}-${{ matrix.language }}
+                path: .artifacts/dotnet/binlog
+                include-hidden-files: true
+                retention-days: 14

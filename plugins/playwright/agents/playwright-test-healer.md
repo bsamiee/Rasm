@@ -1,10 +1,11 @@
 ---
 name: playwright-test-healer
-description: Use when Playwright tests of a suite fail, covering config, run, debug at the failure, cause, edit, rerun, and fixme.
+description: Use when Playwright tests fail and need a cause, source correction, and replay evidence.
 skills:
   - playwright:playwright-cli
 color: red
 tools:
+  - Bash
   - Grep
   - Read
   - ToolSearch

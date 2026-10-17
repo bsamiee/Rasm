@@ -1,24 +1,20 @@
 import { stderr, stdout } from 'node:process';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { ActionsRepositoryPermissions, ActionsSecret, type ActionsSecretArgs, DependabotSecret, type DependabotSecretArgs, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
+import { ActionsRepositoryPermissions, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts } from '@pulumi/github';
 import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs, ServiceToken, type ServiceTokenArgs } from '@pulumiverse/doppler';
-import { Array, Config, Effect, Equal, FileSystem, Formatter, Path, Record, Redacted, Schema, Stdio, Struct } from 'effect';
+import { BranchConfig, type BranchConfigArgs, Environment, Project, type ProjectArgs, Secret, type SecretArgs } from '@pulumiverse/doppler';
+import { Array, Config, Effect, Equal, FileSystem, Formatter, Path, Record, Redacted, Schema, Stdio } from 'effect';
 import { parse } from 'yaml';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _Steps = Schema.Array(Schema.Struct({ uses: Schema.optionalKey(Schema.Union([Schema.TemplateLiteral(['./', Schema.String]), Schema.TemplateLiteralParser([Schema.String, '@', Schema.String])])) }));
-const _Actions = Schema.Struct({
-    workflows: Schema.Array(
-        Schema.Struct({
-            jobs: Schema.Record(Schema.String, Schema.Struct({ name: Schema.optionalKey(Schema.String), needs: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)), steps: _Steps })),
-        }),
-    ),
-    actions: Schema.Array(Schema.Struct({ runs: Schema.Struct({ steps: _Steps }) })),
-});
+const _Workflows = Schema.Array(
+    Schema.Struct({
+        jobs: Schema.Record(Schema.String, Schema.Struct({ name: Schema.optionalKey(Schema.String), needs: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)) })),
+    }),
+);
 const _Operation = Schema.Literals(['up', 'refresh']);
-const _Secrets = Config.all((['DOPPLER_TOKEN', 'GITHUB_TOKEN', 'PULUMI_ACCESS_TOKEN', 'SIXLABORSLICENSEKEY'] as const).map((name) => Config.map(Config.Redacted(name), (value) => ({ name, value }))));
+const _Secrets = Config.all((['DOPPLER_TOKEN', 'GITHUB_TOKEN', 'PULUMI_ACCESS_TOKEN'] as const).map((name) => Config.map(Config.Redacted(name), (value) => ({ name, value }))));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -37,8 +33,7 @@ class InfraError extends Schema.TaggedError<InfraError, { readonly brand: unique
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.Success<typeof _Secrets>): Record.ReadonlyRecord<string, unknown> => {
-    const patternsAlloweds = [...workflows.flatMap(({ jobs }) => Record.values(jobs)), ...actions.map(Struct.get('runs'))].flatMap(({ steps }) => steps).flatMap(({ uses }) => (typeof uses === 'object' ? [`${uses[0]}@*`] : []));
+const _program = (workflows: typeof _Workflows.Type, secrets: Config.Success<typeof _Secrets>): Record.ReadonlyRecord<string, unknown> => {
     const requiredChecks = workflows.flatMap(({ jobs }) => Record.toEntries(jobs).flatMap(([id, { name, needs }]) => (needs !== undefined && Equal.equals(Array.difference(Record.keys(jobs), needs), [id]) ? [{ context: name ?? id }] : [])));
     const projectArgs = { name: 'rasm', description: 'Repository and service secrets' } as const satisfies ProjectArgs;
     const repositoryArgs = {
@@ -59,13 +54,10 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
     const configs = { ...environments, [branchArgs.name]: new BranchConfig(branchArgs.name, branchArgs).name };
     const repository = new Repository(repositoryArgs.name, repositoryArgs, { protect: true });
     const vulnerabilityAlerts = new RepositoryVulnerabilityAlerts(`${repositoryArgs.name}-vulnerability-alerts`, { repository: repository.name });
-    const ciTokenArgs = { project: project.name, config: configs[branchArgs.name], name: 'ci', access: 'read' } as const satisfies ServiceTokenArgs;
-    const ciSecretArgs = { repository: repository.name, secretName: 'DOPPLER_TOKEN', value: new ServiceToken(`${projectArgs.name}.${branchArgs.name}.${ciTokenArgs.name}`, ciTokenArgs).key } as const satisfies ActionsSecretArgs & DependabotSecretArgs;
     return {
         repository: repository.fullName,
         configs: Record.values(configs),
         secrets: secrets.map(({ name, value }) => new Secret(`${projectArgs.name}.${branchArgs.name}.${name}`, { project: project.name, config: configs[branchArgs.name], name, value: Redacted.value(value) } satisfies SecretArgs).name),
-        ciSecrets: [new ActionsSecret(`${repositoryArgs.name}-actions-doppler-token`, ciSecretArgs).secretName, new DependabotSecret(`${repositoryArgs.name}-dependabot-doppler-token`, ciSecretArgs).secretName],
         securityUpdates: new RepositoryDependabotSecurityUpdates(`${repositoryArgs.name}-security-updates`, { repository: vulnerabilityAlerts.repository, enabled: true }).enabled,
         ruleset: new RepositoryRuleset(`${repositoryArgs.name}-main`, {
             repository: repository.name,
@@ -78,8 +70,7 @@ const _program = ({ workflows, actions }: typeof _Actions.Type, secrets: Config.
         }).name,
         allowedActions: new ActionsRepositoryPermissions(`${repositoryArgs.name}-actions-permissions`, {
             repository: repository.name,
-            allowedActions: 'selected',
-            allowedActionsConfig: { githubOwnedAllowed: false, patternsAlloweds },
+            allowedActions: 'all',
         }).allowedActions,
     };
 };
@@ -89,19 +80,13 @@ const infra = Effect.fn('infra')(function* () {
     const [operation] = yield* stdio.args.pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([_Operation]))));
     const workDir = path.join(home, 'work');
     yield* fs.makeDirectory(workDir, { recursive: true });
-    const github = path.join(import.meta.dirname, '..', '.github');
-    const actions = yield* Effect.all(
-        Record.map(
-            { workflows: 'workflows/*', actions: 'actions/*/action.yml' },
-            Effect.fnUntraced(function* (pattern: string) {
-                const files = yield* fs.glob(pattern, { root: github });
-                return yield* Effect.forEach(files, (file) => Effect.map(fs.readFileString(path.join(github, file)), parse), { concurrency: 'unbounded' });
-            }),
-        ),
-        { concurrency: 'unbounded' },
-    ).pipe(Effect.flatMap(Schema.decodeUnknownEffect(_Actions)));
+    const workflowsDirectory = path.join(import.meta.dirname, '..', '.github', 'workflows');
+    const workflows = yield* fs.glob('*', { root: workflowsDirectory }).pipe(
+        Effect.flatMap((files) => Effect.forEach(files, (file) => Effect.map(fs.readFileString(path.join(workflowsDirectory, file)), parse), { concurrency: 'unbounded' })),
+        Effect.flatMap(Schema.decodeUnknownEffect(_Workflows)),
+    );
     const stack = yield* Effect.tryPromise({
-        try: () => LocalWorkspace.createOrSelectStack({ stackName: 'rasm', projectName: 'rasm-infra', program: () => Promise.resolve(_program(actions, secrets)) } satisfies InlineProgramArgs, { workDir }),
+        try: () => LocalWorkspace.createOrSelectStack({ stackName: 'rasm', projectName: 'rasm-infra', program: () => Promise.resolve(_program(workflows, secrets)) } satisfies InlineProgramArgs, { workDir }),
         catch: (cause) => InfraError.make({ reason: { _tag: 'Unselected', cause } }),
     });
     yield* Effect.tryPromise({

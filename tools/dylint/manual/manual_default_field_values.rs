@@ -43,10 +43,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if !expanded_externally(cx, span)
             && let Some(implementation) = cx.tcx.trait_impl_of_assoc(function.to_def_id())
             && cx.tcx.impl_trait_id(implementation).is_diag_item(cx, sym::Default)
-            && let value = peel_blocks(body.value)
+            && let value = peel_blocks(&body.value)
             && let Some((built, typeck, delegate)) = match value.kind {
                 ExprKind::Call(_, []) | ExprKind::MethodCall(_, _, [], _) =>
-                    fn_def_id(cx, value).and_then(DefId::as_local).and_then(|callee| Some((peel_blocks(cx.tcx.hir_maybe_body_owned_by(callee)?.value), cx.tcx.typeck(callee), Some(callee)))),
+                    fn_def_id(cx, value).and_then(DefId::as_local).and_then(|callee| Some((peel_blocks(&cx.tcx.hir_maybe_body_owned_by(callee)?.value), cx.tcx.typeck(callee), Some(callee)))),
                 _ => Some((value, cx.typeck_results(), None)),
             }
             && let ExprKind::Struct(_, fields, StructTailExpr::None) = built.kind

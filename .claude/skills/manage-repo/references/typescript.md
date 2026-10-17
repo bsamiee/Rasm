@@ -32,9 +32,9 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Editors validate a file naming `$schema` against the named schema alone, a `json.schemas` row validates beside Schema Store's
 - Browser projects run in current browsers alone, root `vite.config.ts` `web` builds at `esnext`
 - `tsconfig.base.json` excludes each project's `vite.config.ts` and `vitest.config.ts`, root `tsconfig.json` includes each one
-- Root `postinstall` patches the installed `tsc` through `effect-tsgo patch`, `typecheck` and `tsc --lsp` report Effect diagnostics in one type check
+- Root `postinstall` patches installed `tsc` through `effect-tsgo patch`; compiler and language server report Effect diagnostics
 - Catalog `typescript` holds the build `@effect/tsgo` patches, every `effect-tsgo` command fails on another build
-- `tsc` targets name `typescript` and `@effect/tsgo` in `externalDependencies`, a release of either changes diagnostics
+- Compiler inputs hash tool and consumed package versions; root compilation uses Nx's all-external dependency hash
 - `tsconfig.base.json` plugin entry holds every rule severity
 - Project plugin entries merge over the base entry, a project with a host loading no `effect` sets `diagnostics` false
 
@@ -43,8 +43,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Node strips types from a `.ts` file it runs (`process.features.typescript` reads `strip`), no loader package joins
 - `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
-- `@nx/vitest` infers `test` and `@nx/playwright` `e2e` from a config beside a `package.json`, a Playwright `webServer` starting the app's `serve`
-- Root Vite and Vitest configs export functions of a project directory, a project config passes `import.meta.dirname`
+- `@nx/vitest` infers `test` and `@nx/playwright` `e2e` from a config beside a `package.json`
+- Shared Vite and Vitest factories take the project directory through `import.meta.dirname`
 - Root Vitest config lists `projects` from the workspace globs
 - `webServer` stops its process group with SIGKILL, `nx run` leaves its task serving the port, `gracefulShutdown` SIGTERM waits for the task to exit
 - Playwright suites hold no `vitest.config.ts`, Vitest collects no `.spec.ts` of theirs
@@ -58,16 +58,3 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `none` on a domain leaves on each domain rule a group severity enables
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
-
-## [05]-[CHECKS]
-
-- `tools/typescript-go` runs type-aware checks over root files of every `tsconfig.json` git lists, as root target `lint:typescript-go`
-- `typescript/sync` spawns installed `tsc`, the binary `effect-tsgo patch` replaced, its semantic diagnostics include Effect diagnostics
-- Checks are `Check` generators over a `SourceFile` and its `Project`, yielding `checker` and `program` requests through each method's `.gen`
-- One `api.batch` sends every file's `.gen` requests per run, a plain method call inside a check sends a round trip of its own
-- Checks join the `Object.entries<Check>` literal in `_inspect` keyed by code, reported as `error RASM<code>` in `tsc --pretty false` form
-- Codes start past refurb's `RASM1xx`, a duplicate key fails `tsc`
-- Tests sit in `<check>.spec.ts` beside their check, asserting `diagnoseSources(import.meta.dirname, { '<file>.ts': <source> })` lines inline
-- `diagnoseSources` layers inline files over package directory, they compile under package `tsconfig.json` and resolve its dependencies
-- First spec file removes `--passWithNoTests` from package `test` target
-- TypeScript team holds `typescript/sync` exports forward-compatible, breaking before 7.1 stable only when needed and never through 7.x after

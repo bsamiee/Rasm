@@ -28,8 +28,8 @@
         "diagnostics": false,
         "initializationOptions": {
             "cargo": { "extraEnv": { "CARGO_BUILD_TARGET_DIR": "${CLAUDE_PROJECT_DIR}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "${CLAUDE_PROJECT_DIR}/.cache/rust/rust-analyzer" } },
-            "check": { "overrideCommand": [ "cargo", "clippy", "--workspace", "--lib", "--bins", "--tests", "--message-format=json", "--keep-going" ] },
-            "rustc": { "source": "discover" }
+            "check": { "overrideCommand": [ "cargo", "clippy", "--locked", "--workspace", "--lib", "--bins", "--tests", "--message-format=json", "--keep-going", "--", "-D", "warnings" ] },
+            "rustc": { "source": ".cargo/rustc-source/Cargo.toml" }
         }
     },
     "swift": {

@@ -2,9 +2,11 @@
     // --- [EXPLORER_VISIBILITY] ---------------------------------------------------------
     "explorer.compactFolders": false,
     "files.exclude": {
+        ".cargo/rustc-source": true,
         "**/node_modules": true,
         "**/.artifacts": true,
         "**/.cache": true,
+        "**/.pixi": true,
         "**/.venv": true,
         "**/__pycache__": true
     },
@@ -13,6 +15,7 @@
     "files.watcherExclude": {
         "**/.artifacts/**": true,
         "**/.cache/**": true,
+        "**/.pixi/**": true,
         "**/.venv/**": true,
         "**/docs/research/**": true,
         "**/node_modules/**": true
@@ -30,9 +33,9 @@
         "*.ts": "${capture}.spec.ts, ${capture}.test.ts",
         "*.tsx": "${capture}.spec.tsx, ${capture}.test.tsx",
         ".gitignore": ".gitattributes",
-        "pyproject.toml": "uv.lock",
+        "pyproject.toml": "uv.lock, pixi.lock",
         "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",
-        "nx.json": ".editorconfig, .lldbinit, .swift-format, .swiftlint.yml, .yamlfmt, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, Xcode.xcconfig",
+        "nx.json": ".editorconfig, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, Xcode.xcconfig",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts"
     },
 
@@ -54,8 +57,8 @@
 
     // --- [RUST] ------------------------------------------------------------------------
     "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer" },
-    "rust-analyzer.check.overrideCommand": [ "cargo", "clippy", "--workspace", "--lib", "--bins", "--tests", "--message-format=json-diagnostic-rendered-ansi", "--keep-going" ],
-    "rust-analyzer.rustc.source": "discover",
+    "rust-analyzer.check.overrideCommand": [ "cargo", "clippy", "--locked", "--workspace", "--lib", "--bins", "--tests", "--message-format=json-diagnostic-rendered-ansi", "--keep-going", "--", "-D", "warnings" ],
+    "rust-analyzer.rustc.source": ".cargo/rustc-source/Cargo.toml",
 
     // --- [SWIFT] -----------------------------------------------------------------------
     "swift.buildPath": "${workspaceFolder}/.cache/swiftpm/vscode",
@@ -63,11 +66,17 @@
     "swift.ignoreSearchingForPackagesInSubfolders": [ ".", ".build", "Packages", "out", "bazel-out", "bazel-bin", "research" ],
 
     // --- [JAVA] ------------------------------------------------------------------------
-    "java.jdt.ls.java.home": "~/.local/share/mise/installs/java/latest",
+    "java.configuration.runtimes": [ { "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true } ],
     "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],
-    "java.project.referencedLibraries": [ "/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar" ],
+    "java.project.referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ],
     "java.format.settings.google.extra": "--aosp",
     "[java]": { "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code" },
+
+    // --- [YAML] ------------------------------------------------------------------------
+    "yaml.format.enable": false,
+
+    // --- [SHELL] -----------------------------------------------------------------------
+    "[shellscript]": { "editor.defaultFormatter": "mads-hartmann.bash-ide-vscode" },
 
     // --- [TOML] ------------------------------------------------------------------------
     "[toml]": { "editor.defaultFormatter": "tombi-toml.tombi" }

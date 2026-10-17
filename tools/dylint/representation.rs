@@ -67,7 +67,7 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
     };
     match pairs.kind {
         ExprKind::MethodCall(mapped, source, [Expr { kind: ExprKind::Closure(closure), .. }], _) if mapped.ident.name == sym::map =>
-            matches!(peel_blocks(cx.tcx.hir_body(closure.body).value).kind, ExprKind::Tup([key, _])
+            matches!(peel_blocks(&cx.tcx.hir_body(closure.body).value).kind, ExprKind::Tup([key, _])
                 if peel_hir_expr_while(key, |inner| if let ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None })
                     .res_local_id()
                     .is_some_and(|binding| parameter_bindings(cx.tcx, closure.body).contains(&binding)))

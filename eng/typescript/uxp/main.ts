@@ -30,10 +30,16 @@ const Products = Schema.Struct({
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-const InstallReason = Schema.TaggedUnion({ Refused: { host: Schema.String, answer: Schema.String } });
+const InstallReason = Schema.TaggedUnion({
+    Refused: { host: Schema.String, answer: Schema.String },
+    ArchiveExited: { host: Schema.String, code: Schema.Finite },
+});
 class InstallError extends Schema.TaggedError<InstallError, { readonly brand: unique symbol }>()('InstallError', { reason: InstallReason }) {
     override get message(): string {
-        return InstallReason.match(this.reason, { Refused: ({ host, answer }) => `Adobe's plug-in installer did not install the ${host} archive: ${answer}` });
+        return InstallReason.match(this.reason, {
+            Refused: ({ host, answer }) => `Adobe's plug-in installer did not install the ${host} archive: ${answer}`,
+            ArchiveExited: ({ host, code }) => `Creating the ${host} archive exited with code ${code}`,
+        });
     }
 }
 
@@ -71,7 +77,12 @@ const submit = Effect.fn('submit')(function* (built: string, manifest: typeof Ma
     const [fs, path, spawner] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
     const staged = path.join(yield* fs.makeTempDirectoryScoped(), `${manifest.id}_${host.app}`);
     yield* stage(built, staged, manifest, host);
-    yield* spawner.string(ChildProcess.make('ditto', ['-c', '-k', '--norsrc', staged, `${staged}.ccx`]));
+    yield* spawner.exitCode(ChildProcess.make('ditto', ['-c', '-k', '--norsrc', staged, `${staged}.ccx`], { stdout: 'inherit', stderr: 'inherit' })).pipe(
+        Effect.filterOrFail(
+            (code) => code === 0,
+            (code) => InstallError.make({ reason: { _tag: 'ArchiveExited', host: host.app, code } }),
+        ),
+    );
     yield* spawner
         .string(ChildProcess.make(`${INSTALLER}/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent`, ['--install', `${staged}.ccx`]))
         .pipe(Effect.filterOrFail(String.includes('Installation Successful'), (answer) => InstallError.make({ reason: { _tag: 'Refused', host: host.app, answer: String.trim(answer) } })));

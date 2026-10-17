@@ -4,7 +4,6 @@ packages:
     - 'apps/**'
     - 'tests/typescript/*'
     - 'plugins/*'
-    - 'tools/*'
 catalogMode: strict
 saveExact: true
 packageImportMethod: hardlink
@@ -80,6 +79,7 @@ catalog:
     '@tus/server': 2.4.5
     '@tus/s3-store': 2.0.7
     sharp: 0.35.5
+    shell-quote: 1.12.0
     '@gltf-transform/core': 4.5.1
     '@gltf-transform/extensions': 4.5.1
     '@gltf-transform/functions': 4.5.1
@@ -311,7 +311,7 @@ catalog:
     '@nx/dotnet': 24.0.0-beta.2
     '@nx/playwright': 24.0.0-beta.2
     '@nx/vitest': 24.0.0-beta.2
-    '@ast-grep/napi': 0.50.0 # Structural search and rewrite over syntax trees from Node
+    '@ast-grep/napi': 0.51.0 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar for Nx import dependencies
     smol-toml: 1.9.1 # Nx parser for `pyproject.toml` and `blender_manifest.toml`
     minimatch: 10.2.6

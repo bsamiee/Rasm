@@ -30,6 +30,8 @@ tools:
   - mcp__plugin_playwright_playwright-test__browser_wait_for
   - mcp__plugin_playwright_playwright-test__planner_setup_page
   - mcp__plugin_playwright_playwright-test__planner_save_plan
+  - mcp__plugin_playwright_playwright-test__planner_submit_plan
+  - mcp__plugin_playwright_playwright-test__test_list
 ---
 
 # [PLAYWRIGHT_TEST_PLANNER]

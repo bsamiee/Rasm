@@ -1,7 +1,6 @@
 import { none, type Option, rendered, some } from '../composition.ts';
 import { type Command, offset, parse, type Scanner, type Script, type Span } from './command.ts';
-import { basename, declared, firstOperand, type Invocation, informational, operands, placed, quoted, segments, waits, within } from './invocation.ts';
-import { type Catalog, type Route, route, solutions } from './targets.ts';
+import { declared, firstOperand, informational, operands, placed, segments, waits, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,8 +14,6 @@ interface Host {
     readonly exists: (path: string) => Promise<boolean>;
     readonly cwd: () => Promise<string>;
     readonly home: () => Promise<Option<string>>;
-    readonly catalog: () => Promise<Option<Catalog>>;
-    readonly read: (path: string) => Promise<Option<string>>;
 }
 interface GitRow {
     readonly reason: string;
@@ -48,13 +45,6 @@ interface Change {
 interface Rewrite {
     readonly command: string;
     readonly notice: Option<string>;
-}
-interface Routed {
-    readonly command: Command;
-    readonly position: number;
-    readonly routes: readonly Route[];
-    readonly denials: readonly string[];
-    readonly launchers: readonly Invocation[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -236,27 +226,6 @@ const _sequence = ({ sequences }: Script): readonly string[] =>
 
 // --- [REWRITE]
 
-const _writers = (command: Command, project: string): readonly Change[] =>
-    command.invocations.flatMap((invocation, index) => {
-        const at = offset(command, index);
-        const { inputs, options, positions } = operands(invocation);
-        const start = command.spans[at];
-        const scan = command.spans[at + 1];
-        const update = (name: string): boolean => name === '-U' || name === '--update-all';
-        if (!((invocation[0] === 'ast-grep' || invocation[0] === 'sg') && inputs[0] === 'scan' && options.some(update) && !options.includes('--stdin')) || start === undefined || scan === undefined) {
-            return [];
-        }
-        const flags = positions
-            .filter(({ names }) => names.some(update))
-            .flatMap(({ at: position, names }) => {
-                const before = command.spans[at + position - 1];
-                const span = command.spans[at + position];
-                const kept = names.filter((name) => !update(name));
-                return span === undefined || before === undefined ? [] : [kept.length === 0 ? { start: before.end, end: span.end, text: '' } : { start: span.start, end: span.end, text: `-${kept.map((name) => name.slice(1)).join('')}` }];
-            });
-        return [{ splices: [{ start: start.start, end: scan.end, text: `nx run ${project}:rewrite --` }, ...flags], notice: some(`${invocation[0]} scan -U ran as nx run ${project}:rewrite`) }];
-    });
-
 const _hidden = (command: Command): readonly Change[] =>
     command.invocations.flatMap((invocation, index) => {
         const { positions } = operands(invocation);
@@ -283,46 +252,10 @@ const _across = (command: Command): readonly Change[] =>
         return program !== 'sd' || named === undefined || !breaks || informational(program, options) || options.some((name) => name === '-A' || name === '--across') ? [] : [{ splices: [{ start: named.end, end: named.end, text: ' -A' }], notice: none }];
     });
 
-const _relaunched = (launcher: Invocation, invocation: Invocation): { readonly words: readonly string[]; readonly set: readonly string[] } => {
-    const groups = (words: Invocation): readonly { readonly names: readonly string[]; readonly words: readonly string[]; readonly given: string; readonly end: number }[] =>
-        operands(words).positions.map(({ at, names, taken }) => {
-            const { options, values } = operands([words[0], ...words.slice(at, at + 1 + taken)]);
-            return { names, words: words.slice(at, at + 1 + taken), given: JSON.stringify([options, values]), end: at + 1 + taken };
-        });
-    const fixed = groups(launcher);
-    const called = groups(invocation);
-    const kept = called.filter(({ names }) => !names.some((name) => fixed.some((held) => held.names.includes(name)))).flatMap(({ words }) => words);
-    const end = Math.max(1, ...fixed.map((group) => group.end));
-    return { words: [...launcher.slice(0, end), ...kept, ...launcher.slice(end)], set: fixed.filter(({ given }) => !called.some((held) => held.given === given)).flatMap(({ words }) => words) };
-};
-
-const _rewrite = (text: string, { commands }: Located, project: string, routed: readonly Routed[]): Option<Rewrite> => {
+const _rewrite = (text: string, { commands }: Located): Option<Rewrite> => {
     const bytes = new TextEncoder().encode(text);
     const decoder = new TextDecoder();
-    const replaced = (command: Command, from: number, to: number, inserted: string): readonly Splice[] => {
-        const first = command.spans[offset(command, from)];
-        const last = command.spans[offset(command, to) - 1];
-        return first === undefined || last === undefined ? [] : [{ start: first.start, end: last.end, text: inserted }];
-    };
-    const routes = routed.flatMap(({ command, position, routes: held, launchers }): readonly Change[] => {
-        const at = offset(command, position);
-        const wrapped = command.invocations.slice(0, position);
-        const absorbed = wrapped.findLastIndex(([program]) => !launchers.some(([owned]) => owned === program)) + 1;
-        const relaunched = wrapped.flatMap((invocation, index) =>
-            launchers.flatMap((launcher) => {
-                const { words, set } = launcher[0] === invocation[0] ? _relaunched(launcher, invocation) : { words: invocation, set: [] };
-                return set.length === 0 ? [] : [{ splices: replaced(command, index, index + 1, words.map(quoted).join(' ')), notice: some(`${invocation[0]} took ${set.join(' ')} from its Nx targets`) }];
-            }),
-        );
-        return held.length === 0
-            ? relaunched
-            : held.map(({ form, forwarded, notice }) => {
-                  const passed = forwarded.flatMap((index) => command.spans.slice(at + index, at + index + 1).map(({ start, end }) => decoder.decode(bytes.subarray(start, end))));
-                  return { splices: replaced(command, absorbed, position + 1, [form, ...(passed.length === 0 ? [] : ['--', ...passed])].join(' ')), notice: some(notice) };
-              });
-    });
-    const outside = ({ splices }: Change): boolean => splices.every(({ start, end }) => !routes.some(({ splices: claimed }) => claimed.some((span) => start >= span.start && end <= span.end)));
-    const changes = [...routes, ...commands.flatMap(([command]) => (command.nested ? [] : [..._writers(command, project), ..._hidden(command), ..._refurb(command), ..._across(command)])).filter(outside)];
+    const changes = commands.flatMap(([command]) => (command.nested ? [] : [..._hidden(command), ..._refurb(command), ..._across(command)]));
     const spliced = changes
         .flatMap(({ splices }) => splices)
         .toSorted((left, right) => left.start - right.start)
@@ -333,27 +266,15 @@ const _rewrite = (text: string, { commands }: Located, project: string, routed: 
 
 // --- [DECISION]
 
-const _routed = async (host: Host, owned: Catalog, { commands }: Located): Promise<readonly Routed[]> => {
-    const calls = commands.flatMap(([command, cwd]) => (command.nested ? [] : command.invocations.map((invocation, position) => ({ command, invocation, cwd, position }))));
-    const paths = [...new Set(calls.flatMap(({ invocation, cwd }) => (cwd.kind === 'some' ? solutions(invocation, cwd.value) : [])))];
-    const read = await Promise.all(paths.map(async (path) => [path, await host.read(path)] as const));
-    const files = new Map(read.flatMap(([path, held]) => (held.kind === 'some' ? [[path, held.value] as const] : [])));
-    return calls.map(({ command, invocation, cwd, position }) => {
-        const program = basename(invocation[0]);
-        return { command, position, ...(cwd.kind === 'some' ? route(owned, invocation, cwd.value, files) : { routes: [], denials: owned.tools.has(program) ? [`${program} ${_UNPLACED}`] : [], launchers: [] }) };
-    });
-};
-
 const commandDecision = async (host: Host, command: string, project: string): Promise<Decision> => {
     const parsed = await parse(host.scan, command);
     if (parsed.kind === 'fault') {
         return { kind: 'deny', reason: `Command not parsed, ${rendered(parsed.faults)}` };
     }
-    const [owned, root, cwd, home] = await Promise.all([host.catalog(), host.root(), host.cwd(), host.home()]);
+    const [root, cwd, home] = await Promise.all([host.root(), host.cwd(), host.home()]);
     const located: Located = { root, home, commands: _located(parsed.value.commands, cwd, home) };
-    const routed = owned.kind === 'some' ? await _routed(host, owned.value, located) : [];
-    const reasons = [...(await _delete(host, parsed.value, project, located)), ...(await _git(host, located)), ..._stdin(parsed.value.commands), ..._inline(parsed.value.commands), ..._sequence(parsed.value), ...routed.flatMap(({ denials }) => denials)];
-    return reasons.length === 0 ? { kind: 'allow', rewrite: _rewrite(command, located, project, routed) } : { kind: 'deny', reason: [...new Set(reasons)].join('. ') };
+    const reasons = [...(await _delete(host, parsed.value, project, located)), ...(await _git(host, located)), ..._stdin(parsed.value.commands), ..._inline(parsed.value.commands), ..._sequence(parsed.value)];
+    return reasons.length === 0 ? { kind: 'allow', rewrite: _rewrite(command, located) } : { kind: 'deny', reason: [...new Set(reasons)].join('. ') };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

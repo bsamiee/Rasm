@@ -1,8 +1,4 @@
-import { createHash } from 'node:crypto';
-import { findPackageJSON, isBuiltin } from 'node:module';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
-import { Lang, parse as parseSource } from '@ast-grep/napi';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { Array, Config, Console, Effect, Exit, Fiber, FileSystem, Formatter, flow, HashMap, identity, Option, Path, type PlatformError, Predicate, Schedule, Schema, Stream, String, Struct } from 'effect';
@@ -22,8 +18,6 @@ interface Observed {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<pgid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\?|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
-const XCODEBUILD_PATH = /(?:^|\s)-derivedDataPath\s+(?<path>\S+)/gu;
-const VERSION_PREFIX = /^v/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,8 +26,6 @@ const Agents = Schema.fromJsonString(Schema.Struct({ launchd: Schema.Struct({ ag
 const Launched = Schema.Struct({ WorkingDirectory: Schema.OptionFromOptionalKey(Schema.String), StandardOutPath: Schema.OptionFromOptionalKey(Schema.String), StandardErrorPath: Schema.OptionFromOptionalKey(Schema.String) });
 const Plist = Schema.TemplateLiteralParser(['dev.mise.', Schema.String, '.plist']);
 const Derived = Schema.Struct({ WorkspacePath: Schema.String });
-const Plugins = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.String, version: Schema.String })));
-const Provider = Schema.fromJsonString(Schema.Struct({ version: Schema.String, pulumi: Schema.Struct({ resource: Schema.Literal(true), name: Schema.String, version: Schema.OptionFromOptionalKey(Schema.String) }) }));
 const Metadata = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })) }));
 const Product = Schema.TemplateLiteralParser([Schema.String, ' v', Schema.String, ' (', Schema.String, '):']);
 const Listed = Schema.Struct({ pid: Schema.FiniteFromString, ppid: Schema.FiniteFromString, pgid: Schema.FiniteFromString, uid: Schema.FiniteFromString, state: Schema.String, terminal: Schema.OptionFromUndefinedOr(Schema.String), started: Schema.String, command: Schema.String });
@@ -43,7 +35,7 @@ const Connection = Schema.TemplateLiteralParser([Schema.String, '->', Schema.Str
 const Worktree = Schema.TemplateLiteralParser(['worktree ', Schema.String]);
 const Registration = Schema.TemplateLiteralParser(['lldb-mcp-', Schema.FiniteFromString, '.json']);
 const Grammars = Schema.Struct({ customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String })) });
-const Invocation = Schema.Struct({ cwd: Schema.optionalKey(Schema.String), command: Schema.optionalKey(Schema.String), commands: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Schema.Struct({ command: Schema.String })]))) });
+const Xcode = Schema.Struct({ env: Schema.Struct({ XCODE_DERIVED_DATA_PATH: Schema.String }) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -52,6 +44,7 @@ const CleanupReason = Schema.TaggedUnion({
     Unparsed: { source: Schema.String, cause: Schema.Defect() },
     Ungraphed: { cause: Schema.Defect() },
     Unsignaled: { pid: Schema.Finite, cause: Schema.Defect() },
+    Unexited: { pids: Schema.Array(Schema.Finite) },
 });
 class CleanupError extends Schema.TaggedError<CleanupError, { readonly brand: unique symbol }>()('CleanupError', { reason: CleanupReason }) {
     override get message(): string {
@@ -60,6 +53,7 @@ class CleanupError extends Schema.TaggedError<CleanupError, { readonly brand: un
             Unparsed: ({ source, cause }) => `${source} did not parse: ${Formatter.format(cause)}`,
             Ungraphed: ({ cause }) => `the cached Nx project graph is unreadable: ${Formatter.format(cause)}`,
             Unsignaled: ({ pid, cause }) => `cannot signal process ${pid}: ${Formatter.format(cause)}`,
+            Unexited: ({ pids }) => `processes ${pids.join(', ')} still run after their launchd jobs were booted out`,
         });
     }
 }
@@ -209,49 +203,17 @@ const terminate = Effect.fn('terminate')(function* (sep: string, state: Observed
 
 // --- [FILES]
 const plan = Effect.fn('plan')(function* (root: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const program = path.join(root, 'infra', 'cli.ts');
-    const [graph, { customLanguages }, plugins, providers] = yield* Effect.all(
-        [
-            Effect.try({ try: readCachedProjectGraph, catch: (cause) => CleanupError.make({ reason: { _tag: 'Ungraphed', cause } }) }),
-            read(path.join(root, 'sgconfig.yml'), parseYaml).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Grammars))),
-            execute('pulumi', ['plugin', 'ls', '--json']).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Plugins))),
-            read(program, (text) =>
-                parseSource(Lang.TypeScript, text)
-                    .root()
-                    .findAll({ rule: { kind: 'string_fragment', inside: { kind: 'string', inside: { kind: 'import_statement' } } } })
-                    .map((source) => source.text())
-                    .filter((source) => !isBuiltin(source)),
-            ).pipe(
-                Effect.flatMap((sources) => Effect.forEach(sources, (source) => Effect.try({ try: () => Option.fromNullishOr(findPackageJSON(source, pathToFileURL(program))), catch: (cause) => CleanupError.make({ reason: { _tag: 'Unparsed', source, cause } }) }))),
-                Effect.flatMap((manifests) =>
-                    Effect.forEach(Array.dedupe(Array.getSomes(manifests)), (manifest) =>
-                        Effect.map(
-                            fs.readFileString(manifest),
-                            flow(
-                                Schema.decodeUnknownOption(Provider),
-                                Option.map(({ version, pulumi: { name, version: pinned } }) => `${name}-v${Option.getOrElse(pinned, () => version).replace(VERSION_PREFIX, '')}`),
-                            ),
-                        ),
-                    ),
-                ),
-                Effect.map(Array.getSomes),
-            ),
-        ],
-        { concurrency: 'unbounded' },
-    );
+    const path = yield* Path.Path;
+    const [graph, { customLanguages }] = yield* Effect.all([Effect.try({ try: readCachedProjectGraph, catch: (cause) => CleanupError.make({ reason: { _tag: 'Ungraphed', cause } }) }), read(path.join(root, 'sgconfig.yml'), parseYaml).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Grammars)))], {
+        concurrency: 'unbounded',
+    });
     const nodes = Object.values(graph.nodes);
     return {
         grammars: Object.values(customLanguages).map(({ libraryPath }) => path.resolve(root, libraryPath)),
         derived: nodes
             .flatMap((node) => Object.values(node.data.targets ?? {}))
-            .flatMap(({ options }) => Option.toArray(Schema.decodeUnknownOption(Invocation)(options)))
-            .flatMap(({ cwd, command, commands }) =>
-                [...Array.fromNullishOr(command), ...(commands ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.command))]
-                    .flatMap((text) => [...text.matchAll(XCODEBUILD_PATH)].flatMap((match) => Array.fromNullishOr(match.groups?.path)))
-                    .map((entry) => path.resolve(root, cwd ?? '.', entry.replace('$NX_WORKSPACE_ROOT', root))),
-            ),
-        unused: plugins.filter(({ name, version }) => !providers.includes(`${name}-v${version}`)),
+            .flatMap(({ options }) => Option.toArray(Schema.decodeUnknownOption(Xcode)(options)))
+            .map(({ env }) => path.resolve(root, env.XCODE_DERIVED_DATA_PATH)),
         outputs: nodes.flatMap((node) =>
             Object.entries(node.data.targets ?? {}).flatMap(([target, definition]) =>
                 definition.outputs === undefined
@@ -284,9 +246,8 @@ const collect = Effect.fn('collect')(function* (candidates: readonly string[], r
 });
 const discard = Effect.fn('discard')(function* (targets: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
-    const present = yield* Effect.filter(targets, (target) => fs.exists(target), { concurrency: 'unbounded' });
-    yield* Effect.forEach(present, (target) => Console.log(`remove ${target}`), { discard: true });
-    return yield* accumulate(present, (target) => fs.remove(target, { recursive: true }));
+    yield* Effect.forEach(targets, (target) => Console.log(`remove ${target}`), { discard: true });
+    return yield* accumulate(targets, (target) => fs.remove(target, { recursive: true, force: true }));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -296,20 +257,9 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const engines = path.join(pulumi, 'plugins');
     const root = path.resolve(workspaceRoot);
     const residues = ['.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
-    const workspaceKey = 16;
-    const [drivers, sessions, launchAgents] = [path.join(home, '.dylint_drivers'), path.join(home, 'Library', 'Caches', 'ms-playwright', 'daemon'), path.join(home, 'Library', 'LaunchAgents')];
+    const [drivers, launchAgents] = [path.join(home, '.dylint_drivers'), path.join(home, 'Library', 'LaunchAgents')];
     const shown = { stdout: 'inherit' } as const;
-    const pruning = yield* Effect.forkChild(
-        accumulate(
-            [
-                execute('mise', ['prune', '--yes'], shown).pipe(Effect.andThen(execute('mise', ['cache', 'prune'], shown))),
-                execute('uv', ['cache', 'prune'], shown),
-                execute('pnpm', ['store', 'prune'], shown).pipe(Effect.andThen(execute('pnpm', ['cache', 'prune'], shown))),
-                execute('playwright', ['install', 'chromium'], shown),
-            ],
-            identity,
-        ),
-    );
+    const pruning = yield* Effect.forkChild(accumulate([execute('mise', ['cache', 'prune'], shown), execute('uv', ['cache', 'prune'], shown), execute('pnpm', ['store', 'prune'], shown).pipe(Effect.andThen(execute('pnpm', ['cache', 'prune'], shown)))], identity));
     const planning = yield* Effect.forkChild(plan(root));
     const [worktrees, installed, developer, agents, rustup, products, members] = yield* Effect.all(
         [
@@ -341,10 +291,15 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
                 (agent) =>
                     read(agent.path, parsePlist).pipe(
                         Effect.flatMap(Schema.decodeUnknownEffect(Launched)),
-                        Effect.map(({ StandardOutPath, StandardErrorPath }) => ({ ...agent, logs: [...Option.toArray(StandardOutPath), ...Option.toArray(StandardErrorPath)] })),
+                        Effect.map(({ WorkingDirectory, StandardOutPath, StandardErrorPath }) =>
+                            Option.map(
+                                Option.filter(WorkingDirectory, (directory) => directory === root),
+                                () => ({ ...agent, logs: [...Option.toArray(StandardOutPath), ...Option.toArray(StandardErrorPath)] }),
+                            ),
+                        ),
                     ),
                 { concurrency: 'unbounded' },
-            ),
+            ).pipe(Effect.map(Array.getSomes)),
             entries(launchAgents).pipe(
                 Effect.map((found) => Array.getSomes(found.map(({ name, path: plist }) => Option.map(Schema.decodeUnknownOption(Plist)(name), ([, agent]) => ({ agent, plist })))).filter(({ agent }) => !agents.some(({ name }) => name === agent))),
                 Effect.flatMap(
@@ -352,7 +307,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
                         ({ plist }) =>
                             read(plist, parsePlist).pipe(
                                 Effect.flatMap(Schema.decodeUnknownEffect(Launched)),
-                                Effect.map(({ WorkingDirectory }) => Option.exists(WorkingDirectory, (directory) => under(path.sep, directory, worktrees))),
+                                Effect.map(({ WorkingDirectory }) => Option.exists(WorkingDirectory, (directory) => directory === root)),
                             ),
                         { concurrency: 'unbounded' },
                     ),
@@ -368,7 +323,6 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const state = yield* terminate(path.sep, observed, worktrees, Array.cartesianWith(worktrees, ['node_modules', '.venv', ...residues], path.join), [...installed, ...developer, ...rustup.map(Struct.get('path'))], [engines], owner);
     const removal = Effect.gen(function* () {
         const planned = yield* Fiber.join(planning);
-        yield* accumulate(planned.unused, ({ kind, name, version }) => execute('pulumi', ['plugin', 'rm', kind, name, version, '--yes'], shown));
         const toolchains = rustup.map(Struct.get('name'));
         const strays = yield* Effect.all(
             [
@@ -394,8 +348,8 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
             ],
             { concurrency: 'unbounded' },
         ).pipe(Effect.map((found) => found.flat().map(Struct.get('path'))));
-        const retained = Array.dedupe([...loaded.flatMap(Struct.get('logs')), ...planned.grammars, cacheDir, ...planned.derived, engines, ...worktrees.map((worktree) => path.join(sessions, createHash('sha1').update(worktree).digest('hex').slice(0, workspaceKey)))]);
-        const listed = Array.dedupe([...residues.map((entry) => path.join(root, entry)), ghidra, sessions, ...planned.outputs, ...planned.cloudflare, ...strays]);
+        const retained = Array.dedupe([...loaded.flatMap(Struct.get('logs')), ...planned.grammars, cacheDir, ...planned.derived, pulumi]);
+        const listed = Array.dedupe([...residues.map((entry) => path.join(root, entry)), ghidra, ...planned.outputs, ...planned.cloudflare, ...strays]);
         const candidates = listed.filter((candidate) => !(under(path.sep, candidate, retained) || listed.some((other) => other !== candidate && under(path.sep, candidate, [other]))));
         const [kept, targeted] = [new Set(retained), new Set(candidates)];
         const holders = held(
@@ -414,11 +368,22 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
         const spared = holders.filter(({ holder }) => !owned.some(({ pids }) => pids.includes(holder.pid)));
         yield* Effect.forEach(spared, ({ directory, holder }) => Console.log(`spare ${directory} held by ${holder.pid} ${holder.command}`), { discard: true });
         const clearing = discard(yield* collect(candidates, retained, Array.dedupe(spared.map(Struct.get('directory')))));
+        const serving = owned.flatMap(Struct.get('pids'));
         return yield* owned.length === 0
             ? clearing
             : Effect.acquireUseRelease(
                   Effect.forEach(owned, ({ label }) => Console.log(`bootout ${label}`), { discard: true }).pipe(Effect.andThen(accumulate(owned, ({ label }) => execute('launchctl', ['bootout', `gui/${owner.uid}/${label}`]))), Effect.result),
-                  (bootout) => Effect.fromResult(bootout).pipe(Effect.andThen(exited(owned.flatMap(Struct.get('pids')))), Effect.andThen(clearing)),
+                  (bootout) =>
+                      Effect.fromResult(bootout).pipe(
+                          Effect.andThen(exited(serving)),
+                          Effect.filterOrElse(Option.isSome, () =>
+                              Effect.flatMap(
+                                  Effect.filter(serving, (pid) => send(pid, 0)),
+                                  (alive) => Effect.fail(CleanupError.make({ reason: { _tag: 'Unexited', pids: alive } })),
+                              ),
+                          ),
+                          Effect.andThen(clearing),
+                      ),
                   () => execute('mise', ['bootstrap', 'macos', 'launchd-agents', 'apply', '--yes'], shown),
               );
     });

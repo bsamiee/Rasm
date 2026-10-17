@@ -39,7 +39,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Lints demanding docs take `allow`, names and types state each contract
 - `clippy.toml` API bans name their replacement
 - Ban rows take `allow-invalid` where their crate loads without the item (platform module, disabled feature), Clippy skips unloaded crates
-- Cargo `unused_dependencies` reads a member under default target selection or `--all-targets` alone, rustc `unused_crate_dependencies` stays off
+- Cargo checks normal dependencies under default selection or a library selection with all binaries, rustc `unused_crate_dependencies` stays off
 - Clippy's `cargo` group fails a duplicate crate, an `allowed-duplicate-crates` row names one no catalog move clears with each release's dependents
 
 ## [05]-[BUILD]
@@ -70,13 +70,13 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 ## [07]-[CHECKERS]
 
 - Clippy is each member's type check over its library, binary, and test targets, a separate `cargo check` repeats its compile
-- Tested members pass `--lib`, `--bins`, and `--tests` to `typecheck` and `lint:dylint`, untested members take Cargo's default selection
+- Tested libraries select `--lib --bins --tests`, tested binary-only packages `--all-targets`, untested packages Cargo defaults
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
-- Editors and harnesses run rust-analyzer checks as one `check.overrideCommand` Clippy run over those targets
+- Editors and harnesses run locked workspace Clippy with `-- -D warnings` to reject warnings in JSON output
 - `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
 - Editors and harnesses set `check.overrideCommand`, `rustc.source`, and `cargo.extraEnv`, `rust-analyzer.toml` flycheck and Cargo keys go unread
 - `cargo.extraEnv` points `CARGO_BUILD_TARGET_DIR` and `CARGO_BUILD_BUILD_DIR` at `rust-analyzer` folders no Nx target shares
-- `rustc-dev` installs its lock at `rustc-src/rust/Cargo.lock`, a `mise.toml` `postinstall` hook copies it beside the compiler manifest
+- Both clients read `.cargo/rustc-source/Cargo.toml` through an ignored symlink to mise's matching official compiler source archive
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
 - `rustfmt.toml` holds the keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
 - `rustfmt.toml` sets `edition` and `style_edition`, plain `rustfmt` reads neither from `Cargo.toml`
@@ -88,8 +88,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 - `cargo upgrade` from cargo-edit moves each catalog row to its newest release, breaking releases included, Cargo itself moves no requirement
 - `cargo update` follows every catalog move
-- `cargo dylint upgrade` on `upgrade:rust` moves the channel and the `clippy_utils` revision together, `mise install` then installs the new date
-- Date moves run the checks, a renamed lint fails `unknown_lints` and a stabilized feature fails `stable_features` under `build.warnings = "deny"`
+- Select newest `clippy_utils.rev` matching its declared nightly and Dylint driver's extra-symbol table
+- `rustup toolchain install --no-self-update --no-update` reads the declaration, `mise install http:rustc-source` acquires matching source
+- Nightly or Clippy revision moves require unchanged UI fixtures and strict Clippy to pass
 - Prereleases join by hand through a catalog row naming one, `cargo upgrade` takes no prerelease option
 - Edition moves run `cargo fix --edition`, then set `[workspace.package]` and `rustfmt.toml` `edition` together
 
@@ -110,6 +111,6 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Each `tests/ui/<folder>.rs` ends in one `snapshots!` row naming its functions, `ui` reads each folder's `SNAPSHOTS` and names each differing lint
 - Lint folders join `tests/ui/main.rs` as a `mod` line and a `<folder>::SNAPSHOTS` entry
 - `cargo insta test -p lints` records a changed snapshot as pending, `cargo insta review` writes it
-- Fixtures compile in that run alone under `[workspace.lints]` rustc rows, `typecheck` and `lint:dylint` select no example target
+- Fixtures compile in that run alone under `[workspace.lints]` rustc rows, library checks select no example target
 - `host:dylint` members take no `coverage`, the dylint driver runs their lints outside instrumentation
 - Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes `.cache`

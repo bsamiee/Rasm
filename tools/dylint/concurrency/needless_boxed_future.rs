@@ -92,7 +92,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             );
         }
         for (&function, &output) in self.returns.iter().filter(|(function, _)| !self.pointers.contains(function)) {
-            let body = cx.tcx.hir_body_owned_by(function).value;
+            let body = &cx.tcx.hir_body_owned_by(function).value;
             let typeck = cx.tcx.typeck(function);
             let recursive = any_expr(cx.tcx, body, |called| called.res(typeck).opt_def_id().or_else(|| typeck.type_dependent_def_id(called.hir_id)) == Some(function.to_def_id()));
             let name = cx.tcx.item_name(function);

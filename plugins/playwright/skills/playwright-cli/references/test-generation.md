@@ -1,117 +1,92 @@
 # [TEST_GENERATION]
 
-Plans list a feature's scenarios, test files hold one scenario each, and healing fixes a failing test.
+Native planner, generator, and healer roles use the owning suite's config, fixtures, and evidence.
 
-Test files wait through web-first assertions and hold none of:
-- `networkidle`, `waitForLoadState`, `waitForNavigation`, or `waitForTimeout` waits
-- `page.evaluate` calls or skipped hooks
+## [01]-[ASSIGNMENT]
 
-## [01]-[SEED]
+Dispatch names application, config/project, scenarios, writable files, session, application-state scope, and artifact destination.
 
-Seed tests under the config's `testDir` put the page in the state every scenario starts from (navigation, login, feature flags):
-- `fixtures.ts` beside the config exports a `test` with a `page` fixture that navigates
-- `seed.spec.ts` requests that fixture and asserts the page it opens
+- Read the config, assigned plan, seed, imported fixtures, and related tests before browser work
+- One generator owns a complete feature file; `generator_write_test` replaces that file
+- Keep one active Test MCP investigation per process, including inherited subagent connections
+- Named CLI sessions isolate browsers, not application data; serialize replays that share configured runtime storage
+- Portfolio replays serialize per checkout, including read-only selections
+- Every browser launch stays headless through CLI, MCP, and suite configuration
 
-```ts
-import { test as base } from '@playwright/test';
-
-export const test = base.extend({
-    page: async ({ page }, use) => {
-        await page.goto('/');
-        await use(page);
-    },
-});
-```
-
-```ts
-import { expect } from '@playwright/test';
-import { test } from './fixtures.ts';
-
-test('seed', async ({ page }) => {
-    await expect(page).toHaveTitle('<title>');
-});
-```
+Use `playwright-tests.md` for replay and debugging, `session-management.md` for CLI session ownership.
 
 ## [02]-[PLANNING]
 
-Plans sit at `specs/<feature>.plan.md` in the config directory, where the generator finds them.
+Call `planner_setup_page` with the selected `seedFile` and `project`, then explore observed behavior through native browser tools.
 
-Exploration covers:
-- Interactive elements (forms, buttons, lists, filters, modals)
-- Primary user journeys end to end, for each user type the page serves
-- Edge cases (empty states, validation errors, long input, boundary values)
-- Persistence across reload, storage, and URL fragments
-- Controls that change the URL, with back and forward behavior
+- Seed and fixture source establish initial navigation, authentication, and state
+- `browser_snapshot` supplies roles, names, states, and transient refs
+- Named screenshots supply visual facts absent from snapshots
+- Console and network tools expose failures and requests around each action
+- `browser_evaluate` reads page values; `browser_run_code_unsafe` runs an `async (page) => {}` function in the test process
+- Actions and evaluations supply `intent` describing their purpose
+- `browser_tabs` with `action: "list"` identifies the current page
 
-Plans list groups of scenarios, each scenario independent and starting from the seed's fresh state:
-- Test file names are the scenario name in kebab-case (`Add single todo` is `add-single-todo.spec.ts`)
-- Scenarios cover the happy path, edge cases, validation, negative flows, and persistence
-- Steps read at the user level (`Type 'Buy milk' into the input`), each `- expect:` line becomes one assertion
+Scenarios describe independent user journeys with observable expected outcomes:
 
-```markdown
-# <Feature> Test Plan
+- Forms, buttons, lists, filters, menus, and dialogs
+- Empty states, validation, long input, and boundary values
+- Persistence across reload, storage, and navigation
+- Keyboard, focus, responsive, visual, and accessibility behavior
 
-## Application Overview
+Submit transient plans through `planner_submit_plan`. Use `planner_save_plan` when generation or maintenance consumes a Markdown file.
 
-<One paragraph describing what the feature does>
+- Plan fields are `overview` and `suites`; saved plans add `name` and workspace-relative `fileName`
+- Suites name `seedFile` and `tests`; tests name their feature `file`, scenario `name`, and `steps`
+- Steps hold optional `perform` and expected outcomes in `expect`
+- Test files stay beneath the config's `testDir`, with paths relative to workspace root
+- Preserve evidence selected for delivery and release the paused runner through `test_list`
 
-## Test Scenarios
+## [03]-[GENERATION]
 
-### 1. <Group Name>
+Run every assigned scenario through the server before writing its feature file:
 
-**Seed:** `<testDir>/seed.spec.ts`
+1. Call `generator_setup_page` with the scenario's `plan`, `seedFile`, and selected `project`
+2. Execute each step with a current snapshot ref and its step text as `intent`
+3. Record assertions through the appropriate `browser_verify_*` tool
+4. Read `generator_read_log` after the last verification
+5. Write the complete owned file through `generator_write_test`
+6. Preserve selected evidence, call `test_list`, then replay through the suite's native command
 
-#### 1.1. <Scenario name>
-
-**File:** `<testDir>/<group>/<scenario-name>.spec.ts`
-
-**Steps:**
-  1. <Concrete user step>
-    - expect: <observable outcome>
-    - expect: <another observable outcome>
-  2. <Next step>
-    - expect: <outcome>
-
-#### 1.2. <Next scenario>
-
-### 2. <Next Group>
-
-**Seed:** `<testDir>/seed.spec.ts`
-```
-
-## [03]-[TEST_FILES]
-
-Test files hold the recorded code at the path the plan names, one test per file, each `- expect:` line as one assertion:
-- File path, describe name, and test name come verbatim from the plan without the ordinal
-- `test` comes from the fixtures file by its path from the test (`../fixtures.ts` under `<testDir>/<group>/`), `expect` from `@playwright/test`
-- Tests importing `test` from `@playwright/test` skip the fixture's navigation and time out at the first locator
-- Locators used twice take a local variable
-
-```ts
-import { expect } from '@playwright/test';
-import { test } from '../fixtures.ts';
-
-test.describe('Signing in and out', () => {
-    test('Sign in with valid credentials', async ({ page }) => {
-        await page.getByRole('textbox', { name: 'username' }).fill('John Doe');
-        await page.getByRole('textbox', { name: 'password' }).fill('TestPassword');
-        await page.keyboard.press('Enter');
-        await expect(page.getByRole('heading')).toContainText('Welcome, John Doe!');
-    });
-});
-```
+- Setup opens the generator journal before running its seed; reading a log before setup fails
+- Journal records seed source and successful action/assertion code beneath each `intent`
+- List verification records `toMatchAriaSnapshot`; text verification records visible matching elements
+- `fileName` is workspace-relative and must fall within a configured `testDir`
+- Scenario and suite names come from the plan without ordinals
+- Import the fixture required by the test; native `@playwright/test` suits tests that navigate or mount themselves
+- Use web-first assertions and semantic locators; a locator read twice takes one local variable
+- Group related scenarios in one feature file, adding `test.describe` only for shared suite behavior
 
 ## [04]-[HEALING]
 
-Healing fixes failing tests one error at a time, with a rerun after each fix, and names one cause of each failure:
-- Locator drift: a changed selector, a new wrapper element, a renamed label or ARIA name
-- Timing gaps, changed assertion text, and data leaked between runs
-- Environment dependencies and application changes behind a test assumption
+Use `test_list` to select test IDs, then `test_run` for the assigned locations and projects.
 
-Fixes follow these rules:
-- Fixed assertions on dynamic data take a regular expression
-- `test.fixme()` marks the test after 3 fix-and-rerun cycles when the failure persists and the test reads correct
+1. Read each failing spec and use `test_debug` with its listed `id` and `title`
+2. Inspect the paused snapshot, console messages, and requests around the failure
+3. Correct the demonstrated cause within assigned source ownership
+4. Release the paused runner with `test_list`, then replay the corrected scope
+5. Update a consumed plan when user-visible steps or outcomes changed
 
-Plans whose `**File:**` line names the test reconcile with the fix at the matching scenario:
-- Technical fixes (locator drift, assertion shape) leave the plan alone
-- Fixes that change user-visible steps, inputs, order, or outcomes update the step and expect lines, scenario id and file path kept
+- `test_run` accepts folders, files, and `file:line` locations, with native project names
+- `test_debug` pauses on the first error with a five-second action timeout; a passing debug run leaves no page
+- `browser_generate_locator` derives a locator from a current snapshot ref
+- Network request indices select recorded headers or bodies; console reads can include messages since test start
+- Locator, timing, data isolation, environment, and product defects need different corrections
+- Product defects remain failing tests; attempt counts do not justify `test.fixme()` or skipped assertions
+- Report findings outside assigned source ownership with retained evidence
+
+## [05]-[EVIDENCE]
+
+Test MCP setup, debug, and replay disable configured reporters. An ordinary suite replay supplies the retained report.
+
+- Finish tracing and recording before closing their producer
+- `test_list` stops the paused runner and completes teardown before ordinary replay clears configured output
+- Await replay exit and server shutdown before retaining reports or deleting disposable task output
+- Keep complete HTML reports with attachments and `open: 'never'`
+- Return replay result, changed files, and retained evidence paths
+- Close only the assigned CLI session; persistent profiles use native `delete-data`

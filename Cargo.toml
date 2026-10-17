@@ -1,7 +1,3 @@
-# --- [CARGO_FEATURES] -------------------------------------------------------------------
-
-cargo-features = ["trim-paths"]
-
 # --- [WORKSPACE] ------------------------------------------------------------------------
 
 [workspace]
@@ -76,7 +72,7 @@ itertools             = "0.15.0"                                                
 roaring               = "0.11.5"                                                  # Compressed integer sets with set algebra
 rust-lapper           = "2.0.0-beta.1"                                            # Interval overlap and stabbing queries
 slotmap               = "1.1.1"                                                   # Generational-index arenas holding graph and scene nodes
-smallvec              = { version = "2.0.0-beta.2", features = ["std", "serde"] } # Inline small vectors that spill to heap
+smallvec              = { version = "2.0.0-beta.3", features = ["std", "serde"] } # Inline small vectors that spill to heap
 tdigests              = "1.0.1"                                                   # Mergeable quantile estimates over streams
 
 # --- [CRDT]
@@ -105,7 +101,7 @@ serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0
 json-patch          = "4.2.0"                                                                        # JSON Patch apply and diff over JSON values
 
 # --- [SCHEMA]
-jsonschema = { version = "0.58.6", default-features = false, features = ["resolve-file", "idna"] }                             # Runtime validation of documents against JSON Schema, without `resolve-http` and `tls-aws-lc-rs` since sync `validator_for` panics fetching a remote `$ref` inside a tokio runtime
+jsonschema = { version = "0.59.0", default-features = false, features = ["resolve-file", "idna"] }                             # Runtime validation of documents against JSON Schema, without `resolve-http` and `tls-aws-lc-rs` since sync `validator_for` panics fetching a remote `$ref` inside a tokio runtime
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
@@ -153,15 +149,15 @@ tree-sitter-xml    = "0.7.0"                                                    
 winnow             = "1.0.4"                                                                       # Parser combinators with caller-defined error types
 cel                = { version = "0.15.0", features = ["json"] }                                   # Common Expression Language policies
 tree-sitter        = "0.27.1"                                                                      # Incremental parsing runtime that loads grammar crates
-ast-grep-core      = "0.50.0"                                                                      # Structural search and rewrite over syntax trees
-ast-grep-language  = "0.50.0"                                                                      # Built-in grammars of structural search
+ast-grep-core      = "0.51.0"                                                                      # Structural search and rewrite over syntax trees
+ast-grep-language  = "0.51.0"                                                                      # Built-in grammars of structural search
 
 # --- [MARKUP]
-ammonia      = "4.2.3"                                                                               # Allow-list sanitization of untrusted HTML
+ammonia      = "4.2.4"                                                                               # Allow-list sanitization of untrusted HTML
 comrak       = { version = "0.56.0", default-features = false, features = ["cli", "syntect-fancy"] } # CommonMark and GFM parsed into AST, default `syntect-onig` builds Oniguruma C beside `regex-fancy`
-htmd         = "0.5.5"                                                                               # HTML converted to Markdown
+htmd         = "0.5.6"                                                                               # HTML converted to Markdown
 lightningcss = { version = "1.0.0-alpha.72", features = ["visitor", "into_owned"] }                  # CSS parsing, transformation, and minification
-minijinja    = { version = "3.0.0", features = ["serde", "json", "loop_controls", "urlencode"] }     # Jinja templates rendering reports and generated documents
+minijinja    = { version = "3.0.1", features = ["serde", "json", "loop_controls", "urlencode"] }     # Jinja templates rendering reports and generated documents
 quick-xml    = { version = "0.42.0", features = ["serialize", "encoding"] }                          # Streaming XML read and write with serde mapping
 roxmltree    = "0.21.1"                                                                              # Read-only XML trees with source positions that locate validation errors
 scraper      = "0.27.0"                                                                              # HTML parsing with CSS selectors
@@ -181,7 +177,7 @@ ignore                = "0.4.33"                                                
 notify-debouncer-full = { version = "0.8.0-rc.2", features = ["tokio"] }                                                                                                                                    # Debounced, rename-aware change batches
 
 # --- [COMPRESSION]
-async-compression = { version = "0.4.50", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] }                                                 # Compression over async byte streams
+async-compression = { version = "0.4.51", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] }                                                 # Compression over async byte streams
 brotli            = "9.0.0"                                                                                                                                              # Brotli streams
 bzip2             = "0.6.1"                                                                                                                                              # bzip2 streams
 flate2            = { version = "1.1.10", default-features = false, features = ["zlib-rs", "runtime_detection"] }                                                        # Deflate, zlib, and gzip streams, default `rust_backend` compiles miniz_oxide beside zlib-rs
@@ -189,10 +185,10 @@ lz4_flex          = "0.14.0"                                                    
 lzma-rust2        = "0.22.0"                                                                                                                                             # XZ, LZMA, and LZIP streams
 snap              = "1.1.2"                                                                                                                                              # Snappy frames
 tar               = "0.4.46"                                                                                                                                             # Tar archives
-zstd              = { version = "0.14.2", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
+zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
 qbsdiff           = "1.4.4"                                                                                                                                              # Binary deltas between file versions
 sevenz-rust2      = { version = "0.24.0", features = ["zstd"] }                                                                                                          # 7z archives
-zip               = { version = "9.0.3", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
+zip               = { version = "9.0.4", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
 
 # --- [CRYPTOGRAPHY]
 argon2                   = "0.6.0"                                                                             # Password hashing in PHC strings
@@ -239,7 +235,7 @@ axum               = "0.8.9"                                                    
 matchit            = "0.9.2"                                                                                                                                                                                    # URI and URI-template routes matched to readers, static before template, parameter suffixes and slashless routes
 reqwest            = { version = "0.13.5", features = ["json", "stream", "gzip", "zstd", "brotli"] }                                                                                                            # HTTP client with pooling, streaming, and decompression
 aide               = { version = "0.16.0-alpha.4", features = ["axum-json", "axum-query", "scalar"] }                                                                                                           # OpenAPI documents derived from tool parameter schemas
-octocrab           = { version = "0.54.4", default-features = false, features = ["default-client", "follow-redirect", "jwt-aws-lc-rs", "retry", "rustls", "rustls-aws-lc-rs", "stream", "timeout", "tracing"] } # GitHub REST client, default `rustls-ring` adds ring beside aws-lc-rs
+octocrab           = { version = "0.54.5", default-features = false, features = ["default-client", "follow-redirect", "jwt-aws-lc-rs", "retry", "rustls", "rustls-aws-lc-rs", "stream", "timeout", "tracing"] } # GitHub REST client, default `rustls-ring` adds ring beside aws-lc-rs
 reqwest-middleware = { version = "0.5.2", features = ["json", "rustls"] }                                                                                                                                       # Middleware chain around HTTP clients
 http-cache-reqwest = "1.0.0-alpha.9"                                                                                                                                                                            # RFC 9111 response cache in embedded store
 reqwest-tracing    = "0.7.1"                                                                                                                                                                                    # Client request spans with semantic-convention attributes
@@ -257,7 +253,7 @@ object_store = { version = "0.14.2", features = ["aws", "gcp", "azure", "http"] 
 reqwest_dav  = "0.3.3"                                                            # WebDAV transfers
 russh        = "0.64.1"                                                           # SSH clients and servers reaching remote workers
 russh-sftp   = "3.0.1"                                                            # SFTP over SSH channels
-suppaftp     = { version = "12.2.0", features = ["tokio-rustls-aws-lc-rs"] }      # FTP and FTPS transfers
+suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }      # FTP and FTPS transfers
 
 # --- [TELEMETRY]
 opentelemetry                      = "0.33.1"                                                           # Trace, metric, and log API
@@ -305,7 +301,7 @@ tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-s
 
 # --- [DATABASES]
 clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                 # Typed row inserts and selects over ClickHouse
-duckdb           = { version = "1.10506.0", features = ["json", "parquet", "appender-arrow"] }                                                                             # In-process analytics over Parquet, CSV, JSON, and attached databases
+duckdb           = { version = "1.10506.1", features = ["json", "parquet", "appender-arrow"] }                                                                             # In-process analytics over Parquet, CSV, JSON, and attached databases
 falkordb         = { version = "0.10.4", features = ["tokio-rustls"] }                                                                                                     # FalkorDB graph queries
 fjall            = "3.1.12"                                                                                                                                                # Embedded LSM key-value store holding write-heavy state
 influxdb3-client = "0.3.0"                                                                                                                                                 # InfluxDB 3 writes and queries
@@ -340,7 +336,7 @@ cloudevents-sdk           = { version = "0.9.0", features = ["axum", "http-bindi
 lapin                     = "4.12.2"                                                                                                                                                                                                                      # AMQP 0-9-1 client
 lettre                    = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] }                                                     # Mail messages over pooled SMTP, default `native-tls` links platform TLS beside rustls
 nkeys                     = "0.4.5"                                                                                                                                                                                                                       # NATS key pairs that sign and verify credentials
-pulsar                    = { version = "6.9.0", default-features = false, features = ["tokio-rustls-runtime", "compression"] }                                                                                                                           # Pulsar producers, consumers, and readers, defaults add the async-std runtime and native-tls
+pulsar                    = { version = "6.9.1", default-features = false, features = ["tokio-rustls-runtime", "compression"] }                                                                                                                           # Pulsar producers, consumers, and readers, defaults add the async-std runtime and native-tls
 rdkafka                   = { version = "0.39.0", features = ["cmake-build", "zstd"] }                                                                                                                                                                    # Kafka producers, consumers, and admin
 redis                     = { version = "1.7.1", features = ["tokio-rustls-comp", "connection-manager", "cluster-async", "json"] }                                                                                                                        # Redis and Valkey commands, pub/sub, streams, and cluster
 rumqttc-next              = { version = "0.34.0", features = ["tracing"] }                                                                                                                                                                                # MQTT 5 client
@@ -401,9 +397,9 @@ argmin-math = { version = "0.5.1", features = ["faer_latest"] }                 
 clarabel    = "0.11.1"                                                                           # Conic interior-point solves
 diffsol     = "0.17.1"                                                                           # ODE and DAE solvers with sensitivities
 fmi         = "0.8.0"                                                                            # FMU co-simulation and model exchange
-kasuari     = "0.4.12"                                                                           # Cassowary constraint solving of layouts
+kasuari     = "0.4.13"                                                                           # Cassowary constraint solving of layouts
 nlopt       = "0.8.1"                                                                            # Constrained local and global optimization
-nuts-rs     = { version = "0.19.0", features = ["ndarray"] }                                     # No-U-Turn sampling
+nuts-rs     = { version = "0.19.1", features = ["ndarray"] }                                     # No-U-Turn sampling
 argmin      = "0.11.0"                                                                           # Gradient, quasi-Newton, simplex, and trust-region minimization
 good_lp     = { version = "1.15.3", default-features = false, features = ["clarabel", "highs"] } # LP and MIP models over HiGHS and Clarabel, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
 
@@ -419,7 +415,7 @@ fidget            = "0.5.1"                                         # Implicit s
 jagua-rs          = { version = "1.1.0", features = ["spp"] }       # Collision detection inside 2D irregular nesting
 kiddo             = "6.3.0"                                         # k-d tree nearest-neighbor queries
 manifold-rust     = "0.16.0"                                        # Manifold mesh booleans
-meshopt           = "0.6.2"                                         # Mesh simplification, vertex cache optimization, and compression
+meshopt           = "0.7.0"                                         # Mesh simplification, vertex cache optimization, and compression
 spade             = "2.15.1"                                        # Constrained Delaunay triangulation and Voronoi duals
 urdf-rs           = "0.10.0"                                        # URDF robot descriptions
 curvo             = "0.3.2"                                         # NURBS curves and surfaces
@@ -443,7 +439,7 @@ tobj          = "4.0.5"                                                    # Wav
 geoarrow-schema   = "0.9.0"                                                                                                                                                                      # GeoArrow extension types
 grib              = { version = "0.19.1", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-libaec"] }                         # GRIB2 fields, default `jpeg2000-unpack-with-openjpeg` builds OpenJPEG C beside hayro
 osmpbf            = "0.3.8"                                                                                                                                                                      # OpenStreetMap PBF extracts
-pmtiles           = { version = "0.24.1", default-features = false, features = ["brotli", "http-async", "iter-async", "mmap-async-tokio", "moka", "object-store", "tilejson", "write", "zstd"] } # PMTiles archives, default S3 features add aws-sdk-s3 and rust-s3 on ring beside object_store
+pmtiles           = { version = "0.25.0", default-features = false, features = ["brotli", "http-async", "iter-async", "mmap-async-tokio", "moka", "object-store", "tilejson", "write", "zstd"] } # PMTiles archives, default S3 features add aws-sdk-s3 and rust-s3 on ring beside object_store
 rstar             = "0.13.0"                                                                                                                                                                     # R*-tree envelope and nearest queries
 solar-positioning = "0.7.1"                                                                                                                                                                      # Solar positions
 tzf-rs            = "2.1.3"                                                                                                                                                                      # Time zones from coordinates
@@ -493,7 +489,7 @@ fontdb      = "0.24.0"                                    # System and file font
 harfrust    = "0.14.0"                                    # Text shaping
 parley      = "0.12.0"                                    # Rich text layout with bidi, line breaking, and fallback
 skrifa      = "0.48.0"                                    # Font metrics, outlines, axes, and charmaps
-write-fonts = { version = "0.54.0", features = ["read"] } # Font table compilation
+write-fonts = { version = "0.54.1", features = ["read"] } # Font table compilation
 subsetter   = "0.2.6"                                     # Font subsetting with variable instancing
 
 # --- [GRAPHICS]
@@ -517,7 +513,7 @@ calamine         = { version = "0.36.1", features = ["dates"] }                 
 chromiumoxide    = "0.9.1"                                                                         # HTML printed to PDF through Chromium
 docx-rs          = "0.4.22"                                                                        # DOCX reading and writing
 hayro            = "0.8.0"                                                                         # PDF rasterization
-ironcalc         = "0.8.3"                                                                         # Spreadsheet formula evaluation
+ironcalc         = "0.9.0"                                                                         # Spreadsheet formula evaluation
 krilla           = { version = "0.8.2", features = ["rayon"] }                                     # PDF creation with subsetting, tagging, and PDF/A and PDF/UA export
 lopdf            = { version = "0.45.0", default-features = false, features = ["jiff", "rayon"] }  # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
 office-crypto    = "0.4.0"                                                                         # Encrypted Office documents decrypted
@@ -529,7 +525,7 @@ umya-spreadsheet = "3.1.1"                                                      
 typst-pdf        = "0.15.1"                                                                        # Typst documents exported to PDF
 
 # --- [MEDIA]
-c2pa        = { version = "0.91.2", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto
+c2pa        = { version = "0.91.3", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto
 cpal        = "0.18.2"                                                                                       # Audio device input and output
 ffmpeg-next = "9.0.0"                                                                                        # Video and audio mux, demux, and encode
 libmpv2     = "6.0.0"                                                                                        # Media playback through mpv
@@ -542,7 +538,7 @@ subtitler   = "2.9.0"                                                           
 symphonia   = { version = "0.6.1", features = ["mp3", "aac", "isomp4"] }                                     # Audio decoding
 
 # --- [MACHINE_LEARNING]
-genai       = "0.7.0-rc.4"                                                                                                                                                                      # Model completions across Anthropic, OpenAI, and OpenRouter
+genai       = "0.7.0-rc.8"                                                                                                                                                                      # Model completions across Anthropic, OpenAI, and OpenRouter
 linfa       = "0.8.1"                                                                                                                                                                           # Clustering, linear models, and decision trees
 ort         = { version = "2.0.0-rc.14", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "copy-dylibs", "tls-rustls-no-provider", "api-31", "coreml"] } # ONNX Runtime inference, default `tls-native` links platform TLS beside rustls
 safetensors = "0.8.0"                                                                                                                                                                           # Safetensors weights
@@ -560,7 +556,7 @@ syn            = { version = "3.0.9", features = ["full", "visit"] } # Rust synt
 prettyplease   = "0.3.0"                                             # Generated Rust syntax formatted as checked-in source
 
 # --- [LINTING]
-clippy_utils   = { git = "https://github.com/rust-lang/rust-clippy", rev = "a7fb0ed8a7b593daa6fb8c3d5e161cd9e0d06fb8" } # Type, path, and diagnostic queries over compiler HIR for lint passes
+clippy_utils   = { git = "https://github.com/rust-lang/rust-clippy", rev = "aa80f9e2cf8e01661a1b679f65d3831b05b58c16" } # Type, path, and diagnostic queries over compiler HIR for lint passes
 dylint_linting = "6.2.0"                                                                                                # Late lint declarations and registration entry dylint driver loads
 
 # --- [TESTING]

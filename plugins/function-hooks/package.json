@@ -1,12 +1,12 @@
 {
     "name": "function-hooks",
     "private": true,
-    "description": "Claude Code hooks that run Bash commands through repository Nx targets and refuse unsafe forms",
+    "description": "Shared command policies for Claude Code and Codex",
     "type": "module",
     "nx": {
         "tags": [ "host:claude" ],
         "targets": {
-            "typecheck": { "cache": false }
+            "typecheck:tsc": { "cache": false }
         }
     }
 }

@@ -82,9 +82,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let body = cx.tcx.hir_body(closure.body);
             let [parameter] = body.params else { return false };
             let PatKind::Binding(_, value, ..) = parameter.pat.kind else { return false };
-            let assigned = match peel_blocks(body.value).kind {
+            let assigned = match peel_blocks(&body.value).kind {
                 ExprKind::Block(Block { stmts: [Stmt { kind: StmtKind::Semi(assigned) | StmtKind::Expr(assigned), .. }], expr: None, .. }, _) => assigned,
-                _ => peel_blocks(body.value),
+                _ => peel_blocks(&body.value),
             };
             let ExprKind::Assign(Expr { kind: ExprKind::Unary(UnOp::Deref, place), .. }, next, _) = assigned.kind else { return false };
             place.res_local_id() == Some(value) && !is_local_used(cx, next, value)

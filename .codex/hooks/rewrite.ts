@@ -25,19 +25,10 @@ const _decision = Effect.fnUntraced(function* ({ cwd, tool_input: { command } }:
                     Effect.scoped,
                 ),
             ),
-        read: (file) => run(fs.readFileString(file)),
-        stat: (file) =>
-            run(
-                fs.stat(file).pipe(
-                    Effect.flatMap(({ mtime }) => Effect.fromOption(mtime)),
-                    Effect.map((date) => ({ mtimeMs: date.getTime() })),
-                ),
-            ),
         exists: (entry) => run(fs.exists(entry)),
         root: () => run(Effect.succeed(root)),
         cwd: () => run(Effect.succeed(cwd)),
         home: () => run(Effect.succeed(some(homedir()))),
-        log: flow(Console.error, run),
     } satisfies System;
     return yield* Effect.promise(() => commandDecision(host(system), command, manifest.name));
 });

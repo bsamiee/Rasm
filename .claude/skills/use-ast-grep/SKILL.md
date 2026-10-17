@@ -5,7 +5,7 @@ description: "Use when outlining, searching, or rewriting code with ast-grep or 
 
 # [AST_GREP]
 
-MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly with `--custom-languages allow` for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`.
+MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. Repository tasks select `rasm:outline`, `rasm:lint:ast-grep`, or `rasm:rewrite` through native Nx discovery in manage-repo. Direct CLI reads and writes retain their arguments; pass `--custom-languages allow` when using custom grammars. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -120,6 +120,8 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 
 ## [06]-[CONFIG]
 
+MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` runs interactively in its owning checkout. Trust stores the canonical config path; `--custom-languages revoke` removes it.
+
 - `ruleDirs` and `utilDirs` resolve relative to `sgconfig.yml`
 - `languageGlobs.<language>` maps file globs to a language ahead of extension detection
 - `customLanguages.<name>` holds `libraryPath` and `extensions`, with optional `expandoChar`, `languageSymbol`, and `outlineRules`
@@ -128,7 +130,7 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 - Swift parses as custom `swiftlang` from the newest tree-sitter-swift
 - `-l` and MCP `language` match files only under the language `sgconfig.yml` maps their extension to, `swift` walks no `.swift` file
 - `ast-grep` loads the `sgconfig.yml` the nearest ancestor of the working directory holds, a run outside the tree reads none
-- Calls under root without `--custom-languages allow` exit 33 with ``Language `xml` is not supported``
+- Untrusted custom languages require `--custom-languages allow` per invocation
 - Missing paths print `ERROR: <path>: No such file or directory` at `scan` exit 0, exit 1 under `run`, `No matches found` from MCP
 - `--filter` matching no rule id exits 3 with `Rule not found`
 - `scan` exits 1 on an `error` match, 0 on a miss with `[]` under `--json`, and 8 on a rule that fails to load

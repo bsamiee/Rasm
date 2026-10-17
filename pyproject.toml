@@ -188,7 +188,7 @@ workspace = [
     "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
     "deltalake",                                                                  # Lakehouse tables
     "nanoarrow",                                                                  # Arrow C Data Interface interop
-    "pyarrow",                                                                    # Arrow C++ bridge on the mise `conda:libarrow-all` series, daft caps it below 26, the first cp315 wheel release
+    "pyarrow",                                                                    # Arrow C++ bridge on Pixi's Arrow series, daft caps it below 26, the first cp315 wheel release
     "pyiceberg",                                                                  # Apache Iceberg tables
     "pylance",                                                                    # Lance columnar/vector format
 
@@ -313,7 +313,7 @@ workspace = [
     "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
     "fonttools",                                                                  # Font subsetting, instancing, and shaping metadata
     "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
-    "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on machine ICU
+    "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on Pixi's ICU
     "pyphen",                                                                     # Language-aware hyphenation dictionaries
     "python-bidi",                                                                # UAX 9 bidi reorder pass before HarfBuzz shaping
     "uharfbuzz",                                                                  # HarfBuzz text-shaping bindings
@@ -436,15 +436,56 @@ constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "openc
 extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 build-backend            = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
 
+[tool.uv.dependency-groups]
+dev       = { requires-python = ">=3.15" }
+workspace = { requires-python = ">=3.15" }
+
 [tool.uv.extra-build-variables]
-confluent-kafka = { LIBRDKAFKA_VERSION = "2.16.0-RC4" }                                                            # Machine librdkafka it links, its build reads compiler-wide search paths alone, where a `conda:` prefix's zlib and OpenSSL reach every link
-h5py            = { HDF5_VERSION = "2.2.0" }                                                                       # Version of the `conda:hdf5` row, HDF5 refuses a library whose version differs from its headers
-manifold3d      = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }                                                 # Bundled TBB
-opencolorio     = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }                                                         # Library alone, no command-line apps
-pdal            = { PDAL_SERIES = "2.10", CMAKE_ARGS = "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON" }                  # Series of the `conda:libpdal-core` row, whose GDAL carries no Arrow to load a second gflags beside pyarrow's
-pyarrow         = { PYARROW_WITH_GANDIVA = "0" }                                                                   # `conda:libarrow-all` ships Gandiva without the LLVM it needs, the pyarrow version names the Arrow C++ series
-pyicu           = { ICU_VERSION = "78", PYICU_LIBRARIES = "icui18n:icuuc:icudata" }                                # Series of the `conda:icu` row and the libraries PyICU links
-small-gicp      = { CMAKE_ARGS = "-DCMAKE_DISABLE_FIND_PACKAGE_Eigen3=ON -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON" } # Fetches its pinned Eigen, keeps the `conda:llvm-openmp` rpath
+confluent-kafka = { LIBRDKAFKA_VERSION = "2.16.0-RC4" }
+opencolorio     = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
+pyarrow         = { PYARROW_WITH_GANDIVA = "0" }
+pyicu           = { ICU_VERSION = "78", PYICU_LIBRARIES = "icui18n:icuuc:icudata" }
+
+[tool.uv.config-settings-package.manifold3d]
+"cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
+
+[tool.uv.config-settings-package.pdal]
+"cmake.define.CMAKE_INSTALL_RPATH_USE_LINK_PATH" = "ON"
+
+[tool.uv.config-settings-package.small-gicp]
+"cmake.define.CMAKE_DISABLE_FIND_PACKAGE_Eigen3" = "ON"
+"cmake.define.CMAKE_INSTALL_RPATH_USE_LINK_PATH" = "ON"
+
+# --- [PIXI] -----------------------------------------------------------------------------
+
+[tool.pixi.workspace]
+channels  = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64", "linux-aarch64", "win-64"]
+
+[tool.pixi.environments.default]
+no-default-feature = true
+
+[tool.pixi.environments.default.dependencies]
+libarrow-all = "25.*"
+icu          = "78.*"
+libpdal-core = "2.10.*"
+llvm-openmp  = "*"
+
+[tool.pixi.environments.default.target.unix.activation.env]
+SKBUILD_CMAKE_DEFINE = "PYARROW_CPP_HOME=$CONDA_PREFIX"
+PYICU_INCLUDES       = "$CONDA_PREFIX/include"
+PYICU_LFLAGS         = "-L$CONDA_PREFIX/lib:-Wl,-rpath,$CONDA_PREFIX/lib"
+OpenMP_ROOT          = "$CONDA_PREFIX"
+PDAL_ROOT            = "$CONDA_PREFIX"
+
+[tool.pixi.environments.hdf5]
+no-default-feature = true
+
+[tool.pixi.environments.hdf5.dependencies]
+hdf5 = "*"
+
+[tool.pixi.environments.hdf5.target.unix.activation.env]
+HDF5_DIR = "$CONDA_PREFIX"
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -736,3 +777,31 @@ markers                  = [
 [tool.coverage]
 run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python", "tests/python/support"] }
 report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"] }
+
+# --- [TOMBI] ----------------------------------------------------------------------------
+
+[tool.tombi.format.rules]
+indent-width                    = 4
+key-value-equals-sign-alignment = true
+trailing-comment-alignment      = true
+trailing-comment-space-width    = 1
+
+[tool.tombi.extensions."tombi-toml/cargo".lsp.inlay-hint.default-features]
+enabled = false
+
+[tool.tombi.extensions."tombi-toml/pyproject".lsp.inlay-hint.dependency-version]
+enabled = false
+
+[tool.tombi.schema.format.rules]
+table-keys-order.enabled   = false
+array-values-order.enabled = false
+
+[[tool.tombi.schemas]]
+path    = "tombi://www.schemastore.org/cargo.json"
+include = ["Cargo.toml"]
+
+[[tool.tombi.schemas]]
+root    = "profile.*"
+path    = "tombi://www.schemastore.org/cargo.json#/definitions/Profile"
+include = ["Cargo.toml"]
+strict  = false                                                         # Schema lacks the `trim-paths` key that `[profile.dist]` sets

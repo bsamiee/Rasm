@@ -8,13 +8,10 @@ import { commandDecision, type Host, WORKTREE } from '../policies/policies.ts';
 const _host = ($: EngineInterface): Host =>
     host({
         run: (argv, init) => $.process.run(argv, init),
-        read: (path) => $.fs.read(path),
-        stat: (path) => $.fs.stat(path),
         exists: (path) => $.fs.exists(path),
         root: () => $.session.repo().then((found) => (found === null ? none : some(found.root))),
         cwd: () => $.session.cwd(),
         home: () => $.env.get('HOME').then((home) => (home === undefined ? none : some(home))),
-        log: (line) => $.ui.log(line),
     });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -28,7 +28,7 @@ impl Pass {
         fn adapts(tcx: TyCtxt<'_>, owner: LocalDefId, error: DefId) -> bool {
             let Some(body) = tcx.hir_maybe_body_owned_by(owner) else { return false };
             let (typeck, name) = (tcx.typeck(owner), tcx.item_name(owner));
-            any_expr(tcx, body.value, |expr| {
+            any_expr(tcx, &body.value, |expr| {
                 typeck.type_dependent_def_id(expr.hir_id).or_else(|| if let ExprKind::Call(callee, _) = expr.kind { callee.res(typeck).opt_def_id() } else { None }).is_some_and(|callee| {
                     !callee.is_local()
                         && tcx.opt_item_name(callee) == Some(name)

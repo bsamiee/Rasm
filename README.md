@@ -31,10 +31,9 @@ Rasm/
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
-│   ├── roslyn/               # C# analyzers and code fixes reading symbols and types installed analyzers lack, BannedSymbols*.txt bans
-│   └── typescript-go/        # TypeScript checks reading typescript-go API types Biome and Effect diagnostics lack
+│   └── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
-├── mise.toml                 # Tool binaries and process environment
+├── mise.toml                 # Tool binaries, process environment, and persistent MCP services
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
 ├── package.json              # Catalog rows except tool plugins, root Nx targets
@@ -63,10 +62,10 @@ Rasm/
 ├── .gitignore                # Generated, secret, and machine-local paths
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
-├── .lldbinit                 # LLDB MCP server start every Xcode scheme's Run loads
-├── .yamllint.yaml, .yamlfmt  # YAML lint and format
-├── .cargo/                   # Build settings every Cargo command reads
-├── .config/                  # Configuration of tools that search .config/
+├── .yamllint.yaml            # YAML lint rules
+├── .yamlfmt.yaml             # YAML format rules
+├── .cargo/                   # Cargo build settings and compiler source link
+├── .config/                  # Files tools find in .config/ or read through an anchored path
 ├── .playwright/              # Playwright CLI workspace and browser options every CLI session reads
 ├── .github/                  # Continuous integration and repository workflows
 ├── .claude/                  # Claude Code knowledge and settings
@@ -95,21 +94,23 @@ flowchart LR
 ## [03]-[TASKS]
 
 - Targets call one tool with its arguments on the command
-- `nx run rasm:check` runs every `lint:<tool>` and `typecheck:<tool>` root target, `nx run rasm:lint:<tool>` one checker
+- `nx run rasm:check` runs root lint and compiler targets, `nx run rasm:lint:<tool>` runs one checker
 - `nx run rasm:<target> -- <paths>` runs a root target over named paths when its tool takes paths in place of a default file set
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build
 - `nx run <project>:install` builds or packs a project, then installs its product into its host
 - `nx run <project>:pack` writes a project's product as the package its host installs
-- `nx run rasm:upgrade` moves catalogs, locks, the Rust toolchain, and tool binaries to newest builds, then restarts every launchd agent onto them
-- `nx run rasm:clean` removes declared outputs and tool residue, prunes unused installations and caches, and recovers stale macOS processes
+- `nx run rasm:upgrade` updates catalogs, installed service binaries, and reapplies declared MCP services
+- `nx run rasm:clean` removes declared outputs and tool residue, prunes caches, and recovers stale macOS processes
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations
 - Workspace plugin derives project edges from project files and Python imports
 - `@nx/dotnet` infers .NET targets and project reference edges
 - File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
-- `nx run rasm:format` runs every app's `format` and `nx run rasm:lint:dotnet-format` every app's `lint`
-- `nx run rasm:format:files -- <paths>` runs each portable writer over the named paths it formats
+- `nx run rasm:format` runs solution and file-app with proper ordering of commands
+- `nx run rasm:format:files -- <paths>` formats named Git files through non-.NET writers
+- Semantic .NET format targets build analyzer components before formatting
+- Native Python consumers start under `pixi run --locked -e hdf5 pixi run --locked -e default`
 - Project `vite.config.ts` infers `build` and continuous `serve` for the Vite development server, both run from that project
 - Project `uxp.config.ts` configures inferred Vite `build` and infers `install` into each host the manifest names
 - Project `cloudflare.config.ts` adds the Cloudflare Build Output under `.cloudflare/output` to inferred Vite `build` outputs
@@ -133,14 +134,16 @@ flowchart LR
 |  [08]   | Secret                         | Doppler, through consuming commands with `doppler run`                                               |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:infra:up`                           |
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
-|  [11]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                                         |
+|  [11]   | Ghidra install                 | Official distribution through mise                                                                   |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
 |  [13]   | Swift package version          | `.xcodeproj` or `Package.swift` package requirement                                                  |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Local MCP service              | `mise.toml` launchd agent row, applied by `mise bootstrap macos launchd-agents apply`                |
-|  [17]   | Python runtime version         | `mise.toml` `python` row, nested `pyproject.toml` `requires-python` in a host folder for its host    |
-|  [18]   | Native library an sdist links  | `mise.toml` `conda:` row, its series keyed in the package's `[tool.uv.extra-build-variables]` row    |
+|  [16]   | Local MCP service              | Mise launchd declaration in its installed service checkout                                           |
+|  [17]   | Python runtime                 | Mise Python row, uv's `.venv`, host `pyproject.toml` requirements                                    |
+|  [18]   | Native libraries for sdists    | Pixi environments in `pyproject.toml`, exact builds in `pixi.lock`                                   |
+|  [19]   | Container runtime              | Mise clients, persistent Colima on macOS, native Docker Engine on Linux                              |
+|  [20]   | Shared Vite configuration      | `vite.config.ts`                                                                                     |
 
 - Tool rows name a release where `latest` resolves a development build
 
@@ -150,12 +153,12 @@ flowchart LR
 - Mistakes no check reports become checks, held to the standards of the code they check
 - .NET: compiler, analyzers, BuildCheck, and `dotnet format` at zero findings
 - Python: Ruff, ty, mypy, refurb, and deptry at zero findings
-- TypeScript: Biome, `tsc` with `@effect/tsgo`, and typescript-go checks at zero findings
+- TypeScript: Biome and `tsc` with `@effect/tsgo` at zero findings
 - Rust: Clippy, rustfmt, Dylint, and cargo-modules at zero findings
 - Swift: compiler, swift-format, and SwiftLint at zero findings
 - Java: google-java-format and PMD at zero findings
 - TOML: Tombi at zero findings
-- Tree: yamllint, yamlfmt, actionlint with ShellCheck over workflow run steps, ast-grep rule families, and PMD CPD at zero findings
+- Tree: YAML checks, actionlint, ShellCheck, shfmt, ast-grep, and PMD CPD at zero findings
 
 ## [06]-[STRUCTURE]
 

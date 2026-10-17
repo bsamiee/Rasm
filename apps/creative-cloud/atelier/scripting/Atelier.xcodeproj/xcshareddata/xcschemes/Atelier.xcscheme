@@ -7,7 +7,7 @@
             </BuildActionEntry>
         </BuildActionEntries>
     </BuildAction>
-    <LaunchAction buildConfiguration="Debug" customLLDBInitFile="$(SRCROOT)/../../../../.lldbinit">
+    <LaunchAction buildConfiguration="Debug" customLLDBInitFile="$(SRCROOT)/../../../../.config/.lldbinit">
         <BuildableProductRunnable runnableDebuggingMode="0">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="9DD1FABB5D4B42719173E08B" BuildableName="Atelier.app" BlueprintName="Atelier" ReferencedContainer="container:Atelier.xcodeproj"/>
         </BuildableProductRunnable>

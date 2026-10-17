@@ -67,7 +67,7 @@ def main() -> int:
     except ValueError:
         return refurb(arguments)
     match settings:
-        case Settings(help=False, version=False, explain=None, generate=False):
+        case Settings(help=False, version=False, explain=None, generate=False, debug=False, timing_stats=None):
             errors = _refurbished(settings)
             if output := format_errors(errors, settings):
                 sys.stdout.write(f"{output}\n")

@@ -55,7 +55,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ExprKind::Closure(closure)
                     if let body = cx.tcx.hir_body(closure.body)
                         && let [parameter] = body.params
-                        && let value = peel_blocks(body.value)
+                        && let value = peel_blocks(&body.value)
                         && let ExprKind::Call(_, [argument]) | ExprKind::MethodCall(_, argument, [], _) = value.kind
                         && argument.res_local_id() == Some(parameter.pat.hir_id) =>
                     fn_def_id(cx, value),
@@ -129,7 +129,7 @@ fn wrapped_variant<'tcx>(cx: &LateContext<'tcx>, implementation: DefId) -> Optio
     if let [from_fn] = cx.tcx.associated_item_def_ids(implementation)
         && let Some(from_fn) = from_fn.as_local()
         && let body = cx.tcx.hir_body_owned_by(from_fn)
-        && let Some((variant, fields)) = constructed(cx.tcx.typeck(from_fn), peel_blocks(body.value))
+        && let Some((variant, fields)) = constructed(cx.tcx.typeck(from_fn), peel_blocks(&body.value))
         && variant.fields.len() == 1
         && let [(field, value)] = *fields.as_slice()
         && parameter(body, value) == Some(0)

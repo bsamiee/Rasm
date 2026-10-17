@@ -28,7 +28,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         fn method(cx: &LateContext<'_>, function: LocalDefId, inner: DefId) -> Method {
             let (body, typeck) = (cx.tcx.hir_body_owned_by(function), cx.tcx.typeck(function));
-            let value = peel_blocks_with_stmt(body.value);
+            let value = peel_blocks_with_stmt(&body.value);
             let name = cx.tcx.item_name(function);
             let passed = |argument: &Expr<'_>| parameter(body, peel_hir_expr_refs(argument).0).is_some();
             let relayed = |receiver: &Expr<'_>, arguments: &[Expr<'_>]| reads_field(cx, function, receiver, inner) && arguments.iter().all(passed);
@@ -47,7 +47,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         fn returns_field(cx: &LateContext<'_>, function: DefId, inner: DefId) -> bool {
-            function.as_local().is_some_and(|function| reads_field(cx, function, peel_blocks_with_stmt(cx.tcx.hir_body_owned_by(function).value), inner))
+            function.as_local().is_some_and(|function| reads_field(cx, function, peel_blocks_with_stmt(&cx.tcx.hir_body_owned_by(function).value), inner))
         }
 
         let tcx = cx.tcx;
@@ -82,7 +82,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && let [method] = tcx.associated_item_def_ids(implementation)
                     && let Some(local) = method.as_local()
                     && let viewed = tcx.item_name(*method)
-                    && let value = peel_blocks_with_stmt(tcx.hir_body_owned_by(local).value)
+                    && let value = peel_blocks_with_stmt(&tcx.hir_body_owned_by(local).value)
                     && (reads_field(cx, local, value, inner)
                         || matches!(value.kind, ExprKind::MethodCall(segment, receiver, [], _) if segment.ident.name == viewed && reads_field(cx, local, receiver, inner)))
                     && let target = tcx.impl_trait_ref(implementation).instantiate_identity().skip_normalization().args.type_at(1)

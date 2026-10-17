@@ -2,6 +2,7 @@
     <PropertyGroup Label="Workspace">
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
         <Authors>Bardia Samiee</Authors>
+        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/sixlabors.lic</SixLaborsLicenseFile>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">

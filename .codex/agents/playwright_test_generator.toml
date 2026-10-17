@@ -1,5 +1,5 @@
 name                   = "playwright_test_generator"
-description            = "Use when one scenario of a Playwright test plan needs its test file, covering config, plan, live steps, log, and file."
+description            = "Use when a Playwright plan needs a feature test file generated from live steps and assertions."
 developer_instructions = '''
 # [PLAYWRIGHT_TEST_GENERATOR]
 

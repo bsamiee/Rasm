@@ -30,12 +30,14 @@ jobs:
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
-            - run: nx run rasm:check
-              env:
-                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
             - run: nx affected -t check --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude'
-              env:
-                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+            - uses: actions/upload-artifact@v7
+              if: ${{ !cancelled() }}
+              with:
+                name: diagnostics-${{ github.job }}
+                path: .artifacts/dotnet/binlog
+                include-hidden-files: true
+                retention-days: 14
 
     macos:
         runs-on: xcode-27
@@ -48,9 +50,19 @@ jobs:
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
+            - uses: mcneel/setup-rhino3d@v3.0.0
+              with:
+                email-address: b.samiee93@gmail.com
+                release-version: wip
+            - run: nx run rasm:check
             - run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' --configuration ci
-              env:
-                DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+            - uses: actions/upload-artifact@v7
+              if: ${{ !cancelled() }}
+              with:
+                name: diagnostics-${{ github.job }}
+                path: .artifacts/dotnet/binlog
+                include-hidden-files: true
+                retention-days: 14
 
     required:
         needs: [check, macos]

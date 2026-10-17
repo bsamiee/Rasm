@@ -22,14 +22,6 @@ interface Program {
     readonly shell?: true;
     readonly runs?: readonly (readonly string[])[] | '--';
     readonly execs?: readonly string[];
-    readonly spans?: readonly string[];
-    readonly manifests?: readonly string[];
-    readonly solutions?: readonly string[];
-    readonly commands?: number;
-    readonly excludes?: readonly string[];
-    readonly patterns?: readonly string[];
-    readonly aliases?: ReadonlyMap<string, string>;
-    readonly relocations?: readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -48,7 +40,6 @@ interface ParsedOption {
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _QUOTED = /(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu;
 const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
-const _BARE = /^[\w%+,./:=@-]+$/u;
 const _TILDE = /^~(?<user>[^/]*)/u;
 const _PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
 const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', code: ['-c'], shell: true };
@@ -90,53 +81,6 @@ const _FD: Program = {
     execs: ['-x', '-X', '--exec', '--exec-batch'],
 };
 const _FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
-const _AST_GREP: Program = {
-    valued: [
-        '-c',
-        '--config',
-        '--custom-languages',
-        '-r',
-        '--rule',
-        '--rewrite',
-        '--inline-rules',
-        '-p',
-        '--pattern',
-        '--selector',
-        '--strictness',
-        '-k',
-        '--kind',
-        '-l',
-        '--lang',
-        '--format',
-        '--report-style',
-        '--filter',
-        '--min-severity',
-        '--no-ignore',
-        '--globs',
-        '-j',
-        '--threads',
-        '--color',
-        '--heading',
-        '--inspect',
-        '-A',
-        '--after',
-        '-B',
-        '--before',
-        '-C',
-        '--context',
-        '--max-results',
-        '--items',
-        '--type',
-        '--match',
-        '--view',
-        '--outline-rules',
-        '-t',
-        '--test-dir',
-        '--snapshot-dir',
-        '-f',
-    ],
-    commands: 1,
-};
 const _SQL: Program = {
     valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
     leading: 1,
@@ -235,41 +179,7 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         poetry: { runs: [['run']] },
         hatch: { runs: [['run']] },
         mise: { runs: '--' },
-        doppler: {
-            valued: [
-                '--command',
-                '-c',
-                '--config',
-                '--dynamic-ttl',
-                '--fallback',
-                '--format',
-                '--mount',
-                '--mount-max-reads',
-                '--mount-template',
-                '--name-transformer',
-                '--only-secrets',
-                '--passphrase',
-                '-p',
-                '--project',
-                '--api-host',
-                '--attempts',
-                '--config-dir',
-                '--dashboard-host',
-                '--dns-resolver-address',
-                '--dns-resolver-proto',
-                '--dns-resolver-timeout',
-                '--scope',
-                '--timeout',
-                '-t',
-                '--token',
-            ],
-            aliases: new Map([
-                ['-c', '--config'],
-                ['-p', '--project'],
-                ['-t', '--token'],
-            ]),
-            runs: '--',
-        },
+        doppler: { runs: '--' },
         op: { runs: '--' },
         hyperfine: {
             valued: [
@@ -308,8 +218,6 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         find: _FIND,
         gfind: _FIND,
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
-        'ast-grep': _AST_GREP,
-        sg: _AST_GREP,
         grep: {
             valued: [
                 '-A',
@@ -394,72 +302,6 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         cd: { ..._DIRECTORY, defaultOperand: '~' },
         pushd: _DIRECTORY,
         popd: _DIRECTORY,
-        dotnet: {
-            valued: ['-c', '-configuration', '-f', '-framework', '-r', '-runtime', '-o', '-output', '-v', '-verbosity', '-a', '-arch', '-os', '-binarylog', '-results-directory', '-project'],
-            aliases: new Map([
-                ['-c', '-configuration'],
-                ['-f', '-framework'],
-                ['-r', '-runtime'],
-                ['-o', '-output'],
-                ['-v', '-verbosity'],
-                ['-a', '-arch'],
-            ]),
-            informational: ['-h', '-?', '-help', '-version', '-info', '-list-sdks', '-list-runtimes'],
-            wholeWords: true,
-            relocations: ['-project'],
-            manifests: ['.csproj', '.fsproj', '.vbproj'],
-            solutions: ['.slnx'],
-        },
-        ruff: {
-            valued: [
-                '--config',
-                '--target-version',
-                '--select',
-                '--ignore',
-                '--extend-select',
-                '--extend-ignore',
-                '--per-file-ignores',
-                '--extend-per-file-ignores',
-                '--fixable',
-                '--unfixable',
-                '--exclude',
-                '--extend-exclude',
-                '--line-length',
-                '--output-format',
-                '-o',
-                '--output-file',
-                '--stdin-filename',
-                '--cache-dir',
-                '--range',
-            ],
-            commands: 1,
-        },
-        ty: {
-            valued: ['--python-version', '--python-platform', '--python', '--project', '--config', '--config-file', '--exclude', '--output-format', '--extra-search-path', '--typeshed', '--error', '--warn', '--ignore', '--color'],
-            commands: 1,
-            excludes: ['--exclude'],
-        },
-        mypy: {
-            valued: ['--python-version', '--platform', '--config-file', '--exclude', '--cache-dir', '-p', '--package', '-m', '--module', '-c', '--command', '--follow-imports', '--python-executable', '--custom-typeshed-dir'],
-            commands: 0,
-            patterns: ['--exclude'],
-        },
-        refurb: { valued: ['--ignore', '--load', '--enable', '--disable', '--config-file', '--explain', '--python-version', '--format', '--sort', '--timing-stats'] },
-        tsc: {
-            valued: ['-p', '--project', '--pretty', '-t', '--target', '-m', '--module', '--moduleResolution', '--outDir', '--rootDir', '--lib', '--jsx', '--locale'],
-            aliases: new Map([['-p', '--project']]),
-            relocations: ['--project'],
-            manifests: ['.json'],
-        },
-        swift: {
-            valued: ['--package-path', '--scratch-path', '--cache-path', '--config-path', '--security-path', '-c', '--configuration', '--product', '--target', '--triple', '--sdk', '--toolchain', '--swift-sdk', '-j', '--jobs', '-Xswiftc', '-Xcc', '-Xcxx', '-Xlinker', '--build-system', '--filter', '--skip'],
-        },
-        cargo: {
-            valued: ['-p', '--package', '--exclude', '--manifest-path', '--lockfile-path', '--profile', '--target', '--target-dir', '-F', '--features', '-j', '--jobs', '--color', '--config', '-Z', '--bin', '--example', '--test', '--bench', '--message-format'],
-            spans: ['--workspace', '--all'],
-            aliases: new Map([['-p', '--package']]),
-        },
-        nx: { valued: ['-t', '--targets', '--target', '-p', '--projects', '-c', '--configuration', '--base', '--head', '--exclude', '--output-style'] },
         python: _PYTHON,
         python3: _PYTHON,
         bash: _SHELL,
@@ -488,7 +330,7 @@ const _option = (row: Program, word: string): ParsedOption => {
     const arities = names.map((name) => _arity(row, name));
     const at = arities.findIndex((arity) => arity > 0);
     const [taken = 0] = at === names.length - 1 && cut < 0 ? arities.slice(at) : [];
-    return { names: (at < 0 ? names : names.slice(0, at + 1)).map((name) => row.aliases?.get(name) ?? name), taken, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
+    return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
 };
 
 const firstOperand = (invocation: Invocation, index: number): number => {
@@ -554,8 +396,6 @@ const within = (path: string, folder: string): boolean => path === folder || pat
 
 const unquoted = (word: string): string => word.replace(_QUOTED, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(_ESCAPED, '$<char>') : body));
 
-const quoted = (word: string): string => (_BARE.test(word) ? word : `'${word.replaceAll("'", String.raw`'\''`)}'`);
-
 const _wrapped = (program: string, words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
     const row = declared(program);
     const [head, ...rest] = words;
@@ -596,5 +436,5 @@ const inner = (invocation: Invocation): readonly string[] => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Given, Invocation };
-export { basename, declared, firstOperand, informational, inner, invocations, operands, placed, quoted, segments, unquoted, waits, within };
+export type { Invocation };
+export { basename, declared, firstOperand, informational, inner, invocations, operands, placed, segments, unquoted, waits, within };

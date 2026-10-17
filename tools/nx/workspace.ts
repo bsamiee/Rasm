@@ -1,8 +1,10 @@
 import python from '@ast-grep/lang-python';
+import pythonPackage from '@ast-grep/lang-python/package.json' with { type: 'json' };
 import { parseAsync, registerDynamicLanguage } from '@ast-grep/napi';
+import parserPackage from '@ast-grep/napi/package.json' with { type: 'json' };
 import { NodeChildProcessSpawner, NodeFileSystem, NodePath } from '@effect/platform-node';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type Optional, type ProjectConfiguration, parseJson, type StaticDependency, type TargetConfiguration } from '@nx/devkit';
-import { Array, Cause, Effect, FileSystem, Formatter, Graph, identity, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, Stream, Trie } from 'effect';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type ImplicitDependency, type Optional, type ProjectConfiguration, parseJson, type TargetConfiguration } from '@nx/devkit';
+import { Array, Cause, Effect, FileSystem, Formatter, Layer, ManagedRuntime, Option, Path, pipe, Record, Schema, SchemaGetter, SchemaIssue, Stream, Trie } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { XMLParser } from 'fast-xml-parser';
 import { globWithWorkspaceContext, hashMultiGlobWithWorkspaceContext, PluginCache, workspaceDataDirectory } from 'nx/src/devkit-internals';
@@ -36,11 +38,11 @@ const _Version = (pattern: RegExp, expected: string): Schema.decodeTo<Schema.Str
 const _Mise = _Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
-            tools: Schema.Struct({ python: _Version(/^(?<version>\d+\.\d+)\.\d+/u, 'a <major>.<minor>.<patch> release') }),
             bootstrap: Schema.Struct({ macos: Schema.Struct({ launchd: Schema.Struct({ agents: Schema.Record(Schema.String, Schema.Struct({ args: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })) }) }) }),
         }),
     ),
 );
+const _PythonRuntime = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ version: _Version(/^(?<version>\d+\.\d+)\.\d+/u, 'a <major>.<minor>.<patch> release') })));
 const _Sgconfig = _Yaml.pipe(Schema.decodeTo(Schema.Struct({ ruleDirs: Schema.Array(Schema.String) })));
 const _Rule = _Yaml.pipe(
     Schema.decodeTo(
@@ -72,8 +74,7 @@ const _Metadata = Schema.fromJsonString(
                 dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.OptionFromOptionalKey(Schema.String) })),
             }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
         ),
-        output: Schema.String,
-    }).pipe(Schema.encodeKeys({ output: 'target_directory' })),
+    }),
 );
 const _SwiftPackage = Schema.fromJsonString(
     Schema.Struct({
@@ -133,16 +134,6 @@ const _python = Effect.fnUntraced(function* (dir: string, workspace: string, roo
     const suites = mirrors.filter((mirror) => tests.some((test) => test.startsWith(`${mirror}/`)));
     return suites.length > 0 ? { check: {}, test: { command: 'pytest', options: { args: [...suites, '--cov'] }, inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`) } } : {};
 });
-const _memo = Effect.fnUntraced(function* <A, E, R>(name: string, entries: ReadonlyArray<readonly [key: string, compute: Effect.Effect<A, E, R>]>) {
-    const path = yield* Path.Path;
-    const file = path.join(workspaceDataDirectory, `workspace-${name}.hash`);
-    const cache = yield* Effect.sync(() => new PluginCache<A>(file));
-    const keys = new Set(entries.map(([key]) => key));
-    const held = Object.keys(cache.toSerializable().entries);
-    const values = yield* Effect.validate(entries, ([key, compute]) => Option.match(Option.fromNullishOr(cache.get(key)), { onNone: () => compute, onSome: Effect.succeed }), { concurrency: 'unbounded' });
-    yield* held.length === keys.size && held.every((key) => keys.has(key)) ? Effect.void : Effect.sync(() => new PluginCache(file, Object.fromEntries(Array.zipWith(entries, values, ([key], value) => [key, value] as const))).writeToDisk());
-    return values;
-});
 const _sources = Effect.fnUntraced(function* (workspace: string, root: ReturnType<typeof _root>) {
     const rules = 'tools/ast-grep/utils/python/python-static-imported-module.yml';
     const [path, { moduleRoot }, files, rule] = yield* Effect.all([Path.Path, root, _glob(workspace, ['**/*.py']), Effect.cached(Effect.map(_decode(Schema.String, workspace, rules), parseYaml))], { concurrency: 'unbounded' });
@@ -150,34 +141,35 @@ const _sources = Effect.fnUntraced(function* (workspace: string, root: ReturnTyp
         workspace,
         files.map((file) => [file, rules, path.relative(workspace, import.meta.filename)]),
     );
-    const statements = yield* _memo(
-        'imports',
-        Array.zipWith(hashes, files, (hash, file) => [
-            hash,
-            Effect.flatMap(Effect.all([_decode(Schema.String, workspace, file), rule]), ([text, query]) =>
-                Effect.map(Effect.tryPromise({ try: () => parseAsync('python', text), catch: (cause) => WorkspaceError.make({ reason: { _tag: 'Unparsed', file, cause } }) }), (tree) =>
-                    tree
-                        .root()
-                        .findAll(query)
-                        .flatMap((module) => [module.text(), ...(module.getMatch('FROM')?.fieldChildren('name') ?? []).flatMap((name) => name.findAll({ rule: { kind: 'dotted_name' } })).map((member) => `${module.text()}.${member.text()}`)]),
-                ),
-            ),
-        ]),
+    const store = path.join(workspaceDataDirectory, 'workspace-imports.hash');
+    const cache = yield* Effect.sync(() => new PluginCache<string[]>(store));
+    const keys = hashes.map((hash) => `${parserPackage.version}:${pythonPackage.version}:${hash}`);
+    const current = keys.every((key) => cache.has(key)) && Object.keys(cache.toSerializable().entries).length === keys.length;
+    const statements = yield* Effect.validate(
+        Array.zip(keys, files),
+        ([key, file]) =>
+            Option.match(Option.fromNullishOr(cache.get(key)), {
+                onSome: Effect.succeed,
+                onNone: () =>
+                    Effect.flatMap(Effect.all([_decode(Schema.String, workspace, file), rule]), ([text, query]) =>
+                        Effect.map(Effect.tryPromise({ try: () => parseAsync('python', text), catch: (cause) => WorkspaceError.make({ reason: { _tag: 'Unparsed', file, cause } }) }), (tree) =>
+                            tree
+                                .root()
+                                .findAll(query)
+                                .flatMap((module) => [module.text(), ...(module.getMatch('FROM')?.fieldChildren('name') ?? []).flatMap((name) => name.findAll({ rule: { kind: 'dotted_name' } })).map((member) => `${module.text()}.${member.text()}`)]),
+                        ),
+                    ),
+            }),
+        { concurrency: 'unbounded' },
     );
+    yield* current ? Effect.void : Effect.sync(() => new PluginCache(store, Object.fromEntries(Array.zip(keys, statements))).writeToDisk());
     const sources = Array.zipWith(files, statements, (file, imports) => {
         const source = path.parse(path.relative(file.startsWith(`${moduleRoot}/`) ? moduleRoot : '.', file));
         const parts = (source.name === '__init__' && source.dir !== '' ? source.dir : path.join(source.dir, source.name)).split(path.sep);
         return { file, name: parts.join('.'), imports: [...parts.slice(0, -1).map((_, position) => parts.slice(0, position + 1).join('.')), ...imports] };
     });
-    return Graph.directed<string, undefined>((mutable) => {
-        const nodes = sources.map((source) => ({ ...source, index: Graph.addNode(mutable, source.file) }));
-        const modules = Trie.fromIterable(nodes.map(({ name, index }) => [`${name}.`, index] as const));
-        nodes
-            .flatMap(({ index, imports }) => imports.flatMap((name) => Option.toArray(Option.map(Trie.longestPrefixOf(modules, `${name}.`), ([, target]) => [index, target] as const))))
-            .forEach(([source, target]) => {
-                Graph.addEdge(mutable, source, target, undefined);
-            });
-    });
+    const modules = Trie.fromIterable(sources.map(({ name, file }) => [`${name}.`, file] as const));
+    return sources.flatMap(({ file, imports }) => imports.flatMap((name) => Option.toArray(Option.map(Trie.longestPrefixOf(modules, `${name}.`), ([, target]) => [file, target] as const))));
 });
 const _run = Effect.fnUntraced(function* (workspace: string, command: string, args: string[]) {
     const handle = yield* ChildProcess.make(command, args, { cwd: workspace, stderr: 'inherit' });
@@ -185,34 +177,28 @@ const _run = Effect.fnUntraced(function* (workspace: string, command: string, ar
     return code === 0 ? output : yield* WorkspaceError.make({ reason: { _tag: 'Exited', command, args, code } });
 }, Effect.scoped);
 const _crates = Effect.fnUntraced(function* (workspace: string) {
-    const [path, hashes] = yield* Effect.all([Path.Path, _hash(workspace, [[`**/${_CARGO_MANIFEST}`, '.cargo/config.toml', '**/*.rs']])]);
-    const outputs = yield* _memo(
-        'cargo',
-        hashes.map((hash) => [hash, _run(workspace, 'cargo', ['metadata', '--format-version', '1', '--no-deps'])] as const),
-    );
-    const metadata = yield* Effect.forEach(outputs, (output) => Schema.decodeEffect(_Metadata)(output));
-    return metadata.flatMap(({ packages, output }) => packages.map((crate) => ({ ...crate, manifest: path.relative(workspace, crate.manifest), output: path.relative(workspace, output) })));
+    const [path, { packages }] = yield* Effect.all([Path.Path, Effect.flatMap(_run(workspace, 'cargo', ['metadata', '--format-version', '1', '--no-deps']), Schema.decodeEffect(_Metadata))]);
+    return packages.map((crate) => ({ ...crate, manifest: path.relative(workspace, crate.manifest) }));
 });
 const _packages = Effect.fnUntraced(function* (workspace: string) {
     const [path, manifests] = yield* Effect.all([Path.Path, _glob(workspace, [`*/**/${_SWIFT_MANIFEST}`])]);
-    const hashes = yield* _hash(
-        workspace,
-        manifests.map((manifest) => [manifest]),
+    return yield* Effect.validate(
+        manifests,
+        (manifest) =>
+            _run(workspace, 'swift', ['package', 'dump-package', '--package-path', path.dirname(manifest), '--scratch-path', path.join('.cache/swiftpm/build', path.dirname(manifest))]).pipe(
+                Effect.flatMap(Schema.decodeEffect(_SwiftPackage)),
+                Effect.map(({ targets, dependencies }) => ({
+                    manifest,
+                    tested: targets.some(({ type }) => type === 'test'),
+                    locals: dependencies.flatMap(({ fileSystem }) => Option.getOrElse(fileSystem, () => []).map((local) => path.join(path.relative(workspace, local.path), _SWIFT_MANIFEST))),
+                })),
+            ),
+        { concurrency: 'unbounded' },
     );
-    const outputs = yield* _memo(
-        'swiftpm',
-        Array.zipWith(hashes, manifests, (hash, manifest) => [hash, _run(workspace, 'swift', ['package', 'dump-package', '--package-path', path.dirname(manifest), '--scratch-path', path.join('.cache/swiftpm/build', path.dirname(manifest))])]),
-    );
-    const described = yield* Effect.forEach(outputs, (output) => Schema.decodeEffect(_SwiftPackage)(output));
-    return Array.zipWith(manifests, described, (manifest, { targets, dependencies }) => ({
-        manifest,
-        tested: targets.some(({ type }) => type === 'test'),
-        locals: dependencies.flatMap(({ fileSystem }) => Option.getOrElse(fileSystem, () => []).map((local) => path.join(path.relative(workspace, local.path), _SWIFT_MANIFEST))),
-    }));
 });
 const _swift = (build: string, targets: Record<string, TargetConfiguration>): Required<Pick<ProjectConfiguration, 'tags' | 'targets'>> => ({
     tags: ['language:swift', 'host:macos', `build:${build}`],
-    targets: { build: {}, upgrade: {}, lint: {}, 'lint:swift-format': {}, 'lint:swiftlint': {}, check: {}, ...targets },
+    targets: { build: {}, upgrade: {}, check: {}, ...targets },
 });
 
 const _PROJECTS = {
@@ -225,7 +211,6 @@ const _PROJECTS = {
             targets: {
                 build: { outputs: outputs('build', 'debug') },
                 'build:release': { outputs: outputs('build:release', 'release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
-                typecheck: {},
                 check: {},
                 ...(plugin ? { pack: {}, install: {} } : {}),
             },
@@ -246,8 +231,7 @@ const _PROJECTS = {
                 [`build:${base}`]: { dependsOn: [`restore:${base}`], inputs, outputs: [`{workspaceRoot}/.artifacts/dotnet/bin/${base}`, `{workspaceRoot}/.artifacts/dotnet/obj/${base}/*/**/*`, binlog('build')], options: { args: [file, '--no-restore'] } },
                 [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--'] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
-                [`lint:${base}`]: { options: { args: [file, '--no-restore', '--verify-no-changes'] }, dependsOn: [`restore:${base}`], cache: true, inputs: [...inputs, 'dotnet'], outputs: [binlog('lint')] },
-                typecheck: {},
+                [`lint:${base}`]: { options: { args: [file, '--no-restore', '--verify-no-changes'] }, dependsOn: [`restore:${base}`], cache: false, inputs: [...inputs, 'dotnet'], outputs: [binlog('lint')] },
                 check: {},
             },
         };
@@ -261,18 +245,18 @@ const _PROJECTS = {
         const launched = Object.values(bootstrap.macos.launchd.agents).some(({ args }) => bins.some(({ name }) => args.includes(name)));
         const tested = crate.targets.some(({ test }) => test);
         const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
-        const selection = tested ? { options: { args: Object.keys(Record.filter({ '--lib': crate.targets.some(({ types }) => !types.includes('bin')), '--bins': binary, '--tests': true }, identity)) } } : {};
+        const selection = tested ? { options: { args: crate.targets.some(({ kind, types }) => kind.some((type) => type !== 'bin' && types.includes(type))) ? ['--lib', '--bins', '--tests'] : ['--all-targets'] } } : {};
         return {
             name: crate.name,
             tags: ['language:rust', ...(dylint ? ['host:dylint'] : [])],
             targets: {
-                typecheck: { ...selection },
+                'typecheck:clippy': { ...selection },
                 'lint:cargo-modules': {},
                 'lint:dylint': { ...selection },
                 check: {},
                 ...(tested ? { test: {}, ...(dylint ? {} : { coverage: {} }) } : {}),
-                ...(binary ? { build: { outputs: bins.map(({ name }) => `{workspaceRoot}/${crate.output}/debug/${name}`) } } : {}),
-                ...(launched ? { install: {}, 'install:cargo': {} } : {}),
+                ...(binary ? { build: {} } : {}),
+                ...(launched ? { install: {}, 'install:cargo': {}, 'upgrade:cargo': { dependsOn: [{ projects: ['directory:.'], target: 'upgrade:rust' }] } } : {}),
             },
         };
     }),
@@ -289,13 +273,18 @@ const _PROJECTS = {
             },
         };
     }),
-    'project.xcproj': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), name: path.parse(dir).name, ..._swift('xcode', { install: {} }) })),
+    'project.xcproj': ({ dir }) =>
+        Effect.map(Path.Path, (path) => {
+            const root = path.dirname(dir);
+            const target = { options: { env: { XCODE_DERIVED_DATA_PATH: `.cache/xcode/${root}` } } };
+            return { root, name: path.parse(dir).name, ..._swift('xcode', { build: target, upgrade: target, install: target, 'lint:swiftlint': target }) };
+        }),
     [_SWIFT_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { file, packages }) {
         const { tested } = yield* Effect.fromOption(Array.findFirst(yield* packages, ({ manifest }) => manifest === file));
         return { name: dir, ..._swift('swiftpm', tested ? { test: {} } : {}) };
     }),
     'py.typed': ({ dir }, { workspace, root }) => Effect.map(Effect.all([Path.Path, root, _python(dir, workspace, root)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
-    'tsconfig.json': () => Effect.succeed({ tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
+    'tsconfig.json': () => Effect.succeed({ tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } }),
     'vite.config.ts': () => Effect.succeed({ tags: ['bundler:vite'], targets: { build: {}, serve: {} } }),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
     'cloudflare.config.ts': () => Effect.succeed({ tags: ['output:cloudflare'], targets: { build: {} } }),
@@ -314,11 +303,11 @@ const _PROJECTS = {
     ) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>
 >;
 
-const _pythonVersions = Effect.fnUntraced(function* (workspace: string, mise: ReturnType<typeof _decode<typeof _Mise.Type>>) {
+const _pythonVersions = Effect.fnUntraced(function* (workspace: string) {
     const path = yield* Path.Path;
-    const [{ tools }, hosts, gated] = yield* Effect.all(
+    const [[runtime], hosts, gated] = yield* Effect.all(
         [
-            mise,
+            Effect.flatMap(_run(workspace, 'mise', ['ls', 'python', '--current', '--json']), Schema.decodeEffect(_PythonRuntime)),
             Effect.flatMap(_glob(workspace, [`*/**/${_PYPROJECT}`]), (files) => Effect.validate(files, (file) => Effect.map(_decode(_Host, workspace, file), ({ project }) => ({ scope: path.dirname(file), version: project.minimum })), { concurrency: 'unbounded' })),
             Effect.flatMap(_decode(_Sgconfig, workspace, 'sgconfig.yml'), ({ ruleDirs }) =>
                 Effect.flatMap(
@@ -336,7 +325,7 @@ const _pythonVersions = Effect.fnUntraced(function* (workspace: string, mise: Re
         (version: string) =>
         ({ below }: { readonly below: string }): boolean =>
             version.localeCompare(below, 'en', { numeric: true }) >= 0;
-    const off = Array.getSomes(gated).filter(covered(tools.python));
+    const off = Array.getSomes(gated).filter(covered(runtime.version));
     const groups = Object.entries(Array.groupBy(hosts, ({ version }) => version)).map(([version, members]) => ({ version, scoped: members.map(({ scope }) => `"${scope}"`).join(' ') }));
     const excluded = hosts.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ');
     const scan = 'ast-grep scan --custom-languages allow';
@@ -377,7 +366,7 @@ const _pythonVersions = Effect.fnUntraced(function* (workspace: string, mise: Re
 });
 const _dependencies = Effect.fnUntraced(function* ({ fileMap, workspaceRoot }: CreateDependenciesContext) {
     const path = yield* Path.Path;
-    const [graph, crates, swift, xcode] = yield* Effect.all(
+    const [sources, crates, swift, xcode] = yield* Effect.all(
         [
             _sources(workspaceRoot, _root(workspaceRoot)),
             _crates(workspaceRoot),
@@ -390,7 +379,7 @@ const _dependencies = Effect.fnUntraced(function* ({ fileMap, workspaceRoot }: C
     );
     const owners = Object.fromEntries(Object.entries(fileMap.projectFileMap).flatMap(([project, files]) => files.map(({ file }) => [file, project] as const)));
     return [
-        ...Array.getSomes([...Graph.values(Graph.edges(graph))].map(({ source, target }) => Option.product(Graph.getNode(graph, source), Graph.getNode(graph, target)))),
+        ...sources,
         ...crates.flatMap(({ manifest, dependencies }) => Array.getSomes(dependencies.map((dependency) => dependency.path)).map((member) => [manifest, path.join(path.relative(workspaceRoot, member), _CARGO_MANIFEST)] as const)),
         ...swift.flatMap(({ manifest, locals }) => locals.map((local) => [manifest, local] as const)),
         ...xcode.flat(),
@@ -398,7 +387,7 @@ const _dependencies = Effect.fnUntraced(function* ({ fileMap, workspaceRoot }: C
         pipe(
             Option.product(Record.get(owners, sourceFile), Record.get(owners, file)),
             Option.filter(([source, target]) => source !== target),
-            Option.map(([source, target]): StaticDependency => ({ source, target, sourceFile, type: DependencyType.static })),
+            Option.map(([source, target]): ImplicitDependency => ({ source, target, type: DependencyType.implicit })),
             Option.toArray,
         ),
     );
@@ -428,7 +417,7 @@ const createNodes: CreateNodes = [
                     Effect.catchNoSuchElement,
                     Effect.map(Option.getOrElse(() => ({}))),
                 );
-                return yield* Effect.promise(() => createNodesFromFiles((file) => _runtime.runPromise(_rendered(file === _PYPROJECT ? _pythonVersions(workspace, mise) : project(file))), files, options, context));
+                return yield* Effect.promise(() => createNodesFromFiles((file) => _runtime.runPromise(_rendered(file === _PYPROJECT ? _pythonVersions(workspace) : project(file))), files, options, context));
             }),
         ),
 ];

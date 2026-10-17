@@ -194,7 +194,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let root = tcx.typeck_root_def_id(tcx.hir_enclosing_body_owner(node).to_def_id()).as_local()?;
             let (typeck, from) = (tcx.typeck(root), tcx.get_diagnostic_item(sym::From)?);
             let declared = |method: Option<DefId>, owner: Symbol| method.opt_parent(cx).is_diag_item(cx, owner);
-            for_each_expr(tcx, tcx.hir_body_owned_by(root).value, |part| {
+            for_each_expr(tcx, &tcx.hir_body_owned_by(root).value, |part| {
                 let source = match part.kind {
                     ExprKind::Match(&Expr { kind: ExprKind::Call(_, [tried]), .. }, _, MatchSource::TryDesugar(_)) => result_parts(cx, typeck.expr_ty(tried)).map(|(_, error)| error),
                     ExprKind::MethodCall(_, operand, [], _) if declared(typeck.type_dependent_def_id(part.hir_id), sym::Into) && typeck.expr_ty(part) == target => Some(typeck.expr_ty(operand)),

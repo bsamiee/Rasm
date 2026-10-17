@@ -16,7 +16,7 @@ allowed-tools: Bash(playwright:*)
 - [03]-[RUNNING_CODE](references/running-code.md): `run-code` snippets for permissions, waits, frames, API requests, and flows
 - [04]-[SESSION_MANAGEMENT](references/session-management.md): Default session, workspaces, idle shutdown, profiles, and attaching to running browsers
 - [05]-[STORAGE_STATE](references/storage-state.md): Storage state files, cookies, localStorage, sessionStorage, and IndexedDB
-- [06]-[TEST_GENERATION](references/test-generation.md): Plan, test file, and healing rules of the test agents
+- [06]-[TEST_GENERATION](references/test-generation.md): Test agent procedure, replay, and report ordering
 - [07]-[VIDEO_RECORDING](references/video-recording.md): Video recording with chapters, action callouts, and scripts
 - [08]-[PR_ATTACHMENTS](references/pr-attachments.md): Attaching screenshots and videos to pull requests with `gh --attach`
 
@@ -31,13 +31,13 @@ allowed-tools: Bash(playwright:*)
 
 Browsers install to `~/Library/Caches/ms-playwright`, shared by every checkout:
 - Sessions and test runs launch the Chromium headless shell
-- `show --annotate` opens full Chromium
 - Video recordings encode through Playwright's ffmpeg
 
 `playwright-test` server pauses a seed or failing test for the `browser_*` tools of the plugin's `playwright:playwright-test-*` agents:
 - Server loads the config `-c` on its `mise.toml` row names
 - Setup tools and `test_debug` run on one worker with no test timeout, headless under `--headless` on the row
-- MCP sessions hold one paused test and one generator log, a later setup or `test_debug` stops the paused test, generators run one at a time
+- One server process holds one paused test and one generator log; clients sharing it serialize setup, generation, and debugging
+- `test_list` releases the paused test before ordinary CLI replay
 - Setup tools pause the seed at its end, `### Paused at end of test. ready for interaction` and `### Page state` holding URL, title, and snapshot
 - Setup results ending `Error: seed test not found.` or `Error while running the seed test.` hold no page
 - `project` names a config's `projects[].name`, the first top-level project without it, a missing name fails `Project <name> not found`
@@ -237,9 +237,6 @@ playwright cli clear-media
 - `generate-locator <ref>` prints the locator a test uses, a CSS selector prints back as `locator('<selector>')`
 - `highlight <target>` keeps a labeled overlay on an element in screenshots and video, `--style` sets its CSS, `--hide` removes it
 - `highlight --hide` removes every overlay
-- `show --annotate` opens the dashboard where a person marks regions and types notes on one or more screenshots
-- Annotation replies hold the notes, each region's box and text, `annotations-<timestamp>.png`, and the page snapshot as `.yaml`
-- `show --kill` stops the dashboard daemon
 
 ```bash
 playwright cli console
@@ -252,8 +249,6 @@ playwright cli --raw generate-locator e5
 playwright cli highlight e5 --style="outline: 3px dashed red"
 playwright cli highlight e5 --hide
 playwright cli highlight --hide
-playwright cli show --annotate
-playwright cli show --kill
 ```
 
 ## [09]-[TRACING]

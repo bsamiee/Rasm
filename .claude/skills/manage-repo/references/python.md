@@ -4,7 +4,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [01]-[RUNTIMES]
 
-- Root Ruff `target-version` and ty `python-version` state the `mise.toml` `python` version for every checker reading configuration
+- Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders whose code a host runs or imports state its interpreter floor once in a nested `requires-python`
 - Host `pyproject.toml` files hold `name`, `version`, the floor, `[tool.uv] managed = false`, and Ruff `extend`, and create no Nx project
 - `managed = false` makes `uv sync` refuse a host folder and `uv run` there use the root environment
@@ -26,13 +26,13 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - `--locked` fails a command when `uv.lock` is missing or stale
 - `environments` restricts resolution to disjoint PEP 508 markers
-- `uv.lock` resolves dependencies and groups from root `[project] requires-python`, the floor under every host, forking on interpreter markers
+- `uv.lock` resolves project requirements at root `requires-python` and groups at their own declared floors
 - Native build settings stay at root under their package
-- `[env]` passes each `conda:` prefix's `latest` link through a variable its package's build reads
+- Pixi locks Python-free native environments from `pyproject.toml`; `pixi run --environment <name>` supplies build variables
 - Packages building their libraries from their own recipes take the setting that forces it, linking none from the machine
 - Machine libraries stay where no package-scoped variable reaches the build, beside the reason in the package row
-- Built wheel keys read no environment variable
-- Soname series moves edit the library's `conda:` row and the package's series row together, a patch inside the series keeps built wheels
+- uv keys source-built wheels by package settings and extra build dependencies/variables; ambient native-library changes do not invalidate them
+- Soname series moves update Pixi constraints and each consuming package's build-variable series together
 - Packages sharing one installed path use root `[tool.uv] exclude-dependencies` to retain one provider throughout resolution
 - `uv run` installs a PEP 723 script's inline dependencies into an ephemeral environment `uv.lock` does not pin
 
@@ -52,7 +52,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Workspace inference runs ty, mypy, and refurb over root code at the configured version and once per nested `requires-python` over its folders
 - Editors and bare ty and mypy runs check host folders at the root version
 - Each ast-grep rule reporting a form below one Python release carries `metadata: {python-below: '<major>.<minor>'}`
-- Root scans turn off each such rule the `mise.toml` version reaches and run it over marked folders whose `requires-python` sits below it
+- Root scans select version rules from resolved mise metadata and each host's `requires-python`
 - Host-supplied modules with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
 - PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries
 - `mypy` overrides name a PEP 723 script by its unqualified module
@@ -86,7 +86,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Root backend `module-name` lists each import root holding code, runtime declarations stay out of the wheel
 - Extension assembly copies first-party wheel packages in as submodules with relative imports and bundles every other distribution as a wheel
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
-- Root uv constraint rows under a host interpreter's markers pin the ABI providers the host bundles to its versions, export omits them
+- Fitout omits Blender-provided distributions from locked export
 
 ## [08]-[TYPING]
 

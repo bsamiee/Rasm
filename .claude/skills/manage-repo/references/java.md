@@ -10,6 +10,7 @@ google-java-format owns formatting, PMD owns lint and clone detection, jdtls own
 ## [02]-[CHECKS]
 
 - `pmd check` runs on the mise `java` row's JDK
+- PMD's native auxiliary classpath includes the selected JDK and `${GHIDRA_INSTALL_DIR}` SDK JARs
 - `pmd check` takes files or directories, `--rulesets <file>` names the ruleset, `--use-version java-<n>` Java level, `--cache <file>` cache location
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
 - PMD release tags take a `pmd_releases/` prefix, and a `-SNAPSHOT` tag follows each release

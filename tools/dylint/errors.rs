@@ -93,10 +93,10 @@ fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<(&'tcx P
     let [parameter] = body.params else { return None };
     match parameter.pat.kind {
         PatKind::Wild => true,
-        PatKind::Binding(_, binding, _, None) => !is_local_used(cx, body.value, binding),
+        PatKind::Binding(_, binding, _, None) => !is_local_used(cx, &body.value, binding),
         _ => false,
     }
-    .then(|| (parameter.pat, peel_blocks(body.value)))
+    .then(|| (parameter.pat, peel_blocks(&body.value)))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

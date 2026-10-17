@@ -14,7 +14,7 @@ from asttokens.util import replace
 from cyclopts import Parameter
 from cyclopts.types import ResolvedExistingFile, ResolvedPath
 import msgspec
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name, parse_wheel_filename
 from pathops import PathOpsError  # type: ignore[attr-defined]
 from result import as_async_result
@@ -28,7 +28,6 @@ from eng.python.fitout.icons import encoded
 class _Interpreter(msgspec.Struct, frozen=True):
     executable: str
     platform: str
-    markers: dict[str, str]
 
 
 class _Project(msgspec.Struct, frozen=True):
@@ -52,7 +51,7 @@ class _Root(msgspec.Struct, frozen=True):
 
 
 async def _resolved(blender: Path, root: _Root, lock: Path, *placement: str | Path) -> _Interpreter:
-    """Place the locked runtime closure using Blender's interpreter and bundled providers."""
+    """Place the locked runtime closure using Blender's interpreter, leaving out the packages Blender bundles."""
     host = await anyio.run_process(
         (
             blender,
@@ -61,15 +60,11 @@ async def _resolved(blender: Path, root: _Root, lock: Path, *placement: str | Pa
             "--python-exit-code",
             "1",
             "--python-expr",
-            (
-                "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; from packaging.markers import default_environment; "
-                "sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system(), 'markers': default_environment()}))"
-            ),
+            "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))",
         ),
         stdout=None,
     )
     interpreter = msgspec.json.decode(host.stderr, type=_Interpreter)
-    bundled = (requirement.name for requirement in map(Requirement, root.tool.uv.constraint_dependencies) if requirement.marker and requirement.marker.evaluate(interpreter.markers))
     await anyio.run_process(
         (
             "uv",
@@ -80,7 +75,7 @@ async def _resolved(blender: Path, root: _Root, lock: Path, *placement: str | Pa
             "--no-hashes",
             "--format",
             "requirements.txt",
-            *(argument for name in bundled for argument in ("--no-emit-package", name)),
+            *(argument for entry in root.tool.uv.constraint_dependencies for argument in ("--no-emit-package", Requirement(entry).name)),
             "--output-file",
             lock,
         ),
@@ -152,7 +147,7 @@ async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, blender: Annot
     return 0
 
 
-@as_async_result(OSError, subprocess.CalledProcessError, msgspec.DecodeError, ValueError)
+@as_async_result(OSError, subprocess.CalledProcessError, msgspec.DecodeError, InvalidRequirement)
 async def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> int:
     """Install the distributions `pack` bundles into a folder Blender's interpreter imports from.
 

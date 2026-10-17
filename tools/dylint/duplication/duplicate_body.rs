@@ -111,7 +111,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let typeck = tcx.typeck(function);
                 let receives = |node: HirId| typeck.node_args_opt(node).and_then(|args| args.types().next()).is_some_and(|receiver| receiver.peel_refs() == held);
                 let mut called = Vec::new();
-                let _: Option<()> = for_each_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
+                let _: Option<()> = for_each_expr(tcx, &tcx.hir_body_owned_by(function).value, |expr| {
                     called.extend(
                         typeck.type_dependent_def_id(expr.hir_id).or_else(|| expr.res(typeck).opt_def_id().filter(|&item| tcx.def_kind(item) == DefKind::AssocFn)).map(|item| (expr.hir_id, item)),
                     );
@@ -121,7 +121,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(_, item)| tcx.trait_of_assoc(item)).unique().collect::<Vec<_>>())
             };
             let traits = generic_calls(earlier, from)?;
-            let body = peel_blocks(tcx.hir_body_owned_by(earlier).value);
+            let body = peel_blocks(&tcx.hir_body_owned_by(earlier).value);
             let typeck = tcx.typeck(earlier);
             let direct = match body.kind {
                 ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, _) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
@@ -135,7 +135,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         fn varied_value<'tcx>(cx: &LateContext<'tcx>, earlier: LocalDefId, later: LocalDefId, differences: &[(HirId, HirId)]) -> Option<Difference<'tcx>> {
             let tcx = cx.tcx;
             let typeck = tcx.typeck(earlier);
-            let body = peel_blocks(tcx.hir_body_owned_by(earlier).value);
+            let body = peel_blocks(&tcx.hir_body_owned_by(earlier).value);
             let fieldless = |function: LocalDefId| owner(cx, function).filter(|held| held.ty_adt_def().is_some_and(|adt| adt.is_struct() && adt.all_fields().next().is_none()) && !is_error(cx, *held));
             let direct = |arguments: &[Expr<'_>]| differences.iter().all(|&(differing, _)| arguments.iter().any(|argument| argument.hir_id == differing));
             let called = match body.kind {
@@ -302,7 +302,7 @@ fn owner<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId) -> Option<Ty<'tcx>>
 }
 
 fn value(tcx: TyCtxt<'_>, function: LocalDefId) -> &Expr<'_> {
-    let value = peel_blocks(tcx.hir_body_owned_by(function).value);
+    let value = peel_blocks(&tcx.hir_body_owned_by(function).value);
     match value.kind {
         ExprKind::Closure(closure) if matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) => match tcx.hir_body(closure.body).value.kind {
             ExprKind::Block(Block { expr: Some(tail), .. }, _) =>
@@ -342,7 +342,7 @@ fn bound_to_trait(cx: &LateContext<'_>, function: LocalDefId, implemented: DefId
     let supertraits = cx.tcx.supertrait_def_ids(implemented).collect::<Vec<_>>();
     owner(cx, function).is_some_and(|owner| {
         let owned = |expr: &Expr<'_>| typeck.expr_ty_adjusted(expr).peel_refs() == owner;
-        !any_expr(cx.tcx, cx.tcx.hir_body_owned_by(function).value, |expr| {
+        !any_expr(cx.tcx, &cx.tcx.hir_body_owned_by(function).value, |expr| {
             matches!(expr.kind, ExprKind::Field(base, _) if owned(base))
                 || matches!(expr.kind, ExprKind::MethodCall(_, receiver, ..)
                     if owned(receiver) && !typeck.type_dependent_def_id(expr.hir_id).and_then(|method| cx.tcx.trait_of_assoc(method)).is_some_and(|declared| supertraits.contains(&declared)))

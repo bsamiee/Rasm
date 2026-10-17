@@ -12,47 +12,34 @@ argument-hint: "[task]"
 
 With a positional prompt, Codex appends piped stdin as a `<stdin>` block.
 
-1. Write the prompt as the brief the task's dispatcher gives any agent, in the block form below where no plan file holds the brief
-2. For analysis or review, add `--sandbox read-only` before the prompt or subcommand
-3. Run through `Bash` with `run_in_background: true`, stdout holding the final message and stderr the settings header with `session id:` and the transcript
+1. Supply checkout, scope, writable files, acceptance criteria, and distinct event, diagnostic, and final-answer paths in the dispatch brief
+2. Keep `--sandbox read-only` for analysis and review, omitting it only for an authorized writing assignment
+3. Run through `Bash` with `run_in_background: true` and retain its process handle for waiting, cancellation, and exit status
 
 ```bash
-codex exec --cd "${CLAUDE_PROJECT_DIR}" '
-<context>
-
-Task-specific facts and relevant paths
-
-</context>
-
-<objective>
-
-Work to perform and boundaries
-
-</objective>
-
-<done_when>
-
-Concrete outcome to achieve
-
-</done_when>
-
-<output>
-
-Deliverables and information to return
-
-</output>
-' </dev/null
+codex exec --json --cd "$checkout" --sandbox read-only -o "$final_answer" "$prompt" </dev/null >"$events_jsonl" 2>"$diagnostics_log"
 ```
 
-Resume with `session id:` from stderr:
+Capture `thread_id` from `thread.started` in JSONL stdout and resume that conversation explicitly:
 
 ```bash
-codex exec --cd "${CLAUDE_PROJECT_DIR}" resume <SESSION_ID> '<PROMPT>' </dev/null
+codex exec --cd "$checkout" --sandbox read-only resume --json -o "$next_final_answer" "$thread_id" "$followup" </dev/null >"$next_events_jsonl" 2>"$next_diagnostics_log"
 ```
 
-## [02]-[REFERENCE]
+## [02]-[RESULTS]
 
-Place `codex exec` options before `resume` or `review`.
+Read the `-o` destination after process termination and accept the requested artifacts against the dispatch brief.
+
+- Item identities and started, updated, and completed events describe progress
+- Completed `agent_message` items can be commentary; item completion does not identify a final answer
+- `turn.completed`, `turn.failed`, and stream errors report turn termination, separately from process exit
+- `--last` can select another concurrent conversation; `--ephemeral` prevents persisted resume
+- Forks isolate conversation history, not files or checkout-bound services
+- `--output-schema` serves a consumer requiring structured final fields
+
+## [03]-[REFERENCE]
+
+Place checkout and sandbox options before `resume` or `review`.
 
 | [INDEX] | [USE_CASE]                 | [COMMAND_OPTIONS]                    |
 | :-----: | :------------------------- | :----------------------------------- |
@@ -61,4 +48,3 @@ Place `codex exec` options before `resume` or `review`.
 |  [03]   | Review against a branch    | `review --base "<BRANCH>"`           |
 |  [04]   | Review a commit            | `review --commit "<SHA>"`            |
 |  [05]   | Custom review instructions | `review '<PROMPT>'`                  |
-|  [06]   | Final message to a file    | `-o "<FILE>"`                        |

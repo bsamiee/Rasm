@@ -1,5 +1,5 @@
 name                   = "playwright_test_planner"
-description            = "Use when a served page needs a Playwright test plan, covering config, seed, exploration, tabs, scenarios, and plan file."
+description            = "Use when a served page needs a Playwright test plan based on live exploration."
 developer_instructions = '''
 # [PLAYWRIGHT_TEST_PLANNER]
 

@@ -1,8 +1,6 @@
 <Project>
     <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'">
-        <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <_TestResultsDirectory>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'test', '$(ArtifactsProjectName)'))</_TestResultsDirectory>
         <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --coverlet --coverlet-output-format cobertura</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
@@ -41,7 +39,7 @@
         </PackageReference>
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
-        <EmbeddedResource Include="**/*.svg" Exclude="$(_PlugInIconSource)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
     </ItemGroup>
 
     <PropertyGroup Label="Rhino Windows Host" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' == 'Windows'">
@@ -94,6 +92,7 @@
 
     <ItemGroup Label="Rhino Plug-In Files" Condition="'$(TargetExt)' == '.rhp'">
         <PackageReference Include="System.Reflection.MetadataLoadContext" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+        <EmbeddedResource Remove="$(_PlugInIconSource)" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
     </ItemGroup>
 
@@ -133,7 +132,7 @@
         </ItemGroup>
     </Target>
 
-    <UsingTask TaskName="FindGrasshopperPlugIns" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <UsingTask TaskName="FindGrasshopperPlugIns" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll" Condition="'$(TargetExt)' == '.rhp'">
         <ParameterGroup>
             <PlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
             <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
@@ -181,9 +180,5 @@
         </ItemGroup>
         <Exec Command="&quot;$(_YakExecutable)&quot; uninstall &quot;$(_YakPackageName)&quot;" StandardOutputImportance="low" />
         <Exec Command="&quot;$(_YakExecutable)&quot; install &quot;@(_YakPackage->'%(FullPath)')&quot;" StandardOutputImportance="low" />
-    </Target>
-
-    <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">
-        <RemoveDir Directories="$(_TestResultsDirectory)" />
     </Target>
 </Project>
